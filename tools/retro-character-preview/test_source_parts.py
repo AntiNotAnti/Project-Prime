@@ -81,6 +81,37 @@ class SourceParts(unittest.TestCase):
             with self.assertRaises(ValueError):
                 build_glb.check_sidecars(character, *ball, 3, part="ball")
 
+    def test_witnessed_echoes_root_sentinel_preserves_native_parent(self):
+        for character in APPEARANCES:
+            for part in ("body", "ball"):
+                skeleton, weights, motions = fixture(character, part)
+                skeleton.update(SourceGameId="G2ME01",
+                                SourceCharacter="Dark_Samus_MorphBall" if part == "ball" else
+                                "Dark_Samus" if character == APPEARANCES[0] else "Battle_3",
+                                Refs={"Cinf": 0xC7DBC44A if part == "ball" else 0x4ABC8A50})
+                skeleton["Bones"][0].update(Name="root", Parent=0x61)
+                original = copy.deepcopy(skeleton)
+                self.assertEqual(build_glb.check_sidecars(character, skeleton, weights, motions, 3, part=part),
+                                 (2, 1, 0))
+                plan = source_palette.build_plan(character,
+                    [[0, 0, 0], [1, 0, 0], [0, 1, 0]], [], [[0, 1, 2]], [[-1, -1, -1]],
+                    skeleton, weights, motions, part=part)
+                self.assertEqual(skeleton, original)
+                self.assertEqual(plan["sourceRig"]["Bones"][0]["Parent"], 0x61)
+                changes = [lambda s: s.__setitem__("SourceGameId", "AMHE1"),
+                           lambda s: s.pop("SourceGameId"),
+                           lambda s: s.__setitem__("SourceCharacter", "unknown"),
+                           lambda s: s["Refs"].__setitem__("Cinf", 0),
+                           lambda s: s["Refs"].__setitem__("Cinf", 0x4ABC8A50 if part == "ball" else 0xC7DBC44A),
+                           lambda s: s["Bones"][0].__setitem__("Parent", 0x62),
+                           lambda s: s["Bones"][0].__setitem__("Name", "unknown"),
+                           lambda s: s["Bones"][1].__setitem__("Parent", 0x61)]
+                for change in changes:
+                    wrong = copy.deepcopy(skeleton)
+                    change(wrong)
+                    with self.subTest(character=character, part=part, skeleton=wrong), self.assertRaises(ValueError):
+                        build_glb.check_sidecars(character, wrong, weights, motions, 3, part=part)
+
     def test_loads_selected_part_and_never_substitutes_body(self):
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

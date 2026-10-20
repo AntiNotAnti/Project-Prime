@@ -125,6 +125,23 @@ def read_obj(path: Path):
     return vertices, uvs, faces, face_uvs
 
 
+def _known_echoes_cinf_root(character, part, skeleton, bone):
+    """Retain the witnessed native root sentinel, without repairing parent IDs."""
+    if (skeleton.get("SourceGameId") != "G2ME01" or bone.get("Id") != 0
+            or bone.get("Name") != "root" or bone.get("Parent") != 0x61):
+        return False
+    if character not in {"darksamus-echoes", "darksamus-overcharged-echoes"}:
+        return False
+    if part == "ball":
+        native_name, cinf = "Dark_Samus_MorphBall", 0xC7DBC44A
+    else:
+        native_name = "Dark_Samus" if character == "darksamus-echoes" else "Battle_3"
+        cinf = 0x4ABC8A50
+    refs = skeleton.get("Refs")
+    return (skeleton.get("SourceCharacter") == native_name and isinstance(refs, dict)
+            and type(refs.get("Cinf")) is int and refs["Cinf"] == cinf)
+
+
 def check_sidecars(character, skeleton, weights, motions, vertex_count, *, part="body"):
     source_stem(character, part)
     if skeleton.get("Id") != character or not isinstance(skeleton.get("Bones"), list):
@@ -144,7 +161,8 @@ def check_sidecars(character, skeleton, weights, motions, vertex_count, *, part=
         parent = b.get("Parent")
         if not isinstance(parent, int):
             raise ValueError("Invalid source CINF parent ID")
-        if parent != 0xFFFFFFFF and parent not in known:
+        if (parent != 0xFFFFFFFF and parent not in known
+                and not _known_echoes_cinf_root(character, part, skeleton, b)):
             raise ValueError("Missing CINF source bone parent")
         if parent == bone_id:
             raise ValueError("CINF bone cannot parent itself")

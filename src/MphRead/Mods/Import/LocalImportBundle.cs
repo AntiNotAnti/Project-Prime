@@ -270,6 +270,16 @@ public static partial class LocalImportBundle
             throw new InvalidDataException("Private bundle exceeds its budget.");
         var components = bytes.Select(p => new ImportBundleComponent(p.Key, p.Value.LongLength, Digest(p.Value))).ToArray();
         string generation = Digest(JsonSerializer.SerializeToUtf8Bytes(new { spec, components }));
+        // A prior repair may have used a fresh generation because the original
+        // content-addressed directory was damaged. Reuse that verified current
+        // generation for identical bytes rather than repeatedly encountering
+        // the retained damaged directory and allocating another repair copy.
+        // Staging, destination verification and cancellation boundaries below
+        // still run; this never trusts a receipt without inspecting its files.
+        if (old.State == ImportBundleState.Ready && old.Receipt is { } current
+            && current.Components.SequenceEqual(components)
+            && current.RequiredComponents.SequenceEqual(bytes.Keys))
+            generation = current.Generation;
         var receipt = new ImportBundleReceipt(1, spec.Id, spec.Version, spec.RecipeHash, spec.SourceFingerprint, generation, bytes.Keys.ToArray(), components);
         byte[] pointerBytes = JsonSerializer.SerializeToUtf8Bytes(receipt);
         if (pointerBytes.Length > MaxReceiptBytes) throw new InvalidDataException("Private receipt exceeds its budget.");

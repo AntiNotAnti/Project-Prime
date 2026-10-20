@@ -58,6 +58,33 @@ internal static class LocalImportBundleTests
             Check(repaired[0] != updated[0] && LocalImportBundle.Inspect(root, "fixture", spec).State == ImportBundleState.Ready,
                 "reimport repairs corruption in a new immutable generation");
 
+            byte[] repairedPointer = File.ReadAllBytes(pointer);
+            string bundleFolder = Path.GetDirectoryName(pointer)!;
+            string[] repairedGenerations = Directory.GetDirectories(bundleFolder).Order(StringComparer.Ordinal).ToArray();
+            var retainedFiles = Directory.EnumerateFiles(bundleFolder, "*", SearchOption.AllDirectories)
+                .Where(file => file != pointer && Path.GetFileName(file) != "writer.lock")
+                .ToDictionary(file => file, File.ReadAllBytes);
+            Check(LocalImportBundle.Publish(root, spec, parts).SequenceEqual(repaired)
+                && File.ReadAllBytes(pointer).SequenceEqual(repairedPointer)
+                && Directory.GetDirectories(bundleFolder).Order(StringComparer.Ordinal).SequenceEqual(repairedGenerations),
+                "identical publish reuses verified repaired generation and receipt without adding another generation");
+            Check(retainedFiles.All(file => File.ReadAllBytes(file.Key).SequenceEqual(file.Value)),
+                "coalescing after repair retains every original damaged and repaired generation byte");
+            using (var cancelRepaired = new CancellationTokenSource())
+            {
+                bool reachedCommit = false;
+                Expect<OperationCanceledException>(() => LocalImportBundle.Publish(root, spec, parts, cancelRepaired.Token,
+                    new Progress(stage =>
+                    {
+                        if (stage != ImportPublishStage.BeforeCommit) return;
+                        reachedCommit = true; cancelRepaired.Cancel();
+                    })), "identical repaired update retains BeforeCommit cancellation boundary");
+                Check(reachedCommit && File.ReadAllBytes(pointer).SequenceEqual(repairedPointer)
+                    && Directory.GetDirectories(bundleFolder).Order(StringComparer.Ordinal).SequenceEqual(repairedGenerations)
+                    && retainedFiles.All(file => File.ReadAllBytes(file.Key).SequenceEqual(file.Value)),
+                    "BeforeCommit cancellation after repair preserves receipt, generation inventory and retained bytes");
+            }
+
             // Malformed receipt fields never become paths or a partial Ready set.
             var receipt = JsonSerializer.Deserialize<ImportBundleReceipt>(File.ReadAllBytes(pointer))!;
             foreach (string invalid in new[] { "../escape.json", "Body.json", "C:/escape.json" })
@@ -97,7 +124,7 @@ internal static class LocalImportBundleTests
         LocalImportBundle.Publish(root, spec, parts);
         var ready = LocalImportBundle.Inspect(root, spec.Id, spec);
         Check(ready.State == ImportBundleState.Ready && ready.Receipt != null && ready.Files.Count == names.Length,
-            "component-state fixture starts with a complete playable bundle");
+            "component-state fixture starts with a complete verified synthetic bundle");
         Check(ready.ComponentStates != null && ready.ComponentStates.Count == names.Length
             && names.All(name => ready.ComponentStates.Single(component => component.Id == name).State == ImportBundleState.Ready),
             "Ready inspection reports every verified component as Ready");
@@ -118,7 +145,7 @@ internal static class LocalImportBundleTests
         File.Delete(Path.Combine(generation, "b.json"));
         var missing = LocalImportBundle.Inspect(root, spec.Id, spec);
         Check(missing.State == ImportBundleState.Incomplete && missing.Files.Count == 0 && missing.Receipt != null,
-            "one missing component withholds every playable file but retains incomplete inventory");
+            "one missing component withholds every file path but retains incomplete inventory");
         Check(missing.ComponentStates?.Count == names.Length
             && missing.ComponentStates.Single(component => component.Id == "b.json").State == ImportBundleState.Incomplete
             && new[] { "a.json", "c.json" }.All(name => missing.ComponentStates.Single(component => component.Id == name).State == ImportBundleState.Ready),
