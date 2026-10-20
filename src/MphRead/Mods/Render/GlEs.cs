@@ -112,6 +112,22 @@ namespace MphRead.Mods.Render
         // ---- the engine's own texture names, mapped to real ones ----
         private static readonly Dictionary<int, int> _textures = new Dictionary<int, int>();
         private static int _textureHighWater;
+
+        // Track VAO ownership within the GLES scene pass. Unknown external
+        // consumers (Android UI or a new EGL context) explicitly invalidate it.
+        // Disable via PROJECT_PRIME_ANDROID_PERF_OPT_IN=0 for legacy unbinds.
+        private static int _boundVertexArray = -1;
+        internal static void InvalidateVertexArrayBinding() => _boundVertexArray = -1;
+        private static void BindVertexArray(int name)
+        {
+            if (_boundVertexArray == name && OpenGlOptimizationPolicy.AndroidPerformanceOptedIn)
+            {
+                OpenGlPassProfiler.Count(OpenGlFrameCounter.StateSkips);
+                return;
+            }
+            ES.GL.BindVertexArray(name);
+            _boundVertexArray = name;
+        }
         private static readonly LegacyGlUniformCache _uniformCache = new();
         private static readonly bool _uniformElisionEnabled = OpenGlOptimizationPolicy.Enabled("GLES_UNIFORMS");
         private static bool CacheUniform(int location)
@@ -128,6 +144,7 @@ namespace MphRead.Mods.Render
             _uniformCache.ResetContext();
             _nextListId = 1;
             _textureHighWater = 0;
+            InvalidateVertexArrayBinding();
             for (int i = 0; i < _dynamicBuffers.Length; i++) _dynamicBuffers[i] = new();
             _dynamicSlot = _dynamicPrimitiveCount = 0;
             _dynamicBufferHighWater = 0;
@@ -263,7 +280,7 @@ namespace MphRead.Mods.Render
             compiled.Vao = ES.GL.GenVertexArray();
             compiled.Vbo = ES.GL.GenBuffer();
             compiled.Ibo = ES.GL.GenBuffer();
-            ES.GL.BindVertexArray(compiled.Vao);
+            BindVertexArray(compiled.Vao);
             ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, compiled.Vbo);
             fixed (float* verts = CollectionsMarshal.AsSpan(_batch.Vertices))
             {
@@ -278,7 +295,7 @@ namespace MphRead.Mods.Render
                     (IntPtr)idx, ES.BufferUsageHint.StaticDraw);
             }
             SetupAttributes();
-            ES.GL.BindVertexArray(0);
+            BindVertexArray(0);
             ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, 0);
             ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, 0);
             _lists[_recordListId] = compiled;
@@ -293,7 +310,7 @@ namespace MphRead.Mods.Render
                 return;
             }
             ApplyDrawState();
-            ES.GL.BindVertexArray(compiled.Vao);
+            BindVertexArray(compiled.Vao);
             if (compiled.TriCount > 0)
             {
                 ES.GL.DrawElements(ES.PrimitiveType.Triangles, compiled.TriCount,
@@ -306,7 +323,8 @@ namespace MphRead.Mods.Render
                     ES.DrawElementsType.UnsignedInt, (IntPtr)(compiled.TriCount * sizeof(int)));
                 OpenGlPassProfiler.Count(OpenGlFrameCounter.IndexedDraws);
             }
-            ES.GL.BindVertexArray(0);
+            // Keep a known VAO bound between consecutive retained draws.
+            if (!OpenGlOptimizationPolicy.AndroidPerformanceOptedIn) BindVertexArray(0);
         }
 
         public static void DeleteLists(int list, int range)
@@ -317,6 +335,7 @@ namespace MphRead.Mods.Render
                 int id = list + i;
                 if (_lists.Remove(id, out CompiledList? compiled) && compiled.Vao != 0)
                 {
+                    if (_boundVertexArray == compiled.Vao) InvalidateVertexArrayBinding();
                     ES.GL.DeleteVertexArray(compiled.Vao);
                     ES.GL.DeleteBuffer(compiled.Vbo);
                     ES.GL.DeleteBuffer(compiled.Ibo);
@@ -341,14 +360,14 @@ namespace MphRead.Mods.Render
                 buffers.Vao = ES.GL.GenVertexArray();
                 buffers.Vbo = ES.GL.GenBuffer();
                 buffers.Ibo = ES.GL.GenBuffer();
-                ES.GL.BindVertexArray(buffers.Vao);
+                BindVertexArray(buffers.Vao);
                 ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, buffers.Vbo);
                 ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, buffers.Ibo);
                 SetupAttributes();
             }
             else
             {
-                ES.GL.BindVertexArray(buffers.Vao);
+                BindVertexArray(buffers.Vao);
                 ES.GL.BindBuffer(ES.BufferTarget.ArrayBuffer, buffers.Vbo);
                 ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, buffers.Ibo);
             }
@@ -409,7 +428,7 @@ namespace MphRead.Mods.Render
                 ES.GL.DrawElements(ES.PrimitiveType.Lines, lineCount,
                     ES.DrawElementsType.UnsignedInt, (IntPtr)(triCount * sizeof(int)));
             }
-            ES.GL.BindVertexArray(0);
+            if (!OpenGlOptimizationPolicy.AndroidPerformanceOptedIn) BindVertexArray(0);
             _batch.Clear();
             // A single oversized primitive uses the ordinary upload path, but
             // must not permanently inflate either GPU or CPU streaming storage.

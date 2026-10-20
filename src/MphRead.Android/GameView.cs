@@ -1177,6 +1177,9 @@ namespace MphRead.Droid
                 }
                 MphRead.Mods.Render.LowLatencyController.Mark(
                     latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitStart);
+                // Terminal UI passes use Android GLES directly; never infer
+                // the next scene's VAO binding from the previous picture.
+                GlEs.InvalidateVertexArrayBinding();
                 OpenGlPassProfiler.BeginFrame();
                 scene.OnDrawFrame();
                 if (!scene.OnRenderFrame())
