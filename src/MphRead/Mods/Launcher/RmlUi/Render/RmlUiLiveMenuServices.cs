@@ -68,6 +68,8 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
 
     public void Dispose()
     {
+        lock(_createdJoinGate)_createdJoinRetired=true;
+        CancelCreatedLobby();
         CancelPartyJoin(); CancelSocialJoin(); _mapPreviews.Dispose(); _pickerPreviews.Dispose();
         _homeParty?.Dispose(); _homeParty = null;
         RetireMapPreview();
@@ -227,13 +229,6 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
         OnlineJoinResult admitted = await ServerBrowserService.JoinAsync(host, port, name,
             hub.DisplayHunter, hub.Suit, token).ConfigureAwait(false);
         return new(admitted.Joined, admitted.Plan, admitted.Error);
-    }
-
-    public async Task<RmlUiJoinResult> CreateLobby(LobbyCreationRequest request, CancellationToken token)
-    {
-        LobbyCreationOutcome outcome = await LobbyCreationService.CreateAsync(request, token)
-            .ConfigureAwait(false);
-        return new(outcome.Joined, outcome.Plan, outcome.Error);
     }
 
     public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request, CancellationToken token)

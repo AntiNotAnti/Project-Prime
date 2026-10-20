@@ -87,7 +87,22 @@ public readonly record struct LobbyCreationRequest(string Name, string Player,
     }
 }
 
-public readonly record struct LobbyCreationOutcome(bool Joined, LaunchPlan Plan, string Error);
+public readonly record struct LobbyCreationOutcome(bool Joined, LaunchPlan Plan, string Error,
+    LobbyCreationPreferences? Preferences = null);
+
+/// <summary>Detached preference write; consumed only after the current UI owner
+/// accepts the exact created-lobby client. Contains no host admission token.</summary>
+public sealed class LobbyCreationPreferences
+{
+    private readonly LobbyCreationRequest _request;
+    private readonly string _endpoint;
+    private readonly int _port, _seconds;
+    private readonly LaunchKind _kind;
+    private readonly ushort _goal;
+    internal LobbyCreationPreferences(LobbyCreationRequest request,string endpoint,int port,LaunchKind kind,int seconds,ushort goal)
+    { _request=request;_endpoint=endpoint;_port=port;_kind=kind;_seconds=seconds;_goal=goal; }
+    internal void Commit() => LobbyCreationService.SavePreferences(_request,_endpoint,_port,_kind,_seconds,_goal);
+}
 
 /// <summary>
 /// Shared application-layer work for future native and legacy launchers.
@@ -110,8 +125,10 @@ public static class LobbyCreationService
     }
 
     public static async Task<LobbyCreationOutcome> CreateAsync(
-        LobbyCreationRequest request, CancellationToken cancellation = default)
+        LobbyCreationRequest request, CancellationToken cancellation = default,
+        NetClientJoinOwnership? ownership = null, Func<Func<bool>,bool>? initializeFence = null)
     {
+        ownership ??= new NetClientJoinOwnership();
         string root = request.CommunityMap?.ConfiguredRoot ?? GameFiles.Root;
         using var files = GameFiles.TryUseConfiguredFiles(root);
         if (files == null || !GameFiles.Ready)
@@ -132,13 +149,14 @@ public static class LobbyCreationService
         (int seconds, ushort goal) = InitialLimits(request.Mode);
         List<(string RoomKey, GameMode Mode)> rotation = new() { (request.RoomKey, request.Mode) };
         if (request.Dedicated)
-            return await StartLocal(request, rotation, seconds, goal, cancellation).ConfigureAwait(false);
-        return await StartHosted(request, rotation, seconds, goal, cancellation).ConfigureAwait(false);
+            return await StartLocal(request, rotation, seconds, goal, cancellation, ownership, initializeFence).ConfigureAwait(false);
+        return await StartHosted(request, rotation, seconds, goal, cancellation, ownership, initializeFence).ConfigureAwait(false);
     }
 
     private static async Task<LobbyCreationOutcome> StartLocal(
         LobbyCreationRequest request, List<(string RoomKey, GameMode Mode)> rotation,
-        int seconds, ushort goal, CancellationToken token)
+        int seconds, ushort goal, CancellationToken token,
+        NetClientJoinOwnership ownership, Func<Func<bool>,bool>? initializeFence)
     {
         if (OperatingSystem.IsAndroid())
             return new(false, default, "Android does not support local dedicated server processes.");
@@ -146,17 +164,29 @@ public static class LobbyCreationService
             return new(false, default, "Install the dedicated server package in the existing lobby creator.");
         HostedMapPreparation? prepared = null;
         int port = -1;
+        Guid localOwnerToken = default;
+        string? localStartError = null;
         try
         {
             if (request.CommunityMap != null)
                 prepared = await Task.Run(() => PrepareLocalPackage(request, token), token).ConfigureAwait(false);
-            port = await Task.Run(() => LocalServer.Start(request.Name, rotation,
-                maxPlayers: request.MaxPlayers, timeLimit: seconds,
-                pointGoal: goal, masterHost: LauncherPrefs.MasterHost,
-                masterPort: LauncherPrefs.MasterPort, listed: LauncherPrefs.ListHostedGame,
-                cancel: token, lobby: true, requestedPort: NetConfig.DefaultPort, format: request.Format,
-                requiredMap: request.CommunityMap != null ? request.MapIdentity : null,
-                hostedMaps: prepared), token).ConfigureAwait(false);
+            var started = await Task.Run(() =>
+            {
+                lock(LocalServer.StartLifecycleGate)
+                {
+                    token.ThrowIfCancellationRequested();
+                    // Once spawned, finish bounded child startup independently
+                    // of UI cancellation. The child may already have peers.
+                    int startedPort=LocalServer.Start(request.Name,rotation,
+                        maxPlayers:request.MaxPlayers,timeLimit:seconds,pointGoal:goal,
+                        masterHost:LauncherPrefs.MasterHost,masterPort:LauncherPrefs.MasterPort,
+                        listed:LauncherPrefs.ListHostedGame,cancel:CancellationToken.None,lobby:true,
+                        requestedPort:NetConfig.DefaultPort,format:request.Format,
+                        requiredMap:request.CommunityMap!=null ? request.MapIdentity : null,hostedMaps:prepared);
+                    return (Port:startedPort,Owner:LocalServer.OwnerToken,Error:LocalServer.LastError);
+                }
+            },token).ConfigureAwait(false);
+            port=started.Port;localOwnerToken=started.Owner;localStartError=started.Error;
         }
         finally
         {
@@ -166,31 +196,33 @@ public static class LobbyCreationService
                 HostedMapRequests.TryDeleteDirectory(library);
         }
         if (port < 0)
-            return new(false, default, LocalServer.LastError ?? "Dedicated server did not start.");
+            return new(false, default, localStartError ?? "Dedicated server did not start.");
 
         // Once a server starts it has its own authority and may be joined by
         // other clients. Do not kill that process on an unrelated local join
         // error; present the endpoint for manual retry as the legacy UI does.
+        token.ThrowIfCancellationRequested();
         bool joined = await Task.Run(() => NetLaunch.Connect("127.0.0.1", port,
-            request.Player, request.Hunter, ownerToken: LocalServer.OwnerToken)).ConfigureAwait(false);
+            request.Player, request.Hunter, ownerToken: localOwnerToken, cancellationToken: token,
+            ownership: ownership, initializeFence: initializeFence), token).ConfigureAwait(false);
         if (!joined)
         {
-            NetSession.Stop();
+            ownership.TryStopCurrent();
             return new(false, default, NetLaunch.LastJoinError
                 + $" // Server is still at 127.0.0.1:{port}.");
         }
-        SavePreferences(request, "127.0.0.1", port, LaunchKind.Online, seconds, goal);
         return new(true, new LaunchPlan
         {
             Kind = LaunchKind.Online, Hunter = request.Hunter,
             PlayerName = request.Player, RoomKey = "", Mode = request.Mode, Port = port,
             Lobby = new LobbyContext(request.Name, $"Local server // port {port}", true)
-        }, "");
+        }, "", new(request,"127.0.0.1",port,LaunchKind.Online,seconds,goal));
     }
 
     private static async Task<LobbyCreationOutcome> StartHosted(
         LobbyCreationRequest request, List<(string RoomKey, GameMode Mode)> rotation,
-        int seconds, ushort goal, CancellationToken token)
+        int seconds, ushort goal, CancellationToken token,
+        NetClientJoinOwnership ownership, Func<Func<bool>,bool>? initializeFence)
     {
         var found = new ConcurrentBag<HostCandidate>();
         var completed = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -218,17 +250,18 @@ public static class LobbyCreationService
         {
             token.ThrowIfCancellationRequested();
             // Remote RequestGame is a committed allocation, not a cancellable
-            // directory query. Once sent, allow the reply and local join to
-            // finish, even if the user has since hidden the page.
+            // directory query. Allow its reply to finish, then check the
+            // original owner before initializing any local client.
             HostedGame game = await Task.Run(() => NetMasterClient.RequestGame(
                 candidate.Host, candidate.Port, request.RoomKey, request.Mode,
                 timeLimit: seconds, pointGoal: goal, maxPlayers: request.MaxPlayers,
                 serverName: request.Name, rotation: rotation, policy: ServerSessionPolicy.Lobby,
                 requiredMap: request.CommunityMap != null ? request.MapIdentity : null))
                 .ConfigureAwait(false);
+            token.ThrowIfCancellationRequested();
             if (!game.Started && TransientHostFailure(game.Reason))
             {
-                await Task.Delay(250).ConfigureAwait(false);
+                await Task.Delay(250,token).ConfigureAwait(false);
                 game = await Task.Run(() => NetMasterClient.RequestGame(
                     candidate.Host, candidate.Port, request.RoomKey, request.Mode,
                     timeLimit: seconds, pointGoal: goal, maxPlayers: request.MaxPlayers,
@@ -236,6 +269,7 @@ public static class LobbyCreationService
                     requiredMap: request.CommunityMap != null ? request.MapIdentity : null))
                     .ConfigureAwait(false);
             }
+            token.ThrowIfCancellationRequested();
             if (!game.Started)
             {
                 failures.Add(candidate.Label + ": " + game.Reason);
@@ -243,26 +277,25 @@ public static class LobbyCreationService
             }
 
             bool joined = await Task.Run(() => NetLaunch.Connect(game.Host, game.Port,
-                request.Player, request.Hunter, ownerToken: game.OwnerToken)).ConfigureAwait(false);
+                request.Player, request.Hunter, ownerToken: game.OwnerToken, cancellationToken: token,
+                ownership: ownership, initializeFence: initializeFence),token).ConfigureAwait(false);
             if (!joined)
             {
-                NetSession.Stop();
-                NetHostSession.Stop();
+                ownership.TryStopCurrent();
                 return new(false, default, NetLaunch.LastJoinError);
             }
-            SavePreferences(request, game.Host, game.Port, LaunchKind.Host, seconds, goal);
             return new(true, new LaunchPlan
             {
                 Kind = LaunchKind.Host, Hunter = request.Hunter,
                 PlayerName = request.Player, RoomKey = "", Mode = request.Mode,
                 Port = game.Port, Lobby = new LobbyContext(request.Name, $"{game.Host}:{game.Port}")
-            }, "");
+            }, "", new(request,game.Host,game.Port,LaunchKind.Host,seconds,goal));
         }
         return new(false, default, "No host opened a lobby: " +
             String.Join(" / ", failures.Take(3)));
     }
 
-    private static void SavePreferences(LobbyCreationRequest request,
+    internal static void SavePreferences(LobbyCreationRequest request,
         string endpoint, int port, LaunchKind kind, int seconds, ushort goal)
     {
         LauncherPrefs.PlayerName = request.Player;

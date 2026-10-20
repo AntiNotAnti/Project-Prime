@@ -42,6 +42,7 @@ internal static class PartyJoinOwnershipTests
             Check(owned.TryStopCurrent()&&!NetSession.Active&&NetSession.EvidenceTransport==null,"current exact candidate retires normally");
             Check(!owned.TryStopCurrent(),"retired candidate cannot stop twice");
             CheckLiveCandidatePlanIdentity(Check);
+            CreatedLobbyOwnershipTests.Run(Check);
             Console.WriteLine($"PARTY OWNERSHIP PASS {checks} checks; actual content-free lifecycle, no UDP/backend.");
             return 0;
         }
