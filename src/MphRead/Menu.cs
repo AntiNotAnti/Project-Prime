@@ -97,6 +97,7 @@ namespace MphRead
         public string LowTier { get; set; } = "off";
         public string NoImperialist { get; set; } = "off";
         public string BalancedMode { get; set; } = "off";
+        public bool RiftlineM7Available { get; set; }
         public string ThirdPersonCamera { get; set; } = "off";
         public string MovementModel { get; set; } = "Native";
         public string ShadowFreeze { get; set; } = "off";
@@ -233,11 +234,13 @@ namespace MphRead
                 new(Ver.AMFP0, "EUR rev 0")
             ]);
             MenuSettings menuSettings = GameState.LoadSettings();
+            bool riftlineM7Available = false;
             LoadSettings(menuSettings);
             UpdateSettings();
 
             void LoadSettings(MenuSettings settings)
             {
+                riftlineM7Available = settings.RiftlineM7Available;
                 static int GetState(string state)
                 {
                     return state switch
@@ -598,6 +601,7 @@ namespace MphRead
                 GameState.CommitSettings(new MenuSettings()
                 {
                     Renderer = menuSettings.Renderer,
+                    RiftlineM7Available = riftlineM7Available,
                     RoomKey = roomKey,
                     Mode = _mode,
                     Player1 = FormatHunter(0),

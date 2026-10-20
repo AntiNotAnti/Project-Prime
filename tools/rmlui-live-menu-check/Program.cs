@@ -221,7 +221,7 @@ Check(SessionStatePacket.TryRead(thirdPersonWire, out var receivedThirdPerson)
     && receivedThirdPerson.Match.Rules.HasFlag(MatchModifierFlags.ThirdPersonCamera),
     "session packet round-trips the authoritative third-person match modifier");
 Check(editor.IsOn(0) && editor.IsOn(3) && editor.IsOn(4),
-    "native 18-choice sheet presents inverse health/powerup labels correctly");
+    "native 19-choice sheet presents inverse health/powerup labels correctly");
 for (int i = 0; i < RmlUiRuleEditor.ChoiceCount; i++)
 {
     if (i == 17)
@@ -240,9 +240,9 @@ for (int i = 0; i < RmlUiRuleEditor.ChoiceCount; i++)
             && editor.IsOn(i) == before, "rule toggle " + i + " is reversible");
     }
 }
-Check(!editor.Toggle(-1) && !editor.Toggle(18) && editor.Draft == sourceRules,
+Check(!editor.Toggle(-1) && !editor.Toggle(19) && editor.Draft == sourceRules,
     "expanded rule range still rejects invalid actions without changing draft");
-Check(RmlUiRuleEditor.ChoiceCount == 18 && editor.MovementLabel == "Classic"
+Check(RmlUiRuleEditor.ChoiceCount == 19 && editor.MovementLabel == "Classic"
     && !editor.IsOn(17), "native rule draft defaults to Classic movement");
 var movementEditor = new RmlUiRuleEditor(sourceRules);
 Check(movementEditor.Toggle(17) && movementEditor.IsOn(17) && movementEditor.MovementLabel == "Momentum"
@@ -274,7 +274,7 @@ Check(!traversalEditor.Validate(out _) && traversalEditor.Draft.Match.MovementMo
     "Balanced conflict preserves Traversal selection");
 Check(MovementModelRules.TryParse("Traversal", out var traversalParsed) && traversalParsed == MovementModel.Traversal
     && MovementModelRules.FromRules(MatchModifierFlags.TraversalMovement) == MovementModel.Traversal
-    && MovementModelRules.ProfileVersion(MovementModel.Traversal) == 1
+    && MovementModelRules.ProfileVersion(MovementModel.Traversal) == 2
     && new MatchDefinition().MovementModel == MovementModel.Native,
     "Traversal model maps its fixed profile without changing Classic default");
 foreach (var conflicting in new[] { MatchModifierFlags.MomentumMovement, MatchModifierFlags.Quake3Movement })

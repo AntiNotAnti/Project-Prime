@@ -21,7 +21,7 @@ var battle = new RmlUiOfflineRuleEditor(GameMode.Battle, initial);
 Check(battle.Original == initial && !battle.Draft.Enabled(5)
     && battle.Draft.Enabled(0) && battle.Draft.Enabled(1),
     "opening clears retired chamber modifier in draft while preserving original and hidden options");
-foreach (int index in new[] { int.MinValue, -1, 14, int.MaxValue, 5, 0, 1 })
+foreach (int index in new[] { int.MinValue, -1, 15, int.MaxValue, 5, 0, 1 })
 {
     var before = battle.Draft;
     Check(!battle.Toggle(index) && battle.Draft == before,
@@ -179,8 +179,8 @@ try
 }
 finally { Directory.Delete(temporaryDirectory, recursive: true); }
 
-Check(RmlUiOfflineRuleEditor.Labels.Length == 14 && new MenuSettings().MovementModel == "Native",
-    "fourteen local choices retain Native default");
+Check(RmlUiOfflineRuleEditor.Labels.Length == 15 && new MenuSettings().MovementModel == "Native",
+    "fifteen local choices retain Native default");
 var movement = new RmlUiOfflineRuleEditor(GameMode.Battle, Rules());
 Check(movement.MovementVisible && movement.MovementLabel == "Classic" && movement.Toggle(13)
     && movement.Draft.MovementModel == "Momentum" && movement.MovementLabel == "Momentum"
@@ -232,15 +232,15 @@ Check(OfflineLaunch.Preview(campaignSettings, "MP1 SANCTORUS", GameMode.SinglePl
 
 Console.WriteLine("RML offline rule editor and isolated persistence acceptance complete.");
 
-foreach (int index in new[] { 12, 13 })
+foreach (int index in new[] { 12, 13, 14 })
     Check(MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("offline:rule:" + index, new(1, 1), 1, out var parsed)
         && parsed.Kind == MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentKind.OfflineRuleToggle && parsed.Argument == index,
         "managed legacy action codec retains Third Person and Movement: " + index);
-Check(!MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("offline:rule:14", new(1, 1), 1, out _),
+Check(!MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("offline:rule:15", new(1, 1), 1, out _),
     "managed legacy offline action codec refuses unknown option");
-foreach (int index in new[] { 16, 17 })
+foreach (int index in new[] { 16, 17, 18 })
     Check(MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("lobby:rules-toggle:" + index, new(1, 1), 1, out var parsed)
         && parsed.Kind == MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentKind.LobbyRulesToggle && parsed.Argument == index,
         "managed legacy lobby codec retains Third Person and Movement: " + index);
-Check(!MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("lobby:rules-toggle:18", new(1, 1), 1, out _),
+Check(!MphRead.Mods.Launcher.RmlUi.Host.RmlUiIntentRegistry.TryParseLegacy("lobby:rules-toggle:19", new(1, 1), 1, out _),
     "managed legacy lobby action codec refuses unknown option");

@@ -512,6 +512,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "text_rules_toggle15_1", "{{rules_toggle15}}"),
             new(RmlUiBindingKind.Text, "text_rules_toggle16_1", "{{rules_toggle16}}"),
             new(RmlUiBindingKind.Text, "text_rules_toggle17_1", "{{rules_toggle17}}"),
+            new(RmlUiBindingKind.Text, "text_rules_toggle18_1", "{{rules_toggle18}}"),
             new(RmlUiBindingKind.Text, "rules_status", "{{rules_status}}"),
             new(RmlUiBindingKind.Boolean, "visible:visible_rules_owner_1", "rules_owner"),
             new(RmlUiBindingKind.Boolean, "visible:visible__rules_owner_1", "!rules_owner"),
@@ -539,6 +540,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "disabled:rules_toggle15", "!rules_owner"),
             new(RmlUiBindingKind.Boolean, "disabled:rules_toggle16", "!rules_owner"),
             new(RmlUiBindingKind.Boolean, "disabled:rules_toggle17", "!rules_owner"),
+            new(RmlUiBindingKind.Boolean, "disabled:rules_toggle18", "!rules_owner"),
             new(RmlUiBindingKind.Boolean, "disabled:rules_classic", "!rules_owner"),
             new(RmlUiBindingKind.Boolean, "disabled:rules_apply", "!rules_owner"),
         };

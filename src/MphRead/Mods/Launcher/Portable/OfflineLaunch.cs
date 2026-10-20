@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
+using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher
 {
@@ -56,6 +58,7 @@ namespace MphRead.Mods.Launcher
                     OctolithAutoReset = Multiplayer.MatchModifierRules.UsesOctolith(mode) && settings.AutoReset == "on",
                     NoImperialist = settings.NoImperialist == "on" && settings.InstaGib != "on" && mode != GameMode.InstaGib,
                     BalancedMode = settings.BalancedMode == "on",
+                    RiftlineM7Available = settings.RiftlineM7Available,
                     ThirdPersonCamera = settings.ThirdPersonCamera == "on",
                     MovementModel = mode == GameMode.SinglePlayer
                         ? Movement.MovementModel.Native : movementModel,
@@ -71,14 +74,26 @@ namespace MphRead.Mods.Launcher
             if (mode != GameMode.SinglePlayer
                 && !Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out string reason))
                 throw new ArgumentException(reason, nameof(settings));
+            if (plan.MatchRules.RiftlineM7Available)
+            {
+                // These legacy settings are applied separately at load time;
+                // they must still participate in M7 admission.
+                var modifiers = plan.MatchRules.Rules
+                    | (settings.OneInTheChamber == "on" ? MatchModifierFlags.OneInTheChamber : 0)
+                    | (settings.EnhancedHunters == "on" ? MatchModifierFlags.EnhancedHunters : 0);
+                if (!CustomWeaponMatchPolicy.TryAdmit(plan.Mode, modifiers, online: false, plan.Bots, out string customReason))
+                    throw new ArgumentException(customReason);
+                if (ReplayCapture.LiveRecordingActive)
+                    throw new ArgumentException(CustomReplayBoundary.Error);
+            }
             return plan;
         }
 
         public static LaunchPlan Create(MenuSettings settings, string roomKey,
             GameMode mode, Hunter hunter, int suit, int bots, int botLevel)
         {
-            // Persist only after a caller has validated Preview. Keep the
-            // historical Create contract for existing legacy callers.
+            // Revalidate before persistence, including legacy callers. Public
+            // UI owners catch refused previews and report the admission reason.
             LaunchPlan plan = Preview(settings, roomKey, mode, hunter, suit, bots, botLevel);
             settings.RoomKey = roomKey;
             LauncherPrefs.LastHunter = hunter;

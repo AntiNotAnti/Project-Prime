@@ -185,12 +185,16 @@ namespace MphRead.Mods.Launcher.Gui
             // The expensive map capability probe ran on a worker before the
             // owner-thread handoff. Validate modifiers before persisting any
             // preferences so a refused launch is genuinely side-effect-free.
-            LaunchPlan candidate = OfflineLaunch.Preview(_settings, request.RoomKey,
-                request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel);
-            if (!Multiplayer.MatchModifierRules.Validate(candidate.MatchRules, out _))
-                return false;
-            LaunchPlan plan = OfflineLaunch.Create(_settings, request.RoomKey,
-                request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel);
+            LaunchPlan plan;
+            try
+            {
+                LaunchPlan candidate = OfflineLaunch.Preview(_settings, request.RoomKey,
+                    request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel);
+                if (!Multiplayer.MatchModifierRules.Validate(candidate.MatchRules, out _)) return false;
+                plan = OfflineLaunch.Create(_settings, request.RoomKey,
+                    request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel);
+            }
+            catch (ArgumentException ex) { Console.WriteLine("[launcher] " + ex.Message); return false; }
             Finish(plan);
             return _finished;
         }
