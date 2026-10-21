@@ -360,7 +360,58 @@ namespace MphRead.Mods.Network
                         ushort revision=owner.State.Value.Revision;
                         owner.Resend(select); lobbyRig.Stable();
                         Check(owner.State.Value.Revision==revision,"repeated selection does not apply twice");
-                        config=owner.State.Value;
+
+                        // Navigation is compiled in a worker, never in the UDP
+                        // server loop. The first request may report ServerBusy,
+                        // but the exact map must eventually admit a bot.
+                        var bot = owner.Command(LobbyCommandType.AddBot, hunter:(byte)Hunter.Sylux);
+                        lobbyRig.Wait(()=>owner.Results.ContainsKey(bot.CommandId),
+                            "custom-map bot navigation request receives timely acknowledgement",5000);
+                        LobbyResultCode botResult=owner.Results[bot.CommandId].ResultCode;
+                        var botTimer=Stopwatch.StartNew();
+                        while(botResult==LobbyResultCode.ServerBusy && botTimer.ElapsedMilliseconds<15000)
+                        {
+                            Thread.Sleep(20);
+                            bot=owner.Command(LobbyCommandType.AddBot, hunter:(byte)Hunter.Sylux);
+                            lobbyRig.Wait(()=>owner.Results.ContainsKey(bot.CommandId),
+                                "retry custom-map bot without stalling lobby",5000);
+                            botResult=owner.Results[bot.CommandId].ResultCode;
+                        }
+                        Check(botResult==LobbyResultCode.Ok,
+                            "installed Community arena admits bots after background navigation: "
+                            +owner.Results[bot.CommandId].Reason);
+                        lobbyRig.Wait(()=>owner.Roster.ContainsBots,
+                            "custom-map bot is published to the owner roster");
+
+                        // A map archive could take minutes to download. An owner
+                        // action must interrupt it, without applying its stale map
+                        // after that action or wedging the lobby.
+                        using(var stalledCommunity=new TcpListener(IPAddress.Loopback,0))
+                        {
+                            stalledCommunity.Start();
+                            lobbyRig.Server.MapDownloadSource="http://127.0.0.1:"
+                                +((IPEndPoint)stalledCommunity.LocalEndpoint).Port+"/";
+                            config=owner.State!.Value;
+                            config.Match=config.Match with { RoomKey="STALLED_COMMUNITY_MAP",
+                                MapIdentity=new(Guid.NewGuid(),lobbyIdentity.ContentHash,
+                                    MapHash256.Parse(new string('e',64)),NetworkMapFlags.Custom) };
+                            var pendingMap=owner.Command(LobbyCommandType.UpdateMatch,config:config);
+                            lobbyRig.Wait(()=>stalledCommunity.Pending()
+                                ||owner.Results.ContainsKey(pendingMap.CommandId),
+                                "custom map acquisition starts before newer lobby action",5000);
+                            Check(!owner.Results.ContainsKey(pendingMap.CommandId),
+                                "unresponsive Community archive has not yet been applied");
+                            lobbyRig.Expect(owner,owner.Command(LobbyCommandType.SetHandicap,
+                                target:(byte)owner.Slot,reduction:10),LobbyResultCode.Ok);
+                            lobbyRig.Wait(()=>owner.Results.ContainsKey(pendingMap.CommandId),
+                                "superseded custom-map request is acknowledged",5000);
+                            Check(owner.Results[pendingMap.CommandId].ResultCode==LobbyResultCode.ServerBusy
+                                &&owner.State!.Value.Match.RoomKey==lobbyDefinition.Name,
+                                "new owner administration cancels old download and preserves current map");
+                        }
+                        lobbyRig.Server.MapDownloadSource=address;
+
+                        config=owner.State!.Value;
                         config.Match=config.Match with { RoomKey="MISSING_COMMUNITY_MAP",
                             MapIdentity=new(Guid.NewGuid(),lobbyIdentity.ContentHash,MapHash256.Parse(new string('d',64)),NetworkMapFlags.Custom) };
                         lobbyRig.Expect(owner,owner.Command(LobbyCommandType.UpdateMatch,config:config),LobbyResultCode.MapUnavailable);

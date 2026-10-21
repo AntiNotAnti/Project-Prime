@@ -86,7 +86,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _target.SelectedIndex = _slots.Length == 0 ? -1 : Math.Max(0, Array.IndexOf(_slots, selected));
                 _rosterKey = key;
             }
-            _controls.IsEnabled = NetSession.LocalIsLobbyOwner && !NetSession.LobbyCommandPending
+            _controls.IsEnabled = NetSession.LocalIsLobbyOwner && !NetSession.LobbyAdministrationPending
                 && (NetSession.IsInLobby || NetSession.IsPlaying);
             _add.IsEnabled = roster.Count < (NetSession.ServerSession?.MaxPlayers ?? 8);
             _update.IsEnabled = _remove.IsEnabled = _slots.Length > 0;
