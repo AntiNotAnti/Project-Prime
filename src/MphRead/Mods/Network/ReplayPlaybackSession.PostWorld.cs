@@ -10,7 +10,7 @@ internal sealed partial class ReplayPlaybackSession
     // records for the following step and retains/releases every queued payload.
     internal void AdvancePostWorldInspection(uint frame, IReadOnlyList<ReplayCaptureRecord> records)
     {
-        if (!_live || !_customInspection || _liveMetadata?.FormatVersion != 8)
+        if ((!_live && _clip == null) || !_customInspection || _liveMetadata?.FormatVersion != 8)
             throw new InvalidOperationException("No explicit live post-world inspection is active.");
         try
         {
@@ -49,7 +49,9 @@ internal sealed partial class ReplayPlaybackSession
                     state.AcceptPostWorld(packet, item.Record.RecordingFrame, frame);
                 else _host.Inject(packet, item.Record.RecordingFrame);
             }
-            _frame = LastFrame = frame; _started = true;
+            _frame = frame;
+            if (_clip == null) LastFrame = frame;
+            _started = true;
         }
         catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
         {

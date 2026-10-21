@@ -190,10 +190,21 @@ internal static class ReplayTimelineArchive
             if (record.RecordingFrame > clip.StartRecordingFrame) break;
             if (record.Kind == ReplayFactKind.Roster && RosterPacket.TryRead(record.Payload[1..], out var roster)) visibleRoster = roster;
         }
+        if (checkpoint.HasCustomWeaponContract && visibleRoster == null)
+        {
+            var state = new ReplayReplicaState(); state.RestoreCustomCheckpoint(checkpoint.DecoderState());
+            for (int slot = 0; slot < 8; slot++)
+            {
+                var occupant = state.Occupant(slot);
+                if (occupant.Generation != 0) players.Add(new((byte)slot, (byte)occupant.Hunter,
+                    occupant.Team, occupant.Name, occupant.IsBot, occupant.BotLevel));
+            }
+        }
         if (visibleRoster is { } visible)
             for (int i = 0; i < visible.Count; i++)
                 players.Add(new(visible.Slots[i], visible.Hunters[i], visible.Teams[i], visible.Names[i]));
-        Save(clip, checkpoint.ClipMetadata(checked(clip.StartRecordingFrame - checkpoint.Frame), players), path);
+        Save(clip, checkpoint.ClipMetadata(checked(clip.StartRecordingFrame - checkpoint.Frame), players,
+            customFormatVersion: clip.CustomArchiveFormat == 8 ? (byte)8 : (byte)7), path);
     }
     internal static void Save(ReplayTimelineClip clip, PassiveReplayScene start, string path)
     {
@@ -206,8 +217,14 @@ internal static class ReplayTimelineArchive
         using var writer = new ReplayWriterV3(path, metadata);
         try
         {
-            EndFrame(writer, 0);
-            foreach (var record in clip.Records) Write(writer, record, metadata.OriginRecordingFrame);
+            var context = metadata.FormatVersion == 8 ? metadata.CustomWeapons!.InspectContext() : null;
+            if (metadata.CustomWeapons == null) EndFrame(writer, 0);
+            foreach (var record in clip.Records)
+            {
+                if (metadata.FormatVersion == 8 && record.CapturePhase == ReplayCapturePhase.PostWorld)
+                    WritePostWorld(writer, record, metadata.OriginRecordingFrame, context!);
+                else Write(writer, record, metadata.OriginRecordingFrame);
+            }
             EndFrame(writer, clip.EndRecordingFrame - metadata.OriginRecordingFrame);
         }
         catch { writer.Abort(); throw; }

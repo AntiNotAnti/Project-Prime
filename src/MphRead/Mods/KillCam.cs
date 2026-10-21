@@ -14,7 +14,21 @@ internal enum KillCamKind { None, Personal, Final }
 internal static class KillCam
 {
     private static readonly KillcamController Controller = new(ReplayCapture.Recorder.Timeline,
+        open: OpenClip,
         acceptedDeaths: () => NetSession.SemanticReceived.Events, sourceProtocolVersion: NetConfig.ProtocolVersion);
+    private static PassiveReplayPlayer OpenClip(ReplayTimelineClip clip, OpenTK.Mathematics.Vector2i size)
+    {
+        if (clip.CustomArchiveFormat is not (7 or 8)) return new(clip, size, ReplayPlayerOptions.Linear);
+        using var checkpoint = PassiveReplayScene.Checkpoint(clip);
+        var descriptor = checkpoint.CustomWeaponDescriptor
+            ?? throw new InvalidOperationException("Custom killcam lost its exact package descriptor.");
+        var live = _live ?? GameState.Current.Owner
+            ?? throw new InvalidOperationException("Custom killcam lost its prepared live owner.");
+        using var resources = live.RetainOnlineReplayPackage(descriptor);
+        return PassiveReplayPlayer.OpenCustomClip(clip, resources, size);
+    }
+    private static bool Supported(Scene? scene = null) => !CustomReplayBoundary.IsBlocked(scene)
+        || ReplayCapture.CustomClientRollingScope();
     private static Scene? _live;
     private static int _skipRequested;
     private static bool _releaseFire;
@@ -35,7 +49,7 @@ internal static class KillCam
     private static KillcamContext Context(Scene? scene)
     {
         int local = NetHooks.LocalSlot;
-        bool supported = !CustomReplayBoundary.IsBlocked(scene);
+        bool supported = Supported(scene);
         return new(NetSession.CurrentMatchId, NetSession.AuthorityEpoch, NetSession.NetFrame, local,
             NetPlayerLifecycle.Generation(local), NetPlayerLifecycle.Get(local),
             scene != null && (uint)local < (uint)scene.Players.Items.Count && scene.Players.Items[local] is { Health: > 0 },
@@ -55,7 +69,7 @@ internal static class KillCam
 
     internal static void AfterSimulation(Scene scene)
     {
-        if (CustomReplayBoundary.IsBlocked(scene)) { ResetUnsupported(); return; }
+        if (!Supported(scene)) { ResetUnsupported(); return; }
         _live = scene;
         if (Interlocked.Exchange(ref _skipRequested, 0) != 0) { Controller.Skip(); _releaseFire = true; }
         if (_finalRequested && scene.GameState.MatchTime <= 0)
@@ -119,7 +133,7 @@ internal static class KillCam
     }
     internal static bool BeginFinal(uint authoritativeEndFrame)
     {
-        _finalRequested = !CustomReplayBoundary.IsBlocked() && NetSession.Active && LauncherPrefs.KillCamEnabled && LauncherPrefs.FinalKillCamEnabled;
+        _finalRequested = Supported() && NetSession.Active && LauncherPrefs.KillCamEnabled && LauncherPrefs.FinalKillCamEnabled;
         _finalRequestedFrame = authoritativeEndFrame;
         _finalIdentityWaitStarted = null;
         _finalRequestedAt = NetSession.NetFrame; Controller.CancelPersonal(); return false;
@@ -155,7 +169,7 @@ internal static class KillCam
     }
     internal static Scene? Presentation(Scene live)
     {
-        if (CustomReplayBoundary.IsBlocked(live)) { ResetUnsupported(); return null; }
+        if (!Supported(live)) { ResetUnsupported(); return null; }
         if (live.Services.IsReplica || !ReferenceEquals(live, _live)) return null;
         if (!NetSession.Active) { Controller.Reset(KillcamEndReason.Disconnected); return null; }
         if (Controller.Playing?.Kill is { } kill && (kill.MatchId != NetSession.CurrentMatchId || kill.AuthorityEpoch != NetSession.AuthorityEpoch))

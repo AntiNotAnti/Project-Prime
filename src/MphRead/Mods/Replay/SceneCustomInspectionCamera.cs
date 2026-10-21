@@ -37,6 +37,7 @@ public partial class Scene
         _customInspectionCameraGeneration = state.SlotGeneration;
         _customInspectionCameraLife = state.LifeId;
         _cameraMode = CameraMode.Player;
+        _freeCam = false;
         return true;
     }
 
@@ -55,7 +56,7 @@ public partial class Scene
         index = -1; state = default;
         if ((uint)slot >= PlayerEntity.SlotCapacity
             || Services is not ReplaySceneServices replay || !replay.Session.IsActive
-            || !replay.Session.IsCustomArchiveInspection || ReplayPoses == null
+            || (!replay.Session.IsCustomArchiveInspection && !replay.Session.IsCustomFrozenClip) || ReplayPoses == null
             || !replay.State.TryGetPlayer(slot, out state) || state.Health == 0
             || state.SlotGeneration == 0 || state.LifeId == 0) return false;
         for (int i = 0; i < Players.Items.Count; i++)

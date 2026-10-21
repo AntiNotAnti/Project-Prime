@@ -40,6 +40,7 @@ public readonly struct ReplayTimelineRecord
     public uint ServerTick { get; }
     public ReplayFactKind Kind { get; }
     public ReplayMarker? Marker { get; }
+    internal ReplayCapturePhase? CapturePhase { get; }
     public ReadOnlySpan<byte> Payload => _payload == null ? ReadOnlySpan<byte>.Empty : _payload.Span;
     // Include descriptor/list overhead so empty-payload floods are bounded too.
     public long PayloadBytes => (_payload?.Capacity ?? 0) + 128;
@@ -47,14 +48,18 @@ public readonly struct ReplayTimelineRecord
         ReadOnlySpan<byte> payload, ReplayMarker? marker = null)
     {
         RecordingFrame = frame; ServerTick = serverTick; Kind = kind;
-        _payload = payload.IsEmpty ? null : ReplayPayload.Copy(payload); Marker = marker;
+        _payload = payload.IsEmpty ? null : ReplayPayload.Copy(payload); Marker = marker; CapturePhase = null;
     }
     internal ReplayTimelineRecord(uint frame, uint tick, ReplayFactKind kind, ReplayPayload payload)
-    { RecordingFrame = frame; ServerTick = tick; Kind = kind; Marker = null; _payload = payload; }
+    { RecordingFrame = frame; ServerTick = tick; Kind = kind; Marker = null; _payload = payload; CapturePhase = null; }
+    private ReplayTimelineRecord(ReplayTimelineRecord source, ReplayCapturePhase phase)
+    { this = source; CapturePhase = phase; }
+    internal ReplayTimelineRecord WithCapturePhase(ReplayCapturePhase phase) => new(this, phase);
     internal void Retain() => _payload?.Retain();
     internal void Release() => _payload?.Release();
     internal bool SameFact(ReplayTimelineRecord other) => ReferenceEquals(_payload, other._payload)
-        && RecordingFrame == other.RecordingFrame && ServerTick == other.ServerTick && Kind == other.Kind && Marker == other.Marker;
+        && RecordingFrame == other.RecordingFrame && ServerTick == other.ServerTick && Kind == other.Kind && Marker == other.Marker
+        && CapturePhase == other.CapturePhase;
 }
 
 public sealed class ReplayRestorePoint : IDisposable
@@ -96,14 +101,16 @@ public sealed class ReplayTimelineClip : IDisposable
     // Packets are canonical, but a clip imported from an older recording must
     // keep that recording's firing/presentation semantics.
     internal int PresentationProtocolVersion { get; }
+    internal byte CustomArchiveFormat { get; }
     internal ReplayTimelineClip(ReplayRestorePoint restore, ReplayTimelineRecord[] records, uint start, uint end,
-        int presentationProtocolVersion)
+        int presentationProtocolVersion, byte customArchiveFormat = 0)
     {
         RestorePoint = new(restore.RecordingFrame, restore.ServerTick, restore.Kind, restore.Records);
         foreach (var record in records) record.Retain();
         Records = Array.AsReadOnly(records);
         StartRecordingFrame = start; EndRecordingFrame = end;
         PresentationProtocolVersion = presentationProtocolVersion;
+        CustomArchiveFormat = customArchiveFormat;
     }
     private bool _disposed;
     public void Dispose()

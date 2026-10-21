@@ -4,10 +4,14 @@ namespace MphRead.Mods.Network;
 
 internal static partial class ReplayCapture
 {
-    internal static bool CustomClientRecordingScope()
+    internal static bool CustomClientRecordingScope() =>
+        (Environment.GetEnvironmentVariable("PROJECT_PRIME_CUSTOM_WEAPON_RECORDING") == "1"
+            || Environment.GetEnvironmentVariable("PROJECT_PRIME_CUSTOM_WEAPON_ROLLING") == "1") && CustomClientReplayScope();
+    internal static bool CustomClientRollingScope() =>
+        Environment.GetEnvironmentVariable("PROJECT_PRIME_CUSTOM_WEAPON_ROLLING") == "1" && CustomClientReplayScope();
+    private static bool CustomClientReplayScope()
     {
-        if (Environment.GetEnvironmentVariable("PROJECT_PRIME_CUSTOM_WEAPON_RECORDING") != "1"
-            || !NetSession.Active || !NetSession.IsClient || NetSession.IsAuthority || Headless.Active || DemoPlayback.IsActive
+        if (!NetSession.Active || !NetSession.IsClient || NetSession.IsAuthority || Headless.Active || DemoPlayback.IsActive
             || !NetSession.RequiredWeaponPackagesReady || !NetSession.CustomWeaponReplicaReady
             || Recorder.CustomWeaponCaptureFailed || Recorder.CustomWeaponContext is not { } context
             || context.Bootstrap.OriginKind != ReplayCustomWeaponOriginKind.Recipient
@@ -21,7 +25,7 @@ internal static partial class ReplayCapture
     internal static bool CanStartClientRecording(out string? error)
     {
         if (CanStartLiveRecording(out error)) return true;
-        if (!CustomClientRecordingScope() || LiveRecordingActive
+        if (!CustomClientRecordingScope() || ServerReplayRecorder.IsRecording || DemoRecorder.IsRecording
             || !Recorder.TryCaptureCustomWeaponState(out _, out _)) return false;
         error = null; return true;
     }

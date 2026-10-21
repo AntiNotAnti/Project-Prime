@@ -58,6 +58,8 @@ namespace MphRead.Mods.Network
 
         internal static bool NeedsWorld => ServerReplayRecorder.IsCustomRecording && CustomAuthorityRecordingScope()
                 && Recorder.CustomWeaponContext?.Bootstrap.OriginKind == ReplayCustomWeaponOriginKind.Authority
+            || CustomClientRollingScope() && (DemoClip.Active || DemoRecorder.IsRecording
+                || Mods.Launcher.LauncherPrefs.KillCamEnabled || Mods.Launcher.LauncherPrefs.FinalKillCamEnabled)
             || DemoRecorder.IsCustomRecording && CustomClientRecordingScope()
             || !CustomReplayBoundary.IsBlocked() && ((!Headless.Active && (Mods.Launcher.LauncherPrefs.KillCamEnabled
             || Mods.Launcher.LauncherPrefs.FinalKillCamEnabled || DemoClip.Active))

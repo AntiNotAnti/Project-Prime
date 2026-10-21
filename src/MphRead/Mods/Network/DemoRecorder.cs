@@ -10,6 +10,7 @@ internal static class DemoRecorder
     private static uint _origin, _lastFrame;
     private static ReplayWritePump? _lastWriter;
     private static bool _pending;
+    private static bool _postWorldCustom;
     private static ReplayCustomWeaponContext? _customContext;
     internal static bool IsCustomRecording => IsRecording && _customContext != null;
     internal static bool HasCurrentCustomScope => IsCustomRecording && ReplayCapture.CustomClientRecordingScope()
@@ -80,6 +81,7 @@ internal static class DemoRecorder
             {
                 var metadata = ReplayTimelineArchive.Metadata(world, ReplayType.FullMatch);
                 _origin = _lastFrame = world.Session.RecordingFrame;
+                _postWorldCustom = metadata.FormatVersion == 8;
                 _writer = new ReplayWritePump(CurrentPath!, metadata, _origin); _pending = false; _lastWriter = _writer;
                 if (!IsCustomRecording) _writer.EndFrame(0);
                 if (!IsCustomRecording) Replay.ReplayOwnerCapture.Begin();
@@ -97,7 +99,8 @@ internal static class DemoRecorder
     private static void Accept(ReplayTimelineRecord record)
     {
         if (_writer == null) return;
-        if (IsCustomRecording && record.RecordingFrame <= _origin)
+        if (IsCustomRecording && record.RecordingFrame <= _origin
+            && !(_postWorldCustom && record.RecordingFrame == _origin && record.CapturePhase == ReplayCapturePhase.PostWorld))
         {
             // The custom Scene capsule already represents a completed frame.
             // Late facts at that same frontier cannot be silently dropped or
@@ -105,7 +108,13 @@ internal static class DemoRecorder
             Fail(new InvalidDataException("Custom recording received a fact after its completed baseline frame. Resume simulation before starting a new recording."));
             return;
         }
-        try { if (!_writer.Record(record)) { Fail(_writer.Error!); return; } _lastFrame = Math.Max(_lastFrame, record.RecordingFrame); }
+        try
+        {
+            bool queued = _postWorldCustom
+                ? record.CapturePhase is { } phase && _writer.Record(new ReplayCaptureRecord(record, phase)) : _writer.Record(record);
+            if (!queued) { Fail(_writer.Error ?? new InvalidDataException("The custom capture phase is unavailable.")); return; }
+            _lastFrame = Math.Max(_lastFrame, record.RecordingFrame);
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { Fail(ex); }
     }
     public static void Stop()
@@ -124,7 +133,7 @@ internal static class DemoRecorder
         finally
         {
             Replay.ReplayOwnerCapture.Abort(); _pending = false; _writer = null; _customContext = null; CurrentPath = null;
-            if (custom) ReplayCapture.WorldCapture.RetireCustomRecording();
+            if (custom && !ReplayCapture.CustomClientRollingScope()) ReplayCapture.WorldCapture.RetireCustomRecording();
         }
     }
     private static void Fail(Exception error)

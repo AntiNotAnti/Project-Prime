@@ -33,6 +33,7 @@ public sealed class RollingReplayTimeline : IReplayTimeline
     public uint? FirstServerTick => _segments.First?.Value.Restore.ServerTick;
     public uint? LastServerTick { get; private set; }
     public bool NeedsRestorePoint => _segments.Count == 0;
+    internal byte CustomArchiveFormat { get; set; }
 
     public RollingReplayTimeline(uint historyFrames = DefaultHistoryFrames, long maximumBytes = DefaultMaximumBytes,
         int presentationProtocolVersion = 0)
@@ -135,7 +136,7 @@ public sealed class RollingReplayTimeline : IReplayTimeline
             }
         }
         clip = new ReplayTimelineClip(restore, records.ToArray(), startFrame, endFrame,
-            _presentationProtocolVersion);
+            _presentationProtocolVersion, CustomArchiveFormat);
         return true;
     }
 
@@ -155,7 +156,11 @@ public sealed class RollingReplayTimeline : IReplayTimeline
         foreach (var segment in _segments)
             foreach (var record in segment.Records)
                 if (record.Marker is { Kind: ReplayMarkerKind.Kill, Kill: { } identity } && identity == kill)
-                { frame = record.RecordingFrame; return true; }
+                {
+                    if (record.CapturePhase == ReplayCapturePhase.PostWorld && record.RecordingFrame == uint.MaxValue) continue;
+                    frame = record.CapturePhase == ReplayCapturePhase.PostWorld ? record.RecordingFrame + 1 : record.RecordingFrame;
+                    return true;
+                }
         frame = 0; return false;
     }
 
@@ -163,6 +168,7 @@ public sealed class RollingReplayTimeline : IReplayTimeline
     {
         while (_segments.Count != 0) Evict();
         _frontier = null;
+        CustomArchiveFormat = 0;
         PayloadBytes = 0; RecordCount = 0; LastRecordingFrame = LastServerTick = null;
         EvictedSegmentCount = FreezeFailures = RejectedRecords = 0;
     }
