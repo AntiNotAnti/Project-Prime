@@ -616,7 +616,7 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
         return new(session.MatchId, session.AuthorityEpoch, session.Revision,
             NetSession.LocalIsLobbyOwner, session.OwnerSlot,
             NetSession.LocalSlot >= 0 ? (byte)NetSession.LocalSlot : byte.MaxValue,
-            NetSession.LobbyCommandPending, session.LockTeams,
+            NetSession.LobbyAdministrationPending, session.LockTeams,
             (byte)Math.Clamp((int)teams, 0, 4), session.MaxPlayers,
             NetSession.MapPreparation?.State == MapAvailabilityState.Failed,
             NetSession.MapPreparationMessage, NetSession.LobbyMessage,
