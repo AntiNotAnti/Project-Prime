@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Launcher.RmlUi.Render;
 
@@ -314,8 +315,7 @@ internal sealed class CurrentHunterLicenseOverviewReader : INativeLicenseOvervie
     private static string RoomName(string key)
     {
         if (String.IsNullOrWhiteSpace(key)) return "UNKNOWN MAP";
-        try { return Metadata.GetRoomByName(key).Item1?.InGameName ?? key; }
-        catch { return key; }
+        return LauncherRoomDisplayName.Get(key);
     }
 
     private static string ModeName(int mode)

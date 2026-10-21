@@ -9,6 +9,7 @@ static void Require(bool condition, string message)
 
 ApplicationHeaderCheck.Run(Require);
 CanvasOwnerChecks.Run();
+TypographyCheck.Run();
 
 Require(Marshal.SizeOf<RmlUiNativeIntent>() == RmlUiIntentRegistry.NativeIntentSize, "ABI structure size changed");
 var protocolProbe = new FakeBridge();
@@ -28,9 +29,10 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.AimResultsAction => 3,
         RmlUiIntentKind.SetupAction => 15,
         RmlUiIntentKind.SetupRelease => 30,
-        RmlUiIntentKind.HudAction => 45,
+        RmlUiIntentKind.HudAction => 67,
+        RmlUiIntentKind.SettingsPreviousChoice => 96,
         RmlUiIntentKind.HudElement => 15,
-        RmlUiIntentKind.HudProperty => 8,
+        RmlUiIntentKind.HudProperty => 32,
         RmlUiIntentKind.CampaignShipAction => 11,
         RmlUiIntentKind.CommunityTransferAction => 4,
         RmlUiIntentKind.SocialAction => 55,
@@ -78,7 +80,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.SettingsCategory => 13,
         RmlUiIntentKind.SettingsAction => 63,
         RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination => 3,
-        RmlUiIntentKind.OfflineChoice => 17,
+        RmlUiIntentKind.OfflineChoice or RmlUiIntentKind.OfflineChoicePrevious => 24,
         RmlUiIntentKind.OfflineRuleToggle => RmlUiIntentRegistry.OfflineRuleChoiceCount,
         RmlUiIntentKind.OfflineTrainingToggle => 5,
         _ => 1
@@ -112,18 +114,18 @@ foreach (var choice in new[] {
 // Mechanics continues to reuse literal choice16: the third local draft state
 // is not a new native action or an expansion of the intent ABI.
 var mechanicsDocument = new RmlUiDocumentToken(73, 19);
-foreach (int choice in new[] { 13, 14, 15, 16 })
+foreach (int choice in new[] { 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 })
 {
     var packet = new RmlUiNativeIntent { Size = RmlUiIntentRegistry.NativeIntentSize,
         Version = RmlUiIntentRegistry.ProtocolVersion, Kind = 140, Argument = choice,
         Generation = 73, DocumentId = 19, Sequence = 7 };
     Require(RmlUiIntentRegistry.TryDecode(packet, out var decodedMechanics)
         && decodedMechanics == new RmlUiIntent(RmlUiIntentKind.OfflineChoice, choice, mechanicsDocument, 7),
-        "training13–15 and shared mechanics16 keep their exact native wire identity");
+        "training, mechanics and appended bot choices keep the native action identity: " + choice);
 }
-Require(!RmlUiIntentRegistry.TryParseLegacy("offline:choice:17", mechanicsDocument, 8, out _)
-    && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineChoice, 17),
-    "three mechanics states cannot expand the fixed 17-choice native intent family");
+Require(!RmlUiIntentRegistry.TryParseLegacy("offline:choice:24", mechanicsDocument, 8, out _)
+    && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineChoice, 24),
+    "offline family rejects indices beyond appended bot configuration choices");
 string[] studioBuildActions =
 {
     "build-validate", "build-runtime", "build-package", "build-play-camera",

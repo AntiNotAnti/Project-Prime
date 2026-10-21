@@ -69,8 +69,7 @@ namespace MphRead.Mods.Launcher.Gui
         private FormattedText Label(IBrush brush)
         {
             return new FormattedText(Text, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(_font, FontStyle.Normal, FontWeight.Normal),
+                FlowDirection.LeftToRight, GameTypography.Resolve(new Typeface(_font, FontStyle.Normal, FontWeight.Normal)),
                 _size, brush);
         }
 

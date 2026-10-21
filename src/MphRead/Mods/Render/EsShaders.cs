@@ -201,6 +201,7 @@ uniform vec3 light2col;
 uniform vec3 specular;
 uniform bool use_override;
 uniform int textured_player_skin;
+uniform bool authored_neutral_albedo;
 uniform bool player_outline_mask;
 uniform vec3 player_outline_color;
 uniform vec4 override_color;
@@ -228,7 +229,18 @@ in vec3 surface_position;
 
 out vec4 frag_color;
 
-vec3 mapped_normal()
+// Explicit modern-only experiment; Original/native variants omit this stage.
+uniform bool modern_material_corrections;
+uniform vec3 material_camera_position;
+vec3 material_safe_normalize(vec3 value, vec3 fallback)
+{
+    float length2 = dot(value, value);
+    // Comparisons also reject NaN/overflow without newer GLSL isnan intrinsics.
+    return length2 > 0.000000000001 && length2 < 1.0e30
+        ? value * inversesqrt(length2) : fallback;
+}
+
+vec3 mapped_normal_legacy()
 {
     vec3 n = normalize(surface_normal);
     if (!use_normal_map) return n;
@@ -240,6 +252,30 @@ vec3 mapped_normal()
     vec3 bitangent = normalize((-dp1 * duv2.x + dp2 * duv1.x) / det);
     vec3 mapNormal = texture(normal_tex, texcoord).xyz * 2.0 - 1.0;
     return normalize(tangent * mapNormal.x + bitangent * mapNormal.y + n * mapNormal.z);
+}
+
+vec3 mapped_normal()
+{
+    if (!modern_material_corrections) return mapped_normal_legacy();
+    vec3 n = material_safe_normalize(surface_normal, vec3(0.0, 0.0, 1.0));
+    if (!use_normal_map) return n;
+    vec3 dp1 = dFdx(surface_position), dp2 = dFdy(surface_position);
+    vec2 duv1 = dFdx(texcoord), duv2 = dFdy(texcoord);
+    float det = duv1.x * duv2.y - duv1.y * duv2.x;
+    if (!(abs(det) > 0.00000001)) return n;
+    vec3 tangentRaw = (dp1 * duv2.y - dp2 * duv1.y) / det;
+    vec3 bitangentRaw = (-dp1 * duv2.x + dp2 * duv1.x) / det;
+    // Gram-Schmidt removes the normal component on skewed/curved geometry.
+    vec3 tangent = tangentRaw - n * dot(n, tangentRaw);
+    float length2 = dot(tangent, tangent);
+    if (!(length2 > 0.000000000001 && length2 < 1.0e30)) return n;
+    tangent *= inversesqrt(length2);
+    vec3 bitangent = cross(n, tangent);
+    float orientation = dot(bitangent, bitangentRaw);
+    if (!(abs(orientation) > 0.000000000001)) return n;
+    bitangent *= orientation < 0.0 ? -1.0 : 1.0;
+    vec3 mapNormal = texture(normal_tex, texcoord).xyz * 2.0 - 1.0;
+    return material_safe_normalize(tangent * mapNormal.x + bitangent * mapNormal.y + n * mapNormal.z, n);
 }
 
 " + MphRead.Mods.Cosmetics.CosmeticShader.Source + @"
@@ -255,8 +291,17 @@ void apply_material_lighting(inout vec4 col)
         vec4 sm = use_specular_map ? texture(specular_tex, texcoord)
             : vec4(max(max(specular.r, specular.g), specular.b), 0.55, 0.0, 1.0);
         float roughness = clamp(sm.g, 0.04, 1.0);
-        vec3 viewDir = vec3(0.0, 0.0, 1.0);
-        vec3 h1 = normalize(-light1vec + viewDir), h2 = normalize(-light2vec + viewDir);
+        vec3 viewDir = modern_material_corrections
+            ? material_safe_normalize(material_camera_position - surface_position, vec3(0.0, 0.0, 1.0))
+            : vec3(0.0, 0.0, 1.0);
+        vec3 h1, h2;
+        if (modern_material_corrections) {
+            h1 = material_safe_normalize(-light1vec + viewDir, vec3(0.0));
+            h2 = material_safe_normalize(-light2vec + viewDir, vec3(0.0));
+        }
+        else {
+            h1 = normalize(-light1vec + viewDir); h2 = normalize(-light2vec + viewDir);
+        }
         float exponent = mix(72.0, 4.0, roughness);
         float highlight = pow(max(dot(n, h1), 0.0), exponent) * l1
             + pow(max(dot(n, h2), 0.0), exponent) * l2;
@@ -323,6 +368,11 @@ void main()
     vec4 col;
     if (use_texture) {
         vec4 texcolor = use_pal_override ? vec4(pal_override_color.xyz, texture(tex, texcoord).w) : texture(tex, texcoord);
+        if (authored_neutral_albedo && !use_pal_override) {
+            // Keep full-resolution surface detail while replacing a muddy source hue.
+            float detail = dot(texcolor.rgb, vec3(0.2126, 0.7152, 0.0722));
+            texcolor.rgb = vec3(clamp(detail * 1.65, 0.0, 1.0));
+        }
         // Cel shading takes the picture off the texture rather than banding
         // it. The texel's alpha is kept, so a grate is still a grate and a
         // decal is still cut to shape, but its colour is replaced by the one
@@ -414,6 +464,8 @@ void main()
 }
 ";
 
+        public static string ShadowFragmentShader { get; } = ShadowReceiverShader.Build(FragmentShader, gles: true);
+
         public static string NativeFragmentShader { get; } = Shaders.NativeMaterialSource(FragmentShader);
         public static string NativeNoCosmeticsFragmentShader { get; } = Shaders.WithoutCosmetics(NativeFragmentShader);
         public static string LegacyVertexShader { get; } = Shaders.WithoutDepthVertexSpecialization(VertexShader);
@@ -443,6 +495,7 @@ uniform bool use_mask;
 uniform bool hud_zero_alpha_discard;
 uniform float view_width;
 uniform float view_height;
+uniform vec2 view_origin;
 uniform vec4 fade_color;
 uniform sampler2D tex;
 uniform sampler2D mask;
@@ -459,8 +512,9 @@ void main()
     else {
         frag_color = texture(tex, texcoord);
         if (use_mask) {
-            float maskY = gl_FragCoord.y + (view_width - view_height) / 2.0;
-            vec2 maskTexcoord = vec2(gl_FragCoord.x / view_width, 1.0 - maskY / view_width);
+            vec2 localCoord = gl_FragCoord.xy - view_origin;
+            float maskY = localCoord.y + (view_width - view_height) / 2.0;
+            vec2 maskTexcoord = vec2(localCoord.x / view_width, 1.0 - maskY / view_width);
             vec4 maskColor = texture(mask, maskTexcoord);
             if (maskColor.a > 0.0) {
                 frag_color.a = 0.0;
@@ -696,12 +750,21 @@ void main()
         /// original through and lets the driver reject it, which is a clearer
         /// failure than silently compiling something else.
         /// </summary>
+        // Single preparation boundary used by both compilation and binary identity.
+        public static string PrepareSource(string source)
+        {
+            CheckInSync();
+            return Translate(source) ?? source;
+        }
+
         public static string? Translate(string desktopSource)
         {
             if (ReferenceEquals(desktopSource, Shaders.UnlitVertexShader)) return UnlitVertexShader;
             if (ReferenceEquals(desktopSource, Shaders.UnlitLegacyVertexShader)) return UnlitLegacyVertexShader;
             if (ReferenceEquals(desktopSource, Shaders.NativeNoCosmeticsFragmentShader))
                 return NativeNoCosmeticsFragmentShader;
+            if (ReferenceEquals(desktopSource, Shaders.ShadowFragmentShader))
+                return ShadowFragmentShader;
             if (ReferenceEquals(desktopSource, Shaders.NativeFragmentShader))
                 return NativeFragmentShader;
             if (ReferenceEquals(desktopSource, Shaders.LegacyVertexShader))
@@ -745,13 +808,12 @@ void main()
             {
                 return;
             }
-            _checked = true;
             Check("VertexShader", Shaders.VertexShader,
                 "fa146e085f0047c425db112435d03771efafc4f4293c674a74765f965092eca1");
             Check("LegacyVertexShader", Shaders.LegacyVertexShader, "10d6837ed1a7531c81f5ec6d5f39473c03efc0266541b66a79de89eb268d63db");
             Check("LegacyEsVertexShader", LegacyVertexShader, "7a496438c2700e57515923d54035dff2092829831dc5fe7e395f2a6410d89db8");
             Check("FragmentShader", Shaders.FragmentShader,
-                "d98139690fe19e9c909353639701b5550e50d30840a8886d35c591403a214b23");
+                "0220aba401751fab2300184a0a0b61490347753fae17393b16f00cd618d27ae3");
             Check("RttVertexShader", Shaders.RttVertexShader,
                 "af070f447840bf1fc51d6bba88a339fab067a4e3a01e460351a2549ca9107f4f");
             Check("RttFragmentShader", Shaders.RttFragmentShader,
@@ -760,6 +822,7 @@ void main()
                 "0fcb40630809a0e5b2d78448ed8b9518686fb6a5fc3b1a69914a37fecf28f7d5");
             Check("ShiftFragmentShader", Shaders.ShiftFragmentShader,
                 "c211ff39501d0621308d2af61925bdc726b640f2e6cd3ebb7cd4a27ed898577a");
+            _checked = true;
         }
 
         private static void Check(string name, string source, string expected)

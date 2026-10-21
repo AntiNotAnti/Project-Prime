@@ -12,6 +12,7 @@ internal sealed class MatchSemanticPresentation
     private uint _event, _award, _lastAwardSource;
     private bool _replicaInitialized;
     private readonly Dictionary<uint, List<string>> _medals = new();
+    private readonly Dictionary<uint, string> _medalStyles = new();
     internal static bool Enabled(Scene scene) => scene.GameState.Multiplayer && !scene.Services.IsReplica && !NetSession.SemanticLegacyPlayback;
     internal static PlayerEntity? Resolve(Scene scene, MatchSemanticActor actor)
     {
@@ -42,7 +43,7 @@ internal sealed class MatchSemanticPresentation
                             award.Actor.Slot, award.Actor.SlotGeneration, award.Actor.Life, award.Kind));
             }
         }
-        _medals.Clear();
+        _medals.Clear(); _medalStyles.Clear();
         receiver.DrainPresentation(fact =>
         {
             if (fact.Type is MatchSemanticEventType.PlayerKilled or MatchSemanticEventType.PlayerSuicide)
@@ -63,9 +64,11 @@ internal sealed class MatchSemanticPresentation
             _lastAwardSource = award.SourceEventId;
             if (!_medals.TryGetValue(award.SourceEventId, out var labels)) _medals[award.SourceEventId] = labels = new();
             labels.Add(label.ToUpperInvariant());
+            _medalStyles[award.SourceEventId] = award.Kind == MatchAwardKind.Assist ? "combat.assist"
+                : award.Kind <= MatchAwardKind.Invincible || award.Kind == MatchAwardKind.PrimeSlayer ? "combat.kill" : "combat.notifications";
         });
         if (Launcher.LauncherPrefs.CombatNotificationsVisible && !Headless.Active && !ThumbnailMode.Active)
-            foreach (var labels in _medals.Values) scene.Players.Main?.QueueCombatNotifications(labels);
+            foreach (var pair in _medals) scene.Players.Main?.QueueCombatNotifications(pair.Value, _medalStyles[pair.Key]);
         if (receiver.PresentationOverrun && NetSession.Active && !NetSession.IsAuthority)
         {
             NetLog.Event("Canonical presentation history overrun; disconnecting rather than skipping facts.");
@@ -78,7 +81,7 @@ internal sealed class MatchSemanticPresentation
         {
             receiver.SuppressHistory();
             scene.KillFeed.Clear();
-            _medals.Clear();
+            _medals.Clear(); _medalStyles.Clear();
             _lastAwardSource = 0;
             _replicaInitialized = true;
             return;
@@ -87,7 +90,7 @@ internal sealed class MatchSemanticPresentation
         // Replica semantics remain presentation-only. Forward playback may emit
         // local award audio/notifications exactly once; seeks advance the
         // receiver frontier above and therefore reconstruct silently.
-        _medals.Clear();
+        _medals.Clear(); _medalStyles.Clear();
         receiver.DrainPresentation(fact =>
         {
             if (fact.Type is MatchSemanticEventType.PlayerKilled or MatchSemanticEventType.PlayerSuicide)
@@ -104,14 +107,16 @@ internal sealed class MatchSemanticPresentation
             if (!_medals.TryGetValue(award.SourceEventId, out var labels))
                 _medals[award.SourceEventId] = labels = new();
             labels.Add(label.ToUpperInvariant());
+            _medalStyles[award.SourceEventId] = award.Kind == MatchAwardKind.Assist ? "combat.assist"
+                : award.Kind <= MatchAwardKind.Invincible || award.Kind == MatchAwardKind.PrimeSlayer ? "combat.kill" : "combat.notifications";
         });
 
         if (!Replay.ReplayVideoExporter.SuppressGameHud
             && Launcher.LauncherPrefs.CombatNotificationsVisible
             && !Headless.Active && !ThumbnailMode.Active)
         {
-            foreach (var labels in _medals.Values)
-                scene.Players.Main?.QueueCombatNotifications(labels);
+            foreach (var pair in _medals)
+                scene.Players.Main?.QueueCombatNotifications(pair.Value, _medalStyles[pair.Key]);
         }
     }
 

@@ -1,10 +1,12 @@
 using System;
+using System.Threading;
 using System.Diagnostics;
 using Android.App;
 using Activity = Android.App.Activity;
 using Environment = System.Environment;
 using Android.Content;
 using Android.OS;
+using Android.Hardware.Display;
 using MphRead.Mods;
 using MphRead.Mods.Render;
 
@@ -35,8 +37,34 @@ namespace MphRead.Droid
         private static readonly double[] _renderMs = new double[SampleCapacity];
         private static readonly double[] _uiMs = new double[SampleCapacity];
         private static readonly double[] _swapMs = new double[SampleCapacity];
+        private static readonly AndroidPresentedFrameClock _presentClock = new(Stopwatch.Frequency);
+        public static void ResetPresentTiming() => _presentClock.Reset();
         private static readonly double[] _scratch = new double[SampleCapacity];
-        private static float[] _supportedRefreshRates = new[] { 60f };
+        // One detached report slot: a busy diagnostic worker never blocks presentation
+        // or creates an unbounded queue. Producer copies only at the report boundary.
+        private sealed class ReportSnapshot
+        {
+            internal readonly double[][] Samples = new double[6][];
+            internal int Count, Width, Height, Cap, Scale, Generation, AppliedInterval;
+            internal int Gc0, Gc1, Gc2, FailedPresents, LastPresentError, SkippedReports;
+            internal long Allocated;
+            internal double ManagedPause;
+            internal ReportSnapshot() { for (int i = 0; i < Samples.Length; i++) Samples[i] = new double[SampleCapacity]; }
+        }
+        private static readonly ReportSnapshot _report = new();
+        private static int _reportBusy, _skippedReports, _matchGeneration, _sampleGeneration;
+        private static int _failedPresents, _lastPresentError;
+        private static int _artGeneration = -1;
+        private static readonly WaitCallback _reportWork = _ =>
+        {
+            try
+            {
+                PollThermal();
+                if (_report.Generation == Volatile.Read(ref _matchGeneration)) Report(_report);
+            }
+            catch (Exception ex) { DebugLog.Line("androidperf", "telemetry report failed: " + ex.Message); }
+            finally { Volatile.Write(ref _reportBusy, 0); }
+        };
 
         private static WeakReference<Activity>? _activity;
         private static int _sampleIndex;
@@ -46,14 +74,30 @@ namespace MphRead.Droid
         private static double _lastManagedGcPauseMs;
         private static long? _lastArtGcCount, _lastArtGcTimeMs;
         private static int _thermalStatus;
-        private static bool _matchActive;
+        private static volatile bool _matchActive;
         private static bool _sustainedPerformanceModeCleared;
+
+        private static DisplayManager? _displayManager;
+        private static readonly DisplayListener _displayListener = new();
+        private static int _displayGeneration;
+        private static int _displayId = -1;
+        public static int DisplayGeneration => Volatile.Read(ref _displayGeneration);
+        private sealed class DisplayListener : Java.Lang.Object, DisplayManager.IDisplayListener
+        {
+            public void OnDisplayAdded(int displayId) => RefreshDisplayRate();
+            public void OnDisplayChanged(int displayId) => RefreshDisplayRate();
+            public void OnDisplayRemoved(int displayId) => RefreshDisplayRate();
+        }
+        private static float _activeRefreshRate = 60f;
+        private static bool _hasObservedDisplayRate;
+        public static double ObservedDisplayRefreshRate => Volatile.Read(ref _hasObservedDisplayRate)
+            ? ActiveDisplayRefreshRate : double.NaN;
 
         /// <summary>Highest refresh mode reported by the current Android display.</summary>
         public static float DisplayRefreshRate { get; private set; } = 60f;
 
         /// <summary>Currently active rate, which can differ from the requested/max mode.</summary>
-        public static float ActiveDisplayRefreshRate { get; private set; } = 60f;
+        public static float ActiveDisplayRefreshRate => Volatile.Read(ref _activeRefreshRate);
 
         /// <summary>
         /// Give old Android installs a sustainable starting point once. A marker
@@ -132,6 +176,13 @@ namespace MphRead.Droid
         public static void Attach(Activity activity)
         {
             _activity = new WeakReference<Activity>(activity);
+            try
+            {
+                _displayManager?.UnregisterDisplayListener(_displayListener);
+                _displayManager = activity.GetSystemService(Context.DisplayService) as DisplayManager;
+                _displayManager?.RegisterDisplayListener(_displayListener, new Handler(Looper.MainLooper!));
+            }
+            catch (Exception ex) { DebugLog.Line("androidperf", "display listener unavailable: " + ex.Message); }
             DisableSustainedPerformanceMode();
             RefreshDisplayRate();
             DebugLog.Line("androidperf",
@@ -152,35 +203,48 @@ namespace MphRead.Droid
 #pragma warning restore CS0618
                 if (display == null)
                 {
+                    Volatile.Write(ref _hasObservedDisplayRate, false);
                     return;
                 }
 
-                ActiveDisplayRefreshRate = Math.Clamp(display.RefreshRate,
-                    30f, FrameTiming.MaxCap);
+                if (_displayId != display.DisplayId)
+                {
+                    _displayId = display.DisplayId;
+                    Interlocked.Increment(ref _displayGeneration);
+                }
+                float activeRate = Math.Clamp(display.RefreshRate, 30f, FrameTiming.MaxCap);
+                if (Math.Abs(activeRate - ActiveDisplayRefreshRate) > 0.1f)
+                {
+                    Volatile.Write(ref _activeRefreshRate, activeRate);
+                    Interlocked.Increment(ref _displayGeneration);
+                }
+                Volatile.Write(ref _hasObservedDisplayRate, true);
                 if (!refreshModes) return;
                 var modes = display.GetSupportedModes() ?? Array.Empty<Android.Views.Display.Mode>();
-                var rates = new float[modes.Length + 1];
-                rates[0] = ActiveDisplayRefreshRate;
                 float best = ActiveDisplayRefreshRate;
                 for (int i = 0; i < modes.Length; i++)
                 {
                     float rate = Math.Clamp(modes[i].RefreshRate, 30f, FrameTiming.MaxCap);
-                    rates[i + 1] = rate;
                     best = Math.Max(best, rate);
                 }
-                _supportedRefreshRates = rates;
-                DisplayRefreshRate = Math.Clamp(best, 30f, FrameTiming.MaxCap);
+                float maximum = Math.Clamp(best, 30f, FrameTiming.MaxCap);
+                if (Math.Abs(maximum - DisplayRefreshRate) > 0.1f)
+                {
+                    DisplayRefreshRate = maximum;
+                    Interlocked.Increment(ref _displayGeneration);
+                }
             }
             catch (Exception ex)
             {
+                Volatile.Write(ref _hasObservedDisplayRate, false);
                 DebugLog.Line("androidperf", $"display refresh probe failed: {ex.Message}");
             }
         }
 
         /// <summary>
         /// Whether presentation can be paced by SurfaceFlinger instead of the
-        /// managed sleep/spin limiter. Native refresh rates and caps at/above
-        /// the panel maximum are display-paced; odd rates keep software pacing.
+        /// managed sleep/spin limiter. Only an observed active rate within the
+        /// cap can enforce its upper bound; supported modes alone prove nothing.
         /// </summary>
         public static bool UseDisplayPacing(int cap)
         {
@@ -193,9 +257,7 @@ namespace MphRead.Droid
                 return false;
             }
 
-            int requested = Math.Clamp(cap, FrameTiming.MinCap, FrameTiming.MaxCap);
-            return AndroidFramePacer.MatchesNativeRefresh(
-                requested, DisplayRefreshRate, _supportedRefreshRates);
+            return AndroidFramePacer.PresentationOwnsCadence(cap, ObservedDisplayRefreshRate, 1);
         }
 
         public static void SetForeground(bool foreground)
@@ -220,18 +282,7 @@ namespace MphRead.Droid
                 return;
             }
             _matchActive = active;
-            _sampleIndex = 0;
-            _sampleCount = 0;
-            _allocatedBytes = 0;
-            for (int generation = 0; generation < 3; generation++)
-            {
-                _lastGcCounts[generation] = GC.CollectionCount(generation);
-            }
-            _lastReport = Environment.TickCount64;
-            _lastManagedGcPauseMs = GC.GetTotalPauseDuration().TotalMilliseconds;
-            _lastArtGcCount = ReadArtStat("art.gc.gc-count");
-            _lastArtGcTimeMs = ReadArtStat("art.gc.gc-time");
-
+            Interlocked.Increment(ref _matchGeneration);
             DisableSustainedPerformanceMode();
             if (!active)
             {
@@ -251,23 +302,37 @@ namespace MphRead.Droid
                 return;
             }
 
-            // Diagnostic only. The requested scale and cap remain untouched.
-            PollThermal();
+            // The next detached report refreshes diagnostic services. No Binder
+            // calls belong in this render-owner preparation boundary.
         }
 
         /// <summary>
         /// Record one presented frame. All arrays are allocated once so this is
         /// safe to leave enabled in production builds.
         /// </summary>
-        public static void RecordFrame(double elapsedSeconds, double limiterMs, double simulationMs,
+        public static void RecordFrame(long completedPresentTicks, double limiterMs, double simulationMs,
             double renderMs, double uiMs, double swapMs, long allocatedBytes,
-            int width, int height)
+            int width, int height, int appliedInterval = -1)
         {
             if (!_matchActive)
             {
                 return;
             }
 
+            int generation = Volatile.Read(ref _matchGeneration);
+            if (_sampleGeneration != generation)
+            {
+                _sampleGeneration = generation;
+                _sampleIndex = _sampleCount = 0;
+                _allocatedBytes = 0;
+                _lastReport = Environment.TickCount64;
+                for (int i = 0; i < 3; i++) _lastGcCounts[i] = GC.CollectionCount(i);
+                _lastManagedGcPauseMs = GC.GetTotalPauseDuration().TotalMilliseconds;
+                _presentClock.Reset();
+            }
+            // The first successful completion is an anchor, never a fabricated
+            // zero interval. Every stored interval encloses these current stages.
+            if (!_presentClock.TryObserve(completedPresentTicks, out double elapsedSeconds)) return;
             double frameMs = Math.Max(0, elapsedSeconds * 1000.0);
             int index = _sampleIndex;
             _frameMs[index] = frameMs;
@@ -284,11 +349,51 @@ namespace MphRead.Droid
             if (now - _lastReport >= ReportEveryMs)
             {
                 _lastReport = now;
-                // Thermal/display probes can cross Binder. Keep them off the
-                // ordinary frame path now that they are diagnostics-only.
-                PollThermal();
-                Report(width, height);
+                if (Interlocked.CompareExchange(ref _reportBusy, 1, 0) != 0)
+                {
+                    _skippedReports++;
+                    return;
+                }
+                ReportSnapshot report = _report;
+                report.Count = _sampleCount; report.Width = width; report.Height = height;
+                report.Cap = FrameTiming.FrameRateCap; report.Scale = RenderOptions.ResolutionScale;
+                report.Generation = generation; report.AppliedInterval = appliedInterval;
+                report.Allocated = _allocatedBytes;
+                report.FailedPresents = Volatile.Read(ref _failedPresents);
+                report.LastPresentError = Volatile.Read(ref _lastPresentError);
+                report.SkippedReports = _skippedReports; _skippedReports = 0;
+                double[][] samples = report.Samples;
+                Array.Copy(_frameMs, samples[0], _sampleCount);
+                Array.Copy(_limiterMs, samples[1], _sampleCount);
+                Array.Copy(_simulationMs, samples[2], _sampleCount);
+                Array.Copy(_renderMs, samples[3], _sampleCount);
+                Array.Copy(_uiMs, samples[4], _sampleCount);
+                Array.Copy(_swapMs, samples[5], _sampleCount);
+                int gc0 = GC.CollectionCount(0), gc1 = GC.CollectionCount(1), gc2 = GC.CollectionCount(2);
+                report.Gc0 = gc0 - _lastGcCounts[0];
+                report.Gc1 = gc1 - _lastGcCounts[1];
+                report.Gc2 = gc2 - _lastGcCounts[2];
+                _lastGcCounts[0] = gc0; _lastGcCounts[1] = gc1; _lastGcCounts[2] = gc2;
+                double pauseNow = GC.GetTotalPauseDuration().TotalMilliseconds;
+                report.ManagedPause = Math.Max(0, pauseNow - _lastManagedGcPauseMs);
+                _lastManagedGcPauseMs = pauseNow;
+                _allocatedBytes = 0;
+                try
+                {
+                    if (!ThreadPool.QueueUserWorkItem(_reportWork))
+                    {
+                        Volatile.Write(ref _reportBusy, 0);
+                        _skippedReports++;
+                    }
+                }
+                catch { Volatile.Write(ref _reportBusy, 0); _skippedReports++; }
             }
+        }
+
+        public static void RecordFailedPresent(int error)
+        {
+            Interlocked.Increment(ref _failedPresents);
+            Volatile.Write(ref _lastPresentError, error);
         }
 
         private static void PollThermal()
@@ -374,40 +479,41 @@ namespace MphRead.Droid
             catch (Exception) { return null; }
         }
 
-        private static void Report(int width, int height)
+        private static void Report(ReportSnapshot report)
         {
-            int count = _sampleCount;
+            int count = report.Count;
             if (count == 0)
             {
                 return;
             }
 
-            double p50 = Percentile(_frameMs, count, 0.50);
-            double p90 = Percentile(_frameMs, count, 0.90);
-            double p95 = Percentile(_frameMs, count, 0.95);
-            double p99 = Percentile(_frameMs, count, 0.99);
-            double sim95 = Percentile(_simulationMs, count, 0.95);
-            double render95 = Percentile(_renderMs, count, 0.95);
-            double ui95 = Percentile(_uiMs, count, 0.95);
-            double swap95 = Percentile(_swapMs, count, 0.95);
-            double limiter95 = Percentile(_limiterMs, count, 0.95);
-            int gc0 = GC.CollectionCount(0), gc1 = GC.CollectionCount(1), gc2 = GC.CollectionCount(2);
+            double p50 = Percentile(report.Samples[0], count, 0.50);
+            double p90 = Percentile(report.Samples[0], count, 0.90);
+            double p95 = Percentile(report.Samples[0], count, 0.95);
+            double p99 = Percentile(report.Samples[0], count, 0.99);
+            double sim95 = Percentile(report.Samples[2], count, 0.95);
+            double render95 = Percentile(report.Samples[3], count, 0.95);
+            double ui95 = Percentile(report.Samples[4], count, 0.95);
+            double swap95 = Percentile(report.Samples[5], count, 0.95);
+            double limiter95 = Percentile(report.Samples[1], count, 0.95);
             int over20 = 0, over33 = 0, over50 = 0;
             for (int i = 0; i < count; i++)
             {
-                double ms = _frameMs[i];
+                double ms = report.Samples[0][i];
                 if (ms > 20) over20++;
                 if (ms > 33.333) over33++;
                 if (ms > 50) over50++;
             }
 
-            double pauseNow = GC.GetTotalPauseDuration().TotalMilliseconds;
-            double managedPauseDelta = Math.Max(0, pauseNow - _lastManagedGcPauseMs);
+            if (_artGeneration != report.Generation)
+            {
+                _lastArtGcCount = _lastArtGcTimeMs = null;
+                _artGeneration = report.Generation;
+            }
             long? artCountNow = ReadArtStat("art.gc.gc-count");
             long? artTimeNow = ReadArtStat("art.gc.gc-time");
             string artDelta = AndroidGcTelemetry.CounterDelta(artCountNow, _lastArtGcCount);
             string artTimeDelta = AndroidGcTelemetry.CounterDelta(artTimeNow, _lastArtGcTimeMs);
-            _lastManagedGcPauseMs = pauseNow;
             _lastArtGcCount = artCountNow;
             _lastArtGcTimeMs = artTimeNow;
 
@@ -417,16 +523,15 @@ namespace MphRead.Droid
             DebugLog.Line("androidperf",
                 $"frame ms p50/p90/p95/p99 {p50:0.00}/{p90:0.00}/{p95:0.00}/{p99:0.00}; "
                 + $"stage p95 sim/render/ui/swap {sim95:0.00}/{render95:0.00}/{ui95:0.00}/{swap95:0.00}; "
-                + $"limiter p95 {limiter95:0.00}; GC delta {gc0 - _lastGcCounts[0]}/{gc1 - _lastGcCounts[1]}/{gc2 - _lastGcCounts[2]}; "
-                 + $"GC pause {managedPauseDelta:0.00}ms ART gc {artDelta} time {artTimeDelta}ms; "
+                + $"limiter p95 {limiter95:0.00}; GC delta {report.Gc0}/{report.Gc1}/{report.Gc2}; "
+                 + $"GC pause {report.ManagedPause:0.00}ms ART gc {artDelta} time {artTimeDelta}ms; "
                 + $">20/33/50 {over20}/{over33}/{over50} of {count}; "
-                + $"alloc {_allocatedBytes / 1024.0:0.0} KiB; "
-                + $"{width}x{height} world {RenderOptions.ResolutionScale}% cap "
-                + $"{FrameTiming.CapString(FrameTiming.FrameRateCap)} "
+                + $"alloc {report.Allocated / 1024.0:0.0} KiB; "
+                + $"{report.Width}x{report.Height} world {report.Scale}% cap "
+                + $"{FrameTiming.CapString(report.Cap)} "
                 + $"display active/max {ActiveDisplayRefreshRate:0.#}/{DisplayRefreshRate:0.#} Hz "
-                + $"thermal {_thermalStatus} app-governor off");
-            _lastGcCounts[0] = gc0; _lastGcCounts[1] = gc1; _lastGcCounts[2] = gc2;
-            _allocatedBytes = 0;
+                + $"thermal {_thermalStatus} app-governor off; applied swap interval {report.AppliedInterval}; "
+                + $"telemetry v2 completion-interval; failed presents total {report.FailedPresents} last 0x{report.LastPresentError:X}; skipped reports {report.SkippedReports}");
         }
 
         private static double Percentile(double[] source, int count, double percentile)

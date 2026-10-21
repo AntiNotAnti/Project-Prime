@@ -97,6 +97,8 @@ namespace MphRead.Hud
         /// keeping edges.
         /// </summary>
         public bool Smooth;
+        internal bool HighResolutionReticle;
+        private float[]? _reticleFieldPixels;
         public IReadOnlyList<byte>? CharacterData;
         public int PaletteIndex = -1;
         public IReadOnlyList<ColorRgba>? PaletteData;
@@ -274,6 +276,15 @@ namespace MphRead.Hud
                         }
                     }
                 }
+            }
+            if (HighResolutionReticle)
+            {
+                var field = Mods.Render.Hud.NativeReticleField.Get(CharacterData!, Width, Height, CurrentFrame);
+                if (_reticleFieldPixels?.Length != field.Width * field.Height * 4)
+                    _reticleFieldPixels = new float[field.Width * field.Height * 4];
+                Mods.Render.Hud.NativeReticleField.Fill(field, Texture, _reticleFieldPixels);
+                BindingId = scene.UploadNativeReticleField(BindingId, field.Width, field.Height, _reticleFieldPixels);
+                return;
             }
             if (CacheGlyphImages || CacheSpriteImages)
             {

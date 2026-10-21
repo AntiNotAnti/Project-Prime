@@ -8,7 +8,7 @@ namespace MphRead
 {
     internal sealed class Scene
     {
-        internal ulong FrameCount => 240;
+        internal ulong FrameCount { get; set; } = 240;
         internal Room? Room => null;
         internal (int X, int Y) Size => (1920, 1080);
     }
@@ -25,6 +25,7 @@ namespace MphRead.Mods.Diagnostics
         internal static (string Sha256, string Kind) Capture(System.Reflection.Assembly assembly) => ("stub", "stub");
     }
 }
+namespace MphRead.Mods { internal static class DebugLog { internal static void Line(string category, string message) { } } }
 namespace MphRead.Mods.Render
 {
     internal enum OpenGlCpuPass { Ui, TextureUpload, Preparation, DrawItems, World, ItemSetup, GeometrySubmission, Shadow, Hud, Composite }
@@ -36,16 +37,6 @@ namespace MphRead.Mods.Render
         internal static void CancelFrame() { }
         internal static double FrameMilliseconds(OpenGlCpuPass pass) => 0;
         internal static long FrameCounter(OpenGlFrameCounter counter) => 0;
-    }
-    internal static class FrameTiming
-    {
-        internal static long PresentationGeneration => 1;
-        internal static int FrameRateCap => 60;
-        internal static int StepsThisFrame => 1;
-        internal static long DroppedSteps => 0;
-        internal static long Stalls => 0;
-        internal static double MeasuredSimulationHz => 60;
-        internal static double MeasuredFrameHz => 60;
     }
     internal static class GraphicsApi { internal static string GetString(OpenTK.Graphics.OpenGL.StringName name) => "stub"; }
     internal static class RenderOptions { internal static int ResolutionScale => 100; internal static object Shadows => "Off"; }

@@ -688,8 +688,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (_sideNameText != null)
             {
-                (RoomMetadata? meta, _) = Metadata.GetRoomByName(tile.RoomKey);
-                _sideNameText.Text = meta?.InGameName ?? tile.RoomKey;
+                _sideNameText.Text = LauncherRoomDisplayName.Get(tile.RoomKey);
             }
             if (_sideAddr != null)
             {
@@ -1386,7 +1385,7 @@ namespace MphRead.Mods.Launcher.Gui
             string ping = status.Latency >= 0
                 ? $"{status.Latency.ToString(CultureInfo.InvariantCulture)} ms"
                 : "-- ms";
-            return $"{status.RoomKey} ({NetStatus.ModeName(status.Mode)}) {players} players, {ping}";
+            return $"{LauncherRoomDisplayName.Get(status.RoomKey)} ({NetStatus.ModeName(status.Mode)}) {players} players, {ping}";
         }
 
         private async Task Join()
@@ -1561,8 +1560,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             foreach (string room in _rooms)
             {
-                (RoomMetadata? meta, _) = Metadata.GetRoomByName(room);
-                _list.Add(new UiListRow(meta?.InGameName ?? room, room) { Choice = room });
+                _list.Add(new UiListRow(LauncherRoomDisplayName.Get(room), "") { Choice = room });
             }
             _list.SelectTag(current);
         }
@@ -1865,6 +1863,7 @@ namespace MphRead.Mods.Launcher.Gui
                 string people = demo.Metadata == null ? ""
                     : String.Join(" ", demo.Metadata.Players.Select(player => player.Name));
                 string mode = demo.Metadata?.Mode.ToString() ?? "";
+                string mapName = LauncherRoomDisplayName.Get(demo.Room);
                 string annotations = String.Join(" ",
                     ReplayAnnotations.Bookmarks(demo.Path).Select(bookmark => bookmark.Name)
                     .Concat(ReplayAnnotations.Highlights(demo.Path).Select(highlight => highlight.Name)));
@@ -1872,21 +1871,23 @@ namespace MphRead.Mods.Launcher.Gui
                     demo.Path,
                     demo.Path,
                     demo.DisplayName,
-                    DemoLibrary.Describe(demo),
+                    DemoLibrary.Describe(demo) + (mapName.Length > 0 ? $" · {mapName}" : ""),
                     demo.Recorded,
                     demo.DurationFrames,
                     clip,
                     demo.Favorite,
                     recoverable,
                     demo.Room,
-                    $"{demo.DisplayName} {demo.Room} {mode} {people} {annotations} {demo.FileName}"));
+                    $"{demo.DisplayName} {demo.Room} {mapName} {mode} {people} {annotations} {demo.FileName}"));
             }
             foreach ((string path, ReplayVirtualClipDocument clip) in virtualClips)
             {
                 demoByPath.TryGetValue(clip.SourceReplay, out DemoRecording source);
                 string room = source.Path != null ? source.Room : "";
+                string mapName = LauncherRoomDisplayName.Get(room);
                 uint duration = clip.EndFrame - clip.StartFrame;
-                string detail = $"virtual clip · {ReplayHud.Time(duration)} · "
+                string detail = $"virtual clip · {ReplayHud.Time(duration)}"
+                    + (mapName.Length > 0 ? $" · {mapName}" : "") + " · "
                     + $"source {Path.GetFileName(clip.SourceReplay)}";
                 entries.Add(new ReplayLibraryEntry(
                     path,
@@ -1899,7 +1900,7 @@ namespace MphRead.Mods.Launcher.Gui
                     ReplayVirtualClips.IsFavorite(path),
                     Recoverable: false,
                     room,
-                    $"{clip.Name} {room} "
+                    $"{clip.Name} {room} {mapName} "
                         + String.Join(" ", ReplayAnnotations.Bookmarks(path).Select(bookmark => bookmark.Name)
                             .Concat(ReplayAnnotations.Highlights(path).Select(highlight => highlight.Name)))
                         + $" {Path.GetFileName(clip.SourceReplay)}"));
@@ -1969,9 +1970,13 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 if (virtualClips.TryGetValue(path, out ReplayVirtualClipDocument? virtualClip))
                 {
+                    demoByPath.TryGetValue(virtualClip.SourceReplay, out DemoRecording source);
+                    string mapName = source.Path != null
+                        ? LauncherRoomDisplayName.Get(source.Room) : "";
                     replayDetails.Text = $"{virtualClip.Name}\n"
                         + $"{ReplayHud.Time(virtualClip.StartFrame)}–{ReplayHud.Time(virtualClip.EndFrame)} "
                         + $"from {Path.GetFileName(virtualClip.SourceReplay)}\n"
+                        + (mapName.Length > 0 ? $"Map: {mapName}\n" : "")
                         + "Non-destructive virtual clip; source replay data is shared until export/watch.";
                     replayName.Value = virtualClip.Name;
                 }
@@ -1980,7 +1985,10 @@ namespace MphRead.Mods.Launcher.Gui
                     DemoRecording selected = demos.FirstOrDefault(d =>
                         String.Equals(d.Path, path, StringComparison.OrdinalIgnoreCase));
                     replayDetails.Text = selected.Path == null
-                        ? Path.GetFileName(path) : DemoLibrary.Details(selected);
+                        ? Path.GetFileName(path)
+                        : DemoLibrary.Details(selected)
+                            + (selected.Room.Length > 0
+                                ? $"\nMap: {LauncherRoomDisplayName.Get(selected.Room)}" : "");
                     replayName.Value = selected.Path == null
                         ? Path.GetFileNameWithoutExtension(path) : selected.DisplayName;
                 }
@@ -2032,7 +2040,9 @@ namespace MphRead.Mods.Launcher.Gui
                         {
                             Choice = entry.Path,
                             ImagePath = ReplayVideoExporter.BestThumbnail(entry.ThumbnailSource),
-                            Blurb = (entry.Favorite ? "★ " : "") + entry.Title,
+                            Blurb = (entry.Favorite ? "★ " : "") + entry.Title
+                                + (entry.Room.Length > 0
+                                    ? "\n" + LauncherRoomDisplayName.Get(entry.Room) : ""),
                             Verb = "WATCH",
                             ChosenVerb = "SELECTED"
                         };
@@ -2485,8 +2495,7 @@ namespace MphRead.Mods.Launcher.Gui
                 tile.Leader = best > 0 && tile.Tally == best;
                 if (tile.Leader && leader == null)
                 {
-                    (RoomMetadata? meta, _) = Metadata.GetRoomByName(tile.RoomKey);
-                    leader = meta?.InGameName ?? tile.RoomKey;
+                    leader = LauncherRoomDisplayName.Get(tile.RoomKey);
                 }
                 tile.InvalidateVisual();
             }

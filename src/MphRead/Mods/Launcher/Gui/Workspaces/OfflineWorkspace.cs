@@ -586,7 +586,7 @@ namespace MphRead.Mods.Launcher.Gui
                 }, true)));
             _overlays.Show(new PrimePanel(body) { Padding = new Thickness(0) }, PrimeModalSize.Wide, fitContent: true);
         }
-        private static string RoomName(string key) => Metadata.RoomMetadata.TryGetValue(key, out var meta) ? meta.InGameName ?? key : key;
+        private static string RoomName(string key) => LauncherRoomDisplayName.Get(key);
         public void OnActivated() => Refresh();
         public void OnDeactivated() { }
         public void Refresh()

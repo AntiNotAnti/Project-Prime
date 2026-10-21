@@ -28,7 +28,7 @@ internal static class KillCam
     internal static KillcamState State => Controller.State;
     internal static KillcamEndReason EndReason => Controller.EndReason;
     internal static string? LastError => Controller.LastError;
-    internal static string Diagnostics => $"{Controller.State}/{Controller.EndReason} · requested-end-frame={_finalRequestedFrame} · current-net-frame={NetSession.NetFrame} · candidate-kill-frame={Controller.Candidate?.Kill?.ServerTick ?? 0} · mapped-recording-frame={Controller.CandidateFrame} · authority-end-cause={Controller.AuthorityEndCause} · {Controller.StartupMilliseconds:0.0} ms · {Controller.ClipBytes / 1024d:0} KiB";
+    internal static string Diagnostics => $"{Controller.State}/{Controller.EndReason} Â· requested-end-frame={_finalRequestedFrame} Â· current-net-frame={NetSession.NetFrame} Â· candidate-kill-frame={Controller.Candidate?.Kill?.ServerTick ?? 0} Â· mapped-recording-frame={Controller.CandidateFrame} Â· authority-end-cause={Controller.AuthorityEndCause} Â· {Controller.StartupMilliseconds:0.0} ms Â· {Controller.ClipBytes / 1024d:0} KiB";
 
     private static KillcamContext Context(Scene? scene)
     {
@@ -39,7 +39,7 @@ internal static class KillCam
             scene != null && (uint)local < (uint)scene.Players.Items.Count && scene.Players.Items[local] is { Health: > 0 },
             NetSession.Active && !DemoPlayback.IsActive,
             supported && LauncherPrefs.KillCamEnabled && !Headless.Active && !SpectatorMode.IsSpectating,
-            supported && LauncherPrefs.FinalKillCamEnabled && !Headless.Active);
+            supported && LauncherPrefs.KillCamEnabled && LauncherPrefs.FinalKillCamEnabled && !Headless.Active);
     }
     internal static void NoteKill(ReplayMarker marker, uint recordingFrame)
     {
@@ -102,7 +102,7 @@ internal static class KillCam
         || IsFinal && Controller.State != KillcamState.AwaitCompletion;
     internal static bool BeginFinal(uint authoritativeEndFrame)
     {
-        _finalRequested = !CustomReplayBoundary.IsBlocked() && NetSession.Active && LauncherPrefs.FinalKillCamEnabled;
+        _finalRequested = !CustomReplayBoundary.IsBlocked() && NetSession.Active && LauncherPrefs.KillCamEnabled && LauncherPrefs.FinalKillCamEnabled;
         _finalRequestedFrame = authoritativeEndFrame;
         _finalRequestedAt = NetSession.NetFrame; Controller.CancelPersonal(); return false;
     }

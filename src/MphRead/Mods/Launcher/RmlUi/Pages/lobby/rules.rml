@@ -24,15 +24,15 @@
                             <span class="rules_change">&gt;</span>
                         </button>
                         <div class="play_form_label">GAME TYPE</div>
-                        <button id="rules_mode_next" class="rules_choice" data-action="lobby:rules-mode" data-prime-disabled="!rules_owner">
+                        <div class="rules_choice_navigation"><button id="rules_mode_previous" class="rules_previous" data-action="lobby:rules-previous-mode" data-prime-disabled="!rules_owner" aria-label="Previous mode">&lt;</button><button id="rules_mode_next" class="rules_choice" data-action="lobby:rules-mode" data-prime-disabled="!rules_owner">
                             <span data-prime-text="{{rules_mode}}" id="text_rules_mode_1" />
                             <span class="rules_change">&gt;</span>
-                        </button>
+                        </button></div>
                         <div class="play_form_label">MATCHUP / TEAMS</div>
-                        <button id="rules_format_next" class="rules_choice" data-action="lobby:rules-format" data-prime-disabled="!rules_owner">
+                        <div class="rules_choice_navigation"><button id="rules_format_previous" class="rules_previous" data-action="lobby:rules-previous-format" data-prime-disabled="!rules_owner" aria-label="Previous format">&lt;</button><button id="rules_format_next" class="rules_choice" data-action="lobby:rules-format" data-prime-disabled="!rules_owner">
                             <span data-prime-text="{{rules_format}}" id="text_rules_format_1" />
                             <span class="rules_change">&gt;</span>
-                        </button>
+                        </button></div>
                         <div class="rules_limit_row">
                             <div class="rules_limit">
                                 <div class="play_form_label">TIME LIMIT</div>

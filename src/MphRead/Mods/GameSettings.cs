@@ -109,8 +109,7 @@ namespace MphRead.Mods
             RenderOptions.CelBands = Math.Clamp(
                 RenderOptions.ParseInt(settings.CelBands, RenderOptions.CelBands), 2, 8);
             RenderOptions.CelEdge = Math.Clamp(
-                RenderOptions.ParseInt(settings.CelEdge,
-                    (int)MathF.Round(RenderOptions.CelEdge * 100)) / 100f, 0, 1);
+                RenderOptions.ParseNumber(settings.CelEdge, RenderOptions.CelEdge * 100) / 100f, 0, 1);
 
             if (Enum.TryParse(settings.GraphicsPreset, true, out GraphicsPreset preset))
                 RenderOptions.Preset = preset;

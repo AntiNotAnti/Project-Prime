@@ -16,6 +16,7 @@ internal sealed class FakeBridge : IRmlUiNativeBridge
     internal int ButtonsAtResize;
     internal Action? OnResize { get; set; }
     internal (int, int) Pointer;
+    internal readonly List<(int X, int Y, int Buttons)> PointerHistory = new();
     private void Owner()
     {
         if (_owner != Environment.CurrentManagedThreadId) { WrongThreadCalls++; throw new InvalidOperationException("Fake native owner violation."); }
@@ -50,7 +51,7 @@ internal sealed class FakeBridge : IRmlUiNativeBridge
     public int DocumentReadField(ulong document, string id, byte[] buffer, int capacity) { Owner(); return Copy("", buffer); }
     public void SetLobbyAnchor(int slot, float x, float y) { Owner(); }
     public int Back() { Owner(); return 0; }
-    public int MouseMove(int x, int y, int modifiers) { Owner(); Pointer = (x, y); _inputSinceUpdate = true; return 1; }
+    public int MouseMove(int x, int y, int modifiers) { Owner(); Pointer = (x, y); PointerHistory.Add((x, y, Buttons)); _inputSinceUpdate = true; return 1; }
     public int MouseButton(int button, int down, int modifiers)
     { Owner(); if (down != 0) Buttons |= 1 << button; else Buttons &= ~(1 << button); _inputSinceUpdate = true; return 1; }
     public int MouseWheel(float delta, int modifiers) { Owner(); _inputSinceUpdate = true; return 1; }

@@ -30,8 +30,9 @@ internal static class SourceBankGpuCheck
         var watch = Stopwatch.StartNew();
         do
         {
-            Pump.Invoke(scene, null);
-            if (Count(Queue, scene) == 0 && Count(Decodes, scene) == 0) return;
+            Refresh.Invoke(scene, null);
+            if (Count(Queue, scene) == 0 && Count(Decodes, scene) == 0
+                && (int)typeof(Scene).GetProperty("PendingTextureSettingsJobs", Hidden)!.GetValue(scene)! == 0) return;
             Thread.Sleep(10);
         } while (watch.Elapsed < TimeSpan.FromSeconds(10));
         throw new Exception("Texture streaming did not drain within ten seconds.");
@@ -106,14 +107,17 @@ internal static class SourceBankGpuCheck
             RenderOptions.TextureSampling = TextureSamplingMode.Legacy;
             typeof(Scene).GetMethod("InitTextures", Hidden)!.Invoke(scene, new object[] { model });
             RefreshAndUpdate();
-            var requests = ((IEnumerable)Queue.GetValue(scene)!).Cast<object>().ToArray();
+            while ((int)typeof(Scene).GetProperty("PendingTextureSettingsJobs", Hidden)!.GetValue(scene)! > 0) RefreshAndUpdate();
+            var requests = ((IEnumerable)Queue.GetValue(scene)!).Cast<object>().Concat(
+                ((IEnumerable)Decodes.GetValue(scene)!).Cast<object>()
+                    .Select(pending => pending.GetType().GetProperty("Request")!.GetValue(pending)!)).ToArray();
             string capturedPrefix = "source-bank/" + Hash(oldBytes) + "/";
             if (requests.Count(request => ((MaterialImage)request.GetType().GetProperty("Image")!
                     .GetValue(request)!).Path.StartsWith(capturedPrefix, StringComparison.Ordinal)) != 2)
                 throw new Exception("Source bank albedos did not enter the existing background decode queue.");
 
-            // Change every mutable reference before either worker starts. The
-            // captured model must keep reopening its immutable old generation.
+            // Change every mutable reference after settings jobs captured their
+            // queued/active requests. The model must keep its immutable generation.
             Mutate(definition.Materials[0].AlbedoBank!, Reference("new.bin", newBytes, 101, blueYellow));
             Mutate(definition.Materials[1].AlbedoBank!, Reference("new.bin", newBytes, 202, redGreen));
             definition.Assets[0].Path = "new.bin";

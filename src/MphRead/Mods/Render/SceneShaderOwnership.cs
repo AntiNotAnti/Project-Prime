@@ -87,6 +87,9 @@ public partial class Scene
 
     private void ReleaseSceneShaderInitialization()
     {
+        _refusedSceneTarget = default;
+        _refusedSceneCel = false;
+        _targetSize = default;
         // A deleted program remains live while bound. Only unbind this scene's
         // program; another foreground/replica/editor owner's binding survives.
         int current = GL.GetInteger(GetPName.CurrentProgram);

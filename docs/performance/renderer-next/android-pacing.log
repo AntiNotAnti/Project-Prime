@@ -1,0 +1,68 @@
+ANDROIDPACING PASS display 59.94Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS display 60Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS display 90Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS display 120Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS display 144Hz adds no second wait and preserves elapsed time
+ANDROIDPACING PASS early presentation return does not wait for an unrelated 60Hz software phase
+ANDROIDPACING PASS native explicit 60 cap adds no second software wait
+ANDROIDPACING PASS native explicit 90 cap adds no second software wait
+ANDROIDPACING PASS native explicit 120 cap adds no second software wait
+ANDROIDPACING PASS native explicit 144 cap adds no second software wait
+ANDROIDPACING PASS native 120Hz cap follows compositor timing rather than an 8.33ms sleep phase
+ANDROIDPACING PASS explicit 30 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 60 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 90 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 120 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 144 cap retains its deadline cadence
+ANDROIDPACING PASS explicit 500 cap retains its deadline cadence
+ANDROIDPACING PASS Unlimited starts without a software deadline
+ANDROIDPACING PASS Unlimited does not inherit the old 500Hz safety ceiling
+ANDROIDPACING PASS Display with failed swap interval enforces observed refresh fallback
+ANDROIDPACING PASS Display with unknown refresh uses conservative 60Hz fallback
+ANDROIDPACING PASS cap changes discard the old render deadline
+ANDROIDPACING PASS stall preserves simulation elapsed but creates no render catch-up burst
+ANDROIDPACING PASS resume excludes background time
+ANDROIDPACING PASS unknown active refresh retains numeric cap enforcement
+ANDROIDPACING PASS ignored 120Hz request on active 144Hz panel retains software cap
+ANDROIDPACING PASS observed 120Hz with successfully applied interval owns cadence
+ANDROIDPACING PASS failed interval application cannot claim presentation ownership
+ANDROIDPACING PASS active refresh change at unchanged cap restores managed deadline
+ANDROIDPACING PASS slower active display already enforces the selected upper bound
+ANDROIDPACING PASS Unlimited has no managed numeric cap
+ANDROIDPACING PASS Display cannot assume failed swap interval succeeded
+ANDROIDPACING PASS first Unlimited requests surface rate
+ANDROIDPACING PASS failed request retries after bounded backoff
+ANDROIDPACING PASS successful request avoids redundant Binder calls
+ANDROIDPACING PASS display mode change invalidates rate request
+ANDROIDPACING PASS replacement surface resends Unlimited request
+ANDROIDPACING PASS surface retry delay is bounded
+ANDROIDPACING PASS first completion establishes anchor instead of a zero sample
+ANDROIDPACING PASS long current frame pairs with its completion interval, not previous short work
+ANDROIDPACING PASS following short frame is not charged the preceding long stage
+ANDROIDPACING PASS surface rebase starts a new completion segment without background interval
+ANDROIDPACING PASS ART GC numeric runtime stat
+ANDROIDPACING PASS missing ART GC runtime stat
+ANDROIDPACING PASS ART GC counter delta
+ANDROIDPACING PASS unavailable ART GC delta
+ANDROIDPACING PASS reset ART GC counter does not produce negative delta
+ANDROIDPACING PASS no Android HD promotion latency at baseline
+ANDROIDPACING PASS small HD promotion does not delay next frame
+ANDROIDPACING PASS 7ms upload spaces later work by three frames
+ANDROIDPACING PASS invalid GPU duration never starves texture queue
+ANDROIDPACING PASS excessive stalls have bounded recovery delay
+ANDROIDPACING PASS shader key is stable for same sources and driver
+ANDROIDPACING PASS shader cache invalidates for source or driver changes
+ANDROIDPACING PASS shader identity includes link ABI and translator schema
+ANDROIDPACING PASS cached shader binaries are strictly size bounded
+ANDROIDPACING PASS Windows CRLF source transforms match canonical LF shader variants
+ANDROIDPACING PASS binary identity prepares the production translated GLES source
+ANDROIDPACING PASS GLES-only change invalidates binary with unchanged desktop input
+ANDROIDPACING PASS translated depth variants retain distinct binary identities
+ANDROIDPACING PASS prepared source remains unchanged at compiler boundary
+ANDROIDPACING PASS native Android sample rate experiment prefers valid device rate
+ANDROIDPACING PASS disabled native rate experiment preserves original 32728 Hz
+ANDROIDPACING PASS invalid device properties preserve original playback rate
+ANDROIDPACING PASS 192-frame device burst at 48 kHz is 4ms
+ANDROIDPACING PASS ETC2/ASTC 4x4 compressed block sizes are byte-exact
+ANDROIDPACING PASS compressed texture mip bounds follow the largest axis
+ANDROIDPACING PASS compressed GPU texture rejects zero dimensions

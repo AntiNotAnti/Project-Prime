@@ -16,6 +16,7 @@ FRAMES = re.compile(r"frame ms p50/p90/p95/p99\s+" + "/".join([NUMBER] * 4))
 STAGES = re.compile(r"stage p95 sim/render/ui/swap\s+" + "/".join([NUMBER] * 4))
 COUNTS = re.compile(r">20/33/50\s+(\d+)/(\d+)/(\d+) of (\d+)")
 SHAPE = re.compile(r"(\d+)x(\d+) world (\d+)% cap (.+?) display active/max " + NUMBER + "/" + NUMBER + r" Hz")
+TELEMETRY = re.compile(r"telemetry v(\d+)")
 THERMAL = re.compile(r"thermal\s+(\d+)")
 
 
@@ -33,6 +34,7 @@ def parse_lines(lines):
         if count <= 0 or over20 > count or over33 > over20 or over50 > over33:
             raise ValueError("Android frame report contains inconsistent counts")
         thermal = THERMAL.search(line)
+        version = TELEMETRY.search(line)
         windows.append(dict(
             p50=float(frame[1]), p90=float(frame[2]),
             p95=float(frame[3]), p99=float(frame[4]),
@@ -41,18 +43,23 @@ def parse_lines(lines):
             over20=over20, over33=over33, over50=over50, frames=count,
             shape=(int(width), int(height), int(scale), cap.strip()),
             refresh=(float(active), float(maximum)),
-            thermal=int(thermal[1]) if thermal else None))
+            thermal=int(thermal[1]) if thermal else None,
+            telemetry_version=int(version[1]) if version else 1))
     return windows
 
 
 def summarize(windows, minimum):
     if len(windows) < minimum:
         raise ValueError(f"Expected >= {minimum} reporting windows, found {len(windows)}")
+    versions = {row["telemetry_version"] for row in windows}
+    if len(versions) != 1 or not versions.issubset({1, 2}):
+        raise ValueError("Mixed or unsupported Android telemetry interval semantics")
     shapes = {tuple(row["shape"]) for row in windows}
     if len(shapes) != 1:
         raise ValueError("Settings/resolution varied within the captured run")
     frames = sum(row["frames"] for row in windows)
     data = {
+        "telemetry_version": next(iter(versions)),
         "windows": len(windows),
         "frames": frames,
         "shape": list(next(iter(shapes))),
@@ -71,6 +78,8 @@ def summarize(windows, minimum):
 
 
 def compare(baseline, candidate, tolerance_pct):
+    if baseline["telemetry_version"] != candidate["telemetry_version"]:
+        raise ValueError("Baseline and candidate use different telemetry interval semantics")
     if baseline["shape"] != candidate["shape"]:
         raise ValueError("Baseline and candidate used different resolution, scale or FPS cap")
     if abs(baseline["median_active_refresh_hz"] - candidate["median_active_refresh_hz"]) > .5:
@@ -104,7 +113,18 @@ def self_test():
         pass
     else:
         raise AssertionError("minimum windows should be enforced")
-    print("ANDROID PERF COMPARE: self-test passed")
+    version2 = summarize(parse_lines([line(16, 20) + "; telemetry v2 completion-interval"]), 1)
+    assert version2["telemetry_version"] == 2
+    for invalid in (
+            lambda: compare(base, version2, 5),
+            lambda: summarize(parse_lines([line(16, 20), line(16, 20) + "; telemetry v2 completion-interval"]), 1)):
+        try:
+            invalid()
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("mixed interval semantics must fail acceptance")
+    print("ANDROID PERF COMPARE: self-test passed (including v1/v2 negative controls)")
 
 
 def main():

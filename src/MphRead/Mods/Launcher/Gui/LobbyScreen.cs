@@ -1493,7 +1493,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string RoomName(string room)
         {
-            return Metadata.GetRoomByName(room).Item1?.InGameName ?? room;
+            return LauncherRoomDisplayName.Get(room);
         }
 
         private static string DurationDisplay(ushort seconds) =>

@@ -18,7 +18,8 @@ namespace MphRead.Mods.Network
         public ReplayMetadata? Metadata { get; }
         public ReplayOpenResult Compatibility { get; }
         public uint DurationFrames { get; }
-        public string DisplayName => DemoLibrary.DisplayName(Path, Room.Length > 0 ? Room : FileName);
+        public string DisplayName => DemoLibrary.DisplayName(Path,
+            Room.Length > 0 ? Launcher.LauncherRoomDisplayName.Get(Room) : FileName);
         public bool Favorite => File.Exists(Path + ".favorite");
         public ReplayIntegrity Integrity => DemoLibrary.VerifiedIntegrity(Path) ?? Metadata?.Integrity ?? (Compatibility is ReplayOpenResult.Corrupt or ReplayOpenResult.InvalidMagic ? ReplayIntegrity.Corrupt : Compatibility == ReplayOpenResult.Truncated ? ReplayIntegrity.Truncated : ReplayIntegrity.Unknown);
         public string FileName => System.IO.Path.GetFileName(Path);

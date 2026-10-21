@@ -2,6 +2,8 @@ using System;
 using System.Linq;
 namespace MphRead.Mods.Render.Hud;
 
+public enum CrosshairMotion { FollowWeapon, Static, Dynamic }
+
 public enum CrosshairDotShape { Square, Circle, Diamond, Cross }
 
 public sealed class CrosshairProfile
@@ -14,6 +16,18 @@ public sealed class CrosshairProfile
     public CrosshairPartStyle RingStyle { get; set; } = new();
     public CrosshairPartStyle BracketStyle { get; set; } = new();
     public bool Native { get; set; }
+    public float NativeThickness { get; set; }
+    public bool MatchHudPalette { get; set; }
+    public bool NativeOriginalColors { get; set; } = true;
+    public bool MinimumVisibility { get; set; }
+    public CrosshairMotion Motion { get; set; }
+    public bool NativeAnimations { get; set; } = true;
+    public float WidthScale { get; set; } = 1;
+    public float HeightScale { get; set; } = 1;
+    public float Rotation { get; set; }
+    public float ShotScale { get; set; } = 1;
+    public float ChargeScale { get; set; } = 1;
+    public float ZoomScale { get; set; } = 1;
     public bool Enabled { get; set; } = true;
     public bool HealthColor { get; set; } = true;
     public string Color { get; set; } = "#FFFFFF";
@@ -49,13 +63,18 @@ public sealed class CrosshairProfile
         if (OverrideProperties != null)
             OverrideProperties = System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Distinct(System.Linq.Enumerable.Where(OverrideProperties,
                 id => Array.Exists(CrosshairProperties.All,d => d.Id == id) || CrosshairProperties.PartNames.Contains(id))));
-        Scale = HudProfile.Clamp(Scale, .1f, 8, 1); Opacity = HudProfile.Clamp(Opacity, 0, 1, 1);
+        WidthScale=HudProfile.Clamp(WidthScale,.05f,8,1); HeightScale=HudProfile.Clamp(HeightScale,.05f,8,1);
+        Rotation=HudProfile.Clamp(Rotation,-180,180,0);
+        ShotScale=HudProfile.Clamp(ShotScale,.05f,4,1); ChargeScale=HudProfile.Clamp(ChargeScale,.05f,4,1); ZoomScale=HudProfile.Clamp(ZoomScale,.05f,4,1);
+        if(!Enum.IsDefined(Motion)) Motion=CrosshairMotion.FollowWeapon;
+        Scale = HudProfile.Clamp(Scale, .05f, 8, 1); Opacity = HudProfile.Clamp(Opacity, 0, 1, 1);
         if (!Enum.IsDefined(DotShape)) DotShape = CrosshairDotShape.Square;
         OutlineColor = HudColor.Normalize(OutlineColor);
         OutlineOpacity = HudProfile.Clamp(OutlineOpacity, 0, 1, 1);
         Outline = HudProfile.Clamp(Outline, 0, 20, 0);
         DotSize = HudProfile.Clamp(DotSize, .1f, 100, 4);
         LengthX = HudProfile.Clamp(LengthX, 0, 100, 9); LengthY = HudProfile.Clamp(LengthY, 0, 100, 9);
+        NativeThickness=HudProfile.Clamp(NativeThickness,0,4,0);
         Thickness = HudProfile.Clamp(Thickness, .1f, 20, 3); Gap = HudProfile.Clamp(Gap, 0, 100, 3);
         OuterLength = HudProfile.Clamp(OuterLength, 0, 100, 6); OuterGap = HudProfile.Clamp(OuterGap, 0, 100, 16);
         Radius = HudProfile.Clamp(Radius, 0, 100, 8); RingThickness = HudProfile.Clamp(RingThickness, .1f, 20, 2);

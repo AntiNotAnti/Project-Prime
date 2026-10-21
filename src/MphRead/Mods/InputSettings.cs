@@ -48,6 +48,22 @@ namespace MphRead.Mods
         /// <summary>Multiplier on mouse movement. 1.0 is the original feel.</summary>
         public static float MouseSensitivity { get; set; } = 1;
 
+        private static float _horizontalSensitivity = 1, _verticalSensitivity = 1;
+        public static float HorizontalSensitivity
+        {
+            get => _horizontalSensitivity;
+            set => _horizontalSensitivity = Single.IsFinite(value) ? Math.Clamp(value, .01f, 3f) : 1f;
+        }
+        public static float VerticalSensitivity
+        {
+            get => _verticalSensitivity;
+            set => _verticalSensitivity = Single.IsFinite(value) ? Math.Clamp(value, .01f, 3f) : 1f;
+        }
+        public static float MouseAimSensitivityX(bool imperialistZoomed = false)
+            => MouseAimSensitivity(imperialistZoomed) * HorizontalSensitivity;
+        public static float MouseAimSensitivityY(bool imperialistZoomed = false)
+            => MouseAimSensitivity(imperialistZoomed) * VerticalSensitivity;
+
         public const float MinImperialistZoomSensitivity = 0.1f;
         public const float MaxImperialistZoomSensitivity = 3f;
         private static float _imperialistZoomSensitivity = 1f;
@@ -554,6 +570,15 @@ namespace MphRead.Mods
                         }
                         continue;
                     }
+                    if (key is "horizontal_sensitivity" or "vertical_sensitivity")
+                    {
+                        if (Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float axis))
+                        {
+                            if (key == "horizontal_sensitivity") HorizontalSensitivity = axis;
+                            else VerticalSensitivity = axis;
+                        }
+                        continue;
+                    }
                     if (key == "imperialist_zoom_amount")
                     {
                         if (Single.TryParse(value, NumberStyles.Float,
@@ -629,6 +654,17 @@ namespace MphRead.Mods
                     {
                         stylusMode = mode;
                     }
+                    if (key == "ds_layout" && Boolean.TryParse(value, out bool dsLayout))
+                        Input.DsLayout.Enabled = dsLayout;
+                    if (key == "ds_screen_aspect") Input.DsLayout.ScreenAspect = value;
+                    if (key == "ds_radar_size" && Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float radarSize))
+                        Input.DsLayout.RadarSize = radarSize;
+                    if (key == "ds_radar_x" && Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float radarX))
+                        Input.DsLayout.RadarX = radarX;
+                    if (key == "ds_radar_y" && Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float radarY))
+                        Input.DsLayout.RadarY = radarY;
+                    if (key == "stylus_select_size" && Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float selectSize))
+                        Input.StylusZone.SelectSize = selectSize;
                     if (key == "stylus_zone" && Boolean.TryParse(value, out bool stylusZone))
                     {
                         // Desktop only, and enforced here rather than only in
@@ -887,6 +923,8 @@ namespace MphRead.Mods
                 {
                     $"# {Branding.Name} controls. Delete a line to go back to the default.",
                     $"sensitivity={MouseSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
+                    $"horizontal_sensitivity={HorizontalSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
+                    $"vertical_sensitivity={VerticalSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"imperialist_zoom_sensitivity={ImperialistZoomSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"imperialist_zoom_amount={ImperialistZoomAmount.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"custom_scope_hold={CustomScopeHold.ToString().ToLowerInvariant()}",
@@ -901,6 +939,12 @@ namespace MphRead.Mods
                     $"alt_swipe_sensitivity={AltSwipeSensitivity.ToString("0.###", CultureInfo.InvariantCulture)}",
                     $"scroll_all_weapons={ScrollAllWeapons.ToString().ToLowerInvariant()}",
                     $"stylus_mode={Input.PointerInput.StylusMode.ToString().ToLowerInvariant()}",
+                    $"ds_layout={Input.DsLayout.Enabled.ToString().ToLowerInvariant()}",
+                    "ds_screen_aspect=" + Input.DsLayout.ScreenAspect,
+                    "ds_radar_size=" + Input.DsLayout.RadarSize.ToString(CultureInfo.InvariantCulture),
+                    "ds_radar_x=" + Input.DsLayout.RadarX.ToString(CultureInfo.InvariantCulture),
+                    "ds_radar_y=" + Input.DsLayout.RadarY.ToString(CultureInfo.InvariantCulture),
+                    "stylus_select_size=" + Input.StylusZone.SelectSize.ToString(CultureInfo.InvariantCulture),
                     $"pointer_jump_guard={Input.PointerInput.GuardJumps.ToString().ToLowerInvariant()}",
                     // What was asked for, not what is in force: the zone's
                     // switch survives stylus mode being turned off and on.
@@ -916,9 +960,9 @@ namespace MphRead.Mods
                     "stylus_zone_button_opacity="
                         + Input.StylusZone.ButtonOpacity.ToString("0.###", CultureInfo.InvariantCulture),
                     "stylus_zone_rect="
-                        + Input.StylusZone.Left.ToString("0.####", CultureInfo.InvariantCulture) + ","
-                        + Input.StylusZone.Top.ToString("0.####", CultureInfo.InvariantCulture) + ","
-                        + Input.StylusZone.Width.ToString("0.####", CultureInfo.InvariantCulture),
+                        + Input.StylusZone.SavedLeft.ToString("0.####", CultureInfo.InvariantCulture) + ","
+                        + Input.StylusZone.SavedTop.ToString("0.####", CultureInfo.InvariantCulture) + ","
+                        + Input.StylusZone.SavedWidth.ToString("0.####", CultureInfo.InvariantCulture),
                     $"chat_key={(ChatKey == Keys.Unknown ? "none" : ChatKey.ToString())}",
                     $"clip_key={(ClipKey == Keys.Unknown ? "none" : ClipKey.ToString())}",
                     $"replay_play_pause={SaveKey(ReplayPlayPauseKey)}",
@@ -966,7 +1010,7 @@ namespace MphRead.Mods
                     int split = original.IndexOf('=');
                     if (split > 0 && !keys.Contains(original[..split].Trim())) lines.Add(original);
                 }
-                File.WriteAllLines(Path, lines);
+                MphRead.Mods.Settings.SettingsPersistence.WriteLines(Path, lines);
                 return true;
             }
             catch (Exception)
@@ -986,6 +1030,7 @@ namespace MphRead.Mods
             _current = PlayerControls.GetDefault();
             _creating = false;
             MouseSensitivity = 1;
+            HorizontalSensitivity = VerticalSensitivity = 1;
             ImperialistZoomSensitivity = 1;
             ImperialistZoomAmount = 1;
             CustomScopeHold = false;
@@ -1018,6 +1063,11 @@ namespace MphRead.Mods
             Input.PadBindings.Reset();
             Input.TouchSettings.Reset();
             Input.PointerInput.StylusMode = false;
+            Input.DsLayout.Enabled = false;
+            Input.DsLayout.ScreenAspect = "4:3";
+            Input.DsLayout.RadarSize = 1;
+            Input.DsLayout.RadarX = Input.DsLayout.RadarY = .5f;
+            Input.StylusZone.SelectSize = 1;
             Input.PointerInput.GuardJumps = true;
             Input.StylusZone.Enabled = false;
             Input.StylusZone.ResetAppearance();

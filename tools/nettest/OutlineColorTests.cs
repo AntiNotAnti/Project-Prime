@@ -1,6 +1,7 @@
 using System;
 using MphRead.Mods;
 using MphRead.Mods.Render;
+using MphRead.Mods.Launcher.RmlUi.Pages.Settings;
 using OpenTK.Mathematics;
 
 namespace MphRead.NetTest;
@@ -58,6 +59,18 @@ internal static class OutlineColorTests
             }
             Check(BrightSkins.ResolveOutlineColor(PlayerOutlineStyle.Red, false, 0, 5)
                 == new Vector4(1, .05f, .05f, 1), "legacy red unchanged");
+            foreach(string hex in new[]{"#FF0000","#00FF00","#0000FF","#FFFFFF","#000000","#112233","#AB34EF","#010203"})
+            {
+                var hsv=NativeOutlineColorWheel.Read(hex);
+                Check(NativeOutlineColorWheel.Hex(hsv.Hue,hsv.Saturation,hsv.Value)==hex,"wheel preserves exact hex "+hex);
+            }
+            var center=NativeOutlineColorWheel.Pick(100,100,200,200);
+            var edge=NativeOutlineColorWheel.Pick(400,100,200,200);
+            Check(center.Saturation==0&&edge.Saturation==1&&edge.Hue==0,"wheel maps center and clamps outside drags");
+            Check(NativeOutlineColorWheel.Hex(1,1,1)=="#FF0000"
+                &&NativeOutlineColorWheel.Hex(-1f/3,1,1)=="#0000FF","wheel hue wraps in both directions");
+            Check(NativeOutlineColorWheel.Frame(1).IndexCount==288
+                &&NativeOutlineColorWheel.BrightnessFrame(.5f,1).IndexCount==6,"bounded untextured wheel and brightness geometry");
         }
         finally
         {

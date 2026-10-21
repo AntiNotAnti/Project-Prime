@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
 using MphRead.Mods.Launcher.RmlUi.Host;
 
@@ -162,8 +163,11 @@ internal sealed class NativePartyPage : IDisposable
         Text("party_self", state?.SelfPrimeId ?? "ACCOUNT NOT VERIFIED");
         Text("party_status", _travelStatus.Length == 0 ? _view.Status : _travelStatus);
         NativePartyTravel? travel = state?.Travel;
+        string travelMap = travel == null ? "" : LauncherRoomDisplayName.Get(travel.RoomKey);
         Text("party_travel", travel == null ? "NO VERIFIED PARTY DESTINATION"
-            : "LEADER LOBBY // " + travel.ServerName + " // " + travel.RoomKey + " // " + travel.SelfStatus.ToUpperInvariant());
+            : "LEADER LOBBY // " + travel.ServerName
+                + (travelMap.Length == 0 ? "" : " // " + travelMap)
+                + " // " + travel.SelfStatus.ToUpperInvariant());
         Text("party_reservation", reservationText);
         Bool("disabled:party_reserve", !_controller.CanTravel(NativePartyTravelAction.Reserve, CurrentLobby()));
         Bool("disabled:party_cancel_reservation", !_controller.CanTravel(NativePartyTravelAction.CancelReservation));

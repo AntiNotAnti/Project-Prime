@@ -100,6 +100,7 @@ using(var controller=new HudEditorController(original,backend))
     controller.SelectElement(1);controller.Dispatch(HudEditorAction.ApplyLayout,x:"200",y:"-100",scale:"2",opacity:".6",color:"#FFFFFF");
     void Property(string path)
     {
+        controller.Dispatch(path.StartsWith("/elements/")||path=="/independentGauges" ? HudEditorAction.SectionLayout : HudEditorAction.SectionGlobal);
         for(int page=0;page<50;page++)
         {
             var snapshot=controller.Snapshot();
@@ -146,9 +147,33 @@ using(var controller=new HudEditorController(original,new HudBoundary()))
     Check(controller.TryTakeAccepted(out var accepted)&&accepted.Elements[id].Opacity==.4f&&HudProfiles.Generation==generation,
         "movement editor hands off saved presentation without publishing gameplay or active settings");
 }
+using(var controller=new HudEditorController(original,backend, new[]{new HudEditorOption("fps", "Show FPS", "off", System.Collections.Immutable.ImmutableArray.Create("off","on"))}))
+{
+    var originalAspect=controller.Snapshot().PreviewWidth;
+    controller.Dispatch(HudEditorAction.NextAspect);controller.Dispatch(HudEditorAction.PreviousAspect);
+    Check(controller.Snapshot().PreviewWidth==originalAspect,"previous preview choice reverses forward navigation");
+    var anchor=controller.Snapshot().Anchor;controller.SelectElement(1);anchor=controller.Snapshot().Anchor;
+    controller.Dispatch(HudEditorAction.NextAnchor);controller.Dispatch(HudEditorAction.PreviousAnchor);
+    Check(controller.Snapshot().Anchor==anchor,"anchor choices navigate in both directions");
+    controller.Dispatch(HudEditorAction.SectionGlobal);
+    controller.Dispatch(HudEditorAction.SearchProperties,"Show FPS");
+    Check(controller.Snapshot().Properties.Length==1&&controller.Snapshot().Property!.Path=="/options/fps","search locates detached HUD preferences across sections");
+    controller.SelectProperty(0);controller.Dispatch(HudEditorAction.PropertyChoiceNext);
+    Check(controller.CopyOptions()[0].Value=="on"&&HudProfiles.Generation==generation,"HUD preference edits stay detached from runtime publication");
+    controller.Dispatch(HudEditorAction.PropertyChoicePrevious);
+    Check(controller.CopyOptions()[0].Value=="off","choice previous restores preceding HUD preference");
+    controller.Dispatch(HudEditorAction.WorkspaceProfiles);
+    Check(controller.Snapshot().ProfilesWorkspace,"profiles and sharing have their own workspace");
+    controller.Dispatch(HudEditorAction.SectionGlobal);
+    Check(!controller.Snapshot().ProfilesWorkspace&&controller.Snapshot().InspectorSection==2&&controller.Snapshot().PropertySearch.Length==0,"section navigation returns to elements and resets search");
+    controller.Dispatch(HudEditorAction.SectionAppearance);
+    Check(controller.Snapshot().Properties.All(p=>p.Path.StartsWith("/health/")||p.Path is "/smoothArtwork" or "/haloLowHealthSound"||p.Path.StartsWith("/elements/core.health/")),"element appearance avoids repeating unrelated HUD global settings");
+}
+HudInlineSectionCheck.Run(Check);
 Console.WriteLine($"HUD CONTRACT PASS {checks} checks.");
 #if MPHREAD_RMLUI_GL_SMOKE
 if(args.Length==3&&args[0]=="--native")NativeHudCheck.Run(args[1],args[2]);
+if(args.Length==4&&args[0]=="--native-gl")NativeHudGlCheck.Run(args[1],args[2],args[3]);
 #endif
 internal sealed class HudBoundary:IHudEditorBackend
 {

@@ -1,0 +1,151 @@
+{
+  "schema": 1,
+  "phase": "initial-diagnostic",
+  "auditSource": "07f23c014a408d134d1cc67e2f1d7074fc7f7942",
+  "baseCommit": "9885b151cd99e598b48871d8c7cd615d7979130b",
+  "workingSourceSha256": {
+    "src/MphRead.Android/AndroidFramePacer.cs": "1199b41b834654242c6a7acfac98b881ca6ae98f824260686e332c9c0e78fff5",
+    "src/MphRead.Android/AndroidPerformance.cs": "96c8d4629375482f02d7c7f6d737f170e015fa2c48d824725d51f47654e14464",
+    "src/MphRead.Android/AndroidShaderProgramBinaryCache.cs": "d2c93b4e956b1f2bf913e8e98bb22269ac4933a9c7625a027c6f9416dbcc4ada",
+    "src/MphRead.Android/GameView.RmlUiLauncher.cs": "3a2bd7f744cef6363c253f3c6146992a738b640516d27a02e3c8d6ebf6e34596",
+    "src/MphRead.Android/GameView.cs": "61c6ad701b778e596be0c83468421ee76fa79e6da364fb931784d277bb5c38bc",
+    "src/MphRead.Android/RmlUiAndroidGlesCompositor.cs": "2c8b9ac65fa32d571eff6d04122d83fbbc5ae155fb4fa2af2e1ac61a6687d3be",
+    "src/MphRead.Android/RmlUiAndroidGlesState.cs": "0bc18184464b90a6b0ca32a8743295580791c4121d8cb380bff4655b1bb534ef",
+    "src/MphRead/Entities/RoomEntity.cs": "02b02942ff3dd3dda5bf91a8c6b32e9106ddfa6808dfefb4ff5f095f4b3284f2",
+    "src/MphRead/Mods/Cosmetics/Skins/CosmeticTextureCache.cs": "56511fdfe057b49505251a7bc6aa059f89b98a33c3264183436c024a238a7822",
+    "src/MphRead/Mods/Render/CaptureSource.cs": "7de3576c20edc7b6e36cd624ef5707cad745f29799100fd452fdd7de57d652ed",
+    "src/MphRead/Mods/Render/Characters/CharacterModelTextures.cs": "21fb870ecc93e7b83019b2297801593ae71df50bb3a016a2f96fec5c0e4001f9",
+    "src/MphRead/Mods/Render/CompressedTextureAsset.cs": "b07aa893b22f6b21ba2e1e24065f216c60ec2a71e7ca18a5fd797a55ea7f0bc2",
+    "src/MphRead/Mods/Render/DesktopRetainedGeometry.cs": "074d0fbe6f2fbde82ca8d8c1c0b515af57e866a51e3d3d956acc9dd1b4e2741f",
+    "src/MphRead/Mods/Render/EsShaders.cs": "c4b6668440fb6e27c9a18cf4d0970d46e79b77a37d461605a43c641c115a70c0",
+    "src/MphRead/Mods/Render/FinalCompositeCapture.cs": "35e52535eaf674e764f292935faf64210ccaf3a537fc56e37c45a5d96e58098b",
+    "src/MphRead/Mods/Render/FrameTransientTextures.cs": "881e7068e7675d6bb6f0a90f8440884652c8dea813b158a41e0bab14ba8a0522",
+    "src/MphRead/Mods/Render/GeometryCompileKey.cs": "3462d7d1bf804154c2fb05a640ee97e78873f5a63738791f7eebff46aec8e086",
+    "src/MphRead/Mods/Render/GlEs.cs": "c7df1f8b8fdf05cb926ad40709257b8f86e44e34b7dc54db39de56bce1e783ca",
+    "src/MphRead/Mods/Render/GraphicsPipeline.cs": "0c092ef50509861e05952ff6f83c24a0653bb0b792abae4340af507c86d0c903",
+    "src/MphRead/Mods/Render/Ktx2TextureAsset.cs": "6e3b95069088a06a79ccd7f0956109db20da6cdd349301a860d65f87db60bf02",
+    "src/MphRead/Mods/Render/ModernMaterialCamera.cs": "342da4b25e920d4b3e0287e9667a628912d1072a74d00f04f3b44a2c9957ba28",
+    "src/MphRead/Mods/Render/OpenGlFrameCapture.cs": "59c787850e2ab74ac9a97ce548b06b19e2c3f49376d5b92045859a5c7b4e2b16",
+    "src/MphRead/Mods/Render/OpenGlFrameProfiler.cs": "0ebf75da25b6c66dfe64a323307f8d8efc3e1df8e5d5e8f3a9f534dc7979db9b",
+    "src/MphRead/Mods/Render/OpenGlPassProfiler.cs": "f1f40c1c250366b36f12d1695da9de7ecbb7047c7cd31d4d536097fbc1a67d13",
+    "src/MphRead/Mods/Render/PortalClipScratch.cs": "f36e98abcf44e0b2fe9a60c75bdc1286471d9983ce41fc498ed0f32fa6cfc906",
+    "src/MphRead/Mods/Render/PreparedTextureAsset.cs": "338ca1b7b591f2b796c3b85bb78eaabb6a183ac76cf059b30440581d69ff8574",
+    "src/MphRead/Mods/Render/RendererPreparationAcceptanceAssembly.cs": "06cc81b5386e8ca1aab5dad2e0d4859188e5d5ebc19a26c0b7908ddd91492cb5",
+    "src/MphRead/Mods/Render/RetainedRenderGraph.cs": "3571ccccdea019a16787d95bb1b14b9652598f37e0971cd0593c4afb77165d5c",
+    "src/MphRead/Mods/Render/RgbaMipTextureAsset.cs": "a350d426de45456cc36933c90694cb91bd2ecb67ad3924a6b0cf8e525450f498",
+    "src/MphRead/Mods/Render/SceneShaderOwnership.cs": "950f4a0721a410cee23715d2f626a79a6a7e11fc1fd5381026882c5d89c60b3f",
+    "src/MphRead/Mods/Render/SceneTargets.cs": "b36fd8d0814d04b6b2961077b971037f88ed75cf30e331a9baba276c3bd493b6",
+    "src/MphRead/Mods/Render/ShaderProgramCacheKey.cs": "866a870b5b92ef41e93d105c34eb9e5ae4dd99a9fe148e134c1fb80ec151bcac",
+    "src/MphRead/Mods/Render/ShadowMap.cs": "f53fc3fd3d8bbaffc70c8b9fce9faeac4a7f982d60bb307541115c0ffd6983bd",
+    "src/MphRead/Mods/Render/ShadowReceiverPolicy.cs": "6752c58520101b3747d46111bba58099ff5b7e182b1f715a637fda4f2098f4ad",
+    "src/MphRead/Mods/Render/ShadowReceiverShader.cs": "e37d2f56287e84248b8e577737e3c38fa271b65314eadcd4d5e83dd6a2f850ae",
+    "src/MphRead/Mods/Render/SpatialAntialiasing.cs": "9090d4eb083b39f749aa3144dc621f11cbf1da0226362b50ab46b8c72b59c4c9",
+    "src/MphRead/Mods/Render/TextureAssetManager.cs": "31110e5be28f142feab2ee064ef3eec60e0c4817d8b47a8e5997be7b5f975424",
+    "src/MphRead/Mods/Render/TextureReplacementPack.cs": "550fbc71403aee00c2c02aa668712722e0a01372b94b6eb85c2bafc609815578",
+    "src/MphRead/Mods/Render/WorldShaderVariants.cs": "df80e46b2b83453a3a503a9c4ff120810475604cdf2f596482670d82eaad1e39",
+    "src/MphRead/Renderer.cs": "489e6aa4cc6a2505de108296ea1cf3d1932c348755f16375d6d85a72439ff1e6",
+    "src/MphRead/Shaders.cs": "fcd7b5b8c9b31898299add7fed6b7e6570ca7d4091ed399750d3ead2a498d34e",
+    "tools/android-pacing-check/Program.cs": "d5255557bbb14aeac4a93ef1efd3437d5955f425437c0db44f638fef6cc17fee",
+    "tools/android-pacing-check/ShaderCheckStubs.cs": "da8d12a29fa941e2a28a52bf52153168d0cae0e6c55291046a88fe0bb1127fbe",
+    "tools/android-pacing-check/android-pacing-check.csproj": "6b7c2f22c0bbcf945e079dfb2621bbab33b94dbe34d765fc57629f1958c5a37a",
+    "tools/android-perf-compare.py": "441344b76577163d79701a56a12d8dcabd10c98d1ab6b0c4e6e9d8c52bf32666",
+    "tools/final-composite-check/Program.cs": "f92a09131d9f48913e31ba01a857319b4e7c572ddbdd080e130527d6ab34bb90",
+    "tools/frame-capture-check/Program.cs": "4254f4544a25458f8d54320ec094136381243378121025a63feb7f8aa70a8a97",
+    "tools/frame-capture-check/README.md": "55569825a6b6735d3a4b13a94550124d45f1435d87594f653fd94bbdf36c0a47",
+    "tools/frame-profiler-check/FrameProfilerCheck.csproj": "a670d10618188957ce3ca006fe774cf9a177b4ba64e6b9849e40a13cd932f2a9",
+    "tools/frame-profiler-check/Program.cs": "c35ddc335d4fc2003eb66548b19d3b0dff145296c600a7656c439a69adf0fca1",
+    "tools/frame-profiler-check/README.md": "d5f31bff7ff2dcd331b275d908fe10c6416672dcd582c9f41f747891d7b50d91",
+    "tools/frame-profiler-check/Stubs.cs": "e20aa3eedf79d5be81941902be4492c5d69b801ce60e5045080dad570026b675",
+    "tools/material-pack/GpuCheck.cs": "7f123dae182d7edac5335bfadefdce36e08b4e2005b891ebf285b5ca6b429b2d",
+    "tools/material-pack/MipResidencyChecks.cs": "014570bd0db2ec1dbb9e1e99f9f8f806cd759ec418ddc09e3140801ea406c749",
+    "tools/material-pack/Program.cs": "100d2194733e28814262a0640e47a488561501616a119ea8ac3ca72b81951f63",
+    "tools/native-fps/README.md": "843e13234a95d706a05d916e62b4cb90c27d9a999a408c66e3b8ab6592670aa4",
+    "tools/native-fps/analyze.py": "62d59bb520505f79f2105b1b03f1ef84a74a15744de2230ef1420b931fe36554",
+    "tools/native-fps/test_analyze.py": "347edaa31c1138a1c0553f6368e9e91bf1852f3247cbc70989ba4d6209e21bf5",
+    "tools/native-render-check/Program.cs": "8869897ea66e518942876c560f726e232ebe6039fd8bc7470b2ae066da554fc3",
+    "tools/native-render-check/README.md": "9c911a48012ad96f700b49e3c913e0c2521f1586c676d2cc3a986f32eef3b2e1",
+    "tools/native-render-check/assess_agx_boundedness.py": "3f96f08fc77c0d1aa5f9bc63e90933c88fd56c1ed99edbd32ef4c6510bd8cd97",
+    "tools/native-render-check/test_assess_agx_boundedness.py": "051d5bf58952aec6aad399daede7b95e516fdbe155622a6dc392a9ae68d52180",
+    "tools/native-render-check/test_timing_samples.py": "b9e58b64f66060314919b2680591401ee114eb61abd555f130fa2b4efcc2aab6",
+    "tools/native-render-check/write_renderer_manifest.py": "310b65ce0ea57fd35f765de7f4318474025b6fe368f31fd5a140e44cd1e8bc85",
+    "tools/render-resource-check/Program.cs": "bbd6f097e62dc57ea03f918d369fb8ea81dc5f2b656990e0a1ff091f49e4a7ce",
+    "tools/render-resource-check/SceneTargetChecks.cs": "399e9465f4bc088274dec22b229556c71596be92253037c61ff95921164cf469",
+    "tools/renderer-preparation-check/Program.cs": "17c2695b061f6f0adc7627fd912eef62929f4c875d6d22e5767046a87e86d651",
+    "tools/renderer-preparation-check/renderer-preparation-check.csproj": "332b4d6698a3bd934404ac966563c3928ab851dd8921c2e518dd216ec8733e5d"
+  },
+  "sourceBindingScope": "Working files at manifest creation; loaded binaries are independently observed. No build attestation.",
+  "nativeReceiptSha256": "f54dd5dd25a49a8b196573ac3f7dc97ed6a872e105763ad0a92edbb50c3fc1a8",
+  "loadedClient": {
+    "name": "ProjectPrime",
+    "sha256": "50e8b8e03fe92437041a8b81f6888e09b2c0c28de7c44d8fccdd435acae8e26e",
+    "mvid": "b6489b3e-4bbc-4763-a085-8b030f892efe"
+  },
+  "loadedHarness": {
+    "name": "native-render-check",
+    "sha256": "1cc54e0fd1df15d1bfc7f4c09c904d05c3667de2561b2d218258e9be8386515a",
+    "mvid": "ca5a4a39-c993-402d-8bc7-bd0e292b7485"
+  },
+  "assets": {
+    "sha256": "533f00596f7b5b978ab6632aab38752b3bad22ced303efdf4999bb044876082b",
+    "files": 3535,
+    "bytes": 96037120,
+    "contract": "sorted relative path NUL size NUL content SHA256 newline"
+  },
+  "platform": {
+    "system": "Windows",
+    "version": "10.0.26200",
+    "vendor": "NVIDIA Corporation",
+    "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+    "driver": "4.6.0 NVIDIA 617.42"
+  },
+  "settings": {
+    "room": "MP3 PROVING GROUND",
+    "cap": 60,
+    "effectiveCap": 60,
+    "softwareFrequency": 60,
+    "vsync": "Off",
+    "shadows": "Off",
+    "textureQuality": "Automatic",
+    "lighting": true,
+    "resolutionScale": 100,
+    "framebuffer": [
+      1280,
+      720
+    ],
+    "renderSize": [
+      1280,
+      720
+    ]
+  },
+  "windowStart": {
+    "state": "Normal",
+    "visible": false,
+    "focused": true,
+    "framebuffer": [
+      1280,
+      720
+    ],
+    "renderSize": [
+      1280,
+      720
+    ]
+  },
+  "windowEnd": {
+    "state": "Normal",
+    "visible": true,
+    "focused": true,
+    "framebuffer": [
+      1280,
+      720
+    ],
+    "renderSize": [
+      1280,
+      720
+    ]
+  },
+  "flags": {},
+  "profiling": "Use native raw-capture condition metadata; no missing observation is inferred off",
+  "contention": "Concurrent source edits and builds; functional evidence only",
+  "nativeAcceptance": "UNVERIFIED",
+  "otherPlatforms": "NOT_RUN (Windows-only user constraint)"
+}

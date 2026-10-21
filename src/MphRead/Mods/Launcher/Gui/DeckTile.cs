@@ -21,7 +21,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// The offline face was a list of names down the left with a preview of
     /// whichever one was highlighted in the corner. That is a file picker. The
     /// reference makes the *picture* the control -- every map at once, square,
-    /// its archive code in the corner, and a word along the bottom that says
+    /// an optional tag in the corner, and a word along the bottom that says
     /// whether this is the one -- because the answer to "which map is that" is
     /// the map, and a column of truncated names beside one thumbnail asks the
     /// player to remember what the other twenty look like.
@@ -688,9 +688,12 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (Tactical)
             {
-                var codeText = DeckText.Run(Code.ToUpperInvariant(), new Typeface(PrimeTypography.Data), 11, PrimeTheme.HighlightBrush);
-                context.FillRectangle(PrimeTheme.BackgroundBrush, new Rect(8, 8, Math.Min(w - 16, codeText.Width + 12), 20));
-                context.DrawText(codeText, new Point(14, 11));
+                if (Code.Length > 0)
+                {
+                    var codeText = DeckText.Run(Code.ToUpperInvariant(), new Typeface(PrimeTypography.Data), 11, PrimeTheme.HighlightBrush);
+                    context.FillRectangle(PrimeTheme.BackgroundBrush, new Rect(8, 8, Math.Min(w - 16, codeText.Width + 12), 20));
+                    context.DrawText(codeText, new Point(14, 11));
+                }
                 string label = _chosen ? "SELECTED // " + Blurb : Blurb;
                 var name = DeckText.Run(label.ToUpperInvariant(), new Typeface(PrimeTypography.Label, weight: FontWeight.SemiBold), 16, PrimeTheme.TextBrush);
                 name.MaxTextWidth = Math.Max(1, w - 24); name.MaxLineCount = 2;

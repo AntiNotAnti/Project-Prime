@@ -15,27 +15,7 @@ internal static class FinalCompositeCapture
 {
     internal static byte[] Read(int width, int height)
     {
-        if (width <= 0 || height <= 0 || width > 8192 || height > 8192
-            || (long)width * height * 3 > 64 * 1024 * 1024)
-            throw new ArgumentOutOfRangeException(nameof(width), "Composite readback exceeds its 64 MiB budget.");
-        int framebuffer = GL.GetInteger(GetPName.ReadFramebufferBinding);
-        int alignment = GL.GetInteger(GetPName.PackAlignment);
-        int readBuffer = GL.GetInteger(GetPName.ReadBuffer);
-        try
-        {
-            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
-            GL.ReadBuffer(ReadBufferMode.Back);
-            GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
-            byte[] pixels = new byte[checked(width * height * 3)];
-            GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, pixels);
-            return pixels;
-        }
-        finally
-        {
-            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, framebuffer);
-            GL.ReadBuffer((ReadBufferMode)readBuffer);
-            GL.PixelStore(PixelStoreParameter.PackAlignment, alignment);
-        }
+        return CaptureReadback.Read(new CaptureSource(0, width, height, "final-output"));
     }
 
     internal static void WriteEvidence(string imagePath, int width, int height, string scope)

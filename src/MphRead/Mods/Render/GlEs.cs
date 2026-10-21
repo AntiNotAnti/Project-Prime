@@ -539,8 +539,7 @@ namespace MphRead.Mods.Render
         public static void ShaderSource(int shader, string source)
         {
             FlushPending();
-            EsShaders.CheckInSync();
-            string translated = EsShaders.Translate(source) ?? source;
+            string translated = EsShaders.PrepareSource(source);
             ES.GL.ShaderSource(shader, 1, new string[] { translated }, new int[] { translated.Length });
         }
 
@@ -773,6 +772,8 @@ namespace MphRead.Mods.Render
         public static bool IsEnabled(EnableCap cap)
         {
             FlushPending();
+            if (cap == EnableCap.AlphaTest) return _alphaTestEnabled;
+            if (IgnoredCap(cap)) return false;
             return ES.GL.IsEnabled((ES.EnableCap)(int)cap);
         }
 

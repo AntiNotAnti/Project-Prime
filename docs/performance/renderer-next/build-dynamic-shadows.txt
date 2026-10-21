@@ -1,0 +1,17 @@
+  NcsfPlay -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\NcsfPlay\bin\Debug\net10.0\NcsfPlay.dll
+  MphRead.CorpsePhysics -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.CorpsePhysics\bin\Debug\net10.0\MphRead.CorpsePhysics.dll
+  MphRead.Protocol.Generator -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Protocol.Generator\bin\Debug\netstandard2.0\MphRead.Protocol.Generator.dll
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+  MphRead -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\bin\Debug\net10.0\ProjectPrime.dll
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\DynamicShadowChecks.cs(70,28): error CS0246: The type or namespace name 'NodeRef' could not be found (are you missing a using directive or an assembly reference?) [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\renderer-preparation-check.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\DynamicShadowChecks.cs(80,66): error CS0246: The type or namespace name 'NodeRef' could not be found (are you missing a using directive or an assembly reference?) [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\renderer-preparation-check.csproj]
+
+Build FAILED.
+
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\DynamicShadowChecks.cs(70,28): error CS0246: The type or namespace name 'NodeRef' could not be found (are you missing a using directive or an assembly reference?) [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\renderer-preparation-check.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\DynamicShadowChecks.cs(80,66): error CS0246: The type or namespace name 'NodeRef' could not be found (are you missing a using directive or an assembly reference?) [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\renderer-preparation-check.csproj]
+    1 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:28.02

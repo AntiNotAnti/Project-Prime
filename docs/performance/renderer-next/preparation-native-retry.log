@@ -1,0 +1,14 @@
+clip legacy: iterations=100000 allocated_bytes=38400000 elapsed_ms=42.482
+clip candidate: iterations=100000 allocated_bytes=0 elapsed_ms=32.694
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] map.json FP-MESH-001: Collision mesh has 4 open boundary edges.
+[room] portal capacity: UNIT1_CX, parts=10, portals=45, frustums=32, reason=frustum pool; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=1, portals=1, frustums=1, reason=audible traversal; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=33, portals=0, frustums=1, reason=room part count; drawing all parts
+native renderer=NVIDIA GeForce RTX 5080/PCIe/SSE2 gl=4.6.0 NVIDIA 617.42 mvid=f38917cb-1a1f-4ee5-b872-45cbb4f6e890
+[glcapabilities] version=4.6.0 NVIDIA 617.42; vao=True; appleVao=False; desktopVaoApi=Core; timer=True; disjointTimer=False; sync=True; ubo=True; storage=True; optimizations=capability-and-policy; forceLegacy=False
+geometry cycle=0 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=13.787 cold_ms=1.819 warm_ms=0.195
+geometry cycle=1 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=0.261 cold_ms=0.158 warm_ms=0.001
+geometry cycle=2 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=0.509 cold_ms=0.175 warm_ms=0.001
+PASS: 14791 renderer preparation checks; native=True

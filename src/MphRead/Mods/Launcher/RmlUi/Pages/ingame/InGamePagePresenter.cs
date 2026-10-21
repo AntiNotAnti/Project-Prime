@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Campaign;
 using MphRead.Mods.Launcher.RmlUi.Host;
@@ -101,7 +102,7 @@ public sealed class InGamePagePresenter : IDisposable
         Text("ingame_record", state.Facts.Recording ? "STOP REPLAY RECORDING" : "RECORD REPLAY");
         Text("ingame_vote_prompt", state.Facts.VotePrompt + "\n" + state.Facts.VoteTally);
         Text("ingame_vote_reason", state.Facts.VoteUnavailable);
-        Text("ingame_map", state.SelectedMap);
+        Text("ingame_map", LauncherRoomDisplayName.Get(state.SelectedMap));
         Bool("visible:ingame_error", state.Error.Length > 0);
         Bool("visible:ingame_vote", state.Page == InGamePage.MapVote);
         InGamePage shown = state.Page == InGamePage.Confirmation ? state.ReturnPage : state.Page;

@@ -28,6 +28,17 @@ internal static class NativeSettingsVisualAcceptance
             }
             else
             {
+                Check(host.TryGetElementBounds(doc,"settings_visual_wheel",out float wx,out float wy,out float ww,out float wh)&&ww>0&&wh>0,
+                    "outline hue/saturation wheel has native geometry");
+                Check(page.VisualPointerDown(wx+ww*.9f,wy+wh/2)&&page.VisualPointerMove(wx+ww/2,wy+wh*.9f),
+                    "outline wheel accepts continuous hue/saturation drag");page.VisualPointerUp();
+                Check(!controller.Rows.Select(r=>r.Value).SequenceEqual(before)&&controller.Rows.Select(r=>r.Read()).SequenceEqual(engine),
+                    "outline wheel stages detached colors without publishing the renderer palette");
+                Check(host.TryGetElementBounds(doc,"settings_visual_brightness",out float bx,out float by,out float bw,out float bh)&&bw>0&&bh>0
+                    &&page.VisualPointerDown(bx,by+bh/2),"outline brightness track accepts pointer input");page.VisualPointerUp();
+                Check(controller.Rows.First(r=>r.Group=="Outline colors").Value=="#000000","brightness can reach exact black");
+                Check(page.Handle(new(RmlUiIntentKind.SettingsAction,235,doc,sequence++))
+                    &&controller.Rows.First(r=>r.Group=="Outline colors").Value!="#000000","brightness button recovers retained hue from black");
                 host.SetField(doc,"settings_visual_color","#112233");
                 Check(page.Handle(new(RmlUiIntentKind.SettingsAction,229,doc,sequence++)),"outline native temporary preview accepts draft color");
                 Check(controller.Rows.Select(r=>r.Read()).SequenceEqual(engine),"temporary outline preview never publishes global palette");

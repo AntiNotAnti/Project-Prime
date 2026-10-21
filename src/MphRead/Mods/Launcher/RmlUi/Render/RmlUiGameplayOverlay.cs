@@ -195,6 +195,8 @@ internal static partial class RmlUiOpenGlSmoke
         if (_playback != null && !ReferenceEquals(_gameplayWindow, window)) return;
         if (_gameplayScene != null && (_playback != null ? !NativeReplayLeaseCurrent(window)
             : !ReferenceEquals(_gameplayScene, window.Scene))) CloseGameplayOverlays();
+        SettingsPreview.Tick();
+        if (SettingsPreview.Active) { _shown = false; return; }
         if (_disabled || !GameplayOpen || _host is not { Active: true } host)
         {
             if (_shown && _host is { Active: true } previous) ReleaseNativeInput(previous);
@@ -228,6 +230,7 @@ internal static partial class RmlUiOpenGlSmoke
                 if (!GameplayOpen) return;
             }
             TickFullSettings();
+            if (SettingsPreview.Active) return;
             _pause?.Refresh();
             _matchResults?.Refresh();
             _playback?.Present();

@@ -384,7 +384,7 @@ namespace MphRead.Mods.Launcher
             string ping = status.Latency >= 0
                 ? $"{status.Latency.ToString(CultureInfo.InvariantCulture)} ms"
                 : "-- ms";
-            return $"{status.RoomKey} ({NetStatus.ModeName(status.Mode)}) {players} {ping}";
+            return $"{LauncherRoomDisplayName.Get(status.RoomKey)} ({NetStatus.ModeName(status.Mode)}) {players} {ping}";
         }
 
         /// <summary>
@@ -516,7 +516,7 @@ namespace MphRead.Mods.Launcher
             if (onMaster)
             {
                 Console.WriteLine($"  Asking {LauncherPrefs.MasterHost}:"
-                    + $"{LauncherPrefs.MasterPort} to run {roomKey}...");
+                    + $"{LauncherPrefs.MasterPort} to run {LauncherRoomDisplayName.Get(roomKey)}...");
                 HostedGame game = NetMasterClient.RequestGame(LauncherPrefs.MasterHost,
                     LauncherPrefs.MasterPort, roomKey, mode, timeLimit: 7 * 60,
                     pointGoal: 7, maxPlayers: PlayerEntity.SlotCapacity,
@@ -687,7 +687,7 @@ namespace MphRead.Mods.Launcher
             Console.WriteLine();
             for (int i = 0; i < rooms.Count; i++)
             {
-                Console.WriteLine($"  [{i + 1,2}] {rooms[i]}");
+                Console.WriteLine($"  [{i + 1,2}] {LauncherRoomDisplayName.Get(rooms[i])}");
             }
             Console.WriteLine();
             string answer = Ask("  Map", (current + 1).ToString(CultureInfo.InvariantCulture));

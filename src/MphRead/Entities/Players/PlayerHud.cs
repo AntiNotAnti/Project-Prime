@@ -179,6 +179,9 @@ namespace MphRead.Entities
             Debug.Assert(_sniperCircleObj.Height >= _targetCircleObj.Height);
             _targetCircleInst = new HudObjectInstance(_targetCircleObj.Width, _targetCircleObj.Height,
                 _sniperCircleObj.Width, _sniperCircleObj.Height);
+            Mods.Render.Hud.NativeReticleField.Prepare(_targetCircleObj);
+            Mods.Render.Hud.NativeReticleField.Prepare(_sniperCircleObj);
+            _targetCircleInst.HighResolutionReticle = true;
             _targetCircleInst.SetCharacterData(_targetCircleObj.CharacterData, _scene);
             _targetCircleInst.SetPaletteData(_targetCircleObj.PaletteData, _scene);
             _targetCircleInst.Center = true;
@@ -829,7 +832,7 @@ namespace MphRead.Entities
                         }
                         // helmet back
                         _scene.Layer3Info.BindingId = _helmetDropBindingId;
-                        _scene.Layer3Info.Alpha = Features.HelmetOpacity;
+                        _scene.Layer3Info.Alpha = _scene.UseDsLayout ? 0 : Features.HelmetOpacity;
                         _scene.Layer3Info.ScaleX = 2;
                         _scene.Layer3Info.ScaleY = 256 / 192f;
                         // visor
@@ -843,12 +846,12 @@ namespace MphRead.Entities
                             _scene.Layer1Info.BindingId = _visorBindingId;
                             _scene.Layer1Info.MaskId = -1;
                         }
-                        _scene.Layer1Info.Alpha = Features.VisorOpacity;
+                        _scene.Layer1Info.Alpha = _scene.UseDsLayout && !ScanVisor ? 0 : Features.VisorOpacity;
                         _scene.Layer1Info.ScaleX = 1;
                         _scene.Layer1Info.ScaleY = 256 / 192f;
                         // helmet front
                         _scene.Layer2Info.BindingId = _helmetBindingId;
-                        _scene.Layer2Info.Alpha = Features.HelmetOpacity;
+                        _scene.Layer2Info.Alpha = _scene.UseDsLayout ? 0 : Features.HelmetOpacity;
                         _scene.Layer2Info.ScaleX = 2;
                         _scene.Layer2Info.ScaleY = 256 / 192f;
                         _scene.Layer1Info.ShiftX = _hudShiftX / 256f;
@@ -1054,8 +1057,9 @@ namespace MphRead.Entities
             int selection = -1;
             float x = Input.PointerX;
             float y = Input.PointerY;
-            float ratioX = _scene.Size.X / 256f;
-            float ratioY = _scene.Size.Y / 192f;
+            var pointerSize = Mods.Input.DsLayout.Active ? Mods.Input.DsLayout.InputSize : _scene.Size;
+            float ratioX = pointerSize.X / 256f;
+            float ratioY = pointerSize.Y / 192f;
             float originX = 0;
             float originY = 0;
             // The wheel belongs to the bottom screen, and with a pen zone
@@ -1066,10 +1070,10 @@ namespace MphRead.Entities
             // read by the picture and by the hit test.
             if (Mods.Input.StylusZone.Enabled)
             {
-                originX = Mods.Input.StylusZone.Left * _scene.Size.X;
-                originY = Mods.Input.StylusZone.Top * _scene.Size.Y;
-                ratioX = Mods.Input.StylusZone.Width * _scene.Size.X / 256f;
-                ratioY = Mods.Input.StylusZone.Height * _scene.Size.Y / 192f;
+                originX = Mods.Input.StylusZone.Left * pointerSize.X;
+                originY = Mods.Input.StylusZone.Top * pointerSize.Y;
+                ratioX = Mods.Input.StylusZone.Width * pointerSize.X / 256f;
+                ratioY = Mods.Input.StylusZone.Height * pointerSize.Y / 192f;
                 if (x < originX || x >= originX + 256 * ratioX
                     || y < originY || y >= originY + 192 * ratioY)
                 {
@@ -1108,7 +1112,7 @@ namespace MphRead.Entities
 
         private void HudOnFiredShot()
         {
-            if (ScanVisor || Features.FixedCrosshair)
+            if (ScanVisor || !HudProfiles.Runtime.CrosshairFor((int)CurrentWeapon,_hudZoom).NativeAnimations)
             {
                 return;
             }
@@ -1129,12 +1133,11 @@ namespace MphRead.Entities
         }
 
         /// <summary>
-        /// Dynamic/Metroid keeps the crosshair's native camera-to-aim drift as
-        /// presentation only. The responsive render camera and the shot ray do
-        /// not inherit that easing.
+        /// Dynamic/Metroid uses the native camera-to-aim drift in both HUDs.
+        /// HUD artwork and layout do not choose the aiming camera.
         /// </summary>
         internal static bool ModDynamicReticlePresentation(bool proHud, bool fixedWeapon)
-            => proHud && !fixedWeapon;
+            => !fixedWeapon;
 
         private void RebaseReticlePresentation(Vector2 position)
         {
@@ -1155,7 +1158,10 @@ namespace MphRead.Entities
         {
             if (!Single.IsFinite(position.X) || !Single.IsFinite(position.Y))
             {
-                RebaseReticlePresentation(new Vector2(0.5f, 0.5f));
+                // Retain the last valid sample through an invalid projection.
+                // A missing/behind-camera point is not an instruction to centre.
+                if (!_reticlePresentationValid)
+                    RebaseReticlePresentation(new Vector2(0.5f, 0.5f));
                 return;
             }
 
@@ -1213,9 +1219,8 @@ namespace MphRead.Entities
             Vector2 step = _reticleCurrentPosition - _reticlePreviousPosition;
 
             // Classic native aiming and Pro Dynamic/Metroid both use the
-            // previous/current reticle timeline. Pro Dynamic is presentation
-            // only: the rendered camera still follows raw aim immediately, but
-            // the crosshair keeps the cartridge-style camera-to-aim drift.
+            // previous/current reticle timeline, matching the rendered camera.
+            // Preserve fractional projection coordinates through the draw pass.
             if (!Features.ResponsiveAimCamera
                 || ModDynamicReticlePresentation(Features.ProHud, Features.FixedWeapon))
             {
@@ -1269,11 +1274,8 @@ namespace MphRead.Entities
                 Features.ProHud, Features.FixedWeapon);
             if (Features.FixedWeapon || Features.ResponsiveAimCamera && !dynamicProReticle)
             {
-                // Static/Quake and other responsive fixed-crosshair modes keep
-                // the reticle welded to the real firing ray. Pro Dynamic is
-                // the exception: it projects the native camera-to-aim delta
-                // below as a visual-only moving crosshair while shots still
-                // follow the responsive raw-aim camera.
+                // Static/Quake keeps the reticle centred. Dynamic in either
+                // HUD projects the native aim point through the native camera.
                 reticlePosition = new Vector2(0.5f, 0.5f);
             }
             else
@@ -1286,9 +1288,9 @@ namespace MphRead.Entities
                 // tiny sawtooth on high-refresh displays. Project against the
                 // simulation camera instead; presentation gets its own history
                 // below and never changes gameplay state.
-                Matrix.ProjectPosition(_aimPosition, CameraInfo.ViewMatrix,
+                float w = Matrix.ProjectPosition(_aimPosition, CameraInfo.ViewMatrix,
                     _scene.PerspectiveMatrix, out Vector2 pos);
-                reticlePosition = new Vector2(MathF.Round(pos.X, 5), MathF.Round(pos.Y, 5));
+                reticlePosition = w > 0 ? pos : new Vector2(float.NaN, float.NaN);
             }
             CaptureReticlePosition(reticlePosition);
             _targetCircleInst.Enabled = true;
@@ -1517,7 +1519,7 @@ namespace MphRead.Entities
 
         private void ApplyNativeHudSmoothing()
         {
-            bool smooth = Mods.RenderOptions.SmoothNativeHud;
+            bool smooth = HudProfiles.Runtime.SmoothArtwork ?? Mods.RenderOptions.SmoothNativeHud;
 
             if (_targetCircleInst != null) _targetCircleInst.Smooth = smooth;
             if (_weaponIconInst != null) _weaponIconInst.Smooth = smooth;
@@ -1556,7 +1558,14 @@ namespace MphRead.Entities
             {
                 return;
             }
+            if(Mods.SettingsPreview.Active)
+            {
+                _hudTextOverride="preview.countdown";
+                DrawText2D(128,156,Align.Center,0,$"PREVIEW {Math.Ceiling(Mods.SettingsPreview.Remaining)}s  |  ESC TO RETURN",scale:.55f);
+                _hudTextOverride=null;
+            }
             ApplyNativeHudSmoothing();
+            if (_scene.DsTopPass) DrawDsBorder(false);
             // Before the pause check, not after it: a frame rate you cannot
             // read while the settings window is open -- which is where the
             // switch for it is -- would be a switch with no feedback.
@@ -1573,7 +1582,7 @@ namespace MphRead.Entities
                 ModDrawPostMatchReport();
                 return;
             }
-            DrawRadar();
+            if (!_scene.DsTopPass) DrawRadar();
             // Before the pause and spectator checks, like the counter above
             // it and for the same reason: somebody watching a match is in the
             // one position where reading what the players are saying is most
@@ -1620,7 +1629,7 @@ namespace MphRead.Entities
             if (_scene.GameState.MatchState == MatchState.GameOver)
             {
                 string text = Strings.GetHudMessage(219); // GAME OVER
-                DrawText2D(128, 40, Align.Center, 0, text, new ColorRgba(0x3FEF), fontSpacing: 8);
+                DrawGameOverText(128, 40, text);
             }
             else if (_scene.GameState.MatchState == MatchState.Ending)
             {
@@ -1640,6 +1649,7 @@ namespace MphRead.Entities
             }
             else if (Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen))
             {
+                if (_scene.DsTopPass && Health > 0) DrawDsTopReadouts();
                 if (_customWheel != null || _customWheelCancelled) ModDrawCustomWheel();
                 else
                 {
@@ -1694,7 +1704,7 @@ namespace MphRead.Entities
                                 // both drawn into the helmet's moulding, so Pro
                                 // mode -- which has no helmet -- draws neither.
                                 // What it puts in their place is in DrawProHud.
-                                if (!Features.ProHud)
+                                if (!Features.ProHud && !_scene.DsTopPass)
                                 {
                                     DrawAmmoBar();
                                     _weaponIconInst.PositionX = (_hudObjects.WeaponIconPosX + _objShiftX) / 256f;
@@ -1717,35 +1727,9 @@ namespace MphRead.Entities
                                     float reticleY = reticlePosition.Y;
                                     _targetCircleInst.PositionX = reticleX;
                                     _targetCircleInst.PositionY = reticleY;
-                                    var crosshairRuntime=HudProfiles.Runtime.CrosshairFor((int)CurrentWeapon,_hudZoom);
-                                    bool nativeProfile=HudProfiles.Runtime.Mode==HudMode.Custom && crosshairRuntime.Native;
-                                    if (_scene.CustomWeaponHud(this).Visible)
-                                    {
-                                        ModDrawCustomReticle(reticleX,reticleY);
-                                    }
-                                    else if (Features.CustomCrosshair && !nativeProfile)
-                                    {
-                                        if (HudElementVisible(0)) _scene.DrawCustomCrosshair(GetCrosshairColor(), reticleX, reticleY, (int)CurrentWeapon, _hudZoom);
-                                    }
-                                    else
-                                    {
-                                        float reticleAlpha = Features.ReticleOpacity;
-                                        if (ModShadowFreezeAngleReady)
-                                        {
-                                            float speed = ModShadowFreezeTargetReady ? 16f : 10f;
-                                            float wave = .5f + .5f * MathF.Sin(_scene.GlobalElapsedTime * speed);
-                                            reticleAlpha *= .82f + .18f * wave;
-                                        }
-                                        float nativeScale=Mods.Render.Crosshair.Scale;
-                                        if(nativeProfile)
-                                        {
-                                            reticleAlpha*=crosshairRuntime.Opacity*HudProfiles.Runtime[0].Opacity;
-                                            if(!crosshairRuntime.Enabled || !HudProfiles.Runtime[0].Enabled || !HudElementVisible(0)) reticleAlpha=0;
-                                            nativeScale=crosshairRuntime.NativeScale*HudProfiles.Runtime[0].Scale;
-                                        }
-                                        _targetCircleInst.Alpha = reticleAlpha;
-                                        _scene.DrawHudObject(_targetCircleInst, scale: nativeScale);
-                                    }
+                                    if (_scene.CustomWeaponHud(this).Visible) ModDrawCustomReticle(reticleX,reticleY);
+                                    else reticlePosition=DrawUnifiedCrosshair(reticlePosition);
+                                    reticleX=reticlePosition.X;reticleY=reticlePosition.Y;
                                     // Replica combat confirmation is authority-only. Never
                                     // borrow the foreground client's prediction marker into a
                                     // replay POV.
@@ -1785,7 +1769,7 @@ namespace MphRead.Entities
                                 {
                                     _scene.RestoreHudScale(reticleScale);
                                 }
-                                if (Features.ModernHud)
+                                if (Features.ModernHud && !_scene.DsTopPass)
                                 {
                                     DrawWeaponList();
                                 }
@@ -1796,7 +1780,11 @@ namespace MphRead.Entities
                         }
                         // todo: once we have masking that can account for various things (in this case, not drawing the scan lines
                         // on top of the layer for the scan log title box), call DrawModeHud when dialog pause is active
-                        if (Features.ProHud)
+                        if (_scene.DsTopPass)
+                        {
+                            DrawDsTopReadouts();
+                        }
+                        else if (Features.ProHud)
                         {
                             if (!ScanVisor)
                             {
@@ -2111,7 +2099,7 @@ namespace MphRead.Entities
             if (_scene.GameState.MatchState == MatchState.Ending)
             {
                 string text = Strings.GetHudMessage(219); // GAME OVER
-                DrawText2D(128, posY, Align.Center, 0, text, new ColorRgba(0x53F4), fontSpacing: 8);
+                DrawGameOverText(128, posY, text);
                 posY += _scoreStartSpace;
             }
             string header1 = "";
@@ -2241,11 +2229,13 @@ namespace MphRead.Entities
         {
             if (!ModHudHealthVisible) return;
             int displayHealth = ModHudHealth;
+            using var warningPresentation = _scene.PushHealthWarning(displayHealth <= 99);
+            float healthOpacity = Features.HudOpacity * Mods.Input.DsLayout.HealthBlink(displayHealth, _scene.GlobalElapsedTime);
             _healthbarMainMeter.TankAmount = Values.EnergyTank;
             _healthbarMainMeter.TankCount = _healthMax / Values.EnergyTank;
             DrawMeter(_hudObjects.HealthMainPosX + _objShiftX, _hudObjects.HealthMainPosY + _healthbarYOffset + _objShiftY,
                 Values.EnergyTank - 1, displayHealth, _healthbarPalette, _healthbarMainMeter,
-                drawText: true, drawTanks: _scene.GameState.SinglePlayer, Features.HudOpacity);
+                drawText: true, drawTanks: _scene.GameState.SinglePlayer, healthOpacity);
             if (_scene.GameState.Multiplayer)
             {
                 int amount = 0;
@@ -2257,7 +2247,7 @@ namespace MphRead.Entities
                 _healthbarSubMeter.TankCount = _healthMax / Values.EnergyTank;
                 DrawMeter(_hudObjects.HealthSubPosX + _objShiftX, _hudObjects.HealthSubPosY + _healthbarYOffset + _objShiftY,
                     Values.EnergyTank - 1, amount, _healthbarPalette, _healthbarSubMeter,
-                    drawText: false, drawTanks: false, Features.HudOpacity);
+                    drawText: false, drawTanks: false, healthOpacity);
             }
         }
 
@@ -2567,8 +2557,47 @@ namespace MphRead.Entities
             }
         }
 
+        private IReadOnlyList<ColorRgba>? _boostOriginalPalette, _bombOriginalPalette;
+        private IReadOnlyList<ColorRgba>? _boostThemePalette, _bombThemePalette;
+        private string? _altHudTheme;
+
+        private void UpdateAltHudTheme()
+        {
+            // Cache palette conversion; animation frames and gameplay state are untouched.
+            if (_boostInst.PaletteData != _boostThemePalette) _boostOriginalPalette = _boostInst.PaletteData;
+            if (_bombInst.PaletteData != _bombThemePalette) _bombOriginalPalette = _bombInst.PaletteData;
+            var decoration=HudProfiles.Runtime.Decorations.Get("boost");
+            string? theme = _scene.DsTopPass ? (decoration.MatchPalette?Mods.Input.StylusZone.GuideColor:decoration.Color) : null;
+            if (theme != null && (_altHudTheme != theme || _boostInst.PaletteData != _boostThemePalette || _bombInst.PaletteData != _bombThemePalette))
+            {
+                ColorRgba[] Tint(IReadOnlyList<ColorRgba> source)
+                {
+                    var result = new ColorRgba[source.Count];
+                    for (int i = 0; i < result.Length; i++)
+                    {
+                        var c = source[i];
+                        float light = Math.Max(c.Red, Math.Max(c.Green, c.Blue));
+                        result[i] = new ColorRgba((byte)(light * decoration.Ink.X),
+                            (byte)(light * decoration.Ink.Y), (byte)(light * decoration.Ink.Z), c.Alpha);
+                    }
+                    return result;
+                }
+                _boostThemePalette = Tint(_boostOriginalPalette!);
+                _bombThemePalette = Tint(_bombOriginalPalette!);
+            }
+            _altHudTheme = theme;
+            _boostInst.SetPaletteData(theme == null ? _boostOriginalPalette! : _boostThemePalette!, _scene);
+            _bombInst.SetPaletteData(theme == null ? _bombOriginalPalette! : _bombThemePalette!, _scene);
+        }
+
         private void DrawBoostBombs()
         {
+            UpdateAltHudTheme();
+            _hudTextOverride="touch.labels";
+            var decoration=HudProfiles.Runtime.Decorations.Get("boost");
+            _boostInst.Alpha=_bombInst.Alpha=decoration.Opacity;
+            ColorRgba? themeColor = _scene.DsTopPass ? new ColorRgba((byte)(decoration.Ink.X * 255),
+                (byte)(decoration.Ink.Y * 255), (byte)(decoration.Ink.Z * 255), 255) : null;
             float posY = _boostBombsYOffset;
             if (_abilities.TestFlag(AbilityFlags.Bombs) && Hunter != Hunter.Kanden)
             {
@@ -2582,7 +2611,7 @@ namespace MphRead.Entities
                     posX -= 14;
                 }
                 string message = Strings.GetHudMessage(1); // bombs
-                DrawText2D(230, posY + 18, Align.Center, palette: 0, message);
+                DrawText2D(230, posY + 18, Align.Center, palette: 0, message, color: themeColor);
             }
             if (_abilities.TestFlag(AbilityFlags.Boost))
             {
@@ -2598,8 +2627,9 @@ namespace MphRead.Entities
                 _boostInst.PositionY = (posY - 16) / 192f;
                 _scene.DrawHudObject(_boostInst, mode: 2);
                 string message = Strings.GetHudMessage(2); // boost
-                DrawText2D(29, posY + 18, Align.Center, palette: 0, message);
+                DrawText2D(29, posY + 18, Align.Center, palette: 0, message, color: themeColor);
             }
+            _hudTextOverride=null;
         }
 
         private void DrawMeter(float x, float y, int baseAmount, int curAmount, int palette,
@@ -3202,7 +3232,7 @@ namespace MphRead.Entities
 
         private void DrawModeScore(int messageId, string? label = null)
         {
-            if (Features.ProHud)
+            if (Features.ProHud || _scene.DsTopPass)
             {
                 // Pro HUD replaces this score entirely. Format only after the
                 // guard so a high-refresh draw loop does not allocate a native
@@ -3910,6 +3940,15 @@ namespace MphRead.Entities
             ColorRgba? color = null, float alpha = 1, float fontSpacing = -1, int maxLength = -1,
             float scale = 1)
         {
+            string textId=_hudTextOverride ?? (_scene.HudTextElement>=0 ? HudProfileDefaults.ElementIds[_scene.HudTextElement] : "all.other");
+            var textStyle=HudProfiles.Runtime.Typography.Get(textId);
+            if(textStyle.Enabled)
+            {
+                if(maxLength>=0)text=text[..Math.Min(text.Length,maxLength)];
+                ColorRgba? preserved=textStyle.FontOnlyOverride
+                    ? _scene.HudTextColor(color ?? (palette==2?new ColorRgba(255,106,106,255):new ColorRgba(255,255,255,255))) : null;
+                return DrawStyledHudText(x,y,type,text,scale*24,textStyle,preserved,alpha);
+            }
             color = _scene.HudTextColor(color);
             if (HudProfiles.Runtime.Mode == HudMode.Custom) scale *= HudProfiles.Runtime.TextScale;
             int padAfter = maxLength;
@@ -4178,7 +4217,7 @@ namespace MphRead.Entities
                 : Strings.GetHudMessage(255).Replace("%s",
                     PlayerNameCodec.ToNative(_scene.GameState.Nicknames[attacker.SlotIndex]));
             if (attacker.IsMainPlayer && HudProfiles.Runtime.Mode == HudMode.Custom)
-                attacker.QueueCombatNotifications(new[] { message });
+                attacker.QueueCombatNotifications(new[] { message }, "combat.kill");
             else QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
         }
 
@@ -4191,7 +4230,7 @@ namespace MphRead.Entities
         /// take the lane by themselves so Killionaire + Killing Frenzy, for
         /// example, can never collide with a stale lower-tier medal.
         /// </summary>
-        internal void QueueCombatNotifications(IReadOnlyList<string> labels)
+        internal void QueueCombatNotifications(IReadOnlyList<string> labels, string? styleId = null)
         {
             string[] visibleLabels = labels
                 .Where(label => !String.IsNullOrWhiteSpace(label))
@@ -4240,6 +4279,7 @@ namespace MphRead.Entities
             message.Lifetime = CombatNotificationLifetime;
             message.DialogHide = true;
             message.IsCombatNotification = true;
+            message.TextStyleId = styleId ?? HudNotificationStyle(text);
             message.CombatDeferred = false;
             message.CombatLines = Math.Max(1, lineCount);
             message.CombatSerial = ++_combatNotificationSerial;
@@ -4384,9 +4424,26 @@ namespace MphRead.Entities
             return lines;
         }
 
+        private void DrawGameOverText(float x, float y, ReadOnlySpan<char> text)
+        {
+            string? previous = _hudTextOverride;
+            _hudTextOverride = "match.gameOver";
+            try { DrawText2D(x, y, Align.Center, 0, text, new ColorRgba(0x3FEF), fontSpacing: 8); }
+            finally { _hudTextOverride = previous; }
+        }
+
+        private static string HudNotificationStyle(ReadOnlySpan<char> text)
+        {
+            if(text.Contains("ASSIST",StringComparison.OrdinalIgnoreCase))return "combat.assist";
+            if(text.Contains("KILL",StringComparison.OrdinalIgnoreCase)||text.Contains("ELIMINAT",StringComparison.OrdinalIgnoreCase))return "combat.kill";
+            return "combat.notifications";
+        }
+
         private static float CombatNotificationHeight(HudMessage message)
         {
             float scale = message.Scale <= 0 ? CombatNotificationScale : message.Scale;
+            var typography=HudProfiles.Runtime.Typography.Get(message.TextStyleId ?? HudNotificationStyle(message.Text));
+            if(typography.Enabled) return Math.Max(1,message.CombatLines)*64*(24/48f)*scale*typography.Size/3 + typography.Outline*2/3;
             return CombatNotificationGlyphHeight * scale
                 + (Math.Max(1, message.CombatLines) - 1)
                     * CombatNotificationLineSpacing * scale;
@@ -4451,33 +4508,35 @@ namespace MphRead.Entities
         }
 
         public void QueueHudMessage(float x, float y, float duration,
-            byte category, int messageId, bool dialogHide = false)
+            byte category, int messageId, bool dialogHide = false, string? styleId = null)
         {
             string text = Strings.GetHudMessage(messageId);
-            QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
+            styleId ??= messageId is 238 or 239 or 240 ? "combat.kill" : null;
+            QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide, styleId);
         }
 
         public void QueueHudMessage(float x, float y, int maxWidth, float duration,
-            byte category, int messageId, bool dialogHide = false)
+            byte category, int messageId, bool dialogHide = false, string? styleId = null)
         {
             string text = Strings.GetHudMessage(messageId);
-            QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
+            styleId ??= messageId is 238 or 239 or 240 ? "combat.kill" : null;
+            QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide, styleId);
         }
 
         public void QueueHudMessage(float x, float y, float duration,
-            byte category, string text, bool dialogHide = false)
+            byte category, string text, bool dialogHide = false, string? styleId = null)
         {
-            QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
+            QueueHudMessage(x, y, Align.Center, 256, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide, styleId);
         }
 
         public void QueueHudMessage(float x, float y, int maxWidth, float duration,
-            byte category, string text, bool dialogHide = false)
+            byte category, string text, bool dialogHide = false, string? styleId = null)
         {
-            QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide);
+            QueueHudMessage(x, y, Align.Center, maxWidth, 8, new ColorRgba(0x3FEF), 1, duration, category, text, dialogHide, styleId);
         }
 
         public void QueueHudMessage(float x, float y, Align align, int maxWidth, float fontSize,
-            ColorRgba color, float alpha, float duration, byte category, string text, bool dialogHide = false)
+            ColorRgba color, float alpha, float duration, byte category, string text, bool dialogHide = false, string? styleId = null)
         {
             Debug.Assert(text.Length < 256);
             char[] buffer = new char[512];
@@ -4516,6 +4575,7 @@ namespace MphRead.Entities
             message.FontSize = fontSize;
             message.Scale = 1;
             message.IsCombatNotification = false;
+            message.TextStyleId = styleId;
             message.CombatDeferred = false;
             message.CombatLines = 0;
             message.CombatSerial = 0;
@@ -4697,9 +4757,11 @@ namespace MphRead.Entities
                         }
                         using var layout = UseHudLayout(message.IsCombatNotification ? 8 : -1,
                             CombatNotificationLayoutX, CombatNotificationLayoutY);
+                        _hudTextOverride = message.TextStyleId ?? (message.IsCombatNotification ? HudNotificationStyle(message.Text) : null);
                         DrawText2D(message.Position.X, message.Position.Y, message.Align, palette: 0,
                             message.Text, message.Color, alpha, fontSpacing: message.FontSize,
                             scale: message.Scale <= 0 ? 1 : message.Scale);
+                        _hudTextOverride=null;
                     }
                 }
             }
@@ -4719,6 +4781,7 @@ namespace MphRead.Entities
             public char[] Text { get; } = new char[256];
             public bool DialogHide { get; set; }
             public bool IsCombatNotification { get; set; }
+            public string? TextStyleId { get; set; }
             public bool CombatDeferred { get; set; }
             public int CombatLines { get; set; }
             public long CombatSerial { get; set; }

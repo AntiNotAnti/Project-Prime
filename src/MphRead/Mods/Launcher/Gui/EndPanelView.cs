@@ -160,13 +160,10 @@ namespace MphRead.Mods.Launcher.Gui
                 _ballot.Children.Clear();
                 foreach (string room in order)
                 {
-                    string code = MapPick.IsReturnToLobby(room)
-                        ? "LOBBY"
-                        : room.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                            is { Length: > 0 } parts ? parts[0] : room;
-                    var tile = new DeckTile(room, code)
+                    bool returnToLobby = MapPick.IsReturnToLobby(room);
+                    var tile = new DeckTile(room, returnToLobby ? "LOBBY" : "")
                     {
-                        Blurb = MapPick.NameOf(room),
+                        Blurb = returnToLobby ? MapPick.NameOf(room) : LauncherRoomDisplayName.Get(room),
                         Tactical = true,
                         // No slab: the whole card is the button, and on a
                         // ballot of 27 it was a third of every one of them.
@@ -223,7 +220,7 @@ namespace MphRead.Mods.Launcher.Gui
             else
             {
                 _next.Text = next.Length > 0
-                    ? "SELECTED // " + MapPick.NameOf(next).ToUpperInvariant()
+                    ? "SELECTED // " + DisplayRoom(next).ToUpperInvariant()
                     : NetSession.Active
                         ? "NEXT // " + Mods.EndScreen.NextRoomName.ToUpperInvariant()
                         : "CURRENT ARENA // REMATCH";
@@ -232,6 +229,10 @@ namespace MphRead.Mods.Launcher.Gui
                     : "RESULTS // CHOOSE YOUR NEXT ARENA";
             }
         }
+
+        private static string DisplayRoom(string room) => MapPick.IsReturnToLobby(room)
+            ? MapPick.NameOf(room)
+            : LauncherRoomDisplayName.Get(room);
     }
 }
 #endif

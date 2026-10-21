@@ -35,6 +35,8 @@ public static class CrosshairProperties
                 : p.Name is "Inner" or "LengthX" or "LengthY" or "Gap" or "Thickness" or "TStyle" ? "Inner" : "General";
             float min=p.Name is "Scale" or "DotSize" or "Thickness" or "RingThickness" or "BracketThickness" ? .1f : p.Name=="Segments" ? 12 : 0;
             float max=p.Name.Contains("Opacity") ? 1 : p.Name=="Scale" ? 8 : p.Name=="Segments" ? 128 : p.Name.Contains("Thickness") || p.Name=="Outline" ? 20 : 100;
+            if(p.Name is "WidthScale" or "HeightScale" or "ShotScale" or "ChargeScale" or "ZoomScale" or "Scale") { min=.05f;max=8; }
+            if(p.Name=="Rotation") { min=-180;max=180; }
             string name=System.Text.RegularExpressions.Regex.Replace(p.Name,"([a-z])([A-Z])","$1 $2");
             return new HudPropertyDescriptor(p.Name,name,category,p.PropertyType,min,max,max<=8 ? .1f : 1,p);
         }).ToArray();
@@ -58,6 +60,8 @@ public sealed class CrosshairPartStyle
     public string Color { get; set; } = "#FFFFFF";
     public float Opacity { get; set; } = 1;
     public float Outline { get; set; } = -1;
+    public bool CustomOutlineColor { get; set; }
+    public string OutlineColor { get; set; } = "#000000";
     internal void Validate()
-    { Color=HudColor.Normalize(Color); Opacity=HudProfile.Clamp(Opacity,0,1,1); Outline=HudProfile.Clamp(Outline,-1,20,-1); }
+    { OutlineColor=HudColor.Normalize(OutlineColor); Color=HudColor.Normalize(Color); Opacity=HudProfile.Clamp(Opacity,0,1,1); Outline=HudProfile.Clamp(Outline,-1,20,-1); }
 }

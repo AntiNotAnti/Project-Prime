@@ -1,6 +1,7 @@
 #if ANDROID && PROJECTPRIME_ANDROID_SHADER_BINARY_CACHE
 using System;
 using System.IO;
+using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using MphRead.Droid;
 using OpenTK.Graphics.OpenGL;
@@ -20,6 +21,7 @@ internal static class AndroidShaderProgramBinaryCache
     private const uint Vendor = 0x1F00, Renderer = 0x1F01, Version = 0x1F02, GlslVersion = 0x8B8C;
     private const int FileHeader = 8;
     private const int Magic = 0x50475042; // PGPB
+    private static bool _pruned;
 
     [DllImport(GLES, EntryPoint = "glGetIntegerv")] private static extern void GetInteger(uint name, out int value);
     [DllImport(GLES, EntryPoint = "glGetProgramiv")] private static extern void GetProgramInt(int program, uint name, out int value);
@@ -27,6 +29,7 @@ internal static class AndroidShaderProgramBinaryCache
     [DllImport(GLES, EntryPoint = "glProgramBinary")] private static extern void LoadBinary(int program, int format, byte[] data, int length);
     [DllImport(GLES, EntryPoint = "glProgramParameteri")] private static extern void ProgramParameter(int program, uint name, int value);
     [DllImport(GLES, EntryPoint = "glGetString")] private static extern IntPtr GetString(uint name);
+    [DllImport(GLES, EntryPoint = "glGetError")] private static extern uint GetError();
 
     private static bool Supported()
     {
@@ -45,7 +48,7 @@ internal static class AndroidShaderProgramBinaryCache
         string? root = MainActivity.Instance?.FilesDir?.AbsolutePath;
         if (string.IsNullOrEmpty(root)) return null;
         return Path.Combine(root, "shader-programs",
-            ShaderProgramCacheKey.Compute(vertex, fragment, Driver()) + ".bin");
+            ShaderProgramCacheKey.Compute(EsShaders.PrepareSource(vertex), EsShaders.PrepareSource(fragment), Driver()) + ".bin");
     }
 
     internal static void EnableRetrieval(int program)
@@ -62,10 +65,16 @@ internal static class AndroidShaderProgramBinaryCache
             if (!Supported()) return false;
             string? path = PathFor(vertex, fragment);
             if (path == null || !File.Exists(path)) return false;
-            FileInfo stat = new(path);
-            if (stat.Length <= FileHeader || stat.Length > ShaderProgramCacheKey.MaxBinaryBytes + FileHeader)
+            if (!_pruned)
+            {
+                Prune(Path.GetDirectoryName(path)!);
+                _pruned = true;
+            }
+            using FileStream stream = File.OpenRead(path);
+            if (stream.Length <= FileHeader || stream.Length > ShaderProgramCacheKey.MaxBinaryBytes + FileHeader)
                 return false;
-            byte[] saved = File.ReadAllBytes(path);
+            byte[] saved = new byte[(int)stream.Length];
+            stream.ReadExactly(saved);
             if (saved.Length < FileHeader || BitConverter.ToInt32(saved, 0) != Magic) return false;
             int format = BitConverter.ToInt32(saved, 4);
             int length = saved.Length - FileHeader;
@@ -76,8 +85,12 @@ internal static class AndroidShaderProgramBinaryCache
             try
             {
                 LoadBinary(candidate, format, bytes, length);
+                // Invalid/corrupt binary formats set a GL error as well as
+                // failing link. Consume that optional operation's error so
+                // source fallback does not poison the next allocation check.
+                uint binaryError = GetError();
                 GraphicsApi.GetProgram(candidate, GetProgramParameterName.LinkStatus, out int linked);
-                if (linked == 0) return false;
+                if (linked == 0 || binaryError != 0) return false;
                 program = candidate;
                 candidate = 0;
                 return true;
@@ -91,6 +104,31 @@ internal static class AndroidShaderProgramBinaryCache
         {
             // Unsupported extension, corrupt cache, or unmounted storage: compile normally.
             return false;
+        }
+    }
+
+    // Keep the private cache within 64 entries / 64 MiB, including old schemas.
+    // Retain only a bounded list while scanning a pre-existing cache directory.
+    private static void Prune(string directory)
+    {
+        var retained = new List<FileInfo>(65);
+        long bytes = 0;
+        foreach (string file in Directory.EnumerateFiles(directory))
+        {
+            if (!file.EndsWith(".bin", StringComparison.OrdinalIgnoreCase)
+                && !file.EndsWith(".tmp", StringComparison.OrdinalIgnoreCase)) continue;
+            FileInfo info = new(file);
+            retained.Add(info);
+            bytes += info.Length;
+            retained.Sort((a, b) => a.LastWriteTimeUtc.CompareTo(b.LastWriteTimeUtc));
+            while (retained.Count > 64 || bytes > 64L * 1024 * 1024)
+            {
+                FileInfo oldest = retained[0];
+                long length = oldest.Length;
+                oldest.Delete();
+                retained.RemoveAt(0);
+                bytes -= length;
+            }
         }
     }
 
@@ -116,6 +154,7 @@ internal static class AndroidShaderProgramBinaryCache
             File.WriteAllBytes(temp, serialized);
             File.Move(temp, path, overwrite: true);
             temp = null;
+            Prune(Path.GetDirectoryName(path)!);
         }
         catch (Exception) { /* optional cache must never break gameplay */ }
         finally

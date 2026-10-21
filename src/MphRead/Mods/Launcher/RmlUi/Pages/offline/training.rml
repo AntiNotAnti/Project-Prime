@@ -10,9 +10,9 @@
         <div id="offline_training_body" class="offline_dialog_body">
         <p>These options are saved when training starts. Imperialist click reload skips each new click; holding fire keeps normal timing.</p>
         <div class="offline_training_grid">
-        <button id="offline_training_difficulty" class="offline_choice" data-action="offline:choice:13"><span>DIFFICULTY</span><b id="offline_training_difficulty_value" /></button>
-        <button class="offline_choice" data-action="offline:choice:14"><span>TARGET DISTANCE</span><b id="offline_training_distance_value" /></button>
-        <button class="offline_choice" data-action="offline:choice:15"><span>IMPERIALIST SCOPE</span><b id="offline_training_scope_value" /></button>
+        <div class="offline_choice_navigation"><button id="offline_previous_13" class="offline_previous" data-action="offline:previous-choice:13" aria-label="Previous choice">&lt;</button><button id="offline_training_difficulty" class="offline_choice" data-action="offline:choice:13"><span>DIFFICULTY</span><b id="offline_training_difficulty_value" /></button></div>
+        <div class="offline_choice_navigation"><button id="offline_previous_14" class="offline_previous" data-action="offline:previous-choice:14" aria-label="Previous choice">&lt;</button><button class="offline_choice" data-action="offline:choice:14"><span>TARGET DISTANCE</span><b id="offline_training_distance_value" /></button></div>
+        <div class="offline_choice_navigation"><button id="offline_previous_15" class="offline_previous" data-action="offline:previous-choice:15" aria-label="Previous choice">&lt;</button><button class="offline_choice" data-action="offline:choice:15"><span>IMPERIALIST SCOPE</span><b id="offline_training_scope_value" /></button></div>
         <button id="offline_training_toggle_0" class="offline_action" data-action="offline:training-toggle:0" />
         <button id="offline_training_toggle_1" class="offline_action" data-action="offline:training-toggle:1" />
         <button id="offline_training_toggle_2" class="offline_action" data-action="offline:training-toggle:2" />

@@ -86,7 +86,7 @@ internal static class MapPickerCatalogAcceptance
         using (var watchdog = new Timer(_ => { Interlocked.Exchange(ref watchdogFired, 1); pending.TrySetException(new TimeoutException("WATCHDOG")); }, null, 4000, Timeout.Infinite))
             Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen) && Volatile.Read(ref watchdogFired) == 0 && !pending.Task.IsCompleted,
                 "map picker opens without waiting for held installed-catalog task");
-        Check(controller.MapPickerOpen && Text(controller, "map_choice0_name") == "MP1 SANCTORUS"
+        Check(controller.MapPickerOpen && Text(controller, "map_choice0_name") == "Data Shrine"
             && Flag(controller, "map_choice0_enabled") && previewThread == ownerThread,
             "built-in MPH card remains immediately selectable and preview bindings run on owner");
         var bindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Maps, controller.Tick().Bindings);
@@ -120,7 +120,7 @@ internal static class MapPickerCatalogAcceptance
         Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen) && controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0)
             && requests[0].Token.IsCancellationRequested, "MPH selection cancels still-pending custom catalog");
         requests[0].Work.TrySetResult(new[] { new RmlUiArenaChoice("LATE SELECTED CATALOG", RmlUiArenaCategory.Halo) }); controller.Tick();
-        Check(!controller.MapPickerOpen && Text(controller, "rules_map") == "MP1 SANCTORUS", "late selected catalog cannot change staged rule map");
+        Check(!controller.MapPickerOpen && Text(controller, "rules_map") == "Data Shrine", "late selected catalog cannot change staged rule map");
         controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
         Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen) && controller.Dispatch(RmlUiIntentKind.LobbyMapClose)
             && requests[1].Token.IsCancellationRequested && !Flag(controller, "lobby_rules_open"),

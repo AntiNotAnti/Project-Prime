@@ -374,6 +374,9 @@
   </ItemGroup>
   <ItemGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
     <!-- Only authored resources, not historical service presenters, are restored. -->
+    <None Update="Assets/HudFonts/*.ttf;Assets/HudFonts/*-notice.txt;Assets/HudFonts/*-OFL.txt;Assets/HudFonts/LibreOffice-bundled-font-licenses.txt"
+          Link="rmlui/hud-fonts/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Update="Mods/Launcher/RmlUi/Pages/startup/startup-background.tga"
           Link="rmlui/pages/startup/startup-background.tga"
           CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
@@ -430,5 +433,13 @@
           Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <None Include="$(_RmlUiNativeRoot)/licenses/*.txt"
           Link="licenses/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/DsHud/*.bin" />
+    <EmbeddedResource Include="Assets/DsHud/*.rgb" />
+    <EmbeddedResource Include="Assets/HudFonts/*.bin" />
+    <Content Include="Assets/HudFonts/*-*.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets/DsHud/*LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="Assets/HudFonts/*.ttf" Condition="'$(MphReadAvalonia)' == 'true'" />
   </ItemGroup>
 </Project>

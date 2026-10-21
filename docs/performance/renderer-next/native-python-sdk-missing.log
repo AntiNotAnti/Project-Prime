@@ -1,0 +1,208 @@
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmps_r9m7bm\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "map-gl", "-resourceframes", "120", "-failure-stages", "none", "-resource-drain", "-resource-quiescent-samples", "60", "-resource-quiescent-ms", "1000", "-resource-context-cycles", "30", "-resource-context-post-samples", "60", "-resource-context-post-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmps_r9m7bm\\new-campaign\\context.json", "-resource-context-driver-drain", "-resource-context-phase-acks", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmps_r9m7bm\\new-campaign\\phase-acks", "-resource-shader-source-ledger"]
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp6m617zpt\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "map-gl", "-resourceframes", "120", "-failure-stages", "none", "-resource-drain", "-resource-quiescent-samples", "60", "-resource-quiescent-ms", "1000", "-resource-context-cycles", "120,180", "-resource-context-post-samples", "60", "-resource-context-post-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp6m617zpt\\new-campaign\\context.json", "-resource-context-phase-acks", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp6m617zpt\\new-campaign\\phase-acks"]
+..........................................................sss..s..FFFEFFF.EFF...usage: runner [-h] [--dotnet DOTNET] --binary BINARY --output OUTPUT
+              [--cycles CYCLES [CYCLES ...]] [--frames FRAMES]
+              [--samples SAMPLES] [--timeout TIMEOUT] [--arm {map-gl,studio}]
+              [--failure-stages FAILURE_STAGES]
+              [--user-data-template USER_DATA_TEMPLATE]
+              [--max-rss-mib MAX_RSS_MIB]
+              [--min-free-disk-mib MIN_FREE_DISK_MIB]
+              [--capture-native-stacks] [--uncompressed-stacks]
+              [--driver-drain] [--shader-source-ledger] [--dry-run]
+runner: error: --user-data-template is required for an isolated native campaign
+.......usage: runner [-h] [--dotnet DOTNET] --binary BINARY --output OUTPUT
+              [--mode {no-shader,compile-only,compile-delete,fresh-contexts,rebind-draw}]
+              [--variant {tiny,canonical,native,plain,unlit,four-prewarm}]
+              [--iterations ITERATIONS] [--define DEFINE] [--bind BIND]
+              [--sampler-unit SAMPLER_UNIT] [--depth-vertex]
+              [--fail-at FAIL_AT] [--capture-native-stacks]
+              [--compress-stacks] [--timeout TIMEOUT]
+              [--max-rss-mib MAX_RSS_MIB]
+              [--min-free-disk-mib MIN_FREE_DISK_MIB] [--dry-run]
+runner: error: output directory must be fresh
+......usage: runner [-h] [--dotnet DOTNET] --binary BINARY --output OUTPUT
+              [--arms {combined,map-gl,studio,audio} [{combined,map-gl,studio,audio} ...]]
+              [--cycles CYCLES] [--frames FRAMES]
+              [--quiescent-samples QUIESCENT_SAMPLES]
+              [--quiescent-ms QUIESCENT_MS] [--warmup-cycles WARMUP_CYCLES]
+              [--timeout TIMEOUT] [--dry-run]
+              ...
+runner: error: output must be a fresh/empty directory to preserve prior evidence
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7_y3jrgz\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "combined", "-resourcecycles", "60", "-resourceframes", "120", "-resource-drain", "-resource-quiescent-samples", "30", "-resource-quiescent-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7_y3jrgz\\campaign\\00-combined.json"]
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7_y3jrgz\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "map-gl", "-resourcecycles", "60", "-resourceframes", "120", "-resource-drain", "-resource-quiescent-samples", "30", "-resource-quiescent-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7_y3jrgz\\campaign\\01-map-gl.json"]
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7_y3jrgz\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "studio", "-resourcecycles", "60", "-resourceframes", "120", "-resource-drain", "-resource-quiescent-samples", "30", "-resource-quiescent-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7_y3jrgz\\campaign\\02-studio.json"]
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7_y3jrgz\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "audio", "-resourcecycles", "60", "-resourceframes", "120", "-resource-drain", "-resource-quiescent-samples", "30", "-resource-quiescent-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7_y3jrgz\\campaign\\03-audio.json"]
+combined: exit=-1 elapsed=0.00s
+..F.....................
+======================================================================
+ERROR: test_historical_negative_recomputes_from_raw_samples (test_gl_comparison.EvidenceTests.test_historical_negative_recomputes_from_raw_samples)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 46, in test_historical_negative_recomputes_from_raw_samples
+    report = gl.validate(self.bundle, self.root)
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\gl_comparison.py", line 82, in validate
+    verify(root, manifest=bundle)
+    ~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\sanitize_gl_evidence.py", line 118, in verify
+    raise ValueError('changed derivative digest/length: ' + row['file'])
+ValueError: changed derivative digest/length: unprofiled/00-palette-0.json
+
+======================================================================
+ERROR: test_symlinked_harness_is_rejected_before_resolution (test_gl_comparison.EvidenceTests.test_symlinked_harness_is_rejected_before_resolution)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 97, in test_symlinked_harness_is_rejected_before_resolution
+    binary.symlink_to(self.root / self.bundle['records'][1]['result'])
+    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Python314\Lib\pathlib\__init__.py", line 1213, in symlink_to
+    os.symlink(target, self, target_is_directory)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+OSError: [WinError 1314] A required privilege is not held by the client: 'C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmpo24cfgh9\\bundle\\unprofiled\\01-palette-1.json' -> 'C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmpo24cfgh9\\bundle\\native-render-check.dll'
+
+======================================================================
+FAIL: test_declared_file_hash_does_not_replace_loaded_mvid (test_gl_comparison.EvidenceTests.test_declared_file_hash_does_not_replace_loaded_mvid)
+----------------------------------------------------------------------
+ValueError: changed derivative digest/length: unprofiled/00-palette-0.json
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 59, in test_declared_file_hash_does_not_replace_loaded_mvid
+    with self.assertRaisesRegex(ValueError, 'MVID'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^
+AssertionError: "MVID" does not match "changed derivative digest/length: unprofiled/00-palette-0.json"
+
+======================================================================
+FAIL: test_duplicate_run_fails (test_gl_comparison.EvidenceTests.test_duplicate_run_fails)
+----------------------------------------------------------------------
+ValueError: changed derivative digest/length: unprofiled/00-palette-0.json
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 87, in test_duplicate_run_fails
+    with self.assertRaisesRegex(ValueError, 'duplicate'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "duplicate" does not match "changed derivative digest/length: unprofiled/00-palette-0.json"
+
+======================================================================
+FAIL: test_exclusions_require_reason_and_do_not_hide_tail_samples (test_gl_comparison.EvidenceTests.test_exclusions_require_reason_and_do_not_hide_tail_samples)
+----------------------------------------------------------------------
+ValueError: changed derivative digest/length: unprofiled/00-palette-0.json
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 72, in test_exclusions_require_reason_and_do_not_hide_tail_samples
+    with self.assertRaisesRegex(ValueError, 'reason'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "reason" does not match "changed derivative digest/length: unprofiled/00-palette-0.json"
+
+======================================================================
+FAIL: test_insufficient_accepted_samples_fails (test_gl_comparison.EvidenceTests.test_insufficient_accepted_samples_fails)
+----------------------------------------------------------------------
+ValueError: changed derivative digest/length: unprofiled/00-palette-0.json
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 92, in test_insufficient_accepted_samples_fails
+    with self.assertRaisesRegex(ValueError, 'five accepted'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "five accepted" does not match "changed derivative digest/length: unprofiled/00-palette-0.json"
+
+======================================================================
+FAIL: test_profiled_performance_fails_even_with_new_hashes (test_gl_comparison.EvidenceTests.test_profiled_performance_fails_even_with_new_hashes)
+----------------------------------------------------------------------
+ValueError: changed derivative digest/length: unprofiled/00-palette-0.json
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 67, in test_profiled_performance_fails_even_with_new_hashes
+    with self.assertRaisesRegex(ValueError, 'contaminates'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "contaminates" does not match "changed derivative digest/length: unprofiled/00-palette-0.json"
+
+======================================================================
+FAIL: test_retained_owned_gl_name_fails (test_gl_comparison.EvidenceTests.test_retained_owned_gl_name_fails)
+----------------------------------------------------------------------
+ValueError: changed derivative digest/length: unprofiled/00-palette-0.json
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 77, in test_retained_owned_gl_name_fails
+    with self.assertRaisesRegex(ValueError, 'retirement'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "retirement" does not match "changed derivative digest/length: unprofiled/00-palette-0.json"
+
+======================================================================
+FAIL: test_wrong_fixture_fails (test_gl_comparison.EvidenceTests.test_wrong_fixture_fails)
+----------------------------------------------------------------------
+ValueError: changed derivative digest/length: unprofiled/00-palette-0.json
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_gl_comparison.py", line 82, in test_wrong_fixture_fails
+    with self.assertRaisesRegex(ValueError, 'fixture differs'):
+         ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: "fixture differs" does not match "changed derivative digest/length: unprofiled/00-palette-0.json"
+
+======================================================================
+FAIL: test_actual_receipt_identity_and_boundary_observations (test_provenance_phase.ProvenancePhaseTests.test_actual_receipt_identity_and_boundary_observations)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_provenance_phase.py", line 78, in test_actual_receipt_identity_and_boundary_observations
+    self.assertEqual(result.returncode,0,result.stdout+result.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2147516571 != 0 : 9.0.318 [C:\Program Files\dotnet\sdk]
+10.0.400 [C:\Program Files\dotnet\sdk]
+The command could not be loaded, possibly because:
+  * You intended to execute a .NET application:
+      The application 'run' does not exist or is not a managed .dll or .exe.
+  * You intended to execute a .NET SDK command:
+      A compatible .NET SDK was not found.
+
+Requested SDK version: 10.0.401
+global.json file: C:\Users\Jarrett\Documents\Development\Project-Prime\global.json
+
+Installed SDKs:
+
+Install the [10.0.401] .NET SDK or update [C:\Users\Jarrett\Documents\Development\Project-Prime\global.json] to match an installed SDK.
+
+Learn about SDK resolution:
+https://aka.ms/dotnet/sdk-not-found
+
+
+======================================================================
+FAIL: test_actual_bounded_storage (test_timing_samples.TimingSamplesTests.test_actual_bounded_storage)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\Jarrett\Documents\Development\Project-Prime\tools\native-render-check\test_timing_samples.py", line 55, in test_actual_bounded_storage
+    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: 2147516571 != 0 : 9.0.318 [C:\Program Files\dotnet\sdk]
+10.0.400 [C:\Program Files\dotnet\sdk]
+The command could not be loaded, possibly because:
+  * You intended to execute a .NET application:
+      The application 'run' does not exist or is not a managed .dll or .exe.
+  * You intended to execute a .NET SDK command:
+      A compatible .NET SDK was not found.
+
+Requested SDK version: 10.0.401
+global.json file: C:\Users\Jarrett\Documents\Development\Project-Prime\global.json
+
+Installed SDKs:
+
+Install the [10.0.401] .NET SDK or update [C:\Users\Jarrett\Documents\Development\Project-Prime\global.json] to match an installed SDK.
+
+Learn about SDK resolution:
+https://aka.ms/dotnet/sdk-not-found
+
+
+----------------------------------------------------------------------
+Ran 117 tests in 3.824s
+
+FAILED (failures=9, errors=2, skipped=4)

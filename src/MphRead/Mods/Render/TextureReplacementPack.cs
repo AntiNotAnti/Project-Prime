@@ -18,11 +18,12 @@ namespace MphRead.Mods.Render
     internal static class TextureReplacementPack
     {
         private static MaterialResolver? _resolver;
-        private static bool _loaded;
+        private static volatile bool _loaded;
+        private static readonly object ResolverGate = new();
         public static string Root => Path.Combine(OperatingSystem.IsAndroid()
             ? Launcher.LauncherPrefs.Directory : AppContext.BaseDirectory, "texture-packs", "default");
         public static int Revision { get; private set; }
-        public static void Reload() { _loaded = false; _resolver = null; Revision++; }
+        public static void Reload() { lock(ResolverGate) { _loaded = false; _resolver = null; Revision++; } }
 
         public static ResolvedMaterial? Resolve(string model, int texture, int palette, int recolor,
             MaterialAssetKey? key = null, MaterialAssetKey? fallbackKey = null,
@@ -58,13 +59,19 @@ namespace MphRead.Mods.Render
         private static void EnsureLoaded()
         {
             if (_loaded) return;
-            _loaded = true;
-            try { _resolver = new MaterialResolver(Root); }
-            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
-                or ArgumentException or System.Text.Json.JsonException or InvalidOperationException)
+            lock(ResolverGate)
             {
-                DebugLog.Line("render", "Material manifest ignored; preserving legacy lookup: " + ex.Message);
-                _resolver = new MaterialResolver(Root, useManifest: false);
+                if (_loaded) return;
+                MaterialResolver resolver;
+                try { resolver = new MaterialResolver(Root); }
+                catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
+                    or ArgumentException or System.Text.Json.JsonException or InvalidOperationException)
+                {
+                    DebugLog.Line("render", "Material manifest ignored; preserving legacy lookup: " + ex.Message);
+                    resolver = new MaterialResolver(Root, useManifest: false);
+                }
+                _resolver = resolver;
+                _loaded = true; // Publish only the fully initialized, immutable lookup.
             }
         }
 
@@ -124,11 +131,9 @@ namespace MphRead.Mods.Render
             {
                 TextureSamplerDescriptor sampling = TextureSamplingPolicy.ResolveModern(
                     asset.AssetClass, asset.Channel);
-                sampling = sampling with
-                {
-                    Mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1)
-                };
+                sampling = asset.EffectiveSampling(sampling);
                 TextureAssetManager.UploadPreparedBound(asset, repeat, sampling);
+                OpenGlFailureInjection.Hit("world-material-upload");
                 if (GL.GetError() != ErrorCode.NoError) return false;
                 width = asset.Width;
                 height = asset.Height;

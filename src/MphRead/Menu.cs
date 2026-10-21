@@ -754,8 +754,7 @@ namespace MphRead
                     string lastMode = _mode;
                     string mphKey = Paths.MphKey;
                     string fhKey = Paths.FhKey;
-                    string roomString = roomKey == "AD1 TRANSFER LOCK BT" ? "Transfer Lock (Expanded)" : room;
-                    roomString = $"{roomString} [{roomKey}] - {roomId}";
+                    string roomString = Mods.Launcher.LauncherRoomDisplayName.Get(roomKey);
                     string modeString = _mode == "auto-select" ? "auto-select (Adventure or Battle)" : _mode;
                     string languageString = Paths.MphKey == Ver.AMHK0 ? "Korean" : _language.ToString();
                     string movieString = _movieId == -1 ? "none" : Metadata.MovieDisplayInfo[_movieId];

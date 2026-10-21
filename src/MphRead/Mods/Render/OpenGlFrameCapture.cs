@@ -13,13 +13,32 @@ internal readonly record struct OpenGlFrameSample(
     double GeometrySubmissionMs, double ShadowMs, double HudMs, double UploadMs,
     double CompositeMs, long UploadBytes, long BufferOrphans, long AllocatedBytes,
     int Gen0, int Gen1, int Gen2, int SimulationSteps, long DroppedSimulationSteps,
-    int Cap, string Vsync, string PrimarySource);
+    int Cap, string Vsync, string PrimarySource)
+{
+    public long IntervalStartTimestamp { get; init; }
+    public long PresentationGenerationBefore { get; init; }
+    public long StallsThisFrame { get; init; }
+    public long DroppedStepsThisFrame { get; init; }
+    public string BoundaryReason { get; init; } = "none";
+    public double CallbackToPresentMs { get; init; }
+    public double ProviderWaitMs { get; init; }
+    public long CallbackStartTimestamp { get; init; }
+    public double CallbackMs { get; init; }
+}
+
+internal readonly record struct OpenGlCaptureBoundary(long Timestamp, long Segment, string Reason,
+    long GenerationBefore, long GenerationAfter);
 
 internal sealed class OpenGlFrameCapture
 {
     internal const int DefaultCapacity = 262144;
     internal const int MaximumCapacity = 1048576;
     private readonly OpenGlFrameSample[] _samples;
+    private readonly OpenGlCaptureBoundary[] _boundaries;
+    private int _boundaryCount;
+    internal long DroppedBoundaryRecords { get; private set; }
+    internal long LauncherCallbacks { get; private set; }
+    internal double LauncherCallbackMs { get; private set; }
     internal int Count { get; private set; }
     internal long Dropped { get; private set; }
     internal long Cancelled { get; private set; }
@@ -28,8 +47,20 @@ internal sealed class OpenGlFrameCapture
     {
         if (capacity < 1 || capacity > MaximumCapacity) throw new ArgumentOutOfRangeException(nameof(capacity));
         _samples = new OpenGlFrameSample[capacity];
+        _boundaries = new OpenGlCaptureBoundary[Math.Min(capacity + 2, 4096)];
     }
     internal void Cancel() { Cancelled++; Segment++; }
+    internal void Boundary(long timestamp, string reason, long before, long after)
+    {
+        if (_boundaryCount == _boundaries.Length) { DroppedBoundaryRecords++; return; }
+        _boundaries[_boundaryCount++] = new(timestamp, Segment, reason, before, after);
+    }
+    internal void CompleteCallback(long start, double elapsed, bool gameplay)
+    {
+        if (!gameplay) { LauncherCallbacks++; LauncherCallbackMs += elapsed; }
+        if (Count > 0 && _samples[Count - 1].CallbackStartTimestamp == start)
+            _samples[Count - 1] = _samples[Count - 1] with { CallbackMs = elapsed };
+    }
     internal void Add(in OpenGlFrameSample sample)
     {
         if (!double.IsFinite(sample.IntervalMs) || sample.IntervalMs <= 0
@@ -102,7 +133,7 @@ internal sealed class OpenGlFrameCapture
         Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(path))!);
         using var stream = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
         using var json = new Utf8JsonWriter(stream);
-        json.WriteStartObject(); json.WriteNumber("schema", 2);
+        json.WriteStartObject(); json.WriteNumber("schema", 3);
         json.WriteString("stream", "glframe-capture");
         json.WriteString("intervalMeaning", "application Present return to Present return; not physical scanout");
         json.WriteString("inputProxyMeaning", "software sample-call entry to Present return; no photon or Reflex claim");
@@ -111,9 +142,16 @@ internal sealed class OpenGlFrameCapture
         json.WriteString("stopReason", reason); json.WriteNumber("timestampFrequency", frequency);
         json.WriteNumber("capacity", _samples.Length); json.WriteNumber("droppedRecords", Dropped);
         json.WriteNumber("cancelledFrames", Cancelled);
+        json.WriteNumber("droppedBoundaryRecords", DroppedBoundaryRecords);
+        json.WriteNumber("launcherCallbacks", LauncherCallbacks);
+        json.WriteNumber("launcherCallbackCpuWallMs", LauncherCallbackMs);
+        json.WriteString("boundaryMeaning", "timing stalls/drops remain in frames with before/after generations; lifecycle boundaries are explicit and excluded from frame intervals; first Present initializes the interval clock");
         json.WriteString("overheadBudget", "bounded storage; no per-sample allocation/serialization/I/O; end-to-end overhead UNVERIFIED");
         json.WritePropertyName("context"); JsonSerializer.Serialize(json, context);
         json.WritePropertyName("summary"); JsonSerializer.Serialize(json, Summary());
+        json.WriteStartArray("boundaries");
+        for (int i = 0; i < _boundaryCount; i++) JsonSerializer.Serialize(json, _boundaries[i]);
+        json.WriteEndArray();
         json.WriteStartArray("frames");
         for (int i = 0; i < Count; i++) JsonSerializer.Serialize(json, _samples[i]);
         json.WriteEndArray(); json.WriteEndObject();

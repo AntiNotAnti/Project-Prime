@@ -668,6 +668,10 @@ namespace MphRead
             scene.LoadModel("octolith_simple");
             scene.LoadModel("Octolith");
             // todo?: same as above
+            // Canonical bomb snapshots may arrive before a late-joining hunter
+            // loads its appearance. Their native visual resources must exist.
+            foreach (int id in new[] { 9, 119, 145, 146 }) scene.LoadEffect(id, persistent: true);
+            foreach (int id in Metadata.SyluxBombEffects) scene.LoadEffect(id, persistent: true);
             scene.LoadEffect(10, persistent: true); // ballDeath
             scene.LoadEffect(216, persistent: true); // deathAlt
             scene.LoadEffect(187, persistent: true); // flamingAltForm

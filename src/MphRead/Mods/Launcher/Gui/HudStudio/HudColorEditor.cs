@@ -9,7 +9,7 @@ using Avalonia.Media;
 
 namespace MphRead.Mods.Launcher.Gui;
 
-internal sealed class HudColorEditor : StackPanel
+internal sealed partial class HudColorEditor : StackPanel
 {
     internal static readonly string[] Swatches = {
         "#FFFFFF","#D9D9D9","#999999","#555555","#222222","#000000",
@@ -22,7 +22,7 @@ internal sealed class HudColorEditor : StackPanel
     private readonly TextBlock _message = new() { FontSize=11,TextWrapping=TextWrapping.Wrap };
     private readonly Action<string> _changed;
     private string _value;
-    internal HudColorEditor(string label,string value,Action<string> changed)
+    internal HudColorEditor(string label,string value,Action<string> changed,float opacity=1,Action<float>? opacityChanged=null)
     {
         Spacing=4; _changed=changed; _value=value;
         Children.Add(new TextBlock { Text=label+" color" });
@@ -39,6 +39,13 @@ internal sealed class HudColorEditor : StackPanel
                 Content=new Border { Background=Brush.Parse(hex),Width=24,Height=24,BorderBrush=Brushes.Gray,BorderThickness=new Thickness(1) } };
             Avalonia.Automation.AutomationProperties.SetName(button,"Choose "+hex);
             ToolTip.SetTip(button,hex);button.Click+=(_,_)=>Apply(hex);swatches.Children.Add(button);
+        }
+        AddFullPicker();
+        if(opacityChanged!=null)
+        {
+            var opacityRow=new DecimalSliderRow("Element opacity",opacity,0,1);
+            opacityRow.ValueChanged+=(_,_)=>opacityChanged(opacityRow.Value);
+            Children.Add(opacityRow);
         }
         Children.Add(new Expander { Header="Choose from palette",Content=swatches,IsExpanded=false });
         var clipboard=new StackPanel { Orientation=Orientation.Horizontal,Spacing=6 };
@@ -84,6 +91,7 @@ internal sealed class HudColorEditor : StackPanel
     {
         if(!TryNormalize(text,out string color)) { _message.Text="Use #RGB or #RRGGBB. The previous color is unchanged.";return false; }
         _hex.Text=color;_sample.Background=Brush.Parse(color);_message.Text="";
+        SyncPicker(color);
         if(color!=_value) { _value=color;_changed(color); } return true;
     }
 }

@@ -212,10 +212,12 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 LaunchPlan candidate = OfflineLaunch.Preview(_settings, request.RoomKey,
-                    request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel, request.Character);
+                    request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel, request.Character,
+                    request.BotRoster, request.LocalTeam);
                 if (!Multiplayer.MatchModifierRules.Validate(candidate.MatchRules, out _)) return false;
                 plan = OfflineLaunch.Create(_settings, request.RoomKey,
-                    request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel, request.Character);
+                    request.Mode, request.Hunter, request.Suit, request.Bots, request.BotLevel, request.Character,
+                    request.BotRoster, request.LocalTeam);
             }
             catch (ArgumentException ex) { Console.WriteLine("[launcher] " + ex.Message); return false; }
             Finish(plan);

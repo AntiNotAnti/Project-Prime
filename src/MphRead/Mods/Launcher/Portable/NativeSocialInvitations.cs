@@ -68,7 +68,8 @@ public sealed partial class NativeSocialFriendsController
         .Where(i => NativeSocialInvitationValidation.Actionable(i, _clock.GetUtcNow())
             && (_filter.Length == 0 || i.DisplayName.Contains(_filter, StringComparison.OrdinalIgnoreCase)
                 || i.PrimeId.Contains(_filter, StringComparison.OrdinalIgnoreCase)
-                || i.RoomKey.Contains(_filter, StringComparison.OrdinalIgnoreCase)))
+                || i.RoomKey.Contains(_filter, StringComparison.OrdinalIgnoreCase)
+                || LauncherRoomDisplayName.Get(i.RoomKey).Contains(_filter, StringComparison.OrdinalIgnoreCase)))
         .OrderByDescending(i => i.CreatedAt).ThenBy(i => i.InviteId, StringComparer.Ordinal).ToArray()
         ?? Array.Empty<NativeSocialInvitation>();
 

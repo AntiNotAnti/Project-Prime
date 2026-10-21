@@ -1,5 +1,14 @@
 # P0 render stability and respawn diagnostic
 
+The experimental `PROJECT_PRIME_GL_SPATIAL_AA=1` path defaults off and remains
+NO_ROLLOUT. It filters world/outlines into one budgeted transactional scratch
+target, copies back before model HUD/preview overlays, and preserves the native
+scene/readback contract. HUD/text/UI render afterward. The asset-free Windows
+`tools/spatial-aa-check` validates edge/flat/alpha fixtures, state restoration,
+failure/retry/budget ownership and isolated pass+copy cost. This does not replace
+real-scene still/motion and sustained frame-tail acceptance; see
+`docs/performance/renderer-next/spatial-aa.md`.
+
 `Mods/Render/RenderPassState.cs` is a Scene partial holding explicit world,
 postprocess, composite and HUD state boundaries. World setup restores write
 masks before clearing; screen passes establish depth, culling, scissor,
@@ -188,3 +197,45 @@ the last world draw. `DrawHudDamageModel` also binds the material belonging to
 each enabled mesh and resets current colour to white. This closes the
 intermittent failure where the normally invisible damage model only exposed bad
 GL/material state on the frame a hit enabled one of its directional nodes.
+
+### Portal and compiled geometry preparation
+
+Room visibility uses per-RoomEntity bounded clip scratch and the ordered
+portal-side adjacency maintained at setup/connector creation. The current
+render-pose view-projection is computed once per visibility refresh; audio
+reachability remains fixed-tick work. Release capacity failures discard partial
+visibility through the established draw-all contract and emit one diagnostic
+per setup. Unsupported part indices cannot index the fixed visibility masks.
+
+Desktop geometry reuse is scoped to a single model compilation and includes
+source index, dimensions, texgen and room/matrix layout. SharedModelResources
+keeps the model's scene leases and deletes each unique ID once. GLES retains
+per-mesh compilation because its mutable inherited normal state is not yet a
+qualified sharing contract. `PROJECT_PRIME_GL_GEOMETRY_REUSE=0` provides a native
+A/B opt-out. See `docs/performance/renderer-next/cpu-preparation.md` for Windows
+synthetic clipping/native resource evidence and the remaining map/image gates.
+
+Directional shadow reception now belongs to an optional world fragment program
+scoped to the existing opaque pass. Cutout opaque portions receive/cast shadows;
+transparent passes, viewmodels, effects, outlines and HUD remain outside reception.
+Authored emissive-map output is added after shadowing base color. Failed optional
+initialization restores the prior native world program and unit4 state; it never
+falls back to multiplying late scene/HUD color. No stencil bit is borrowed.
+See `docs/performance/renderer-next/shadow-receivers.md` for ownership, Windows
+fixtures and the explicitly remaining offscreen dynamic-caster snapshot API.
+# Renderer target/capture follow-up (2026-10-21)
+
+Scene color/depth replacement now publishes only complete bundles; a failed
+replacement retains the previous drawable target and bounds retries by the
+requested size/settings. Cel color is lazy and released on disable. Readable
+depth and renderbuffer depth have a transactional transition; only one remains
+after success. A per-scene byte ledger covers owned primary/optional/transient
+targets and old/replacement overlap. Free scratch is bounded by count, bytes
+and render age. These estimates are not native driver or total-process memory.
+
+Screenshot, processed-scene and replay-output reads share checked source
+descriptors, portable RGBA8 readback/RGB repacking and complete framebuffer/PBO/
+pack row-state restoration. Experimental spatial AA runs before model HUD and
+copies back into the established scene target; its control is separate from
+retired AA settings and defaults off. Material corrections also default off.
+See `docs/performance/renderer-next/status.md` for exact qualification scope.

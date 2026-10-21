@@ -413,3 +413,5 @@ tools/hitrig/bin/
 # Local previews, staged source snapshots, and acceptance scratch output.
 # Existing tracked reference PDFs are retained.
 /output/
+# Keep renderer audit test receipts, including failures, reviewable.
+!docs/performance/renderer-next/*.log

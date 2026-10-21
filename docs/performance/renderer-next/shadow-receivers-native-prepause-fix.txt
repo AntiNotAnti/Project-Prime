@@ -1,0 +1,23 @@
+clip legacy: iterations=100000 allocated_bytes=38400000 elapsed_ms=34.569
+clip candidate: iterations=100000 allocated_bytes=0 elapsed_ms=32.351
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] map.json FP-MESH-001: Collision mesh has 4 open boundary edges.
+[room] portal capacity: UNIT1_CX, parts=10, portals=45, frustums=32, reason=frustum pool; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=2, portals=1, frustums=1, reason=portal planes; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=2, portals=1, frustums=1, reason=clip points; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=1, portals=1, frustums=1, reason=audible traversal; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=33, portals=0, frustums=1, reason=room part count; drawing all parts
+native renderer=NVIDIA GeForce RTX 5080/PCIe/SSE2 gl=4.6.0 NVIDIA 617.42 mvid=45b31992-eb90-42ff-aa70-71b10ab14c9b
+[glcapabilities] version=4.6.0 NVIDIA 617.42; vao=True; appleVao=False; desktopVaoApi=Core; timer=True; disjointTimer=False; sync=True; ubo=True; storage=True; optimizations=capability-and-policy; forceLegacy=False
+geometry cycle=0 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=11.873 cold_ms=1.789 warm_ms=0.149
+geometry cycle=1 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=0.316 cold_ms=0.179 warm_ms=0.001
+geometry cycle=2 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=0.345 cold_ms=0.174 warm_ms=0.000
+[world-shaders] variant=native elapsedMs=0.982
+[world-shaders] variant=plain elapsedMs=0.770
+[world-shaders] variant=plain-unlit elapsedMs=0.441
+[world-shaders] variant=native elapsedMs=35.783
+System.InvalidOperationException: shadow-enabled pause map preserves its actual native view/orthographic projection
+   at Program.Check(Boolean value, String message) in C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\Program.cs:line 20
+   at Program.ShadowChecks() in C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\ShadowChecks.cs:line 147
+   at Program.Main(String[] args) in C:\Users\Jarrett\Documents\Development\Project-Prime\tools\renderer-preparation-check\Program.cs:line 337

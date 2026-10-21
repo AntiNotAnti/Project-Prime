@@ -46,6 +46,7 @@ namespace MphRead.Entities
                 return;
             }
 
+            if (_scene.DsTopPass) { DrawDsKillFeed(entries); return; }
             float aspect = HudAspectFix;
             float right = 253;
             float width = 92;

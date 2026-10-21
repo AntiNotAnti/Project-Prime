@@ -82,6 +82,9 @@ Check(sparseCrosshair.OverrideProperties!.Length==0,"reset property resumes inhe
 dotDescriptor.Set(sparseCrosshair,7f);
 Check(CrosshairProperties.Resolve(inheritedCrosshair,sparseCrosshair).DotSize==7,"descriptor edits mark overridden property");
 var multiPart=new CrosshairRuntime(new CrosshairProfile { Dot=true,Inner=true,DotStyle=new() { CustomColor=true,Color="#FF0000",Opacity=.4f,Outline=3 } });
+var invalidMotion=new CrosshairRuntime(new CrosshairProfile { WidthScale=float.NaN,HeightScale=100,Rotation=float.PositiveInfinity,ShotScale=-1 });
+Check(invalidMotion.WidthScale==1 && invalidMotion.HeightScale==8 && invalidMotion.Rotation==0 && invalidMotion.ShotScale==.05f,
+    "crosshair runtime captures validated transform and response values");
 Check(multiPart.Parts.Length==2,"independent parts compiled");
 Near(multiPart.Parts[0].Color.X,1,"dot part red"); Near(multiPart.Parts[0].Color.Y,0,"dot part not default");
 Near(multiPart.Parts[0].Opacity,.4f,"part opacity"); Near(multiPart.Parts[0].Outline,3,"part outline");
@@ -147,6 +150,12 @@ Near(profile.GlobalScale,1,"nonfinite clamps"); Near(profile.GlobalOpacity,1,"op
 Reject(()=>HudProfileStore.Parse("{"),"bad JSON accepted"); Reject(()=>HudProfileStore.Parse("{\"schemaVersion\":99}"),"future schema accepted");
 Reject(()=>HudProfileStore.Parse(new string(' ',HudProfileStore.MaximumBytes+1)),"oversized JSON accepted");
 profile=HudProfileStore.Parse("""{"elements":null,"crosshair":null,"weaponCrosshairs":null,"name":null} """); Check(profile.Elements.Count==HudProfileDefaults.ElementIds.Length,"null recovery");
+profile=HudProfileStore.Parse("""{"schemaVersion":1,"elements":{"core.crosshair":null}}""");
+Check(profile.SchemaVersion==HudProfile.CurrentSchema && profile.Elements["core.crosshair"]!=null,"schema migration recovers a null legacy reticle element");
+var migratedReticle=HudProfileStore.Parse("""{"schemaVersion":1,"crosshair":{"scale":0.5,"opacity":0.8},"nativeReticleOpacity":0.6,"elements":{"core.crosshair":{"scale":2,"opacity":0.4}}}""");
+Near(migratedReticle.Crosshair.Scale,Crosshair.Scale,"legacy reticle element scale migrates into crosshair settings");
+Near(migratedReticle.Crosshair.Opacity,.192f,"legacy reticle opacity factors survive migration");
+Check(HudProfileStore.Serialize(migratedReticle)==HudProfileStore.Serialize(migratedReticle.DeepClone()),"schema-two migration runs once across save/load");
 Features.ProHud=false; Features.ProHudFixedWeapon=false; Features.ReticleOpacity=.3f; Radar.Enabled=false; Radar.ShowBackground=true; Radar.ShowOutlines=false; Features.KillFeedEnabled=false;
 Crosshair.Style=CrosshairStyle.Brackets; Crosshair.Size=CrosshairSize.Big;
 profile=HudProfileMigration.FromLegacy(); Check(profile.Mode==HudMode.Classic && !profile.FixedWeapon && !profile.Elements["core.radar"].Enabled && profile.RadarBackground && !profile.RadarOutlines && !profile.Elements["combat.killFeed"].Enabled,"migration"); Near(profile.NativeReticleOpacity,.3f,"reticle migration"); Check(profile.Crosshair.Brackets,"crosshair migration");
@@ -180,4 +189,10 @@ try
 }
 finally { if(Directory.Exists(directory)) Directory.Delete(directory,true); }
 assertions += RadarChecks.Run();
+foreach(var font in HudFonts.All)
+{
+    var atlas=HudFonts.Get(font.Id);
+    Check(atlas.Advances.Length==96 && atlas.Advances.All(float.IsFinite) && atlas.Alpha.Length==HudFonts.AtlasWidth*HudFonts.AtlasHeight,
+        "bundled HUD font atlas is complete: "+font.Id);
+}
 Console.WriteLine($"HUD checks passed: {assertions} assertions; runtime traversal allocated 0 bytes.");

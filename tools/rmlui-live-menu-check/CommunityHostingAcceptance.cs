@@ -88,7 +88,7 @@ internal static class CommunityHostingAcceptance
             Check(back ? controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home)
                 : controller.Dispatch(RmlUiIntentKind.PlayCancel), "back or cancel leaves unsubmitted review");
             Check(services.CreateCalls == 0 && controller.Dispatch(RmlUiIntentKind.PlayCreateOpen)
-                && Text(controller, "play_create_map") == "MP1 SANCTORUS"
+                && Text(controller, "play_create_map") == "Data Shrine"
                 && Text(controller, "play_create_source") == "MPH // BUILT-IN ARENA", "normal Create restores built-in choice without allocation");
         }
         var cycleServices = new Stub { LobbyCapacity = 4 };

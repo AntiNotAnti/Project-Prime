@@ -1,0 +1,52 @@
+PASS packed RGB byte count
+PASS last overlay included in final composite
+PASS scene remains above overlay; bottom-up row contract
+PASS read framebuffer restored
+PASS pack alignment restored
+PASS pack buffer and row/skip state restored
+PASS window screenshot uses shared final contract
+PASS bounded readback
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] map.json FP-MESH-001: Collision mesh has 4 open boundary edges.
+PASS baseline reproduction: wrong-program setter leaves scene fog stale
+PASS transition fixtures have distinct authored fog parameters
+PASS room metadata update does not write to the HUD program
+PASS room transition preserves HUD uniforms
+PASS authored room fog refreshed after transition/relink: UNIT1_CX
+PASS scene shader relink succeeds
+PASS authored room fog refreshed after transition/relink: UNIT1_CX
+PASS room metadata update does not write to the HUD program
+PASS room transition preserves HUD uniforms
+PASS authored room fog refreshed after transition/relink: UNIT1_MORPH_CX
+PASS scene shader relink succeeds
+PASS authored room fog refreshed after transition/relink: UNIT1_MORPH_CX
+PASS room metadata update does not write to the HUD program
+PASS room transition preserves HUD uniforms
+PASS authored room fog refreshed after transition/relink: UNIT2_CX
+PASS scene shader relink succeeds
+PASS authored room fog refreshed after transition/relink: UNIT2_CX
+PASS room metadata update does not write to the HUD program
+PASS room transition preserves HUD uniforms
+PASS authored room fog refreshed after transition/relink: UNIT3_CX
+PASS scene shader relink succeeds
+PASS authored room fog refreshed after transition/relink: UNIT3_CX
+PASS HUD draw counter enabled
+PASS alpha 0: expected texture draws
+PASS hidden layer performs no texture work
+PASS visible HUD pixels retained and hidden pixels untouched
+PASS HUD draw counter enabled
+PASS alpha -0.5: expected texture draws
+PASS hidden layer performs no texture work
+PASS visible HUD pixels retained and hidden pixels untouched
+PASS HUD draw counter enabled
+PASS alpha 0.5: expected texture draws
+PASS hidden layer performs no texture work
+PASS visible HUD pixels retained and hidden pixels untouched
+PASS HUD draw counter enabled
+PASS alpha 1: expected texture draws
+PASS hidden layer performs no texture work
+PASS visible HUD pixels retained and hidden pixels untouched
+PASS hidden visor does not suppress downstream mask
+PASS HUD/fog checks leave no GL errors
+FINALCOMPOSITE PASS actual=NVIDIA GeForce RTX 5080/PCIe/SSE2 4.6.0 NVIDIA 617.42

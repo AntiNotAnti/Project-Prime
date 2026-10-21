@@ -43,7 +43,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                     or RmlUiIntentKind.AdventureConfirmCopy or RmlUiIntentKind.AdventureArchive
                     or RmlUiIntentKind.AdventureConfirmArchive or RmlUiIntentKind.AdventureCancelSaveChange
                     => AdventureEnabled && AdventureSaveManagementEnabled,
-                RmlUiIntentKind.OfflineChoice => intent.Argument is >= 0 and <= 6 or 16,
+                RmlUiIntentKind.OfflineChoice or RmlUiIntentKind.OfflineChoicePrevious => intent.Argument is >= 0 and <= 6 or 16,
                 RmlUiIntentKind.Quit or RmlUiIntentKind.HomeDrawerOpen
                     or RmlUiIntentKind.HomeDrawerClose or RmlUiIntentKind.HomeDeploy
                     or RmlUiIntentKind.OfflineOpenArena or RmlUiIntentKind.OfflineSelectArena

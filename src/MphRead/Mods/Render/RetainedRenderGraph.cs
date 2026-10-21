@@ -79,15 +79,17 @@ namespace MphRead.Mods.Render
         Mods.Cosmetics.CosmeticSurface Cosmetics,
         Mods.Cosmetics.Skins.RenderMaterialOverride CosmeticMaterial,
         bool TexturedPlayerSkin,
+        bool AuthoredNeutralAlbedo,
         Vector4? OverrideColor,
-        Vector4? PaletteOverride)
+        Vector4? PaletteOverride,
+        bool ShadowReceiverAllowed)
     {
         internal static RetainedMaterialDescriptor From(RenderItem item) =>
             new(item.PolygonMode, item.Lighting, item.Diffuse, item.Ambient,
                 item.Specular, item.Emission, item.EmissiveIntensity, item.Alpha, item.TexgenMode,
                 item.XRepeat, item.YRepeat, item.HasTexture, item.TextureBindingId,
                 item.TexcoordMatrix, item.Cosmetics, item.CosmeticMaterial,
-                item.TexturedPlayerSkin, item.OverrideColor, item.PaletteOverride);
+                item.TexturedPlayerSkin, item.AuthoredNeutralAlbedo, item.OverrideColor, item.PaletteOverride, ShadowReceiverPolicy.Eligible(item));
     }
 
     internal readonly record struct RetainedBatchState(
@@ -885,18 +887,8 @@ namespace MphRead
         {
             if (binding == 0)
                 return default;
-            if (_modernTextureSampling.TryGetValue(binding, out var modern))
-            {
-                return new Mods.Render.RetainedTextureBinding(
-                    binding,
-                    Mods.Render.TextureSamplingPolicy.ResolveModern(
-                        modern.AssetClass, modern.Channel),
-                    ApplySampling: true);
-            }
-            return new Mods.Render.RetainedTextureBinding(
-                binding,
-                Mods.Render.TextureSamplingPolicy.ResolveNativeWorld(),
-                ApplySampling: alwaysSample);
+            return new Mods.Render.RetainedTextureBinding(binding, ResolveResidentTextureSampling(binding),
+                ApplySampling: alwaysSample || _modernTextureSampling.ContainsKey(binding));
         }
 
         private void NoteRetainedTextureSampling(
@@ -972,6 +964,7 @@ namespace MphRead
             {
                 using var cpuTiming = Mods.Render.OpenGlPassProfiler.Measure(
                     (Mods.Render.OpenGlCpuPass)((int)Mods.Render.OpenGlCpuPass.Opaque + (int)pass.Kind));
+                _shadowReceiverColorPass = pass.Kind == Mods.Render.WorldRenderPassKind.Opaque;
                 SetDepthShader(pass.Kind is Mods.Render.WorldRenderPassKind.MarkTranslucent
                     or Mods.Render.WorldRenderPassKind.RebuildDepth);
                 switch (pass.Kind)

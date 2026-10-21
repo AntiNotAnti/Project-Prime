@@ -17,6 +17,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         void Resize(int width, int height, float density);
         void Update();
         int UpdateState(ref RmlUiNativeUpdateState state) => 0;
+        int Typography(int body, int headings, int data) => 0;
         uint CanvasVersion() => 0;
         int CanvasAcquire(ulong generation, ulong document, string element, ref RmlUiCanvasNativeLease lease) => 0;
         int CanvasTextures(ref RmlUiCanvasNativeLease lease, RmlUiCanvasNativeTexture[] textures, uint count, byte[] pixels, uint length) => 0;
@@ -77,6 +78,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         void IRmlUiNativeBridge.Resize(int width, int height, float density) => NativeResize(width, height, density);
         void IRmlUiNativeBridge.Update() => NativeUpdate();
         int IRmlUiNativeBridge.UpdateState(ref RmlUiNativeUpdateState state) => NativeUpdateState(ref state);
+        int IRmlUiNativeBridge.Typography(int body, int headings, int data) => NativeTypography(body, headings, data);
         uint IRmlUiNativeBridge.CanvasVersion() => NativeCanvasVersion();
         int IRmlUiNativeBridge.CanvasAcquire(ulong generation, ulong document, string element, ref RmlUiCanvasNativeLease lease)
             => NativeCanvasAcquire(generation, document, element, ref lease);
@@ -170,6 +172,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private static extern void NativeUpdate();
         [DllImport(Library, EntryPoint = "pp_rmlui_update_status", CallingConvention = CallingConvention.Cdecl)]
         private static extern int NativeUpdateState(ref RmlUiNativeUpdateState state);
+        [DllImport(Library, EntryPoint = "pp_rmlui_typography", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int NativeTypography(int body, int headings, int data);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_render")]
         private static extern void NativeRender(int width, int height);
         [DllImport(Library, CallingConvention = CallingConvention.Cdecl, EntryPoint = "pp_rmlui_take_intent")]

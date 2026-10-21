@@ -39,7 +39,7 @@ namespace MphRead.Mods.Render.Characters
         RepeatMode WrapS = RepeatMode.Repeat,
         RepeatMode WrapT = RepeatMode.Repeat,
         MaterialMapBindings MaterialMaps = default,
-        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false)
+        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false, Matrix4? AttachmentCorrection = null, Vector3? SurfaceTint = null, bool NeutralAlbedo = false, int WeaponPose = -1)
     {
         internal int? GetAlbedo(Scene scene, int recolor) => AlbedoPalette?.GetBinding(scene, recolor) ?? AlbedoBinding;
     }
@@ -51,7 +51,8 @@ namespace MphRead.Mods.Render.Characters
         RepeatMode WrapS = RepeatMode.Repeat,
         RepeatMode WrapT = RepeatMode.Repeat,
         MaterialMapBindings MaterialMaps = default,
-        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false, IReadOnlyList<int>? SourceJointPalette = null, float[]? SourceMatrixPalette = null, string? SourceMaterialName = null, int SourcePrimitiveOrdinal = -1, CharacterSourceGxBinding? SourceGx = null)
+        CharacterAlbedoPalette? AlbedoPalette = null, bool DoubleSided = false, bool Transparent = false, IReadOnlyList<int>? SourceJointPalette = null, float[]? SourceMatrixPalette = null, string? SourceMaterialName = null, int SourcePrimitiveOrdinal = -1, CharacterSourceGxBinding? SourceGx = null,
+        Vector3? SurfaceTint = null, bool NeutralAlbedo = false)
     {
         // GPU Weighted4 consumes only its matrix stack. Keep raw source skin matrices
         // intact and reuse a separate bounded world-composed buffer for submission.
@@ -306,10 +307,10 @@ namespace MphRead.Mods.Render.Characters
         {
             public readonly TextureAssetQuality TextureQuality = RenderOptions.TextureQuality;
             public readonly string SamplingKey = TextureSamplingPolicy.RuntimeKey;
-            public readonly Dictionary<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance), CharacterRigidRenderModel> RigidModels = new();
-            public readonly Dictionary<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance), CharacterWeightedRenderModel> WeightedModels = new();
+            public readonly Dictionary<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance, CharacterModelPart Part, BeamType? Weapon), CharacterRigidRenderModel> RigidModels = new();
+            public readonly Dictionary<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance, CharacterModelPart Part, BeamType? Weapon), CharacterWeightedRenderModel> WeightedModels = new();
             public readonly Dictionary<(CharacterSourceCacheKey Source,int NativeModelId,CharacterSourcePreviewInstance Instance),SourceEntry> SourceModels = new();
-            public readonly HashSet<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance)> Failed = new();
+            public readonly HashSet<(string Path, int NativeModelId, PrivateCharacterAppearance? Appearance, CharacterModelPart Part, BeamType? Weapon)> Failed = new();
 
             public void Release()
             {
@@ -337,21 +338,21 @@ namespace MphRead.Mods.Render.Characters
         /// </summary>
         internal static bool TryResolvePrivateAppearance(CharacterModelPack pack, Hunter hunter,
             CharacterModelPart part, int lod, PrivateCharacterAppearance? appearance,
-            bool allowPrivatePreview, out CharacterModelAsset asset)
+            bool allowPrivatePreview, out CharacterModelAsset asset, BeamType? weapon = null)
         {
             asset = null!;
-            if (appearance == null) return pack.TryResolve(hunter, part, lod, out asset);
+            if (appearance == null) return pack.TryResolve(hunter, part, lod, weapon, out asset);
             if (!allowPrivatePreview || Mods.Network.NetSession.Active || Mods.Network.DemoPlayback.IsActive)
                 return false;
             return pack.TryResolvePrivate(hunter, appearance.Value, part, lod, out asset);
         }
 
-        internal static (string Path, int NativeModelId, PrivateCharacterAppearance? Appearance)
+        internal static (string Path, int NativeModelId, PrivateCharacterAppearance? Appearance, CharacterModelPart Part, BeamType? Weapon)
             ModelCacheKey(CharacterModelAsset asset, int nativeModelId)
-            => (asset.ModelPath, nativeModelId, asset.PrivateAppearance);
+            => (asset.ModelPath, nativeModelId, asset.PrivateAppearance, asset.Part, asset.Weapon);
 
         public static bool TryGetRigid(Scene scene, Hunter hunter, CharacterModelPart part,
-            Model nativeModel, out CharacterRigidRenderModel model, int lod = 0,
+            Model nativeModel, out CharacterRigidRenderModel model, int lod = 0, BeamType? weapon = null,
             CharacterModelPack? privatePack = null, PrivateCharacterAppearance? privateAppearance = null,
             bool allowPrivatePreview = false)
         {
@@ -368,7 +369,7 @@ namespace MphRead.Mods.Render.Characters
                 DebugLog.Line("render", "HD character model pack disabled: " + _packIssue);
             }
             if (!TryResolvePrivateAppearance(pack, hunter, part, lod, privateAppearance,
-                    allowPrivatePreview, out CharacterModelAsset asset)
+                    allowPrivatePreview, out CharacterModelAsset asset, weapon)
                 || asset.Skinning != CharacterSkinningMode.RigidNodes)
                 return false;
 
@@ -406,7 +407,7 @@ namespace MphRead.Mods.Render.Characters
         }
 
         public static bool TryGetWeighted(Scene scene, Hunter hunter, CharacterModelPart part,
-            Model nativeModel, out CharacterWeightedRenderModel model, int lod = 0,
+            Model nativeModel, out CharacterWeightedRenderModel model, int lod = 0, BeamType? weapon = null,
             CharacterModelPack? privatePack = null, PrivateCharacterAppearance? privateAppearance = null,
             bool allowPrivatePreview = false)
         {
@@ -418,7 +419,7 @@ namespace MphRead.Mods.Render.Characters
 
             CharacterModelPack pack = privatePack ?? GetPack();
             if (!TryResolvePrivateAppearance(pack, hunter, part, lod, privateAppearance,
-                    allowPrivatePreview, out CharacterModelAsset asset)
+                    allowPrivatePreview, out CharacterModelAsset asset, weapon)
                 || asset.Skinning != CharacterSkinningMode.Weighted4 || asset.PoseSource != CharacterPoseSource.Native)
                 return false;
 
@@ -615,7 +616,7 @@ namespace MphRead.Mods.Render.Characters
             var compiled = new List<CharacterRigidRenderSegment>(geometry.Primitives.Count);
             var albedos = new Dictionary<CharacterEmbeddedAlbedo, int>();
             var materialMaps = new Dictionary<CharacterEmbeddedMaterialMaps, MaterialMapBindings>();
-            TextureAssetClass assetClass = asset.Part == CharacterModelPart.ViewModel
+            TextureAssetClass assetClass = asset.Part is CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms
                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter;
             try
             {
@@ -633,7 +634,9 @@ namespace MphRead.Mods.Render.Characters
                 {
                     if (!nodeIndices.TryGetValue(primitive.TargetNode, out int nodeIndex))
                         throw new InvalidDataException($"Native model no longer contains mapped node '{primitive.TargetNode}'.");
-                    int materialIndex = ResolveMaterial(nativeModel, nodeIndex, primitive.MaterialName, materialIndices);
+                    int materialIndex = asset.IndependentSurface && primitive.Albedo != null
+                        ? ResolveAuthoredMaterial(nativeModel, primitive.MaterialName, materialIndices)
+                        : ResolveMaterial(nativeModel, nodeIndex, primitive.MaterialName, materialIndices);
                     Material material = nativeModel.Materials[materialIndex];
                     if (!CanUseAuthoredTexcoords(material.TexgenMode, primitive.Albedo != null))
                         throw new InvalidDataException(
@@ -646,13 +649,21 @@ namespace MphRead.Mods.Render.Characters
                             primitive.MaterialMaps, assetClass);
                         materialMaps.Add(primitive.MaterialMaps, maps);
                     }
+                    Matrix4? correction = null;
+                    if (primitive.ReferenceTransform is System.Numerics.Matrix4x4 r)
+                    {
+                        nativeModel.ComputeNodeMatrices(0);
+                        Matrix4 reference = new(r.M11,r.M12,r.M13,r.M14,r.M21,r.M22,r.M23,r.M24,
+                            r.M31,r.M32,r.M33,r.M34,r.M41,r.M42,r.M43,r.M44);
+                        correction = reference * nativeModel.Nodes[nodeIndex].Transform.Inverted();
+                    }
                     int list = CompileList(primitive);
                     compiled.Add(new(nodeIndex, materialIndex, list,
                         primitive.Albedo == null ? null : albedos[primitive.Albedo],
                         primitive.Albedo?.WrapS ?? RepeatMode.Repeat,
                         primitive.Albedo?.WrapT ?? RepeatMode.Repeat, maps,
                         primitive.Albedo?.Recolors?.Count > 0
-                            ? new CharacterAlbedoPalette(primitive.Albedo, assetClass, albedos[primitive.Albedo]) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false));
+                            ? new CharacterAlbedoPalette(primitive.Albedo, assetClass, albedos[primitive.Albedo]) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false, correction, primitive.SurfaceTint is System.Numerics.Vector3 tint ? new Vector3(tint.X,tint.Y,tint.Z) : null, primitive.NeutralAlbedo, primitive.WeaponPose));
                 }
                 return new(asset, compiled.ToArray(), geometry.VertexCount, geometry.IndexCount);
             }
@@ -720,7 +731,9 @@ namespace MphRead.Mods.Render.Characters
                 foreach (CharacterWeightedPrimitive primitive in geometry.Primitives)
                 {
                     int materialIndex=attachment?.AnchorIndex ?? -1;
-                    if (attachment==null && (String.IsNullOrWhiteSpace(primitive.MaterialName)
+                    if (attachment==null && asset.IndependentSurface && primitive.Albedo != null)
+                        materialIndex = ResolveAuthoredMaterial(nativeModel, primitive.MaterialName, materialIndices);
+                    else if (attachment==null && (String.IsNullOrWhiteSpace(primitive.MaterialName)
                         || !materialIndices.TryGetValue(primitive.MaterialName, out materialIndex)))
                         throw new InvalidDataException(
                             $"Weighted HD material '{primitive.MaterialName ?? "(unnamed)"}' "
@@ -736,7 +749,7 @@ namespace MphRead.Mods.Render.Characters
                     {
                         int binding = scene.GetCharacterModelTexture(
                             compiledAssetKey + "/" + compiled.Count, primitive.Albedo.Image,
-                            asset.Part == CharacterModelPart.ViewModel
+                            asset.Part is CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms
                                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter,
                             primitive.Albedo.Opaque);
                         if (binding == 0)
@@ -745,19 +758,20 @@ namespace MphRead.Mods.Render.Characters
                     }
                     MaterialMapBindings maps = primitive.MaterialMaps == null ? default
                         : scene.GetCharacterModelMaterialMaps(compiledAssetKey + "/" + compiled.Count,
-                            primitive.MaterialMaps, asset.Part == CharacterModelPart.ViewModel
+                            primitive.MaterialMaps, asset.Part is CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms
                                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter);
                     int list = CompileWeightedList(primitive);
                     compiled.Add(new(materialIndex, list, albedo,
                         primitive.Albedo?.WrapS ?? RepeatMode.Repeat,
                         primitive.Albedo?.WrapT ?? RepeatMode.Repeat, maps,
                         primitive.Albedo?.Recolors?.Count > 0 && albedo.HasValue
-                            ? new CharacterAlbedoPalette(primitive.Albedo, asset.Part == CharacterModelPart.ViewModel
+                            ? new CharacterAlbedoPalette(primitive.Albedo, asset.Part is CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms
                                 ? TextureAssetClass.Weapon : TextureAssetClass.Hunter, albedo.Value) : null, primitive.DoubleSided, primitive.Albedo?.Opaque == false,
                         primitive.JointPalette==null?null:Array.AsReadOnly(primitive.JointPalette.ToArray()),
                         primitive.JointPalette==null?null:new float[16*primitive.JointPalette.Length],
                         sourceLease==null?null:primitive.MaterialName,sourceLease==null?-1:primitive.SourcePrimitiveOrdinal>=0?primitive.SourcePrimitiveOrdinal:compiled.Count,
-                        sourcePrograms?[primitive.SourceMaterialOrdinal]));
+                        sourcePrograms?[primitive.SourceMaterialOrdinal],
+                        primitive.SurfaceTint is System.Numerics.Vector3 tint ? new Vector3(tint.X,tint.Y,tint.Z) : null, primitive.NeutralAlbedo));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
                     geometry.VertexCount, geometry.IndexCount, sourceLease==null?null:geometry);
@@ -806,6 +820,15 @@ namespace MphRead.Mods.Render.Characters
                 throw;
             }
 #endif
+        }
+
+        // An embedded glTF surface owns its shading. A native slot is retained only
+        // for gameplay status effects; unrelated source material names are valid.
+        internal static int ResolveAuthoredMaterial(Model model, string? name,
+            IReadOnlyDictionary<string, int> indices)
+        {
+            if (model.Materials.Count == 0) throw new InvalidDataException("Native model has no material slots.");
+            return name != null && indices.TryGetValue(name, out int index) ? index : 0;
         }
 
         private static int ResolveMaterial(Model nativeModel, int nodeIndex, string? materialName,

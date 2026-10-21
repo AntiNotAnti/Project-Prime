@@ -61,6 +61,25 @@ internal sealed class RmlUiAndroidInputQueue
                 || input.FocusEpoch != Current.TextInput.FocusEpoch
                 || input.Document != witness.TextInput.Document))
                 return Reject(witness, input);
+            // A fast touch/mouse source can publish many positions before the
+            // EGL owner gets its next frame. Keep the latest adjacent position
+            // without letting moves fill the queue and cancel the release edge.
+            // Buttons, keys, text, modifier/device changes and focus are fences.
+            if (input.Kind == RmlUiPlatformInputKind.PointerMove && _count > 0)
+            {
+                int tail = (_head + _count - 1) % _pending.Length;
+                Pending previous = _pending[tail];
+                if (previous.SurfaceGeneration == _surfaceGeneration && previous.InputGeneration == _inputGeneration
+                    && previous.Input.Kind == RmlUiPlatformInputKind.PointerMove
+                    && previous.Input.Document == input.Document && previous.Input.Device == input.Device
+                    && previous.Input.Modifiers == input.Modifiers && previous.Input.Code == input.Code
+                    && previous.Input.FocusEpoch == input.FocusEpoch
+                    && Double.IsFinite(input.X) && Double.IsFinite(input.Y))
+                {
+                    _pending[tail] = new(_surfaceGeneration, _inputGeneration, input);
+                    return true;
+                }
+            }
             if (_count == _pending.Length)
             {
                 // Discard the whole burst, including this event. A guaranteed

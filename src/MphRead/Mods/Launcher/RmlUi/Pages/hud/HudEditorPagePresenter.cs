@@ -3,6 +3,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.Launcher.Core;
@@ -24,19 +25,24 @@ public sealed class HudEditorPagePresenter : IDisposable
     private readonly ConcurrentQueue<Action> _completions=new();
     private CancellationTokenSource? _previewCancellation;
     private RmlUiDocumentToken _document;
-    private string? _propertyPath,_propertyValue,_layoutKey,_name;
+    private string? _name,_search;
+    private readonly string?[] _rowPaths=new string?[HudEditorController.PropertyPageSize],_rowValues=new string?[HudEditorController.PropertyPageSize];
+    private bool _fieldValidationFailed;
     private string _previewKey="";
     private long _jsonRevision=-1,_previewVersion;
     private bool _disposed;
     private readonly bool _asModal;
+    internal bool AutoApply { get; set; }
     public HudEditorPagePresenter(RmlUiHost host,RmlUiPageManager pages,HudEditorController controller,HudPreviewBitmap? preview=null,bool asModal=false)
         => (_host,_pages,_controller,_preview,_asModal)=(host,pages,controller,preview??new HudPreviewBitmap(),asModal);
     public RmlUiDocumentToken Document=>_document;
     public bool IsOpen=>!_disposed&&_document!=default&&_host.IsAlive(_document)&&(_asModal?!_pages.Lifetime(_document).IsCancellationRequested:_pages.Page==_document);
     public void Open()
     {
-        ObjectDisposedException.ThrowIf(_disposed,this);_document=_asModal?_pages.OpenModal(Page):_pages.OpenPage(Page);
-        _propertyPath=_propertyValue=_layoutKey=_name=null;_jsonRevision=-1;_previewKey="";Present();
+        ObjectDisposedException.ThrowIf(_disposed,this);
+        var spec=AutoApply?Page with { InitialFocus="hud_cancel" }:Page;
+        _document=_asModal?_pages.OpenModal(spec):_pages.OpenPage(spec);
+        _name=null;Array.Clear(_rowPaths);Array.Clear(_rowValues);_jsonRevision=-1;_previewKey="";Present();
     }
     public bool Present()
     {
@@ -44,15 +50,29 @@ public sealed class HudEditorPagePresenter : IDisposable
         for(int i=0;i<16&&_completions.TryDequeue(out Action? completion);i++)completion();
         HudEditorSnapshot state=_controller.Snapshot();
         _pages.Present(_document,state.Revision,Bindings(state));
-        if(_name!=state.Name){_name=state.Name;_host.SetField(_document,"hud_name",state.Name);}
-        string layoutKey=$"{state.Selected}|{state.X}|{state.Y}|{state.Scale}|{state.Opacity}|{state.Color}";
-        if(_layoutKey!=layoutKey)
+        if(AutoApply)
         {
-            _layoutKey=layoutKey;_host.SetField(_document,"hud_x",state.X);_host.SetField(_document,"hud_y",state.Y);
-            _host.SetField(_document,"hud_scale",state.Scale);_host.SetField(_document,"hud_opacity",state.Opacity);_host.SetField(_document,"hud_color",state.Color);
+            _host.SetText(_document,"hud_intro","All HUD settings in one place. Changes apply and save automatically.");
+            _host.SetBool(_document,"visible:hud_use",false);
+            _host.SetText(_document,"hud_cancel","BACK");
+            _host.SetText(_document,"hud_profiles_help","Start with a preset or save a named copy. Changes apply automatically.");
+            if(state.Status.Contains("Use in settings",StringComparison.Ordinal))
+                _host.SetText(_document,"hud_status","Named profile saved. Changes apply automatically.");
         }
-        if(_propertyPath!=state.Property?.Path||_propertyValue!=state.Property?.Value)
-        { _propertyPath=state.Property?.Path;_propertyValue=state.Property?.Value;_host.SetField(_document,"hud_property_value",state.Property?.Value??""); }
+        if(_search!=state.PropertySearch){_search=state.PropertySearch;_host.SetField(_document,"hud_property_search",state.PropertySearch);}
+        if(_name!=state.Name){_name=state.Name;_host.SetField(_document,"hud_name",state.Name);}
+        for(int i=0;i<HudEditorController.PropertyPageSize;i++)
+        {
+            HudEditorProperty? row=i<state.Properties.Length?state.Properties[i]:null;
+            string id="hud_property"+i+"_input";
+            bool changedRow=_rowPaths[i]!=row?.Path;
+            if(changedRow||_rowValues[i]!=row?.Value)
+            {
+                string raw=_host.ReadField(_document,id);
+                if(changedRow||raw==_rowValues[i])_host.SetField(_document,id,row?.Value??"");
+                _rowPaths[i]=row?.Path;_rowValues[i]=row?.Value;
+            }
+        }
         if(_jsonRevision!=state.JsonRevision){_jsonRevision=state.JsonRevision;_host.SetField(_document,"hud_json",state.JsonText);}
         PresentPreview(state);return true;
     }
@@ -60,26 +80,72 @@ public sealed class HudEditorPagePresenter : IDisposable
     {
         if(!IsOpen||_pages.Top!=_document||_host.CurrentInputDocument!=_document||!_host.IsVisible(_document)||intent.Document!=_document||intent.Kind is not (RmlUiIntentKind.HudAction or RmlUiIntentKind.HudElement or RmlUiIntentKind.HudProperty))return false;
         if(!_pages.Accept(intent))return false;
+        bool rowAction=intent.Kind==RmlUiIntentKind.HudProperty;
+        int rowIndex=rowAction?intent.Argument%HudEditorController.PropertyPageSize:-1;
+        if(rowAction&&intent.Argument>=24&&rowIndex<_controller.Snapshot().Properties.Length)
+            _host.SetField(_document,"hud_property"+rowIndex+"_input",_controller.Snapshot().Properties[rowIndex].Value);
+        bool leaving=intent.Kind==RmlUiIntentKind.HudElement||intent.Kind==RmlUiIntentKind.HudAction
+            &&(intent.Argument is >=(int)HudEditorAction.SectionAppearance and <=(int)HudEditorAction.WorkspaceProfiles
+                ||intent.Argument==(int)HudEditorAction.PropertyPrevious||intent.Argument==(int)HudEditorAction.PropertyNext);
+        if(!CapturePendingFields(discardInvalid:leaving||rowAction&&intent.Argument>=8&&intent.Argument<24)){Present();return true;}
         try
         {
         if(intent.Kind==RmlUiIntentKind.HudElement)_controller.SelectElement(intent.Argument);
-        else if(intent.Kind==RmlUiIntentKind.HudProperty)_controller.SelectProperty(intent.Argument);
+        else if(rowAction)
+        {
+            if(intent.Argument<8)_controller.SelectProperty(rowIndex);
+            else if(intent.Argument<24)_controller.CyclePropertyRow(rowIndex,intent.Argument<16);
+            else _controller.ResetPropertyRow(rowIndex);
+        }
         else if(Enum.IsDefined((HudEditorAction)intent.Argument))
         {
             var action=(HudEditorAction)intent.Argument;
-            string value=action is HudEditorAction.ImportJson or HudEditorAction.ImportCrosshair
-                ?_host.ReadField(_document,"hud_json",HudProfileStore.MaximumBytes):_host.ReadField(_document,"hud_property_value");
-            _controller.Dispatch(action,value,_host.ReadField(_document,"hud_name"),_host.ReadField(_document,"hud_x"),_host.ReadField(_document,"hud_y"),
-                _host.ReadField(_document,"hud_scale"),_host.ReadField(_document,"hud_opacity"),_host.ReadField(_document,"hud_color"));
+            string value=action == HudEditorAction.SearchProperties ? _host.ReadField(_document,"hud_property_search",128) : action is HudEditorAction.ImportJson or HudEditorAction.ImportCrosshair
+                ?_host.ReadField(_document,"hud_json",HudProfileStore.MaximumBytes):"";
+            _controller.Dispatch(action,value,_host.ReadField(_document,"hud_name"));
         }
         }
         catch (Exception ex) when (ex is FormatException or InvalidOperationException or ArgumentException)
         { _controller.ReportFailure(ex.Message); }
         Present();return true;
     }
+    // Keep text detached while it is being typed; commit only a complete, valid edit.
+    internal bool CapturePendingFields(bool discardInvalid=false)
+    {
+        if(!IsOpen)return false;
+        var state=_controller.Snapshot();
+        try
+        {
+        if(!state.ProfilesWorkspace)for(int i=0;i<state.Properties.Length;i++)
+        {
+            var property=state.Properties[i];string id="hud_property"+i+"_input";
+            string value=_host.ReadField(_document,id);
+            if(_rowPaths[i]!=property.Path||value==property.Value)continue;
+            if(!_controller.ApplyPropertyRow(i,value))
+            {
+                _fieldValidationFailed=true;
+                if(!discardInvalid)return false;
+                _host.SetField(_document,id,property.Value);
+            }
+        }
+        if(_fieldValidationFailed){_controller.ReportFailure("");_fieldValidationFailed=false;}
+        return true;
+        }
+        finally
+        {
+            if(_controller.Snapshot().PropertyIndex!=state.PropertyIndex)_controller.SelectProperty(state.PropertyIndex%HudEditorController.PropertyPageSize);
+        }
+    }
+    internal string PendingFieldsKey()
+    {
+        var key=new StringBuilder(_host.ReadField(_document,"hud_name"));
+        for(int i=0;i<_rowPaths.Length;i++)if(_rowPaths[i]!=null)
+            key.Append('\n').Append(_rowPaths[i]).Append('=').Append(_host.ReadField(_document,"hud_property"+i+"_input"));
+        return key.ToString();
+    }
     public void SetCanvasSize(float physicalWidth,float physicalHeight){_controller.SetCanvasSize(physicalWidth,physicalHeight);Present();}
     public bool PointerDown(long pointer,float localX,float localY,bool shift=false,bool alt=false,bool touch=false)
-    { bool result=_controller.PointerDown(pointer,localX,localY,shift,alt,touch);Present();return result; }
+    { if(AutoApply&&!CapturePendingFields()){Present();return false;}bool result=_controller.PointerDown(pointer,localX,localY,shift,alt,touch);Present();return result; }
     public bool PointerMove(long pointer,float localX,float localY,bool shift=false,bool control=false)
     { bool result=_controller.PointerMove(pointer,localX,localY,shift,control);Present();return result; }
     public void PointerUp(long pointer){_controller.PointerUp(pointer);Present();}
@@ -162,28 +228,32 @@ public sealed class HudEditorPagePresenter : IDisposable
     {
         HudProfile profile=HudProfileStore.Parse(state.ProfileJson);
         HudPreviewState preview=HudPreviewState.For(state.Scenario);
-        yield return Text("hud_selected",HudProfileDefaults.ElementIds[state.Selected]);
+        yield return Text("hud_selected",ElementLabel(state.Selected));
+        yield return Bool("visible:hud_elements_workspace",!state.ProfilesWorkspace);
+        yield return Bool("visible:hud_profiles_workspace",state.ProfilesWorkspace);
+        yield return Bool("class:hud_workspace_elements:selected",!state.ProfilesWorkspace);
+        yield return Bool("class:hud_workspace_profiles:selected",state.ProfilesWorkspace);
+        string[] sections={"appearance","layout","global","typography","decorations"};
+        for(int section=0;section<sections.Length;section++) yield return Bool("class:hud_section_"+sections[section]+":selected",state.InspectorSection==section);
+        yield return Text("hud_section_title",state.PropertySearch.Length>0?"SEARCH: "+state.PropertySearch:new[]{"ELEMENT APPEARANCE","POSITION & VISIBILITY","HUD-WIDE SETTINGS","LETTERING & FONTS","DECORATIONS"}[state.InspectorSection]);
+        yield return Bool("visible:hud_appearance_controls",state.InspectorSection==0&&state.PropertySearch.Length==0);
+        yield return Bool("visible:hud_global_controls",state.InspectorSection==2&&state.PropertySearch.Length==0);
+        yield return Bool("visible:hud_property_empty",state.Properties.IsEmpty);
         yield return Text("hud_preset",state.BasePreset.ToUpperInvariant());
         yield return Text("hud_aspect",$"{state.PreviewWidth:0} × {state.PreviewHeight:0}");
         yield return Text("hud_hunter",new[]{"SAMUS","KANDEN","TRACE","SYLUX","NOXUS","SPIRE","WEAVEL","GUARDIAN"}[state.PreviewHunter]);
         yield return Text("hud_scenario",state.Scenario.ToString().ToUpperInvariant());
         yield return Text("hud_grid",state.GridSize==0?"GRID OFF":"GRID "+state.GridSize);
         yield return Text("hud_guides",state.SnapGuides?"SNAP GUIDES ON":"SNAP GUIDES OFF");
-        yield return Text("hud_visible",state.Elements[state.Selected].Enabled?"VISIBLE":"HIDDEN");
-        yield return Text("hud_locked",state.Elements[state.Selected].Locked?"LOCKED":"UNLOCKED");
-        yield return Text("hud_anchor",state.Anchor.ToString().ToUpperInvariant());
-        yield return Text("hud_visibility",state.Visibility.ToString().ToUpperInvariant());
         yield return Text("hud_status",state.Status);yield return Text("hud_error",state.Error);yield return Bool("visible:hud_error",state.Error.Length>0);
-        yield return Text("hud_property_label",state.Property?.Label??"");
-        yield return Text("hud_property_help",state.Property==null?"":state.Property.Kind+(state.Property.Choices.IsEmpty?"":" // "+String.Join(", ",state.Property.Choices)));
         yield return Text("hud_property_page",$"{state.PropertyPage+1} / {state.PropertyPageCount}");
         yield return Text("hud_crosshair_target",new[]{"DEFAULT","POWER BEAM","VOLT DRIVER","MISSILE","BATTLEHAMMER","IMPERIALIST","JUDICATOR","MAGMAUL","SHOCK COIL","OMEGA CANNON","ZOOM"}[state.CrosshairTarget]);
         yield return Text("hud_crosshair_override",state.CrosshairOverride?"OVERRIDE ON":"INHERIT DEFAULT");
         yield return Bool("visible:hud_crosshair_controls",state.Selected==0);
-        yield return Bool("visible:hud_radar_preset",state.Selected==4);
+        yield return Bool("visible:hud_radar_controls",state.Selected==4);
         for(int i=0;i<HudProfileDefaults.ElementIds.Length;i++)
         {
-            var element=state.Elements[i];yield return Text("hud_pick"+i,HudProfileDefaults.ElementIds[i]);
+            var element=state.Elements[i];yield return Text("hud_pick"+i,ElementLabel(i));
             yield return Bool("class:hud_pick"+i+":selected",element.Selected);yield return Bool("class:hud_element"+i+":selected",element.Selected);
             var rect=element.Bounds;yield return Text("rect:hud_element"+i,Rect(rect));yield return Text("opacity:hud_element"+i,element.Opacity.ToString(CultureInfo.InvariantCulture));
             string label=i switch { 1=>profile.Health.Number||profile.Health.Native||profile.Mode==HudMode.Classic ? preview.Health.ToString(CultureInfo.InvariantCulture):"",
@@ -201,27 +271,29 @@ public sealed class HudEditorPagePresenter : IDisposable
             }
             yield return Text("font-size:hud_element"+i+"_label",Math.Clamp(font,1,1000).ToString(CultureInfo.InvariantCulture));
         }
-        yield return Text("color:hud_color_swatch",state.Color);
         for(int i=0;i<HudEditorController.PropertyPageSize;i++)
         {
             HudEditorProperty? row=i<state.Properties.Length?state.Properties[i]:null;
-            yield return Bool("visible:hud_property"+i,row!=null);yield return Text("hud_property"+i+"_label",row?.Label??"");yield return Text("hud_property"+i+"_value",row?.Value??"");
-            yield return Bool("class:hud_property"+i+":selected",row!=null&&state.PropertyIndex==state.PropertyPage*HudEditorController.PropertyPageSize+i);
+            yield return Bool("visible:hud_property"+i,row!=null);yield return Text("hud_property"+i+"_label",row?.Label??"");
+            yield return Bool("visible:hud_property"+i+"_previous",row!=null&&!row.Choices.IsEmpty);
+            yield return Bool("visible:hud_property"+i+"_next",row!=null&&!row.Choices.IsEmpty);
+            yield return Bool("disabled:hud_property"+i+"_input",row==null||state.Closed);
+            string hint=row==null?"":row.Kind switch { "Choice"=>"", "Number"=>"", "Text"=>row.Path.EndsWith("color",StringComparison.OrdinalIgnoreCase)?"Color in #RRGGBB format":"", _=>row.Kind };
+            yield return Text("hud_property"+i+"_help",hint);yield return Bool("visible:hud_property"+i+"_help",hint.Length!=0);
         }
         yield return Bool("disabled:hud_undo",!state.CanUndo||state.Closed);yield return Bool("disabled:hud_redo",!state.CanRedo||state.Closed);
-        yield return Bool("disabled:hud_anchor",state.Selected==0||state.Closed);
-        yield return Bool("disabled:hud_x",state.Selected==0||state.Closed);yield return Bool("disabled:hud_y",state.Selected==0||state.Closed);
         yield return Bool("disabled:hud_crosshair_override",state.CrosshairTarget==0||state.Closed);
         yield return Bool("disabled:hud_property_previous",state.PropertyPage==0||state.Closed);
         yield return Bool("disabled:hud_property_next",state.PropertyPage+1>=state.PropertyPageCount||state.Closed);
         var surface=state.Surface;yield return Text("rect:hud_surface",Rect(surface));
         float insetX=surface.Width*profile.SafeArea, insetY=surface.Height*profile.SafeArea;
         yield return Text("rect:hud_safe_area",Rect(new(surface.X+insetX,surface.Y+insetY,surface.Width-2*insetX,surface.Height-2*insetY)));
-        yield return Text("hud_safe_area_label",$"SAFE AREA {profile.SafeArea*100:0.#}% // edit safeArea in Profile Properties");
+        yield return Text("hud_safe_area_label",$"SAFE AREA {profile.SafeArea*100:0.#}% // HUD-wide settings");
         yield return Bool("visible:hud_guide_x",state.GuideX!=null);yield return Bool("visible:hud_guide_y",state.GuideY!=null);
         if(state.GuideX is{} gx)yield return Text("rect:hud_guide_x",Rect(new(gx,surface.Y,1,surface.Height)));
         if(state.GuideY is{} gy)yield return Text("rect:hud_guide_y",Rect(new(surface.X,gy,surface.Width,1)));
     }
+    private static string ElementLabel(int index) => new[]{"Crosshair & hit marker","Health","Ammunition","Weapon inventory","Radar","Score","Match timer","Kill feed","Combat notifications","Opponent information","Objectives","FPS & diagnostics","Health gauge","Ammo gauge","Movement telemetry"}[index];
     private static string Rect(HudEditorRect rect)=>String.Join(",",rect.X.ToString(CultureInfo.InvariantCulture),rect.Y.ToString(CultureInfo.InvariantCulture),rect.Width.ToString(CultureInfo.InvariantCulture),rect.Height.ToString(CultureInfo.InvariantCulture));
     private static KeyValuePair<string,RmlUiBindingValue> Text(string id,string value)=>new(id,RmlUiBindingValue.FromText(value));
     private static KeyValuePair<string,RmlUiBindingValue> Bool(string id,bool value)=>new(id,RmlUiBindingValue.FromBoolean(value));

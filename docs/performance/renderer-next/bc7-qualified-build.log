@@ -1,0 +1,17 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\DesktopCompressionChecks.cs(16,46): error CS0117: 'DesktopTextureCompressionPolicy' does not contain a definition for 'SupportsFormat' [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\DesktopCompressionChecks.cs(17,49): error CS0117: 'DesktopTextureCompressionPolicy' does not contain a definition for 'SupportsFormat' [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\DesktopCompressionChecks.cs(18,48): error CS0117: 'DesktopTextureCompressionPolicy' does not contain a definition for 'SupportsFormat' [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\DesktopCompressionChecks.cs(19,48): error CS0117: 'DesktopTextureCompressionPolicy' does not contain a definition for 'SupportsFormat' [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj]
+
+Build FAILED.
+
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\DesktopCompressionChecks.cs(16,46): error CS0117: 'DesktopTextureCompressionPolicy' does not contain a definition for 'SupportsFormat' [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\DesktopCompressionChecks.cs(17,49): error CS0117: 'DesktopTextureCompressionPolicy' does not contain a definition for 'SupportsFormat' [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\DesktopCompressionChecks.cs(18,48): error CS0117: 'DesktopTextureCompressionPolicy' does not contain a definition for 'SupportsFormat' [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\DesktopCompressionChecks.cs(19,48): error CS0117: 'DesktopTextureCompressionPolicy' does not contain a definition for 'SupportsFormat' [C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj]
+    0 Warning(s)
+    4 Error(s)
+
+Time Elapsed 00:00:00.72

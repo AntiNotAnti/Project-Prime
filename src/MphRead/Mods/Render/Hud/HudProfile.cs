@@ -39,7 +39,7 @@ public sealed class HudElementLayout
 /// <summary>Local presentation values only. Never referenced by simulation or networking.</summary>
 public sealed class HudProfile
 {
-    public const int CurrentSchema = 1;
+    public const int CurrentSchema = 2;
     public int SchemaVersion { get; set; } = CurrentSchema;
     public string Name { get; set; } = "Project Prime";
     public string BasePreset { get; set; } = "Project Prime";
@@ -48,10 +48,13 @@ public sealed class HudProfile
     public float GlobalOpacity { get; set; } = 1;
     public float TextScale { get; set; } = 1;
     public float IconScale { get; set; } = 1;
+    public bool? SmoothArtwork { get; set; }
+    public bool HaloLowHealthSound { get; set; }
     public bool ReduceMotion { get; set; }
     public bool ReduceTransparency { get; set; }
     public float SafeArea { get; set; }
     public bool IndependentGauges { get; set; }
+    public string AccentColor { get; set; } = "#A2D3F0";
     public bool FixedWeapon { get; set; } = true;
     public bool RadarBackground { get; set; }
     public bool RadarOutlines { get; set; } = true;
@@ -61,8 +64,11 @@ public sealed class HudProfile
     public HudRadarProfile Radar { get; set; } = new();
     public HudHitMarkerProfile HitMarker { get; set; } = new();
     public HudInventoryProfile Inventory { get; set; } = new();
+    public HudDecorations Decorations { get; set; } = new();
+    public HudTypography Typography { get; set; } = new();
     public HudNotificationProfile Notifications { get; set; } = new();
     public HudKillFeedProfile KillFeed { get; set; } = new();
+    public string WeaponCrosshairTheme { get; set; } = "";
     public CrosshairProfile Crosshair { get; set; } = new();
     public CrosshairProfile?[] WeaponCrosshairs { get; set; } = new CrosshairProfile?[9];
     public CrosshairProfile? ZoomCrosshair { get; set; }
@@ -89,7 +95,7 @@ public sealed class HudProfile
         Elements[id] = layout;
         switch (id)
         {
-            case "core.crosshair": Crosshair=defaults.Crosshair; WeaponCrosshairs=defaults.WeaponCrosshairs; ZoomCrosshair=null; HitMarker=defaults.HitMarker; break;
+            case "core.crosshair": WeaponCrosshairTheme=""; Crosshair=defaults.Crosshair; WeaponCrosshairs=defaults.WeaponCrosshairs; ZoomCrosshair=null; HitMarker=defaults.HitMarker; break;
             case "core.health": Health=defaults.Health; break;
             case "core.ammo": Ammo=defaults.Ammo; break;
             case "core.weapons": Inventory=defaults.Inventory; break;
@@ -100,6 +106,28 @@ public sealed class HudProfile
     }
     public void Validate()
     {
+        Health ??= new(); Ammo ??= new(); Inventory ??= new();
+        Crosshair ??= new(); WeaponCrosshairs ??= new CrosshairProfile?[9]; Elements ??= new();
+        if(SchemaVersion==1)
+        {
+            AccentColor=MphRead.Mods.Input.StylusZone.GuideColor;
+            if(Mode==HudMode.Classic) { FixedWeapon=false; Health.Native=true; Ammo.Native=true; Inventory.Native=true; Crosshair.Native=true; }
+            Crosshair.Scale*=MphRead.Mods.Render.Crosshair.Scale;
+            if(Elements.TryGetValue("core.crosshair",out var oldReticle) && oldReticle != null)
+            {
+                Crosshair.Scale*=oldReticle.Scale;
+                Crosshair.Opacity*=oldReticle.Opacity*NativeReticleOpacity;
+                Crosshair.Enabled &= oldReticle.Enabled;
+                oldReticle.Scale=1;oldReticle.Opacity=1;oldReticle.Enabled=true;
+            }
+            NativeReticleOpacity=1;
+            foreach(var c in WeaponCrosshairs) if(c!=null)c.Scale*=MphRead.Mods.Render.Crosshair.Scale;
+            if(ZoomCrosshair!=null)ZoomCrosshair.Scale*=MphRead.Mods.Render.Crosshair.Scale;
+            SchemaVersion=CurrentSchema;
+        }
+        Typography ??= new(); Typography.Validate();
+        AccentColor=HudColor.Normalize(AccentColor);
+        Decorations??=new();Decorations.Validate(AccentColor);
         if (SchemaVersion != CurrentSchema) throw new FormatException("Unsupported HUD profile version.");
         Name = string.IsNullOrWhiteSpace(Name) ? "Custom" : Name.Trim();
         if (Name.Length > 64) Name = Name[..64];

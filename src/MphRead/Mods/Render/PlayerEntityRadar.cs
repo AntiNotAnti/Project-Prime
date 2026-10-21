@@ -102,10 +102,16 @@ public partial class PlayerEntity
         long radarAllocated=HudDrawMetrics.Enabled ? GC.GetAllocatedBytesForCurrentThread() : 0;
         var runtime=HudProfiles.Runtime;
         var style=runtime.Radar;
-        float unit=_scene.Size.Y/192f;
+        bool bottom=_scene.UseDsLayout && !_scene.DsTopPass;
+        float unit=_scene.Size.Y/192f * (bottom ? Mods.Input.StylusZone.Height : 1f);
         float radius=19.44f*1.04f*unit*style.RadiusScale;
         float posX=(_scene.Size.X-5*unit-radius)/_scene.Size.X, posY=(10*unit+radius)/_scene.Size.Y;
-        using var layout=UseHudLayout(4,posX*256,posY*192);
+        if(bottom)
+        {
+            posX=Mods.Input.StylusZone.Left + Mods.Input.StylusZone.Width/2;
+            posY=Mods.Input.StylusZone.Top + Mods.Input.StylusZone.Height/2;
+        }
+        using var layout=UseHudLayout(bottom ? -1 : 4,posX*256,posY*192);
         var basis=HudRadarProjection.BuildBasis(RadarVector(CameraInfo.Facing),style.Orientation);
         var origin=RadarVector(RadarPresentedPosition());
         var palette=Radar.PaletteOf;

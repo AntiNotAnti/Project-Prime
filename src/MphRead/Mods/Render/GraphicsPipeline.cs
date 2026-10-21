@@ -18,6 +18,8 @@ namespace MphRead
         private Vector2i _graphicsOutputSize;
         private bool _graphicsOutputReady;
         private bool _graphicsPipelineRefused;
+        private ShadowQuality _graphicsAttemptQuality;
+        private Vector2i _graphicsAttemptSize;
 
         private int _gfxSceneSampler;
         private int _gfxDepthSampler;
@@ -42,6 +44,14 @@ namespace MphRead
         private void ApplyGraphicsPostProcess()
         {
             _graphicsOutputReady = false;
+            if (InlineShadowReceiverPolicy)
+            {
+                ReleaseGraphicsOutputTarget();
+                return;
+            }
+            if (_graphicsPipelineRefused && (_graphicsAttemptQuality != RenderOptions.Shadows
+                || _graphicsAttemptSize != _targetSize))
+                DisposeGraphicsPipeline();
             if (_graphicsPipelineRefused
                 || !ShouldCompositeDirectionalShadow(
                     RenderOptions.Shadows, ShadowMapReady, _depthTexture != 0))
@@ -59,6 +69,9 @@ namespace MphRead
 
             try
             {
+                _graphicsAttemptQuality = RenderOptions.Shadows;
+                _graphicsAttemptSize = _targetSize;
+                int sceneColor = ResolveSupersampledCompositeTexture();
                 Vector2i target = ResolveGraphicsProcessingSize(
                     _targetSize, Size, taaActive: false);
                 EnsureGraphicsPipeline(target);
@@ -70,7 +83,7 @@ namespace MphRead
                 GL.UseProgram(_graphicsProgram);
 
                 GL.ActiveTexture(TextureUnit.Texture0);
-                GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
+                GL.BindTexture(TextureTarget.Texture2D, sceneColor);
                 GL.Uniform1(_gfxSceneSampler, 0);
                 GL.ActiveTexture(TextureUnit.Texture1);
                 GL.BindTexture(TextureTarget.Texture2D, _depthTexture);
@@ -103,6 +116,7 @@ namespace MphRead
             }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
             {
+                DisposeGraphicsPipeline();
                 _graphicsPipelineRefused = true;
                 _graphicsOutputReady = false;
                 Console.WriteLine("[render] shadow composition unavailable: " + ex.Message);
@@ -151,71 +165,73 @@ namespace MphRead
                 int vertex = CompileGraphicsShader(ShaderType.VertexShader,
                     Mods.Render.GraphicsPipelineShader.VertexSource);
                 int fragment = 0;
+                int program = 0;
                 try
                 {
                     fragment = CompileGraphicsShader(ShaderType.FragmentShader,
                         Mods.Render.GraphicsPipelineShader.FragmentSource);
-                    _graphicsProgram = GL.CreateProgram();
-                    GL.AttachShader(_graphicsProgram, vertex);
-                    GL.AttachShader(_graphicsProgram, fragment);
-                    Mods.Render.OpenGlFailureInjection.ShaderObject("graphics-pipeline-program", _graphicsProgram);
-                    GL.LinkProgram(_graphicsProgram);
-#if !ANDROID
-                    GL.GetProgram(_graphicsProgram, GetProgramParameterName.LinkStatus,
+                    program = GL.CreateProgram();
+                    GL.AttachShader(program, vertex);
+                    GL.AttachShader(program, fragment);
+                    Mods.Render.OpenGlFailureInjection.ShaderObject("graphics-pipeline-program", program);
+                    GL.LinkProgram(program);
+                    GL.GetProgram(program, GetProgramParameterName.LinkStatus,
                         out int linked);
                     if (linked == 0)
-                        throw new ProgramException(GL.GetProgramInfoLog(_graphicsProgram));
-#endif
-                    _gfxSceneSampler = GL.GetUniformLocation(_graphicsProgram, "tex");
-                    _gfxDepthSampler = GL.GetUniformLocation(_graphicsProgram, "depth_tex");
-                    _gfxShadowSampler = GL.GetUniformLocation(_graphicsProgram, "shadow_tex");
-                    _gfxTexel = GL.GetUniformLocation(_graphicsProgram, "texel");
-                    _gfxInvProjection = GL.GetUniformLocation(_graphicsProgram, "inv_projection");
-                    _gfxInvView = GL.GetUniformLocation(_graphicsProgram, "inv_view");
-                    _gfxShadowView = GL.GetUniformLocation(_graphicsProgram, "shadow_view");
-                    _gfxShadowProjection = GL.GetUniformLocation(_graphicsProgram, "shadow_projection");
-                    _gfxShadowTexel = GL.GetUniformLocation(_graphicsProgram, "shadow_texel");
-                    _gfxShadowLightDir = GL.GetUniformLocation(_graphicsProgram, "shadow_light_dir");
+                        throw new ProgramException(GL.GetProgramInfoLog(program));
+                    _gfxSceneSampler = GL.GetUniformLocation(program, "tex");
+                    _gfxDepthSampler = GL.GetUniformLocation(program, "depth_tex");
+                    _gfxShadowSampler = GL.GetUniformLocation(program, "shadow_tex");
+                    _gfxTexel = GL.GetUniformLocation(program, "texel");
+                    _gfxInvProjection = GL.GetUniformLocation(program, "inv_projection");
+                    _gfxInvView = GL.GetUniformLocation(program, "inv_view");
+                    _gfxShadowView = GL.GetUniformLocation(program, "shadow_view");
+                    _gfxShadowProjection = GL.GetUniformLocation(program, "shadow_projection");
+                    _gfxShadowTexel = GL.GetUniformLocation(program, "shadow_texel");
+                    _gfxShadowLightDir = GL.GetUniformLocation(program, "shadow_light_dir");
+                    _graphicsProgram = program;
+                    program = 0;
                 }
                 finally
                 {
                     GL.DeleteShader(vertex);
                     if (fragment != 0) GL.DeleteShader(fragment);
+                    if (program != 0) GL.DeleteProgram(program);
                 }
             }
 
-            if (_graphicsOutputFramebuffer == 0)
-                _graphicsOutputFramebuffer = GL.GenFramebuffer();
-
-            if (_graphicsOutputTexture == 0)
-            {
-                _graphicsOutputTexture = GL.GenTexture();
-                GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
-                GL.TexParameter(TextureTarget.Texture2D,
-                    TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D,
-                    TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D,
-                    TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-                GL.TexParameter(TextureTarget.Texture2D,
-                    TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-                GL.BindTexture(TextureTarget.Texture2D, 0);
-            }
             if (_graphicsOutputSize != target)
             {
-                // Reuse the same texture/FBO across frames. Old transient
-                // leasing detached and reattached this target every frame.
-                GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                    target.X, target.Y, 0, PixelFormat.Rgba,
-                    PixelType.UnsignedByte, IntPtr.Zero);
-                GL.BindTexture(TextureTarget.Texture2D, 0);
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
-                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
-                    FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
-                    _graphicsOutputTexture, 0);
-                ValidateFramebuffer("Directional shadow output");
-                _graphicsOutputSize = target;
+                if (!CanAllocateTargetBytes((long)target.X * target.Y * 4))
+                    throw new InvalidOperationException("Shadow composite exceeds the render-target budget.");
+                int framebuffer = 0, texture = 0;
+                try
+                {
+                    framebuffer = GL.GenFramebuffer(); texture = GL.GenTexture();
+                    GL.BindTexture(TextureTarget.Texture2D, texture);
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                        target.X, target.Y, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+                    if (GL.GetError() != ErrorCode.NoError) throw new InvalidOperationException("Shadow composite allocation failed.");
+                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
+                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                        TextureTarget.Texture2D, texture, 0);
+                    ValidateFramebuffer("Directional shadow output");
+                    Mods.Render.OpenGlFailureInjection.Hit("graphics-target-before-publish");
+                    ReleaseGraphicsOutputTarget();
+                    _graphicsOutputFramebuffer = framebuffer; framebuffer = 0;
+                    _graphicsOutputTexture = texture; texture = 0;
+                    _graphicsOutputSize = target;
+                }
+                finally
+                {
+                    if (framebuffer != 0) GL.DeleteFramebuffer(framebuffer);
+                    DeleteTexture(ref texture);
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
+                }
             }
         }
 
@@ -241,17 +257,17 @@ namespace MphRead
         private static int CompileGraphicsShader(ShaderType type, string source)
         {
             int shader = GL.CreateShader(type);
-            GL.ShaderSource(shader, source);
-            Mods.Render.OpenGlFailureInjection.ShaderObject("graphics-pipeline-" + (type == ShaderType.VertexShader ? "vertex" : "fragment"), shader);
-            GL.CompileShader(shader);
-            GL.GetShader(shader, ShaderParameter.CompileStatus, out int status);
-            if (status == 0)
+            try
             {
-                string log = GL.GetShaderInfoLog(shader);
-                GL.DeleteShader(shader);
-                throw new ProgramException(log);
+                GL.ShaderSource(shader, source);
+                Mods.Render.OpenGlFailureInjection.ShaderObject("graphics-pipeline-" + (type == ShaderType.VertexShader ? "vertex" : "fragment"), shader);
+                GL.CompileShader(shader);
+                GL.GetShader(shader, ShaderParameter.CompileStatus, out int status);
+                if (status == 0) throw new ProgramException(GL.GetShaderInfoLog(shader));
+                int ready = shader; shader = 0;
+                return ready;
             }
-            return shader;
+            finally { if (shader != 0) GL.DeleteShader(shader); }
         }
 
         private static void DrawGraphicsFullscreenQuad()

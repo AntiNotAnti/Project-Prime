@@ -392,7 +392,7 @@ namespace MphRead.Mods.Network
             if (match.MapIdentity.IsCustom)
             {
                 Peer? waiting = _peers.FirstOrDefault(p => p.PreparedMap != match.MapIdentity || p.MapAvailability != MapAvailabilityState.Ready);
-                if (waiting != null) { reason = $"Waiting for {waiting.Name} to prepare {match.RoomKey} ({waiting.MapAvailability})."; return false; }
+                if (waiting != null) { reason = $"Waiting for {waiting.Name} to prepare {Launcher.LauncherRoomDisplayName.Get(match.RoomKey)} ({waiting.MapAvailability})."; return false; }
                 if (!MapGen.CustomRooms.Installed.HasExact(match.MapIdentity.Content(match.RoomKey)))
                 { reason = "The server's installed map package changed."; return false; }
             }

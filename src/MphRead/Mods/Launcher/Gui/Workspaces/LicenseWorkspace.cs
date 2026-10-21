@@ -1233,7 +1233,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             try
             {
-                return Metadata.GetRoomByName(key).Item1?.InGameName ?? key;
+                return LauncherRoomDisplayName.Get(key);
             }
             catch
             {

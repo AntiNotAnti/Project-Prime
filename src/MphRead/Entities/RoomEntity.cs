@@ -95,6 +95,7 @@ namespace MphRead.Entities
             Mods.MapGen.MapRuntimeUsage.Track(_scene, meta.Name);
             // todo: unlock the corresponding multiplayer arena when visiting a new planet
             _portals.Clear();
+            _portalCapacityReported = false;
             _portalSides.Clear();
             _forceFields.Clear();
             _nodePairs.Clear();
@@ -897,6 +898,24 @@ namespace MphRead.Entities
 
         private int _visNodeRefRecursionDepth = 0;
         private int _audNodeRefRecursionDepth = 0;
+        private bool _portalVisibilityOverflow;
+        private bool _portalCapacityReported;
+        private int _audiblePortalVisits;
+        private readonly Mods.Render.PortalClipScratch _portalClip = new();
+        private Matrix4 _portalViewProjection;
+
+        private void AbandonPortalCulling(string reason, bool refreshAudible = false)
+        {
+            _portalVisibilityOverflow = true;
+            // A null head is the established draw-all contract, including entities
+            // and retained clusters. Never keep a partially traversed visibility set.
+            _partVisInfoHead = null;
+            if (refreshAudible) Array.Fill(_audibleRoomParts, true);
+            if (_portalCapacityReported) return;
+            _portalCapacityReported = true;
+            Console.WriteLine($"[room] portal capacity: {Meta.Name}, parts={_nextRoomPartId}, "
+                + $"portals={_portals.Count}, frustums={_roomFrustumIndex}, reason={reason}; drawing all parts");
+        }
 
         private RoomPartVisInfo? _partVisInfoHead = null;
         private readonly RoomPartVisInfo[] _partVisInfo = new RoomPartVisInfo[_roomPartMax];
@@ -921,9 +940,13 @@ namespace MphRead.Entities
         private readonly RoomFrustumItem[] _roomFrustumItems = new RoomFrustumItem[_roomPartMax];
         private readonly RoomFrustumItem?[] _roomFrustumLinks = new RoomFrustumItem[_roomPartMax];
 
-        private RoomFrustumItem GetRoomFrustumItem()
+        private RoomFrustumItem? GetRoomFrustumItem()
         {
-            Debug.Assert(_roomFrustumIndex != _roomPartMax);
+            if (_roomFrustumIndex >= _roomFrustumItems.Length)
+            {
+                AbandonPortalCulling("frustum pool");
+                return null;
+            }
             return _roomFrustumItems[_roomFrustumIndex];
         }
 
@@ -939,8 +962,12 @@ namespace MphRead.Entities
                     _audibleRoomParts[i] = false;
             }
             _visNodeRefRecursionDepth = 0;
+            _portalVisibilityOverflow = false;
             if (refreshAudible)
+            {
                 _audNodeRefRecursionDepth = 0;
+                _audiblePortalVisits = 0;
+            }
             _roomFrustumIndex = 0;
             _partVisInfoHead = null;
         }
@@ -1061,6 +1088,11 @@ namespace MphRead.Entities
 
         private void UpdateRoomParts(bool refreshAudible = true)
         {
+            if (_nextRoomPartId > _roomPartMax)
+            {
+                AbandonPortalCulling("room part count", refreshAudible);
+                return;
+            }
             NodeRef curNodeRef = _scene.Players.Main.CameraInfo.NodeRef;
             if (_scene.CameraMode != CameraMode.Player || curNodeRef.PartIndex == -1)
             {
@@ -1121,8 +1153,15 @@ namespace MphRead.Entities
             curVisInfo.ViewMinY = 0;
             curVisInfo.ViewMaxY = 1;
             _activeRoomParts[curNodeRef.PartIndex] = true;
-            RoomFrustumItem curRoomFrustum = GetRoomFrustumItem();
+            RoomFrustumItem? curRoomFrustum = GetRoomFrustumItem();
+            if (curRoomFrustum == null) return;
             _roomFrustumIndex++;
+            if (_scene.FrustumInfo.Count <= 0 || _scene.FrustumInfo.Count > curRoomFrustum.Info.Planes.Length
+                || _scene.FrustumInfo.Index < 0 || _scene.FrustumInfo.Index > _scene.FrustumInfo.Count)
+            {
+                AbandonPortalCulling("camera planes", refreshAudible);
+                return;
+            }
             curRoomFrustum.Info.Count = _scene.FrustumInfo.Count; // always 5
             curRoomFrustum.Info.Index = _scene.FrustumInfo.Index; // always 1
             for (int i = 0; i < curRoomFrustum.Info.Planes.Length; i++)
@@ -1133,20 +1172,24 @@ namespace MphRead.Entities
             RoomFrustumItem? link = _roomFrustumLinks[curNodeRef.PartIndex];
             curRoomFrustum.Next = link;
             _roomFrustumLinks[curNodeRef.PartIndex] = curRoomFrustum;
+            _portalViewProjection = _scene.ViewMatrix * _scene.PerspectiveMatrix;
             FindVisibleRoomParts(curRoomFrustum, curNodeRef);
             if (refreshAudible)
                 FindAudibleRoomParts(curNodeRef, curNodeRef);
         }
 
-        private static readonly Vector3[] _startPointList = new Vector3[14];
-        private static readonly Vector3[] _destPointList = new Vector3[14];
-
         private void FindVisibleRoomParts(RoomFrustumItem frustumItem, NodeRef mainNodeRef)
         {
+            if (_portalVisibilityOverflow) return;
+            if ((uint)frustumItem.NodeRef.PartIndex >= (uint)_portalSides.Count) return;
+            // Setup and AddDoorPortal maintain these lists in _portals order.
+            // Keep the full NodeRef test below: one part can have several nodes.
+            List<(Portal Portal, bool OtherSide)> sides = _portalSides[frustumItem.NodeRef.PartIndex];
             bool otherSide = false;
-            for (int i = 0; i < _portals.Count; i++)
+            for (int i = 0; i < sides.Count; i++)
             {
-                Portal portal = _portals[i];
+                if (_portalVisibilityOverflow) return;
+                Portal portal = sides[i].Portal;
                 if (!portal.Active)
                 {
                     continue;
@@ -1195,7 +1238,8 @@ namespace MphRead.Entities
                     }
                 }
                 int v28;
-                RoomFrustumItem nextFrustumItem = GetRoomFrustumItem();
+                RoomFrustumItem? nextFrustumItem = GetRoomFrustumItem();
+                if (nextFrustumItem == null) return;
                 if (adjacent)
                 {
                     // even if facing away, we're close enough to the portal that should consider its part visible
@@ -1213,14 +1257,19 @@ namespace MphRead.Entities
                 }
                 else
                 {
-                    for (int j = 0; j < portal.Points.Count; j++)
+                    v28 = _portalClip.Clip(frustumItem.Info, portal.Points);
+                    if (v28 < 0)
                     {
-                        _startPointList[j] = portal.Points[j];
+                        AbandonPortalCulling("clip points");
+                        return;
                     }
-                    v28 = Func21180A8(frustumItem.Info, _startPointList, portal.Points.Count, _destPointList);
                     if (v28 >= 3)
                     {
-                        Debug.Assert(frustumItem.Info.Index + v28 <= 10);
+                        if (frustumItem.Info.Index + v28 > nextFrustumItem.Info.Planes.Length)
+                        {
+                            AbandonPortalCulling("portal planes");
+                            return;
+                        }
                         // not entirely sure what it means for the index to be 0 or not
                         // --> basically we've got an "current count" (index) and a "new count" after adding v28?
                         // --> so not really the same usage as with the main frustum?
@@ -1234,8 +1283,8 @@ namespace MphRead.Entities
                         nextFrustumItem.Info.Count = index;
                         for (int j = 0; j < v28; j++)
                         {
-                            Vector3 point1 = _destPointList[j];
-                            Vector3 point2 = _destPointList[j == v28 - 1 ? 0 : j + 1];
+                            Vector3 point1 = _portalClip.Result[j];
+                            Vector3 point2 = _portalClip.Result[j == v28 - 1 ? 0 : j + 1];
                             if (MathF.Abs(point1.X - point2.X) >= 1 / 4096f || MathF.Abs(point1.Y - point2.Y) >= 1 / 4096f
                                 || MathF.Abs(point1.Z - point2.Z) >= 1 / 4096f)
                             {
@@ -1252,7 +1301,7 @@ namespace MphRead.Entities
                                 }
                                 var plane = new Vector4(normal, Vector3.Dot(normal, _scene.CameraPosition));
                                 nextFrustumItem.Info.Planes[index + j] = Scene.SetBoundsIndices(plane);
-                                Vector3 destPoint = _startPointList[j];
+                                Vector3 destPoint = default;
                                 if (Func2117F84(point1, ref destPoint) >= 0)
                                 {
                                     minX = MathF.Min(minX, destPoint.X);
@@ -1276,6 +1325,12 @@ namespace MphRead.Entities
                     {
                         // todo?: link this portal into the draw list
                         NodeRef nextNodeRef = otherSide ? portal.NodeRef1 : portal.NodeRef2;
+                        if ((uint)nextNodeRef.PartIndex >= _roomPartMax || nextNodeRef.NodeIndex < 0
+                            || nextNodeRef.ModelIndex < 0)
+                        {
+                            AbandonPortalCulling("portal destination");
+                            return;
+                        }
                         // todo: couldn't we bail a lot earlier for either condition?
                         if (nextNodeRef.PartIndex == mainNodeRef.PartIndex || _visNodeRefRecursionDepth < 6)
                         {
@@ -1302,7 +1357,7 @@ namespace MphRead.Entities
         // todo: name/purpose
         private float Func2117F84(Vector3 point, ref Vector3 dest)
         {
-            Matrix4 matrix = _scene.ViewMatrix * _scene.PerspectiveMatrix; // todo: no need to do this multiple times
+            Matrix4 matrix = _portalViewProjection;
             float v4 = point.X * matrix.Row0.W + point.Y * matrix.Row1.W + point.Z * matrix.Row2.W + matrix.Row3.W;
             if (v4 <= 0)
             {
@@ -1313,60 +1368,6 @@ namespace MphRead.Entities
             dest.Y = (dest.Y * 300 / v4 + 300) / 600;
             dest.Z /= v4;
             return 1 / v4;
-        }
-
-        // todo: name/purpose
-        private int Func21180A8(FrustumInfo frustumInfo, Vector3[] pointList, int pointCount, Vector3[] destList)
-        {
-            Debug.Assert(frustumInfo.Count > 0);
-            var temp1 = new Vector3[14];
-            var temp2 = new Vector3[14];
-            for (int i = 0; i < frustumInfo.Count; i++)
-            {
-                // first iteration: pointList is the list of points from the portal
-                // next iterations: pointList is the list we built in temp1/temp2 in the last iteration
-                int newPointCount = 0;
-                Vector3[] newList;
-                if (i == frustumInfo.Count - 1)
-                {
-                    newList = destList;
-                }
-                else
-                {
-                    newList = i % 2 == 0 ? temp1 : temp2;
-                }
-                Vector4 plane = frustumInfo.Planes[i].Plane;
-                float dist1 = Vector3.Dot(pointList[0], plane.Xyz) - plane.W;
-                bool v5 = dist1 >= 0;
-                Debug.Assert(pointCount > 0);
-                for (int j = 0; j < pointCount; j++)
-                {
-                    // each iteration, dist1 is the distance from point1 to the frustum plane,
-                    // and dist2 is the distance from point2 to the portal, as we test successive edges
-                    Vector3 point1 = pointList[j];
-                    Vector3 point2 = pointList[j == pointCount - 1 ? 0 : j + 1];
-                    if (v5)
-                    {
-                        newList[newPointCount++] = point1;
-                    }
-                    float dist2 = Vector3.Dot(point2, plane.Xyz) - plane.W;
-                    bool v6 = dist2 >= 0;
-                    if (v5 != v6)
-                    {
-                        float div = -dist1 / (dist2 - dist1);
-                        newList[newPointCount++] = point1 + (point2 - point1) * div;
-                    }
-                    dist1 = dist2;
-                    v5 = v6;
-                }
-                if (newPointCount == 0)
-                {
-                    return 0;
-                }
-                pointList = newList;
-                pointCount = newPointCount;
-            }
-            return pointCount;
         }
 
         private float GetDistanceToPortal(Vector3 pos, Vector4 plane, bool otherSide)
@@ -1381,11 +1382,22 @@ namespace MphRead.Entities
 
         private void FindAudibleRoomParts(NodeRef nodeRef, NodeRef mainNodeRef)
         {
-            _audibleRoomParts[nodeRef.PartIndex] = true;
-            bool otherSide = false;
-            for (int i = 0; i < _portals.Count; i++)
+            // The original special-case return to the main part can recurse
+            // through cycles past the ordinary depth cutoff. Bound work in Release.
+            if ((uint)nodeRef.PartIndex >= _roomPartMax || _audNodeRefRecursionDepth >= _roomPartMax
+                || ++_audiblePortalVisits > 1024)
             {
-                Portal portal = _portals[i];
+                AbandonPortalCulling("audible traversal", refreshAudible: true);
+                return;
+            }
+            _audibleRoomParts[nodeRef.PartIndex] = true;
+            if ((uint)nodeRef.PartIndex >= (uint)_portalSides.Count) return;
+            List<(Portal Portal, bool OtherSide)> sides = _portalSides[nodeRef.PartIndex];
+            bool otherSide = false;
+            for (int i = 0; i < sides.Count; i++)
+            {
+                Portal portal = sides[i].Portal;
+                if (_audiblePortalVisits > 1024) return;
                 if (!portal.Active)
                 {
                     continue;
@@ -1634,7 +1646,7 @@ namespace MphRead.Entities
 
         public bool IsNodeRefAudible(NodeRef nodeRef)
         {
-            if (nodeRef.PartIndex == -1)
+            if ((uint)nodeRef.PartIndex >= _roomPartMax)
             {
                 return true;
             }
@@ -1670,7 +1682,7 @@ namespace MphRead.Entities
             {
                 return false;
             }
-            return _activeRoomParts[nodeRef.PartIndex];
+            return (uint)nodeRef.PartIndex >= _roomPartMax || _activeRoomParts[nodeRef.PartIndex];
         }
 
         private readonly HashSet<NodeData3> _drawnNodeData = [];

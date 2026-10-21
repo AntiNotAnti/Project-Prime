@@ -48,6 +48,7 @@ internal sealed class RmlUiAndroidGlesState
     private int _stencilFail, _stencilZFail, _stencilZPass, _unpackAlignment;
     private int _srcRgb, _dstRgb, _srcAlpha, _dstAlpha, _equationRgb, _equationAlpha;
     private int _depthWrite;
+    private int _backWrite, _backFunc, _backRef, _backMask, _backFail, _backZFail, _backZPass;
     private readonly int[] _viewport = new int[4];
     private readonly int[] _scissorRect = new int[4];
     private readonly int[] _colorMask = new int[4];
@@ -88,6 +89,9 @@ internal sealed class RmlUiAndroidGlesState
         _stencilFail = Read(StencilFail);
         _stencilZFail = Read(StencilPassDepthFail);
         _stencilZPass = Read(StencilPassDepthPass);
+        _backWrite = Read(0x8CA5); _backFunc = Read(0x8800); _backRef = Read(0x8CA3);
+        _backMask = Read(0x8CA4); _backFail = Read(0x8801);
+        _backZFail = Read(0x8802); _backZPass = Read(0x8803);
         _unpackAlignment = Read(UnpackAlignment);
         _pixelUnpackBuffer = Read(PixelUnpackBufferBinding);
         _unpackRowLength = Read(UnpackRowLength); _unpackSkipRows = Read(UnpackSkipRows); _unpackSkipPixels = Read(UnpackSkipPixels);
@@ -130,9 +134,12 @@ internal sealed class RmlUiAndroidGlesState
         GLES30.GlColorMask(_colorMask[0] != 0, _colorMask[1] != 0,
             _colorMask[2] != 0, _colorMask[3] != 0);
         GLES30.GlDepthMask(_depthWrite != 0);
-        GLES30.GlStencilMask(_writeStencil);
-        GLES30.GlStencilFunc(_stencilFunc, _stencilRef, _stencilMask);
-        GLES30.GlStencilOp(_stencilFail, _stencilZFail, _stencilZPass);
+        GLES30.GlStencilMaskSeparate(GLES30.GlFront, _writeStencil);
+        GLES30.GlStencilFuncSeparate(GLES30.GlFront, _stencilFunc, _stencilRef, _stencilMask);
+        GLES30.GlStencilOpSeparate(GLES30.GlFront, _stencilFail, _stencilZFail, _stencilZPass);
+        GLES30.GlStencilMaskSeparate(GLES30.GlBack, _backWrite);
+        GLES30.GlStencilFuncSeparate(GLES30.GlBack, _backFunc, _backRef, _backMask);
+        GLES30.GlStencilOpSeparate(GLES30.GlBack, _backFail, _backZFail, _backZPass);
         GLES30.GlClearStencil(_clearStencil);
         GLES30.GlClearColor(_clearColor[0], _clearColor[1], _clearColor[2], _clearColor[3]);
         GLES30.GlBlendFuncSeparate(_srcRgb, _dstRgb, _srcAlpha, _dstAlpha);

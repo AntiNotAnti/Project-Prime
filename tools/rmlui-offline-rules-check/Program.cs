@@ -16,6 +16,36 @@ static void Check(bool condition, string label)
 static RmlUiOfflineRules Rules(ushort flags = 0)
     => new("7", "7:00", "1:30", "medium", flags);
 
+if (args.Contains("--roster-only"))
+{
+    OfflineBotChecks.Run();
+    return;
+}
+
+if(args.Contains("--navigation-only"))
+{
+
+var backwards = new RmlUiOfflineDraft(new[]{"Arena A","Arena B","Arena C"},Hunter.Samus,0,0,0);
+foreach(int choice in new[]{0,1,3,4,5,6})
+{
+    var before = backwards.Current;
+    Check(backwards.Change(choice)&&backwards.Change(choice,previous:true)
+        && (backwards.Current with { BotRoster = before.BotRoster }) == before
+        && backwards.Current.BotRoster.SequenceEqual(before.BotRoster),
+        "offline choice reverses in one direct step: "+choice);
+}
+var trainingBackwards = new RmlUiTrainingDraft(MphRead.Mods.Training.AimTrainerDefinition.Default,Hunter.Samus);
+foreach(int choice in new[]{7,9,10,12,13,14,15})
+{
+    var before = trainingBackwards.Current;var hunter = trainingBackwards.Hunter;
+    Check(trainingBackwards.Choice(choice)&&trainingBackwards.Choice(choice,previous:true)
+        &&trainingBackwards.Current==before&&trainingBackwards.Hunter==hunter,
+        "training choice reverses without replaying intervening options: "+choice);
+}
+
+    return;
+}
+
 var initial = Rules((1 << 0) | (1 << 1) | (1 << 5));
 var battle = new RmlUiOfflineRuleEditor(GameMode.Battle, initial);
 Check(battle.Original == initial && !battle.Draft.Enabled(5)

@@ -1,0 +1,21 @@
+PASS Windows native KTX2 container: authored lower levels selected before allocation, exact green/blue pixels retained
+PASS compressed mip residency regression (BC7/ETC2/ASTC, base/partial/complete/1x1/NPOT/toggle/malformed)
+NOT_RUN linked-image fixture: Windows symbolic-link privilege unavailable
+Materials: Starter destination already exists.
+NOT_RUN linked-directory fixture: Windows symbolic-link privilege unavailable
+Usage: -materials inspect|validate <pack> | inventory <output.json> | starter <inventory.json> <pack-or-manifest>
+PASS Windows native authored RGBA mip content
+PASS Windows BC7 Albedo: actualBytes=1392 rgbaBytes=5460 worstChannelError=0 decodeMs=0.8354 uploadAndFinishMs=1.3451
+PASS Windows BC7 Normal: actualBytes=1392 rgbaBytes=5460 worstChannelError=0 decodeMs=0.0806 uploadAndFinishMs=0.1406
+PASS Windows BC7 Material: actualBytes=1392 rgbaBytes=5460 worstChannelError=0 decodeMs=0.0428 uploadAndFinishMs=0.0358
+PASS Windows BC7 Emissive: actualBytes=1392 rgbaBytes=5460 worstChannelError=0 decodeMs=0.0402 uploadAndFinishMs=0.0343
+PASS observed BC7 fixture storage: 5568 bytes versus 21840 RGBA bytes; synthetic pixels only, no pack/normal quality or throughput acceptance
+Material GPU checks PASS: 12 cycles + allocation fault, 38 allocations / 38 releases, success and failed uploads
+[world-shaders] variant=native elapsedMs=1.282
+[world-shaders] variant=plain elapsedMs=0.775
+[world-shaders] variant=plain-unlit elapsedMs=0.710
+Material provenance GPU checks PASS: shared original binding, reload creates independent red/original authored textures
+Source bank GPU checks PASS: two independent exact RGBA images, queued decode, supersession, captured generation, quality refresh and replacement toggles
+TEXTURE SETTINGS GPU PASS: one job per picture, desired/applied lag, rapid supersession, stable handles, stale release, direct/retained mip freeze, bounded prewarm and teardown
+Material editor GPU checks PASS: four lit material refreshes preserve one mesh; teardown releases all map textures
+Material pack checks PASS (56 assertions)

@@ -1,6 +1,9 @@
 #if MPHREAD_AVALONIA
 using System;
 using System.Linq;
+using System.Collections.Generic;
+using MphRead.Mods.Render.Hud;
+using OpenTK.Mathematics;
 using MphRead.Formats;
 using SkiaSharp;
 
@@ -14,6 +17,7 @@ internal sealed class KillcamText
     private sealed record Glyph(ColorRgba[] Pixels, float Advance);
     private static readonly Lazy<Glyph[]> Glyphs = new(Build);
     private readonly Scene _scene;
+    private readonly Dictionary<string,int> _fontTextures=new();
     private readonly int[] _textures = new int[95];
     internal KillcamText(Scene scene) { _scene = scene; _ = Glyphs.Value; }
     private static Glyph[] Build()
@@ -41,6 +45,8 @@ internal sealed class KillcamText
     }
     internal void Draw(float x, float y, string text, float scale, float alpha, float right)
     {
+        var style=HudProfiles.Runtime.Typography.Get("game.replay");
+        if(style.Enabled){DrawCustom(x,y,text,scale,alpha,right,style);return;}
         foreach (char character in text)
         {
             int index = character is >= ' ' and <= '~' ? character - 32 : '?' - 32;
@@ -55,5 +61,37 @@ internal sealed class KillcamText
             x += advance;
         }
     }
+    private void DrawCustom(float x,float y,string text,float scale,float alpha,float right,HudTextStyle style)
+    {
+        var atlas=HudFonts.Get(style.Font);
+        if(!_fontTextures.TryGetValue(style.Font,out int texture))
+        {
+            var pixels=new ColorRgba[atlas.Alpha.Length];
+            for(int i=0;i<pixels.Length;i++)pixels[i]=new(255,255,255,atlas.Alpha[i]);
+            texture=_scene.BindGetTexture(pixels,HudFonts.AtlasWidth,HudFonts.AtlasHeight);_fontTextures.Add(style.Font,texture);
+        }
+        float unit=scale/6*style.Size*HudProfiles.Runtime.TextScale;
+        var rgb=style.MatchPalette?HudProfiles.Runtime.AccentInk:style.Ink;
+        var tint=style.FontOnlyOverride?new Vector4(244/255f,249/255f,1,1):new Vector4(rgb.X,rgb.Y,rgb.Z,1);
+        foreach(char c in text)
+        {
+            int n=c is >= ' ' and <= '~'?c-32:'?'-32;
+            float advance=atlas.Advances[n]*unit;if(x+advance>right)break;
+            var uv=new Vector4(n%16/16f,n/16/6f,(n%16+1)/16f,(n/16+1)/6f);
+            float left=x-HudFonts.PaddingX*unit,top=y-HudFonts.PaddingY*unit;
+            if(style.Outline>0)
+            {
+                var oc=style.OutlineInk;var outline=new Vector4(oc.X,oc.Y,oc.Z,1);
+                for(int i=0;i<8;i++)
+                {
+                    float angle=i*MathF.PI/4,dx=MathF.Cos(angle)*style.Outline*scale/3,dy=MathF.Sin(angle)*style.Outline*scale/3;
+                    _scene.DrawHudTexture(left+dx,top+dy,left+HudFonts.CellSize*unit+dx,top+HudFonts.CellSize*unit+dy,texture,alpha*style.Opacity,true,uv,outline);
+                }
+            }
+            _scene.DrawHudTexture(left,top,left+HudFonts.CellSize*unit,top+HudFonts.CellSize*unit,texture,alpha*style.Opacity,true,uv,tint);
+            x+=advance;
+        }
+    }
+
 }
 #endif

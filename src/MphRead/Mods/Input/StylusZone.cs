@@ -122,6 +122,17 @@ namespace MphRead.Mods.Input
         /// then the separate round sub-weapon-change icon. Coordinates align
         /// with the cartridge bottom-screen art.
         /// </summary>
+        private static float _selectSize = 1;
+        // The original center is only 24 DS pixels from the edge. 109% is the
+        // largest complete circle that fits; never draw an unreachable target.
+        public static float SelectSize { get => _selectSize; set => _selectSize = float.IsFinite(value) ? Math.Clamp(value, .5f, 48f / 44f) : 1; }
+        public static Button EffectiveButton(Button b)
+        {
+            float size = b.Region == StylusRegion.WeaponSelect ? SelectSize : 1;
+            // Keep physical control dimensions and round targets undistorted.
+            return new Button(b.Region, b.X, b.Y, b.Width * size / DsLayout.HorizontalStretch,
+                b.Height * size, b.Label, b.Round);
+        }
         public static readonly Button[] Buttons =
         {
             new Button(StylusRegion.PowerBeam, 86, 42, 36, 36, "BEAM"),
@@ -152,7 +163,7 @@ namespace MphRead.Mods.Input
         /// </summary>
         public static bool Enabled
         {
-            get => Wanted && PointerInput.StylusMode;
+            get => (Wanted || DsLayout.Active) && PointerInput.StylusMode;
             set => Wanted = value;
         }
 
@@ -165,11 +176,26 @@ namespace MphRead.Mods.Input
         // Where the zone is, as fractions of the window, so it survives a
         // resize and a change of monitor. Width alone: the height follows
         // from the DS's shape, which the layout depends on.
-        public static float Left { get; private set; } = 0.62f;
-        public static float Top { get; private set; } = 0.60f;
-        public static float Width { get; private set; } = 0.34f;
+        private static float _left = 0.62f;
+        public static float Left { get => DsLayout.Active ? DsLayout.Bottom.X : _left; private set => _left = value; }
+        private static float _top = 0.60f;
+        public static float Top { get => DsLayout.Active ? DsLayout.Bottom.Y : _top; private set => _top = value; }
+        private static float _width = 0.34f;
+        public static float Width { get => DsLayout.Active ? DsLayout.Bottom.Z : _width; private set => _width = value; }
 
-        public static float Height => Width * (DsHeight / DsWidth) * AspectCorrection;
+        internal static float SavedLeft => _left;
+        internal static float SavedTop => _top;
+        internal static float SavedWidth => _width;
+        internal static Action CapturePlacement()
+        {
+            float left = _left, top = _top, width = _width;
+            // A temporary preview must restore the stored rectangle verbatim.
+            // SetRect validates new placements against the current screen shape,
+            // which can otherwise move a previously saved rectangle on return.
+            return () => { _left = left; _top = top; _width = width; };
+        }
+
+        public static float Height => DsLayout.Active ? DsLayout.Bottom.W : Width * (DsHeight / DsWidth) * AspectCorrection;
 
         /// <summary>
         /// Window shape, so a zone given as a fraction of the width is still
@@ -188,12 +214,12 @@ namespace MphRead.Mods.Input
         public const float DefaultOutlineOpacity = 0.22f;
         public const float DefaultButtonOpacity = 0.11f;
         public const float DefaultCursorOpacity = 1f;
-        public const string DefaultGuideColor = "#D94D4D";
+        public const string DefaultGuideColor = "#A2D3F0";
 
         private static string _guideColor = DefaultGuideColor;
-        private static float _guideRed = 0xD9 / 255f;
-        private static float _guideGreen = 0x4D / 255f;
-        private static float _guideBlue = 0x4D / 255f;
+        private static float _guideRed = 0xA2 / 255f;
+        private static float _guideGreen = 0xD3 / 255f;
+        private static float _guideBlue = 0xF0 / 255f;
 
         /// <summary>
         /// Colour used by the simplified touch-screen guide. Native cartridge
@@ -273,9 +299,9 @@ namespace MphRead.Mods.Input
 
         public static void SetRect(float left, float top, float width)
         {
-            Width = Math.Clamp(width, 0.10f, 1f);
-            Left = Math.Clamp(left, 0, 1 - Width);
-            Top = Math.Clamp(top, 0, Math.Max(0, 1 - Height));
+            _width = Math.Clamp(width, 0.10f, 1f);
+            _left = Math.Clamp(left, 0, 1 - _width);
+            _top = Math.Clamp(top, 0, Math.Max(0, 1 - _width * (DsHeight / DsWidth) * AspectCorrection));
         }
 
         /// <summary>
@@ -296,6 +322,7 @@ namespace MphRead.Mods.Input
         /// </summary>
         public static void BeginPlacement()
         {
+            if (DsLayout.Active) return;
             Placing = true;
             _placeAnchored = false;
         }
@@ -608,7 +635,7 @@ namespace MphRead.Mods.Input
             float dsY = (y - Top) / height * DsHeight;
             for (int i = 0; i < Buttons.Length; i++)
             {
-                Button button = Buttons[i];
+                Button button = EffectiveButton(Buttons[i]);
                 if (button.Contains(dsX, dsY))
                 {
                     return button.Region;

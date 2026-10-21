@@ -8,5 +8,6 @@
   <ItemGroup>
     <Compile Include="../../src/MphRead/Mods/Render/OpenGlFrameCapture.cs" Link="OpenGlFrameCapture.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/OpenGlFrameProfiler.cs" Link="OpenGlFrameProfiler.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/FrameTiming.cs" Link="FrameTiming.cs" />
   </ItemGroup>
 </Project>

@@ -95,7 +95,7 @@ namespace MphRead.Entities
                 return;
             }
             float aspect = HudAspectFix;
-            string prompt = " PROPOSES " + MapVote.RoomKey.ToUpperInvariant();
+            string prompt = " PROPOSES " + Mods.Launcher.LauncherRoomDisplayName.Get(MapVote.RoomKey).ToUpperInvariant();
             string tally = MapVote.TallyLine();
             if (!MapVote.Answered && Mods.Input.InputSourceTracker.Current == Mods.Input.InputSource.Gamepad)
             {

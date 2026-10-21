@@ -1,4 +1,7 @@
 /* The shell stage already excludes navigation and footer chrome. */
+/* Settings is also opened modally over retained replay/Studio documents. Its
+   complete surface must cover their text and controls, including the side rail. */
+body { background-color:#030c14; }
 .native_full_settings { position:absolute; left:4%; right:4%; top:12dp; bottom:12dp; display:flex; flex-direction:column; min-height:0; overflow:hidden; color:#dcecf3; }
 .native_full_settings > .eyebrow { flex-shrink:0; margin-bottom:6dp; }
 .native_settings_layout { display:flex; flex:1; min-height:0; overflow:hidden; }
@@ -31,8 +34,6 @@
 .native_settings_footer button { flex-shrink:0; margin-right:8dp; min-height:32dp; padding:7dp 12dp; font-size:11dp; background-color:#102e40; border:1dp #31566c; }
 #native_settings_apply { background:#176377; }
 #native_settings_status { flex-shrink:0; margin:5dp 0 0; min-height:16dp; max-height:32dp; overflow-y:auto; font-size:11dp; line-height:16dp; color:#e9ca87; }
-.native_settings_video { position:absolute; left:18%; right:3%; top:10%; max-height:80%; overflow-y:auto; padding:22dp; background:#102b3afa; border:2dp #e9ca87; }
-.native_settings_video button { margin-right:10dp; padding:10dp; }
 #native_settings_empty { white-space:pre-wrap; line-height:1.4; padding:12dp; }
 #native_settings_system button, #native_settings_maintenance button, #native_settings_profiles button { display:block; margin-top:7dp; padding:8dp; }
 #native_settings_archive, #native_settings_profile_name { width:95%; margin:8dp 0; }
@@ -156,6 +157,11 @@
  .native_settings_editors input.native_settings_precision { flex:0 0 100%; flex-basis:100%; width:100%; min-width:0; max-width:none; margin:4dp 0 0; }
 }
 #native_settings_hud, #native_settings_reset_replay { margin:0 0 8dp; padding:8dp 12dp; font-size:12dp; }
+/* These commands precede normal block sections, rather than sharing an inline
+   text line box that can be shorter than a padded button's painted bounds. */
+#native_settings_advanced, #native_settings_hud, #native_settings_reset_replay,
+#native_settings_touch_visual, #native_settings_stylus_visual, #native_settings_outline_visual,
+#native_settings_device { display:block; }
 
 #native_settings_form_start { display:block; height:1dp; min-height:1dp; margin:0; padding:0; }
 
@@ -172,7 +178,7 @@ body.touch-targets #screen .native_settings_subpages button { min-height:48dp; h
 }
 
 /* Short touch layouts keep categories in a scrollable side rail, leaving the
-   form enough height for an entire 48dp field and the fixed Apply footer. */
+   form enough height for an entire 48dp field and the Back footer. */
 @media (max-height:500dp) {
     body.touch-targets #screen .native_settings_layout { flex-direction:row; }
     body.touch-targets #screen .native_settings_sidebar { flex-direction:column; width:128dp; height:auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
@@ -186,4 +192,26 @@ body.touch-targets #screen .native_settings_subpages button { min-height:48dp; h
     body.touch-targets #screen .native_settings_search button { min-width:0; font-size:10dp; padding:4dp; }
     body.touch-targets #screen .native_settings_footer { flex-wrap:wrap; }
     body.touch-targets #screen .native_settings_footer button { flex:1; min-width:0; margin-right:4dp; padding:4dp; white-space:normal; }
+}
+
+/* Previous and next choices share a row so long option lists work in both directions. */
+.native_settings_editors button.native_settings_previous { flex:0 0 29dp; width:29dp; min-width:29dp; margin-right:4dp; font-size:17dp; }
+.native_settings_editors button { flex:1; width:auto; }
+
+/* Overview and category landings expose the next screen without a long form. */
+.native_settings_overview { display:flex; flex-wrap:wrap; align-items:stretch; }
+.native_settings_overview > p { width:100%; margin:0 0 12dp; color:#aac4d1; font-size:13dp; line-height:18dp; }
+.native_settings_overview button.native_settings_category_card { display:block; width:47%; min-height:84dp; margin:0 2% 12dp 0; padding:12dp; text-align:left; }
+.native_settings_category_card strong { display:block; margin-bottom:6dp; color:#c9eff6; font-size:17dp; line-height:21dp; }
+.native_settings_category_card span { display:block; color:#aac4d1; font-size:12dp; line-height:17dp; }
+.native_settings_category_summary { margin:0 0 12dp; font-size:14dp; line-height:20dp; color:#aac4d1; }
+.native_settings_subpages.native_settings_tab_cards { display:flex; flex-wrap:wrap; max-height:none; overflow-y:visible; }
+.native_settings_subpages.native_settings_tab_cards button { width:46%; min-height:60dp; margin:0 2% 10dp 0; padding:12dp; font-size:16dp; text-align:left; }
+body.touch-targets #screen .native_settings_subpages.native_settings_tab_cards { max-height:none; overflow-y:visible; }
+.native_settings_autosave_note { margin:8dp 0 0 8dp; color:#9cb9c9; font-size:11dp; line-height:16dp; }
+@media (max-width:760dp) {
+ .native_settings_overview button.native_settings_category_card { width:47%; min-height:76dp; padding:9dp; margin-bottom:8dp; }
+ .native_settings_category_card strong { font-size:14dp; line-height:18dp; }
+ .native_settings_category_card span { font-size:11dp; line-height:15dp; }
+ .native_settings_subpages.native_settings_tab_cards button { min-height:48dp; font-size:13dp; padding:9dp; }
 }

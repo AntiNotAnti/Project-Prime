@@ -35,6 +35,8 @@ internal static class GpuCheck
             });
             window.Context.MakeCurrent();
             GL.LoadBindings(new OpenTK.Windowing.GraphicsLibraryFramework.GLFWBindingsContext());
+            MipResidencyChecks.RunGpu();
+            DesktopCompressionChecks.RunGpu();
             var uploader = typeof(Scene).Assembly.GetType("MphRead.Mods.Render.TextureReplacementPack", true)!;
             var upload = uploader.GetMethod("UploadCompanions", BindingFlags.Public | BindingFlags.Static)!;
             var live = new HashSet<int>();
@@ -140,6 +142,7 @@ internal static class GpuCheck
                     typeof(Scene).GetMethod("RefreshTextureQuality", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scene, null);
                     scene.UpdateMaterials(model, 0);
                     SourceBankGpuCheck.WaitForIdle(scene);
+                    scene.UpdateMaterials(model, 0);
                     if (model.Materials[0].TextureBindingId == model.Materials[1].TextureBindingId)
                         throw new Exception("Shared texels merged independent authored assignments");
                     foreach (var material in model.Materials)
@@ -153,6 +156,7 @@ internal static class GpuCheck
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                     Console.WriteLine("Material provenance GPU checks PASS: shared original binding, reload creates independent red/original authored textures");
                     SourceBankGpuCheck.Run(root, packRoot, scene, model, mapId, firstId, secondId);
+                    TextureSettingsGpuCheck.Run(packRoot);
                 }
                 finally { MphRead.Mods.RenderOptions.TextureReplacements = priorReplacements; }
                 int[] allOwned = ((IEnumerable<int>)typeof(Scene).GetField("_ownedTextures", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scene)!).ToArray();

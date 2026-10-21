@@ -118,7 +118,7 @@ namespace MphRead.Mods.Launcher.Gui
         public static FormattedText Lay(string text, double size, IBrush brush, bool bold)
         {
             return new FormattedText(text, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, Face(bold), size, brush);
+                FlowDirection.LeftToRight, GameTypography.Resolve(Face(bold)), size, brush);
         }
 
         /// <summary>

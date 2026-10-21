@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Immutable;
 
 namespace MphRead.Mods.Launcher
 {
@@ -110,6 +111,8 @@ namespace MphRead.Mods.Launcher
         public GameMode Mode { get; init; }
         public int Bots { get; init; }
         public int BotLevel { get; init; }
+        public ImmutableArray<OfflineBotSettings> BotRoster { get; init; }
+        public int LocalTeam { get; init; }
         public int Port { get; init; }
         public string PlayerName { get; init; }
 

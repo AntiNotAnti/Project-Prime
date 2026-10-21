@@ -116,6 +116,7 @@ namespace MphRead
         private void UseHudShader()
         {
             GL.UseProgram(_rttShaderProgramId);
+            GL.Uniform4(_shaderLocations.HudInk, Vector4.One);
             GL.Uniform1(_rttSampler, 0);
             GL.Uniform1(_maskSampler, 1);
             GL.Uniform1(_shaderLocations.UseMask, 0);
@@ -124,6 +125,8 @@ namespace MphRead
             GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
             GL.Uniform1(_shaderLocations.ViewWidth, (float)Size.X);
             GL.Uniform1(_shaderLocations.ViewHeight, (float)Size.Y);
+            var origin = OutputViewportOrigin;
+            GL.Uniform2(_shaderLocations.ViewOrigin, (float)origin.X, (float)origin.Y);
             // RTT vertices are already in clip space; its vertex shader does
             // not consume the world's projection or fixed-function matrices.
             _hudMaskActive = false;
@@ -131,8 +134,9 @@ namespace MphRead
 
         private void BeginCompositePass()
         {
+            int compositeTexture=ResolveSupersampledCompositeTexture();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, ReplayOutputFramebuffer());
-            GL.Viewport(0, 0, Size.X, Size.Y);
+            SetOutputViewport();
             SetScreenPassState();
             GL.Enable(EnableCap.Blend);
             GL.BlendEquation(BlendEquationMode.FuncAdd);
@@ -158,8 +162,9 @@ namespace MphRead
             if (player.HudDisruptedState == 0 && player.HudWhiteoutState == -1)
             {
                 GL.UseProgram(_rttShaderProgramId);
+            GL.Uniform4(_shaderLocations.HudInk, Vector4.One);
             }
-            GL.BindTexture(TextureTarget.Texture2D, GraphicsCompositeTexture());
+            GL.BindTexture(TextureTarget.Texture2D, compositeTexture);
             CheckGlError("BeginCompositePass");
         }
 
@@ -168,7 +173,7 @@ namespace MphRead
         private void BeginHudPass()
         {
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, ReplayOutputFramebuffer());
-            GL.Viewport(0, 0, Size.X, Size.Y);
+            SetOutputViewport();
             SetScreenPassState();
             GL.Enable(EnableCap.Blend);
             GL.BlendEquation(BlendEquationMode.FuncAdd);
@@ -195,6 +200,7 @@ namespace MphRead
         {
             _hudMaskActive = false;
             GL.UseProgram(_rttShaderProgramId);
+            GL.Uniform4(_shaderLocations.HudInk, Vector4.One);
             GL.Uniform1(_shaderLocations.UseMask, 0);
             GL.ActiveTexture(TextureUnit.Texture1);
             GL.BindTexture(TextureTarget.Texture2D, 0);

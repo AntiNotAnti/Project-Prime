@@ -10,7 +10,8 @@ internal enum OpenGlCpuPass
     Preparation, DrawItems, CaptureWorld, ShadowCollection, ShadowSubmission,
     Shadow, WorldSetup, World, Outlines, SceneOverlays, PostProcess, Composite,
     Opaque, Decal, MarkTranslucent, RebuildDepth, TranslucentBehind, TranslucentFront, Ui, Hud,
-    HudImagePrepare, TextureUpload, ProceduralPrepare, ProceduralSubmit, ItemSetup, GeometrySubmission, PaletteCollection
+    HudImagePrepare, TextureUpload, ProceduralPrepare, ProceduralSubmit, ItemSetup, GeometrySubmission, PaletteCollection,
+    CombinedGeometryBuild, CombinedGeometryUpload
 }
 
 internal enum OpenGlFrameCounter
@@ -24,7 +25,10 @@ internal enum OpenGlFrameCounter
     PaletteCollectionRequests, PaletteCollectionVersionedRequests, PaletteCollectionCopiedFloats, PaletteCollectionReuses,
     PaletteRepeatedPreparations, PaletteRepeatedCopiedFloats,
     PaletteSourceFloatsScaled, PalettePreparationHits, PalettePreparationMisses, PalettePreparationFallbacks, PalettePreparationSnapshotCopyFloats,
-    LegacyScalarUniformRequests, LegacyScalarUniformSubmissions, LegacyScalarUniformSkips
+    LegacyScalarUniformRequests, LegacyScalarUniformSubmissions, LegacyScalarUniformSkips,
+    TexturePromotionAttempts, TexturePromotionAttemptBytes, RejectedTextureDecodeReservationBytes,
+    TextureSettingsJobs, TextureSettingsUploadBytes,
+    CombinedGeometryMisses, CombinedGeometryHits, CombinedGeometryFallbacks, CombinedGeometryBuildBytes
 }
 
 /// <summary>Fixed storage, null for absent/invalid samples; no per-frame sorting.</summary>

@@ -1,0 +1,18 @@
+test_cli_compressed_receipt_and_truncation (test_analyze.AnalyzeTests.test_cli_compressed_receipt_and_truncation) ... ok
+test_cli_preserves_raw_input (test_analyze.AnalyzeTests.test_cli_preserves_raw_input) ... ok
+test_cli_stdout_file_and_failure (test_analyze.AnalyzeTests.test_cli_stdout_file_and_failure) ... ok
+test_late_boundaries_and_unknown_caps (test_analyze.AnalyzeTests.test_late_boundaries_and_unknown_caps) ... ok
+test_legacy_nested_and_direct (test_analyze.AnalyzeTests.test_legacy_nested_and_direct) ... ok
+test_partial_preserves_order_and_ceil_tail (test_analyze.AnalyzeTests.test_partial_preserves_order_and_ceil_tail) ... ok
+test_rank_and_true_low (test_analyze.AnalyzeTests.test_rank_and_true_low) ... ok
+test_reject_bad_samples_without_filtering (test_analyze.AnalyzeTests.test_reject_bad_samples_without_filtering) ... ok
+test_reject_failed_or_overflowed_harness (test_analyze.AnalyzeTests.test_reject_failed_or_overflowed_harness) ... ok
+test_reject_incomplete_mixed_and_bad_structure (test_analyze.AnalyzeTests.test_reject_incomplete_mixed_and_bad_structure) ... ok
+test_schema3_keeps_trigger_and_following_intervals (test_analyze.AnalyzeTests.test_schema3_keeps_trigger_and_following_intervals) ... ok
+test_schema3_rejects_missing_intervals_flags_and_boundary_overflow (test_analyze.AnalyzeTests.test_schema3_rejects_missing_intervals_flags_and_boundary_overflow) ... ok
+test_timestamp_gap_consistency (test_analyze.AnalyzeTests.test_timestamp_gap_consistency) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 0.365s
+
+OK

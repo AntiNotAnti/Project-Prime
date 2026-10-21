@@ -952,6 +952,8 @@ namespace MphRead.Mods.Network
                 if (_receiptSequence[slot, i] == eventId
                     && unchecked(NetSession.NetFrame - _receiptFrame[slot, i]) < PendingFrames)
                 { _receiptSequence[slot, i] = 0; return true; }
+            // Presentation only, after exact authority event/life validation.
+            if (slot != NetHooks.LocalSlot && !GameState.SinglePlayer) _markerTimer = MarkerFrames;
             Unpredicted++;
             if (MovingNow()) UnpredictedMoving++; else UnpredictedStill++;
             return false;
@@ -1678,6 +1680,7 @@ namespace MphRead.Mods.Network
                 if (head != authorityHeadshot) HeadshotCorrections++;
                 if (ack.Accepted)
                 {
+                    if (slot != NetHooks.LocalSlot && ack.DamageApplied > 0 && !GameState.SinglePlayer) _markerTimer = MarkerFrames;
                     if (head && authorityHeadshot) HeadshotsAgreed++;
                     else if (head) HeadshotsDowngraded++;
                     else if (authorityHeadshot) HeadshotsUpgraded++;

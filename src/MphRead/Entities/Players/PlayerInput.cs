@@ -778,11 +778,10 @@ namespace MphRead.Entities
                 {
                     // The 1/4 was the whole of the sensitivity setting; it is
                     // now the point where one lives (1.0 = this exact feel).
-                    float mouseSensitivity = Mods.InputSettings.MouseAimSensitivity(
-                        EquipInfo.Zoomed && CurrentWeapon == BeamType.Imperialist);
-                    float aimY = -Input.MouseDeltaY / 4f * mouseSensitivity
+                    bool imperialistZoomed = EquipInfo.Zoomed && CurrentWeapon == BeamType.Imperialist;
+                    float aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseAimSensitivityY(imperialistZoomed)
                         * (Mods.InputSettings.InvertMouseY ? -1 : 1);
-                    float aimX = -Input.MouseDeltaX / 4f * mouseSensitivity
+                    float aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseAimSensitivityX(imperialistZoomed)
                         * (Mods.InputSettings.InvertMouseX ? -1 : 1);
                     if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
                         || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame) // skdebug
@@ -1835,9 +1834,9 @@ namespace MphRead.Entities
                     ApplyModAim();
                     if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot && !Mods.Network.NetAiClient.Drives(this))
                     {
-                        float aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseSensitivity
+                        float aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseAimSensitivityY()
                             * (Mods.InputSettings.InvertMouseY ? -1 : 1);
-                        float aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseSensitivity
+                        float aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseAimSensitivityX()
                             * (Mods.InputSettings.InvertMouseX ? -1 : 1);
                         if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
                             || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame) // skdebug

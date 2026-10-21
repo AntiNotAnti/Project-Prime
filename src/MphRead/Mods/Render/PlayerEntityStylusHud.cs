@@ -74,6 +74,20 @@ namespace MphRead.Entities
             _stylusWeaponSelectTexture = ModLoadStylusTexture($"hud/{folder}/bg_wepsel.bin");
         }
 
+        internal void ModDrawDsBottomScreen()
+        {
+            DrawDsBottom();
+            if (Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) && !_scene.GameState.MenuPause)
+            {
+                float scale = ModPlaceWeaponSelect();
+                for (int i = 0; i < 6; i++)
+                {
+                    _scene.DrawHudObject(_selectBoxInsts[i], mode: 1, scale: scale);
+                    _scene.DrawHudObject(_weaponSelectInsts[i], mode: 1, scale: scale);
+                }
+            }
+        }
+
         private int ModLoadStylusTexture(string path)
         {
             try
@@ -98,7 +112,7 @@ namespace MphRead.Entities
 
         internal void ModDrawStylusZone()
         {
-            if (!IsMainPlayer)
+            if (!IsMainPlayer || _scene.DsTopPass)
             {
                 return;
             }
@@ -140,11 +154,11 @@ namespace MphRead.Entities
                         nativeTexture = _stylusAltTexture;
                     }
 
-                    bool nativeAvailable = !StylusZone.Placing && StylusZone.NativeUi
+                    bool nativeAvailable = !StylusZone.Placing && StylusZone.NativeUi && !_scene.UseDsLayout
                         && nativeTexture > 0;
                     if (nativeAvailable)
                     {
-                        float alpha = Math.Clamp(StylusZone.NativeUiOpacity, 0, 1);
+                        float alpha = _scene.UseDsLayout ? 1f : Math.Clamp(StylusZone.NativeUiOpacity, 0, 1);
                         if (alpha > 0)
                         {
                             // Nearest is intentional: this is DS pixel art,
@@ -188,8 +202,9 @@ namespace MphRead.Entities
                     {
                         float scaleX = width / StylusZone.DsWidth;
                         float scaleY = height / StylusZone.DsHeight;
-                        foreach (StylusZone.Button button in StylusZone.Buttons)
+                        foreach (StylusZone.Button original in StylusZone.Buttons)
                         {
+                            StylusZone.Button button = StylusZone.EffectiveButton(original);
                             bool lit = !StylusZone.Placing && StylusZone.Contact
                                 && StylusZone.Region == button.Region;
                             float alpha = lit ? Math.Min(1, buttonAlpha * 6) : buttonAlpha;
@@ -212,6 +227,14 @@ namespace MphRead.Entities
                             }
                         }
                     }
+                    if (_scene.UseDsLayout)
+                    {
+                        if (!_hudWeaponMenuOpen && !IsAltForm)
+                        {
+                            ModDrawStylusAffinityWeapon(1f);
+                        }
+                        DrawRadar();
+                    }
                 }
             }
 
@@ -222,17 +245,15 @@ namespace MphRead.Entities
         }
 
         /// <summary>
-        /// Draw the currently stored affinity quick-slot weapon into the
-        /// native WPN button. This is deliberately not CurrentWeapon: Power
-        /// Beam and Missile may be in the player's hands while WPN continues
-        /// to advertise the affinity weapon that a tap will equip.
+        /// DS layout shows the equipped weapon in its matching quick slot.
+        /// The native overlay continues to show the stored affinity weapon.
         ///
         /// The button's centre comes from the same StylusZone geometry that
         /// owns its hit test, so the icon cannot drift after moving/resizing.
         /// </summary>
         private void ModDrawStylusAffinityWeapon(float alpha)
         {
-            int index = (int)_weaponSlots[2];
+            int index = (int)(_scene.UseDsLayout ? CurrentWeapon : _weaponSlots[2]);
             if (index < 0 || index >= _weaponListIcons.Length
                 || index > (int)BeamType.OmegaCannon)
             {
@@ -244,36 +265,31 @@ namespace MphRead.Entities
                 return;
             }
 
+            StylusRegion region = _scene.UseDsLayout ? CurrentWeapon switch
+            {
+                BeamType.PowerBeam => StylusRegion.PowerBeam,
+                BeamType.Missile => StylusRegion.Missile,
+                _ => StylusRegion.Weapons
+            } : StylusRegion.Weapons;
+            StylusZone.Button slot = Array.Find(StylusZone.Buttons, button => button.Region == region);
             IconBounds bounds = _weaponListIconBounds[index];
-            // About half the WPN button's 60-DS-pixel diameter. The source
-            // art itself is ~20 pixels across, so this keeps it comfortably
-            // inside the frame while remaining recognizable at low opacity.
-            float side = 34f * StylusZone.Height;
+            // A 24-pixel ink box leaves padding within each 36-pixel button.
+            float side = 24f * StylusZone.Height;
             float scale = side / Math.Max(bounds.Width, bounds.Height);
             float aspect = HudAspectFix;
             float centerX = (StylusZone.Left
-                + _stylusAffinityWeaponSlot.X / StylusZone.DsWidth * StylusZone.Width) * 256f;
+                + slot.X / StylusZone.DsWidth * StylusZone.Width) * 256f;
             float centerY = (StylusZone.Top
-                + _stylusAffinityWeaponSlot.Y / StylusZone.DsHeight * StylusZone.Height) * 192f;
+                + slot.Y / StylusZone.DsHeight * StylusZone.Height) * 192f;
 
-            float oldX = icon.PositionX;
-            float oldY = icon.PositionY;
-            float oldAlpha = icon.Alpha;
-            try
-            {
-                Mods.Render.SmoothHudIcon.Tint(icon, _weaponListSheetData, index,
-                    _weaponListColors[index], _scene);
-                icon.Alpha = alpha;
-                icon.PositionX = (centerX - bounds.CentreX * scale * aspect) / 256f;
-                icon.PositionY = (centerY - bounds.CentreY * scale) / 192f;
-                _scene.DrawHudObject(icon, mode: 1, scale: scale);
-            }
-            finally
-            {
-                icon.PositionX = oldX;
-                icon.PositionY = oldY;
-                icon.Alpha = oldAlpha;
-            }
+            // Explicit texture bounds avoid top-HUD icon scaling/centering
+            // changing the lower-screen button geometry in Pro or custom HUDs.
+            Mods.Render.SmoothHudIcon.Tint(icon, _weaponListSheetData, index,
+                _weaponListColors[index], _scene);
+            float left = centerX - bounds.CentreX * scale * aspect;
+            float top = centerY - bounds.CentreY * scale;
+            _scene.DrawHudTexture(left, top, left + icon.Width * scale * aspect,
+                top + icon.Height * scale, icon.BindingId, alpha, smooth: icon.Smooth);
         }
 
         private void DrawStylusCursor()

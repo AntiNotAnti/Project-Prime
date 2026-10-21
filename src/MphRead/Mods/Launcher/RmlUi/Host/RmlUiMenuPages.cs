@@ -519,6 +519,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "visible:visible__rules_owner_1", "!rules_owner"),
             new(RmlUiBindingKind.Boolean, "visible:rules_apply", "rules_owner"),
             new(RmlUiBindingKind.Boolean, "disabled:rules_map_next", "!rules_owner"),
+            new(RmlUiBindingKind.Boolean, "disabled:rules_mode_previous", "!rules_owner"),
+            new(RmlUiBindingKind.Boolean, "disabled:rules_format_previous", "!rules_owner"),
             new(RmlUiBindingKind.Boolean, "disabled:rules_mode_next", "!rules_owner"),
             new(RmlUiBindingKind.Boolean, "disabled:rules_format_next", "!rules_owner"),
             new(RmlUiBindingKind.Boolean, "disabled:rules_time", "!rules_owner"),
@@ -674,6 +676,16 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "offline_matchup_value", "{{offline_matchup_value}}"),
             new(RmlUiBindingKind.Text, "offline_bots_value", "{{offline_bots_value}}"),
             new(RmlUiBindingKind.Text, "offline_skill_value", "{{offline_skill_value}}"),
+            new(RmlUiBindingKind.Boolean, "visible:offline_bot_controls", "offline_has_bots"),
+            new(RmlUiBindingKind.Boolean, "visible:offline_bot_team_row", "offline_teams"),
+            new(RmlUiBindingKind.Boolean, "visible:offline_player_team_row", "offline_teams"),
+            new(RmlUiBindingKind.Text, "offline_bot_selected_value", "{{offline_bot_selected_value}}"),
+            new(RmlUiBindingKind.Text, "offline_bot_hunter_value", "{{offline_bot_hunter_value}}"),
+            new(RmlUiBindingKind.Text, "offline_bot_suit_value", "{{offline_bot_suit_value}}"),
+            new(RmlUiBindingKind.Text, "offline_bot_skill_value", "{{offline_bot_skill_value}}"),
+            new(RmlUiBindingKind.Text, "offline_bot_team_value", "{{offline_bot_team_value}}"),
+            new(RmlUiBindingKind.Text, "offline_bot_handicap_value", "{{offline_bot_handicap_value}}"),
+            new(RmlUiBindingKind.Text, "offline_player_team_value", "{{offline_player_team_value}}"),
             new(RmlUiBindingKind.Text, "offline_hunter_value", "{{offline_hunter_value}}"),
             new(RmlUiBindingKind.Text, "offline_suit_value", "{{offline_suit_value}}"),
             new(RmlUiBindingKind.Text, "offline_character_value", "{{offline_character_value}}"),
@@ -690,6 +702,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "offline_targets_value", "{{offline_targets_value}}"),
             new(RmlUiBindingKind.Text, "offline_movement_value", "{{offline_movement_value}}"),
             new(RmlUiBindingKind.Boolean, "disabled:offline_training_start", "!offline_training_can_start"),
+            new(RmlUiBindingKind.Boolean, "disabled:offline_previous_11", "!offline_training_can_targets"),
+            new(RmlUiBindingKind.Boolean, "disabled:offline_previous_9", "!offline_training_can_weapon"),
             new(RmlUiBindingKind.Boolean, "disabled:offline_targets", "!offline_training_can_targets"),
             new(RmlUiBindingKind.Boolean, "disabled:offline_weapon", "!offline_training_can_weapon")
         };
@@ -753,12 +767,20 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 new(RmlUiBindingKind.Boolean, "disabled:offline_arena_previous", "!offline_arena_can_previous"),
                 new(RmlUiBindingKind.Boolean, "disabled:offline_arena_next", "!offline_arena_can_next")
             };
-            for (int i = 0; i < 16; i++)
+            for (int i = 0; i < 6; i++)
             {
                 bindings.Add(new(RmlUiBindingKind.Text,
                     $"offline_arena_name_{i}", "{{offline_arena_name" + i + "}}"));
                 bindings.Add(new(RmlUiBindingKind.Text,
                     $"offline_arena_reason_{i}", "{{offline_arena_reason" + i + "}}"));
+                bindings.Add(new(RmlUiBindingKind.Text,
+                    $"image:offline_arena_image_{i}", "{{offline_arena_image" + i + "}}"));
+                bindings.Add(new(RmlUiBindingKind.Boolean,
+                    $"visible:offline_arena_image_{i}", $"offline_arena_image_ready{i}"));
+                bindings.Add(new(RmlUiBindingKind.Text,
+                    $"offline_arena_preview_status_{i}", "{{offline_arena_preview_status" + i + "}}"));
+                bindings.Add(new(RmlUiBindingKind.Boolean,
+                    $"visible:offline_arena_preview_status_{i}", $"!offline_arena_image_ready{i}"));
                 bindings.Add(new(RmlUiBindingKind.Boolean,
                     $"visible:offline_arena_row_{i}", $"offline_arena_row{i}_present"));
                 bindings.Add(new(RmlUiBindingKind.Boolean,

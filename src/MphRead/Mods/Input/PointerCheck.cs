@@ -837,6 +837,53 @@ namespace MphRead.Mods.Input
             try
             {
                 Launcher.LauncherPrefs.Directory = directory;
+                File.WriteAllText(path, "sensitivity=2\nhorizontal_sensitivity=1.5\nvertical_sensitivity=0.5\n"
+                    + "imperialist_zoom_sensitivity=0.75\ncustom_scope_25_sensitivity=1.2\ncustom_scope_4_sensitivity=1.3\n"
+                    + "ds_layout=true\nds_screen_aspect=5:3\nds_radar_size=1.25\nds_radar_x=0.2\nds_radar_y=0.7\nstylus_select_size=0.75\n");
+                InputSettings.Load();
+                Require(InputSettings.MouseAimSensitivityX() == 3 && InputSettings.MouseAimSensitivityY() == 1
+                    && InputSettings.MouseAimSensitivityX(true) == 2.25f && InputSettings.MouseAimSensitivityY(true) == .75f,
+                    "independent axes compose with base and Imperialist scoped sensitivity");
+                Require(InputSettings.CustomScope25Sensitivity == 1.2f && InputSettings.CustomScope4Sensitivity == 1.3f,
+                    "axis restoration preserves newer custom scope settings");
+                Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3" && DsLayout.RadarSize == 1.25f
+                    && DsLayout.RadarX == .2f && DsLayout.RadarY == .7f && StylusZone.SelectSize == .75f,
+                    "stacked display preferences load independently of stylus enable");
+                InputSettings.Save();
+                InputSettings.HorizontalSensitivity = InputSettings.VerticalSensitivity = 1;
+                DsLayout.Enabled = false; DsLayout.ScreenAspect = "4:3";
+                DsLayout.RadarSize = 1; DsLayout.RadarX = DsLayout.RadarY = .5f; StylusZone.SelectSize = 1;
+                InputSettings.Load();
+                Require(InputSettings.HorizontalSensitivity == 1.5f && InputSettings.VerticalSensitivity == .5f
+                    && DsLayout.Enabled && DsLayout.ScreenAspect == "5:3" && DsLayout.RadarSize == 1.25f
+                    && DsLayout.RadarX == .2f && DsLayout.RadarY == .7f && StylusZone.SelectSize == .75f,
+                    "independent axes and stacked display preferences survive save and reload");
+                InputSettings.HorizontalSensitivity = Single.NaN; InputSettings.VerticalSensitivity = Single.PositiveInfinity;
+                Require(InputSettings.HorizontalSensitivity == 1 && InputSettings.VerticalSensitivity == 1,
+                    "nonfinite axis multipliers restore neutral defaults");
+                File.WriteAllText(path, "horizontal_sensitivity=99\nvertical_sensitivity=-99\n");
+                InputSettings.Load();
+                Require(InputSettings.HorizontalSensitivity == 3 && InputSettings.VerticalSensitivity == .01f,
+                    "hand edited axis values clamp to supported bounds");
+                DsLayout.UpdateInputBounds(1920, 1080);
+                PointerInput.StylusMode = true;
+                StylusZone.SetRect(.2f, .3f, .25f);
+                InputSettings.Save();
+                Require(File.ReadAllText(path).Contains("stylus_zone_rect=0.2,0.3,0.25", StringComparison.Ordinal),
+                    "saving active stacked display preserves separate free stylus rectangle");
+                var bounds = DsLayout.Bounds(1920, 1080);
+                Require(bounds.Top.Z == 900 && bounds.Top.W == 540 && bounds.Bottom.Y == bounds.Top.Y + 540
+                    && Math.Abs(StylusZone.Left - bounds.Bottom.X / 1920f) < .0001f,
+                    "5:3 stacked input uses centered client pixel bounds");
+                Require(!Settings.PreferenceText.IsValid("ds_layout", "maybe", launcher: false)
+                    && !Settings.PreferenceText.IsValid("ds_screen_aspect", "16:9", launcher: false)
+                    && !Settings.PreferenceText.IsValid("ds_radar_size", "NaN", launcher: false),
+                    "malformed stacked preferences rejected by detached and runtime grammar");
+                InputSettings.Reset();
+                Require(InputSettings.HorizontalSensitivity == 1 && InputSettings.VerticalSensitivity == 1
+                    && !DsLayout.Enabled && DsLayout.ScreenAspect == "4:3" && DsLayout.RadarSize == 1
+                    && DsLayout.RadarX == .5f && DsLayout.RadarY == .5f && StylusZone.SelectSize == 1,
+                    "reset restores independent axes and every stacked display default");
                 File.WriteAllText(path, "pointer_jump_guard=true\nstylus_zone=true\n");
                 InputSettings.Load();
                 Require(!PointerInput.StylusMode && PointerInput.GuardJumps && !StylusZone.Enabled,

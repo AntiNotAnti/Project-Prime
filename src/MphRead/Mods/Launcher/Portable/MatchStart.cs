@@ -531,24 +531,22 @@ namespace MphRead.Mods.Launcher
             // rather than raise: the launcher comes back between matches now,
             // and a seven-bot match must not leave the next one at eight.
             scene.Players.MaxPlayers = Math.Max(4, bots + 1);
-            // The player's own suit, and the first one for each bot: they are
-            // each a different hunter (see below), so nobody collides and
-            // there is nothing for PlayerColors to resolve offline.
+            // This slot table also serves offline combat; clear the previous
+            // match's handicaps before applying this launch's choices.
+            Array.Clear(NetSession.SlotDamageReduction);
             scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: LauncherPrefs.LastColor,
-                team: teamPlay ? 0 : -1);
+                team: teamPlay ? Math.Clamp(plan.LocalTeam, 0, 1) : -1);
             for (int i = 1; i <= bots; i++)
             {
-                var hunter = MphRead.Mods.Multiplayer.HunterRules.RandomAllowed((uint)((int)plan.Hunter + i), plan.MatchRules.LowTier);
-                scene.AddPlayer(hunter, recolor: 0, team: teamPlay ? i % 2 : -1);
-            }
-            int level = Math.Clamp(plan.BotLevel, 0, 3);
-            for (int i = 0; i < scene.Players.Items.Count; i++)
-            {
-                PlayerEntity player = scene.Players.Items[i];
-                if (player.IsBot)
-                {
-                    player.BotLevel = level;
-                }
+                var settings = !plan.BotRoster.IsDefaultOrEmpty && i <= plan.BotRoster.Length
+                    ? plan.BotRoster[i - 1]
+                    : new OfflineBotSettings(MphRead.Mods.Multiplayer.HunterRules.RandomAllowed(
+                        (uint)((int)plan.Hunter + i), plan.MatchRules.LowTier), 0, Math.Clamp(plan.BotLevel, 0, 3));
+                var hunter = MphRead.Mods.Multiplayer.HunterRules.Resolve(settings.Hunter, plan.MatchRules.LowTier);
+                int team = settings.Team < 0 ? (plan.LocalTeam + i) % 2 : settings.Team;
+                scene.AddPlayer(hunter, recolor: settings.Suit, team: teamPlay ? team : -1);
+                scene.Players.Items[i].BotLevel = settings.Level;
+                NetSession.SlotDamageReduction[i] = settings.Handicap;
             }
         }
     }

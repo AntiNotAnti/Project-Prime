@@ -27,8 +27,28 @@ def analyze(document):
     if not isinstance(document, dict):
         raise ValueError("root must be an object")
     groups = set()
-    if document.get("schema") == 2 and "frames" in document:
-        source = "glframe-capture-schema2"
+    schema = document.get("schema")
+    boundaries = []
+    timing_boundaries = []
+    if schema in (2, 3) and "frames" in document:
+        source = f"glframe-capture-schema{schema}"
+        if schema == 3:
+            if integer(document.get("droppedBoundaryRecords"), "droppedBoundaryRecords") != 0:
+                raise ValueError("droppedBoundaryRecords must be zero; incomplete boundary evidence")
+            boundaries = document.get("boundaries")
+            if not isinstance(boundaries, list):
+                raise ValueError("boundaries must be an array")
+            last_boundary = None
+            for boundary in boundaries:
+                if not isinstance(boundary, dict) or not isinstance(boundary.get("Reason"), str) or not boundary["Reason"]:
+                    raise ValueError("boundary reason required")
+                stamp = integer(boundary.get("Timestamp"), "boundary timestamp")
+                if last_boundary is not None and stamp < last_boundary:
+                    raise ValueError("boundary timestamps must be chronological")
+                last_boundary = stamp
+                integer(boundary.get("Segment"), "boundary segment")
+                integer(boundary.get("GenerationBefore"), "boundary generation before")
+                integer(boundary.get("GenerationAfter"), "boundary generation after")
         integer(document.get("droppedRecords"), "droppedRecords")
         if document["droppedRecords"] != 0:
             raise ValueError("droppedRecords must be zero; incomplete raw capture")
@@ -48,6 +68,29 @@ def analyze(document):
             if previous is not None and timestamp <= previous:
                 raise ValueError("frame timestamps must be strictly chronological")
             segment = integer(row.get("Segment"), f"frames[{i}].Segment")
+            if schema == 3:
+                start = integer(row.get("IntervalStartTimestamp"), "IntervalStartTimestamp")
+                if start >= timestamp or frequency is None:
+                    raise ValueError("schema 3 requires a positive explicit interval and timestamp frequency")
+                expected = (float(timestamp) - float(start)) * 1000 / frequency
+                if not math.isclose(intervals[-1], expected, rel_tol=1e-9, abs_tol=max(1e-6, 2000 / frequency)):
+                    raise ValueError("frame interval disagrees with explicit start timestamp gap")
+                if previous is not None and segment == previous_segment and start != previous:
+                    raise ValueError("missing interval inside capture segment")
+                before = integer(row.get("PresentationGenerationBefore"), "generation before")
+                after = integer(row.get("PresentationGeneration"), "generation after")
+                stalls = integer(row.get("StallsThisFrame"), "StallsThisFrame")
+                drops = integer(row.get("DroppedStepsThisFrame"), "DroppedStepsThisFrame")
+                reason = row.get("BoundaryReason")
+                expected_reason = "timing-stall" if stalls else "catch-up-overflow" if drops else "presentation-reset" if after != before else "none"
+                if after < before or reason != expected_reason or ((stalls or drops) and after == before):
+                    raise ValueError("inconsistent timing boundary generation/reason")
+                for scope in ("CallbackToPresentMs", "ProviderWaitMs"):
+                    if number(row.get(scope), scope) < 0:
+                        raise ValueError("negative frame scope")
+                if reason != "none":
+                    timing_boundaries.append({"frame": i, "reason": reason, "before": before, "after": after,
+                                              "stalls": stalls, "droppedSteps": drops, "intervalMs": intervals[-1]})
             if previous is not None and frequency is not None and segment == previous_segment:
                 # Match production ElapsedMs double conversion, including large clock values.
                 expected_interval = (float(timestamp) - float(previous)) * 1000 / frequency
@@ -123,7 +166,7 @@ def analyze(document):
         "qualificationReason": "Offline diagnostic only; external device evidence is required for qualification.",
         "baselineSourceStatus": "INCOMPLETE: raw capture alone does not establish a controlled baseline",
         "rolloutDecision": "NOT_RUN: no automatic A/B or rollout decision",
-        "intervalMeaning": ("Application Present returns" if source == "glframe-capture-schema2"
+        "intervalMeaning": ("Application Present returns" if source.startswith("glframe-capture-schema")
                             else "Harness frame callback returns, including post-Present bookkeeping")
                            + "; not physical scanout or GPU time",
         "loadedBinaryIdentity": identity,
@@ -133,6 +176,7 @@ def analyze(document):
         "explicitGraphicsOverrides": identity.get("flags", "UNVERIFIED") if isinstance(identity, dict) else "UNVERIFIED",
         "timestampIntervalConsistency": "CHECKED: adjacent stored frames" if frequency is not None else "UNVERIFIED: no timestamp frequency",
         "samples": count, "chronologicalIntervalsMs": intervals,
+        "lifecycleBoundaries": boundaries, "timingBoundaries": timing_boundaries,
         "captureGroup": list(next(iter(groups))) if groups else None,
         "meanCompletedFrameFps": 1000 * count / total,
         "frameIntervalP50Ms": percentile(50), "frameIntervalP95Ms": percentile(95),

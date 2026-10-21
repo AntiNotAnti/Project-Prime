@@ -49,6 +49,52 @@ internal static class OfflineCharacterGlAcceptance
         Check(controller.Dispatch(RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Offline),"controller opens authored Offline page");
         Settle(250);var offline=layout.Document;
         Check(host.IsAlive(offline)&&host.CurrentInputDocument==offline,"actual Offline document owns input");
+        Check(!host.TryGetElementBounds(offline,"offline_mechanics",out _,out _,out float mechanicsWidth,out float mechanicsHeight)
+            || mechanicsWidth == 0 || mechanicsHeight == 0,"deferred Weavel mechanics section is hidden in shipped setup");
+        // Only this fixture reveals the deferred controls so existing experimental
+        // runtime coverage remains available without exposing them to players.
+        host.SetBool(offline,"visible:offline_mechanics",true);
+        Settle(150);
+        // Exercise the actual authored bot controls before entering mechanics
+        // practice, which deliberately forces its own opponent count.
+        while(controller.Tick().Bindings["offline_bots_value"].Text != "2 BOTS")
+            Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice,3),"set two synthetic bots");
+        Settle(150);
+        foreach(var choice in new[]{(18,"offline_bot_hunter"),(19,"offline_bot_suit"),
+            (20,"offline_bot_skill"),(22,"offline_bot_handicap"),(17,"offline_bot_selected")})
+            Click(choice.Item2,RmlUiIntentKind.OfflineChoice,choice.Item1);
+        Check(Label("offline_bot_selected").Contains("BOT 2 / 2",StringComparison.Ordinal)
+            &&Label("offline_bot_hunter").Contains("RANDOM",StringComparison.Ordinal),
+            "native bot selector displays the independent second bot profile");
+        Click("offline_previous_18",RmlUiIntentKind.OfflineChoicePrevious,18);
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice,2),"switch synthetic match to teams");Settle(150);
+        Click("offline_bot_team",RmlUiIntentKind.OfflineChoice,21);
+        Click("offline_player_team",RmlUiIntentKind.OfflineChoice,23);
+        Check(Label("offline_bot_team").Contains("TEAM 1",StringComparison.Ordinal)
+            &&Label("offline_player_team").Contains("TEAM 2",StringComparison.Ordinal),"native team controls update labels");
+        Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice,2),"restore FFA");Settle(150);
+
+        string preview = Path.Combine(Path.GetTempPath(),"prime-offline-card-"+Guid.NewGuid().ToString("N")+".tga");
+        File.WriteAllBytes(preview,RmlUiMapPreviewCache.EncodeTga(
+            Enumerable.Range(0,64).SelectMany(_=>new byte[]{13,211,133,255}).ToArray(),8,8));
+        services.Preview=preview;
+        try
+        {
+            Click("offline_arena",RmlUiIntentKind.OfflineOpenArena);
+            Check(Label("offline_arena_pick_0").Contains("Data Shrine",StringComparison.Ordinal),
+                "native offline card displays retail map name");
+            Focus("offline_arena_pick_0");
+            Check(host.TryGetElementBounds(manager.Top,"offline_arena_image_0",out float ix,out float iy,out float iw,out float ih)
+                &&iw>0&&ih>0,"offline card binds visible preview image");
+            byte[] pixel=new byte[4];
+            GL.ReadPixels((int)(ix+iw/2),height-1-(int)(iy+ih/2),1,1,PixelFormat.Rgba,PixelType.UnsignedByte,pixel);
+            Check(Math.Abs(pixel[0]-13)<12&&Math.Abs(pixel[1]-211)<12&&Math.Abs(pixel[2]-133)<12,
+                "offline map preview paints bound synthetic TGA pixels");
+            Click("offline_arena_pick_1",RmlUiIntentKind.OfflineSelectArena,1);
+            Check(Label("offline_arena").Contains("Sanctorus",StringComparison.Ordinal),
+                "native arena selection keeps display name after closing picker");
+        }
+        finally { services.Preview=""; File.Delete(preview); }
         Check(Label("offline_character").Contains("NATIVE",StringComparison.Ordinal),"actual DOM begins with Native mechanics");
         selector=Click("offline_character",RmlUiIntentKind.OfflineChoice,16);
         Check((uint)selector.Kind==140&&selector.Argument==16,"literal native kind140/choice16 is translated from the real authored button");
@@ -194,9 +240,9 @@ internal static class OfflineCharacterGlAcceptance
         var before15=controller.Tick().Bindings["offline_training_scope_value"].Text;
         Click("offline_training_difficulty",RmlUiIntentKind.OfflineChoice,13);
         Check(controller.Tick().Bindings["offline_training_difficulty_value"].Text!=before13,"real choice13 still changes training difficulty");
-        Focus("offline_training_difficulty");Key(1);Key(2);Drain(RmlUiIntentKind.OfflineChoice,14,true,modal);
+        Focus("offline_training_difficulty");Key(1);Key(1);Key(2);Drain(RmlUiIntentKind.OfflineChoice,14,true,modal);
         Check(controller.Tick().Bindings["offline_training_distance_value"].Text!=before14,"real Tab/Enter choice14 still changes target distance");
-        Key(1);Key(2);Drain(RmlUiIntentKind.OfflineChoice,15,true,modal);
+        Key(1);Key(1);Key(2);Drain(RmlUiIntentKind.OfflineChoice,15,true,modal);
         Check(controller.Tick().Bindings["offline_training_scope_value"].Text!=before15,"real Tab/Enter choice15 still changes scope");
         Check(!layout.HandleIntent(selector with{Sequence=ulong.MaxValue-2},out var covered)||covered==default,"covered parent selector cannot pass the actual modal ownership boundary");
         Click("offline_training_done",RmlUiIntentKind.OfflineCloseTrainingOptions);
@@ -264,10 +310,13 @@ internal static class OfflineCharacterGlAcceptance
         public int Validations,Launches,Saves;
         public RmlUiOfflineRequest? Captured;
         public TaskCompletionSource<string>? Pending;
+        public string Preview="";
         public HubSnapshot Hub()=>new("SYNTHETIC",Hunter.Samus,Hunter.Samus,0,true,"NO GAME FILES OR SCENE");
         public string BuildVersion()=>"offline-character-native-fixture";
         public RmlUiLobbyView Lobby()=>new(false,false,false,false,false,false,false,"","","","","",8,Array.Empty<RmlUiLobbyPlayer>());
-        public IReadOnlyList<string> BuiltInArenaKeys()=>new[]{"SYNTHETIC ARENA"};
+        public IReadOnlyList<string> BuiltInArenaKeys()=>new[]{"MP1 SANCTORUS","MP11 BREAKTHROUGH"};
+        public RmlUiArenaPreview[] ReadMapPickerPreviews(IReadOnlyList<string> rooms)
+            =>rooms.Select(_=>new RmlUiArenaPreview(Preview,"SYNTHETIC PREVIEW")).ToArray();
         public RmlUiOfflineRules? ReadOfflineRules()=>Rules;
         public Task<string> ValidateOfflineAsync(RmlUiOfflineRequest request,CancellationToken token){Validations++;Captured=request;return Pending?.Task.WaitAsync(token)??Task.FromResult("");}
         public bool LaunchOffline(RmlUiOfflineRequest request){Launches++;Captured=request;return false;}

@@ -1,0 +1,1 @@
+PASS: production timing path retains catch-up overflow, stall, following intervals, long hitch and explicit boundaries.

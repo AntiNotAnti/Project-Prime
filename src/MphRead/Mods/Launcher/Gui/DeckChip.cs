@@ -79,15 +79,14 @@ namespace MphRead.Mods.Launcher.Gui
         private static FormattedText Key(string s)
         {
             return new FormattedText(s, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(false), 10,
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(false)), 10,
                 GuiTheme.TextDimBrush);
         }
 
         private static FormattedText Value(string s)
         {
             return new FormattedText(s, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(GuiTheme.Interface, FontStyle.Normal, FontWeight.SemiBold),
+                FlowDirection.LeftToRight, GameTypography.Resolve(new Typeface(GuiTheme.Interface, FontStyle.Normal, FontWeight.SemiBold)),
                 GuiTheme.PixelSize(17), GuiTheme.TextBrush);
         }
 

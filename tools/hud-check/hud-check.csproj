@@ -5,6 +5,7 @@
     <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="../../src/MphRead/Assets/HudFonts/*.bin" LogicalName="MphRead.Assets.HudFonts.%(Filename)%(Extension)" />
     <Compile Include="../../src/MphRead/Mods/Settings/SettingsPersistence.cs" Link="SettingsPersistence.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/Hud/*.cs" Exclude="../../src/MphRead/Mods/Render/Hud/SceneHudLayout.cs" Link="Hud/%(Filename)%(Extension)" />
     <Compile Include="../../src/MphRead/Mods/Render/Crosshair.cs" Link="Crosshair.cs" />

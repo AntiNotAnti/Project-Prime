@@ -353,6 +353,7 @@ internal static class DesktopRetainedGeometry
         _combinedBatches ??= new Dictionary<ulong, Combined>();
         if (!_combinedBatches.TryGetValue(key, out Combined? group))
         {
+            OpenGlPassProfiler.Count(OpenGlFrameCounter.CombinedGeometryMisses);
             _negativeBatches ??= new NegativeBatchCache();
             if (_negativeBatches.Matches(key, ids, count))
             {
@@ -362,6 +363,7 @@ internal static class DesktopRetainedGeometry
             group = BuildCombined(ids, count, out bool unsupported);
             if (group == null)
             {
+                OpenGlPassProfiler.Count(OpenGlFrameCounter.CombinedGeometryFallbacks);
                 if (unsupported) _negativeBatches.Record(key, ids, count);
                 return false;
             }
@@ -373,6 +375,7 @@ internal static class DesktopRetainedGeometry
             if (group.Ids.Length != count) return false;
             for (int i = 0; i < count; i++)
                 if (group.Ids[i] != ids[i]) return false;
+            OpenGlPassProfiler.Count(OpenGlFrameCounter.CombinedGeometryHits);
         }
         selected = group;
         DrawGroup(group);
@@ -389,6 +392,7 @@ internal static class DesktopRetainedGeometry
 
     private static unsafe Combined? BuildCombined(int[] ids, int count, out bool unsupported)
     {
+        using var buildTiming = OpenGlPassProfiler.Measure(OpenGlCpuPass.CombinedGeometryBuild);
         unsupported = true;
         if (_lists == null || !_lists.TryGetValue(ids[0], out Compiled? first)
             || first.Vertices == null || first.Indices == null
@@ -414,6 +418,7 @@ internal static class DesktopRetainedGeometry
         unsupported = false;
         long bytes = floats * sizeof(float) + indices * sizeof(int);
         if (!ReserveCombined(bytes)) return null;
+        OpenGlPassProfiler.Count(OpenGlFrameCounter.CombinedGeometryBuildBytes, bytes);
         float[] mergedVertices = new float[(int)floats];
         int[] mergedIndices = new int[(int)indices];
         int vertexFloatOffset = 0, indexOffset = 0;
@@ -442,6 +447,7 @@ internal static class DesktopRetainedGeometry
             ibo = DesktopGL.GenBuffer();
             if (vbo == 0 || ibo == 0) throw new InvalidOperationException("retained batch allocation");
             DesktopGL.BindBuffer(BufferTarget.ArrayBuffer, vbo);
+            using var uploadTiming = OpenGlPassProfiler.Measure(OpenGlCpuPass.CombinedGeometryUpload);
             fixed (float* v = mergedVertices)
                 DesktopGL.BufferData(BufferTarget.ArrayBuffer,
                     (IntPtr)(mergedVertices.Length * sizeof(float)), (IntPtr)v,

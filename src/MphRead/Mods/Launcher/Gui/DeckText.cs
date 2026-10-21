@@ -32,7 +32,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// </summary>
     internal static class DeckText
     {
-        private readonly record struct Key(string Text, double Size, int Weight,
+        private readonly record struct Key(string Text, double Size, int Weight, int Style,
             string Family, uint Colour, double Width);
 
         private static readonly Dictionary<Key, FormattedText> _cache = new();
@@ -56,6 +56,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static FormattedText Lay(string text, Typeface face, double size,
             IBrush brush, bool display, double maxWidth)
         {
+            face=GameTypography.Resolve(face);
             uint colour = brush is ISolidColorBrush solid ? solid.Color.ToUInt32() : 0u;
             // The weight and the family are both part of the key. They were
             // not: a `bool Bold` that only ever saw Bold or Normal handed a
@@ -68,7 +69,7 @@ namespace MphRead.Mods.Launcher.Gui
             // earlier. Every server row came out in the buttons' weight, and
             // asking for 400 changed nothing, which is what made it look like
             // a font problem rather than a cache one.
-            var key = new Key(text, size, (int)face.Weight,
+            var key = new Key(text, size, (int)face.Weight, (int)face.Style,
                 face.FontFamily.ToString(), colour, maxWidth);
             if (_cache.TryGetValue(key, out FormattedText? hit))
             {

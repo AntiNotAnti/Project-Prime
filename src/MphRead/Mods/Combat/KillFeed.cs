@@ -44,7 +44,7 @@ namespace MphRead.Mods.Combat
     internal sealed class KillFeed
     {
         internal static int MaxVisible => Render.Hud.HudProfiles.Runtime.KillFeed.Rows;
-        internal static double LifetimeSeconds => Render.Hud.HudProfiles.Runtime.KillFeed.Lifetime;
+        internal static double LifetimeSeconds => Input.DsLayout.Active ? 5 : Render.Hud.HudProfiles.Runtime.KillFeed.Lifetime;
         internal const double FadeSeconds = 1;
 
         private const int Capacity = 10;

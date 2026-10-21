@@ -233,6 +233,7 @@ namespace MphRead.Mods.Launcher.Gui
         public override void Initialize()
         {
             Styles.Add(new FluentTheme());
+            GameTypography.Install();
             RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
             base.Initialize();
         }

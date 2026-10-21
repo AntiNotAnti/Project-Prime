@@ -171,6 +171,6 @@ internal static class ReplayKillMessagePresenter
         string nickname = scene.GameState.Nicknames[targetSlot];
         string message = Strings.GetHudMessage(messageId);
         scene.Players.Main.QueueHudMessage(128, 70, 140, 60 / 30f, 2,
-            message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
+            message.Replace("%s", PlayerNameCodec.ToNative(nickname)), styleId: "combat.kill");
     }
 }

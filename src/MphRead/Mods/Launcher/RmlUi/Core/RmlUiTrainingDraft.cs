@@ -23,27 +23,28 @@ public sealed class RmlUiTrainingDraft
     public AimTrainerDefinition Current => _draft;
     public Hunter Hunter => _hunter;
 
-    private static T Cycle<T>(T current, int count) where T : Enum =>
-        (T)Enum.ToObject(typeof(T), ((Convert.ToInt32(current) + 1) % count));
+    private static T Cycle<T>(T current, int count, int direction) where T : Enum =>
+        (T)Enum.ToObject(typeof(T), ((Convert.ToInt32(current) + direction + count) % count));
 
-    public bool Choice(int index)
+    public bool Choice(int index, bool previous = false)
     {
+        int direction = previous ? -1 : 1;
         switch (index)
         {
             case 7:
-                _hunter = (Hunter)(((int)_hunter + 1) % 7);
+                _hunter = (Hunter)(((int)_hunter + direction + 7) % 7);
                 return true;
             case 8:
-                _draft = _draft with { Drill = Cycle(_draft.Drill, Enum.GetValues<AimTrainerDrill>().Length) };
+                _draft = _draft with { Drill = Cycle(_draft.Drill, Enum.GetValues<AimTrainerDrill>().Length, direction) };
                 MatchDrill(resetMovement: true);
                 return true;
             case 9:
                 if (_draft.Drill == AimTrainerDrill.ImperialistPrecision) return false;
-                _draft = _draft with { Weapon = (BeamType)(((int)_draft.Weapon + 1) % 8) };
+                _draft = _draft with { Weapon = (BeamType)(((int)_draft.Weapon + direction + 8) % 8) };
                 return true;
             case 10:
                 int current = Array.IndexOf(Durations, _draft.DurationSeconds);
-                _draft = _draft with { DurationSeconds = Durations[(current + 1) % Durations.Length] };
+                _draft = _draft with { DurationSeconds = Durations[(current + direction + Durations.Length) % Durations.Length] };
                 return true;
             case 11:
                 if (_draft.Drill == AimTrainerDrill.TimedFlick) return false;
@@ -51,20 +52,20 @@ public sealed class RmlUiTrainingDraft
                 {
                     TargetCount = _draft.Drill == AimTrainerDrill.MultiTargetFlick
                         ? _draft.TargetCount == 4 ? 5 : 4
-                        : _draft.TargetCount % 7 + 1
+                        : (_draft.TargetCount - 1 + direction + 7) % 7 + 1
                 };
                 return true;
             case 12:
-                _draft = _draft with { Movement = Cycle(_draft.Movement, Enum.GetValues<AimTrainerMovement>().Length) };
+                _draft = _draft with { Movement = Cycle(_draft.Movement, Enum.GetValues<AimTrainerMovement>().Length, direction) };
                 return true;
             case 13:
-                _draft = _draft with { Difficulty = Cycle(_draft.Difficulty, Enum.GetValues<TrainingDifficulty>().Length) };
+                _draft = _draft with { Difficulty = Cycle(_draft.Difficulty, Enum.GetValues<TrainingDifficulty>().Length, direction) };
                 return true;
             case 14:
-                _draft = _draft with { Distance = Cycle(_draft.Distance, Enum.GetValues<TrainingDistance>().Length) };
+                _draft = _draft with { Distance = Cycle(_draft.Distance, Enum.GetValues<TrainingDistance>().Length, direction) };
                 return true;
             case 15:
-                _draft = _draft with { Scope = Cycle(_draft.Scope, Enum.GetValues<TrainingScope>().Length) };
+                _draft = _draft with { Scope = Cycle(_draft.Scope, Enum.GetValues<TrainingScope>().Length, direction) };
                 return true;
             default: return false;
         }

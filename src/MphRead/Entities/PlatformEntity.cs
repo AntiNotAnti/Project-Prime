@@ -915,6 +915,7 @@ namespace MphRead.Entities
             else if (_animFlags.TestFlag(PlatAnimFlags.Draw))
             {
                 bool draw = false;
+                bool shadowEligible = true;
                 if (Flags.TestFlag(PlatformFlags.DrawAlways))
                 {
                     draw = true;
@@ -931,12 +932,33 @@ namespace MphRead.Entities
                     if (!_parent.StateFlags.TestFlag(PlatStateFlags.Awake) && !_parent.StateFlags.TestFlag(PlatStateFlags.WasAwake))
                     {
                         draw = false;
+                        shadowEligible = false;
                     }
                 }
                 if ((_animFlags.TestFlag(PlatAnimFlags.HasAnim) && _currentAnimId < 0)
                     || (_useDelano7 && _delano7Hidden))
                 {
                     draw = false;
+                    shadowEligible = false;
+                }
+                if (!draw && shadowEligible && !Hidden && _scene.CanPrepareDetachedShadows)
+                {
+                    if (_useDelano7)
+                    {
+                        Model? rig = PrepareDetachedPlatformShadow(0,GetModelTransform(_models[0],0),submit: false);
+                        if (rig != null)
+                        {
+                            Matrix4 shipTransform = _delano7TakingOff ? GetModelTransform(_models[1],1)
+                                : Matrix4.CreateScale(_models[1].Model.Scale) * rig.Nodes[0].Animation;
+                            Model? ship = PrepareDetachedPlatformShadow(1,shipTransform);
+                            if (ship != null)
+                                PrepareDetachedPlatformShadow(2,Matrix4.CreateScale(_models[2].Model.Scale)
+                                    * ship.Nodes[0].Animation);
+                        }
+                    }
+                    else
+                        for (int i = 0; i < _models.Count; i++)
+                            PrepareDetachedPlatformShadow(i,GetModelTransform(_models[i],i));
                 }
                 if (draw)
                 {

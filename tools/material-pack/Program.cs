@@ -6,6 +6,7 @@ using MphRead.Mods.Render.Materials;
 
 if (args.Length == 3 && args[0] == "--compare") { PixelCheck.Compare(args[1], args[2]); return; }
 if (args.Length == 3 && args[0] == "--pixels") { PixelCheck.Run(args[1], args[2]); return; }
+MipResidencyChecks.Run();
 
 string root = Path.Combine(Path.GetTempPath(), "prime-material-check-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
@@ -57,10 +58,17 @@ try
     System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(oversized.AsSpan(16,4), int.MaxValue);
     File.WriteAllBytes(Path.Combine(root, "huge.png"), oversized);
     Reject(() => MaterialPack.ValidateImage(Path.Combine(root, "huge.png")), "dimensions bounded before decode");
-    File.CreateSymbolicLink(Path.Combine(root, "linked.png"), Path.Combine(root, "pixel.png"));
-    Manifest(new MaterialPackEntry() { Key = key.Value, Albedo = "linked.png" });
-    Reject(() => MaterialPack.Load(root), "linked image rejected");
-    File.Delete(Path.Combine(root, "linked.png"));
+    try
+    {
+        File.CreateSymbolicLink(Path.Combine(root, "linked.png"), Path.Combine(root, "pixel.png"));
+        Manifest(new MaterialPackEntry() { Key = key.Value, Albedo = "linked.png" });
+        Reject(() => MaterialPack.Load(root), "linked image rejected");
+        File.Delete(Path.Combine(root, "linked.png"));
+    }
+    catch (IOException ex) when (OperatingSystem.IsWindows() && (ex.HResult & 0xFFFF) == 1314)
+    {
+        Console.WriteLine("NOT_RUN linked-image fixture: Windows symbolic-link privilege unavailable");
+    }
     File.WriteAllText(Path.Combine(root, "materials.json"), "{\"format\":2,\"id\":\"test\",\"name\":\"test\",\"materials\":[]}");
     Reject(() => MaterialPack.Load(root), "unknown version");
     File.WriteAllText(Path.Combine(root, "materials.json"), "{\"format\":1,\"format\":1}");
@@ -135,9 +143,16 @@ try
     Reject(() => MaterialPack.ValidateImage(Path.Combine(root, "oversized.png")), "image file bound");
     File.Delete(Path.Combine(root, "oversized.png"));
     string linkedDirectory = Path.Combine(root, "linked-directory");
-    Directory.CreateSymbolicLink(linkedDirectory, authoring);
-    Reject(() => MaterialPack.Load(root), "linked directory rejected without following it");
-    Directory.Delete(linkedDirectory);
+    try
+    {
+        Directory.CreateSymbolicLink(linkedDirectory, authoring);
+        Reject(() => MaterialPack.Load(root), "linked directory rejected without following it");
+        Directory.Delete(linkedDirectory);
+    }
+    catch (IOException ex) when (OperatingSystem.IsWindows() && (ex.HResult & 0xFFFF) == 1314)
+    {
+        Console.WriteLine("NOT_RUN linked-directory fixture: Windows symbolic-link privilege unavailable");
+    }
     using (var large = File.Create(Path.Combine(root, "unreferenced.bin"))) large.SetLength(MaterialPack.MaximumPackBytes + 1L);
     Reject(() => MaterialPack.Load(root), "pack budget includes unreferenced files");
     File.Delete(Path.Combine(root, "unreferenced.bin"));

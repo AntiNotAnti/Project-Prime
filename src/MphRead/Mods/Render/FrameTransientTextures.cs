@@ -66,34 +66,43 @@ namespace MphRead
                 }
             }
 
+            long bytes = checked((long)size.X * size.Y * (format == PixelInternalFormat.Rgba16f ? 8 : 4));
+            if (size.X <= 0 || size.Y <= 0 || !CanAllocateTargetBytes(bytes))
+                throw new InvalidOperationException("Transient target exceeds the render-target budget.");
             int texture = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, texture);
-            PixelType type = format == PixelInternalFormat.Rgba16f
-                ? PixelType.Float : PixelType.UnsignedByte;
-            GL.TexImage2D(TextureTarget.Texture2D, 0, format,
-                size.X, size.Y, 0, PixelFormat.Rgba, type, IntPtr.Zero);
-            GL.TexParameter(TextureTarget.Texture2D,
-                TextureParameterName.TextureMinFilter, (int)minFilter);
-            GL.TexParameter(TextureTarget.Texture2D,
-                TextureParameterName.TextureMagFilter, (int)magFilter);
-            GL.TexParameter(TextureTarget.Texture2D,
-                TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D,
-                TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-            GL.BindTexture(TextureTarget.Texture2D, 0);
-
-            _frameTransientTextures.Add(new FrameTransientTexture
+            try
             {
-                Texture = texture,
-                Size = size,
-                Format = format,
-                MinFilter = minFilter,
-                MagFilter = magFilter,
-                InUse = true,
-                LastUse = ++_frameTransientTextureSerial
-            });
-            _frameTransientTextureMisses++;
-            return texture;
+                GL.BindTexture(TextureTarget.Texture2D, texture);
+                PixelType type = format == PixelInternalFormat.Rgba16f
+                    ? PixelType.Float : PixelType.UnsignedByte;
+                GL.TexImage2D(TextureTarget.Texture2D, 0, format,
+                    size.X, size.Y, 0, PixelFormat.Rgba, type, IntPtr.Zero);
+                GL.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMinFilter, (int)minFilter);
+                GL.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMagFilter, (int)magFilter);
+                GL.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                GL.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+
+                if (GL.GetError() != ErrorCode.NoError)
+                    throw new InvalidOperationException("Transient target allocation failed.");
+                _frameTransientTextures.Add(new FrameTransientTexture
+                {
+                    Texture = texture,
+                    Size = size,
+                    Format = format,
+                    MinFilter = minFilter,
+                    MagFilter = magFilter,
+                    InUse = true,
+                    LastUse = ++_frameTransientTextureSerial
+                });
+                _frameTransientTextureMisses++;
+                return texture;
+            }
+            catch { GL.DeleteTexture(texture); throw; }
         }
 
         private void ReleaseFrameTransientFramebufferTexture(
@@ -137,17 +146,23 @@ namespace MphRead
         private void TrimFrameTransientTextures()
         {
             const int maxFreeTextures = 4;
+            long maxFreeBytes = OperatingSystem.IsAndroid() ? 16L * 1024 * 1024 : 64L * 1024 * 1024;
             while (true)
             {
                 int free = 0;
+                long freeBytes = 0;
                 int oldestIndex = -1;
                 long oldestUse = long.MaxValue;
+                bool expired = false;
                 for (int i = 0; i < _frameTransientTextures.Count; i++)
                 {
                     FrameTransientTexture entry = _frameTransientTextures[i];
                     if (entry.InUse)
                         continue;
                     free++;
+                    expired |= _renderSequence - entry.LastReleaseRenderSequence > 240;
+                    freeBytes += (long)entry.Size.X * entry.Size.Y
+                        * (entry.Format == PixelInternalFormat.Rgba16f ? 8 : 4);
                     if (entry.LastUse < oldestUse)
                     {
                         oldestUse = entry.LastUse;
@@ -155,7 +170,7 @@ namespace MphRead
                     }
                 }
 
-                if (free <= maxFreeTextures || oldestIndex < 0)
+                if ((free <= maxFreeTextures && freeBytes <= maxFreeBytes && !expired) || oldestIndex < 0)
                     break;
                 FrameTransientTexture oldest = _frameTransientTextures[oldestIndex];
                 int id = oldest.Texture;

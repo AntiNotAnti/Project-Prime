@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
 
@@ -34,7 +35,7 @@ internal static class OfflineReturnChecks
         Check(controller.OfflineSessionClosed()
             && controller.OfflineOpen && Flag(controller, "offline_can_start")
             && Text(controller, "offline_hunter_value") == hunter
-            && Text(controller, "offline_arena_value") == first.RoomKey
+            && Text(controller, "offline_arena_value") == LauncherRoomDisplayName.Get(first.RoomKey)
             && !Disabled(controller, "offline_start")
             && !controller.OfflineSessionClosed(),
             "scene teardown immediately enables Start without losing the setup or reopening Play");
@@ -69,7 +70,7 @@ internal static class OfflineReturnChecks
         var changing = new Stub { BuiltInMaps = new[] { "AD2 ALINOS PERCH", "MP1 SANCTORUS" } };
         using var returnController = new RmlUiMenuController(changing);
         Check(returnController.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
-            && Text(returnController, "offline_arena_value") == "AD2 ALINOS PERCH",
+            && Text(returnController, "offline_arena_value") == LauncherRoomDisplayName.Get("AD2 ALINOS PERCH"),
             "offline draft initially selects an arena that was available");
         changing.OfflineValidationPending = Pending();
         Check(returnController.Dispatch(RmlUiIntentKind.OfflineLaunchMatch),
@@ -78,7 +79,7 @@ internal static class OfflineReturnChecks
         WaitFor(returnController, () => changing.OfflineLaunches == 1);
         changing.BuiltInMaps = new[] { "MP1 SANCTORUS" };
         Check(returnController.OfflineSessionClosed()
-            && Text(returnController, "offline_arena_value") == "MP1 SANCTORUS"
+            && Text(returnController, "offline_arena_value") == LauncherRoomDisplayName.Get("MP1 SANCTORUS")
             && Flag(returnController, "offline_can_start")
             && !Disabled(returnController, "offline_start"),
             "bot match return replaces a now-unavailable arena without leaving Offline Battle");

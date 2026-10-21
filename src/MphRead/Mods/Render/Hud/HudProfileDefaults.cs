@@ -7,7 +7,7 @@ public static class HudProfileDefaults
     public const int MovementTelemetryIndex = 14;
     public const float MovementTelemetryHeight = 24;
     public static readonly string[] ElementIds = { "core.crosshair", "core.health", "core.ammo", "core.weapons", "core.radar", "match.score", "match.timer", "combat.killFeed", "combat.notifications", "combat.opponent", "match.objective", "system.diagnostics", "core.healthGauge", "core.ammoGauge", MovementTelemetryId };
-    public static readonly string[] Presets = { "Classic", "Project Prime", "Competitive", "Minimal", "Duel", "Accessibility", "Broadcast" };
+    public static readonly string[] Presets = { "Classic", "Halo", "Approved 4:3", "Project Prime", "Competitive", "Minimal", "Duel", "Accessibility", "Broadcast" };
     public static Dictionary<string, HudElementLayout> Elements() => new()
     {
         ["core.crosshair"] = new() { Anchor = HudAnchor.Center, Locked = true, Layer = 3 },
@@ -30,6 +30,8 @@ public static class HudProfileDefaults
     public static HudProfile Create(string name)
     {
         var p = new HudProfile { Name = name, BasePreset = name, Mode = name == "Classic" ? HudMode.Classic : name == "Project Prime" ? HudMode.ProjectPrime : HudMode.Custom };
+        if (name == "Classic") { p.FixedWeapon=false; p.Health.Native=true; p.Ammo.Native=true; p.Inventory.Native=true; p.Crosshair.Native=true; }
+        if (name is "Approved 4:3" or "Halo") p.Crosshair=new() { HealthColor=false, Color="#D9EDF8", LengthX=2,LengthY=2,Gap=3,Thickness=1 };
         switch (name)
         {
             case "Competitive": HudRadarStyles.Apply(p,HudRadarStyle.Competitive); p.Crosshair = CrosshairProfile.FromLegacy(CrosshairStyle.Dot, CrosshairSize.Small); break;

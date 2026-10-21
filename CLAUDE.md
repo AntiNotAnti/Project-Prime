@@ -19,6 +19,20 @@ records, not declarations that their old protocol/profile is still current.
 Depth for a given area lives in `.claude/` (indexed in
 `.claude/CLAUDE-INDEX.md`).
 
+## Native HUD and settings
+
+The desktop Custom HUD editor consolidates HUD controls into a searchable element
+rail and sectioned inspector with inline value editing and section-local search.
+Stacked 4:3/5:3 screens and their stylus dependency are in Position & Visibility.
+Live 60-second preview is available in a match and returns to the retained editor
+on Escape/timeout without writing preferences during the trial.
+Valid settled settings and HUD edits save through
+the existing atomic transaction. Settings uses overview/category/section navigation;
+Escape backs out one layer at a time. Outline palettes have an HSV wheel. See
+`.claude/launcher/LAUNCHER-SETTINGS.md` and the dated v20 feature parity review in
+`docs/implementation/` for scope and acceptance evidence. Native input queue
+coalescing contracts are in `.claude/launcher/RMLUI-INPUT.md`.
+
 ## Network modernization
 
 The current wire version is protocol 76. Protocol72 adds explicit private custom-weapon ownership absence; protocol73 carries private acquisition knowledge outside canonical/public Actions. Protocol74 selects Traversal profile v4; protocol75 adds public custom pickup state/ACKs at97/98. Protocol76 selects Quake3 v4 and Traversal v5 for qualified ramp travel and slide slope gravity; native payloads are unchanged. Its transport retains endpoint-bound connection IDs, sequence/ACK

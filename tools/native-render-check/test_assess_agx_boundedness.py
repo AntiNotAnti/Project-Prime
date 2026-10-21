@@ -44,6 +44,19 @@ class BoundednessTests(unittest.TestCase):
         result = assessor.assess(self.evidence)
         self.assertEqual(result['boundednessGate'], 'UNVERIFIED')
 
+    def test_missing_anchor_cannot_hide_initial_growth_behind_late_plateau(self):
+        self.evidence['windows'] = [self.sample('candidate', load, amount) for load, amount in
+                                    [(120, 9000), (300, 9005), (600, 9003)]]
+        result = assessor.assess(self.evidence)
+        self.assertEqual(result['boundednessGate'], 'UNVERIFIED')
+        self.assertIsNone(result['candidateWarmupAnchor'])
+        self.evidence['windows'].insert(0, self.sample('candidate', 60, 1000))
+        self.assertEqual(assessor.assess(self.evidence)['boundednessGate'], 'FAIL')
+
+    def test_warmup_anchor_from_separate_process_cannot_qualify(self):
+        self.evidence['windows'][1]['runId'] = 'another-process'
+        self.assertNotEqual(assessor.assess(self.evidence)['boundednessGate'], 'PASS')
+
     def test_noise_controls_must_be_explicit_independent_and_same_target(self):
         original = copy.deepcopy(self.evidence)
         for mutation in (lambda data: data.update(controls=[]), lambda data: data.update(controls=data['controls'][:1]),

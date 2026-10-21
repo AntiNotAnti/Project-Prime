@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.RmlUi.Host;
 
 namespace MphRead.Mods.Launcher.RmlUi.Pages.Social;
@@ -218,10 +219,15 @@ internal sealed class NativeSocialFriendsPage : IDisposable
         Text("social_selected_relation", invitation != null ? (invitation.Incoming ? "INCOMING" : "OUTGOING") + " GAME INVITE // " + invitation.Status.ToUpperInvariant()
             : snapshot.Selected?.Relation.ToString().ToUpperInvariant() ?? "");
         NativePresencePerson? selectedPresence = directory?.People.FirstOrDefault(p => p.PrimeId == snapshot.Selected?.PrimeId);
+        string selectedPresenceMap = selectedPresence == null ? ""
+            : LauncherRoomDisplayName.Get(selectedPresence.RoomKey);
+        string selectedInvitationMap = invitation == null ? ""
+            : LauncherRoomDisplayName.Get(invitation.RoomKey);
         Text("social_selected_activity", directory == null ? "PRESENCE UNAVAILABLE"
             : selectedPresence == null ? "PRESENCE NOT SHARED" : selectedPresence.Activity.ToUpperInvariant()
-                + (selectedPresence.RoomKey.Length == 0 ? "" : " // " + selectedPresence.RoomKey));
-        Text("social_selected_detail", invitation != null ? invitation.ServerName + " // " + invitation.RoomKey : snapshot.Selected == null
+                + (selectedPresenceMap.Length == 0 ? "" : " // " + selectedPresenceMap));
+        Text("social_selected_detail", invitation != null ? invitation.ServerName
+            + (selectedInvitationMap.Length == 0 ? "" : " // " + selectedInvitationMap) : snapshot.Selected == null
             ? "Choose a verified player from Friends, Requests, Blocked or Prime ID lookup."
             : "Social mutations are accepted by the authenticated server.");
         Text("social_selected_expiry", invitation == null ? "" : "EXPIRES " + invitation.ExpiresAt.ToLocalTime().ToString("g"));
@@ -245,6 +251,7 @@ internal sealed class NativeSocialFriendsPage : IDisposable
         {
             NativeSocialInvitation? inviteRow = i < snapshot.InvitationRows.Length ? snapshot.InvitationRows[i] : null;
             NativeSocialPerson? row = i < snapshot.Rows.Length ? snapshot.Rows[i] : null;
+            string inviteMap = inviteRow == null ? "" : LauncherRoomDisplayName.Get(inviteRow.RoomKey);
             bool found = row != null || inviteRow != null;
             Bool("visible:social_row_" + i, found);
             Bool("disabled:social_row_" + i, !found || snapshot.Busy);
@@ -252,7 +259,9 @@ internal sealed class NativeSocialFriendsPage : IDisposable
                 inviteRow != null ? inviteRow.InviteId == invitation?.InviteId : row != null && row.PrimeId == snapshot.Selected?.PrimeId);
             Text("social_row_name_" + i, inviteRow?.DisplayName ?? row?.DisplayName ?? "");
             Text("social_row_detail_" + i,
-                inviteRow != null ? (inviteRow.Incoming ? "INCOMING" : "OUTGOING") + " // " + inviteRow.RoomKey + " // " + inviteRow.Status.ToUpperInvariant() : row is { } person ? person.Relation + " // " + person.PrimeId
+                inviteRow != null ? (inviteRow.Incoming ? "INCOMING" : "OUTGOING")
+                    + (inviteMap.Length == 0 ? "" : " // " + inviteMap)
+                    + " // " + inviteRow.Status.ToUpperInvariant() : row is { } person ? person.Relation + " // " + person.PrimeId
                     + (person.RecentLastSeen is { } seen ? " // " + seen.ToUniversalTime().ToString("yyyy-MM-dd HH:mm 'UTC'", System.Globalization.CultureInfo.InvariantCulture) + " // " + person.RecentEncounters + " ENCOUNTERS" : "")
                     + (directory?.People.FirstOrDefault(p => p.PrimeId == person.PrimeId) is { } activity
                         ? " // " + activity.Activity.ToUpperInvariant() : "") : "");

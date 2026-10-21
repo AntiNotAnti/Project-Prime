@@ -2,6 +2,54 @@
 
 This file summarises the launcher features and where its code lives.
 
+## Native offline setup (October 2026)
+
+The RmlUi offline setup carries seven immutable bot profiles in its local draft.
+Combatant count activates the first zero to seven profiles. The roster selector
+edits each bot's Hunter (including Random), suit, difficulty, team (Auto or teams
+1–2), and damage reduction (0–50%, in 10% steps). Your Team is available in team
+modes. All Bot Difficulties resets the difficulty of all seven profiles; other
+individual choices survive count changes. Low Tier sanitizes explicit Hunters and
+restricts Random to the allowed pool. These are setup-session choices; existing
+count/shared-difficulty preferences retain their existing persistence behavior.
+
+The experimental Weavel Mechanics chooser and its notice are hidden from local
+match setup until those modes are ready. Existing runtime code is retained; the
+OpenGL mechanics fixture reveals the section only for its isolated checks.
+
+`RmlUiOfflineRequest` carries the immutable profiles through asynchronous map
+validation, `OfflineLaunch.Preview/Create`, and `MatchStart.AddLocalPlayers`.
+Preview validates every active profile before preference writes. Population applies
+the requested Hunter, suit, skill, team and handicap; a new local population clears
+the previous match's handicap slot table. Legacy callers without profiles keep their
+existing shared difficulty and automatic population behavior. No wire format changes.
+
+Player-facing map labels use `LauncherRoomDisplayName` and retail `InGameName`;
+room keys stay unchanged for loading, package identity and thumbnails. In particular,
+`MP1 SANCTORUS` displays Data Shrine and `MP11 BREAKTHROUGH` displays Sanctorus.
+This applies to every named map across native and legacy launchers, server/lobby
+details, map rotations, results ballots, mid-match votes and announcements, replay
+titles/details/search, social invitations/presence, license history, import
+confirmation and Android loading notices. Duplicate retail titles remain exact
+retail titles; results cards no longer append internal room codes. Explicit replay
+renames, editable map-project runtime identifiers, filenames and protocol keys keep
+their existing meaning. Unknown/uninstalled custom maps retain the supplied name
+until their display metadata is available. Resolution accepts case variants from
+older replay/network sources without changing the source key.
+Offline arena search accepts display names and runtime keys. The native offline
+picker uses six preview cards per page and the shared asynchronous preview cache,
+including explicit loading/unavailable placeholders. The offline and lobby pickers
+share one active preview read so a closed picker cannot retire the visible cache.
+
+Focused checks: `tools/rmlui-offline-rules-check -- --roster-only` exercises profile
+validation and real local population (preseeded turret holders avoid cartridge model
+loads); `--navigation-only` covers reverse cycling. `rmlui-live-menu-check` covers
+labels/search/paging/projection. The OpenGL `--offline-character` acceptance
+exercises authored bot controls and synthetic preview pixels at the requested size.
+`tools/map-display-name-check` checks all 27 stock multiplayer names plus every
+named metadata entry, native picker/Theatre projections, replay fallback titles,
+display-name search and unchanged vote packet room keys.
+
 Basics
 
 `MphRead -launcher` opens a responsive FPS-style command hub inside the game

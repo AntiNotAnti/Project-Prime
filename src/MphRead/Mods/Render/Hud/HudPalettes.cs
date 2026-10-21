@@ -5,6 +5,7 @@ public static class HudPalettes
     public static readonly string[] Names={"Default","Blue / amber","High contrast"};
     public static void Apply(HudProfile p,int index)
     {
+        p.AccentColor=index==0?"#A2D3F0":index==1?"#56B4E9":"#FFFFFF";
         foreach(var meter in new[] { p.Health,p.Ammo })
         {
             meter.FullColor=index==0 ? "#3DD951" : index==1 ? "#56B4E9" : "#FFFFFF";

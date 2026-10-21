@@ -7,6 +7,10 @@ div {
 display: block;
 }
 
+/* RmlUi has no browser user-agent stylesheet. Semantic text occupies a full
+   block so a multiline prompt cannot share its line box with the next action. */
+h1, h2, h3, p { display: block; }
+
 @keyframes enter-top {
 from { opacity: 0.72; }
     to   { opacity: 1; }

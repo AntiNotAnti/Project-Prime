@@ -199,6 +199,7 @@ namespace MphRead.Mods.Input
             using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
             if (settingsWrite == null) return;
             path = Path.GetFullPath(path);
+            MphRead.Mods.Settings.SettingsPersistence.Track(path);
             string temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try { File.WriteAllText(temp, text); File.Move(temp, path, overwrite: true); }
             finally { if (File.Exists(temp)) File.Delete(temp); }

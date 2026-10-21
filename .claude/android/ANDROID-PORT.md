@@ -197,19 +197,63 @@ Three things are specific to this head:
 - **Input goes inside the step loop**, not beside it. `ApplyInput` works out
   this step's rising edges from the touch state, so running it once per
   *picture* would turn one tap on FIRE into two presses at 120 Hz.
-- **Display mode and native numeric caps use presentation-driven pacing.**
-  `AndroidFramePacer` applies only a 500 Hz safety ceiling when the compositor
-  or a blocking present mode already owns cadence, rather than adding a second
-  timer to VSync. Only non-native numeric caps use a software deadline with
-  nonblocking presentation. If Vulkan/modern presentation falls back to FIFO,
-  FIFO becomes the clock instead of stacking two pacing loops. Cap changes
-  reset the render deadline; surface resume resets elapsed time before
-  simulation resumes.
+- **Pacing uses effective presentation state.** A supported refresh mode does
+  not prove Android applied a request. A numeric cap keeps its software deadline
+  until an observed active refresh within that upper bound and a successfully
+  applied blocking swap interval can enforce it. Display mode also checks the
+  applied interval; on failure it uses the observed refresh in software, or a
+  conservative 60 Hz fallback when observation is unavailable. Display callbacks invalidate request identity when active
+  rate/display identity changes, and surface generations invalidate requests on
+  replacement. Explicit unset request state keeps first/resumed Unlimited distinct
+  from “not requested”. Failed rate/interval requests retry with bounded backoff.
+  Cap changes reset render deadlines; resume resets elapsed time before simulation.
 - **`Surface.SetFrameRate`** (API 30+, guarded and caught) tells SurfaceFlinger
   what the surface intends, because a 120 Hz phone often sits at 60 until
   something asks. Below API 30 the FPS limit still caps the loop; it just
   cannot raise the panel. Best-effort throughout -- a device that refuses is
   not a reason to end a match.
+
+### Renderer audit repairs, 2026-10-21
+
+Transient EGL create/bind failures use a generation-aware Monitor wait with
+50–1600 ms bounded backoff, woken by pause, stop or replacement surface events.
+Repeated diagnostics are limited to one per two seconds. Failed presents cancel
+profiling/latency completion and increment separate error counters; they never
+enter successful swap timing. EGL context loss ends the current graphics owner
+with an explicit return-to-launcher/restart reason, retiring lingering CPU/audio/
+replay owners on the original thread. It never resets facade names
+and tries to draw the old scene in a replacement context.
+
+Program binary keys and `GlEs.ShaderSource` both use `EsShaders.PrepareSource`.
+Keys contain translated/expanded GLES source (including variants), schema,
+translator/link ABI and driver GL identity. Private binary storage keeps at most
+64 files / 64 MiB, reads bounded payloads, checks link success, and falls back to
+source for misses or invalid binaries. Shader variant text transforms normalize
+Windows CRLF input before deriving source, and hash synchronization only becomes
+ready after every check succeeds.
+
+The optional native GLES UI compositor owns unit zero before every initialization,
+resize and upload. It restores front/back stencil state independently and retains
+the existing texture/sampler/framebuffer/unpack snapshot boundary. Program/quad,
+color/stencil target, geometry and texture initialization publish only after
+successful completion; failure deletes temporary names. Diagnostic
+`OpenGlFailureInjection` stages include `android-rmlui-vertex`,
+`android-rmlui-fragment`, `android-rmlui-link`, `android-rmlui-quad`,
+`android-rmlui-white-texture` and `android-rmlui-surface`.
+
+Telemetry v2 records successful completion-to-completion intervals aligned with
+that current frame's stage timings. First completion after a surface/match rebase
+is an anchor, not a fabricated zero interval. The comparison tool rejects mixed
+v1/v2 semantics. Periodic telemetry copies into one preallocated detached report slot. One worker
+performs Binder/runtime probes, percentile sorting and formatting; if busy, the
+render owner increments a skipped-report counter instead of waiting or queueing
+more work. Report data contains values only, and stale match generations are
+ignored. Display callbacks refresh observed cadence independently of that worker.
+No cap, scale, enrollment or quality governor is introduced.
+
+Windows deterministic validation and platform limitations are recorded in
+`docs/performance/renderer-next/android.md`. Physical Android lifecycle, pixels,
+cache parity and performance qualification remain NOT_RUN for this campaign.
 
 ### Pacing investigation, 2026-09-30
 

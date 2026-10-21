@@ -30,6 +30,18 @@ So the simulation is not asked to move. Only the drawing is.
 
 ## The split
 
+Raw desktop frame capture schema 3 retains the Present-return interval that
+triggers a catch-up overflow or stall, records before/after presentation
+generations and stall/drop deltas, and retains the following interval. Timing
+fences keep the same measurement segment; focus/pause/cap/scene/lifecycle changes
+have bounded explicit boundary events and establish a fresh interval clock.
+The strict native-FPS analyzer reads schemas 2 and 3 and rejects missing or
+overflowed records and mixed measurement conditions. Callback wall time includes
+the full desktop callback, with nested provider-wait, simulation, render, UI,
+upload and swap scopes. Launcher callback time is an aggregate; OpenTK's event
+polling/software deadline and physical display wakeup remain uninstrumented.
+These diagnostic scopes do not establish a performance or scanout claim.
+
 `Scene.OnUpdateFrame()` used to be one call doing both, and `RenderWindow` ran
 it at `UpdateFrequency = 60`. It is now three methods:
 
@@ -385,3 +397,24 @@ means are cumulative and include startup. Frames over 20 ms correlate checkpoint
 replica-step and authority time with the frame modulo 300 (one log/second).
 This measures CPU simulation, not GPU completion or displayed frame pacing. See
 `docs/architecture/replay-map-performance.md` for measurements and validation gaps.
+# Renderer audit capture follow-up (2026-10-21)
+
+Desktop raw capture schema 3 retains the actual interval that changes timing
+generation through catch-up overflow or a long stall, plus the following
+interval. Explicit bounded lifecycle events describe focus/cap/scene/pause,
+cancelled and failed-present boundaries. The strict native-FPS analyzer still
+rejects lost records, malformed chronology and mixed conditions. Full callback,
+provider-wait and launcher aggregate scopes are inclusive; do not add nested
+scope times. A swap return is an application observation, not display scanout.
+See `docs/performance/renderer-next/measurement.md` for Windows tests and
+remaining OS scheduler/overhead/physical-device gates.
+
+Standalone native diagnostics suppress and record live OS keyboard/text/mouse
+callbacks as well as freezing Scene snapshots. Focus/close remain observable;
+physical gamepad isolation is not claimed. Shell first-frame maintenance must
+start only for the active owning launcher window, so preview/maintenance workers
+cannot contaminate standalone timings or claim a lazy UI dispatcher. The native
+receipt rejects unexpected launcher startup. Use the fresh-directory Windows
+qualification recipe in `tools/native-render-check/qualify_windows_renderer.ps1`
+for the six-mode matrix, scale captures and sustained combat; keep builds/tests
+idle during timed runs and preserve all failures.

@@ -63,6 +63,7 @@ internal static class NativeSettingsAcceptance
         var settings = new MenuSettings();
         using (var controller = new NativeFullSettingsController(settings))
         {
+            SettingsCatalogAcceptance.Run(controller);
             var rowBudgets = controller.Rows.GroupBy(row => (row.Category, Subpage: NativeFullSettingsPage.RowSubpage(row))).ToArray();
             foreach (var pane in rowBudgets)
             {
@@ -71,8 +72,8 @@ internal static class NativeSettingsAcceptance
                 Check(pane.Count() <= NativeFullSettingsPage.Slots,
                     $"complete {pane.Key.Category}/{pane.Key.Subpage} form including Advanced fits {NativeFullSettingsPage.Slots} slots ({pane.Count()} rows)");
             }
-            Check(rowBudgets.Sum(pane => pane.Count()) == controller.Rows.Count && rowBudgets.Max(pane => pane.Count()) >= 88,
-                "row budget covers the complete managed catalog including the largest touch/gamepad forms");
+            Check(rowBudgets.Sum(pane => pane.Count()) == controller.Rows.Count && rowBudgets.All(pane=>pane.Count()>0),
+                "row budget covers every managed setting exactly once across focused sections");
             bool rejectedOverflow = false;
             try { NativeFullSettingsPage.RequireRowCapacity(NativeFullSettingsPage.Slots + 1); }
             catch (InvalidOperationException error) { rejectedOverflow = error.Message.Contains("authored capacity", StringComparison.Ordinal); }
@@ -126,6 +127,24 @@ internal static class NativeSettingsAcceptance
             Check(controller.Rows.Where(r => r.Group == "Keyboard bindings").All(r => r.Validate("Unknown") == null),
                 "keyboard bindings retain existing unbound support");
 
+            var hudOptions = controller.CopyHudOptions();
+            Check(controller.Rows.Where(row=>row.Group is "HUD" or "HUD preferences").All(row=>row.HudOnly)
+                && hudOptions.Any(option=>option.Label=="Show Fps") && hudOptions.Any(option=>option.Label=="Stacked dual-screen layout"),
+                "HUD preferences belong to HUD Studio and retain searchable detached options");
+            Check(hudOptions.Any(option=>option.Label=="Screen proportions (4:3 / 5:3)"&&option.Section==1&&option.Choices.SequenceEqual(new[]{"4:3","5:3"}))
+                &&hudOptions.Any(option=>option.Label=="Stylus input mode"&&option.Section==1&&option.Group=="Stacked dual screens")
+                &&hudOptions.Any(option=>option.Label=="Stacked dual-screen layout"&&option.Section==1&&option.Hint.Contains("Stylus input mode",StringComparison.Ordinal)),
+                "stacked screens, exact4:3/5:3choices and required input master are discoverable together in Layout");
+            using(var editor = new HudEditorController(controller.CopyHud(),options:hudOptions))
+            {
+                editor.Dispatch(HudEditorAction.SectionGlobal);
+                editor.Dispatch(HudEditorAction.SearchProperties,"Show Fps");editor.SelectProperty(0);editor.Dispatch(HudEditorAction.PropertyChoiceNext);
+                Check(controller.CopyHudOptions().Single(option=>option.Label=="Show Fps").Value==hudOptions.Single(option=>option.Label=="Show Fps").Value,
+                    "HUD option edits leave outer settings unchanged before Use");
+                controller.AcceptHudOptions(editor.CopyOptions());
+                Check(controller.Dirty&&controller.Rows.Select(row=>row.Read()).SequenceEqual(originalRows),"HUD Use stages preferences while runtime waits for Apply");
+                controller.Discard();
+            }
             string runtimeHud = HudProfileStore.Serialize(HudProfiles.CopyCurrent());
             HudProfile proposed = controller.CopyHud(); proposed.SafeArea = .13f;
             proposed.Elements["core.health"].OffsetX = 37;
@@ -146,8 +165,12 @@ internal static class NativeSettingsAcceptance
         LegacyControllerAlternatives(settings);
         HudEditorDraft();
         VideoRollback(settings);
+        TemporaryPreview(root,settings);
+        AtomicCommit(root);
         NativeCharacterPreviewAcceptance.Run(settings);
         Persistence(root, settings);
+        NativeAutoApplyAcceptance.Run(root, settings);
+        NativePreviewAutoSaveAcceptance.Run(root, settings);
     }
 
     private static void MainSettingsRegressions(MenuSettings settings)
@@ -176,6 +199,13 @@ internal static class NativeSettingsAcceptance
             Check(controller.Rows.Single(r=>r.BindingAction==PadAction.ReplayPlayPause&&r.BindingSlot==0).Value=="None+A","reverting gameplay controls preserves staged replay defaults");
             controller.Select(4);controller.ResetCategory();Check(!controller.Dirty,"reverting Replays restores full saved alternatives after reset");
             controller.ResetReplayControls();controller.Discard();Check(!controller.Dirty&&owner.Get(PadAction.Morph)==before.Get(PadAction.Morph),"replay reset/discard preserves gameplay legacy alternatives");
+            var killCam=controller.Rows.Single(r=>r.Label=="Kill Cam Enabled");
+            var finalKillCam=controller.Rows.Single(r=>r.Label=="Final Kill Cam Enabled");
+            controller.Stage(finalKillCam,"true");controller.Stage(killCam,"false");
+            Check(!controller.FinalKillCamAvailable&&finalKillCam.Value=="true","master kill camera disables final camera controls without erasing final preference");
+            controller.Stage(killCam,"true");
+            Check(controller.FinalKillCamAvailable&&finalKillCam.Value=="true","reenabling master restores availability of retained final camera preference");
+            controller.Discard();
             var camera=controller.Rows.Single(r=>r.Label=="Kill Cam Camera");Check(camera.ChoiceLabels?["1"]=="First person"&&!camera.HasSlider,"kill camera exposes friendly canonical choices");
         }
         finally{owner.CopyFrom(saved);}
@@ -358,6 +388,105 @@ internal static class NativeSettingsAcceptance
         Check(calls[^1] == original && !controller.ConfirmingVideo, "retiring settings reverts pending display proposal");
     }
 
+    private static Dictionary<string,byte[]> FileSnapshot(string root)
+        => Directory.EnumerateFiles(root,"*",SearchOption.AllDirectories).ToDictionary(path=>path,File.ReadAllBytes,StringComparer.OrdinalIgnoreCase);
+    private static bool SameFiles(string root,Dictionary<string,byte[]> before)
+    {
+        var current=FileSnapshot(root);
+        return current.Count==before.Count&&before.All(file=>current.TryGetValue(file.Key,out var bytes)&&bytes.AsSpan().SequenceEqual(file.Value));
+    }
+
+    private static void TemporaryPreview(string root,MenuSettings settings)
+    {
+        using var controller=new NativeFullSettingsController(settings);
+        var volume=Row(controller,"Audio","Sfx Volume (%)");
+        var name=Row(controller,"Profile","Player Name");
+        var mode=Row(controller,"Display","Window Mode");
+        var placement=controller.Rows.Single(row=>row.Group=="Stylus guide"&&row.Label=="Guide position / width");
+        Check(controller.Stage(volume,"71")&&controller.Stage(name,"Preview draft only")
+            &&controller.Stage(mode,mode.Choices.First(value=>value!=mode.Value))&&controller.Stage(placement,"0.2,0.2,0.25"),
+            "preview fixture stages playable, stylus placement and Apply-only preferences");
+        var hud=controller.CopyHud();hud.SafeArea=.12f;hud.Crosshair.Color="#123456";controller.SetHud(hud);
+        var before=controller.Rows.Select(row=>row.Read()).ToArray();
+        var draft=controller.Rows.Select(row=>row.Value).ToArray();
+        string hudBefore=HudProfileStore.Serialize(HudProfiles.CopyCurrent()),draftHud=HudProfileStore.Serialize(controller.CopyHud());
+        var files=FileSnapshot(root);int resumed=0;
+        bool Restored()=>controller.Rows.Select(row=>row.Read()).SequenceEqual(before)
+            &&HudProfileStore.Serialize(HudProfiles.CopyCurrent())==hudBefore;
+        bool DraftRetained()=>controller.Dirty&&controller.Rows.Select(row=>row.Value).SequenceEqual(draft)
+            &&HudProfileStore.Serialize(controller.CopyHud())==draftHud;
+        try
+        {
+            SettingsPreview.Begin(controller.ApplyPreview,()=>resumed++);
+            Check(SettingsPreview.Active&&SettingsPreview.DurationSeconds==60&&SettingsPreview.Remaining is >0 and <=60
+                &&settings.SfxVolume=="0.71"&&Math.Abs(MphRead.Sound.Sfx.Volume-.71f)<.0001f
+                &&HudProfiles.CopyCurrent().SafeArea==.12f&&Math.Abs(StylusZone.SavedTop-.2f)<.0001f,
+                "preview publishes temporary playable mixer, stylus placement and HUD values for sixty seconds");
+            Check(name.Read()==before[controller.Rows.IndexOf(name)]&&mode.Read()==before[controller.Rows.IndexOf(mode)]
+                &&SameFiles(root,files)&&DraftRetained(),"preview excludes profile/window changes, writes no files and retains exact detached draft");
+            bool nestedRejected=false;try{SettingsPreview.Begin(()=>()=>{},()=>{});}catch(InvalidOperationException){nestedRejected=true;}
+            Check(nestedRejected&&SettingsPreview.Active,"nested preview cannot replace original restoration owner");
+            SettingsPreview.End();SettingsPreview.End();
+            Check(!SettingsPreview.Active&&SettingsPreview.Remaining==0&&resumed==1&&Restored()&&DraftRetained()&&SameFiles(root,files),
+                "preview End restores full runtime once and preserves draft and disk bytes // changed runtime rows: "+
+                string.Join("; ",controller.Rows.Select((row,index)=>(row,index)).Where(item=>item.row.Read()!=before[item.index])
+                    .Select(item=>item.row.Category+"/"+item.row.Label+": "+before[item.index]+" -> "+item.row.Read()))+
+                " // live HUD restored="+(HudProfileStore.Serialize(HudProfiles.CopyCurrent())==hudBefore)+" draft retained="+DraftRetained()+" files unchanged="+SameFiles(root,files));
+            SettingsPreview.Begin(controller.ApplyPreview,()=>resumed++);
+            typeof(SettingsPreview).GetField("_started",BindingFlags.Static|BindingFlags.NonPublic)!
+                .SetValue(null,Stopwatch.GetTimestamp()-Stopwatch.Frequency*(SettingsPreview.DurationSeconds+1L));
+            SettingsPreview.Tick();
+            Check(!SettingsPreview.Active&&resumed==2&&Restored()&&DraftRetained()&&SameFiles(root,files),
+                "preview deadline tick restores runtime without sleeping or persisting drafts");
+            string faultValue="clear";
+            var fault=new NativeSettingRow("Graphics","Preview test fault","Preview write fault",()=>faultValue,
+                value=>{faultValue=value;if(value=="fail")throw new InvalidOperationException("Injected preview apply failure");},value=>null);
+            controller.Rows.Add(fault);controller.Stage(fault,"fail");
+            var failedDraft=controller.Rows.Select(row=>row.Value).ToArray();
+            bool failed=false;try{SettingsPreview.Begin(controller.ApplyPreview,()=>resumed++);}catch(InvalidOperationException error){failed=error.Message.Contains("Injected preview apply failure");}
+            Check(failed&&!SettingsPreview.Active&&faultValue=="clear"&&resumed==2
+                &&controller.Rows.Take(before.Length).Select(row=>row.Read()).SequenceEqual(before)
+                &&HudProfileStore.Serialize(HudProfiles.CopyCurrent())==hudBefore&&SameFiles(root,files),
+                "partial preview apply failure restores earlier runtime writes and leaves no active preview or disk writes");
+            Check(controller.Rows.Select(row=>row.Value).SequenceEqual(failedDraft)&&fault.Value=="fail"
+                &&HudProfileStore.Serialize(controller.CopyHud())==draftHud,"failed preview retains editable detached rows and HUD proposal");
+            controller.Rows.Remove(fault);
+            SettingsPreview.Begin(()=>()=>throw new IOException("Injected restore failure"),()=>resumed++);
+            bool restoreFailed=false;try{SettingsPreview.End();}catch(IOException){restoreFailed=true;}
+            Check(restoreFailed&&!SettingsPreview.Active&&resumed==3,"preview resume executes and owner retires even if restoration throws");
+        }
+        finally{SettingsPreview.End();}
+    }
+
+    private static void AtomicCommit(string root)
+    {
+        string folder=Path.Combine(root,"atomic-commit-fixture");Directory.CreateDirectory(folder);
+        string existing=Path.Combine(folder,"existing.txt"),created=Path.Combine(folder,"created.txt"),blocked=Path.Combine(folder,"blocked.txt");
+        byte[] original={0,13,10,255};File.WriteAllBytes(existing,original);Directory.CreateDirectory(blocked);
+        bool rejected=false;
+        try
+        {
+            using var transaction=SettingsPersistence.BeginCommit();
+            SettingsPersistence.WriteText(existing,"changed");SettingsPersistence.WriteText(created,"new store");
+            SettingsPersistence.WriteText(blocked,"inaccessible destination");transaction.Complete();
+        }
+        catch(IOException){rejected=true;}
+        Check(rejected&&!SettingsPersistence.Strict&&!SettingsPersistence.RestartRequired&&File.ReadAllBytes(existing).SequenceEqual(original)
+            &&!File.Exists(created)&&!Directory.EnumerateFiles(folder,"*.tmp").Any(),
+            "atomic multi-store failure restores exact old bytes, removes new stores and retires temporary files");
+        using(var transaction=SettingsPersistence.BeginCommit())
+        {
+            bool nested=false;try{using var inner=SettingsPersistence.BeginCommit();}catch(InvalidOperationException){nested=true;}
+            Check(nested&&SettingsPersistence.Strict,"nested commit is rejected while outer rollback owner stays active");
+            SettingsPersistence.WriteText(existing,"accepted");SettingsPersistence.WriteText(created,"accepted new store");transaction.Complete();
+        }
+        Check(!SettingsPersistence.Strict&&File.ReadAllText(existing)=="accepted"&&File.ReadAllText(created)=="accepted new store",
+            "completed atomic transaction retains all accepted stores");
+        var writer=System.Threading.Tasks.Task.Run(()=>{using var lease=SettingsPersistence.BeginWrite();return lease!=null;});
+        Check(writer.Wait(TimeSpan.FromSeconds(3))&&writer.Result,"commit failure/success release persistence gate for another owner thread");
+        Directory.Delete(folder,recursive:true);
+    }
+
     private static void Persistence(string root, MenuSettings settings)
     {
         // Initialization and every subsequent write are confined to this child.
@@ -389,11 +518,18 @@ internal static class NativeSettingsAcceptance
         var before = new[] { settingsPath, launcherPath, controlsPath, hudPath }
             .ToDictionary(p => p, File.ReadAllBytes);
         string hudBefore = HudProfileStore.Serialize(HudProfiles.CopyCurrent());
+        string additionalStore=Path.Combine(root,"additional-preference.txt"),newStore=Path.Combine(root,"new-preference.txt");
+        File.WriteAllText(additionalStore,"original additional store");
         string blocker = "clear";
         var injected = new NativeSettingRow("System", "Test fault", "Controls write fault", () => blocker,
             value =>
             {
-                if (value == "block") { File.Delete(controlsPath); Directory.CreateDirectory(controlsPath); }
+                if (value == "block")
+                {
+                    SettingsPersistence.WriteText(additionalStore,"changed additional store");
+                    SettingsPersistence.WriteText(newStore,"new preference store");
+                    File.Delete(controlsPath); Directory.CreateDirectory(controlsPath);
+                }
                 else if (Directory.Exists(controlsPath)) Directory.Delete(controlsPath);
                 blocker = value;
             }, value => value is "clear" or "block" ? null : "Invalid fixture value.");
@@ -406,6 +542,9 @@ internal static class NativeSettingsAcceptance
             "failed later store restores earlier files, engine gain, live HUD and write availability");
         Check(controller.Dirty && volume.Value == "22" && controller.Status.Contains("Previous settings restored"),
             "failed transaction retains editable proposed values and reports completed rollback");
+        Check(File.ReadAllText(additionalStore)=="original additional store"&&!File.Exists(newStore)
+            &&!Directory.EnumerateFiles(root,"*.tmp",SearchOption.AllDirectories).Any(),
+            "native Apply transaction rolls back dynamic stores beyond its fixed owner snapshot list");
         controller.Discard();
         var bindingOwner=GamepadRuntimeConfig.Current.Bindings;
         bindingOwner.Set(PadAction.Morph,GamepadButtons.A|GamepadButtons.B|GamepadButtons.X|GamepadButtons.Y);bindingOwner.Preset="Default";

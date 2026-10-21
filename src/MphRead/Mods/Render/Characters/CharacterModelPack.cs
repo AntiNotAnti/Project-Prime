@@ -16,6 +16,7 @@ namespace MphRead.Mods.Render.Characters
     {
         Biped,
         ViewModel,
+        ViewModelArms,
         AlternateForm,
         Halfturret
     }
@@ -41,6 +42,13 @@ namespace MphRead.Mods.Render.Characters
         public CharacterModelPart Part { get; set; }
         public int Lod { get; set; }
         public string Model { get; set; } = "";
+        // Optional equipped-weapon override. Omitted entries remain hunter defaults.
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? Weapon { get; set; }
+        public bool IndependentSurface { get; set; }
+        public bool IndependentVisibility { get; set; }
+        public bool NormalizeAttachment { get; set; }
+        public float MinimumVisibleAlpha { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? MobileModel { get; set; }
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -82,7 +90,9 @@ namespace MphRead.Mods.Render.Characters
         IReadOnlySet<string> SourceNodes,
         bool HasSkin,
         int PrimitiveCount,
-        PrivateCharacterAppearance? PrivateAppearance = null, CharacterPoseSource PoseSource = CharacterPoseSource.Native);
+        PrivateCharacterAppearance? PrivateAppearance = null, CharacterPoseSource PoseSource = CharacterPoseSource.Native,
+        BeamType? Weapon = null, bool IndependentSurface = false, bool IndependentVisibility = false,
+        bool NormalizeAttachment = false, float MinimumVisibleAlpha = 0);
 
     /// <summary>Private local presentation input, never a Hunter or wire ID.</summary>
     internal readonly record struct PrivateCharacterAppearance(string CharacterId, string SkinSource)
@@ -134,7 +144,7 @@ namespace MphRead.Mods.Render.Characters
         public const int CurrentFormat = 1;
         public const int MaximumManifestBytes = 1024 * 1024;
         public const long MaximumModelBytes = 128L * 1024 * 1024;
-        public const int MaximumModels = 64;
+        public const int MaximumModels = 128;
         public const int MaximumLod = 1;
         public const int MaximumBoneMappings = 128;
         public const int MaximumGlbJsonBytes = 4 * 1024 * 1024;
@@ -149,7 +159,7 @@ namespace MphRead.Mods.Render.Characters
             Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
         };
 
-        private readonly Dictionary<(Hunter Hunter, CharacterModelPart Part, int Lod), CharacterModelAsset> _assets;
+        private readonly Dictionary<(Hunter Hunter, CharacterModelPart Part, int Lod, BeamType? Weapon), CharacterModelAsset> _assets;
         private readonly Dictionary<(PrivateCharacterAppearance Appearance, CharacterModelPart Part, int Lod), CharacterModelAsset> _privateAssets;
 
         private string? _sourceRoot, _sourceManifestSha;
@@ -267,7 +277,7 @@ namespace MphRead.Mods.Render.Characters
             _=ContainedPath(_sourceRoot,proof.Entry.Model);_=ContainedPath(_sourceRoot,proof.Entry.Provenance!);
         }
 
-        private CharacterModelPack(Dictionary<(Hunter, CharacterModelPart, int), CharacterModelAsset> assets,
+        private CharacterModelPack(Dictionary<(Hunter, CharacterModelPart, int, BeamType?), CharacterModelAsset> assets,
             Dictionary<(PrivateCharacterAppearance, CharacterModelPart, int), CharacterModelAsset>? privateAssets = null)
         {
             _assets = assets;
@@ -286,7 +296,16 @@ namespace MphRead.Mods.Render.Characters
             => TryResolve(hunter, part, 0, out asset);
 
         public bool TryResolve(Hunter hunter, CharacterModelPart part, int lod, out CharacterModelAsset asset)
-            => _assets.TryGetValue((hunter, part, lod), out asset!);
+            => TryResolve(hunter, part, lod, null, out asset);
+
+        public bool TryResolve(Hunter hunter, CharacterModelPart part, int lod,
+            BeamType? weapon, out CharacterModelAsset asset)
+        {
+            // Weapon selection belongs to this player/view, never a shared mutable current weapon.
+            if (part == CharacterModelPart.ViewModel && weapon.HasValue
+                && _assets.TryGetValue((hunter, part, lod, weapon), out asset!)) return true;
+            return _assets.TryGetValue((hunter, part, lod, null), out asset!);
+        }
 
         internal bool TryResolvePrivate(Hunter hunter, PrivateCharacterAppearance appearance,
             CharacterModelPart part, int lod, out CharacterModelAsset asset)
@@ -344,7 +363,7 @@ namespace MphRead.Mods.Render.Characters
 
             CharacterSourceRootWitness? sourceRootWitness=manifest.Models.Any(entry=>entry?.PoseSource==CharacterPoseSource.SourceRigPreview)
                 ?CharacterSourceRootWitness.Capture(root):null;
-            var assets = new Dictionary<(Hunter, CharacterModelPart, int), CharacterModelAsset>();
+            var assets = new Dictionary<(Hunter, CharacterModelPart, int, BeamType?), CharacterModelAsset>();
             var privateAssets = new Dictionary<(PrivateCharacterAppearance, CharacterModelPart, int), CharacterModelAsset>();
             var graphProofs=new List<(CharacterModelAsset Asset,CharacterSourceGraphProof Proof)>();
             var animationProofs=new List<(CharacterModelAsset Asset,CharacterSourceAnimationArchive Proof)>();
@@ -433,9 +452,21 @@ namespace MphRead.Mods.Render.Characters
                     { modelPath=candidatePath; inspection=candidate; }
                 }
 
+                BeamType? weapon = null;
+                if (entry.Weapon != null)
+                {
+                    if (entry.Part != CharacterModelPart.ViewModel || appearance != null
+                        || !Enum.TryParse(entry.Weapon, ignoreCase: true, out BeamType parsed)
+                        || parsed < BeamType.PowerBeam || parsed > BeamType.OmegaCannon)
+                        throw new InvalidDataException($"Invalid viewmodel weapon '{entry.Weapon}'.");
+                    weapon = parsed;
+                }
+                if (!float.IsFinite(entry.MinimumVisibleAlpha) || entry.MinimumVisibleAlpha < 0 || entry.MinimumVisibleAlpha > 1)
+                    throw new InvalidDataException("Minimum visible alpha must be between zero and one.");
                 var asset = new CharacterModelAsset(
                     hunter, entry.Part, entry.Lod, entry.Skinning, modelPath, boneMap,
-                    inspection.NodeNames, inspection.HasSkin, inspection.PrimitiveCount, appearance, entry.PoseSource);
+                    inspection.NodeNames, inspection.HasSkin, inspection.PrimitiveCount, appearance, entry.PoseSource,
+                    weapon, entry.IndependentSurface, entry.IndependentVisibility, entry.NormalizeAttachment, entry.MinimumVisibleAlpha);
                 if (appearance is { } privateAppearance)
                 {
                     string modelSha=ValidatePrivateProvenance(root,entry,asset,privateAppearance,sourceCharacter,verifiedModelSha);
@@ -446,7 +477,7 @@ namespace MphRead.Mods.Render.Characters
                     if (!privateAssets.TryAdd((privateAppearance, entry.Part, entry.Lod), asset))
                         throw new InvalidDataException("Duplicate private character/skin/part/LOD identity.");
                 }
-                else if (!assets.TryAdd((hunter, entry.Part, entry.Lod), asset))
+                else if (!assets.TryAdd((hunter, entry.Part, entry.Lod, weapon), asset))
                     throw new InvalidDataException(
                         $"Duplicate character model entry for {hunter}/{entry.Part}/lod{entry.Lod}.");
             }

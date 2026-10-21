@@ -53,7 +53,7 @@ namespace MphRead
                 binding = CharacterTextureAssets.Upload("character-model/" + key,
                     () => new MemoryStream(image, writable: false), assetClass,
                     TextureAssetChannel.Albedo, repeat: false, out _, out _);
-            RegisterModernTexture(binding, assetClass, TextureAssetChannel.Albedo);
+            RegisterModernTexture(binding, assetClass, TextureAssetChannel.Albedo, CharacterTextureAssets);
             if (binding != 0)
             {
                 _characterImageBindings.Add(key, binding);
@@ -122,7 +122,7 @@ namespace MphRead
                         ()=>new MemoryStream(image.Image,writable:false),assetClass,channel,repeat:false,out _,out _);
                     if (prepared != 0)
                     {
-                        RegisterModernTexture(prepared,assetClass,channel);
+                        RegisterModernTexture(prepared,assetClass,channel,CharacterTextureAssets);
                         _characterImageBindings.Add(mapKey,prepared);
                     }
                     return prepared;
@@ -163,7 +163,7 @@ namespace MphRead
                 // Albedo/geometry must remain usable in that case.
                 if (binding != 0)
                 {
-                    RegisterModernTexture(binding, assetClass, channel);
+                    RegisterModernTexture(binding, assetClass, channel, CharacterTextureAssets);
                     _characterImageBindings.Add(mapKey, binding);
                 }
                 return binding;

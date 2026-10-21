@@ -437,7 +437,7 @@ internal static partial class RmlUiOpenGlSmoke
                 if (handled && intent.Kind == RmlUiIntentKind.LobbyChatSend)
                     layout?.SetField(chatField, "");
                 if (handled && intent.Kind is RmlUiIntentKind.LobbyRulesOpen
-                    or RmlUiIntentKind.LobbyRulesMode or RmlUiIntentKind.LobbyRulesFormat)
+                    or RmlUiIntentKind.LobbyRulesMode or RmlUiIntentKind.LobbyRulesModePrevious or RmlUiIntentKind.LobbyRulesFormat or RmlUiIntentKind.LobbyRulesFormatPrevious)
                 {
                     if (controller.RuleInputs is { } fields)
                     {
@@ -950,6 +950,9 @@ internal static partial class RmlUiOpenGlSmoke
             if (code == 0 && _inputWindow is { IsFocused: true } hunterWindow && HunterPreviewInputBasis(hunterWindow) && _hunterChoice?.PreviewPointerButton(
                 (float)(x * hunterWindow.FramebufferSize.X / Math.Max(1, hunterWindow.ClientSize.X)),
                 (float)(y * hunterWindow.FramebufferSize.Y / Math.Max(1, hunterWindow.ClientSize.Y)), down) == true) return;
+            // Resolve the current popup button before capture consumes a mouse
+            // binding; Cancel/Modifier remain clickable while listening.
+            if (down && _fullSettings != null) host.Input.PointerMoved(x, y);
             if (down && _fullSettings?.MouseDown(button) == true) return;
             if (HudPointerButton(code, x, y, down)) return;
             if (_studioEditor?.PointerButton(code, x, y, down) == true) return;

@@ -397,10 +397,12 @@ namespace MphRead.Sound
             TimedSfxMute = 0;
             LongSfxMute = 0;
             Mods.Sound.CombatFeedbackAudio.Warm();
+            Mods.Sound.HaloHealthAlert.Warm();
         }
 
         public static void ShutDown()
         {
+            Mods.Sound.HaloHealthAlert.Dispose();
             try
             {
                 try { Mods.Sound.InstagibBeamAudio.Shutdown(); }

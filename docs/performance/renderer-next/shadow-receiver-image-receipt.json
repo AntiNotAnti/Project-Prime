@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "scope": "synthetic-material-receivers",
+  "platform": "Windows",
+  "width": 32,
+  "height": 32,
+  "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+  "gl": "4.6.0 NVIDIA 617.42",
+  "mvid": "220155ea-3f7c-4165-8228-82715dbdf68e",
+  "note": "In-memory canonical/candidate pixel comparisons; game-map/motion/dynamic offscreen acceptance remains pending."
+}

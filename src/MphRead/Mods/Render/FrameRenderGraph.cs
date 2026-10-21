@@ -52,7 +52,7 @@ namespace MphRead.Mods.Render
                     | FrameRenderResource.SceneDepth
                     | FrameRenderResource.SceneStencil),
             new(FrameRenderPassKind.World, "frame.world",
-                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil,
+                FrameRenderResource.SceneDepth | FrameRenderResource.SceneStencil | FrameRenderResource.ShadowDepth,
                 FrameRenderResource.SceneColor
                     | FrameRenderResource.SceneDepth
                     | FrameRenderResource.SceneStencil),
@@ -64,8 +64,7 @@ namespace MphRead.Mods.Render
                 FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth),
             new(FrameRenderPassKind.PostProcess, "frame.post",
                 FrameRenderResource.SceneColor
-                    | FrameRenderResource.SceneDepth
-                    | FrameRenderResource.ShadowDepth,
+                    | FrameRenderResource.SceneDepth,
                 FrameRenderResource.ProcessedScene),
             new(FrameRenderPassKind.Composite, "frame.composite",
                 FrameRenderResource.SceneColor | FrameRenderResource.ProcessedScene,
@@ -159,7 +158,9 @@ namespace MphRead
                     break;
 
                 case Mods.Render.FrameRenderPassKind.World:
-                    ExecuteWorldRenderGraph();
+                    BeginShadowReceivers();
+                    try { ExecuteWorldRenderGraph(); }
+                    finally { EndShadowReceivers(); }
                     break;
 
                 case Mods.Render.FrameRenderPassKind.Outlines:
@@ -167,6 +168,8 @@ namespace MphRead
                     break;
 
                 case Mods.Render.FrameRenderPassKind.SceneOverlays:
+                    // Spatial filtering ends before model HUD/preview overlays.
+                    ApplySpatialAntialiasing();
                     if (!Services.IsReplica)
                         ModDrawPreview();
                     if (drawGameHud

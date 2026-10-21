@@ -246,10 +246,7 @@ namespace MphRead.Mods.Launcher.Gui
             // trimming every row. The key is still what RoomKey hands back,
             // because that is what the preview and the vote are looked up by.
             _roomKey = status.RoomKey;
-            _map = Metadata.RoomMetadata.TryGetValue(status.RoomKey, out RoomMetadata? room)
-                && !string.IsNullOrEmpty(room.InGameName)
-                    ? room.InGameName!
-                    : status.RoomKey;
+            _map = LauncherRoomDisplayName.Get(status.RoomKey);
             _mode = NetStatus.ModeName(status.Mode);
             _players = status.MaxPlayers > 0
                 ? $"{status.Players}/{status.MaxPlayers}"

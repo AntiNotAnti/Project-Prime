@@ -24,14 +24,25 @@ public sealed class CrosshairRuntime
     public readonly Vector3 OutlineColor;
     public readonly float OutlineOpacity;
     public readonly bool Enabled, HealthColor, Native;
-    public readonly float NativeScale;
+    public readonly float NativeThickness;
+    public readonly float NativeScale, WidthScale, HeightScale, Rotation, ShotScale, ChargeScale, ZoomScale;
+    public readonly bool MatchHudPalette, NativeOriginalColors, MinimumVisibility, NativeAnimations;
+    public readonly CrosshairMotion Motion;
+    public HudCrosshairVertex Transform(float x,float y)
+    {
+        x*=WidthScale;y*=HeightScale;float a=Rotation*MathF.PI/180;
+        return new(x*MathF.Cos(a)-y*MathF.Sin(a),x*MathF.Sin(a)+y*MathF.Cos(a));
+    }
     public readonly float Opacity, Outline;
     public readonly Vector3 Color;
     public CrosshairRuntime(CrosshairProfile p) : this(p,true) { }
     private CrosshairRuntime(CrosshairProfile p,bool compileParts)
     {
+        p.Validate();
         _parts=Array.Empty<CrosshairRuntime>();
-        p.Validate(); Native=p.Native; NativeScale=p.Scale; Enabled = p.Enabled; HealthColor = p.HealthColor; Opacity = p.Opacity; Outline = p.Outline * p.Scale;
+        WidthScale=p.WidthScale;HeightScale=p.HeightScale;Rotation=p.Rotation;ShotScale=p.ShotScale;ChargeScale=p.ChargeScale;ZoomScale=p.ZoomScale;
+        MatchHudPalette=p.MatchHudPalette;NativeOriginalColors=p.NativeOriginalColors;MinimumVisibility=p.MinimumVisibility;NativeAnimations=p.NativeAnimations;Motion=p.Motion;
+        Native=p.Native; NativeScale=p.Scale; NativeThickness=p.NativeThickness; Enabled = p.Enabled; HealthColor = p.HealthColor; Opacity = p.Opacity; Outline = p.Outline * p.Scale;
         OutlineColor = HudColor.Parse(p.OutlineColor); OutlineOpacity = p.OutlineOpacity;
         uint rgb = Convert.ToUInt32(p.Color[1..], 16);
         Color = new Vector3((rgb >> 16) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);
@@ -67,7 +78,8 @@ public sealed class CrosshairRuntime
                 part.Brackets=p.Brackets && name==nameof(p.BracketStyle);
                 if(!part.Dot && !part.Inner && !part.Outer && !part.Ring && !part.Brackets) continue;
                 var style=(CrosshairPartStyle)typeof(CrosshairProfile).GetProperty(name)!.GetValue(p)!;
-                if(style.CustomColor) { part.Color=style.Color; part.HealthColor=false; }
+                if(style.CustomColor) { part.Color=style.Color; part.HealthColor=false; part.MatchHudPalette=false; }
+                if(style.CustomOutlineColor) part.OutlineColor=style.OutlineColor;
                 part.Opacity*=style.Opacity; if(style.Outline>=0) part.Outline=style.Outline;
                 parts.Add(new(part,false));
             }
@@ -108,10 +120,16 @@ public sealed class CrosshairRuntime
 
 public sealed class HudRuntimeProfile
 {
+    public bool? SmoothArtwork { get; }
     private readonly HudResolvedElement[] _elements;
+    public readonly bool HaloLowHealthSound;
     public readonly HudMode Mode;
     public readonly float SafeArea, GlobalScale, GlobalOpacity, TextScale, IconScale;
     public readonly bool ReduceMotion, ReduceTransparency, IndependentGauges;
+    public readonly HudDecorations Decorations;
+    public readonly HudTypography Typography;
+    public readonly string AccentColor;
+    public readonly System.Numerics.Vector3 AccentInk;
     public readonly HudNotificationRuntime Notifications;
     public readonly HudMeterRuntime Health, Ammo;
     public readonly HudKillFeedRuntime KillFeed;
@@ -125,15 +143,25 @@ public sealed class HudRuntimeProfile
     public HudResolvedElement this[int index] => _elements[index];
     public HudRuntimeProfile(HudProfile profile)
     {
+        SmoothArtwork = profile.SmoothArtwork;
         var p = profile.DeepClone(); p.Validate();
+        HaloLowHealthSound = p.HaloLowHealthSound;
         Mode = p.Mode; SafeArea = p.SafeArea; GlobalScale = p.GlobalScale; GlobalOpacity = p.GlobalOpacity;
         IndependentGauges=p.IndependentGauges;
         TextScale=p.TextScale; IconScale=p.IconScale; ReduceMotion=p.ReduceMotion; ReduceTransparency=p.ReduceTransparency;
+        Decorations=p.Decorations;
+        Typography=p.Typography; Typography.Validate(); Typography.ResolveForRuntime(); AccentColor=p.AccentColor; AccentInk=HudColor.Parse(p.AccentColor);
+        foreach(var style in Typography.Styles.Values) if(style.Enabled)HudFonts.Get(style.Font);
         Notifications=new(p.Notifications);
         Health=new(p.Health); Ammo=new(p.Ammo); KillFeed=new(p.KillFeed); Inventory=new(p.Inventory); HitMarker=new(p.HitMarker); Radar=new(p.Radar);
         Crosshair = new(p.Crosshair);
         for (int i = 0; i < 9; i++) if (p.WeaponCrosshairs[i] is {} weapon) _weapons[i] = new(CrosshairProperties.Resolve(p.Crosshair,weapon));
         if (p.ZoomCrosshair is {} zoom) _zoom = new(CrosshairProperties.Resolve(CrosshairProperties.Resolve(p.Crosshair,p.WeaponCrosshairs[4]),zoom));
+        if (p.WeaponCrosshairTheme == HaloWeaponCrosshairs.Theme)
+        {
+            for (int i=0;i<9;i++) _weapons[i]=new(HaloWeaponCrosshairs.Create(i,p.Crosshair));
+            _zoom=new(HaloWeaponCrosshairs.Create(4,p.Crosshair,zoom:true));
+        }
         _elements = new HudResolvedElement[HudProfileDefaults.ElementIds.Length];
         for (int i = 0; i < _elements.Length; i++)
         {

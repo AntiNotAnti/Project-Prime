@@ -167,6 +167,13 @@ internal static class TheatreSmartViewAcceptance
             "named highlights are searchable without relying on display prose");
         Check(searches.SearchFor("Secret route") && searches.Selected?.Path == minute.Path,
             "named bookmarks are searchable");
+        var displayNameSearch = new RmlUiTheatreIndex();
+        var retailMapReplay = alpha with { Room = "MP1 SANCTORUS" };
+        displayNameSearch.Refresh(new[] { retailMapReplay });
+        Check(displayNameSearch.SearchFor("data shrine")
+            && displayNameSearch.Selected?.Path == retailMapReplay.Path
+            && displayNameSearch.Selected?.Room == "MP1 SANCTORUS",
+            "Theatre search accepts the player-facing map title while retaining the room key for identity");
 
         var sorts = new RmlUiTheatreIndex();
         sorts.Refresh(new[] {

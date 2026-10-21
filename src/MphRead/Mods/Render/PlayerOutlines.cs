@@ -9,6 +9,7 @@ namespace MphRead
     public partial class Scene
     {
         private int _texturedPlayerSkinUniform;
+        private int _authoredNeutralAlbedoUniform;
         private int _playerOutlineMaskUniform;
         private int _playerOutlineColorUniform;
         private bool _drawingPlayerOutlineMask;

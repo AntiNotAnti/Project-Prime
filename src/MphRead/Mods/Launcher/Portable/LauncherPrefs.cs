@@ -628,7 +628,7 @@ namespace MphRead.Mods.Launcher
             if (settingsWrite == null) return false;
             try
             {
-                File.WriteAllLines(Path, new[]
+                MphRead.Mods.Settings.SettingsPersistence.WriteLines(Path, new[]
                 {
                     $"# {Branding.Name} launcher preferences.",
                     $"prefs_schema={CurrentPreferencesSchema.ToString(CultureInfo.InvariantCulture)}",
@@ -696,8 +696,10 @@ namespace MphRead.Mods.Launcher
                 });
                 return true;
             }
-            catch (Exception)
+            catch (Exception error)
             {
+                if (MphRead.Mods.Settings.SettingsPersistence.Strict) throw;
+                MphRead.Mods.DebugLog.Line("settings", "Save failed: " + error.Message);
                 // Same rationale as Load: never block launching over this.
                 return false;
             }

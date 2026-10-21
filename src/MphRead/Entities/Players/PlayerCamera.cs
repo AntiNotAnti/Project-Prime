@@ -684,11 +684,11 @@ namespace MphRead.Entities
                 {
                     if (!Controls.KeyboardAim || !Controls.AimUp.IsDown && !Controls.AimDown.IsDown)
                     {
-                        aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseSensitivity;
+                        aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseAimSensitivityY();
                     }
                     if (!Controls.KeyboardAim || !Controls.AimLeft.IsDown && !Controls.AimRight.IsDown)
                     {
-                        aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseSensitivity;
+                        aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseAimSensitivityX();
                     }
                 }
                 if (Controls.KeyboardAim || IsBot)

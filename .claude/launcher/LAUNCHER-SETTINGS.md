@@ -1,5 +1,12 @@
 # Launcher — settings
 
+The current desktop uses native RmlUi; the first notes below describe the retained
+legacy Avalonia surface. See the native editor section near the end and
+`docs/implementation/v20-feature-parity-review-2026-10-21.md` for current behavior,
+feature restoration, explicit exclusions and validation evidence. The subsequent
+`docs/implementation/settings-organization-autosave-2026-10-21.md` records the
+automatic-save and settings navigation pass.
+
 Details about the settings window: layout, saving, and key toggles.
 It is `Mods/Launcher/Gui/SettingsWindow.cs`, and it is the same window on every
 platform and from both places that open it (the front screen, and the pause menu
@@ -174,3 +181,87 @@ are captured in the launch plan shared by desktop and Android. Legacy Insta-Gib
 mode data is interpreted as Battle plus the modifier. Protocol **28** introduces
 these rules (25–27 were already used by map identity, names and online bots).
 Older live clients are refused during the version handshake.
+
+
+## Native HUD Studio and choice navigation (2026-10-21)
+
+The native Settings Display page opens HUD Studio for HUD preferences. HUD Studio
+keeps an element rail, live preview, and independently scrolling inspector on
+wide screens; compact screens stack the same controls. Appearance, Position &
+Visibility, HUD-wide, Lettering, and Decorations are separate sections. Search filters values inside the selected section. Each section shows only its
+corresponding profile fields and application preferences; property values edit
+inline beside concise labels, with per-row previous/next/reset controls. Presets, named profiles and sharing have a separate workspace.
+
+FPS visibility, artwork smoothing, DS layout/radar placement, touchscreen selector
+size and HUD/guide appearance preferences live inside HUD Studio. The outer
+Settings controller owns their existing persistence. Valid settled edits save
+automatically through its atomic transaction. HUD gestures save after release;
+Back flushes the last valid edit. Incomplete invalid text returns to the last
+accepted value on Back. Undo and redo remain available across automatic saves.
+Named profile files contain profile data, not application/input preferences.
+
+Choice rows provide previous and next controls in native Settings, HUD Studio,
+Offline Battle/Aim Lab setup, create-lobby map/game type, and lobby mode/matchup.
+Reverse selection steps directly through the same bounded choices and validation;
+it does not replay intermediate forward selections or publish a network edit.
+The master Kill Cam toggle disables the Final Kill Cam control while retaining
+its saved preference for when the master is enabled again.
+
+Focused checks for the native migration:
+
+- `dotnet run --project tools/hud-controller-check -p:MphReadRmlUiGlSmoke=true`
+  covers detached HUD edits, search/sections, directional choice navigation and
+  detached outer-preference handoff.
+- Add `-- --native <bridge-library> <built-rmlui-assets>` to exercise actual
+  native documents, element registration, input, shared preview textures and
+  retirement over four viewport/density combinations.
+- Add `-- --native-gl <bridge-library> <built-rmlui-assets> <output-directory>`
+  for actual OpenGL HUD/outline-wheel captures at 1280x720, 960x540 and 640x800.
+  This diagnostic writes screenshots/cache only; it never applies settings.
+- `dotnet run --project tools/rmlui-runtime-check` validates typed intent bounds
+  and roundtrips, including all new previous-choice actions.
+- `dotnet run --project tools/rmlui-offline-rules-check -p:MphReadRmlUiGlSmoke=true -- --navigation-only`
+  checks direct backward steps for Offline Battle and Aim Lab choices. The wider
+  existing offline suite still has an unrelated four-model movement expectation;
+  the current model registry contains Parkour as a fifth model.
+
+Native Settings opens an overview, then a category landing, then a focused
+section. Display separates View, Accessibility and Campaign; Campaign contains
+map detail and original ending credits. Controls separates Aim, Movement, Weapons, Actions, Interface, Controller,
+Touch and Stylus; keyboard and controller bindings for the same task share a tab.
+Duplicate raw outline palettes, touch placement and stylus rectangle fields route
+to the existing visual editors. Canonical controller groups remain stable because
+they also define binding conflict domains. Search reaches hidden fields/editors.
+
+Normal native Settings saves valid values after 400 ms of quiet input and flushes
+before navigation. There is no normal Apply/Discard footer in this flow. The Preview in game (60s)
+action remains visible, with an availability explanation outside a live match. Active
+capture, calibration, conflicts, modals and invalid text block background saves.
+Display mode changes retain a usable-frame acknowledgement and timed Keep/Revert
+trial before persistence. Imports, resets and named profile operations stay explicit.
+Save failures retain editable values, report the error and do not retry every frame.
+A failure-only Restore unsaved changes action allows recovery from a persistent
+write error or stale controller draft.
+Preference files use atomic same-directory replacement; the transaction tracks
+dynamically written controller/profile stores and restores them on failure.
+
+Escape dismisses the innermost capture, confirmation, calibration or visual editor,
+then returns section -> category -> overview -> prior screen. Settings prompts use
+a native modal document, bounded scrolling card and wrapping action row; the shared
+theme explicitly supplies block flow for semantic headings and paragraphs.
+Both full Settings and HUD Studio expose live in-game preview. It temporarily
+applies supported pending values, hides the same retained native document and
+returns on Escape or a 60-second timeout. No preference writes occur during the
+trial. Runtime values are restored before returning; accepted editor values,
+section, scroll, raw text and focus remain available. The same previewed proposal stays detached while idle after returning; continuing
+to edit or using Back/navigation accepts it through normal automatic saving. Storage, window/restart preferences, input
+bindings and controller topology are excluded from temporary preview.
+
+HUD Studio Position & Visibility groups Stacked dual-screen layout, Screen
+proportions (4:3 / 5:3) and Stylus input mode together. Both layout and stylus mode
+must be enabled for desktop player-view stacking; replay/free-camera and Android
+views retain their normal layout. Radar placement and touch target size follow
+the stack controls. This preserves the donor runtime's activation conditions.
+The retained diagnostic/manual controller mode still supports detached drafts.
+Replacement-character low-health audio is optional installed user content at
+`character-models/default/audio/low-health.wav`; no donor recording is shipped.

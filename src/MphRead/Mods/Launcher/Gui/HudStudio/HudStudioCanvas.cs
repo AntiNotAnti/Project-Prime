@@ -42,6 +42,7 @@ internal sealed class HudStudioCanvas : Control
     private readonly HudNativePreview _native = new();
     public int Weapon { get; set; } = -1;
     public bool Zoom { get; set; }
+    public bool CrosshairOnly { get; set; }
     internal bool RadarOnly { get; set; }
     public HudPreviewScenario Scenario { get; set; }
     private HudPreviewState Preview => HudPreviewState.For(Scenario);
@@ -105,6 +106,7 @@ internal sealed class HudStudioCanvas : Control
         Rect surface = Surface;
         if (surface.Width <= 0 || surface.Height <= 0) return;
         context.FillRectangle(new SolidColorBrush(Color.Parse("#101820")), surface);
+        if(CrosshairOnly) { DrawCrosshair(context,surface.Center);return; }
         using (context.PushClip(surface))
         {
             double margin = History.Draft.SafeArea;
@@ -163,8 +165,7 @@ internal sealed class HudStudioCanvas : Control
                     {
                         context.DrawRectangle(new SolidColorBrush(Color.Parse("#50334455")), new Pen(Brushes.SlateGray, 1), rect);
                         string label = i == 8 && Scenario == HudPreviewScenario.Objective ? "OCTOLITH CAPTURED" : Labels[i];
-                        var text = new FormattedText(label, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
-                            new Typeface("monospace"), Math.Max(8, 30 * Transform.UnitScale * element.Scale * History.Draft.GlobalScale), Brushes.White);
+                        var text = new FormattedText(label, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, PreviewTypeface(HudProfileDefaults.ElementIds[i]), Math.Max(8, 30 * Transform.UnitScale * element.Scale * History.Draft.GlobalScale), Brushes.White);
                         context.DrawText(text, rect.TopLeft + new Vector(4, 4));
                     }
                 }
@@ -173,6 +174,14 @@ internal sealed class HudStudioCanvas : Control
             if (_guideX is double gx) context.DrawLine(new Pen(Brushes.Cyan, 1), new Point(gx, surface.Top), new Point(gx, surface.Bottom));
             if (_guideY is double gy) context.DrawLine(new Pen(Brushes.Cyan, 1), new Point(surface.Left, gy), new Point(surface.Right, gy));
         }
+    }
+    private Typeface PreviewTypeface(string id)
+    {
+        var typography=History.Draft.Typography;var style=typography.Get(id);
+        string? selected=typography.SharedFontFor(id)??(style.Enabled?style.Font:null);
+        if(selected==null)return new Typeface("monospace");
+        var font=HudFonts.All[Math.Max(0,HudFonts.Index(selected))];
+        return new Typeface(GameTypography.FamilyFor(font),font.Italic?FontStyle.Italic:FontStyle.Normal,(FontWeight)font.Weight);
     }
     private void DrawRadar(DrawingContext context,Rect bounds)
     {
@@ -210,8 +219,7 @@ internal sealed class HudStudioCanvas : Control
         if(style.Cardinals) for(int i=0;i<4;i++)
         {
             var direction=basis.Project(new(i==1 ? 1 : i==3 ? -1 : 0,0,i==0 ? 1 : i==2 ? -1 : 0))*radius*.83f;
-            var text=new FormattedText("NESW"[i].ToString(),System.Globalization.CultureInfo.InvariantCulture,FlowDirection.LeftToRight,
-                new Typeface("monospace"),Math.Max(1,18*scale),Brushes.White);
+            var text=new FormattedText("NESW"[i].ToString(),System.Globalization.CultureInfo.InvariantCulture,FlowDirection.LeftToRight, PreviewTypeface("core.radar"),Math.Max(1,18*scale),Brushes.White);
             context.DrawText(text,new(bounds.Center.X+direction.X*scale-text.Width/2,bounds.Center.Y-direction.Y*scale-text.Height/2));
         }
     }
@@ -262,7 +270,7 @@ internal sealed class HudStudioCanvas : Control
         if (!gaugeOnly && style.Number)
         {
             var text = new FormattedText((health ? Preview.Health : Preview.Ammo).ToString(),System.Globalization.CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,new Typeface("monospace"),12*unit*style.NumberScale*p.TextScale,ink);
+                FlowDirection.LeftToRight, PreviewTypeface(health?"core.health":"core.ammo"),12*unit*style.NumberScale*p.TextScale,ink);
             context.DrawText(text,bounds.TopLeft+new Vector(4*unit,2*unit));
         }
         if (!style.Gauge || !gaugeOnly && p.IndependentGauges) return;
@@ -290,23 +298,32 @@ internal sealed class HudStudioCanvas : Control
             _native.Draw(context,asset,8-amount,new Point(bounds.X+(meter.Horizontal ? tile*8*ux : 0),bounds.Y-(meter.Horizontal ? 0 : tile*8*uy)),ux,uy);
         }
         var number=new FormattedText((health ? Preview.Health : Preview.Ammo).ToString("00"),System.Globalization.CultureInfo.InvariantCulture,
-            FlowDirection.LeftToRight,new Typeface("monospace"),8*uy*p.TextScale,Brushes.White);
+            FlowDirection.LeftToRight, PreviewTypeface(health?"core.health":"core.ammo"),8*uy*p.TextScale,Brushes.White);
         context.DrawText(number,new Point(bounds.X+meter.BarOffsetX*ux,bounds.Y+meter.BarOffsetY*uy));
         if(_native.Error is {} error)
-            context.DrawText(new FormattedText(error,System.Globalization.CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("sans-serif"),12,Brushes.Orange),bounds.TopLeft);
+            context.DrawText(new FormattedText(error,System.Globalization.CultureInfo.InvariantCulture,FlowDirection.LeftToRight, GameTypography.Resolve(new Typeface("sans-serif")),12,Brushes.Orange),bounds.TopLeft);
     }
     private void DrawCrosshair(DrawingContext context, Point center)
     {
         if (!_crosshair.Enabled) return;
-        if(_crosshair.Native || History.Draft.Mode==HudMode.Classic)
+        if(_crosshair.Native)
         {
             var objects=MphRead.Hud.HudElements.HunterObjects[PreviewHunter];
-            double unit=Surface.Width/256*History.Draft.GlobalScale*History.Draft.Elements["core.crosshair"].Scale*_crosshair.NativeScale*History.Draft.IconScale;
-            using(context.PushOpacity(_crosshair.Opacity*History.Draft.NativeReticleOpacity))
-                _native.Draw(context,Zoom ? objects.SniperReticle : objects.Reticle,0,center,unit,unit,true);
+            double unit=Surface.Width/256*_crosshair.NativeScale*(Zoom?_crosshair.ZoomScale:1)*(Preview.Combat?_crosshair.ShotScale:1);
+            if(_crosshair.MinimumVisibility && _native.Frame(Zoom||Weapon==4?objects.SniperReticle:objects.Reticle,0) is {} sizeReference)
+                unit=Math.Max(unit,8*Surface.Width/PreviewWidth/sizeReference.PixelSize.Width);
+            string? tint=_crosshair.NativeOriginalColors?null:_crosshair.MatchHudPalette?History.Draft.AccentColor:_crosshair.HealthColor?(Preview.Health>60?"#00FF00":Preview.Health>33?"#FFA500":"#FF0000"):$"#{(byte)(_crosshair.Color.X*255):X2}{(byte)(_crosshair.Color.Y*255):X2}{(byte)(_crosshair.Color.Z*255):X2}";
+            using(context.PushOpacity(_crosshair.Opacity*History.Draft.GlobalOpacity))
+            using(context.PushTransform(Avalonia.Matrix.CreateTranslation(-center.X,-center.Y)*Avalonia.Matrix.CreateRotation(-_crosshair.Rotation*Math.PI/180)*Avalonia.Matrix.CreateTranslation(center.X,center.Y)))
+            {
+                _native.DrawReticle(context,Zoom||Weapon==4 ? objects.SniperReticle : objects.Reticle,
+                    Zoom?2:Preview.Combat&&_crosshair.NativeAnimations?3:0,center,
+                    unit*_crosshair.WidthScale,unit*_crosshair.HeightScale,_crosshair.NativeThickness,
+                    Surface.Width/PreviewWidth,tint);
+            }
             return;
         }
-        float scale = History.Draft.GlobalScale * History.Draft.Elements["core.crosshair"].Scale;
+        float scale = (Zoom?_crosshair.ZoomScale:1)*(Preview.Combat?_crosshair.ShotScale:1);
         // Preview uses physical crosshair pixels, as does the game.
         scale *= (float)(Surface.Width / PreviewWidth);
         for(int pass=0; pass<2; pass++)
@@ -314,20 +331,22 @@ internal sealed class HudStudioCanvas : Control
         {
         if(pass==0 && crosshair.Outline<=0) continue;
         var c = crosshair.Color;
-        IBrush brush = crosshair.HealthColor ? (Preview.Health>60 ? Brushes.Lime : Preview.Health>33 ? Brushes.Orange : Brushes.Red) : new SolidColorBrush(Color.FromRgb((byte)(c.X*255), (byte)(c.Y*255), (byte)(c.Z*255)));
-        using (context.PushOpacity(crosshair.Opacity))
+        var hc=MphRead.Mods.Render.Hud.HudColor.Parse(History.Draft.AccentColor);
+        IBrush brush = crosshair.MatchHudPalette ? new SolidColorBrush(Color.FromRgb((byte)(hc.X*255),(byte)(hc.Y*255),(byte)(hc.Z*255))) : crosshair.HealthColor ? (Preview.Health>60 ? Brushes.Lime : Preview.Health>33 ? Brushes.Orange : Brushes.Red) : new SolidColorBrush(Color.FromRgb((byte)(c.X*255), (byte)(c.Y*255), (byte)(c.Z*255)));
+        using (context.PushOpacity(crosshair.Opacity*History.Draft.GlobalOpacity))
         {
             float outline = pass == 0 ? crosshair.Outline : 0;
             var oc = crosshair.OutlineColor;
             IBrush ink = pass == 0 ? new SolidColorBrush(Color.FromRgb((byte)(oc.X*255),(byte)(oc.Y*255),(byte)(oc.Z*255))) : brush;
             using var outlineOpacity = context.PushOpacity(pass == 0 ? crosshair.OutlineOpacity : 1);
+            Point Mapped(float x,float y) { var v=crosshair.Transform(x,y); return new(center.X+v.X*scale,center.Y-v.Y*scale); }
             var dot = pass == 0 ? crosshair.OutlineDot : crosshair.Dot;
             for (int i=0; i<dot.Length; i+=3)
             {
                 var geometry = new StreamGeometry();
                 using (var g=geometry.Open())
                 {
-                    Point P(HudCrosshairVertex v) => new(center.X+v.X*scale,center.Y-v.Y*scale);
+                    Point P(HudCrosshairVertex v) => Mapped(v.X,v.Y);
                     g.BeginFigure(P(dot[i]),true);g.LineTo(P(dot[i+1]));g.LineTo(P(dot[i+2]));g.EndFigure(true);
                 }
                 context.DrawGeometry(ink,null,geometry);
@@ -335,7 +354,9 @@ internal sealed class HudStudioCanvas : Control
             foreach (var bar in crosshair.Bars)
             {
                 var (l,r,b,t) = Crosshair.EdgesOf(bar);
-                context.FillRectangle(ink, new Rect(center.X+(l-outline)*scale, center.Y-(t+outline)*scale, (r-l+2*outline)*scale, (t-b+2*outline)*scale));
+                float min=crosshair.MinimumVisibility?.5f:0;
+                float cx=(l+r)*.5f,cy=(b+t)*.5f,hw=Math.Max(min,(r-l+2*outline)*.5f),hh=Math.Max(min,(t-b+2*outline)*.5f);
+                var geometry=new StreamGeometry();using(var g=geometry.Open()) { g.BeginFigure(Mapped(cx-hw,cy-hh),true);g.LineTo(Mapped(cx+hw,cy-hh));g.LineTo(Mapped(cx+hw,cy+hh));g.LineTo(Mapped(cx-hw,cy+hh));g.EndFigure(true); }context.DrawGeometry(ink,null,geometry);
             }
             var ring = pass == 0 ? crosshair.OutlineRing : crosshair.Ring;
             for (int i = 2; i < ring.Length; i += 2)
@@ -353,6 +374,7 @@ internal sealed class HudStudioCanvas : Control
     }
     protected override void OnPointerPressed(PointerPressedEventArgs e)
     {
+        if(CrosshairOnly)return;
         base.OnPointerPressed(e); Focus(); Point point = e.GetPosition(this);
         if (e.Pointer.Type == PointerType.Touch)
         {

@@ -1,0 +1,53 @@
+DESKTOPPACING PASS numeric 60 cap never aliases 59.94 Hz Display/VSync
+DESKTOPPACING PASS numeric 60 cap retains its software deadline at 59.94 Hz
+DESKTOPPACING PASS numeric 60 cap never aliases 60 Hz Display/VSync
+DESKTOPPACING PASS numeric 60 cap retains its software deadline at 60 Hz
+DESKTOPPACING PASS numeric 90 cap never aliases 90 Hz Display/VSync
+DESKTOPPACING PASS numeric 90 cap retains its software deadline at 90 Hz
+DESKTOPPACING PASS numeric 120 cap never aliases 120 Hz Display/VSync
+DESKTOPPACING PASS numeric 120 cap retains its software deadline at 120 Hz
+DESKTOPPACING PASS numeric 144 cap never aliases 144 Hz Display/VSync
+DESKTOPPACING PASS numeric 144 cap retains its software deadline at 144 Hz
+DESKTOPPACING PASS numeric 165 cap never aliases 165 Hz Display/VSync
+DESKTOPPACING PASS numeric 165 cap retains its software deadline at 165 Hz
+DESKTOPPACING PASS numeric 240 cap never aliases 240 Hz Display/VSync
+DESKTOPPACING PASS numeric 240 cap retains its software deadline at 240 Hz
+DESKTOPPACING PASS Display always uses display pacing
+DESKTOPPACING PASS Unlimited never aliases Display/VSync
+DESKTOPPACING PASS 120 cap on 144 Hz remains an explicit software-paced request
+DESKTOPPACING PASS 144 cap on 120 Hz remains an explicit software-paced request
+DESKTOPPACING PASS normal Linux compositor jitter does not trigger fallback
+DESKTOPPACING PASS Linux display mode detects ignored swap interval
+DESKTOPPACING PASS Linux ignored-VSync fallback stays latched for the monitor
+DESKTOPPACING PASS ignored-VSync fallback is Linux-only
+DESKTOPPACING PASS non-native numeric caps never trigger the Linux display fallback
+DESKTOPPACING PASS Unlimited never triggers the Linux VSync fallback
+DESKTOPPACING PASS Linux native-refresh numeric caps never enter the Display/VSync fallback
+DESKTOPPACING PASS macOS native-refresh numeric caps never enter the Display/VSync fallback
+DESKTOPPACING PASS macOS display cap detects ignored swap interval
+DESKTOPPACING PASS macOS Display/VSync fallback stays latched after software pacing recovers
+DESKTOPPACING PASS macOS numeric cap does not inherit a prior Display/VSync fallback
+DESKTOPPACING PASS normal macOS Display/VSync jitter keeps a single pacing clock
+DESKTOPPACING PASS macOS non-native numeric caps keep their existing software pacing
+DESKTOPPACING PASS macOS unlimited remains uncapped
+DESKTOPPACING PASS macOS fallback does not change Windows presentation policy
+DESKTOPPACING PASS non-native cap uses software pacing when modern present is nonblocking
+DESKTOPPACING PASS Unlimited leaves the OpenTK frame loop genuinely uncapped
+DESKTOPPACING PASS FIFO fallback never stacks a software cap on blocking presentation
+DESKTOPPACING PASS native-refresh numeric cap has its own 144 FPS software deadline
+DESKTOPPACING PASS Display/VSync mode does not double-pace with a software limiter
+DESKTOPPACING PASS Linux/macOS ignored-VSync fallback paces Display mode at monitor refresh
+DESKTOPPACING PASS fast prior source has measurement evidence
+DESKTOPPACING PASS cap/monitor transition excludes prior fast and partial windows
+DESKTOPPACING PASS only a full new-source window supplies Display fallback evidence
+DESKTOPPACING PASS fast previous cap cannot falsely latch Display fallback
+DESKTOPPACING PASS genuinely ignored VSync still trips after clean full window
+DESKTOPPACING PASS presentation reset discards previous measurement
+DESKTOPPACING PASS presentation reset requires a fresh full window
+DESKTOPPACING PASS measurement recovers after reset window
+DESKTOPPACING PASS focus loss discards evidence
+DESKTOPPACING PASS focus recovery cannot reuse earlier intervals
+DESKTOPPACING PASS invalid/stalled interval 0.5 clears fallback evidence
+DESKTOPPACING PASS invalid/stalled interval -1 clears fallback evidence
+DESKTOPPACING PASS invalid/stalled interval NaN clears fallback evidence
+DESKTOPPACING PASS invalid/stalled interval ∞ clears fallback evidence

@@ -15,7 +15,8 @@ internal sealed class AndroidFramePacer(int maximumRate)
         _interval = 0;
     }
 
-    internal double Deadline(double now, int cap, bool presentationPaced = false)
+    internal double Deadline(double now, int cap, bool presentationPaced = false,
+        double displayRefreshRate = double.NaN)
     {
         // A negative cap is the shared true-Unlimited sentinel. When
         // presentation is nonblocking, there is deliberately no managed
@@ -28,12 +29,14 @@ internal sealed class AndroidFramePacer(int maximumRate)
             return now;
         }
 
-        // Display-paced modes already wait in the presentation driver. This is
-        // true for Display and for explicit caps that map to a native panel
-        // refresh (for example 120 on a 120 Hz phone). Only impose the runaway
-        // safety floor in that case, never a second software display clock.
-        double interval = 1.0 / (presentationPaced || cap == 0
-            ? maximumRate : Math.Clamp(cap, 1, maximumRate));
+        // Blocking presentation owns cadence. If interval application failed,
+        // Display uses the observed rate (60 Hz conservative fallback when no
+        // observation exists) instead of running at the runaway safety ceiling.
+        double target = presentationPaced ? maximumRate : cap == 0
+            ? double.IsFinite(displayRefreshRate) && displayRefreshRate > 0
+                ? Math.Clamp(displayRefreshRate, 1, maximumRate) : 60
+            : Math.Clamp(cap, 1, maximumRate);
+        double interval = 1.0 / target;
         if (interval != _interval)
         {
             _interval = interval;
@@ -51,34 +54,44 @@ internal sealed class AndroidFramePacer(int maximumRate)
         return elapsed;
     }
 
-    /// <summary>
-    /// True when an explicit numeric cap maps to a refresh mode the panel can
-    /// natively present. In that case SurfaceFlinger/presentation owns cadence;
-    /// adding a managed timer would double-pace the frame.
-    /// </summary>
-    internal static bool MatchesNativeRefresh(int requestedCap, double maximumRefreshRate,
-        ReadOnlySpan<float> supportedRefreshRates)
+    // A supported mode is only a request opportunity. Observe the active rate
+    // and require a successfully applied blocking interval before dropping the cap.
+    internal static bool PresentationOwnsCadence(int cap, double activeRefresh, int appliedInterval) =>
+        appliedInterval == 1 && (cap == 0 || (cap > 0 && double.IsFinite(activeRefresh)
+            && activeRefresh >= 1 && activeRefresh <= cap + 0.5));
+}
+
+// Explicit unset state avoids colliding with the shared Unlimited (-1) sentinel.
+// A failed request remains retryable, with bounded traffic on the owner thread.
+internal sealed class AndroidPresentationRequest
+{
+    private int? _cap;
+    private float _rate;
+    private long _nextAttempt;
+    private int _failures;
+    internal void Reset() { _cap = null; _nextAttempt = 0; _failures = 0; }
+    internal bool ShouldAttempt(int cap, float rate, long now) =>
+        (_cap != cap || Math.Abs(_rate - rate) > 0.5f) && now >= _nextAttempt;
+    internal void Complete(int cap, float rate, long now, bool success)
     {
-        if (requestedCap >= maximumRefreshRate - 0.5)
-        {
-            return true;
-        }
-        foreach (float rate in supportedRefreshRates)
-        {
-            if (Math.Abs(rate - requestedCap) <= 0.5)
-            {
-                return true;
-            }
-        }
-        return false;
+        if (success) { _cap = cap; _rate = rate; _failures = 0; _nextAttempt = 0; }
+        else _nextAttempt = now + RetryDelayMs(++_failures);
     }
+    internal static int RetryDelayMs(int failures) => 50 << Math.Clamp(failures - 1, 0, 5);
+}
 
-    /// <summary>
-    /// A blocking modern present mode (FIFO fallback) is a presentation clock
-    /// even when a non-native numeric cap originally asked for software pacing.
-    /// Never sleep to one cadence and then block on another.
-    /// </summary>
-    internal static bool PresentationOwnsCadence(bool displayPaced, bool modernPresentationBlocks) =>
-        displayPaced || modernPresentationBlocks;
-
+// Completion-to-completion intervals enclose the current frame's limiter, work
+// and swap. A start-to-start interval belongs to the preceding work instead.
+internal sealed class AndroidPresentedFrameClock(long frequency)
+{
+    private long? _previous;
+    internal void Reset() => _previous = null;
+    internal bool TryObserve(long completedTicks, out double elapsedSeconds)
+    {
+        long? previous = _previous;
+        _previous = completedTicks;
+        elapsedSeconds = previous.HasValue && completedTicks >= previous.Value
+            ? (completedTicks - previous.Value) / (double)frequency : 0;
+        return previous.HasValue && completedTicks >= previous.Value;
+    }
 }

@@ -193,14 +193,16 @@ namespace MphRead.Mods.Launcher.Gui
         private double _laidOutAt = -1;
         private bool _laidOutLit;
         private string _laidOutDetail = "";
+        private int _fontRevision=-1;
 
         private void LayOut(bool lit)
         {
-            if (_titleText != null && _laidOutAt == Bounds.Width
+            if (_fontRevision==GameTypography.Revision && _titleText != null && _laidOutAt == Bounds.Width
                 && _laidOutLit == lit && _laidOutDetail == _detail)
             {
                 return;
             }
+            _fontRevision=GameTypography.Revision;
             _laidOutAt = Bounds.Width;
             _laidOutLit = lit;
             _laidOutDetail = _detail;
@@ -208,7 +210,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (_detail.Length > 0)
             {
                 _detailText = new FormattedText(_detail, CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight, GuiTheme.Face(bold: false),
+                    FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(bold: false)),
                     _spacious ? 10.5 : 12, GuiTheme.TextDimBrush)
                 {
                     MaxTextWidth = _spacious
@@ -225,7 +227,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _detailText = null;
             }
             _titleText = new FormattedText(_title, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(bold: true),
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(bold: true)),
                 _spacious ? 15 : 14,
                 new SolidColorBrush(lit ? GuiTheme.Accent : GuiTheme.Text))
             {

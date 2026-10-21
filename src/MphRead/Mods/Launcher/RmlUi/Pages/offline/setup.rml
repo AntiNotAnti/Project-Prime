@@ -17,14 +17,28 @@
                 <h2>LOCAL MATCH</h2>
                 <button id="offline_arena" data-action="offline:open-arena" class="offline_choice"><span>ARENA</span><b id="offline_arena_value" /></button>
                 <div id="offline_arena_error" class="offline_error" />
-                <button id="offline_mode" data-action="offline:choice:1" class="offline_choice"><span>GAME TYPE</span><b id="offline_mode_value" /></button>
-                <button id="offline_matchup" data-action="offline:choice:2" class="offline_choice"><span>MATCHUP</span><b id="offline_matchup_value" /></button>
-                <button data-action="offline:choice:3" class="offline_choice"><span>COMBATANTS</span><b id="offline_bots_value" /></button>
-                <button data-action="offline:choice:4" class="offline_choice"><span>DIFFICULTY</span><b id="offline_skill_value" /></button>
-                <button data-action="offline:choice:5" class="offline_choice"><span>HUNTER</span><b id="offline_hunter_value" /></button>
-                <button data-action="offline:choice:6" class="offline_choice"><span>SUIT</span><b id="offline_suit_value" /></button>
-                <button id="offline_character" data-action="offline:choice:16" class="offline_choice"><span>MECHANICS</span><b id="offline_character_value" /></button>
-                <p id="offline_character_notice" />
+                <div class="offline_choice_navigation"><button id="offline_previous_1" class="offline_previous" data-action="offline:previous-choice:1" aria-label="Previous choice">&lt;</button><button id="offline_mode" data-action="offline:choice:1" class="offline_choice"><span>GAME TYPE</span><b id="offline_mode_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_2" class="offline_previous" data-action="offline:previous-choice:2" aria-label="Previous choice">&lt;</button><button id="offline_matchup" data-action="offline:choice:2" class="offline_choice"><span>MATCHUP</span><b id="offline_matchup_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_3" class="offline_previous" data-action="offline:previous-choice:3" aria-label="Previous choice">&lt;</button><button data-action="offline:choice:3" class="offline_choice"><span>COMBATANTS</span><b id="offline_bots_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_4" class="offline_previous" data-action="offline:previous-choice:4" aria-label="Previous choice">&lt;</button><button data-action="offline:choice:4" class="offline_choice"><span>ALL BOT DIFFICULTIES</span><b id="offline_skill_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_5" class="offline_previous" data-action="offline:previous-choice:5" aria-label="Previous choice">&lt;</button><button data-action="offline:choice:5" class="offline_choice"><span>YOUR HUNTER</span><b id="offline_hunter_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_6" class="offline_previous" data-action="offline:previous-choice:6" aria-label="Previous choice">&lt;</button><button data-action="offline:choice:6" class="offline_choice"><span>YOUR SUIT</span><b id="offline_suit_value" /></button></div>
+                <!-- Weavel experimental mechanics are deferred; keep their binding targets for future implementation. -->
+                <div id="offline_mechanics" style="display:none">
+                    <div class="offline_choice_navigation"><button id="offline_previous_16" class="offline_previous" data-action="offline:previous-choice:16" aria-label="Previous choice">&lt;</button><button id="offline_character" data-action="offline:choice:16" class="offline_choice"><span>MECHANICS</span><b id="offline_character_value" /></button></div>
+                    <p id="offline_character_notice" />
+                </div>
+                <div id="offline_player_team_row" class="offline_choice_navigation"><button id="offline_previous_23" class="offline_previous" data-action="offline:previous-choice:23" aria-label="Previous your team">&lt;</button><button id="offline_player_team" data-action="offline:choice:23" class="offline_choice"><span>YOUR TEAM</span><b id="offline_player_team_value" /></button></div>
+                <div id="offline_bot_controls">
+                    <h2>BOT ROSTER</h2>
+                    <p>Select a bot to change its settings. All Bot Difficulties resets every bot's difficulty. Auto alternates teams.</p>
+                <div class="offline_choice_navigation"><button id="offline_previous_17" class="offline_previous" data-action="offline:previous-choice:17" aria-label="Previous edit bot">&lt;</button><button id="offline_bot_selected" data-action="offline:choice:17" class="offline_choice"><span>EDIT BOT</span><b id="offline_bot_selected_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_18" class="offline_previous" data-action="offline:previous-choice:18" aria-label="Previous bot hunter">&lt;</button><button id="offline_bot_hunter" data-action="offline:choice:18" class="offline_choice"><span>BOT HUNTER</span><b id="offline_bot_hunter_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_19" class="offline_previous" data-action="offline:previous-choice:19" aria-label="Previous bot suit">&lt;</button><button id="offline_bot_suit" data-action="offline:choice:19" class="offline_choice"><span>BOT SUIT</span><b id="offline_bot_suit_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_20" class="offline_previous" data-action="offline:previous-choice:20" aria-label="Previous bot difficulty">&lt;</button><button id="offline_bot_skill" data-action="offline:choice:20" class="offline_choice"><span>BOT DIFFICULTY</span><b id="offline_bot_skill_value" /></button></div>
+                <div id="offline_bot_team_row" class="offline_choice_navigation"><button id="offline_previous_21" class="offline_previous" data-action="offline:previous-choice:21" aria-label="Previous bot team">&lt;</button><button id="offline_bot_team" data-action="offline:choice:21" class="offline_choice"><span>BOT TEAM</span><b id="offline_bot_team_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_22" class="offline_previous" data-action="offline:previous-choice:22" aria-label="Previous damage reduction">&lt;</button><button id="offline_bot_handicap" data-action="offline:choice:22" class="offline_choice"><span>DAMAGE REDUCTION</span><b id="offline_bot_handicap_value" /></button></div>
+                </div>
                 <button id="offline_rules_open" class="offline_action" data-action="offline:open-rules">ADVANCED MATCH RULES</button>
                 <div id="offline_summary" class="offline_summary" />
                 <button id="offline_start" class="offline_action primary" data-action="offline:launch-match">INITIATE BOT SIMULATION</button>
@@ -32,12 +46,12 @@
             <div id="offline_training_panel" class="offline_panel" data-prime-visible="offline_training_mode">
                 <h2 id="offline_training_heading">AIM LAB</h2>
                 <p id="offline_training_description">Timed Flick requires a hit within 1.5 seconds. Multi Target Flick uses four or five ground and elevated targets.</p>
-                <button class="offline_choice" data-action="offline:choice:7"><span>HUNTER</span><b id="offline_training_hunter_value" /></button>
-                <button class="offline_choice" data-action="offline:choice:8"><span>DRILL</span><b id="offline_drill_value" /></button>
-                <button id="offline_weapon" class="offline_choice" data-action="offline:choice:9"><span>WEAPON</span><b id="offline_weapon_value" /></button>
-                <button class="offline_choice" data-action="offline:choice:10"><span>DURATION</span><b id="offline_duration_value" /></button>
-                <button id="offline_targets" class="offline_choice" data-action="offline:choice:11"><span>TARGETS</span><b id="offline_targets_value" /></button>
-                <button class="offline_choice" data-action="offline:choice:12"><span>MOVEMENT</span><b id="offline_movement_value" /></button>
+                <div class="offline_choice_navigation"><button id="offline_previous_7" class="offline_previous" data-action="offline:previous-choice:7" aria-label="Previous choice">&lt;</button><button class="offline_choice" data-action="offline:choice:7"><span>HUNTER</span><b id="offline_training_hunter_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_8" class="offline_previous" data-action="offline:previous-choice:8" aria-label="Previous choice">&lt;</button><button class="offline_choice" data-action="offline:choice:8"><span>DRILL</span><b id="offline_drill_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_9" class="offline_previous" data-action="offline:previous-choice:9" aria-label="Previous choice">&lt;</button><button id="offline_weapon" class="offline_choice" data-action="offline:choice:9"><span>WEAPON</span><b id="offline_weapon_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_10" class="offline_previous" data-action="offline:previous-choice:10" aria-label="Previous choice">&lt;</button><button class="offline_choice" data-action="offline:choice:10"><span>DURATION</span><b id="offline_duration_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_11" class="offline_previous" data-action="offline:previous-choice:11" aria-label="Previous choice">&lt;</button><button id="offline_targets" class="offline_choice" data-action="offline:choice:11"><span>TARGETS</span><b id="offline_targets_value" /></button></div>
+                <div class="offline_choice_navigation"><button id="offline_previous_12" class="offline_previous" data-action="offline:previous-choice:12" aria-label="Previous choice">&lt;</button><button class="offline_choice" data-action="offline:choice:12"><span>MOVEMENT</span><b id="offline_movement_value" /></button></div>
                 <button id="offline_training_options" class="offline_action" data-action="offline:open-training-options">ADVANCED TRAINING OPTIONS</button>
                 <button id="offline_training_start" class="offline_action primary" data-action="offline:launch-training">INITIATE TRAINING</button>
             </div>

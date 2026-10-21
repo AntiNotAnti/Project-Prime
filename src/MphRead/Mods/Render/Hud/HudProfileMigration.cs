@@ -6,7 +6,10 @@ public static class HudProfileMigration
     {
         var p = HudProfileDefaults.Create(Features.ProHud ? "Project Prime" : "Classic");
         p.Crosshair = CrosshairProfile.FromLegacy(Crosshair.Style, Crosshair.Size);
-        p.FixedWeapon = Features.ProHudFixedWeapon;
+        p.Crosshair.Scale=Crosshair.Scale;
+        p.Crosshair.Native=!Features.ProHud;
+        if(MphRead.Mods.Input.DsLayout.Active) p.Crosshair=HudProfileDefaults.Create("Approved 4:3").Crosshair;
+        p.FixedWeapon = Features.FixedWeapon;
         p.NativeReticleOpacity = Features.ReticleOpacity;
         p.Elements["core.radar"].Enabled = Radar.Enabled;
         p.RadarBackground = Radar.ShowBackground; p.RadarOutlines = Radar.ShowOutlines;
@@ -22,6 +25,7 @@ public static class HudProfiles
     private static HudRuntimeProfile _runtime = new(_current);
     private static HudProfileStore? _store;
     public static HudRuntimeProfile Runtime => System.Threading.Volatile.Read(ref _runtime);
+    public static event System.Action? Published;
     public static int Generation { get; private set; }
     public static string? LoadWarning { get; private set; }
     internal static string? StorageDirectory => _store?.DirectoryPath;
@@ -49,12 +53,15 @@ public static class HudProfiles
         _current = copy;
         System.Threading.Volatile.Write(ref _runtime, runtime);
         Generation++;
+        Published?.Invoke();
+        MphRead.Mods.Input.StylusZone.GuideColor=copy.AccentColor;
         Features.ProHud = copy.Mode != HudMode.Classic;
         Features.ProHudFixedWeapon = copy.FixedWeapon;
         Features.ReticleOpacity = copy.NativeReticleOpacity;
         Radar.Enabled = copy.Elements["core.radar"].Enabled;
         Radar.ShowBackground = copy.RadarBackground; Radar.ShowOutlines = copy.RadarOutlines;
         Features.KillFeedEnabled = copy.Elements["combat.killFeed"].Enabled;
+        MphRead.Mods.Network.NetHitPrediction.MarkerEnabled=copy.HitMarker.Enabled;
     }
     public static void Save(HudProfile profile)
     {

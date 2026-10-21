@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MphRead.Mods.Launcher;
 
 namespace MphRead.Mods.Launcher.RmlUi.Core;
 
@@ -181,6 +182,7 @@ public sealed class RmlUiTheatreIndex
             string term = _search;
             rows = rows.Where(x => x.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || x.Room.Contains(term, StringComparison.OrdinalIgnoreCase)
+                || LauncherRoomDisplayName.Get(x.Room).Contains(term, StringComparison.OrdinalIgnoreCase)
                 || x.Detail.Contains(term, StringComparison.OrdinalIgnoreCase)
                 || (x.Tags?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
                 || (x.Collections?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)

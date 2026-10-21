@@ -16,14 +16,14 @@ public partial class PlayerEntity
     // A separate animation cursor belongs exclusively to the picture. Native
     // animation frames, canonical restoration and source-time muzzle reads do
     // not consume the procedural low step or the slide's neutral leg pose.
-    private AnimationInfo ModCrouchLowerPose(Model model, out AnimationSamples.Sample? sample)
+    private AnimationInfo ModCrouchLowerPose(Model model, out AnimationSamples.Sample? sample, AnimationInfo? detachedCursor = null)
     {
         // Dedicated low footwork uses the Hunter's native neutral skeleton.
         // Input/weapon/native animation cursors remain canonical.
         int index = (int)PlayerAnimation.Idle;
         NodeAnimationGroup group = model.AnimationGroups.Node[index];
         int count = group.FrameCount;
-        var info = _modCrouchLowerAnimation ??= new();
+        var info = detachedCursor ?? (_modCrouchLowerAnimation ??= new());
         info.Index[0] = index; info.Frame[0] = 0; info.FrameCount[0] = count;
         info.Flags[0] = AnimFlags.None; info.Step[0] = 1;
         info.Node.Slot = 0; info.Node.Group = group;

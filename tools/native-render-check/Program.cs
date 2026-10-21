@@ -21,8 +21,8 @@ if (args.Contains("--minimal-gl-selftest")) return MinimalGlControl.SelfTest();
 if (args.Contains("--minimal-gl") || args.Contains("--minimal-gl-describe")) return MinimalGlControl.Run(args);
 if (args.Contains("-resource-retention-selftest")) return AudioRetentionProbe.SelfTest();
 if (args.Contains("-resource-context-selftest")) return ContextControl.SelfTest();
-if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsWindows())
-    throw new PlatformNotSupportedException("This QA campaign permits only macOS and Windows.");
+if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
+    throw new PlatformNotSupportedException("This QA campaign permits only desktop Windows, macOS and Linux.");
 // The client may start a preview worker when an end panel opens. This entry
 // point is a diagnostic, so reject that command rather than recursively
 // starting another diagnostic with its default room.
@@ -79,9 +79,14 @@ if (poseCheck && (players != 2 || shots == null || seconds != 24 || !DisplayPose
     || args.Any(a => a is "-resourcestress" or "-windowcycle" or "-outlinecheck" or "-bombcheck" or "-impactcheck" or "-stablehud" or "-glprofile" or "-glgpu" or "-camera" or "-facing")))
     throw new ArgumentException("-posecheck requires -players 2, -shots, -seconds 24, -hz 60|120|144|240; separate from other capture/performance modes.");
 if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
-if ((cap != -1 && cap < 30) || cap > 500 || !NativeTimingIntervals.ValidSeconds(seconds, shots != null))
-    throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..1804 (capture: 8..120).");
+if (!NativeTimingIntervals.ValidCap(cap) || !NativeTimingIntervals.ValidSeconds(seconds, shots != null))
+    throw new ArgumentOutOfRangeException("Use -hz -1 (Unlimited), 0 (Display) or 30..500, -seconds 8..1804 (capture: 8..120).");
 ShadowQuality shadows = Enum.Parse<ShadowQuality>(Value("-shadows", "Off"), true);
+int resolutionScale = int.Parse(Value("-scale", "100"));
+if (resolutionScale < 25 || resolutionScale > 800)
+    throw new ArgumentOutOfRangeException("Use -scale 25..800.");
+if (poseCheck && resolutionScale != 100)
+    throw new ArgumentException("-posecheck requires native 100% scale.");
 string[] dimensions = Value("-size", "1920x1080").Split('x');
 var size = new Vector2i(int.Parse(dimensions[0]), int.Parse(dimensions[1]));
 if (size.X < 320 || size.Y < 180 || size.X > 4096 || size.Y > 2160)
@@ -102,7 +107,7 @@ if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "m
     ResourceAttribution.DisableMusic();
 CheckWindow CreateWindow(string[] options)
 {
-    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck);
+    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck, resolutionScale);
     try
     {
         value.ConfigureResourceStress(options);
@@ -112,7 +117,7 @@ CheckWindow CreateWindow(string[] options)
     catch { value.Dispose(); throw; }
 }
 if (args.Contains("-resource-context-cycles")) return ContextControl.Run(args, output, CreateWindow);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck);
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck, resolutionScale);
 window.ConfigureResourceStress(args);
 window.ConfigureDiagnosticOptions(args);
 try
@@ -150,6 +155,7 @@ sealed partial class CheckWindow : RenderWindow
 {
     private readonly int _seconds, _cap;
     private readonly ShadowQuality _shadows;
+    private readonly int _resolutionScale;
     private readonly string? _shots;
     private readonly NativeTimingIntervals _intervalBuffer;
     private IReadOnlyList<double> _intervals => _intervalBuffer.Samples;
@@ -211,13 +217,13 @@ sealed partial class CheckWindow : RenderWindow
     private string? _glVendor, _glRenderer, _glVersion;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario, bool lateProvenanceControl = false, string poseFocusControl = "none", bool crouchCheck = false, bool crouchGaitCheck = false)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario, bool lateProvenanceControl = false, string poseFocusControl = "none", bool crouchCheck = false, bool crouchGaitCheck = false, int resolutionScale = 100)
     {
         _crouchCheck = crouchCheck;
         _crouchGaitCheck = crouchGaitCheck;
         _poseFocusControl = poseFocusControl;
         _lateProvenanceControl = lateProvenanceControl;
-        _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _shots = shots;
+        _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _resolutionScale = resolutionScale; _shots = shots;
         // Allocate all raw interval storage before loading/warmup and timed work.
         _intervalBuffer = new NativeTimingIntervals(NativeTimingIntervals.CapacityFor(seconds));
         _windowCycle = windowCycle; _requestedPixels = pixels;
@@ -266,7 +272,7 @@ sealed partial class CheckWindow : RenderWindow
         RenderOptions.Shadows = _shadows;
         RenderOptions.PlayerOutline = _outlines;
         ApplyCheckCamera();
-        RenderOptions.ResolutionScale = 100; RenderOptions.ShowFps = false;
+        RenderOptions.ResolutionScale = _resolutionScale; RenderOptions.ShowFps = false;
         RenderOptions.TextureFiltering = false; RenderOptions.TextureMipmaps = false;
         RenderOptions.TextureAnisotropy = 1;
         ApplyDiagnosticOptions();
@@ -484,9 +490,6 @@ sealed partial class CheckWindow : RenderWindow
             throw new TimeoutException("Native renderer did not finish its fixed-step workload.");
     }
 
-    // Diagnostic input is frozen, including native mouse callbacks.
-    protected override void OnMouseMove(MouseMoveEventArgs e) { }
-
     private void CheckOutlineOcclusion()
     {
         const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -689,22 +692,53 @@ sealed partial class CheckWindow : RenderWindow
     internal object Result()
     {
         ObserveWindowState();
-        Vector2i actualRenderSize = Scene.RenderSize;
+        // Observation only, after timed work. A standalone QA window must not
+        // have scheduled launcher maintenance/preview workers in this process.
+        Type? shellType = typeof(Scene).Assembly.GetType("MphRead.Mods.Launcher.Gui.Shell");
+        bool launcherStartupScheduled = shellType?.GetField("_firstFrameStarted", BindingFlags.Static | BindingFlags.NonPublic)
+            ?.GetValue(null) is int started && started != 0;
+        Vector2i requestedRenderSize = Scene.RenderSize;
+        Vector2i actualRenderSize = (Vector2i)typeof(Scene).GetField("_targetSize",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Scene)!;
+        object? Streaming(string name) => typeof(Scene).GetProperty(name,
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene);
         double P(double percentile) => _intervals.Count == 0 ? 0
             : _intervals.Order().ElementAt(Math.Clamp((int)Math.Ceiling(_intervals.Count * percentile / 100) - 1, 0, _intervals.Count - 1));
         return new { schema = 1, room = _room, cap = _cap, shadows = _shadows.ToString(), textureQuality = RenderOptions.TextureQuality.ToString(), lighting = RenderOptions.Lighting, resolutionScale = RenderOptions.ResolutionScale,
+            textureStreaming = new {
+                promotionAttemptBytes = Streaming("TexturePromotionAttemptBytes"),
+                worstPromotionMs = Streaming("WorstTexturePromotionMs"),
+                decodeReservedBytes = Streaming("TextureDecodeReservationBytes"),
+                rejectedDecodeReservationBytes = Streaming("RejectedTextureDecodeReservationBytes"),
+                settings = new {
+                    scope = "Binding refresh jobs applied; asynchronous HD promotions may remain pending; shader disable can take effect before resource retirement",
+                    pendingJobs = Streaming("PendingTextureSettingsJobs"),
+                    desiredGeneration = Streaming("DesiredTextureSettingsGeneration"),
+                    appliedGeneration = Streaming("AppliedTextureSettingsGeneration"),
+                    completedJobs = Streaming("TextureSettingsJobsCompleted"),
+                    uploadBytes = Streaming("TextureSettingsUploadBytes"),
+                    worstJobMs = Streaming("WorstTextureSettingsJobMs"),
+                    appliedUpscale = Streaming("AppliedTextureUpscale"),
+                    appliedQuality = Streaming("AppliedTextureAssetQuality"),
+                    appliedSampling = Streaming("AppliedTextureSamplingKey"),
+                    appliedReplacements = Streaming("AppliedTextureReplacements"),
+                    appliedAdvancedMaterials = Streaming("AppliedAdvancedMaterials"),
+                    appliedMaterialRevision = Streaming("AppliedMaterialRevision") },
+                scope = "promotion attempts including failures; decode reservations exclude native codec scratch" },
             vendor = _glVendor, renderer = _glRenderer, glVersion = _glVersion,
             effectiveCap = FrameTiming.FrameRateCap, softwareFrequency = UpdateFrequency, vsync = VSync.ToString(),
             assemblyMvid = typeof(Scene).Module.ModuleVersionId, framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },
             renderSize = new[] { actualRenderSize.X, actualRenderSize.Y },
+            requestedRenderSize = new[] { requestedRenderSize.X, requestedRenderSize.Y },
             initialWindow = _initialWindow, finalWindow = WindowSnapshot(),
             captureKillFeedLifetimeStabilized = _stableHud,
             focusTransitions = _focusTransitions, visibilityTransitions = _visibilityTransitions,
             windowStateTransitions = _windowStateTransitions,
+            nativeInputIsolation = _nativeInputIsolation.Receipt(), launcherStartupScheduled,
             wallSeconds = _wall.Elapsed.TotalSeconds, measurementSeconds = _measureEnded == 0 ? 0 : Stopwatch.GetElapsedTime(_measureStarted, _measureEnded).TotalSeconds,
             simulationFrames = Scene.FrameCount, samples = _intervals.Count,
             intervalCapacity = _intervalBuffer.Capacity, droppedIntervalRecords = _intervalBuffer.DroppedRecords,
-            timingEvidenceComplete = Complete && _measureEnded != 0 && _intervalBuffer.DroppedRecords == 0,
+            timingEvidenceComplete = Complete && _measureEnded != 0 && _intervalBuffer.DroppedRecords == 0 && !launcherStartupScheduled,
             // Chronological application frame returns, serialized only after Run.
             frameIntervalsMs = _intervals,
             meanCompletedFrameFps = _intervals.Count == 0 ? 0 : 1000 / _intervals.Average(),
@@ -726,6 +760,7 @@ internal sealed class NativeTimingIntervals
     internal IReadOnlyList<double> Samples => _samples;
     internal int Capacity => _samples.Capacity;
     internal long DroppedRecords { get; private set; }
+    internal static bool ValidCap(int cap) => cap is -1 or 0 || cap >= 30 && cap <= 500;
     internal static bool ValidSeconds(int seconds, bool capture)
         => seconds >= 8 && seconds <= (capture ? 120 : 1804);
     // Up to 4096 returned frames/second over the requested measured simulation

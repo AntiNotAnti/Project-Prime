@@ -273,9 +273,11 @@ namespace MphRead.Mods.MapGen
     {
         public static string? WhyUnsupported(MapDefinition definition,GameMode mode,int players=1)
         {
+            string displayName = String.IsNullOrWhiteSpace(definition.InGameName)
+                ? Launcher.LauncherRoomDisplayName.Get(definition.Name) : definition.InGameName;
             if(definition.Capabilities is not {} capabilities)return null;
-            if(capabilities.SupportedModes==null||!capabilities.SupportedModes.Any(m => string.Equals(m, mode.ToString(), StringComparison.OrdinalIgnoreCase) || mode == GameMode.Battle && string.Equals(m, "InstaGib", StringComparison.OrdinalIgnoreCase)))return $"{definition.Name} does not support {mode}.";
-            if(players<capabilities.MinPlayers||players>capabilities.MaxPlayers)return $"{definition.Name} supports {capabilities.MinPlayers}–{capabilities.MaxPlayers} players.";
+            if(capabilities.SupportedModes==null||!capabilities.SupportedModes.Any(m => string.Equals(m, mode.ToString(), StringComparison.OrdinalIgnoreCase) || mode == GameMode.Battle && string.Equals(m, "InstaGib", StringComparison.OrdinalIgnoreCase)))return $"{displayName} does not support {mode}.";
+            if(players<capabilities.MinPlayers||players>capabilities.MaxPlayers)return $"{displayName} supports {capabilities.MinPlayers}–{capabilities.MaxPlayers} players.";
             return null;
         }
         public static void Validate(MapDefinition d,MapValidationResult r)

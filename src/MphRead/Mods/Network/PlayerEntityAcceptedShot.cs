@@ -108,8 +108,9 @@ public partial class PlayerEntity
         if (result != BeamResultFlags.NoSpawn && Health > 0
             && (fire.SourceLife == 0 || fire.SourceLife == NetPlayerLifecycle.Get(SlotIndex)))
             PlayBeamShotSfx((BeamType)fire.Weapon, fire.Charge >= weapon.MinCharge * 2
-                && weapon.Flags.TestFlag(WeaponFlags.CanCharge), false,
-                result.TestFlag(BeamResultFlags.Homing), 0);
+                && weapon.Flags.TestFlag(WeaponFlags.CanCharge), continuous,
+                result.TestFlag(BeamResultFlags.Homing), continuous && fire.HasContinuousContext
+                    ? 0x3FFF * fire.ContinuousRamp / 7f : 0x3FFF * _shockCoilTimer / (30f * 2));
         return result;
     }
 }

@@ -54,6 +54,9 @@ internal static class NativeHudCheck
                     Check(host.FocusDocument(page.Document,id),"focus "+id);host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
                     Check(host.TryTakeIntent(out var intent)&&intent.Kind==kind&&page.HandleIntent(intent),"real DOM action "+id);Check(!host.TryTakeIntent(out _),"one native activation emitted");
                 }
+                float originalAspect=controller.Snapshot().PreviewWidth;
+                Activate("hud_aspect",RmlUiIntentKind.HudAction);Activate("hud_aspect_previous",RmlUiIntentKind.HudAction);
+                Check(controller.Snapshot().PreviewWidth==originalAspect,"real native previous preview choice reverses forward selection");
                 for(int i=0;i<HudProfileDefaults.ElementIds.Length;i++){Activate("hud_pick"+i,RmlUiIntentKind.HudElement);Check(controller.Snapshot().Selected==i,"all registered HUD elements remain editable");}
                 Activate("hud_pick14",RmlUiIntentKind.HudElement);
                 int movementIndex=HudProfileDefaults.MovementTelemetryIndex;
@@ -79,10 +82,17 @@ internal static class NativeHudCheck
                 Check(controller.CopyDraft().Elements[movementId].OffsetX==movementX
                     &&controller.Snapshot().Elements[movementIndex].Bounds==movementBefore,
                     "real native movement undo restores exact draft and preview bounds");
-                host.SetField(page.Document,"hud_x","100");host.SetField(page.Document,"hud_y","-220");
-                host.SetField(page.Document,"hud_scale","1.5");host.SetField(page.Document,"hud_opacity",".4");
-                host.SetField(page.Document,"hud_color","#44AAFF");
-                Activate("hud_apply_layout",RmlUiIntentKind.HudAction);
+                Activate("hud_section_layout",RmlUiIntentKind.HudAction);
+                void Inline(string path,string value)
+                {
+                    int row=controller.Snapshot().Properties.Select((property,index)=>(property,index)).Single(item=>item.property.Path==path).index;
+                    host.SetField(page.Document,"hud_property"+row+"_input",value);
+                }
+                Inline("/elements/"+movementId+"/offsetX","100");Inline("/elements/"+movementId+"/offsetY","-220");
+                Inline("/elements/"+movementId+"/scale","1.5");
+                Activate("hud_section_appearance",RmlUiIntentKind.HudAction);
+                Inline("/elements/"+movementId+"/opacity",".4");Inline("/elements/"+movementId+"/color","#44AAFF");
+                Activate("hud_workspace_profiles",RmlUiIntentKind.HudAction);
                 var movementApplied=controller.CopyDraft().Elements[movementId];
                 var movementAfter=controller.Snapshot().Elements[movementIndex];
                 Check(movementApplied.OffsetX==100&&movementApplied.OffsetY==-220&&movementApplied.Scale==1.5f
@@ -90,10 +100,10 @@ internal static class NativeHudCheck
                     &&movementAfter.Selected&&movementAfter.Opacity==.4f&&movementAfter.Color=="#44AAFF"
                     &&Math.Abs(movementAfter.Bounds.Width-movementBefore.Width*1.5f)<.01f,
                     "real native movement layout fields apply placement, scale, opacity and color to preview and draft");
-                Activate("hud_undo",RmlUiIntentKind.HudAction);
+                for(int edit=0;edit<5;edit++)Activate("hud_undo",RmlUiIntentKind.HudAction);
                 Check(controller.CopyDraft().Elements[movementId].Scale==1
                     &&controller.Snapshot().Elements[movementIndex].Bounds==movementBefore,
-                    "native movement layout edit remains one reversible authoring action");
+                    "native movement inline fields each retain reversible authoring history");
                 Activate("hud_pick1",RmlUiIntentKind.HudElement);float before=controller.CopyDraft().Elements["core.health"].OffsetX;
                 Activate("hud_nudge_right",RmlUiIntentKind.HudAction);Check(controller.CopyDraft().Elements["core.health"].OffsetX==before+1,"native nudge reaches detached shared layout");
                 Activate("hud_undo",RmlUiIntentKind.HudAction);Check(controller.CopyDraft().Elements["core.health"].OffsetX==before,"native undo reverses the layout edit");
@@ -103,6 +113,7 @@ internal static class NativeHudCheck
                     &&controller.CopyDraft().Elements["core.health"].OffsetX==before,"Command undo uses authoring history on canvas");
                 Check(page.KeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.C,RmlUiInputModifiers.Control)
                     &&HudProfileStore.Parse(host.ReadClipboard()).Elements.Count==HudProfileDefaults.ElementIds.Length,"canvas copy exports full validated profile through native clipboard");
+                Activate("hud_workspace_profiles",RmlUiIntentKind.HudAction);
                 Check(host.FocusDocument(page.Document,"hud_name")&&!page.KeyDown(OpenTK.Windowing.GraphicsLibraryFramework.Keys.C,RmlUiInputModifiers.Control),"editable text fields retain native clipboard ownership");
                 string json="{\"name\":\"λ Prime\",\"padding\":\""+String.Concat(Enumerable.Repeat("λ😀",1000))+"\"}";
                 host.SetField(page.Document,"hud_json",json);

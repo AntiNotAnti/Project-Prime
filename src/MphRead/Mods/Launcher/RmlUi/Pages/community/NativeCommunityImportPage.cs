@@ -64,7 +64,7 @@ internal sealed class NativeCommunityImportPage : IDisposable
         void Bool(string id, bool value) => data[id] = RmlUiBindingValue.FromBoolean(value);
         Text("community_import_status", view.Status);
         Text("community_import_detail", view.CanConfirm
-            ? "RUNTIME MAP // " + view.Name + (view.Version.Length == 0 ? "" : "\nVERSION // " + view.Version)
+            ? "MAP // " + view.Name + (view.Version.Length == 0 ? "" : "\nVERSION // " + view.Version)
                 + "\nPACKAGE SHA-256 // " + view.PackageHash + "\nConfirmation installs this verified private snapshot."
             : "Choose your local .ppmap package. Preparation validates and builds it privately; confirmation adds it to your map library.");
         Bool("disabled:community_import_path", view.Busy || view.Imported);

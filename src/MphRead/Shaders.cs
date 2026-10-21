@@ -150,6 +150,9 @@ void main()
 
         internal static string WithoutDepthVertexSpecialization(string source)
         {
+            // Verbatim shader literals inherit checkout line endings. Source
+            // transforms and their GLES identities must behave the same on Windows.
+            source = source.Replace("\r\n", "\n");
             foreach (string declaration in new[] { "uniform bool depth_vertex_fast;", "uniform bool depth_only;",
                 "uniform bool use_override;", "uniform bool player_outline_mask;", "uniform int cosmetic_skin;",
                 "uniform int cosmetic_effect;", "uniform float cosmetic_dissolve;" })
@@ -191,6 +194,7 @@ uniform vec3 light2col;
 uniform vec3 specular;
 uniform bool use_override;
 uniform int textured_player_skin;
+uniform bool authored_neutral_albedo;
 uniform bool player_outline_mask;
 uniform vec3 player_outline_color;
 uniform vec4 override_color;
@@ -214,7 +218,18 @@ varying vec4 color;
 varying vec3 surface_normal;
 varying vec3 surface_position;
 
-vec3 mapped_normal()
+// Explicit modern-only experiment; Original/native variants omit this stage.
+uniform bool modern_material_corrections;
+uniform vec3 material_camera_position;
+vec3 material_safe_normalize(vec3 value, vec3 fallback)
+{
+    float length2 = dot(value, value);
+    // Comparisons also reject NaN/overflow without newer GLSL isnan intrinsics.
+    return length2 > 0.000000000001 && length2 < 1.0e30
+        ? value * inversesqrt(length2) : fallback;
+}
+
+vec3 mapped_normal_legacy()
 {
     vec3 n = normalize(surface_normal);
     if (!use_normal_map) return n;
@@ -226,6 +241,30 @@ vec3 mapped_normal()
     vec3 bitangent = normalize((-dp1 * duv2.x + dp2 * duv1.x) / det);
     vec3 mapNormal = texture2D(normal_tex, texcoord).xyz * 2.0 - 1.0;
     return normalize(tangent * mapNormal.x + bitangent * mapNormal.y + n * mapNormal.z);
+}
+
+vec3 mapped_normal()
+{
+    if (!modern_material_corrections) return mapped_normal_legacy();
+    vec3 n = material_safe_normalize(surface_normal, vec3(0.0, 0.0, 1.0));
+    if (!use_normal_map) return n;
+    vec3 dp1 = dFdx(surface_position), dp2 = dFdy(surface_position);
+    vec2 duv1 = dFdx(texcoord), duv2 = dFdy(texcoord);
+    float det = duv1.x * duv2.y - duv1.y * duv2.x;
+    if (!(abs(det) > 0.00000001)) return n;
+    vec3 tangentRaw = (dp1 * duv2.y - dp2 * duv1.y) / det;
+    vec3 bitangentRaw = (-dp1 * duv2.x + dp2 * duv1.x) / det;
+    // Gram-Schmidt removes the normal component on skewed/curved geometry.
+    vec3 tangent = tangentRaw - n * dot(n, tangentRaw);
+    float length2 = dot(tangent, tangent);
+    if (!(length2 > 0.000000000001 && length2 < 1.0e30)) return n;
+    tangent *= inversesqrt(length2);
+    vec3 bitangent = cross(n, tangent);
+    float orientation = dot(bitangent, bitangentRaw);
+    if (!(abs(orientation) > 0.000000000001)) return n;
+    bitangent *= orientation < 0.0 ? -1.0 : 1.0;
+    vec3 mapNormal = texture2D(normal_tex, texcoord).xyz * 2.0 - 1.0;
+    return material_safe_normalize(tangent * mapNormal.x + bitangent * mapNormal.y + n * mapNormal.z, n);
 }
 
 " + MphRead.Mods.Cosmetics.CosmeticShader.Source + @"
@@ -241,8 +280,17 @@ void apply_material_lighting(inout vec4 col)
         vec4 sm = use_specular_map ? texture2D(specular_tex, texcoord)
             : vec4(max(max(specular.r, specular.g), specular.b), 0.55, 0.0, 1.0);
         float roughness = clamp(sm.g, 0.04, 1.0);
-        vec3 viewDir = vec3(0.0, 0.0, 1.0);
-        vec3 h1 = normalize(-light1vec + viewDir), h2 = normalize(-light2vec + viewDir);
+        vec3 viewDir = modern_material_corrections
+            ? material_safe_normalize(material_camera_position - surface_position, vec3(0.0, 0.0, 1.0))
+            : vec3(0.0, 0.0, 1.0);
+        vec3 h1, h2;
+        if (modern_material_corrections) {
+            h1 = material_safe_normalize(-light1vec + viewDir, vec3(0.0));
+            h2 = material_safe_normalize(-light2vec + viewDir, vec3(0.0));
+        }
+        else {
+            h1 = normalize(-light1vec + viewDir); h2 = normalize(-light2vec + viewDir);
+        }
         float exponent = mix(72.0, 4.0, roughness);
         float highlight = pow(max(dot(n, h1), 0.0), exponent) * l1
             + pow(max(dot(n, h2), 0.0), exponent) * l2;
@@ -306,6 +354,11 @@ void main()
     vec4 col;
     if (use_texture) {
         vec4 texcolor = use_pal_override ? vec4(pal_override_color.xyz, texture2D(tex, texcoord).w) : texture2D(tex, texcoord);
+        if (authored_neutral_albedo && !use_pal_override) {
+            // Keep full-resolution surface detail while replacing a muddy source hue.
+            float detail = dot(texcolor.rgb, vec3(0.2126, 0.7152, 0.0722));
+            texcolor.rgb = vec3(clamp(detail * 1.65, 0.0, 1.0));
+        }
         // Cel shading takes the picture off the texture rather than banding
         // it. The texel's alpha is kept, so a grate is still a grate and a
         // decal is still cut to shape, but its colour is replaced by the one
@@ -388,6 +441,8 @@ void main()
     gl_FragColor = col;
 }
 ";
+
+        public static string ShadowFragmentShader { get; } = Mods.Render.ShadowReceiverShader.Build(FragmentShader, gles: false);
 
         /// <summary>
         /// The front screen's ground: the photograph with the moving field
@@ -483,10 +538,15 @@ void main()
 #version 120
 
 uniform float alpha;
+uniform vec4 hud_ink;
+uniform bool native_reticle_field;
+uniform float native_reticle_thickness;
+uniform vec2 native_reticle_extent;
 uniform bool use_mask;
 uniform bool hud_zero_alpha_discard;
 uniform float view_width;
 uniform float view_height;
+uniform vec2 view_origin;
 uniform vec4 fade_color;
 uniform sampler2D tex;
 uniform sampler2D mask;
@@ -499,10 +559,19 @@ void main()
         gl_FragColor = fade_color;
     }
     else {
-        gl_FragColor = texture2D(tex, texcoord);
+        gl_FragColor = texture2D(tex, texcoord) * hud_ink;
+        if (native_reticle_field) {
+            float distance = texture2D(tex, texcoord).a;
+            vec2 footprint = vec2(length(vec2(dFdx(texcoord.x), dFdy(texcoord.x))),
+                                  length(vec2(dFdx(texcoord.y), dFdy(texcoord.y)))) * native_reticle_extent;
+            float pixel = max(max(footprint.x, footprint.y), 0.0001);
+            gl_FragColor.a = smoothstep(-0.5 * pixel, 0.5 * pixel,
+                distance + native_reticle_thickness * pixel) * hud_ink.a;
+        }
         if (use_mask) {
-            float maskY = gl_FragCoord.y + (view_width - view_height) / 2;
-            vec2 maskTexcoord = vec2(gl_FragCoord.x / view_width, 1 - maskY / view_width);
+            vec2 localCoord = gl_FragCoord.xy - view_origin;
+            float maskY = localCoord.y + (view_width - view_height) / 2;
+            vec2 maskTexcoord = vec2(localCoord.x / view_width, 1 - maskY / view_width);
             vec4 maskColor = texture2D(mask, maskTexcoord);
             if (maskColor.a > 0) {
                 gl_FragColor.a = 0;
@@ -748,6 +817,13 @@ void main()
         public int UseSpecularMap { get; set; }
         public int UseEmissiveMap { get; set; }
         public int EmissiveIntensity { get; set; }
+        public int ReceiveWorldShadow { get; set; }
+        public int WorldShadowSampler { get; set; }
+        public int WorldShadowMatrix { get; set; }
+        public int WorldShadowTexel { get; set; }
+        public int WorldShadowLight { get; set; }
+        public int MaterialCameraPosition { get; set; }
+        public int ModernMaterialCorrections { get; set; }
         public int Light1Color { get; set; }
         public int Light1Vector { get; set; }
         public int Light2Color { get; set; }
@@ -784,11 +860,16 @@ void main()
         public int WeightedSkinning { get; set; }
         public int MatrixStack { get; set; }
         public int ToonTable { get; set; }
+        public int HudInk { get; set; }
+        public int NativeReticleField { get; set; }
+        public int NativeReticleThickness { get; set; }
+        public int NativeReticleExtent { get; set; }
         public int FadeColor { get; set; }
         public int LayerAlpha { get; set; }
         public int HudZeroAlphaDiscard { get; set; }
         public int UseMask { get; set; }
         public int ViewWidth { get; set; }
+        public int ViewOrigin { get; set; }
         public int ViewHeight { get; set; }
         public int ShiftTable { get; set; }
         public int ShiftIndex { get; set; }

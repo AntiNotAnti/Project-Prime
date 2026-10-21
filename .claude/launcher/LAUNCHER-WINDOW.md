@@ -357,3 +357,11 @@ them.
 The launcher also no longer binds `libICE` or `libSM`: there is no X11
 top-level to create. `fontconfig` is still needed, and so is a display — for
 the game window.
+## First-frame startup ownership
+
+`Shell.AfterDraw` is shared by shell and standalone render windows. Only the
+active shell's `_window` may consume its first-frame flag and schedule launcher
+maintenance/preview work. A standalone match, native QA window or auxiliary
+window must not start those workers or claim Avalonia's dispatcher before lazy
+pause-menu setup. The source-linked `test_startup_ownership.py` regression covers
+inactive/foreign-window rejection, one-shot owner admission and session reset.

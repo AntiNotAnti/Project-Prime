@@ -31,6 +31,7 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static void PumpNativeInput(RenderWindow window, RmlUiHost host)
     {
+        PresentNativeTypography(host);
         if (!ReferenceEquals(window,_inputWindow) || !window.IsFocused || !CapturesInput
             || GameplayOpen && !GameplayLeaseCurrent)
         { ReleaseNativeInput(host); return; }

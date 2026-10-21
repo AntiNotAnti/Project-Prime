@@ -12,6 +12,23 @@ namespace MphRead.Mods.Render.Characters
     /// <summary>Shared bounded embedded material contract for rigid and Weighted4 GLBs.</summary>
     internal static class CharacterEmbeddedMaterialLoader
     {
+        internal static NVector3 ReadSurfaceTint(JsonElement[] materials, int index)
+        {
+            if (index < 0 || !materials[index].TryGetProperty("pbrMetallicRoughness", out var pbr)
+                || !pbr.TryGetProperty("baseColorFactor", out var factor)) return NVector3.One;
+            float[] v = factor.EnumerateArray().Select(x => x.GetSingle()).ToArray();
+            if (v.Length != 4 || v.Any(x => !float.IsFinite(x) || x < 0 || x > 1))
+                throw new InvalidDataException("Invalid glTF base color factor.");
+            return new(v[0], v[1], v[2]);
+        }
+
+        internal static bool ReadNeutralAlbedo(JsonElement[] materials, int index)
+        {
+            if (index < 0 || !materials[index].TryGetProperty("extras", out var extras)
+                || !extras.TryGetProperty("haloNeutralAlbedo", out var value)) return false;
+            return value.GetBoolean();
+        }
+
         internal static bool ReadDoubleSided(JsonElement[] materials, int index)
         {
             if (index < 0) return false;

@@ -2,6 +2,6 @@
 
 Run `dotnet run --project tools/frame-profiler-check -c Release` from the repository root.
 
-Links the production frame profiler and capture implementation. Asset-free stubs supply scene metadata and rendering dependencies; the real profiler executes BeginFrame/BeginRender/EndRender/BeginPresent/EndPresent/CancelFrame/StopCapture and writes its real receipt. The test injects a previous Present timestamp 750ms in the past to prove a continuous long hitch survives, then verifies an explicit cancellation starts a new segment and excludes the interrupted boundary. It uses no sleep, native rendering, or game assets.
+Links the production frame timing, profiler and capture implementation. Asset-free stubs supply scene metadata and rendering dependencies; the real profiler executes BeginFrame/BeginRender/EndRender/BeginPresent/EndPresent/CancelFrame/StopCapture and writes its real receipt. The Windows regression waits through a 750ms continuous hitch, drives the production accumulator through 200ms catch-up overflow and a 500ms stall, and proves both trigger and following intervals survive. It verifies explicit first/last, focus, cap, scene, cancellation and failed-Present boundary events. It uses no native rendering or game assets.
 
 This regression check does not measure hardware performance, renderer scope integration, or native overhead.

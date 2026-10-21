@@ -30,6 +30,7 @@
 #include <cstdlib>
 #include <cctype>
 #include <limits>
+#include <optional>
 
 namespace {
 
@@ -86,7 +87,7 @@ uint64_t g_next_document_id = 0;
 uint64_t g_home_id = 0;
 uint64_t g_next_sequence = 0;
 std::filesystem::path g_asset_root;
-struct QueuedAction { PrimeIntent intent; std::string legacy; std::string activation_source; };
+struct QueuedAction { PrimeIntent intent; std::string legacy; std::string activation_source; std::string range_source; };
 std::deque<QueuedAction> g_actions;
 int g_programmatic_field_mutations = 0;
 struct ProgrammaticFieldMutation {
@@ -106,6 +107,7 @@ struct Document {
 };
 std::unordered_map<uint64_t, Document> g_documents;
 std::vector<uint64_t> g_document_order;
+#include "projectprime_rmlui_typography.h"
 bool g_update_dirty = true;
 bool g_draw_list_valid = false;
 uint64_t g_visual_revision = 0;
@@ -370,6 +372,16 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 256; ++index) if (index != 15 && action == "settings:action:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::SettingsAction); intent.argument = index; return true;
     }
+    for (int index = 0; index < 96; ++index) if (action == "settings:previous:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::SettingsPreviousChoice); intent.argument = index; return true;
+    }
+    for (int index = 0; index < 24; ++index) if (action == "offline:previous-choice:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::OfflineChoicePrevious); intent.argument = index; return true;
+    }
+    if (action == "lobby:rules-previous-mode") { intent.kind = uint32_t(PrimeIntentKind::LobbyRulesModePrevious); return true; }
+    if (action == "lobby:rules-previous-format") { intent.kind = uint32_t(PrimeIntentKind::LobbyRulesFormatPrevious); return true; }
+    if (action == "play:previous-map") { intent.kind = uint32_t(PrimeIntentKind::PlayPreviousMap); return true; }
+    if (action == "play:previous-mode") { intent.kind = uint32_t(PrimeIntentKind::PlayPreviousMode); return true; }
     for (int index = 0; index < 13; ++index) if (action == "settings:category:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::SettingsCategory); intent.argument = index; return true;
     }
@@ -379,7 +391,7 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 1; index < 4; ++index) if (action == "adventure:copy-destination:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::AdventureCopyDestination); intent.argument = index; return true;
     }
-    for (int index = 0; index < 17; ++index) if (action == "offline:choice:" + std::to_string(index)) {
+    for (int index = 0; index < 24; ++index) if (action == "offline:choice:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::OfflineChoice); intent.argument = index; return true;
     }
     for (int index = 0; index < PrimeOfflineRuleChoiceCount; ++index) if (action == "offline:rule:" + std::to_string(index)) {
@@ -495,14 +507,15 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 30; ++index) if (action == "setup:release:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::SetupRelease); intent.argument = index; return true;
     }
-    const char* hud_actions[] = {"open", "use", "cancel", "next-preset", "undo", "redo", "lock-all", "unlock-all", "align-left", "align-top", "native-elements", "reset-hud", "toggle-visible", "toggle-lock", "next-anchor", "next-visibility", "reset-element", "reset-section", "next-aspect", "next-hunter", "next-scenario", "next-grid", "toggle-guides", "save-named", "load-named", "export-json", "import-json", "property-previous", "property-next", "property-apply", "property-reset", "next-palette", "next-crosshair-target", "toggle-crosshair-override", "next-crosshair-preset", "share-crosshair", "import-crosshair", "next-radar-preset", "nudge-left", "nudge-right", "nudge-up", "nudge-down", "scale-down", "scale-up", "apply-layout"};
-    for (int index = 0; index < 45; ++index) if (action == std::string("hud:") + hud_actions[index]) {
+    const char* hud_actions[] = {"open", "use", "cancel", "next-preset", "undo", "redo", "lock-all", "unlock-all", "align-left", "align-top", "native-elements", "reset-hud", "toggle-visible", "toggle-lock", "next-anchor", "next-visibility", "reset-element", "reset-section", "next-aspect", "next-hunter", "next-scenario", "next-grid", "toggle-guides", "save-named", "load-named", "export-json", "import-json", "property-previous", "property-next", "property-apply", "property-reset", "next-palette", "next-crosshair-target", "toggle-crosshair-override", "next-crosshair-preset", "share-crosshair", "import-crosshair", "next-radar-preset", "nudge-left", "nudge-right", "nudge-up", "nudge-down", "scale-down", "scale-up", "apply-layout",
+        "previous-preset", "previous-anchor", "previous-visibility", "previous-aspect", "previous-hunter", "previous-scenario", "previous-grid", "previous-palette", "previous-crosshair-target", "previous-crosshair-preset", "previous-radar-preset", "property-choice-previous", "property-choice-next", "section-appearance", "section-layout", "section-global", "section-typography", "section-decorations", "workspace-elements", "workspace-profiles", "search-properties", "clear-search"};
+    for (int index = 0; index < int(std::size(hud_actions)); ++index) if (action == std::string("hud:") + hud_actions[index]) {
         intent.kind = uint32_t(PrimeIntentKind::HudAction); intent.argument = index; return true;
     }
     for (int index = 0; index < 15; ++index) if (action == "hud:element:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HudElement); intent.argument = index; return true;
     }
-    for (int index = 0; index < 8; ++index) if (action == "hud:property:" + std::to_string(index)) {
+    for (int index = 0; index < 32; ++index) if (action == "hud:property:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HudProperty); intent.argument = index; return true;
     }
     const char* in_game_actions[] = {"resume", "fullscreen", "settings", "replay", "vote", "spectate", "rejoin", "recorder", "return-lobby", "leave", "quit", "confirm", "cancel", "map-next", "vote-submit", "vote-yes", "vote-no", "bots", "bot-select", "bot-hunter", "bot-suit", "bot-skill", "bot-team", "bot-handicap", "bot-remove", "bot-add", "bot-apply", "journal", "journal-map", "journal-scans", "journal-category", "journal-previous", "journal-next", "journal-back"};
@@ -526,7 +539,8 @@ void DiscardRetargetedTimelineActions()
 {
     while (!g_actions.empty() && !TimelineActivationCurrent(g_actions.front())) g_actions.pop_front();
 }
-void QueueAction(const std::string& action, uint64_t document, Rml::Element* activation_source = nullptr)
+void QueueAction(const std::string& action, uint64_t document, Rml::Element* activation_source = nullptr,
+    bool range_change = false)
 {
     auto* source = GetDocument(document);
     if (!source) return;
@@ -547,8 +561,20 @@ void QueueAction(const std::string& action, uint64_t document, Rml::Element* act
     intent.generation = g_generation;
     intent.document_id = document;
     intent.sequence = ++g_next_sequence;
+    // Range actions read the control's current DOM value, not an event delta.
+    // Thousands of pointer samples must not replay that same value over many
+    // frames. Only adjacent changes from the same range may replace each other;
+    // a click/navigation/another control remains an ordering fence.
+    const std::string range_id = range_change && activation_source ? activation_source->GetId() : "";
+    if (!range_id.empty() && !g_actions.empty()) {
+        auto& previous = g_actions.back();
+        if (previous.intent.document_id == document && previous.range_source == range_id && previous.legacy == action) {
+            previous = {intent, action, activation_id, range_id};
+            return;
+        }
+    }
     // A bounded queue prevents repeated-input accumulation while a host stalls.
-    if (g_actions.size() < 256) g_actions.push_back({intent, action, activation_id});
+    if (g_actions.size() < 256) g_actions.push_back({intent, action, activation_id, range_id});
 }
 void QueueHomeAction(const std::string& action) { QueueAction(action, g_home_id); }
 class DocumentActionListener final : public Rml::EventListener {
@@ -579,7 +605,8 @@ public:
         for (auto* element = event.GetTargetElement(); element; element = element->GetParentNode()) {
             const Rml::String action = element->GetAttribute<Rml::String>(click || change ? "data-action" : "data-preview", "");
             if (!action.empty()) {
-                if (!element->HasAttribute("disabled")) QueueAction(action, DocumentId(element->GetOwnerDocument()), element);
+                if (!element->HasAttribute("disabled")) QueueAction(action, DocumentId(element->GetOwnerDocument()),
+                    change && range ? event.GetTargetElement() : element, change && range);
                 break;
             }
         }
@@ -706,6 +733,7 @@ void FocusElement(const char* id)
 
 void EnsureUpdated(bool scheduled)
 {
+    g_typography.Apply();
     if (!g_context || (!g_update_dirty && (!scheduled || RemainingUpdateDelay() > 0))) return;
     // An update may dispatch a model's pending focus or position nameplates.
     // Settle those mutations once; a zero-delay animation belongs to the next
@@ -825,6 +853,7 @@ PP_EXPORT int pp_rmlui_initialize_backend(int width, int height, float density, 
     }
     g_initialized = true;
     ++g_generation;
+    Rml::RegisterPlugin(&g_typography);
     Rml::Factory::RegisterElementInstancer("prime-canvas", &g_canvas_instancer);
     std::error_code error;
     g_asset_root = std::filesystem::weakly_canonical(asset_root, error);
@@ -894,6 +923,12 @@ PP_EXPORT void pp_rmlui_update()
 {
     if (!OwnerThread() || !g_context) return;
     EnsureUpdated(true);
+}
+
+PP_EXPORT int pp_rmlui_typography(int body_font, int heading_font, int data_font)
+{
+    if (!OwnerThread() || !g_context) return 0;
+    return g_typography.Set(body_font, heading_font, data_font) ? 1 : 0;
 }
 
 PP_EXPORT int pp_rmlui_update_status(PrimeUpdateStatus* status)

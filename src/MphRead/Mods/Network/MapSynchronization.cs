@@ -23,7 +23,7 @@ public static partial class NetSession
 {
     public static LobbyMapPreparationState? MapPreparation { get; private set; }
     public static string MapPreparationMessage => MapPreparation is { } map
-        ? $"{map.RoomKey}: {(map.State == MapAvailabilityState.Failed ? map.Error : map.State == MapAvailabilityState.Downloading && map.Progress > 0 ? $"Downloading {map.Progress:P0}" : map.State.ToString())}" : "";
+        ? $"{Launcher.LauncherRoomDisplayName.Get(map.RoomKey)}: {(map.State == MapAvailabilityState.Failed ? map.Error : map.State == MapAvailabilityState.Downloading && map.Progress > 0 ? $"Downloading {map.Progress:P0}" : map.State.ToString())}" : "";
     public static void RetryMapPreparation()
     {
         if (MapPreparation?.State == MapAvailabilityState.Failed) ResetMapPreparation();

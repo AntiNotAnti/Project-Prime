@@ -84,7 +84,8 @@ internal sealed partial class GameView
             _clock.Start(); RequestFrameRate(); ApplySwapInterval(); WaitForTick();
             GL.ClearColor(new OpenTK.Mathematics.Color4(10 / 255f, 12 / 255f, 16 / 255f, 1));
             GL.Clear(OpenTK.Graphics.OpenGL.ClearBufferMask.ColorBufferBit);
-            if (!Android.Opengl.EGL14.EglSwapBuffers(_display, _eglSurface)) ReleaseSurface();
+            if (!Android.Opengl.EGL14.EglSwapBuffers(_display, _eglSurface))
+                HandleFailedPresent(Android.Opengl.EGL14.EglGetError());
             return true;
         }
         private bool DrawNativeLauncherFrame()
@@ -117,7 +118,8 @@ internal sealed partial class GameView
             GL.ClearColor(new OpenTK.Mathematics.Color4(10 / 255f, 12 / 255f, 16 / 255f, 1));
             GL.Clear(OpenTK.Graphics.OpenGL.ClearBufferMask.ColorBufferBit);
             if (!launcher.Render(_size.X, _size.Y, Volatile.Read(ref _nativeDensity))) return false;
-            if (!Android.Opengl.EGL14.EglSwapBuffers(_display, _eglSurface)) ReleaseSurface();
+            if (!Android.Opengl.EGL14.EglSwapBuffers(_display, _eglSurface))
+                HandleFailedPresent(Android.Opengl.EGL14.EglGetError());
             return true;
         }
         private bool TryEndNativeLocalScene(Scene scene)

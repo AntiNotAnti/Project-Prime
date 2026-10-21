@@ -148,6 +148,7 @@ namespace MphRead.Entities
 
         private void UpdateHealthSfx(int health)
         {
+            if (IsMainPlayer && Mods.Render.Hud.HudProfiles.Runtime.HaloLowHealthSound) health = 0;
             if (Sfx.TimedSfxMute > 0)
             {
                 return;

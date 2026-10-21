@@ -72,7 +72,12 @@ namespace MphRead.Mods.Render
             };
         }
 
-        public static float Scale => ScaleOf(Size);
+        private static float? _scale;
+        public static float Scale
+        {
+            get => _scale ?? ScaleOf(Size);
+            set => _scale = float.IsFinite(value) ? Math.Clamp(value, .1f, 4f) : 1;
+        }
 
         public static readonly string[] SizeNames = { "Small", "Medium", "Big" };
 

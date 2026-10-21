@@ -1,0 +1,7 @@
+test_actual_after_draw_startup_block_requires_active_owner (test_startup_ownership.StartupOwnershipTests.test_actual_after_draw_startup_block_requires_active_owner) ... ok
+test_actual_native_overrides_suppress_and_record_escape_and_other_input (test_startup_ownership.StartupOwnershipTests.test_actual_native_overrides_suppress_and_record_escape_and_other_input) ... ok
+
+----------------------------------------------------------------------
+Ran 2 tests in 3.154s
+
+OK

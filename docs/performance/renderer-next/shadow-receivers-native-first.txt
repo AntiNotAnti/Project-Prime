@@ -1,0 +1,24 @@
+clip legacy: iterations=100000 allocated_bytes=38400000 elapsed_ms=48.184
+clip candidate: iterations=100000 allocated_bytes=0 elapsed_ms=32.232
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] map.json FP-MESH-001: Collision mesh has 4 open boundary edges.
+[room] portal capacity: UNIT1_CX, parts=10, portals=45, frustums=32, reason=frustum pool; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=2, portals=1, frustums=1, reason=portal planes; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=2, portals=1, frustums=1, reason=clip points; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=1, portals=1, frustums=1, reason=audible traversal; drawing all parts
+[room] portal capacity: UNIT1_CX, parts=33, portals=0, frustums=1, reason=room part count; drawing all parts
+native renderer=NVIDIA GeForce RTX 5080/PCIe/SSE2 gl=4.6.0 NVIDIA 617.42 mvid=daab2773-ac08-4f85-90ba-1adb462b1e5b
+[glcapabilities] version=4.6.0 NVIDIA 617.42; vao=True; appleVao=False; desktopVaoApi=Core; timer=True; disjointTimer=False; sync=True; ubo=True; storage=True; optimizations=capability-and-policy; forceLegacy=False
+geometry cycle=0 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=9.880 cold_ms=2.072 warm_ms=0.233
+geometry cycle=1 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=0.208 cold_ms=0.160 warm_ms=0.001
+geometry cycle=2 meshes=5 baseline_compiled=5 compiled=4 baseline_retained_bytes=960 retained_bytes=768 baseline_ms=0.319 cold_ms=0.150 warm_ms=0.000
+[world-shaders] variant=native elapsedMs=26.904
+[world-shaders] variant=plain elapsedMs=14.732
+[world-shaders] variant=plain-unlit elapsedMs=13.401
+[world-shaders] variant=native elapsedMs=41.354
+[world-shaders] variant=native elapsedMs=0.180
+[render] effective directional shadows unavailable; native unshadowed fallback: Injected GL allocation failure: variant-fragment
+[world-shaders] variant=native elapsedMs=0.965
+SHADOW RECEIVERS PASS: native material/cutout/exclusion/ownership/failure fixtures; offscreen dynamic caster coverage NOT_RUN
+PASS: 14817 renderer preparation checks; native=True

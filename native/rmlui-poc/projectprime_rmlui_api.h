@@ -74,6 +74,12 @@ enum class PrimeIntentKind : uint32_t {
     SettingsKeepVideo = 105,
     SettingsRevertVideo = 106,
     SettingsAction = 107,
+    SettingsPreviousChoice = 108,
+    OfflineChoicePrevious = 109,
+    LobbyRulesModePrevious = 110,
+    LobbyRulesFormatPrevious = 111,
+    PlayPreviousMap = 112,
+    PlayPreviousMode = 113,
     AdventureSelectSlot = 120,
     AdventureNextHunter = 121,
     AdventureContinue = 122,
@@ -254,6 +260,8 @@ PP_EXPORT int pp_rmlui_draw_texture_sampling(uint64_t generation, uint64_t handl
 
 PP_EXPORT uint32_t pp_rmlui_protocol_version();
 PP_EXPORT uint64_t pp_rmlui_generation();
+// Optional font policy: licensed HUD font indices 0..33, -1 preserves the authored role.
+PP_EXPORT int pp_rmlui_typography(int body_font, int heading_font, int data_font);
 PP_EXPORT uint64_t pp_rmlui_home_document();
 PP_EXPORT int pp_rmlui_take_intent(PrimeIntent* intent);
 PP_EXPORT int pp_rmlui_initialize_backend(int width, int height, float density, const char* asset_root, int backend);

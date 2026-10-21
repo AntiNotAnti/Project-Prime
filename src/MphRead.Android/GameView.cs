@@ -427,7 +427,13 @@ namespace MphRead.Droid
             private Vector2i _size;
             private readonly AndroidFramePacer _framePacer = new(FrameTiming.MaxCap);
             private AndroidPerformanceHints? _performanceHints;
-            private int _requestedFrameRate = -1;
+            private readonly AndroidPresentationRequest _frameRateRequest = new();
+            private readonly AndroidPresentationRequest _swapRequest = new();
+            private int _surfaceGeneration;
+            private int _boundGeneration;
+            private int _pacingDisplayGeneration = -1;
+            private int _surfaceFailures;
+            private long _lastSurfaceDiagnostic;
             private int _appliedSwapInterval = -1;
 
             public Scene? Scene { get; private set; }
@@ -509,6 +515,7 @@ namespace MphRead.Droid
                 lock (_lock)
                 {
                     _holder = holder;
+                    _surfaceGeneration++;
                     _wanted = new Vector2i(width, height);
                     Monitor.PulseAll(_lock);
                 }
@@ -519,6 +526,7 @@ namespace MphRead.Droid
                 lock (_lock)
                 {
                     _holder = null;
+                    _surfaceGeneration++;
                     Monitor.PulseAll(_lock);
                     long deadline = Environment.TickCount64 + SurfaceReleaseMs;
                     while (_holdingSurface)
@@ -567,6 +575,15 @@ namespace MphRead.Droid
                         // candidate before native/context teardown.
                         if (Scene is { } unfinished) RetireTerminalNativeScene(unfinished);
 #endif
+                        if (Scene is { } abandoned)
+                        {
+                            // Loop may unwind before End on context loss. Retire
+                            // CPU/audio/replay owners on their original thread;
+                            // no replacement context ever receives these names.
+                            try { abandoned.DoCleanup(); }
+                            catch (Exception error) { Console.WriteLine("[android] scene cleanup: " + error.Message); }
+                            finally { Scene = null; }
+                        }
                     }
                     finally
                     {
@@ -608,6 +625,7 @@ namespace MphRead.Droid
                     ISurfaceHolder holder;
                     Vector2i wanted;
                     bool resetPacing;
+                    int surfaceGeneration;
                     lock (_lock)
                     {
                         while (!_stopping && (_holder == null || _paused))
@@ -639,15 +657,30 @@ namespace MphRead.Droid
                         {
                             break;
                         }
+                        surfaceGeneration = _surfaceGeneration;
                         holder = _holder!;
                         wanted = _wanted;
-                        resetPacing = _resetPacingOnResume;
                     }
-                    if (!BindSurface(holder, wanted))
+                    // A new window starts a fresh retry budget; do not carry
+                    // the old surface's maximum delay into a resume/rotation.
+                    if (surfaceGeneration != _boundGeneration) _surfaceFailures = 0;
+                    if (!BindSurface(holder, wanted, surfaceGeneration))
                     {
-                        // Keep the resume reset pending until Android gives us
-                        // a surface that can actually be made current.
+                        // Monitor waiting is interruptible by pause, stop and a new surface.
+                        lock (_lock)
+                        {
+                            if (!_stopping && !_paused && surfaceGeneration == _surfaceGeneration)
+                                Monitor.Wait(_lock, AndroidPresentationRequest.RetryDelayMs(++_surfaceFailures));
+                        }
                         continue;
+                    }
+                    _surfaceFailures = 0;
+                    lock (_lock)
+                    {
+                        // BindSurface may have released/replaced a stale window.
+                        // Consume that reset before drawing the first new frame.
+                        resetPacing = _resetPacingOnResume;
+                        _resetPacingOnResume = false;
                     }
                     if (resetPacing)
                     {
@@ -656,11 +689,8 @@ namespace MphRead.Droid
                         double now = _clock.Elapsed.TotalSeconds;
                         _framePacer.Reset(now);
                         FrameTiming.Reset();
+                        AndroidPerformance.ResetPresentTiming();
                         Scene?.ModSetLateAim(0, 0);
-                        lock (_lock)
-                        {
-                            _resetPacingOnResume = false;
-                        }
                     }
 #if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
                     if (_nativeCycle != null && _nativeCycle.Current.Phase is not (RmlUiAndroidLocalPhase.Match or RmlUiAndroidLocalPhase.Loading))
@@ -701,15 +731,16 @@ namespace MphRead.Droid
             /// Make sure there is a context, a surface for this holder, and a
             /// viewport at the size the window last reported.
             /// </summary>
-            private bool BindSurface(ISurfaceHolder holder, Vector2i wanted)
+            private bool BindSurface(ISurfaceHolder holder, Vector2i wanted, int generation)
             {
                 if (_display == null && !CreateContext())
                 {
                     return false;
                 }
-                if (!ReferenceEquals(_boundTo, holder) || _eglSurface == null)
+                if (!ReferenceEquals(_boundTo, holder) || _eglSurface == null || _boundGeneration != generation)
                 {
                     ReleaseSurface();
+                    _boundGeneration = generation;
                     if (!CreateSurface(holder))
                     {
                         return false;
@@ -803,8 +834,9 @@ namespace MphRead.Droid
                 {
                     _eglSurface = null;
                     // Not fatal on its own: the window can be on its way out.
-                    Console.WriteLine("[android] eglCreateWindowSurface failed "
-                        + $"(0x{EGL14.EglGetError():X})");
+                    int error = EGL14.EglGetError();
+                    if (error == 0x300E) throw ContextLost();
+                    SurfaceDiagnostic($"eglCreateWindowSurface failed (0x{error:X})");
                     return false;
                 }
                 if (!EGL14.EglMakeCurrent(_display, _eglSurface, _eglSurface, _context))
@@ -839,8 +871,7 @@ namespace MphRead.Droid
                         || error == EglBadNativeWindow
                         || error == EglBadSurface)
                     {
-                        Console.WriteLine("[android] eglMakeCurrent is waiting for a replacement "
-                            + $"window surface (0x{error:X})");
+                        SurfaceDiagnostic($"eglMakeCurrent is waiting for a replacement surface (0x{error:X})");
                         return false;
                     }
 
@@ -848,6 +879,7 @@ namespace MphRead.Droid
                     // recoverable without rebuilding every GL resource owned by
                     // the loaded scene, so keep those fatal rather than limping
                     // on with invalid objects.
+                    if (error == 0x300E) throw ContextLost();
                     return Fail($"eglMakeCurrent failed (0x{error:X})");
                 }
                 lock (_lock)
@@ -874,7 +906,12 @@ namespace MphRead.Droid
                     // seconds the room takes to load.
                     GL.ClearColor(new OpenTK.Mathematics.Color4(10 / 255f, 12 / 255f, 16 / 255f, 1f));
                     GL.Clear(OpenTK.Graphics.OpenGL.ClearBufferMask.ColorBufferBit);
-                    EGL14.EglSwapBuffers(_display, _eglSurface);
+                    if (!EGL14.EglSwapBuffers(_display, _eglSurface))
+                    {
+                        int error = EGL14.EglGetError();
+                        HandleFailedPresent(error);
+                        return false;
+                    }
                 }
                 _size = Vector2i.Zero;
                 return true;
@@ -896,8 +933,10 @@ namespace MphRead.Droid
                     // SetFrameRate belongs to the Android window surface, not
                     // the long-lived EGL context. A replacement surface must be
                     // told again even when the requested cap did not change.
-                    _requestedFrameRate = -1;
+                    _frameRateRequest.Reset();
                     _appliedSwapInterval = -1;
+                    _swapRequest.Reset();
+                    _resetPacingOnResume = true;
                     Monitor.PulseAll(_lock);
                 }
                 if (_display == null || surface == null)
@@ -940,6 +979,31 @@ namespace MphRead.Droid
                 _contextBindingsReady = false;
                 _config = null;
                 _display = null;
+            }
+
+            private void HandleFailedPresent(int error)
+            {
+                AndroidPerformance.RecordFailedPresent(error);
+                if (error == 0x300E) throw ContextLost();
+                if (error is not (0x3007 or 0x300B or 0x300D))
+                    throw new InvalidOperationException($"EGL presentation failed (0x{error:X}). Restart the match.");
+                SurfaceDiagnostic($"surface stopped accepting frames (0x{error:X}); waiting to rebind");
+                ReleaseSurface();
+                lock (_lock)
+                {
+                    if (!_stopping && !_paused) Monitor.Wait(_lock, 50);
+                }
+            }
+
+            private static Exception ContextLost() => new InvalidOperationException(
+                "The Android graphics context was lost. Return to the launcher and restart the match; loaded graphics cannot be reused.");
+
+            private void SurfaceDiagnostic(string message)
+            {
+                long now = Environment.TickCount64;
+                if (_lastSurfaceDiagnostic != 0 && now - _lastSurfaceDiagnostic < 2000) return;
+                _lastSurfaceDiagnostic = now;
+                Console.WriteLine($"[android] {message}");
             }
 
             private bool Fail(string message)
@@ -1206,15 +1270,13 @@ namespace MphRead.Droid
                 long swapStart = uiEnd;
                 MphRead.Mods.Render.LowLatencyController.Mark(
                     latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentStart);
-                if (_display != null && _eglSurface != null
-                    && !EGL14.EglSwapBuffers(_display, _eglSurface))
+                if (_display == null || _eglSurface == null || !EGL14.EglSwapBuffers(_display, _eglSurface))
                 {
-                    // The framework took the surface back. Let go of it and
-                    // wait for the next one rather than drawing into nothing.
-                    Console.WriteLine("[android] the surface stopped accepting frames; "
-                        + $"waiting for another (0x{EGL14.EglGetError():X})");
+                    int error = EGL14.EglGetError();
                     OpenGlPassProfiler.CancelFrame();
-                    ReleaseSurface();
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    HandleFailedPresent(error);
+                    return true;
                 }
                 long swapEnd = Stopwatch.GetTimestamp();
                 OpenGlPassProfiler.EndFrame();
@@ -1224,13 +1286,13 @@ namespace MphRead.Droid
                 // SurfaceFlinger/FIFO and is not CPU load the scheduler should
                 // try to "fix" by boosting clocks.
                 _performanceHints?.ReportFrame(workStart, uiEnd, FrameTiming.FrameRateCap);
-                AndroidPerformance.RecordFrame(elapsed, Milliseconds(limiterStart, workStart),
+                AndroidPerformance.RecordFrame(swapEnd, Milliseconds(limiterStart, workStart),
                     Milliseconds(workStart, simulationEnd),
                     Milliseconds(simulationEnd, renderEnd),
                     Milliseconds(renderEnd, uiEnd),
                     Milliseconds(swapStart, swapEnd),
                     GC.GetAllocatedBytesForCurrentThread() - allocatedStart,
-                    _size.X, _size.Y);
+                    _size.X, _size.Y, _appliedSwapInterval);
                 return true;
             }
 
@@ -1346,11 +1408,17 @@ namespace MphRead.Droid
             private void RequestFrameRate()
             {
                 int cap = FrameTiming.FrameRateCap;
-                if (cap == _requestedFrameRate || !OperatingSystem.IsAndroidVersionAtLeast(30))
+                int displayGeneration = AndroidPerformance.DisplayGeneration;
+                if (_pacingDisplayGeneration != displayGeneration)
+                {
+                    _pacingDisplayGeneration = displayGeneration;
+                    _frameRateRequest.Reset();
+                    _swapRequest.Reset();
+                }
+                if (!OperatingSystem.IsAndroidVersionAtLeast(30))
                 {
                     return;
                 }
-                _requestedFrameRate = cap;
                 Surface? window;
                 lock (_lock)
                 {
@@ -1359,20 +1427,24 @@ namespace MphRead.Droid
                 if (window == null || !window.IsValid)
                 {
                     // Ask again when there is a surface to ask about.
-                    _requestedFrameRate = -1;
+                    _frameRateRequest.Reset();
                     return;
                 }
                 float requested = cap == FrameTiming.DisplayRate || cap == FrameTiming.Unlimited
                     ? AndroidPerformance.DisplayRefreshRate
                     : Math.Min(cap, AndroidPerformance.DisplayRefreshRate);
+                long now = Environment.TickCount64;
+                if (!_frameRateRequest.ShouldAttempt(cap, requested, now)) return;
                 try
                 {
                     window.SetFrameRate(requested,
                         (int)SurfaceFrameRateCompatibility.Default);
+                    _frameRateRequest.Complete(cap, requested, now, true);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[android] the display would not be asked for "
+                    _frameRateRequest.Complete(cap, requested, now, false);
+                    SurfaceDiagnostic($"the display would not be asked for "
                         + $"{requested:0.#} fps: {ex.Message}");
                 }
             }
@@ -1387,6 +1459,8 @@ namespace MphRead.Droid
             {
                 int wanted = AndroidPerformance.UseDisplayPacing(FrameTiming.FrameRateCap) ? 1 : 0;
                 if (_appliedSwapInterval == wanted) return;
+                long now = Environment.TickCount64;
+                if (!_swapRequest.ShouldAttempt(wanted, wanted, now)) return;
                 if (_display == null)
                 {
                     return;
@@ -1396,16 +1470,19 @@ namespace MphRead.Droid
                     if (EGL14.EglSwapInterval(_display, wanted))
                     {
                         _appliedSwapInterval = wanted;
+                        _swapRequest.Complete(wanted, wanted, now, true);
                     }
                     else
                     {
-                        Console.WriteLine($"[android] eglSwapInterval({wanted}) failed "
+                        _swapRequest.Complete(wanted, wanted, now, false);
+                        SurfaceDiagnostic($"eglSwapInterval({wanted}) failed "
                             + $"(0x{EGL14.EglGetError():X})");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"[android] eglSwapInterval({wanted}) failed: {ex.Message}");
+                    _swapRequest.Complete(wanted, wanted, now, false);
+                    SurfaceDiagnostic($"eglSwapInterval({wanted}) failed: {ex.Message}");
                 }
             }
 
@@ -1449,10 +1526,10 @@ namespace MphRead.Droid
             {
                 double now = _clock.Elapsed.TotalSeconds;
                 int cap = FrameTiming.FrameRateCap;
-                bool displayPaced = AndroidPerformance.UseDisplayPacing(cap);
                 bool presentationPaced = AndroidFramePacer.PresentationOwnsCadence(
-                    displayPaced, false);
-                double deadline = _framePacer.Deadline(now, cap, presentationPaced);
+                    cap, AndroidPerformance.ObservedDisplayRefreshRate, _appliedSwapInterval);
+                double deadline = _framePacer.Deadline(now, cap, presentationPaced,
+                    AndroidPerformance.ObservedDisplayRefreshRate);
                 double wait = deadline - now;
                 if (wait > 0)
                 {

@@ -69,6 +69,8 @@ Check(OpenGlFrameCapture.Attribute(0, 0, 0, 0, 0, 0, false) == "unknown/mixed", 
 var bounded = new OpenGlFrameCapture(2);
 bounded.Add(Sample(10, 100)); bounded.Cancel(); bounded.Add(Sample(20, 200)); bounded.Add(Sample(30, 300)); bounded.Cancel();
 Check(bounded.Count == 2 && bounded.Dropped == 1 && bounded.Cancelled == 2 && bounded.Segment == 2, "bounded storage and cancellation accounting");
+for (int i = 0; i < 7; i++) bounded.Boundary(i, "test-boundary", 0, 0);
+Check(bounded.DroppedBoundaryRecords == 3, "bounded lifecycle records count overflow");
 string directory = Path.Combine(Path.GetTempPath(), "frame-capture-check-" + Guid.NewGuid().ToString("N"));
 string path = Path.Combine(directory, "capture.json");
 try
@@ -77,7 +79,8 @@ try
     byte[] original = File.ReadAllBytes(path);
     using var document = JsonDocument.Parse(original);
     var root = document.RootElement;
-    Check(root.GetProperty("schema").GetInt32() == 2, "schema version");
+    Check(root.GetProperty("schema").GetInt32() == 3, "schema version");
+    Check(root.GetProperty("droppedBoundaryRecords").GetInt64() == 3 && root.GetProperty("boundaries").GetArrayLength() == 4, "boundary overflow is explicit in export");
     Check(root.GetProperty("droppedRecords").GetInt64() == 1 && root.GetProperty("cancelledFrames").GetInt64() == 2, "export accounting");
     var frames = root.GetProperty("frames");
     Check(frames.GetArrayLength() == 2 && frames[0].GetProperty("PresentTimestamp").GetInt64() == 100 && frames[1].GetProperty("PresentTimestamp").GetInt64() == 200, "chronological retained records");

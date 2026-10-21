@@ -1,0 +1,9 @@
+[glcapabilities] version=4.6.0 NVIDIA 617.42; vao=True; appleVao=False; desktopVaoApi=Core; timer=True; disjointTimer=False; sync=True; ubo=True; storage=True; optimizations=capability-and-policy; forceLegacy=False
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] map.json FP-MESH-001: Collision mesh has 4 open boundary edges.
+[world-shaders] variant=native elapsedMs=1.010
+[world-shaders] variant=plain elapsedMs=0.881
+[world-shaders] variant=plain-unlit elapsedMs=0.469
+[glvisualcheck] source GX PASS 50 invented GPU assertions; production generated GLSL and Scene draw transaction; no owned media
+[glvisualcheck] PASS 444 pixel checks, 17 captures

@@ -38,6 +38,11 @@ namespace MphRead.Mods.Render
         // RGBA assets can generate a chain on the GPU. Compressed assets
         // override this and require an authored/transcoded chain.
         public virtual bool MipmapsAvailable => Width > 1 || Height > 1;
+        public virtual bool CanGenerateMipmaps => true;
+        public virtual int ResidentMipLevels => 1;
+
+        internal TextureSamplerDescriptor EffectiveSampling(TextureSamplerDescriptor requested)
+            => requested with { Mipmaps = requested.Mipmaps && MipmapsAvailable };
 
         public abstract long EstimateGpuBytes(bool mipmaps);
     }

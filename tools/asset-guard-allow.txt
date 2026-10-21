@@ -102,3 +102,8 @@ docs/implementation/rmlui-vfx-3-2026-10-20/home-minimal.png
 docs/implementation/rmlui-vfx-3-2026-10-20/weavel-theme.png
 docs/implementation/rmlui-vfx-3-2026-10-20/home-holographic-ui.png
 docs/implementation/rmlui-vfx-3-2026-10-20/lobby-holographic-ui.png
+
+# Licensed font atlases generated from the bundled TTFs; adjacent notices retained.
+src/MphRead/Assets/HudFonts/font[0-3][0-9].bin
+# User-supplied authored dual-screen presentation artwork/font, from v20.
+src/MphRead/Assets/DsHud/font.bin

@@ -1,0 +1,24 @@
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  MphRead.CorpsePhysics -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.CorpsePhysics\bin\Release\net10.0\MphRead.CorpsePhysics.dll
+  NcsfPlay -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\NcsfPlay\bin\Release\net10.0\NcsfPlay.dll
+  MphRead.Protocol.Generator -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Protocol.Generator\bin\Release\netstandard2.0\MphRead.Protocol.Generator.dll
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Launcher\Portable\MatchStart.cs(282,1): warning CS1570: XML comment has badly formed XML -- 'Expected an end tag for element 'summary'.' [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\AndroidUiOverlay.cs(182,33): warning CS8604: Possible null reference argument for parameter 'bo' in 'ByteBuffer ByteBuffer.Order(ByteOrder bo)'. [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Renderer.cs(3132,46): error CS0104: 'ErrorCode' is an ambiguous reference between 'OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode' and 'OpenTK.Graphics.OpenGL.ErrorCode' [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Renderer.cs(3181,34): error CS0104: 'ErrorCode' is an ambiguous reference between 'OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode' and 'OpenTK.Graphics.OpenGL.ErrorCode' [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Launcher\Gui\MapStudioSharing.cs(14,18): warning CS0649: Field 'MapStudioScreen._poppedOut' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+
+Build FAILED.
+
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Launcher\Portable\MatchStart.cs(282,1): warning CS1570: XML comment has badly formed XML -- 'Expected an end tag for element 'summary'.' [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\AndroidUiOverlay.cs(182,33): warning CS8604: Possible null reference argument for parameter 'bo' in 'ByteBuffer ByteBuffer.Order(ByteOrder bo)'. [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Launcher\Gui\MapStudioSharing.cs(14,18): warning CS0649: Field 'MapStudioScreen._poppedOut' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Renderer.cs(3132,46): error CS0104: 'ErrorCode' is an ambiguous reference between 'OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode' and 'OpenTK.Graphics.OpenGL.ErrorCode' [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Renderer.cs(3181,34): error CS0104: 'ErrorCode' is an ambiguous reference between 'OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode' and 'OpenTK.Graphics.OpenGL.ErrorCode' [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj]
+    4 Warning(s)
+    2 Error(s)
+
+Time Elapsed 00:00:21.96

@@ -1,0 +1,22 @@
+  Determining projects to restore...
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\NcsfPlay\NcsfPlay.csproj (in 230 ms).
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Protocol.Generator\MphRead.Protocol.Generator.csproj (in 230 ms).
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.CorpsePhysics\MphRead.CorpsePhysics.csproj (in 230 ms).
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj (in 237 ms).
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\material-pack.csproj (in 231 ms).
+  MphRead.CorpsePhysics -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.CorpsePhysics\bin\Release\net10.0\MphRead.CorpsePhysics.dll
+  NcsfPlay -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\NcsfPlay\bin\Release\net10.0\NcsfPlay.dll
+  MphRead.Protocol.Generator -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Protocol.Generator\bin\Release\netstandard2.0\MphRead.Protocol.Generator.dll
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Render\DetachedShadowPoseCache.cs(57,27): warning CS8602: Dereference of a possibly null reference. [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+  MphRead -> C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\bin\Release\net10.0\ProjectPrime.dll
+  material-pack -> C:\Users\Jarrett\Documents\Development\Project-Prime\tools\material-pack\bin\Release\net10.0\material-pack.dll
+
+Build succeeded.
+
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Render\DetachedShadowPoseCache.cs(57,27): warning CS8602: Dereference of a possibly null reference. [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+    2 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:32.04

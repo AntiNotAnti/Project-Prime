@@ -1780,7 +1780,7 @@ namespace MphRead.Mods.Network
                 _pendingVoteMap = new PendingVoteMap(peer, resolved, requestedMode,
                     identity, CurrentDefinition.RoomKey, _matchId, _authorityEpoch,
                     finalCommit: false);
-                Tell(peer, "Preparing " + resolved + " before opening the vote...");
+                Tell(peer, "Preparing " + Launcher.LauncherRoomDisplayName.Get(resolved) + " before opening the vote...");
                 return;
             }
             BeginPreparedVote(peer, resolved, requestedMode, default, now);
@@ -1811,7 +1811,7 @@ namespace MphRead.Mods.Network
             // they think of it, and making them press the key as well is a
             // vote that can fail 0-0.
             peer.Ballot = VotePacket.KindYes;
-            Announce($"proposes {resolved} -- F1 to accept, F2 to deny", _voteProposer);
+            Announce($"proposes {Launcher.LauncherRoomDisplayName.Get(resolved)} -- F1 to accept, F2 to deny", _voteProposer);
             Log($"vote started by slot {peer.SlotIndex} for {resolved} ({_voteMode})");
             BroadcastVoteState(now);
             Tally(now);
@@ -1918,13 +1918,13 @@ namespace MphRead.Mods.Network
                     CurrentDefinition.RoomKey, _matchId, _authorityEpoch,
                     finalCommit: true);
                 _voteResult = VoteStatePacket.StateIdle;
-                Announce($"vote passed ({count}) -- verifying {room} before changing maps");
+                Announce($"vote passed ({count}) -- verifying {Launcher.LauncherRoomDisplayName.Get(room)} before changing maps");
                 BroadcastVoteState(now);
                 return;
             }
             if (passed)
             {
-                Announce($"vote passed ({count}) -- changing to {room}");
+                Announce($"vote passed ({count}) -- changing to {Launcher.LauncherRoomDisplayName.Get(room)}");
                 Log($"vote passed ({count}) for {room}");
                 _rotation.PlayNext(room, mode);
                 if (SessionPolicy == ServerSessionPolicy.Lobby) EndMatch(now, "map vote passed");
@@ -1932,7 +1932,7 @@ namespace MphRead.Mods.Network
             }
             else
             {
-                Announce($"vote failed ({count}) -- staying on {CurrentDefinition.RoomKey}");
+                Announce($"vote failed ({count}) -- staying on {Launcher.LauncherRoomDisplayName.Get(CurrentDefinition.RoomKey)}");
                 Log($"vote failed ({count}) for {room}");
             }
             BroadcastVoteState(now);

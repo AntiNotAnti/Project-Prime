@@ -57,6 +57,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private bool? _hoverAbi;
         private bool? _elementBoundsAbi;
         private bool? _updateStateAbi;
+        private bool _typographyMissing;
+        private (int Body, int Headings, int Data)? _typography;
         private long _nativeUpdates, _skippedUpdates, _updateStateQueries;
 
         public bool Active => _active;
@@ -132,6 +134,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 _nativeSequence = _managedSequence = 0;
                 _textInputAbi = _textEditAbi = _hoverAbi = _elementBoundsAbi = null;
                 _updateStateAbi = null;
+                _typographyMissing = false; _typography = null;
                 _nativeUpdates = _skippedUpdates = _updateStateQueries = 0;
                 _active = true;
                 Input.Reset();
@@ -357,6 +360,24 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             }
             _native.Update();
             _nativeUpdates++;
+        }
+
+        /// <summary>Exact licensed HUD-font indices, or -1 to retain an authored UI role.</summary>
+        public bool SetTypography(int body, int headings, int data)
+        {
+            VerifyNativeCallAllowed();
+            if (body is < -1 or > 33 || headings is < -1 or > 33 || data is < -1 or > 33)
+                throw new ArgumentOutOfRangeException(nameof(body), "HUD font indices must be -1 or 0 through 33.");
+            if (!_active || _typographyMissing) return false;
+            var next = (body, headings, data);
+            if (_typography == next) return true;
+            try
+            {
+                if (_native.Typography(body, headings, data) == 0) return false;
+                _typography = next;
+                return true;
+            }
+            catch (EntryPointNotFoundException) { _typographyMissing = true; return false; }
         }
 
         public bool TryGetUpdateState(out RmlUiUpdateState state)

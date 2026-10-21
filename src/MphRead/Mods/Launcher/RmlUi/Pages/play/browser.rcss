@@ -312,3 +312,8 @@ min-height: 40dp; padding-top: 5dp; padding-bottom: 5dp;
     .play_server b, .play_server span { width:100%; padding-right:0; text-align:left; }
     .play_server span { margin-top:3dp; }
 }
+
+.play_choice_navigation { display:flex; align-items:stretch; margin-bottom:8dp; }
+.play_choice_navigation .play_previous { flex:0 0 32dp; width:32dp; margin-right:4dp; background-color:#14283a; color:#d8f3ff; border:1dp #29485e; font-size:18dp; }
+.play_choice_navigation .play_choice { flex:1; min-width:0; width:auto; margin-bottom:0; }
+.play_choice_navigation .play_previous:hover, .play_choice_navigation .play_previous:focus { border-color:#72c7ff; }

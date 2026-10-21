@@ -74,6 +74,7 @@ namespace MphRead.Mods.Render.Characters
                 WriteTriangleGlb(asset.ModelPath);
 
                 string valid = File.ReadAllText(Path.Combine(root, "characters.json"));
+                CheckWeaponVariants(root,valid,asset);
                 File.Copy(asset.ModelPath,Path.Combine(root,"samus","mobile.glb"));
                 File.WriteAllText(Path.Combine(root,"characters.json"),valid.Replace("\"model\": \"samus/biped.glb\",","\"model\": \"samus/biped.glb\", \"mobileModel\": \"samus/mobile.glb\","));
                 Check(CharacterModelPack.Load(root,mobile:true).TryResolve(Hunter.Samus,CharacterModelPart.Biped,out var mobileAsset)
@@ -232,6 +233,40 @@ namespace MphRead.Mods.Render.Characters
 
         // Generated triangles and explicit synthetic hashes test the contract,
         // never real source-game rig, animation, rendering or device acceptance.
+        private static void CheckWeaponVariants(string root,string legacyManifest,CharacterModelAsset biped)
+        {
+            string manifestPath=Path.Combine(root,"characters.json");
+            var manifest=JsonNode.Parse(legacyManifest)!;
+            var models=manifest["models"]!.AsArray();
+            var cannon=models[0]!.DeepClone();cannon["part"]="viewModel";
+            var imperialist=cannon.DeepClone();imperialist["weapon"]="Imperialist";
+            imperialist["independentSurface"]=true;imperialist["independentVisibility"]=true;
+            imperialist["normalizeAttachment"]=true;imperialist["minimumVisibleAlpha"]=.2f;
+            var arms=cannon.DeepClone();arms["part"]="viewModelArms";
+            models.Add(cannon);models.Add(imperialist);models.Add(arms);
+            try
+            {
+                File.WriteAllText(manifestPath,manifest.ToJsonString());
+                var pack=CharacterModelPack.Load(root);
+                Check(pack.Count==4&&pack.TryResolve(Hunter.Samus,CharacterModelPart.ViewModel,0,BeamType.Imperialist,out var variant)
+                    &&variant.Weapon==BeamType.Imperialist&&variant.IndependentSurface&&variant.IndependentVisibility
+                    &&variant.NormalizeAttachment&&variant.MinimumVisibleAlpha==.2f,"weapon variant retains authored surface and visibility options");
+                Check(pack.TryResolve(Hunter.Samus,CharacterModelPart.ViewModel,0,BeamType.Missile,out var fallback)
+                    &&fallback.Weapon==null,"unlisted weapon falls back to default cannon");
+                Check(pack.TryResolve(Hunter.Samus,CharacterModelPart.ViewModelArms,out var armAsset)
+                    &&armAsset.Part==CharacterModelPart.ViewModelArms,"first-person arm model is independently selectable");
+                Check(CharacterModelRuntime.ModelCacheKey(biped,7)!=CharacterModelRuntime.ModelCacheKey(biped with{Part=CharacterModelPart.ViewModelArms},7)
+                    &&CharacterModelRuntime.ModelCacheKey(biped,7)!=CharacterModelRuntime.ModelCacheKey(biped with{Weapon=BeamType.Imperialist},7),
+                    "same GLB presentation cache isolates arm and weapon identities");
+                imperialist["weapon"]="not-a-weapon";File.WriteAllText(manifestPath,manifest.ToJsonString());
+                ExpectInvalid(()=>CharacterModelPack.Load(root),"invalid weapon identity rejected");
+                imperialist["weapon"]="Imperialist";imperialist["minimumVisibleAlpha"]=2;
+                File.WriteAllText(manifestPath,manifest.ToJsonString());
+                ExpectInvalid(()=>CharacterModelPack.Load(root),"invalid authored visibility floor rejected");
+            }
+            finally{File.WriteAllText(manifestPath,legacyManifest);}
+        }
+
         private static void CheckPrivateAppearances(string root, string legacyManifest)
         {
             string manifestPath = Path.Combine(root, "characters.json");

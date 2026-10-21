@@ -6,6 +6,7 @@ using System.Linq;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Network;
@@ -555,13 +556,14 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
             : "CHAT SENDS THROUGH THE CURRENT LOBBY";
         string field = !NetSession.RequiredMapReady ? NetSession.MapPreparationMessage
             : session.Phase == SessionPhase.Starting ? "STARTING MATCH" : "MAP READY";
+        string mapName = LauncherRoomDisplayName.Get(match.RoomKey);
         string preview = _mapPreviews.Read(ThumbnailGenerator.PathFor(match.RoomKey));
         bool generatingPreview = preview.Length == 0 && EnsureMapPreview(match.RoomKey);
         return new(time, score, history, status, field,
-            preview.Length != 0 ? "MAP: " + match.RoomKey
-            : generatingPreview ? "MAP: " + match.RoomKey + " // GENERATING PREVIEW"
+            preview.Length != 0 ? "MAP: " + mapName
+            : generatingPreview ? "MAP: " + mapName + " // GENERATING PREVIEW"
             : String.IsNullOrWhiteSpace(NetSession.MapPreparationMessage)
-                ? "MAP: " + match.RoomKey + " // PREVIEW NOT AVAILABLE"
+                ? "MAP: " + mapName + " // PREVIEW NOT AVAILABLE"
                 : NetSession.MapPreparationMessage,
             session.Phase == SessionPhase.Starting ? "STARTING" : "",
             session.Phase == SessionPhase.Starting

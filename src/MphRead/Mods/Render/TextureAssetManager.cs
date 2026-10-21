@@ -12,7 +12,8 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal sealed class TextureAssetManager : IDisposable
     {
-        private readonly record struct Resident(int Binding, long Bytes, int Width, int Height);
+        private readonly record struct Resident(int Binding, long Bytes, int Width, int Height,
+            bool MipmapsAvailable, bool CanGenerateMipmaps, int ResidentMipLevels);
         private const int TextureMaxAnisotropyExt = 0x84FE;
         private const int MaxTextureMaxAnisotropyExt = 0x84FF;
         private readonly Dictionary<string, Resident> _resident = new(StringComparer.Ordinal);
@@ -28,6 +29,20 @@ namespace MphRead.Mods.Render
 
         public long ResidentBytes => _residentBytes;
         public int ResidentCount => _resident.Count;
+
+        internal bool TryGetMipResidency(int binding, out bool available, out bool canGenerate, out int levels)
+        {
+            foreach (Resident resident in _resident.Values)
+                if (resident.Binding == binding)
+                {
+                    available = resident.MipmapsAvailable;
+                    canGenerate = resident.CanGenerateMipmaps;
+                    levels = resident.ResidentMipLevels;
+                    return true;
+                }
+            available = canGenerate = false; levels = 0;
+            return false;
+        }
 
         // Only scene-owned optional variant leases use this. Stable base/maps remain pinned.
         internal bool ReleaseBinding(int binding)
@@ -126,7 +141,8 @@ namespace MphRead.Mods.Render
                 GL.BindTexture(TextureTarget.Texture2D, texture);
                 UploadPreparedBound(asset, repeat, sampling);
                 if (GL.GetError() != ErrorCode.NoError) throw new InvalidOperationException("GPU texture upload failed.");
-                _resident.Add(cacheKey, new(texture, bytes, width, height));
+                _resident.Add(cacheKey, new(texture, bytes, width, height,
+                    asset.MipmapsAvailable, asset.CanGenerateMipmaps, asset.ResidentMipLevels));
                 _residentBytes += bytes;
                 DebugLog.Line("render", "modern texture " + asset.Key + " " + width + "x" + height
                     + " resident=" + (_residentBytes / (1024.0 * 1024.0)).ToString("0.0") + " MiB"
@@ -173,25 +189,46 @@ namespace MphRead.Mods.Render
             TextureSamplerDescriptor sampling)
         {
             ClearPriorUploadErrors();
-#if ANDROID
+            sampling = asset.EffectiveSampling(sampling);
             if (asset is CompressedTextureAsset gpu)
             {
                 int internalFormat = gpu.Format switch
                 {
+#if ANDROID
                     GpuTextureCompressionFormat.Etc2Rgba8 => 0x9278, // GL_COMPRESSED_RGBA8_ETC2_EAC
                     GpuTextureCompressionFormat.Astc4x4Rgba => 0x93B0, // GL_COMPRESSED_RGBA_ASTC_4x4_KHR
-                    _ => throw new NotSupportedException("Unsupported mobile GPU texture compression format.")
+#elif !MPHREAD_SERVER
+                    GpuTextureCompressionFormat.Bc7Rgba when DesktopTextureCompressionPolicy.SupportsBc7
+                        => DesktopTextureCompressionPolicy.Bc7InternalFormat,
+#endif
+                    _ => throw new NotSupportedException("GPU texture compression format is not enabled/supported on this context.")
                 };
                 for (int level = 0; level < gpu.Mips.Length; level++)
                 {
                     CompressedTextureMip mip = gpu.Mips[level];
+#if ANDROID
                     GlEs.CompressedTexImage2D(TextureTarget.Texture2D, level, internalFormat,
                         mip.Width, mip.Height, mip.Data);
+#else
+                    OpenTK.Graphics.OpenGL.GL.CompressedTexImage2D<byte>(TextureTarget.Texture2D, level, (InternalFormat)internalFormat,
+                        mip.Width, mip.Height, 0, mip.Data.Length, mip.Data);
+#endif
                 }
                 ApplyBoundSampling(repeat, sampling, generateMipmaps: false);
                 return;
             }
-#endif
+            if (asset is RgbaMipTextureAsset authored)
+            {
+                GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
+                for (int level = 0; level < authored.Mips.Length; level++)
+                {
+                    CompressedTextureMip mip = authored.Mips[level];
+                    GL.TexImage2D(TextureTarget.Texture2D, level, PixelInternalFormat.Rgba8,
+                        mip.Width, mip.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, mip.Data);
+                }
+                ApplyBoundSampling(repeat, sampling, generateMipmaps: false);
+                return;
+            }
             if (asset is ModernTextureAsset rgba)
             {
                 GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);

@@ -115,6 +115,12 @@ def _assess(evidence, warmup_loads=60, minimum_windows=3):
     result['identity'] = expected_identity
     result['windows'] = [{key: sample.get(key) for key in ('sampleId', 'loads', 'context', 'originBytes')} for sample in valid_windows]
     post_warmup = [sample for sample in valid_windows if sample['loads'] > warmup_loads]
+    anchors = [sample for sample in valid_windows if sample['loads'] == warmup_loads]
+    if len(anchors) != 1:
+        unknown.append('exact same-process candidate warm-up anchor required; later-only plateau cannot establish boundedness')
+    elif any(sample['runId'] != anchors[0]['runId'] for sample in post_warmup):
+        unknown.append('candidate warm-up anchor and post-warm-up observations must share one process')
+    result['candidateWarmupAnchor'] = anchors[0]['sampleId'] if len(anchors) == 1 else None
     result['postWarmupWindows'] = len(post_warmup)
     if len(post_warmup) < minimum_windows:
         unknown.append('insufficient successive increasing-load windows after warm-up')

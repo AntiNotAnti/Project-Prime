@@ -423,11 +423,11 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
     && controller.MapPickerOpen
     && Flag(controller.Tick(), "lobby_map_open")
     && Flag(controller.Tick(), "lobby_rules_open")
-    && Text(controller.Tick(), "map_choice0_name") == "MP1 SANCTORUS",
+    && Text(controller.Tick(), "map_choice0_name") == "Data Shrine",
     "lobby opens a native map picker bound to current authoritative rule draft");
 var mapBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.Maps, controller.Tick().Bindings);
 Check(mapBindings.TryGetValue("map_name0", out var mapText)
-    && mapText.Text == "MP1 SANCTORUS"
+    && mapText.Text == "Data Shrine"
     && mapBindings.TryGetValue("disabled:map_choice0", out var mapEnabled)
     && !mapEnabled.Boolean
     && mapBindings.TryGetValue("disabled:map_previous", out var mapPrevious)
@@ -593,11 +593,14 @@ Check(offlinePager.Current.Hunter == Hunter.Kanden
     && offlinePager.Change(3) && offlinePager.Current.Bots == 0,
     "native offline local match choices remain bounded and wrap safely");
 Check(offlinePager.OpenArena()
-    && offlinePager.ArenaPageCount == 3 && offlinePager.ArenaChoice(0) == "Arena 00"
-    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 16"
-    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 32"
+    && offlinePager.ArenaPageCount == 6 && offlinePager.ArenaChoice(0) == "Arena 00"
+    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 06"
+    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 12"
+    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 18"
+    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 24"
+    && offlinePager.ArenaTurn(1) && offlinePager.ArenaChoice(0) == "Arena 30"
     && !offlinePager.ArenaTurn(1),
-    "original sixteen-map native picker pages through installed map names");
+    "native offline picker pages through six previewable installed map names");
 Check(offlinePager.SearchArena("arena 04")
     && offlinePager.ArenaPageCount == 1
     && offlinePager.ArenaChoice(0) == "Arena 04"
@@ -607,6 +610,17 @@ Check(offlinePager.SearchArena("arena 04")
 Check(offlinePager.OpenArena() && !offlinePager.SearchArena(new string('x',81))
     && !offlinePager.SelectArena(-1) && offlinePager.CloseArena(),
     "invalid search length and forged map slot do not change the offline request");
+var displayNames = new RmlUiOfflineDraft(
+    new[] { "MP11 BREAKTHROUGH", "MP1 SANCTORUS" }, Hunter.Samus, 0, 0, 0);
+Check(LauncherRoomDisplayName.Get("MP1 SANCTORUS") == "Data Shrine"
+    && LauncherRoomDisplayName.Get("MP11 BREAKTHROUGH") == "Sanctorus"
+    && displayNames.Current.RoomKey == "MP1 SANCTORUS"
+    && displayNames.Map == "Data Shrine"
+    && displayNames.OpenArena() && displayNames.SearchArena("sanctorus")
+    && displayNames.ArenaCount == 2
+    && displayNames.ArenaChoice(0) == "MP1 SANCTORUS"
+    && displayNames.ArenaChoice(1) == "MP11 BREAKTHROUGH",
+    "native map labels use InGameName while selection and search retain internal room keys");
 
 Check(offlinePager.Current.Character == OfflineCharacterMode.Native && offlinePager.CharacterName == "NATIVE",
     "existing source-linked offline draft begins with Native mechanics");
@@ -664,25 +678,43 @@ Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice, 8)
     && !controller.Dispatch(RmlUiIntentKind.OfflineOpenTrainingOptions)
     && !controller.Dispatch(RmlUiIntentKind.OfflineLaunchTraining),
     "Offline Battle cannot edit or launch Aim Lab through a stale intent");
+string[] offlinePreviewRequest = Array.Empty<string>(); int offlinePreviewCalls = 0;
+services.MapPreviews = rooms =>
+{
+    offlinePreviewCalls++;
+    offlinePreviewRequest = rooms.ToArray();
+    return rooms.Select(room => room.Length == 0 ? default
+        : new RmlUiArenaPreview("/synthetic/offline/" + room + ".tga", "OFFLINE MAP PREVIEW")).ToArray();
+};
 Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice, 5)
     && Text(controller.Tick(), "offline_hunter_value") == "KANDEN",
     "Hunter choice updates native offline draft, not launcher preferences");
 Check(controller.Dispatch(RmlUiIntentKind.OfflineOpenArena)
     && Flag(controller.Tick(), "offline_arena_open"),
     "offline arena launches an owned native modal");
+int previewCallsBeforeProjection = offlinePreviewCalls;
 Check(controller.Dispatch(RmlUiIntentKind.OfflineArenaSearch, arenaSearch: "sanctorus")
-    && Text(controller.Tick(), "offline_arena_name0") == "MP1 SANCTORUS",
+    && Text(controller.Tick(), "offline_arena_name0") == "Data Shrine",
     "authored arena modal receives case-insensitive installed map search results");
-var offlineBindings = RmlUiMenuPageBindings.Project(
-    RmlUiMenuPage.OfflineArena, controller.Tick().Bindings);
+var offlineArenaSnapshot = controller.Tick();
+var offlineBindings = RmlUiMenuPageBindings.Project(RmlUiMenuPage.OfflineArena, offlineArenaSnapshot.Bindings);
 Check(offlineBindings.TryGetValue("offline_arena_name_0", out var firstArena)
-    && firstArena.Text == "MP1 SANCTORUS"
+    && firstArena.Text == "Data Shrine"
     && offlineBindings.TryGetValue("disabled:offline_arena_pick_0", out var firstArenaDisabled)
-    && !firstArenaDisabled.Boolean,
-    "native sixteen-row arena bindings show and enable a valid map");
+    && !firstArenaDisabled.Boolean
+    && offlineBindings.TryGetValue("image:offline_arena_image_0", out var firstArenaImage)
+    && firstArenaImage.Text == "/synthetic/offline/MP1 SANCTORUS.tga"
+    && offlineBindings.TryGetValue("visible:offline_arena_image_0", out var firstArenaImageVisible)
+    && firstArenaImageVisible.Boolean
+    && offlineBindings.TryGetValue("visible:offline_arena_preview_status_0", out var firstArenaStatusVisible)
+    && !firstArenaStatusVisible.Boolean
+    && offlinePreviewCalls == previewCallsBeforeProjection + 1
+    && offlinePreviewRequest.Length == RmlUiOfflineDraft.ArenaPageSize
+    && offlinePreviewRequest[0] == "MP1 SANCTORUS",
+    "native six-card arena bindings show names and exactly one page of offline previews");
 Check(controller.Dispatch(RmlUiIntentKind.OfflineSelectArena, 0)
     && !Flag(controller.Tick(), "offline_arena_open")
-    && Text(controller.Tick(), "offline_arena_value") == "MP1 SANCTORUS",
+    && Text(controller.Tick(), "offline_arena_value") == "Data Shrine",
     "choosing an arena retires only the selector modal");
 Check(controller.Dispatch(RmlUiIntentKind.OfflineLaunchMatch)
     && controller.Busy && services.OfflineValidations == 1
@@ -808,6 +840,14 @@ controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
 
 // RML-27: only the existing AdventureSave / AdventureLaunch is allowed to
 // interpret save state. No native controller edits/loads save JSON.
+if (args.Contains("--offline-only"))
+{
+    MapPickerCatalogAcceptance.Run();
+    OfflineReturnChecks.Run();
+    Console.WriteLine("RML OFFLINE AND MAP MENU CHECKS PASS");
+    return;
+}
+
 services.AdventureSlots = new[]
 {
     new RmlUiAdventureSlot(1, false, false, "", 0, 0, 0, "EMPTY"),
@@ -998,7 +1038,8 @@ archive.MarkLaunched();
 Check(!archive.Select(0) && !archive.SelectedUnchanged(replayRows[6]),
     "native playback handoff cannot be re-entered after a confirmed launch");
 
-services.TheatreRows = replayRows.Take(3).ToArray();
+services.TheatreRows = replayRows.Take(3)
+    .Select(row => row with { Room = "MP1 SANCTORUS" }).ToArray();
 services.TheatreReadPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
 Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Theatre)
     && controller.TheatreOpen && controller.Busy
@@ -1019,6 +1060,11 @@ Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 0, theatreSearch: "repl
     && controller.Dispatch(RmlUiIntentKind.TheatreEntry, 0)
     && Text(controller.Tick(), "theatre_selected_title") == "Replay 01",
     "native replay search and selection use immutable eight-row result slots");
+var theatreMapView = controller.Tick();
+Check(Text(theatreMapView, "theatre_metadata").EndsWith("MAP // Data Shrine", StringComparison.Ordinal)
+    && Text(theatreMapView, "theatre_hero") == "FULL REPLAY // Data Shrine"
+    && Text(theatreMapView, "theatre_entry0_detail").Contains("Data Shrine", StringComparison.Ordinal),
+    "native Theatre detail, hero and cards show map titles while replay rows retain runtime room keys");
 services.TheatreValidationPending = new(TaskCreationOptions.RunContinuationsAsynchronously);
 Check(controller.Dispatch(RmlUiIntentKind.TheatreAction, 6) && controller.Busy
     && services.TheatreValidations == 1 && services.ReplayLaunches == 0
@@ -1233,7 +1279,7 @@ var lobbyChrome = Wait(controller, snap =>
 Check(Text(lobbyChrome, "lobby_score") == "7 POINT GOAL"
     && Text(lobbyChrome, "lobby_chat_history") == "Pilot: Hello world"
     && Text(lobbyChrome, "lobby_field_caption") == "MAP READY"
-    && Text(lobbyChrome, "lobby_map_preview_status").Contains("SANCTORUS"),
+    && Text(lobbyChrome, "lobby_map_preview_status").Contains("Data Shrine"),
     "native Lobby maps real authoritative match clock, score, map and chat history");
 Check(Flag(lobbyChrome, "slot0_can_team")
     && Text(lobbyChrome, "slot0_team") == "TEAM A"

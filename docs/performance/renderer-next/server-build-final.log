@@ -1,0 +1,16 @@
+  Determining projects to restore...
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Protocol.Generator\MphRead.Protocol.Generator.csproj (in 158 ms).
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj (in 158 ms).
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\NcsfPlay\NcsfPlay.csproj (in 158 ms).
+  NcsfPlay -> C:\Users\Jarrett\AppData\Local\ProjectPrime\renderer-next-20261021\server-final\NcsfPlay.dll
+  MphRead.Protocol.Generator -> C:\Users\Jarrett\AppData\Local\ProjectPrime\renderer-next-20261021\server-final\MphRead.Protocol.Generator.dll
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+  MphRead -> C:\Users\Jarrett\AppData\Local\ProjectPrime\renderer-next-20261021\server-final\ProjectPrimeServer.dll
+
+Build succeeded.
+
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:18.85

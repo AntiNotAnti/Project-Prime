@@ -112,6 +112,7 @@ namespace MphRead
         public float[] MatrixStack { get; }
         public Vector4? OverrideColor { get; set; }
         public bool TexturedPlayerSkin { get; set; }
+        public bool AuthoredNeutralAlbedo { get; set; }
         public Vector4? PlayerOutlineColor { get; set; }
         public Vector4? PaletteOverride { get; set; }
         public Vector3[] Points { get; set; }

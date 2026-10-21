@@ -29,13 +29,13 @@ public static class MapModeCapabilities
         if (mode == GameMode.InstaGib) mode = GameMode.Battle;
         if (!profile.IsValid) { reason = "Invalid multiplayer world profile."; return false; }
         if (!Metadata.RoomMetadata.TryGetValue(roomKey, out var room) || room.EntityPath == null || room.FirstHunt)
-        { reason = $"{roomKey} has no supported multiplayer entity layer."; return false; }
+        { reason = $"{Launcher.LauncherRoomDisplayName.Get(roomKey)} has no supported multiplayer entity layer."; return false; }
         var custom = CustomRooms.Definitions.FirstOrDefault(d => String.Equals(d.Name, roomKey, StringComparison.OrdinalIgnoreCase));
         if (!AllowsLocalSource(custom, allowLocalSource, out reason))
             return false;
         if (Metadata.IsBuiltInRoom(roomKey) && !Mods.ThumbnailGenerator.HasInstalledEntityFile(roomKey))
         {
-            reason = $"{roomKey} is missing extracted arena entity data ({System.IO.Path.GetFileName(room.EntityPath)}). "
+            reason = $"{Launcher.LauncherRoomDisplayName.Get(roomKey)} is missing extracted arena entity data ({System.IO.Path.GetFileName(room.EntityPath)}). "
                 + "Choose an installed arena or repair the game files in Settings.";
             return false;
         }
@@ -53,18 +53,20 @@ public static class MapModeCapabilities
             return SupportsEntities(roomKey, mode, entities, out reason);
         }
         catch (Exception ex) when (ex is System.IO.IOException or ProgramException or KeyNotFoundException)
-        { reason = $"Cannot inspect {roomKey}: {ex.Message}"; return false; }
+        { reason = $"Cannot inspect {Launcher.LauncherRoomDisplayName.Get(roomKey)}: {ex.Message}"; return false; }
     }
 
     public static bool Supports(MapDefinition map, GameMode mode, int players, out string reason)
     {
+        string displayName = String.IsNullOrWhiteSpace(map.InGameName)
+            ? Launcher.LauncherRoomDisplayName.Get(map.Name) : map.InGameName;
         if (mode == GameMode.InstaGib) mode = GameMode.Battle;
         reason = MapModeValidator.WhyUnsupported(map, mode, players) ?? "";
         if (reason.Length != 0) return false;
         if (map.NativeRoom is { PreserveEntities: true } native)
         {
             if (!Metadata.RoomMetadata.TryGetValue(native.Room, out var room) || room.EntityPath == null)
-            { reason = $"{map.Name} has an unknown native source room."; return false; }
+            { reason = $"{displayName} has an unknown native source room."; return false; }
             try
             {
                 var profile = MatchWorldProfile.Resolve(players);
@@ -82,15 +84,15 @@ public static class MapModeCapabilities
                 return SupportsEntities(map.Name, mode, entities, out reason);
             }
             catch (Exception ex) when (ex is System.IO.IOException or ProgramException or KeyNotFoundException)
-            { reason = $"Cannot inspect {map.Name}: {ex.Message}"; return false; }
+            { reason = $"Cannot inspect {displayName}: {ex.Message}"; return false; }
         }
-        if (map.Spawns.Count == 0) { reason = $"{map.Name} has no player spawns."; return false; }
+        if (map.Spawns.Count == 0) { reason = $"{displayName} has no player spawns."; return false; }
         if (mode is GameMode.BattleTeams or GameMode.SurvivalTeams or GameMode.KillConfirmedTeams
             && (!map.Spawns.Any(s => s.Team == 0) || !map.Spawns.Any(s => s.Team == 1)))
-        { reason = $"{map.Name} requires spawns for both teams."; return false; }
+        { reason = $"{displayName} requires spawns for both teams."; return false; }
         if (mode is GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.PrimeHunter or GameMode.OneInTheChamber or GameMode.GunGame or GameMode.KillConfirmed or GameMode.KillConfirmedTeams)
         { reason = ""; return true; }
-        reason = $"{map.Name} does not supply {mode} objective entities.";
+        reason = $"{displayName} does not supply {mode} objective entities.";
         return false;
     }
 
@@ -131,7 +133,7 @@ public static class MapModeCapabilities
         }
         else if (mode is not (GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.PrimeHunter or GameMode.OneInTheChamber or GameMode.GunGame or GameMode.KillConfirmed or GameMode.KillConfirmedTeams))
             missing = "a supported multiplayer mode";
-        reason = missing == null ? "" : $"{name} cannot run {mode}: missing {missing}.";
+        reason = missing == null ? "" : $"{Launcher.LauncherRoomDisplayName.Get(name)} cannot run {mode}: missing {missing}.";
         return missing == null;
     }
 }

@@ -2687,7 +2687,7 @@ namespace MphRead.Entities
                                 {
                                     string nickname = _scene.GameState.Nicknames[SlotIndex];
                                     string message = Strings.GetHudMessage(240); // YOU KILLED A TEAMMATE, (%s)!
-                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
+                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)), styleId: "combat.kill");
                                 }
                             }
                             else
@@ -2698,7 +2698,7 @@ namespace MphRead.Entities
                                     string nickname = _scene.GameState.Nicknames[SlotIndex];
                                     // YOUR HEADSHOT KILLED %s! / YOU KILLED %s!
                                     string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 239 : 238);
-                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
+                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)), styleId: "combat.kill");
                                 }
                                 _scene.GameState.Kills[attacker.SlotIndex]++;
                                 if (attacker.IsBot || Mods.Network.NetAiClient.Drives(attacker))
@@ -2749,7 +2749,7 @@ namespace MphRead.Entities
                                             medals.Add(Mods.Sound.CombatFeedbackAudio.Label(
                                                 lifeStreak).ToUpperInvariant());
                                         }
-                                        attacker.QueueCombatNotifications(medals);
+                                        attacker.QueueCombatNotifications(medals, "combat.kill");
                                     }
                                 }
                                 Mods.Network.CareerMatchStats.NoteKill(attacker);
@@ -2794,7 +2794,7 @@ namespace MphRead.Entities
                                             // streak notification. Route it through the same
                                             // editable lane so combat.notifications movement,
                                             // scale, opacity and visibility remain authoritative.
-                                            attacker.QueueCombatNotifications(new[] { message });
+                                            attacker.QueueCombatNotifications(new[] { message }, "combat.kill");
                                         }
                                         else
                                         {

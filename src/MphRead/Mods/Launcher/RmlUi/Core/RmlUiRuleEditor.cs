@@ -101,10 +101,10 @@ public sealed class RmlUiRuleEditor
         };
     }
 
-    public bool NextMode()
+    public bool NextMode(bool previous = false)
     {
         int current = MatchTypeCatalog.BaseModeIndex(Draft.Match.Mode);
-        MatchTypeDefinition next = MatchTypeCatalog.GameTypes[(current + 1) % MatchTypeCatalog.GameTypes.Length];
+        MatchTypeDefinition next = MatchTypeCatalog.GameTypes[(current + (previous ? MatchTypeCatalog.GameTypes.Length-1 : 1)) % MatchTypeCatalog.GameTypes.Length];
         MatchFormat format = MatchTypeCatalog.NormalizeFormat(next, Draft.Match.Format);
         GameMode mode = next.Resolve(format);
         var match = Draft.Match with
@@ -121,7 +121,7 @@ public sealed class RmlUiRuleEditor
         return true;
     }
 
-    public bool NextFormat()
+    public bool NextFormat(bool previous = false)
     {
         MatchTypeDefinition type = MatchTypeCatalog.GameTypes[
             MatchTypeCatalog.BaseModeIndex(Draft.Match.Mode)];
@@ -130,7 +130,7 @@ public sealed class RmlUiRuleEditor
         for (int i = 1; i < MatchTypeCatalog.Matchups.Length; i++)
         {
             MatchFormat next = MatchTypeCatalog.Matchups[
-                (index + i) % MatchTypeCatalog.Matchups.Length].Format;
+                (index + (previous ? -i : i) + MatchTypeCatalog.Matchups.Length) % MatchTypeCatalog.Matchups.Length].Format;
             if (next == MatchFormat.Custom) continue;
             next = MatchTypeCatalog.NormalizeFormat(type, next);
             GameMode mode = type.Resolve(next);

@@ -302,3 +302,8 @@ min-height: 34dp;
 
 /* A modal needs a full readable scroll area on short framebuffers. */
 @media (max-height: 480dp) { #lobby_rules_modal { top: 0dp; bottom: 0dp; } }
+
+.rules_choice_navigation { display:flex; align-items:stretch; margin-bottom:8dp; }
+.rules_choice_navigation .rules_previous { flex:0 0 32dp; width:32dp; margin-right:4dp; background-color:#14283a; color:#d8f3ff; border:1dp #29485e; font-size:18dp; }
+.rules_choice_navigation .rules_choice { flex:1; min-width:0; width:auto; margin-bottom:0; }
+.rules_choice_navigation .rules_previous:hover, .rules_choice_navigation .rules_previous:focus { border-color:#72c7ff; }

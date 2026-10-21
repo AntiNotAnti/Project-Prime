@@ -1,0 +1,148 @@
+RENDERRESOURCES PASS missing primary monitor fails in managed code before native video-mode query
+RENDERRESOURCES mvid=b76d6b7b-950a-4433-875a-9db909ad9f3f vendor=NVIDIA Corporation renderer=NVIDIA GeForce RTX 5080/PCIe/SSE2 gl=4.6.0 NVIDIA 617.42
+PASS initial bundle drawable
+PASS cel off has one color and one depth owner
+PASS injected failure refuses replacement
+PASS failure retains original owned bundle
+PASS failure retires temporary bundle
+PASS same refused request is bounded
+PASS size/settings transition retries deliberately
+PASS successful replacement retires old names
+[render] cel outline: the depth buffer is 24 bits
+PASS readable depth has no redundant renderbuffer
+PASS cel target allocated on demand
+PASS cel off releases optional storage
+PASS opaque depth fallback restored
+PASS target remains complete after depth transitions
+PASS processed capture descriptor carries actual dimensions
+PASS processed capture includes exact edge pixels
+PASS target and capture transitions have no GL errors
+SCENETARGETS PASS Windows native replacement/failure/cel/depth/capture
+RENDERRESOURCES PASS cel framebuffer allocated
+RENDERRESOURCES PASS synthetic cel attachment complete
+RENDERRESOURCES PASS cel target reused within a scene
+RENDERRESOURCES PASS scene unload deletes cel framebuffer
+RENDERRESOURCES PASS cel handles cleared
+RENDERRESOURCES PASS scene color texture deleted
+RENDERRESOURCES PASS repeated unload is harmless
+RENDERRESOURCES PASS Low shadow targets allocated
+RENDERRESOURCES PASS Low shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS Low shadow off releases attachments
+RENDERRESOURCES PASS Low shadow lifecycle has no GL errors
+RENDERRESOURCES PASS High shadow targets allocated
+RENDERRESOURCES PASS High shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS High shadow off releases attachments
+RENDERRESOURCES PASS High shadow lifecycle has no GL errors
+RENDERRESOURCES PASS Ultra shadow targets allocated
+RENDERRESOURCES PASS Ultra shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS Ultra shadow off releases attachments
+RENDERRESOURCES PASS Ultra shadow lifecycle has no GL errors
+RENDERRESOURCES PASS cel framebuffer allocated
+RENDERRESOURCES PASS synthetic cel attachment complete
+RENDERRESOURCES PASS cel target reused within a scene
+RENDERRESOURCES PASS scene unload deletes cel framebuffer
+RENDERRESOURCES PASS cel handles cleared
+RENDERRESOURCES PASS scene color texture deleted
+RENDERRESOURCES PASS repeated unload is harmless
+RENDERRESOURCES PASS Low shadow targets allocated
+RENDERRESOURCES PASS Low shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS Low shadow off releases attachments
+RENDERRESOURCES PASS Low shadow lifecycle has no GL errors
+RENDERRESOURCES PASS High shadow targets allocated
+RENDERRESOURCES PASS High shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS High shadow off releases attachments
+RENDERRESOURCES PASS High shadow lifecycle has no GL errors
+RENDERRESOURCES PASS Ultra shadow targets allocated
+RENDERRESOURCES PASS Ultra shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS Ultra shadow off releases attachments
+RENDERRESOURCES PASS Ultra shadow lifecycle has no GL errors
+RENDERRESOURCES PASS cel framebuffer allocated
+RENDERRESOURCES PASS synthetic cel attachment complete
+RENDERRESOURCES PASS cel target reused within a scene
+RENDERRESOURCES PASS scene unload deletes cel framebuffer
+RENDERRESOURCES PASS cel handles cleared
+RENDERRESOURCES PASS scene color texture deleted
+RENDERRESOURCES PASS repeated unload is harmless
+RENDERRESOURCES PASS Low shadow targets allocated
+RENDERRESOURCES PASS Low shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS Low shadow off releases attachments
+RENDERRESOURCES PASS Low shadow lifecycle has no GL errors
+RENDERRESOURCES PASS High shadow targets allocated
+RENDERRESOURCES PASS High shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS High shadow off releases attachments
+RENDERRESOURCES PASS High shadow lifecycle has no GL errors
+RENDERRESOURCES PASS Ultra shadow targets allocated
+RENDERRESOURCES PASS Ultra shadow dimensions and framebuffer complete
+RENDERRESOURCES PASS Ultra shadow off releases attachments
+RENDERRESOURCES PASS Ultra shadow lifecycle has no GL errors
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] map.json FP-MESH-001: Collision mesh has 4 open boundary edges.
+[world-shaders] variant=native elapsedMs=1.183
+[world-shaders] variant=plain elapsedMs=0.784
+[world-shaders] variant=plain-unlit elapsedMs=0.541
+[world-shaders] variant=native elapsedMs=0.236
+[world-shaders] variant=plain elapsedMs=0.667
+[world-shaders] variant=plain-unlit elapsedMs=0.626
+[world-shaders] variant=native elapsedMs=0.222
+[world-shaders] variant=plain elapsedMs=0.623
+[world-shaders] variant=plain-unlit elapsedMs=0.424
+[world-shaders] variant=native elapsedMs=0.830
+[world-shaders] variant=plain elapsedMs=0.490
+[world-shaders] variant=plain-unlit elapsedMs=0.450
+[world-shaders] variant=native elapsedMs=0.825
+[world-shaders] variant=plain elapsedMs=0.521
+[world-shaders] variant=native elapsedMs=0.318
+[world-shaders] variant=plain elapsedMs=0.487
+[world-shaders] variant=plain-unlit elapsedMs=0.440
+[world-shaders] variant=native elapsedMs=0.217
+[world-shaders] variant=plain elapsedMs=0.441
+[world-shaders] variant=plain-unlit elapsedMs=0.333
+[world-shaders] variant=native elapsedMs=0.774
+[world-shaders] variant=plain elapsedMs=0.499
+[world-shaders] variant=plain-unlit elapsedMs=0.354
+[world-shaders] variant=native elapsedMs=0.710
+[world-shaders] variant=plain elapsedMs=0.436
+[world-shaders] variant=native elapsedMs=0.885
+[world-shaders] variant=plain elapsedMs=0.535
+[world-shaders] variant=plain-unlit elapsedMs=0.613
+[world-shaders] variant=native elapsedMs=0.716
+[world-shaders] variant=plain elapsedMs=0.488
+[world-shaders] variant=plain-unlit elapsedMs=0.413
+[world-shaders] variant=native elapsedMs=0.789
+[world-shaders] variant=plain elapsedMs=0.484
+[world-shaders] variant=plain-unlit elapsedMs=0.539
+[world-shaders] variant=native elapsedMs=0.630
+[world-shaders] variant=plain elapsedMs=0.382
+[world-shaders] variant=plain-unlit elapsedMs=0.543
+[world-shaders] variant=native elapsedMs=1.482
+[world-shaders] variant=plain elapsedMs=1.886
+[world-shaders] variant=plain-unlit elapsedMs=0.653
+[world-shaders] variant=native elapsedMs=0.765
+[world-shaders] variant=plain elapsedMs=0.531
+[world-shaders] variant=plain-unlit elapsedMs=0.412
+SHADEROWNERSHIP AUX field=_graphicsProgram cycle=0 recognized=True independentBinding=True released=True fieldAfter=0 recognizedAfter=False currentAfter=0 deletePending=0 glClean=True
+[world-shaders] variant=native elapsedMs=0.745
+[world-shaders] variant=plain elapsedMs=0.464
+[world-shaders] variant=plain-unlit elapsedMs=0.483
+[world-shaders] variant=native elapsedMs=1.022
+[world-shaders] variant=plain elapsedMs=0.526
+[world-shaders] variant=plain-unlit elapsedMs=0.582
+SHADEROWNERSHIP AUX field=_graphicsProgram cycle=1 recognized=True independentBinding=True released=True fieldAfter=0 recognizedAfter=False currentAfter=0 deletePending=0 glClean=True
+[world-shaders] variant=native elapsedMs=0.669
+[world-shaders] variant=plain elapsedMs=0.576
+[world-shaders] variant=plain-unlit elapsedMs=0.517
+[world-shaders] variant=native elapsedMs=0.751
+[world-shaders] variant=plain elapsedMs=0.728
+[world-shaders] variant=plain-unlit elapsedMs=0.525
+SHADEROWNERSHIP AUX field=_playerOutlineProgram cycle=0 recognized=True independentBinding=True released=True fieldAfter=0 recognizedAfter=False currentAfter=0 deletePending=0 glClean=True
+[world-shaders] variant=native elapsedMs=0.687
+[world-shaders] variant=plain elapsedMs=0.411
+[world-shaders] variant=plain-unlit elapsedMs=0.522
+[world-shaders] variant=native elapsedMs=0.655
+[world-shaders] variant=plain elapsedMs=0.404
+[world-shaders] variant=plain-unlit elapsedMs=0.388
+SHADEROWNERSHIP AUX field=_playerOutlineProgram cycle=1 recognized=True independentBinding=True released=True fieldAfter=0 recognizedAfter=False currentAfter=0 deletePending=0 glClean=True
+SHADEROWNERSHIP recoveryFrames=2 colorSha256=085C37F72243AED3A5DF919D8FBC382D3F826D9F40C1019D06C3B3CAB27FC16F depthSha256=FA89F2868F2263063F4E5783D6B875EF8A9BCEB415D12987C39084F395677950
+SHADEROWNERSHIP cycles=2 scenarios=28 failures=0
+RENDERRESOURCES failures=0

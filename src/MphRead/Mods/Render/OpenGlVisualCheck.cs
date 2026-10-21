@@ -894,6 +894,7 @@ internal static partial class OpenGlVisualCheck
             CheckDepthReplaySnapshot();
             Require(GraphicsApi.GetError() == ErrorCode.NoError, "snapshot cleanup generates no GL errors");
             CheckUnlitLightingOmission();
+            CheckModernMaterialCorrections(output);
             CheckProceduralStream();
             CheckDepthVertexSpecialization();
             CheckDisplayListAttributeMetadata();

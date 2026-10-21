@@ -14,8 +14,8 @@ internal static class PreferenceText
 {
     private static readonly HashSet<string> LauncherBool = Words("bright_skins host_on_master list_hosted window_maximized auto_update debug_logs reduce_motion original_campaign_credits combat_notifications_visible replay_auto_prune replay_delete_clips spectator_name_tags kill_cam final_kill_cam");
     private static readonly HashSet<string> LauncherInt = Words("prefs_schema player_outline_width master_port server_port last_role color bots bot_level host_port lobby_time_limit_seconds lobby_goal replay_storage_gb kill_cam_camera last_kind");
-    private static readonly HashSet<string> ControlBool = Words("invert_y invert_x mouse_movement_boost mouse_alt_form_movement stylus_movement_boost pointer_jump_guard custom_scope_hold stylus_mode stylus_zone stylus_native_ui scroll_all_weapons gamepad_invert_y");
-    private static readonly HashSet<string> ControlFloat = Words("sensitivity custom_scope_25_sensitivity custom_scope_4_sensitivity imperialist_zoom_sensitivity imperialist_zoom_amount alt_swipe_sensitivity stylus_native_ui_opacity stylus_zone_opacity stylus_zone_outline_opacity stylus_zone_button_opacity stylus_cursor_opacity gamepad_deadzone gamepad_look");
+    private static readonly HashSet<string> ControlBool = Words("invert_y invert_x mouse_movement_boost mouse_alt_form_movement stylus_movement_boost pointer_jump_guard custom_scope_hold stylus_mode stylus_zone stylus_native_ui ds_layout scroll_all_weapons gamepad_invert_y");
+    private static readonly HashSet<string> ControlFloat = Words("sensitivity horizontal_sensitivity vertical_sensitivity custom_scope_25_sensitivity custom_scope_4_sensitivity imperialist_zoom_sensitivity imperialist_zoom_amount alt_swipe_sensitivity stylus_native_ui_opacity stylus_zone_opacity stylus_zone_outline_opacity stylus_zone_button_opacity stylus_cursor_opacity ds_radar_size ds_radar_x ds_radar_y stylus_select_size gamepad_deadzone gamepad_look");
     private static readonly HashSet<string> ReplayKeys = Words("replay_play_pause replay_step_back replay_step_forward replay_seek_back replay_seek_forward replay_slower replay_faster replay_restart replay_camera_track replay_constant_speed replay_interpolation replay_easing");
     private static readonly Dictionary<string, string> PadOptions = DefaultPadOptions();
     private static HashSet<string> Words(string text) => new(text.Split(' '), StringComparer.Ordinal);
@@ -60,6 +60,7 @@ internal static class PreferenceText
             {
                 "combat_feedback_volume" => Number(value),
                 "bright_skin_style" => Defined<PlayerSkinStyle>(value, true),
+                "player_outline_colors" => Mods.Render.OutlineColorPalette.TryParse(value, out _),
                 "player_outline" => Defined<PlayerOutlineStyle>(value, true),
                 "hunter" => Defined<Hunter>(value, true),
                 "lobby_mode" => Defined<GameMode>(value, true),
@@ -71,6 +72,7 @@ internal static class PreferenceText
         }
         if (ControlBool.Contains(key)) return bool.TryParse(value, out _);
         if (ControlFloat.Contains(key)) return Number(value);
+        if (key == "ds_screen_aspect") return value is "4:3" or "5:3";
         if (key is "clip_postroll" or "clip_seconds") return Integer(value);
         if (key is "clip_key" or "chat_key" || ReplayKeys.Contains(key))
             return value.Equals("none", StringComparison.OrdinalIgnoreCase) || Defined<Keys>(value);

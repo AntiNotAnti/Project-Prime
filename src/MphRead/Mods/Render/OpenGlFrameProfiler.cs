@@ -43,25 +43,52 @@ internal static class OpenGlFrameProfiler
     private static int _gen0, _gen1, _gen2, _simulationSteps, _captureCap;
     private static bool _captureFrameActive;
     private static long _captureGeneration;
-    private static bool _captureFocused;
+    private static bool _captureFocused, _capturePaused;
+    private static long _frameStalls, _frameDrops, _callbackStart, _waitStart;
+    private static double _providerWaitMs;
+    private static bool _captureInitialized;
+    private static bool _callbackActive, _callbackGameplay;
     internal static bool Capturing => _capture != null;
     internal static bool Enabled => _enabled || Capturing;
     private static int CaptureCapacity() => int.TryParse(Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_FRAME_CAPACITY"), out int n)
         ? Math.Clamp(n, 1, OpenGlFrameCapture.MaximumCapacity) : OpenGlFrameCapture.DefaultCapacity;
 
-    internal static void BeginFrame(MphRead.Scene scene, bool focused)
+    internal static void BeginFrame(MphRead.Scene scene, bool focused, bool paused = false)
     {
         if (_capture == null) return;
-        if (_captureGeneration != FrameTiming.PresentationGeneration || _captureFocused != focused
-            || _captureCap != FrameTiming.FrameRateCap) CancelFrame();
+        _callbackGameplay = true;
+        if (_captureInitialized && _captureGeneration != FrameTiming.PresentationGeneration)
+            CancelFrame("presentation-reset-before-frame");
+        if (_captureInitialized && (_captureFocused != focused || _captureCap != FrameTiming.FrameRateCap || _capturePaused != paused))
+            CancelFrame(_captureFocused != focused ? "focus-transition" : _capturePaused != paused ? "pause-transition" : "cap-transition");
+        _captureInitialized = true;
         _captureGeneration = FrameTiming.PresentationGeneration;
         _captureFocused = focused;
+        _capturePaused = paused;
         _captureCap = FrameTiming.FrameRateCap;
-        if (!focused || scene.FrameCount < 240) { CancelFrame(); return; }
+        if (!focused || scene.FrameCount < 240) { _captureFrameActive = false; return; }
+        if (!_callbackActive) _callbackStart = Stopwatch.GetTimestamp();
+        _providerWaitMs = 0;
+        _frameStalls = FrameTiming.Stalls; _frameDrops = FrameTiming.DroppedSteps;
         _allocatedStart = GC.GetAllocatedBytesForCurrentThread();
         _gen0 = GC.CollectionCount(0); _gen1 = GC.CollectionCount(1); _gen2 = GC.CollectionCount(2);
         _simulationMs = 0; _simulationSteps = 0; _pollMs = 0; _inputStart = 0;
         _captureFrameActive = true;
+    }
+    internal static void BeginWait() { if (_captureFrameActive) _waitStart = Stopwatch.GetTimestamp(); }
+    internal static void EndWait() { if (_captureFrameActive) _providerWaitMs += ElapsedMs(_waitStart, Stopwatch.GetTimestamp()); }
+    internal static void PresentFailed() => CancelFrame("present-failed");
+    internal static void BeginCallback()
+    {
+        if (_capture == null) return;
+        _callbackActive = true; _callbackGameplay = false;
+        _callbackStart = Stopwatch.GetTimestamp();
+    }
+    internal static void EndCallback()
+    {
+        if (!_callbackActive) return;
+        _capture?.CompleteCallback(_callbackStart, ElapsedMs(_callbackStart, Stopwatch.GetTimestamp()), _callbackGameplay);
+        _callbackActive = false;
     }
     internal static void BeginInputPoll()
     {
@@ -85,6 +112,7 @@ internal static class OpenGlFrameProfiler
     internal static void StopCapture(string reason)
     {
         var capture = _capture;
+        capture?.Boundary(Stopwatch.GetTimestamp(), "capture-stop:" + reason, _captureGeneration, FrameTiming.PresentationGeneration);
         _capture = null; _captureFrameActive = false;
         if (capture == null) return;
         // EndScene/OnUnload is outside the measured loop. Never overwrite a receipt.
@@ -109,7 +137,7 @@ internal static class OpenGlFrameProfiler
     internal static void BeginRender(MphRead.Scene scene, string vsync = "unknown")
     {
         if (!Enabled) return;
-        if (_previousScene != null && (!_previousScene.TryGetTarget(out var priorScene) || !ReferenceEquals(priorScene, scene))) CancelFrame();
+        if (_previousScene != null && (!_previousScene.TryGetTarget(out var priorScene) || !ReferenceEquals(priorScene, scene))) CancelFrame("scene-transition");
         if (_previousScene == null) _previousScene = new(scene);
         else _previousScene.SetTarget(scene);
         _measuredScene = scene;
@@ -152,8 +180,9 @@ internal static class OpenGlFrameProfiler
         _presentActive = false;
     }
 
-    internal static void CancelFrame()
+    internal static void CancelFrame(string reason = "lifecycle-cancel")
     {
+        _capture?.Boundary(Stopwatch.GetTimestamp(), reason, _captureGeneration, FrameTiming.PresentationGeneration);
         _capture?.Cancel();
         _captureFrameActive = false;
         _renderActive = false;
@@ -188,15 +217,17 @@ internal static class OpenGlFrameProfiler
         _presentActive = false;
         if (end <= _presentStart || (_previousPresentEnd != 0 && end <= _previousPresentEnd))
         { CancelFrame(); return; }
-        if (_capture != null && _captureFrameActive && _previousPresentEnd != 0
-            && _captureGeneration == FrameTiming.PresentationGeneration)
+        if (_capture != null && _captureFrameActive && _previousPresentEnd != 0)
         {
             double interval = ElapsedMs(_previousPresentEnd, end);
             double swap = ElapsedMs(_presentStart, end);
             double Pass(OpenGlCpuPass pass) => OpenGlPassProfiler.FrameMilliseconds(pass);
             double ui = Pass(OpenGlCpuPass.Ui), upload = Pass(OpenGlCpuPass.TextureUpload);
             int gc0 = GC.CollectionCount(0) - _gen0, gc1 = GC.CollectionCount(1) - _gen1, gc2 = GC.CollectionCount(2) - _gen2;
-            var sample = new OpenGlFrameSample(end, _capture.Segment, _captureGeneration,
+            long generationAfter = FrameTiming.PresentationGeneration;
+            long stalls = Math.Max(0, FrameTiming.Stalls - _frameStalls);
+            long drops = Math.Max(0, FrameTiming.DroppedSteps - _frameDrops);
+            var sample = new OpenGlFrameSample(end, _capture.Segment, generationAfter,
                 _measuredScene?.FrameCount ?? 0, interval, _simulationMs, _pollMs, _renderElapsed,
                 ui, swap, Math.Max(0, interval - _simulationMs - _renderElapsed - swap),
                 _inputStart > 0 ? ElapsedMs(_inputStart, end) : null,
@@ -208,9 +239,20 @@ internal static class OpenGlFrameProfiler
                 OpenGlPassProfiler.FrameCounter(OpenGlFrameCounter.BufferOrphans),
                 Math.Max(0, GC.GetAllocatedBytesForCurrentThread() - _allocatedStart), gc0, gc1, gc2,
                 _simulationSteps, FrameTiming.DroppedSteps, FrameTiming.FrameRateCap, _vsync,
-                OpenGlFrameCapture.Attribute(interval, _simulationMs, _renderElapsed, ui, swap, upload, gc0 + gc1 + gc2 > 0));
+                OpenGlFrameCapture.Attribute(interval, _simulationMs, _renderElapsed, ui, swap, upload, gc0 + gc1 + gc2 > 0))
+            {
+                IntervalStartTimestamp = _previousPresentEnd,
+                PresentationGenerationBefore = _captureGeneration,
+                StallsThisFrame = stalls, DroppedStepsThisFrame = drops,
+                BoundaryReason = stalls > 0 ? "timing-stall" : drops > 0 ? "catch-up-overflow"
+                    : generationAfter != _captureGeneration ? "presentation-reset" : "none",
+                CallbackToPresentMs = ElapsedMs(_callbackStart, end), ProviderWaitMs = _providerWaitMs,
+                CallbackStartTimestamp = _callbackStart
+            };
             _capture.Add(in sample);
         }
+        else if (_capture != null && _captureFrameActive)
+            _capture.Boundary(end, "first-present", _captureGeneration, FrameTiming.PresentationGeneration);
         if (_enabled && _capture == null && _previousPresentEnd != 0)
         {
             // Sample interval includes scheduled frame pacing, simulation,
@@ -295,9 +337,10 @@ internal static class OpenGlFrameProfiler
         }
         if (_previousPresentEnd != 0) OpenGlPassProfiler.EndFrame();
         else OpenGlPassProfiler.CancelFrame();
+        _previousPresentEnd = _capture != null && !_captureFrameActive ? 0 : end;
+        _captureGeneration = FrameTiming.PresentationGeneration;
         _captureFrameActive = false;
         _renderComplete = false;
-        _previousPresentEnd = end;
         // Profiler must not extend the lifetime of a scene after returning
         // to launcher/Studio or switching maps.
         _measuredScene = null;

@@ -39,12 +39,12 @@ internal sealed partial class NativeFullSettingsController
         if(action==23){if(Confirmation.Length==0)return false;if(_confirmationAction==25)return ConfirmBindingSwap();action=_confirmationAction;Confirmation="";confirmed=true;}
         else if(action is 7 or 8)
         {
-            if(Dirty){Status="Apply or discard changes before replacing saved settings.";return true;}
+            if(!ReadyForOperation("Apply or discard changes before replacing saved settings."))return true;
             _confirmationAction=action;
             Confirmation=action==7?"Import this settings archive? Saved preferences and controls in the archive will be replaced. Restart is required.":"Reset saved preferences, controls, controller profiles and HUD profiles? Your accounts, saves, game files and content are kept. Restart is required.";
             return true;
         }
-        if(action is 6 or 7 or 8 or >=16 and <=22 && Dirty){Status="Apply or discard changes before this operation.";return true;}
+        if(action is 6 or 7 or 8 or >=16 and <=22)if(!ReadyForOperation("Apply or discard changes before this operation."))return true;
         try
         {
             switch(action)
@@ -63,7 +63,7 @@ internal sealed partial class NativeFullSettingsController
                         var property=typeof(MenuSettings).GetProperties().FirstOrDefault(p=>System.Text.RegularExpressions.Regex.Replace(p.Name,"(?<=[a-z])([A-Z])"," $1")==row.Label);
                         if(property!=null)row.Value=(string)property.GetValue(new MenuSettings())!;
                     }
-                    Status="Performance defaults staged. Apply Changes to save.";break;
+                    MarkAutoApplyEdited();Status=AutoApply?"Saving performance defaults…":"Performance defaults staged. Apply Changes to save.";break;
                 case 14: _operation=PerformanceDiagnostic();Status="Running performance diagnostic…";break;
                 case 16: Input.GamepadProfiles.Save(ProfileName);Status=Input.GamepadProfiles.Status;break;
                 case 17: Input.GamepadProfiles.Load(ProfileName);Status="Controller profile loaded. Reopen Settings to edit the new active profile.";RebaseControls();break;

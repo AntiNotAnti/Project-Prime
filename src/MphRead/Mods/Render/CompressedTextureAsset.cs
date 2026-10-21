@@ -1,4 +1,3 @@
-#if ANDROID
 using System;
 
 namespace MphRead.Mods.Render;
@@ -15,8 +14,9 @@ internal sealed class CompressedTextureAsset : PreparedTextureAsset
         : base(key, assetClass, channel, mips.Length == 0 ? 0 : mips[0].Width,
             mips.Length == 0 ? 0 : mips[0].Height)
     {
-        if (format is not (GpuTextureCompressionFormat.Etc2Rgba8 or GpuTextureCompressionFormat.Astc4x4Rgba)
-            || mips.Length == 0 || Width <= 0 || Height <= 0)
+        if (format is not (GpuTextureCompressionFormat.Bc7Rgba or GpuTextureCompressionFormat.Etc2Rgba8 or GpuTextureCompressionFormat.Astc4x4Rgba)
+            || mips.Length == 0 || Width <= 0 || Height <= 0
+            || mips.Length > GpuCompressedTextureMath.MipLevelCount(Width, Height))
             throw new ArgumentException("Invalid compressed texture asset.", nameof(mips));
         for (int i = 0; i < mips.Length; i++)
         {
@@ -30,8 +30,9 @@ internal sealed class CompressedTextureAsset : PreparedTextureAsset
         Mips = mips;
     }
 
-    public override bool MipmapsAvailable => Mips.Length > 1
-        && Mips[^1].Width == 1 && Mips[^1].Height == 1;
+    public override bool MipmapsAvailable => Mips.Length == GpuCompressedTextureMath.MipLevelCount(Width, Height);
+    public override bool CanGenerateMipmaps => false;
+    public override int ResidentMipLevels => Mips.Length;
 
     // Every mip is uploaded, even if the sampler is set to a non-mipmap filter.
     public override long EstimateGpuBytes(bool mipmaps)
@@ -42,4 +43,3 @@ internal sealed class CompressedTextureAsset : PreparedTextureAsset
         return result;
     }
 }
-#endif

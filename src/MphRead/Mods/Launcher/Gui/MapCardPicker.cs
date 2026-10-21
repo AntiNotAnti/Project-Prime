@@ -17,12 +17,9 @@ namespace MphRead.Mods.Launcher.Gui
     {
         public static DeckTile Create(string room)
         {
-            string code = room.Split(' ', StringSplitOptions.RemoveEmptyEntries)
-                is { Length: > 0 } parts ? parts[0] : room;
-            (RoomMetadata? meta, _) = Metadata.GetRoomByName(room);
-            return new DeckTile(room, code)
+            return new DeckTile(room, "")
             {
-                Blurb = meta?.InGameName ?? room, Tactical = true, Verb = "SELECT", ChosenVerb = "SELECTED"
+                Blurb = LauncherRoomDisplayName.Get(room), Tactical = true, Verb = "SELECT", ChosenVerb = "SELECTED"
             };
         }
     }
@@ -236,10 +233,11 @@ namespace MphRead.Mods.Launcher.Gui
             _use.IsEnabled = !_installing && !String.IsNullOrWhiteSpace(_selected) && reason == null;
             _note.Text = String.IsNullOrWhiteSpace(_selected)
                 ? "Choose a map."
-                : $"Selected: {Metadata.GetRoomByName(_selected).Item1?.InGameName ?? _selected}";
+                : $"Selected: {LauncherRoomDisplayName.Get(_selected)}";
             if (reason != null) _note.Text = reason;
             _note.Foreground = reason == null ? GuiTheme.TextDimBrush : GuiTheme.WarmBrush;
-            _name.Text = String.IsNullOrWhiteSpace(_selected) ? "SELECT AN ARENA" : MapPick.NameOf(_selected).ToUpperInvariant();
+            _name.Text = String.IsNullOrWhiteSpace(_selected)
+                ? "SELECT AN ARENA" : LauncherRoomDisplayName.Get(_selected).ToUpperInvariant();
             _preview.Source = MapShot.For(_selected);
         }
     }

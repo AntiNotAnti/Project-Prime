@@ -271,7 +271,6 @@ namespace MphRead.Entities
                     Material material = template.Material;
                     if (!template.Mesh.Visible
                         || material.RenderMode == RenderMode.Decal
-                        || material.RenderMode == RenderMode.Translucent
                         || material.CurrentAlpha < .999f)
                         continue;
                     Matrix4 texcoordMatrix = GetTexcoordMatrix(instance,

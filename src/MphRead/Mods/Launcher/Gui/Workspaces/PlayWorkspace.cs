@@ -617,10 +617,7 @@ namespace MphRead.Mods.Launcher.Gui
             _selectedEndpoint = entry.Endpoint; RefreshFavorite();
             _address.Value = entry.Endpoint;
             string room = entry.Status.RoomKey;
-            string mapName = Metadata.RoomMetadata.TryGetValue(room, out RoomMetadata? meta)
-                && !String.IsNullOrWhiteSpace(meta.InGameName)
-                    ? meta.InGameName!
-                    : room;
+            string mapName = LauncherRoomDisplayName.Get(room);
             string players = entry.Status.MaxPlayers > 0
                 ? $"{entry.Status.Players}/{entry.Status.MaxPlayers}"
                 : entry.Status.Players.ToString();

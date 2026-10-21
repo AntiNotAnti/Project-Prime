@@ -42,6 +42,7 @@ namespace MphRead.Mods
         /// </summary>
         public static bool HandleEscape(NativeWindow window)
         {
+            if (SettingsPreview.Active) { SettingsPreview.End(); return true; }
             if (KillCam.RequestSkip()) return true;
 #if MPHREAD_AVALONIA
             if (!Launcher.Gui.GuiLauncher.EnsureSetup())
@@ -66,6 +67,7 @@ namespace MphRead.Mods
         /// <summary>Called once a frame by the game window.</summary>
         public static void Poll(GameWindow window)
         {
+            SettingsPreview.Tick();
             // Nothing to pump here any more. The menu is a screen in this
             // window rather than a window of its own, and the toolkit is given
             // its slice of the frame by Shell.TickUi, on the way to drawing

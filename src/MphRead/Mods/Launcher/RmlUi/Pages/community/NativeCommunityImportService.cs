@@ -3,6 +3,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.MapGen;
 
 namespace MphRead.Mods.Launcher.RmlUi.Pages.Community;
@@ -40,12 +41,15 @@ internal sealed class NativeCommunityImportService : INativeCommunityImportAutho
         {
             token.ThrowIfCancellationRequested(); MapRuntimeUsage.RequireInstallationAllowed();
             MapContentIdentity identity = MapContentIdentity.FromPackage(path);
+            MapDefinition title = MapDefinition.LoadCatalog(path);
+            string displayName = String.IsNullOrWhiteSpace(title.InGameName)
+                ? LauncherRoomDisplayName.Get(identity.RoomKey) : title.InGameName;
             // The existing installer snapshots caller-owned bytes and builds privately.
             // Confirmation publishes that exact snapshot, even if the caller edits the original.
             prepared = await MapPackageInstaller.PrepareAsync(path, identity, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             if (!IsCurrentContext(current)) throw new InvalidOperationException("Game files changed.");
-            var result = new Prepared(this, current, files, prepared);
+            var result = new Prepared(this, current, files, prepared, displayName);
             files = null; prepared = null; return result;
         }
         finally { prepared?.Dispose(); files?.Dispose(); }
@@ -57,13 +61,16 @@ internal sealed class NativeCommunityImportService : INativeCommunityImportAutho
         private readonly Context _context;
         private readonly IDisposable _files;
         private readonly PreparedMapInstallation _installation;
+        private readonly string _displayName;
         private bool _disposed, _committed;
-        public string Name => _installation.Identity.RoomKey;
+        public string Name => _displayName;
         public string Version => "";
         public string PackageHash => _installation.Identity.PackageHash.ToString();
         public bool IsCurrent => !_disposed && !_committed && _owner.IsCurrentContext(_context);
-        internal Prepared(NativeCommunityImportService owner, Context context, IDisposable files, PreparedMapInstallation installation)
-            => (_owner, _context, _files, _installation) = (owner, context, files, installation);
+        internal Prepared(NativeCommunityImportService owner, Context context, IDisposable files,
+            PreparedMapInstallation installation, string displayName)
+            => (_owner, _context, _files, _installation, _displayName)
+                = (owner, context, files, installation, displayName);
         public void Commit()
         {
             if (!IsCurrent) throw new InvalidOperationException("Import context changed.");

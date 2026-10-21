@@ -1,0 +1,58 @@
+{
+  "mvid": "220155ea-3f7c-4165-8228-82715dbdf68e",
+  "evidenceDirectory": "C:\\Users\\Jarrett\\AppData\\Local\\ProjectPrime\\renderer-next-20261021\\shadow-receiver-images",
+  "files": [
+    {
+      "name": "cutout.png",
+      "sha256": "dd55e0b2af640dc06db5970d79184afa315f48aff8fc4d2d27eea1e8065244b9",
+      "bytes": 159
+    },
+    {
+      "name": "decal.png",
+      "sha256": "1fcb72d8de0089f82a66c665520798b3c694db71840d443c3f846fcc33958db4",
+      "bytes": 114
+    },
+    {
+      "name": "effect.png",
+      "sha256": "1fcb72d8de0089f82a66c665520798b3c694db71840d443c3f846fcc33958db4",
+      "bytes": 114
+    },
+    {
+      "name": "emissive-shadow.png",
+      "sha256": "d5a5c3c825ea42559e069d092351916078eabbbb50e48756dcd81d68c6cd6268",
+      "bytes": 153
+    },
+    {
+      "name": "opaque-shadow.png",
+      "sha256": "ab4bf301db116db00cdafbc4e9f3ab12c08f33dec6f5fc06ccebbfc9b60d60cf",
+      "bytes": 153
+    },
+    {
+      "name": "original.png",
+      "sha256": "1fcb72d8de0089f82a66c665520798b3c694db71840d443c3f846fcc33958db4",
+      "bytes": 114
+    },
+    {
+      "name": "outline.png",
+      "sha256": "495acd3b6b1909c41b66a11ac4c6f322462364732590d7712b7c677404101d52",
+      "bytes": 115
+    },
+    {
+      "name": "receipt.json",
+      "sha256": "2dcc6d9e494a1a8efe2cdd9ecf4c3c97d8208192a01e1c4213fe7975325389af",
+      "bytes": 382
+    },
+    {
+      "name": "transparency.png",
+      "sha256": "dd509819f51abdf250b7e85a74bd7fbe3494def4864fe6057950e83bc2924290",
+      "bytes": 114
+    },
+    {
+      "name": "viewmodel.png",
+      "sha256": "1fcb72d8de0089f82a66c665520798b3c694db71840d443c3f846fcc33958db4",
+      "bytes": 114
+    }
+  ],
+  "scope": "synthetic-material-receivers",
+  "schema": 1
+}

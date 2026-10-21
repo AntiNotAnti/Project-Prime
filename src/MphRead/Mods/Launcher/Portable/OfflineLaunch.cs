@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using MphRead.Entities;
 using MphRead.Mods.CustomWeapons;
 using MphRead.Mods.Network;
@@ -40,8 +41,12 @@ namespace MphRead.Mods.Launcher
         // and match modifier rules.
         public static LaunchPlan Preview(MenuSettings settings, string roomKey,
             GameMode mode, Hunter hunter, int suit, int bots, int botLevel,
-            OfflineCharacterMode character = OfflineCharacterMode.Native)
+            OfflineCharacterMode character = OfflineCharacterMode.Native,
+            ImmutableArray<OfflineBotSettings> botRoster = default, int localTeam = 0)
         {
+            if (!OfflineBotSettings.Validate(botRoster, bots, settings.LowTier == "on")
+                || localTeam is < 0 or > 1)
+                throw new ArgumentException("Select valid bot Hunters, suits, skills, teams and damage reduction.");
             if ((character is OfflineCharacterMode.TrooperScoutDroneCombatPractice or OfflineCharacterMode.TrooperArsenalPractice)
                 && (hunter != Hunter.Weavel || suit is < 0 or > 3 || bots is < 0 or > 7 || botLevel is < 0 or > 3))
                 throw new ArgumentException(character == OfflineCharacterMode.TrooperArsenalPractice
@@ -77,7 +82,9 @@ namespace MphRead.Mods.Launcher
                 RoomKey = roomKey,
                 Mode = mode == GameMode.InstaGib ? GameMode.Battle : mode,
                 Bots = Math.Clamp(bots, 0, PlayerEntity.SlotCapacity - 1),
-                BotLevel = Math.Clamp(botLevel, 0, 3)
+                BotLevel = Math.Clamp(botLevel, 0, 3),
+                BotRoster = botRoster,
+                LocalTeam = localTeam
             };
             if (mode != GameMode.SinglePlayer
                 && !Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out string reason))
@@ -101,11 +108,12 @@ namespace MphRead.Mods.Launcher
 
         public static LaunchPlan Create(MenuSettings settings, string roomKey,
             GameMode mode, Hunter hunter, int suit, int bots, int botLevel,
-            OfflineCharacterMode character = OfflineCharacterMode.Native)
+            OfflineCharacterMode character = OfflineCharacterMode.Native,
+            ImmutableArray<OfflineBotSettings> botRoster = default, int localTeam = 0)
         {
             // Revalidate before persistence, including legacy callers. Public
             // UI owners catch refused previews and report the admission reason.
-            LaunchPlan plan = Preview(settings, roomKey, mode, hunter, suit, bots, botLevel, character);
+            LaunchPlan plan = Preview(settings, roomKey, mode, hunter, suit, bots, botLevel, character, botRoster, localTeam);
             settings.RoomKey = roomKey;
             LauncherPrefs.LastHunter = hunter;
             LauncherPrefs.LastColor = Math.Clamp(suit, 0, 3);

@@ -1,0 +1,15 @@
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\Mods\Network\NetLobbyTest.CustomWeaponReadiness.cs(37,23): warning CS0649: Field 'NetLobbyTest.CustomReadinessProbe.DiscardPickupAcks' is never assigned to, and will always have its default value false [C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead\MphRead.csproj]
+PASS compressed mip residency regression (ETC2/ASTC, base/partial/complete/1x1/NPOT/toggle/malformed)
+NOT_RUN linked-image fixture: Windows symbolic-link privilege unavailable
+Materials: Starter destination already exists.
+NOT_RUN linked-directory fixture: Windows symbolic-link privilege unavailable
+Usage: -materials inspect|validate <pack> | inventory <output.json> | starter <inventory.json> <pack-or-manifest>
+PASS Windows native authored RGBA mip content
+Material GPU checks PASS: 12 cycles + allocation fault, 38 allocations / 38 releases, success and failed uploads
+[world-shaders] variant=native elapsedMs=47.439
+[world-shaders] variant=plain elapsedMs=37.107
+[world-shaders] variant=plain-unlit elapsedMs=25.369
+Material provenance GPU checks PASS: shared original binding, reload creates independent red/original authored textures
+Source bank GPU checks PASS: two independent exact RGBA images, queued decode, supersession, captured generation, quality refresh and replacement toggles
+Material editor GPU checks PASS: four lit material refreshes preserve one mesh; teardown releases all map textures
+Material pack checks PASS (56 assertions)

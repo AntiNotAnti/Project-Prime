@@ -20,6 +20,9 @@ namespace MphRead.Mods.Input
         public static PointerSample Current { get; private set; }
         public static bool Active { get; private set; }
         public static bool PrimaryDown { get; private set; }
+        // Gameplay contact, independently of the fire binding. UI-owned touches
+        // and quarantined contacts must never start camera follow.
+        public static bool AimContact { get; private set; }
         public static int SurfaceWidth { get; private set; } = 1;
         public static int SurfaceHeight { get; private set; } = 1;
         private static bool _acceptingInput;
@@ -52,6 +55,7 @@ namespace MphRead.Mods.Input
             PointerSample previous = Current;
             Current = sample;
             StylusZone.AspectCorrection = width / (float)Math.Max(height, 1);
+            DsLayout.UpdateInputBounds(width, height);
             bool identityChanged = sample.Device != previous.Device || sample.Id != previous.Id;
             bool hadPendingRelease = _stylusReleasePending;
             bool rawContact = Active && acceptsInput && sample.InContact;
@@ -146,6 +150,8 @@ namespace MphRead.Mods.Input
             }
             StylusZone.Update(sample.X / Math.Max(width, 1), sample.Y / Math.Max(height, 1),
                 effectiveContact);
+            AimContact = effectiveContact && sample.InContact && !StylusZone.Placing
+                && (!StylusZone.Enabled || StylusZone.Aiming);
             bool gameplayPrimary = effectiveContact && sample.PrimaryDown;
             PrimaryDown = acceptsInput && ResolvePrimary(gameplayPrimary, independentPrimaryDown,
                 StylusZone.CapturingPrimaryButton || StylusZone.Placing);
@@ -218,6 +224,7 @@ namespace MphRead.Mods.Input
             _acceptingInput = false;
             Current = default;
             PrimaryDown = false;
+            AimContact = false;
             _pendingX = _pendingY = 0;
             _stylusReleasePending = false;
             _stylusReleaseObservedBySimulation = false;

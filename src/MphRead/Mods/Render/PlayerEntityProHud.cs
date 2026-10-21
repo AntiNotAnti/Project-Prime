@@ -67,9 +67,12 @@ namespace MphRead.Entities
             else if (ModHudHealthVisible)
             {
                 using var layout = UseHudLayout(1, 2 * aspect, 170);
+                using var warningPresentation = _scene.PushHealthWarning(ModHudHealth <= 99);
                 var style = HudProfiles.Runtime.Health;
                 bool custom = HudProfiles.Runtime.Mode == HudMode.Custom;
                 Vector4 health = custom ? MeterColor(style, ProHealthFraction()) : ProHealthColor();
+                float warning = Mods.Input.DsLayout.HealthBlink(ModHudHealth, _scene.GlobalElapsedTime);
+                health.W *= warning;
                 // The left foot of the screen, under the weapon list and the same
                 // width as it: score, weapons and energy then read as one column
                 // top to bottom, which is one place to look instead of three
@@ -81,7 +84,7 @@ namespace MphRead.Entities
                 {
                     healthText = healthBuffer[..healthLength];
                 }
-                if (!custom || style.Number) ProNumber(6 * aspect, 172, Align.Left, healthText, ProInk(health), 1.5f * (custom ? style.NumberScale : 1));
+                if (!custom || style.Number) ProNumber(6 * aspect, 172, Align.Left, healthText, ProInk(health), 1.5f * (custom ? style.NumberScale : 1), alpha: warning);
                 if (!custom || style.Gauge)
                 {
                     using var gauge=UseHudLayout(custom && HudProfiles.Runtime.IndependentGauges ? 12 : -1,4*aspect,186);
@@ -346,11 +349,11 @@ namespace MphRead.Entities
         /// number you cannot read at the moment you most need to.
         /// </summary>
         private void ProNumber(float x, float y, Align align, ReadOnlySpan<char> text,
-            ColorRgba color, float scale)
+            ColorRgba color, float scale, float alpha = 1)
         {
             float aspect = HudAspectFix;
-            DrawText2D(x + 0.8f * aspect, y + 0.8f, align, palette: 0, text, ProHudShadow, scale: scale);
-            DrawText2D(x, y, align, palette: 0, text, color, scale: scale);
+            DrawText2D(x + 0.8f * aspect, y + 0.8f, align, palette: 0, text, ProHudShadow, scale: scale, alpha: alpha);
+            DrawText2D(x, y, align, palette: 0, text, color, scale: scale, alpha: alpha);
         }
 
         /// <summary>

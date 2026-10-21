@@ -72,8 +72,7 @@ namespace MphRead.Mods.Launcher.Gui
         private FormattedText Line(string text, IBrush brush)
         {
             return new FormattedText(text, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(PrimeTypography.Display, FontStyle.Normal, FontWeight.Bold),
+                FlowDirection.LeftToRight, GameTypography.Resolve(new Typeface(PrimeTypography.Display, FontStyle.Normal, FontWeight.Bold)),
                 Size, brush);
         }
 
@@ -131,8 +130,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static FormattedText Recolour(string word, double size, IBrush brush)
         {
             return new FormattedText(word, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                new Typeface(PrimeTypography.Display, FontStyle.Normal, FontWeight.Bold),
+                FlowDirection.LeftToRight, GameTypography.Resolve(new Typeface(PrimeTypography.Display, FontStyle.Normal, FontWeight.Bold)),
                 size, brush);
         }
     }

@@ -1,0 +1,18 @@
+  Determining projects to restore...
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Protocol.Generator\MphRead.Protocol.Generator.csproj (in 143 ms).
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.CorpsePhysics\MphRead.CorpsePhysics.csproj (in 143 ms).
+  Restored C:\Users\Jarrett\Documents\Development\Project-Prime\src\NcsfPlay\NcsfPlay.csproj (in 143 ms).
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj : error NU1102: Unable to find package Microsoft.NETCore.App.Runtime.Mono.win-x64 with version (= 10.0.12)
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj : error NU1102:   - Found 123 version(s) in nuget.org [ Nearest version: 9.0.0-preview.7.24405.7 ]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj : error NU1102:   - Found 0 version(s) in Microsoft Visual Studio Offline Packages
+  Failed to restore C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj (in 594 ms).
+
+Build FAILED.
+
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj : error NU1102: Unable to find package Microsoft.NETCore.App.Runtime.Mono.win-x64 with version (= 10.0.12)
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj : error NU1102:   - Found 123 version(s) in nuget.org [ Nearest version: 9.0.0-preview.7.24405.7 ]
+C:\Users\Jarrett\Documents\Development\Project-Prime\src\MphRead.Android\MphRead.Android.csproj : error NU1102:   - Found 0 version(s) in Microsoft Visual Studio Offline Packages
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:01.24

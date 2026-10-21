@@ -18,6 +18,8 @@ namespace MphRead
         private int _shadowTargetSize;
         private bool _shadowDepthOnly;
         private bool _shadowRefused;
+        private Mods.ShadowQuality _shadowAttemptQuality;
+        private Vector2i _shadowAttemptSize;
         private bool _shadowReady;
         private Matrix4 _shadowView = Matrix4.Identity;
         private Matrix4 _shadowProjection = Matrix4.Identity;
@@ -60,11 +62,15 @@ namespace MphRead
                 _shadowRefused = false;
                 return;
             }
+            if (_shadowRefused && (_shadowAttemptQuality != Mods.RenderOptions.Shadows
+                || _shadowAttemptSize != _targetSize)) _shadowRefused = false;
             if (_shadowRefused || _nonDecalItems.Count == 0)
                 return;
 
             try
             {
+                _shadowAttemptQuality = Mods.RenderOptions.Shadows;
+                _shadowAttemptSize = _targetSize;
                 EnsureShadowTarget();
                 if (_shadowFramebuffer == 0 || _shadowTargetSize <= 0) return;
 
@@ -133,8 +139,7 @@ namespace MphRead
                 {
                     Mods.Render.RetainedDrawPacket packet = shadowPackets[i];
                     RenderItem item = packet.Item;
-                    if (item.ViewModel || item.Alpha < .999f
-                        || item.RenderMode == RenderMode.Translucent
+                    if (item.ViewModel || item.Alpha < .999f || item.Type != RenderItemType.Mesh || item.SourceGx != null
                         || item.RenderMode == RenderMode.Decal
                         || (separateRoomCasters && item.RetainedRoomOwned))
                     {
@@ -143,6 +148,13 @@ namespace MphRead
 
                     _retainedCompatibilityShadowDraws++;
                     RenderItem(item);
+                }
+                Matrix4 dynamicLight = _shadowView * _shadowProjection;
+                foreach (RenderItem caster in _detachedShadowItems)
+                {
+                    if (!Mods.Render.DetachedShadowBounds.Overlaps(caster,dynamicLight)) continue;
+                    _detachedShadowDraws++;
+                    RenderItem(caster);
                 }
                 _shadowPreparation.Clear();
                 if (separateRoomCasters)
@@ -190,6 +202,8 @@ namespace MphRead
         {
             int desired = Math.Min(WantedShadowSize, MaxRenderTargetSize());
             if (desired <= 0) return;
+            if (_shadowTargetSize != desired && !CanAllocateTargetBytes((long)desired * desired * 8))
+                throw new InvalidOperationException("Shadow replacement exceeds the render-target budget.");
             if (_shadowFramebuffer == 0)
             {
                 _shadowFramebuffer = GL.GenFramebuffer();
@@ -203,6 +217,8 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, _shadowDepthTexture);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent24,
                 desired, desired, 0, PixelFormat.DepthComponent, PixelType.UnsignedInt, IntPtr.Zero);
+            if (GL.GetError() != ErrorCode.NoError)
+                throw new InvalidOperationException("Shadow depth allocation failed.");
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                 (int)TextureMinFilter.Nearest);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
@@ -232,6 +248,8 @@ namespace MphRead
                 GL.BindTexture(TextureTarget.Texture2D, _shadowColorTexture);
                 GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
                     desired, desired, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+                if (GL.GetError() != ErrorCode.NoError)
+                    throw new InvalidOperationException("Shadow color allocation failed.");
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)TextureMinFilter.Nearest);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,

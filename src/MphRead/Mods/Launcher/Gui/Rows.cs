@@ -34,7 +34,7 @@ namespace MphRead.Mods.Launcher.Gui
         private FormattedText Label()
         {
             return new FormattedText(_text.ToUpperInvariant(), CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(bold: true), 11,
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(bold: true)), 11,
                 GuiTheme.TextDimBrush);
         }
 
@@ -267,13 +267,13 @@ namespace MphRead.Mods.Launcher.Gui
                     new Rect(0, 0, Bounds.Width, Bounds.Height), 4);
             }
             var label = new FormattedText(_label, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(false), 13, GuiTheme.TextDimBrush);
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(false)), 13, GuiTheme.TextDimBrush);
             context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
 
             // The value lives in the fixed column between the arrows, and is
             // trimmed to it rather than pushing them apart.
             var value = new FormattedText(Value, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(true), 13, GuiTheme.TextBrush);
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(true)), 13, GuiTheme.TextBrush);
             Rect left = LeftArrow;
             double room = RightArrow.X - left.Right - 8;
             if (value.Width > room)
@@ -422,7 +422,7 @@ namespace MphRead.Mods.Launcher.Gui
                     new Rect(0, 0, Bounds.Width, Bounds.Height), 4);
             }
             var label = new FormattedText(_label, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(false), 13, GuiTheme.TextDimBrush);
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(false)), 13, GuiTheme.TextDimBrush);
             context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
 
             const double w = 40;

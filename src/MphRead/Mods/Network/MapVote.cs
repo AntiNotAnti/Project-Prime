@@ -89,7 +89,7 @@ namespace MphRead.Mods.Network
             }
             if (Active)
             {
-                return $"A vote is already running: {RoomKey}.";
+                return $"A vote is already running: {Launcher.LauncherRoomDisplayName.Get(RoomKey)}.";
             }
             if (Seconds > 0)
             {
@@ -233,7 +233,7 @@ namespace MphRead.Mods.Network
             {
                 return "";
             }
-            return $"{Proposer} PROPOSES {RoomKey.ToUpperInvariant()}";
+            return $"{Proposer} PROPOSES {Launcher.LauncherRoomDisplayName.Get(RoomKey).ToUpperInvariant()}";
         }
 
         /// <summary>The tally under it.</summary>

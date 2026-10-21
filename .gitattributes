@@ -3,6 +3,11 @@ dist/ProjectPrime-macarm-a1f2f84/Project[[:space:]]Prime.app/Contents/MacOS/Proj
 # Keep measured evidence in the PR while focusing review on source and findings.
 docs/performance/*.json linguist-generated=true
 
+# Frozen renderer evidence is byte-addressed by its manifest. CRLF checkout
+# conversion invalidates hashes before the Windows verifier can inspect it.
+docs/engineering-next/gl-evidence/**/*.json text eol=lf
+docs/engineering-next/gl-evidence/**/*.log text eol=lf
+
 # Exact collision-result golden rows use LF on every CI checkout.
 docs/audits/engineering-consolidation/collision-query-baseline.txt text eol=lf
 

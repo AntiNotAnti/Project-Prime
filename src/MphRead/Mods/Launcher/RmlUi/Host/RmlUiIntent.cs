@@ -67,6 +67,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         SettingsKeepVideo = 105,
         SettingsRevertVideo = 106,
         SettingsAction = 107,
+        SettingsPreviousChoice = 108,
+        OfflineChoicePrevious = 109, LobbyRulesModePrevious = 110, LobbyRulesFormatPrevious = 111,
+        PlayPreviousMap = 112, PlayPreviousMode = 113,
         AdventureSelectSlot = 120,
         AdventureNextHunter = 121,
         AdventureContinue = 122,
@@ -191,7 +194,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         private static readonly string[] SocialActions = { "friends", "players", "requests", "invites", "party", "recent", "blocked", "refresh", "cancel", "lookup", "search", "previous-page", "next-page", "select-0", "select-1", "select-2", "select-3", "select-4", "select-5", "select-6", "select-7", "send-friend-request", "accept-friend-request", "decline-friend-request", "cancel-friend-request", "remove-friend", "block-player", "unblock-player", "send-game-invite", "join-friend", "accept-game-invite", "decline-game-invite", "cancel-game-invite", "invite-party", "accept-party-invite", "decline-party-invite", "cancel-party-invite", "leave-party", "disband-party", "kick-party-member", "promote-party-member", "invite-party-lobby", "follow-party-travel", "join-party-leader", "decline-party-travel", "cancel-reservation", "confirm", "dismiss", "presence-next", "activity-next", "invites-next", "dnd", "back", "reserve-party-seats", "privacy" };
         private static readonly string[] ResultsActions = { "close", "search", "previous-page", "next-page", "rematch", "clear-search" };
         private static readonly string[] AimResultsActions = { "retry", "change-drill", "exit" };
-        private static readonly string[] HudActions = { "open", "use", "cancel", "next-preset", "undo", "redo", "lock-all", "unlock-all", "align-left", "align-top", "native-elements", "reset-hud", "toggle-visible", "toggle-lock", "next-anchor", "next-visibility", "reset-element", "reset-section", "next-aspect", "next-hunter", "next-scenario", "next-grid", "toggle-guides", "save-named", "load-named", "export-json", "import-json", "property-previous", "property-next", "property-apply", "property-reset", "next-palette", "next-crosshair-target", "toggle-crosshair-override", "next-crosshair-preset", "share-crosshair", "import-crosshair", "next-radar-preset", "nudge-left", "nudge-right", "nudge-up", "nudge-down", "scale-down", "scale-up", "apply-layout" };
+        private static readonly string[] HudActions = { "open", "use", "cancel", "next-preset", "undo", "redo", "lock-all", "unlock-all", "align-left", "align-top", "native-elements", "reset-hud", "toggle-visible", "toggle-lock", "next-anchor", "next-visibility", "reset-element", "reset-section", "next-aspect", "next-hunter", "next-scenario", "next-grid", "toggle-guides", "save-named", "load-named", "export-json", "import-json", "property-previous", "property-next", "property-apply", "property-reset", "next-palette", "next-crosshair-target", "toggle-crosshair-override", "next-crosshair-preset", "share-crosshair", "import-crosshair", "next-radar-preset", "nudge-left", "nudge-right", "nudge-up", "nudge-down", "scale-down", "scale-up", "apply-layout", "previous-preset", "previous-anchor", "previous-visibility", "previous-aspect", "previous-hunter", "previous-scenario", "previous-grid", "previous-palette", "previous-crosshair-target", "previous-crosshair-preset", "previous-radar-preset", "property-choice-previous", "property-choice-next", "section-appearance", "section-layout", "section-global", "section-typography", "section-decorations", "workspace-elements", "workspace-profiles", "search-properties", "clear-search" };
         private static readonly string[] Stages = { "quick", "browser", "offline", "adventure", "training" };
         private static readonly IReadOnlyDictionary<RmlUiIntentKind, string> LegacyActions =
             new Dictionary<RmlUiIntentKind, string>
@@ -218,6 +221,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 [RmlUiIntentKind.PlayCancel] = "play:cancel",
                 [RmlUiIntentKind.PlayNextMap] = "play:next-map",
                 [RmlUiIntentKind.PlayNextMode] = "play:next-mode",
+                [RmlUiIntentKind.PlayPreviousMap] = "play:previous-map",
+                [RmlUiIntentKind.PlayPreviousMode] = "play:previous-mode",
+                [RmlUiIntentKind.LobbyRulesModePrevious] = "lobby:rules-previous-mode",
+                [RmlUiIntentKind.LobbyRulesFormatPrevious] = "lobby:rules-previous-format",
                 [RmlUiIntentKind.PlayToggleHost] = "play:toggle-host",
                 [RmlUiIntentKind.LobbyReady] = "lobby:ready",
                 [RmlUiIntentKind.LobbyStart] = "lobby:start",
@@ -322,10 +329,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.AimResultsAction => argument is >= 0 and < 3,
             RmlUiIntentKind.SetupAction => argument is >= 0 and < 15,
             RmlUiIntentKind.SetupRelease => argument is >= 0 and < 30,
-            RmlUiIntentKind.HudAction => argument is >= 0 and < 45,
+            RmlUiIntentKind.HudAction => argument >= 0 && argument < HudActions.Length,
             RmlUiIntentKind.ResultsMap => argument is >= 0 and < 4096,
             RmlUiIntentKind.HudElement => argument is >= 0 and < 15,
-            RmlUiIntentKind.HudProperty => argument is >= 0 and < 8,
+            RmlUiIntentKind.HudProperty => argument is >= 0 and < 32,
             RmlUiIntentKind.CampaignShipAction => argument is >= 0 and < 11,
             RmlUiIntentKind.SocialAction => argument is >= 0 and < 55,
             RmlUiIntentKind.NewsAction => argument is >= 0 and < 12,
@@ -346,10 +353,11 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.HunterCosmeticCategory => argument is >= 0 and < 5,
             RmlUiIntentKind.HunterSuit => argument is >= 0 and < 4,
             RmlUiIntentKind.HunterPreviewMode => argument is >= 0 and < 4,
+            RmlUiIntentKind.SettingsPreviousChoice => argument is >= 0 and < 96,
             RmlUiIntentKind.SettingsAction => argument is >= 0 and <= 14 or >= 16 and <= 255,
             RmlUiIntentKind.SettingsCategory => argument is >= 0 and < 13,
             RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination => argument is >= 1 and < 4,
-            RmlUiIntentKind.OfflineChoice => argument is >= 0 and < 17,
+            RmlUiIntentKind.OfflineChoice or RmlUiIntentKind.OfflineChoicePrevious => argument is >= 0 and < 24,
             RmlUiIntentKind.OfflineRuleToggle => argument is >= 0 and < OfflineRuleChoiceCount,
             RmlUiIntentKind.OfflineTrainingToggle => argument is >= 0 and < 5,
             RmlUiIntentKind.HunterRotate => argument is >= 0 and < 2,
@@ -431,6 +439,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.HunterSuit, argument, document, sequence);
             else if (TryIndex(action, "hunter:preview-mode:", 4, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterPreviewMode, argument, document, sequence);
+            else if (TryIndex(action, "settings:previous:", 96, out argument))
+                intent = new(RmlUiIntentKind.SettingsPreviousChoice, argument, document, sequence);
             else if (TryIndex(action, "settings:action:", 256, out argument) && argument != 15)
                 intent = new(RmlUiIntentKind.SettingsAction, argument, document, sequence);
             else if (TryIndex(action, "settings:category:", 13, out argument) && argument >= 0)
@@ -439,7 +449,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.AdventureSelectSlot, argument, document, sequence);
             else if (TryIndex(action, "adventure:copy-destination:", 4, out argument) && argument >= 1)
                 intent = new(RmlUiIntentKind.AdventureCopyDestination, argument, document, sequence);
-            else if (TryIndex(action, "offline:choice:", 17, out argument) && argument >= 0)
+            else if (TryIndex(action, "offline:previous-choice:", 24, out argument))
+                intent = new(RmlUiIntentKind.OfflineChoicePrevious, argument, document, sequence);
+            else if (TryIndex(action, "offline:choice:", 24, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.OfflineChoice, argument, document, sequence);
             else if (TryIndex(action, "offline:rule:", OfflineRuleChoiceCount, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.OfflineRuleToggle, argument, document, sequence);
@@ -509,7 +521,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.ResultsMap, argument, document, sequence);
             else if (TryIndex(action, "hud:element:", 15, out argument))
                 intent = new(RmlUiIntentKind.HudElement, argument, document, sequence);
-            else if (TryIndex(action, "hud:property:", 8, out argument))
+            else if (TryIndex(action, "hud:property:", 32, out argument))
                 intent = new(RmlUiIntentKind.HudProperty, argument, document, sequence);
             else if (TryNamed(action, "social:", SocialActions, out argument))
                 intent = new(RmlUiIntentKind.SocialAction, argument, document, sequence);
@@ -552,10 +564,12 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 RmlUiIntentKind.HunterCosmeticCategory => "hunter:category:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterSuit => "hunter:suit:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterPreviewMode => "hunter:preview-mode:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.SettingsPreviousChoice => "settings:previous:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.SettingsAction => "settings:action:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.SettingsCategory => "settings:category:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.AdventureSelectSlot => "adventure:slot:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.AdventureCopyDestination => "adventure:copy-destination:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.OfflineChoicePrevious => "offline:previous-choice:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.OfflineChoice => "offline:choice:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.OfflineRuleToggle => "offline:rule:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.OfflineTrainingToggle => "offline:training-toggle:" + intent.Argument.ToString(CultureInfo.InvariantCulture),

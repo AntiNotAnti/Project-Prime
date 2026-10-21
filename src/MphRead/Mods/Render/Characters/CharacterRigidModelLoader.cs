@@ -17,7 +17,7 @@ namespace MphRead.Mods.Render.Characters
         CharacterRigidVertex[] Vertices,
         uint[] Indices,
         CharacterEmbeddedAlbedo? Albedo = null,
-        CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false);
+        CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false, Matrix4x4? ReferenceTransform = null, Vector3? SurfaceTint = null, bool NeutralAlbedo = false, int WeaponPose = -1);
 
     internal sealed record CharacterRigidModelData(IReadOnlyList<CharacterRigidPrimitive> Primitives)
     {
@@ -33,6 +33,18 @@ namespace MphRead.Mods.Render.Characters
     /// </summary>
     internal static class CharacterRigidModelLoader
     {
+        private static Matrix4x4? ReadReferenceTransform(JsonElement node, bool enabled)
+        {
+            if (!enabled) return null;
+            if (!node.TryGetProperty("matrix", out var property))
+                throw new InvalidDataException("Normalized attachments require an explicit reference bind matrix.");
+            float[] m = property.EnumerateArray().Select(x => x.GetSingle()).ToArray();
+            if (m.Length != 16 || m.Any(x => !float.IsFinite(x)))
+                throw new InvalidDataException("Invalid attachment reference matrix.");
+            return new Matrix4x4(m[0],m[1],m[2],m[3],m[4],m[5],m[6],m[7],
+                m[8],m[9],m[10],m[11],m[12],m[13],m[14],m[15]);
+        }
+
         public const int MaximumVertices = 500_000;
         public const int MaximumIndices = 1_500_000;
 
@@ -179,7 +191,11 @@ namespace MphRead.Mods.Render.Characters
                             vertices[i] = new(positions[i], normals[i], uv, color);
                         }
                         primitives.Add(new(sourceNode, targetNode, materialName, vertices, indices, albedo, maps,
-                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex)));
+                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex),
+                            ReadReferenceTransform(node, asset.NormalizeAttachment),
+                            CharacterEmbeddedMaterialLoader.ReadSurfaceTint(materials, materialIndex),
+                            CharacterEmbeddedMaterialLoader.ReadNeutralAlbedo(materials, materialIndex),
+                            primitive.TryGetProperty("extras", out var poseExtras) && poseExtras.TryGetProperty("haloWeapon", out var pose) ? pose.GetInt32() : -1));
                     }
                 }
 

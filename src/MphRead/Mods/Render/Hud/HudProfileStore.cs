@@ -27,6 +27,7 @@ public sealed class HudProfileStore
         if (input["basePreset"] is JsonValue value && value.TryGetValue<string>(out string? preset)
             && Array.IndexOf(HudProfileDefaults.Presets, preset) >= 0) presetName = preset;
         JsonObject baseline = JsonSerializer.SerializeToNode(HudProfileDefaults.Create(presetName), Options)!.AsObject();
+        if(input["schemaVersion"]==null) input["schemaVersion"]=1;
         Merge(baseline, input);
         var profile = baseline.Deserialize<HudProfile>(Options) ?? throw new FormatException("Empty HUD profile.");
         profile.Validate();
@@ -74,6 +75,7 @@ public sealed class HudProfileStore
         using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
         if (settingsWrite == null) return;
         string path = PathFor(name);
+        MphRead.Mods.Settings.SettingsPersistence.Track(path);
         // Validate the detached serialized value before touching the last good file.
         string json = Serialize(Parse(Serialize(profile)));
         Directory.CreateDirectory(DirectoryPath);
@@ -87,7 +89,7 @@ public sealed class HudProfileStore
             if (File.Exists(path))
             {
                 // A broken active file must never overwrite a good recovery copy.
-                try { Read(path); File.Copy(path, path + ".bak", true); }
+                try { Read(path); MphRead.Mods.Settings.SettingsPersistence.Track(path + ".bak"); File.Copy(path, path + ".bak", true); }
                 catch (Exception e) when (Recoverable(e)) { }
             }
             File.Move(temporary, path, true);

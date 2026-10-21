@@ -540,7 +540,9 @@ namespace MphRead.Entities
                             GetPlayerOutlineColor(inst), weightedSkinning: true, authoredTexture: authoredTexture,
                             authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
                             authoredDoubleSided: segment.DoubleSided,
-                            authoredTransparent: authoredTexture && segment.Transparent);
+                            authoredTransparent: authoredTexture && segment.Transparent,
+                            independentSurface: weighted.Asset.IndependentSurface,
+                        authoredSurfaceTint: segment.SurfaceTint, authoredNeutralAlbedo: segment.NeutralAlbedo);
                     }
                     finally
                     {
@@ -559,7 +561,8 @@ namespace MphRead.Entities
             foreach (CharacterRigidRenderSegment segment in replacement.Segments)
             {
                 Node node = model.Nodes[segment.NativeNodeIndex];
-                if (!node.Enabled || !model.NodeParentsEnabled(node)) continue;
+                if (!replacement.Asset.IndependentVisibility
+                    && (!node.Enabled || !model.NodeParentsEnabled(node))) continue;
                 Material material = model.Materials[segment.NativeMaterialIndex];
                 Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
                 Vector4? color = GetRenderColor(inst, 0, material);
@@ -589,7 +592,8 @@ namespace MphRead.Entities
                         GetPlayerOutlineColor(inst), authoredTexture: authoredTexture,
                         authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
                             authoredDoubleSided: segment.DoubleSided,
-                            authoredTransparent: authoredTexture && segment.Transparent);
+                            authoredTransparent: authoredTexture && segment.Transparent,
+                            independentSurface: replacement.Asset.IndependentSurface, authoredSurfaceTint: segment.SurfaceTint, authoredNeutralAlbedo: segment.NeutralAlbedo);
                 }
                 finally
                 {

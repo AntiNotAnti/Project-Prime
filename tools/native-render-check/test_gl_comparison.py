@@ -94,7 +94,12 @@ class EvidenceTests(unittest.TestCase):
 
     def test_symlinked_harness_is_rejected_before_resolution(self):
         binary = self.root / 'native-render-check.dll'
-        binary.symlink_to(self.root / self.bundle['records'][1]['result'])
+        try:
+            binary.symlink_to(self.root / self.bundle['records'][1]['result'])
+        except OSError as error:
+            if getattr(error, 'winerror', None) == 1314:
+                self.skipTest('Windows symbolic-link privilege unavailable')
+            raise
         with self.assertRaisesRegex(ValueError, 'physical'):
             gl.physical_binary(binary)
 

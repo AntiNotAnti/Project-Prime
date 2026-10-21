@@ -1,0 +1,40 @@
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp8toa7nzi\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "map-gl", "-resourceframes", "120", "-failure-stages", "none", "-resource-drain", "-resource-quiescent-samples", "60", "-resource-quiescent-ms", "1000", "-resource-context-cycles", "30", "-resource-context-post-samples", "60", "-resource-context-post-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp8toa7nzi\\new-campaign\\context.json", "-resource-context-driver-drain", "-resource-context-phase-acks", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp8toa7nzi\\new-campaign\\phase-acks", "-resource-shader-source-ledger"]
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmpbiop1wyq\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "map-gl", "-resourceframes", "120", "-failure-stages", "none", "-resource-drain", "-resource-quiescent-samples", "60", "-resource-quiescent-ms", "1000", "-resource-context-cycles", "120,180", "-resource-context-post-samples", "60", "-resource-context-post-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmpbiop1wyq\\new-campaign\\context.json", "-resource-context-phase-acks", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmpbiop1wyq\\new-campaign\\phase-acks"]
+..........................................................sss..s..........s.....usage: runner [-h] [--dotnet DOTNET] --binary BINARY --output OUTPUT
+              [--cycles CYCLES [CYCLES ...]] [--frames FRAMES]
+              [--samples SAMPLES] [--timeout TIMEOUT] [--arm {map-gl,studio}]
+              [--failure-stages FAILURE_STAGES]
+              [--user-data-template USER_DATA_TEMPLATE]
+              [--max-rss-mib MAX_RSS_MIB]
+              [--min-free-disk-mib MIN_FREE_DISK_MIB]
+              [--capture-native-stacks] [--uncompressed-stacks]
+              [--driver-drain] [--shader-source-ledger] [--dry-run]
+runner: error: --user-data-template is required for an isolated native campaign
+.......usage: runner [-h] [--dotnet DOTNET] --binary BINARY --output OUTPUT
+              [--mode {no-shader,compile-only,compile-delete,fresh-contexts,rebind-draw}]
+              [--variant {tiny,canonical,native,plain,unlit,four-prewarm}]
+              [--iterations ITERATIONS] [--define DEFINE] [--bind BIND]
+              [--sampler-unit SAMPLER_UNIT] [--depth-vertex]
+              [--fail-at FAIL_AT] [--capture-native-stacks]
+              [--compress-stacks] [--timeout TIMEOUT]
+              [--max-rss-mib MAX_RSS_MIB]
+              [--min-free-disk-mib MIN_FREE_DISK_MIB] [--dry-run]
+runner: error: output directory must be fresh
+......usage: runner [-h] [--dotnet DOTNET] --binary BINARY --output OUTPUT
+              [--arms {combined,map-gl,studio,audio} [{combined,map-gl,studio,audio} ...]]
+              [--cycles CYCLES] [--frames FRAMES]
+              [--quiescent-samples QUIESCENT_SAMPLES]
+              [--quiescent-ms QUIESCENT_MS] [--warmup-cycles WARMUP_CYCLES]
+              [--timeout TIMEOUT] [--dry-run]
+              ...
+runner: error: output must be a fresh/empty directory to preserve prior evidence
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7dibn9uc\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "combined", "-resourcecycles", "60", "-resourceframes", "120", "-resource-drain", "-resource-quiescent-samples", "30", "-resource-quiescent-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7dibn9uc\\campaign\\00-combined.json"]
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7dibn9uc\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "map-gl", "-resourcecycles", "60", "-resourceframes", "120", "-resource-drain", "-resource-quiescent-samples", "30", "-resource-quiescent-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7dibn9uc\\campaign\\01-map-gl.json"]
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7dibn9uc\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "studio", "-resourcecycles", "60", "-resourceframes", "120", "-resource-drain", "-resource-quiescent-samples", "30", "-resource-quiescent-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7dibn9uc\\campaign\\02-studio.json"]
+["dotnet", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7dibn9uc\\native-render-check.dll", "-room", "MP3 PROVING GROUND", "-players", "8", "-size", "1920x1080", "-hz", "-1", "-seconds", "8", "-shadows", "High", "-resourcestress", "-resource-arm", "audio", "-resourcecycles", "60", "-resourceframes", "120", "-resource-drain", "-resource-quiescent-samples", "30", "-resource-quiescent-ms", "1000", "-output", "C:\\Users\\Jarrett\\AppData\\Local\\Temp\\tmp7dibn9uc\\campaign\\03-audio.json"]
+combined: exit=-1 elapsed=0.00s
+........................
+----------------------------------------------------------------------
+Ran 117 tests in 6.524s
+
+OK (skipped=5)

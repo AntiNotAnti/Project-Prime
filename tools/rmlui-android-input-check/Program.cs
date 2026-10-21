@@ -84,7 +84,7 @@ var full = queue.Current;
 Check(queue.TryEnqueue(full, new(full.Document, RmlUiPlatformInputKind.PointerDown, X: 2, Y: 3)), "overflow precondition press queued");
 queue.Drain(host);
 for (int i = 0; i < 4; i++) Check(queue.TryEnqueue(full,
-    new(full.Document, RmlUiPlatformInputKind.PointerMove, X: i, Y: 2)), "bounded burst queued");
+    new(full.Document, RmlUiPlatformInputKind.Wheel, Delta: i)), "bounded non-coalescible burst queued");
 Check(!queue.TryEnqueue(full, new(full.Document, RmlUiPlatformInputKind.PointerUp, X: 4, Y: 2))
     && queue.Metrics.Pending == 0 && queue.Metrics.Overflows == 1, "overflow discards burst and reserves owner release instead of losing only pointer-up");
 int releases = native.Releases;
@@ -166,4 +166,5 @@ using (var failed = new RmlUiAndroidDrawListSession(new RmlUiHost(failedNative))
     failedNative.ThrowOnRelease = false;
 }
 Check(native.WrongThreadCalls == 0 && sessionNative.WrongThreadCalls == 0, "no native call escaped owner thread");
+PointerBurstAcceptance.Run(Check);
 Console.WriteLine($"RMLUI ANDROID INPUT PASS {checks} checks; production queue/session with fake native/GLES, no APK/startup/touch/IME/device acceptance.");

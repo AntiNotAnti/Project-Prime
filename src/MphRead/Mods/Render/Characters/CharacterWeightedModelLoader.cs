@@ -35,7 +35,8 @@ namespace MphRead.Mods.Render.Characters
         CharacterWeightedVertex[] Vertices,
         uint[] Indices,
         CharacterEmbeddedAlbedo? Albedo = null,
-        CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false, int[]? JointPalette = null)
+        CharacterEmbeddedMaterialMaps? MaterialMaps = null, bool DoubleSided = false, int[]? JointPalette = null,
+        NVector3? SurfaceTint = null, bool NeutralAlbedo = false)
     {
         internal int SourcePrimitiveOrdinal { get; init; } = -1;
         internal int SourceMaterialOrdinal { get; init; } = -1;
@@ -284,7 +285,9 @@ namespace MphRead.Mods.Render.Characters
                             }
                         }
                         var decoded = new CharacterWeightedPrimitive(materialName, vertices, indices, albedo, maps,
-                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex))
+                            CharacterEmbeddedMaterialLoader.ReadDoubleSided(materials, materialIndex),
+                            SurfaceTint: CharacterEmbeddedMaterialLoader.ReadSurfaceTint(materials, materialIndex),
+                            NeutralAlbedo: CharacterEmbeddedMaterialLoader.ReadNeutralAlbedo(materials, materialIndex))
                         { SourcePrimitiveOrdinal = sourcePreview ? sourcePrimitiveOrdinal++ : -1,
                             SourceMaterialOrdinal = sourcePreview ? materialIndex : -1, SourceTriangleIds = triangleIds };
                         if (sourcePreview)

@@ -530,8 +530,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             else
             {
-                (RoomMetadata? meta, _) = Metadata.GetRoomByName(room);
-                _arenaTitle.Text = (meta?.InGameName ?? room).ToUpperInvariant();
+                _arenaTitle.Text = LauncherRoomDisplayName.Get(room).ToUpperInvariant();
                 _arenaHero.SetArt(MapShot.For(room), 0.78);
             }
 
@@ -560,8 +559,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return "none picked";
             }
-            (RoomMetadata? meta, _) = Metadata.GetRoomByName(_rotation[0]);
-            string first = meta?.InGameName ?? _rotation[0];
+            string first = LauncherRoomDisplayName.Get(_rotation[0]);
             return _rotation.Count == 1
                 ? first
                 : $"{first} +{(_rotation.Count - 1).ToString(CultureInfo.InvariantCulture)} more";
@@ -1547,9 +1545,8 @@ namespace MphRead.Mods.Launcher.Gui
             }
             foreach (string room in rooms)
             {
-                (RoomMetadata? meta, _) = Metadata.GetRoomByName(room);
                 string kind = Metadata.IsBuiltInRoom(room) ? "BUILT-IN" : "INSTALLED";
-                var row = new UiListRow(meta?.InGameName ?? room, kind) { Choice = room };
+                var row = new UiListRow(LauncherRoomDisplayName.Get(room), kind) { Choice = room };
                 _byRoom[room] = row;
                 // The press, not the list's own `activate` hook. That hook is
                 // the row's side effect of *becoming the selection*, and
@@ -1721,9 +1718,9 @@ namespace MphRead.Mods.Launcher.Gui
             _note.Text = _picked.Count == 0
                 ? (_single ? "Pick a map." : "Press maps to build the cycle. They are played in the order you press them.")
                 : _single
-                    ? $"Selected: {Metadata.GetRoomByName(_picked[0]).Item1?.InGameName ?? _picked[0]}"
+                    ? $"Selected: {LauncherRoomDisplayName.Get(_picked[0])}"
                     : String.Join("  >  ", _picked.Select(room =>
-                        Metadata.GetRoomByName(room).Item1?.InGameName ?? room));
+                        LauncherRoomDisplayName.Get(room)));
         }
 
         private void Commit()

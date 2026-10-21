@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Network;
 using MphRead.Mods.Launcher.Core;
@@ -429,18 +430,20 @@ public sealed class RmlUiMenuController : IDisposable
                 _browsing = true;
                 Status("CHOOSE A MAP, GAME TYPE AND HOST");
                 return true;
+            case RmlUiIntentKind.PlayPreviousMap:
             case RmlUiIntentKind.PlayNextMap:
                 string[] available = _services.BuiltInArenaKeys().ToArray();
                 if (available.Length == 0) { Status("NO BUILT-IN ARENAS AVAILABLE"); return false; }
                 int at = Array.IndexOf(available, _createMap);
-                _createMap = available[(at + 1) % available.Length];
+                _createMap = available[(at + (kind == RmlUiIntentKind.PlayPreviousMap ? available.Length-1 : 1)) % available.Length];
                 _createCommunity = null; _createMaxPlayers = 8;
                 Dirty();
                 return true;
+            case RmlUiIntentKind.PlayPreviousMode:
             case RmlUiIntentKind.PlayNextMode:
                 int currentType = MatchTypeCatalog.BaseModeIndex(_createMode);
                 MatchTypeDefinition nextType = MatchTypeCatalog.GameTypes[
-                    (currentType + 1) % MatchTypeCatalog.GameTypes.Length];
+                    (currentType + (kind == RmlUiIntentKind.PlayPreviousMode ? MatchTypeCatalog.GameTypes.Length-1 : 1)) % MatchTypeCatalog.GameTypes.Length];
                 _createFormat = MatchTypeCatalog.NormalizeFormat(nextType, _createFormat);
                 _createMode = nextType.Resolve(_createFormat);
                 Dirty();
@@ -618,6 +621,7 @@ public sealed class RmlUiMenuController : IDisposable
                 else Status("SAVE FILE CHANGED OR LAUNCH REFUSED // REFRESH SAVES");
                 Dirty();
                 return acceptedNew;
+            case RmlUiIntentKind.OfflineChoicePrevious:
             case RmlUiIntentKind.OfflineChoice:
                 if (_offline == null || _busy || !RmlUiIntentRegistry.IsValid(kind, argument))
                     return false;
@@ -625,14 +629,14 @@ public sealed class RmlUiMenuController : IDisposable
                 // Offline Battle mechanics selector and must remain available there.
                 if (_trainingRoute != (argument is >= 7 and <= 15)) return false;
                 if (argument == 0) _offline.RefreshArenas(_services.OfflineArenaKeys());
-                if (argument >= 7 && argument != 16)
+                if (argument is >= 7 and <= 15)
                 {
                     if (_training == null || (argument >= 13 && !_trainingOptionsOpen)) return false;
-                    bool changed = _training.Choice(argument);
+                    bool changed = _training.Choice(argument, kind == RmlUiIntentKind.OfflineChoicePrevious);
                     if (changed) Dirty();
                     return changed;
                 }
-                bool offlineChanged = _offline.Change(argument);
+                bool offlineChanged = _offline.Change(argument, kind == RmlUiIntentKind.OfflineChoicePrevious);
                 if (offlineChanged) Dirty();
                 return offlineChanged;
             case RmlUiIntentKind.OfflineOpenArena:
@@ -751,10 +755,12 @@ public sealed class RmlUiMenuController : IDisposable
                 return ChangeRules(e => e.Toggle(argument));
             case RmlUiIntentKind.LobbyRulesMap:
                 return ChangeRules(e => e.NextMap(_services.BuiltInArenaKeys()));
+            case RmlUiIntentKind.LobbyRulesModePrevious:
             case RmlUiIntentKind.LobbyRulesMode:
-                return ChangeRules(e => e.NextMode());
+                return ChangeRules(e => e.NextMode(kind == RmlUiIntentKind.LobbyRulesModePrevious));
+            case RmlUiIntentKind.LobbyRulesFormatPrevious:
             case RmlUiIntentKind.LobbyRulesFormat:
-                return ChangeRules(e => e.NextFormat());
+                return ChangeRules(e => e.NextFormat(kind == RmlUiIntentKind.LobbyRulesFormatPrevious));
             case RmlUiIntentKind.LobbyRulesApply:
                 return ApplyRules(ruleTime, ruleGoal);
             case RmlUiIntentKind.LobbyMapOpen:
@@ -1946,9 +1952,13 @@ public sealed class RmlUiMenuController : IDisposable
         RmlUiReplayEntry? selectedReplay = _theatre?.Selected;
         Text("theatre_selected_title", selectedReplay?.Title ?? "SELECT A REPLAY");
         Text("theatre_metadata", selectedReplay is { } selection
-            ? selection.Detail + "\n" + selection.Room : "CHOOSE A RECORDING FROM THE LIBRARY");
+            ? selection.Detail + (String.IsNullOrWhiteSpace(selection.Room) ? ""
+                : "\nMAP // " + LauncherRoomDisplayName.Get(selection.Room))
+            : "CHOOSE A RECORDING FROM THE LIBRARY");
         Text("theatre_hero", selectedReplay is { } hero
-            ? (hero.Clip ? "CLIP" : "FULL REPLAY") + " // " + hero.Room : "ARCHIVE STANDBY");
+            ? (hero.Clip ? "CLIP" : "FULL REPLAY")
+                + (String.IsNullOrWhiteSpace(hero.Room) ? "" : " // " + LauncherRoomDisplayName.Get(hero.Room))
+            : "ARCHIVE STANDBY");
         Text("theatre_no_preview", _services.ReplayEditingAllowed
             ? "OPEN A REPLAY TO EDIT IN PRIME STUDIO" : "WATCH REPLAYS HERE // EDIT IN PRIME STUDIO");
         Text("theatre_studio", _services.ReplayEditingAllowed ? "EDIT REPLAY" : "OPEN IN PRIME STUDIO");
@@ -1977,7 +1987,10 @@ public sealed class RmlUiMenuController : IDisposable
                 replay is { } candidate && selectedReplay is { } chosen
                 && String.Equals(candidate.Path, chosen.Path, StringComparison.OrdinalIgnoreCase));
             Text("theatre_entry" + row + "_title", replay?.Title ?? "");
-            Text("theatre_entry" + row + "_detail", replay?.Detail ?? "");
+            Text("theatre_entry" + row + "_detail", replay is { } entry
+                ? entry.Detail + (String.IsNullOrWhiteSpace(entry.Room) ? ""
+                    : " // MAP // " + LauncherRoomDisplayName.Get(entry.Room))
+                : "");
         }
         Flag("adventure_mode", _adventure != null && !lobby.Active);
         Flag("adventure_confirmation_open", _adventure?.Confirming == true);
@@ -2055,19 +2068,39 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("offline_arena_can_next", _offline?.ArenaHasNext == true);
         Text("offline_arena_picker_error", _offline?.ArenaCount == 0
             ? "NO MATCHING INSTALLED ARENAS" : "");
+        string[] offlinePreviewRooms = _offline?.ArenaOpen == true
+            ? Enumerable.Range(0, RmlUiOfflineDraft.ArenaPageSize)
+                .Select(i => _offline?.ArenaChoice(i) ?? "").ToArray()
+            : Array.Empty<string>();
+        bool offlineArenaOpen = _offline?.ArenaOpen == true;
+        RmlUiArenaPreview[] offlinePreviews = offlineArenaOpen
+            ? _services.ReadMapPickerPreviews(offlinePreviewRooms) : Array.Empty<RmlUiArenaPreview>();
         for (int i = 0; i < RmlUiOfflineDraft.ArenaPageSize; i++)
         {
             string? room = _offline?.ArenaChoice(i);
             Flag("offline_arena_row" + i + "_present", room != null);
-            Text("offline_arena_name" + i, room ?? "");
+            Text("offline_arena_name" + i, LauncherRoomDisplayName.Get(room));
             Text("offline_arena_reason" + i, room == null ? ""
-                : room.Equals(_offline?.Map, StringComparison.OrdinalIgnoreCase)
+                : room.Equals(_offline?.Current.RoomKey, StringComparison.OrdinalIgnoreCase)
                     ? "CURRENT ARENA" : "BUILT-IN INSTALLED MAP");
+            RmlUiArenaPreview preview = i < offlinePreviews.Length ? offlinePreviews[i] : default;
+            Text("offline_arena_image" + i, preview.Image ?? "");
+            Flag("offline_arena_image_ready" + i, !String.IsNullOrEmpty(preview.Image));
+            Text("offline_arena_preview_status" + i, preview.Status ?? "PREVIEW UNAVAILABLE");
         }
         Text("offline_mode_value", _offline?.Mode ?? "");
         Text("offline_matchup_value", _offline?.Matchup ?? "");
         Text("offline_bots_value", _offline?.Bots ?? "");
         Text("offline_skill_value", _offline?.Difficulty ?? "");
+        Flag("offline_has_bots", _offline?.HasBots == true);
+        Flag("offline_teams", _offline?.Teams == true);
+        Text("offline_bot_selected_value", _offline?.BotSelection ?? "");
+        Text("offline_bot_hunter_value", _offline?.Bot.Hunter.ToString().ToUpperInvariant() ?? "");
+        Text("offline_bot_suit_value", _offline == null ? "" : "SUIT " + (_offline.Bot.Suit + 1));
+        Text("offline_bot_skill_value", _offline == null ? "" : OfflineBotSettings.Difficulty(_offline.Bot.Level));
+        Text("offline_bot_team_value", _offline?.BotTeam ?? "");
+        Text("offline_bot_handicap_value", _offline == null ? "" : _offline.Bot.Handicap + "% LESS DAMAGE");
+        Text("offline_player_team_value", _offline == null ? "" : "TEAM " + (_offline.Current.LocalTeam + 1));
         Text("offline_hunter_value", _offline?.HunterName ?? "");
         Text("offline_suit_value", _offline?.SuitName ?? "");
         Text("offline_character_value", _offline?.CharacterName ?? "");
@@ -2110,7 +2143,7 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("offline_training_can_headshots", _training?.CanChangeHeadshots == true);
         for (int i = 0; i < 5; i++)
             Text("offline_training_toggle" + i, _training?.ToggleLabel(i) ?? "");
-        Text("play_create_map", _createMap);
+        Text("play_create_map", LauncherRoomDisplayName.Get(_createMap));
         Text("play_create_capacity", _createMaxPlayers + " PLAYER SLOTS // ADVANCED RULES AFTER CREATION");
         Text("play_create_source", _createCommunity != null ? "COMMUNITY // SELECTED INSTALLED REVISION" : "MPH // BUILT-IN ARENA");
         Text("play_create_mode_name", MatchTypeCatalog.BaseLabel(_createMode));
@@ -2177,15 +2210,15 @@ public sealed class RmlUiMenuController : IDisposable
             ? _mapCatalogStatus : "NO " + categoryName + " MAPS INSTALLED");
         string[] previewRooms = Enumerable.Range(0, RmlUiMapPickerModel.PageSize)
             .Select(i => _mapPicker?.Choice(i) ?? "").ToArray();
-        RmlUiArenaPreview[] previews = _services.ReadMapPickerPreviews(
-            _mapPicker == null ? Array.Empty<string>() : previewRooms);
+        RmlUiArenaPreview[] previews = offlineArenaOpen ? Array.Empty<RmlUiArenaPreview>()
+            : _services.ReadMapPickerPreviews(_mapPicker == null ? Array.Empty<string>() : previewRooms);
         for (int i = 0; i < RmlUiMapPickerModel.PageSize; i++)
         {
             string? room = _mapPicker?.Choice(i);
             Flag("map_choice" + i + "_visible", room != null);
             var detail = _mapPicker?.Detail(i);
             Flag("map_choice" + i + "_enabled", room != null && detail?.Selectable != false && lobby.Owner && !_rulesSubmitted);
-            Text("map_choice" + i + "_name", room ?? "");
+            Text("map_choice" + i + "_name", LauncherRoomDisplayName.Get(room));
             Text("map_choice" + i + "_hint", room == null ? ""
                 : room.Equals(_rules?.Draft.Match.RoomKey, StringComparison.OrdinalIgnoreCase)
                     ? "SELECTED // CURRENT DRAFT"
@@ -2197,7 +2230,7 @@ public sealed class RmlUiMenuController : IDisposable
         }
         if (_rules is { } rules)
         {
-            Text("rules_map", rules.Draft.Match.RoomKey);
+            Text("rules_map", LauncherRoomDisplayName.Get(rules.Draft.Match.RoomKey));
             Text("rules_mode", MphRead.Mods.Network.MatchTypeCatalog.BaseLabel(rules.Draft.Match.Mode));
             Text("rules_format", MphRead.Mods.Network.MatchTypeCatalog.MatchupLabel(
                 rules.Draft.Match.Mode, rules.Draft.Match.Format));
@@ -2224,11 +2257,11 @@ public sealed class RmlUiMenuController : IDisposable
         Text("lobby_brief_title", lobby.Active ? lobby.Name : "");
         Text("lobby_brief_count", lobby.Active
             ? (lobby.Players?.Length ?? 0) + "/" + lobby.MaxPlayers : "");
-        Text("lobby_brief_detail", lobby.Active ? lobby.Map + " // " + lobby.Mode : "");
+        Text("lobby_brief_detail", lobby.Active ? LauncherRoomDisplayName.Get(lobby.Map) + " // " + lobby.Mode : "");
         RmlUiAdminSnapshot? chromeRoster = lobby.Active ? _services.ReadAdmin() : null;
         RmlUiAdminPlayer[] orderedRoster = RmlUiLobbyDisplayOrder.Ordered(chromeRoster);
         Text("lobby_name", lobby.Active ? lobby.Name : "");
-        Text("lobby_map", lobby.Active ? lobby.Map : "");
+        Text("lobby_map", lobby.Active ? LauncherRoomDisplayName.Get(lobby.Map) : "");
         Text("lobby_mode_name", lobby.Active ? lobby.Mode : "");
         Text("lobby_format", lobby.Active ? lobby.Format : "");
         RmlUiLobbyPlayer[] lobbyPlayers = lobby.Players ?? Array.Empty<RmlUiLobbyPlayer>();

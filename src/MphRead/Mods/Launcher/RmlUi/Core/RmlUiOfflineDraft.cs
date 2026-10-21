@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
 using System.Linq;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
@@ -11,6 +12,8 @@ public readonly record struct RmlUiOfflineRequest(string RoomKey, GameMode Mode,
     Hunter Hunter, int Suit, int Bots, int BotLevel)
 {
     public OfflineCharacterMode Character { get; init; }
+    public ImmutableArray<OfflineBotSettings> BotRoster { get; init; }
+    public int LocalTeam { get; init; }
     public bool ValidateForm(IReadOnlyList<string> availableRooms)
     {
         GameMode requestedMode = Mode; // A struct method cannot capture this in a lambda.
@@ -22,7 +25,8 @@ public readonly record struct RmlUiOfflineRequest(string RoomKey, GameMode Mode,
                     && (Character is OfflineCharacterMode.TrooperWallClingPractice or OfflineCharacterMode.TrooperScoutDronePractice && Bots == 0
                         || Character is OfflineCharacterMode.TrooperScoutDroneCombatPractice or OfflineCharacterMode.TrooperArsenalPractice))
             && (uint)Hunter < 7 && Suit is >= 0 and <= 3
-            && Bots is >= 0 and <= 7 && BotLevel is >= 0 and <= 3;
+            && Bots is >= 0 and <= 7 && BotLevel is >= 0 and <= 3
+            && LocalTeam is >= 0 and <= 1 && OfflineBotSettings.Validate(BotRoster, Bots, lowTier: false);
     }
 }
 
@@ -38,8 +42,15 @@ public sealed class RmlUiOfflineDraft
     private int _arenaPage;
     private bool _arenaOpen;
     private bool _lowTier;
-    public const int ArenaPageSize = 16;
+    private int _selectedBot;
+    public const int ArenaPageSize = 6;
     public RmlUiOfflineRequest Current { get; private set; }
+    public int SelectedBot => Math.Min(_selectedBot, Math.Max(0, Current.Bots - 1));
+    public OfflineBotSettings Bot => Current.BotRoster[SelectedBot];
+    public bool HasBots => Current.Bots > 0;
+    public bool Teams => GameState.IsTeamMode(Current.Mode);
+    public string BotSelection => HasBots ? $"BOT {SelectedBot + 1} / {Current.Bots}" : "NO BOTS";
+    public string BotTeam => Bot.Team < 0 ? "AUTO" : "TEAM " + (Bot.Team + 1);
     public bool ArenaOpen => _arenaOpen;
     public int ArenaPage => _arenaPage;
     public int ArenaPageCount => Math.Max(1, (_filtered.Length + ArenaPageSize - 1) / ArenaPageSize);
@@ -52,17 +63,21 @@ public sealed class RmlUiOfflineDraft
         ArgumentNullException.ThrowIfNull(rooms);
         _rooms = rooms.Where(x => !String.IsNullOrWhiteSpace(x))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+            .OrderBy(LauncherRoomDisplayName.Get, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
         _types = MatchTypeCatalog.GameTypes;
         Current = new(_rooms.FirstOrDefault() ?? "", GameMode.Battle,
             (uint)hunter < 7 ? hunter : Hunter.Samus,
             Math.Clamp(suit, 0, 3), Math.Clamp(bots, 0, 7), Math.Clamp(level, 0, 3));
+        EnsureBotRoster();
     }
 
     public void RefreshArenas(IEnumerable<string> rooms)
     {
         string[] next = rooms.Where(x => !String.IsNullOrWhiteSpace(x))
-            .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(LauncherRoomDisplayName.Get, StringComparer.OrdinalIgnoreCase)
+            .ThenBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
         if (_rooms.SequenceEqual(next, StringComparer.OrdinalIgnoreCase)) return;
         _rooms = next;
         if (!_rooms.Contains(Current.RoomKey, StringComparer.OrdinalIgnoreCase))
@@ -89,7 +104,8 @@ public sealed class RmlUiOfflineDraft
     {
         if (!_arenaOpen || search.Length > 80) return false;
         string query = search.Trim();
-        _filtered = _rooms.Where(x => x.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        _filtered = _rooms.Where(x => LauncherRoomDisplayName.Get(x).Contains(query, StringComparison.OrdinalIgnoreCase)
+            || x.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
         _arenaPage = 0;
         return true;
     }
@@ -119,22 +135,59 @@ public sealed class RmlUiOfflineDraft
         return true;
     }
 
-    private bool Step<T>(IReadOnlyList<T> options, T current, Action<T> set)
+    private bool Step<T>(IReadOnlyList<T> options, T current, Action<T> set, int direction)
     {
         if (options.Count == 0) return false;
         int index = -1;
         for (int i = 0; i < options.Count; i++)
             if (EqualityComparer<T>.Default.Equals(options[i], current)) { index = i; break; }
-        set(options[(index + 1) % options.Count]);
+        set(options[(index + direction + options.Count) % options.Count]);
         return true;
     }
 
-    public bool Change(int index)
+    private void EnsureBotRoster()
     {
+        if (!Current.BotRoster.IsDefaultOrEmpty) return;
+        Current = Current with { BotRoster = Enumerable.Repeat(
+            new OfflineBotSettings(Hunter.Random, 0, Current.BotLevel), 7).ToImmutableArray() };
+    }
+
+    private bool ChangeBot(int index, int direction)
+    {
+        if (!HasBots) return false;
+        if (index == 17)
+        {
+            _selectedBot = (SelectedBot + direction + Current.Bots) % Current.Bots;
+            return true;
+        }
+        OfflineBotSettings bot = Bot;
+        switch (index)
+        {
+            case 18:
+                var pool = MphRead.Mods.Multiplayer.HunterRules.Pool(_lowTier).Append(Hunter.Random).ToArray();
+                bot = bot with { Hunter = pool[(Array.IndexOf(pool, bot.Hunter) + direction + pool.Length) % pool.Length] }; break;
+            case 19: bot = bot with { Suit = (bot.Suit + direction + 4) % 4 }; break;
+            case 20: bot = bot with { Level = (bot.Level + direction + 4) % 4 }; break;
+            case 21:
+                if (!Teams) return false;
+                bot = bot with { Team = (bot.Team + 1 + direction + 3) % 3 - 1 }; break;
+            case 22:
+                bot = bot with { Handicap = (byte)((bot.Handicap + direction * PlayerHandicap.Step + 60) % 60) }; break;
+            default: return false;
+        }
+        Current = Current with { BotRoster = Current.BotRoster.SetItem(SelectedBot, bot) };
+        return true;
+    }
+
+    public bool Change(int index, bool previous = false)
+    {
+        EnsureBotRoster();
+        int direction = previous ? -1 : 1;
+        if (index is >= 17 and <= 22) return ChangeBot(index, direction);
         switch (index)
         {
             case 0: return Step(_rooms, Current.RoomKey,
-                value => Current = Current with { RoomKey = value });
+                value => Current = Current with { RoomKey = value }, direction);
             case 1:
             {
                 MatchTypeDefinition current = _types[MatchTypeCatalog.BaseModeIndex(Current.Mode)];
@@ -143,7 +196,7 @@ public sealed class RmlUiOfflineDraft
                 {
                     format = MatchTypeCatalog.NormalizeFormat(next, format);
                     Current = Current with { Mode = next.Resolve(format) };
-                });
+                }, direction);
             }
             case 2:
             {
@@ -154,26 +207,29 @@ public sealed class RmlUiOfflineDraft
                 Current = Current with { Mode = type.Resolve(next) };
                 return true;
             }
-            case 3: Current = Current with { Bots = (Current.Bots + 1) % 8 }; return true;
-            case 4: Current = Current with { BotLevel = (Current.BotLevel + 1) % 4 }; return true;
+            case 3:
+                Current = Current with { Bots = (Current.Bots + direction + 8) % 8 };
+                _selectedBot = SelectedBot; return true;
+            case 4:
+                int level = (Current.BotLevel + direction + 4) % 4;
+                Current = Current with { BotLevel = level,
+                    BotRoster = Current.BotRoster.Select(bot => bot with { Level = level }).ToImmutableArray() };
+                return true;
             case 5: return Step(MphRead.Mods.Multiplayer.HunterRules.Pool(_lowTier), Current.Hunter,
-                hunter => Current = Current with { Hunter = hunter });
-            case 6: Current = Current with { Suit = (Current.Suit + 1) % 4 }; return true;
+                hunter => Current = Current with { Hunter = hunter }, direction);
+            case 6: Current = Current with { Suit = (Current.Suit + direction + 4) % 4 }; return true;
             case 16:
-                OfflineCharacterMode nextCharacter = Current.Character switch
-                {
-                    OfflineCharacterMode.Native => OfflineCharacterMode.TrooperWallClingPractice,
-                    OfflineCharacterMode.TrooperWallClingPractice => OfflineCharacterMode.TrooperScoutDronePractice,
-                    OfflineCharacterMode.TrooperScoutDronePractice => OfflineCharacterMode.TrooperScoutDroneCombatPractice,
-                    OfflineCharacterMode.TrooperScoutDroneCombatPractice => OfflineCharacterMode.TrooperArsenalPractice,
-                    _ => OfflineCharacterMode.Native
-                };
+                var characters = Enum.GetValues<OfflineCharacterMode>();
+                OfflineCharacterMode nextCharacter = characters[(Array.IndexOf(characters,Current.Character)+direction+characters.Length)%characters.Length];
                 Current = Current with { Character = nextCharacter };
                 if (nextCharacter != OfflineCharacterMode.Native)
                     Current = Current with { Hunter = Hunter.Weavel,
                         Bots = nextCharacter is OfflineCharacterMode.TrooperScoutDroneCombatPractice or OfflineCharacterMode.TrooperArsenalPractice ? Math.Max(1, Current.Bots) : 0,
                         Mode = GameMode.Battle };
                 return true;
+            case 23:
+                if (!Teams) return false;
+                Current = Current with { LocalTeam = 1 - Current.LocalTeam }; return true;
             default: return false;
         }
     }
@@ -182,10 +238,19 @@ public sealed class RmlUiOfflineDraft
     {
         _lowTier = enabled;
         Current = Current with { Hunter = MphRead.Mods.Multiplayer.HunterRules.Sanitize(Current.Hunter, enabled) };
+        EnsureBotRoster();
+        for (int i = 0; i < Current.BotRoster.Length; i++)
+        {
+            var bot = Current.BotRoster[i];
+            if (bot.Hunter != Hunter.Random)
+                Current = Current with { BotRoster = Current.BotRoster.SetItem(i, bot with {
+                    Hunter = MphRead.Mods.Multiplayer.HunterRules.Sanitize(bot.Hunter, enabled) }) };
+        }
     }
 
-    public bool Valid => Current.ValidateForm(_rooms);
-    public string Map => Current.RoomKey;
+    public bool Valid => Current.ValidateForm(_rooms)
+        && OfflineBotSettings.Validate(Current.BotRoster, Current.Bots, _lowTier);
+    public string Map => LauncherRoomDisplayName.Get(Current.RoomKey);
     public string Mode => MatchTypeCatalog.BaseLabel(Current.Mode);
     public string Matchup => MatchTypeCatalog.IsInternalTeamMode(Current.Mode)
         ? "TEAMS" : "FREE FOR ALL";

@@ -1,4 +1,4 @@
-# Native Mac/Windows renderer diagnostic
+# Native desktop renderer diagnostic
 
 This tool runs the normal `RenderWindow` loop, including its fixed 60 Hz
 simulation, frame cap, render profiling and `SwapBuffers`. It requires the
@@ -12,7 +12,11 @@ dotnet tools/native-render-check/bin/Release/net10.0/native-render-check.dll \
   -output /absolute/path/baseline.json
 ```
 
-Use caps 60/120/144/240 or `-hz -1` for uncapped. Desktop VBOs, binding caching
+Use caps 60/120/144/240, `-hz 0` for Display/VSync, or `-hz -1` for uncapped.
+The ordinary harness accepts Windows, macOS and Linux; this support is distinct
+from platform qualification. The 2026-10-21 implementation checks run on Windows
+only. Platform-specific resource controls keep their existing restrictions.
+Desktop VBOs, binding caching
 and opaque batching now default on. For a VBO-only arm use
 `PROJECT_PRIME_GL_BATCH=0` with `-gllegacybindings`; for binding-only use
 `-gllegacylist`. Set `PROJECT_PRIME_GL_BATCH=0` for combined VBO/binding without
@@ -23,6 +27,16 @@ checking driver support. Apple GL2.1 on the tested M4 Pro lacks timer queries.
 The workload has eight bots, frozen keyboard/mouse snapshots, fixed RNG
 seeds and a 1920x1080 framebuffer by default (`-size 1280x720` changes it).
 The first 240 simulation steps are warmup.
+Native keyboard/text/mouse event callbacks are also suppressed, so live Escape
+cannot bypass the frozen Scene snapshots and open/close UI during a run.
+`nativeInputIsolation` records bounded discrete-event provenance, complete event
+counts and explicit detail overflow; motion only contributes an aggregate.
+Window-close and focus callbacks remain active, so interrupted runs still fail.
+Physical gamepad polling is unchanged and controller isolation is not claimed.
+`launcherStartupScheduled` must be false: standalone diagnostics do not own
+launcher maintenance/preview workers, and unexpected scheduling invalidates
+`timingEvidenceComplete`. Source-linked regressions run with
+`python -m unittest discover -s tools/native-render-check -p test_startup_ownership.py`.
 Normal timing JSON now includes `observedWorkload` schema1: actual start/end
 slot/hunter/bot roster, RNG assignment readback and start/end RNG states,
 offline authority at both boundaries, exact measurement ticks, entry-only phase,
@@ -647,3 +661,11 @@ Compare its exact canonical timeline with `none` on the same frozen binary.
 path to reproduce suppression. It cannot complete/qualify normal pose acceptance.
 All three values require `-posecheck`; these are diagnostic controls, not player
 settings or hardware latency tests.
+# Renderer audit qualification controls
+
+`-scale 25..800` selects the existing render scale (default 100). Results now
+distinguish requested target size from the actually allocated `renderSize` when
+capability/byte budgets force fallback. Use 50/100/150/200 for capture checks;
+image/readback runs remain separate from timing. `-posecheck` requires 100%.
+Final renderer audit evidence and the Windows-only platform constraint are
+recorded in `docs/performance/renderer-next/status.md`.

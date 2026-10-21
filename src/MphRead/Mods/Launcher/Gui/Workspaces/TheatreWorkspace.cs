@@ -601,6 +601,7 @@ namespace MphRead.Mods.Launcher.Gui
                 string people = demo.Metadata == null ? ""
                     : String.Join(" ", demo.Metadata.Players.Select(player => player.Name));
                 string mode = demo.Metadata?.Mode.ToString() ?? "";
+                string mapName = LauncherRoomDisplayName.Get(demo.Room);
                 string annotations = AnnotationSearchText(demo.Path,
                     out int bookmarks, out int highlights);
                 string organization = OrganizationSearchText(demo.Path);
@@ -621,7 +622,7 @@ namespace MphRead.Mods.Launcher.Gui
                     highlights,
                     demo.Room,
                     people,
-                    $"{demo.DisplayName} {demo.Room} {mode} {people} "
+                    $"{demo.DisplayName} {demo.Room} {mapName} {mode} {people} "
                         + $"{annotations} {organization} {demo.FileName}"));
             }
 
@@ -633,6 +634,7 @@ namespace MphRead.Mods.Launcher.Gui
                 virtualClips[path] = clip;
                 demoByPath.TryGetValue(clip.SourceReplay, out DemoRecording source);
                 string room = source.Path != null ? source.Room : "";
+                string mapName = LauncherRoomDisplayName.Get(room);
                 string people = source.Metadata == null ? ""
                     : String.Join(" ", source.Metadata.Players.Select(player => player.Name));
                 string mode = source.Metadata?.Mode.ToString() ?? "";
@@ -655,7 +657,7 @@ namespace MphRead.Mods.Launcher.Gui
                     HighlightCount: highlights,
                     Room: room,
                     Players: people,
-                    SearchText: $"{clip.Name} {room} {mode} {people} "
+                    SearchText: $"{clip.Name} {room} {mapName} {mode} {people} "
                         + $"{annotations} {organization} {Path.GetFileName(clip.SourceReplay)}"));
             }
 
@@ -755,7 +757,10 @@ namespace MphRead.Mods.Launcher.Gui
                     ? $"  //  {entry.BookmarkCount} BOOKMARK{(entry.BookmarkCount == 1 ? "" : "S")}"
                     : "";
             string organized = entry.Organized ? "  //  ORGANIZED" : "";
-            return $"{kind}  //  {entry.Detail}{annotations}{organized}";
+            string mapName = LauncherRoomDisplayName.Get(entry.Room);
+            return $"{kind}  //  {entry.Detail}"
+                + (mapName.Length > 0 ? $"  //  {mapName}" : "")
+                + $"{annotations}{organized}";
         }
 
         private void UpdateLibraryInsights(IReadOnlyList<ReplayLibraryEntry> shown)
@@ -1013,12 +1018,14 @@ namespace MphRead.Mods.Launcher.Gui
                 _tags.Value = String.Join(", ", ReplayAnnotations.Tags(path));
                 _collections.Value = String.Join(", ", ReplayAnnotations.Collections(path));
                 string clipRoom = RoomForSource(clip.SourceReplay) ?? "";
+                string mapName = LauncherRoomDisplayName.Get(clipRoom);
                 _heroMeta.Text =
                     $"VIRTUAL CLIP  //  {ReplayHud.Time(clip.EndFrame - clip.StartFrame)}"
-                    + (clipRoom.Length > 0 ? $"  //  {clipRoom}" : "");
+                    + (mapName.Length > 0 ? $"  //  {mapName}" : "");
                 _metadata.Text =
                     $"VIRTUAL CLIP  /  {ReplayHud.Time(clip.EndFrame - clip.StartFrame)}\n"
                     + $"{ReplayHud.Time(clip.StartFrame)} – {ReplayHud.Time(clip.EndFrame)}\n"
+                    + (mapName.Length > 0 ? $"MAP  {mapName}\n" : "")
                     + $"SOURCE  {Path.GetFileName(clip.SourceReplay)}"
                     + AnnotationSummary(path)
                     + OrganizationSummary(path);
@@ -1034,13 +1041,15 @@ namespace MphRead.Mods.Launcher.Gui
                 _rename.Value = demo.DisplayName;
                 _tags.Value = String.Join(", ", ReplayAnnotations.Tags(path));
                 _collections.Value = String.Join(", ", ReplayAnnotations.Collections(path));
+                string mapName = LauncherRoomDisplayName.Get(demo.Room);
                 _heroMeta.Text =
                     $"{(demo.Metadata?.Type == ReplayType.Clip ? "CLIP" : "FULL REPLAY")}"
                     + $"  //  {ReplayHud.Time(demo.DurationFrames)}"
-                    + (demo.Room.Length > 0 ? $"  //  {demo.Room}" : "")
+                    + (mapName.Length > 0 ? $"  //  {mapName}" : "")
                     + $"  //  {demo.Recorded:g}";
                 _metadata.Text = $"{DemoLibrary.Describe(demo)}\n"
                     + DemoLibrary.Details(demo)
+                    + (mapName.Length > 0 ? $"\nMAP  {mapName}" : "")
                     + AnnotationSummary(path)
                     + OrganizationSummary(path);
                 _favorite.Label = demo.Favorite ? "UNFAVORITE" : "FAVORITE";

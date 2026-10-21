@@ -84,7 +84,7 @@ namespace MphRead
                 string cacheKey = "cosmetic-decal/" + path + "/" + model.Name + "/" + materialIndex;
                 int binding = CosmeticTextureAssets.UploadRgba(cacheKey, assetClass, TextureAssetChannel.Albedo,
                     width, height, output, repeat: false, out _, out _);
-                RegisterModernTexture(binding, assetClass, TextureAssetChannel.Albedo);
+                RegisterModernTexture(binding, assetClass, TextureAssetChannel.Albedo, CosmeticTextureAssets);
                 return binding;
             }
             catch (Exception ex)
@@ -98,7 +98,7 @@ namespace MphRead
         {
             int binding = CosmeticTextureAssets.Upload("cosmetic/" + path, () => CosmeticAsset.Open(path),
                 assetClass, channel, repeat: false, out _, out _);
-            RegisterModernTexture(binding, assetClass, channel);
+            RegisterModernTexture(binding, assetClass, channel, CosmeticTextureAssets);
             return binding;
         }
 

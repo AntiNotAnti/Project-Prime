@@ -771,7 +771,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private sealed record NativeRoomRow(RoomMetadata Room)
         {
-            public override string ToString()=>$"{Room.InGameName??Room.Name} · {Room.Name} · {(Room.Multiplayer?"Multiplayer":"Adventure")}";
+            public override string ToString()=>$"{LauncherRoomDisplayName.Get(Room.Name)} · {(Room.Multiplayer?"Multiplayer":"Adventure")}";
         }
 
         private sealed record StudioCommand(string Name,string Keywords,Action Run)

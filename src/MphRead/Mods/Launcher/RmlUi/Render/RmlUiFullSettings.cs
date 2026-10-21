@@ -1,6 +1,7 @@
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
 using System;
 using MphRead.Mods.Input;
+using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Launcher.RmlUi.Pages.Hud;
@@ -38,7 +39,7 @@ internal static partial class RmlUiOpenGlSmoke
         bool playbackOverlay=Shell.StudioWindow && _playback is { IsOpen:true } playback
             && _pages.Page==playback.Document && _pages.Top==playback.Document;
         var next = new NativeFullSettingsPage(_host, _pages, Shell.RmlUiSettings,
-            mode => { if (ReferenceEquals(Shell.Window, window)) { Mods.WindowGeometry.DisplayTrialActive = true; Mods.WindowMode.Set(window, mode); } }, allowGameFiles: !window.HasScene, asModal:playbackOverlay);
+            mode => { if (ReferenceEquals(Shell.Window, window)) { Mods.WindowGeometry.DisplayTrialActive = true; Mods.WindowMode.Set(window, mode); } }, allowGameFiles: !window.HasScene, asModal:playbackOverlay, canPreview:window.HasScene && !playbackOverlay && !Mods.Network.DemoPlayback.IsActive);
         try
         {
             next.Open(); _fullSettings = next; _settingsReturnToPause = returnToPause;
@@ -57,7 +58,7 @@ internal static partial class RmlUiOpenGlSmoke
             hud.Handle(intent); TickFullSettings(); return true;
         }
         if (_fullSettings is not { } settings) return false;
-        bool setting = intent.Kind is RmlUiIntentKind.SettingsAction or RmlUiIntentKind.SettingsCategory
+        bool setting = intent.Kind is RmlUiIntentKind.SettingsAction or RmlUiIntentKind.SettingsPreviousChoice or RmlUiIntentKind.SettingsCategory
             or RmlUiIntentKind.SettingsApply or RmlUiIntentKind.SettingsDiscard or RmlUiIntentKind.SettingsClose
             or RmlUiIntentKind.SettingsResetCategory or RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo;
         if (!setting) return false;
@@ -74,6 +75,11 @@ internal static partial class RmlUiOpenGlSmoke
     private static void TickFullSettings()
     {
         if (_fullSettings is not { } settings) return;
+        if (SettingsPreview.Active) return;
+        if (settings.TryTakePreview())
+        {
+            BeginFullSettingsPreview(settings);return;
+        }
         if (_characterSourcePreview is { } source)
         {
             source.Tick();
@@ -82,11 +88,14 @@ internal static partial class RmlUiOpenGlSmoke
         }
         if (_hudEditor is { } hud)
         {
+            if(hud.TryTakePreview(out HudProfile previewProfile,out HudEditorOption[] previewOptions))
+            { BeginFullSettingsPreview(settings,hud,previewProfile,previewOptions);return; }
             RefreshHudCanvas(hud);
             hud.Refresh();
             bool accepted = hud.TryTakeAccepted(out HudProfile profile);
             if (accepted || hud.TryTakeCancelled() || hud.Closed)
             {
+                if (accepted) settings.AcceptHudOptions(hud.CopyOptions());
                 _hudEditor = null; _hudPointerHeld = false; hud.Dispose();
                 if (accepted) settings.AcceptHud(profile);
                 settings.ResumeView();
@@ -99,7 +108,8 @@ internal static partial class RmlUiOpenGlSmoke
         if (settings.TryTakeOpenHud(out HudProfile draft))
         {
             settings.SuspendView();
-            var next = new NativeHudEditorPage(_host!, _pages!, draft, asModal:settings.AsModal);
+            var next = new NativeHudEditorPage(_host!, _pages!, draft, asModal:settings.AsModal, options:settings.CopyHudOptions(),
+                autoSave: settings.AutoApply ? settings.AutoSaveHud : null,autoSaveError:()=>settings.AutoSaveError,canPreview:settings.CanPreview);
             try { next.Open(); _hudEditor = next; }
             catch { next.Dispose(); settings.ResumeView(); throw; }
         }
@@ -123,16 +133,60 @@ internal static partial class RmlUiOpenGlSmoke
         }
     }
 
+    private static void BeginFullSettingsPreview(NativeFullSettingsPage settings,NativeHudEditorPage? hud=null,
+        HudProfile? profile=null,HudEditorOption[]? options=null)
+    {
+        bool started=false;
+        try
+        {
+            var previewWindow=_gameplayWindow;var previewScene=_gameplayScene;
+            var document=hud?.Document??settings.Document;
+            if(previewWindow is not {HasScene:true}||!ReferenceEquals(Shell.Window,previewWindow)
+                ||!ReferenceEquals(previewWindow.Scene,previewScene))
+                throw new InvalidOperationException("Live preview requires the current match.");
+            SettingsPreview.Begin(()=>hud==null?settings.ApplyPreview():settings.ApplyHudPreview(profile!,options!),()=>
+            {
+                if(!ReferenceEquals(_fullSettings,settings)||settings.Closed
+                    ||!ReferenceEquals(Shell.Window,previewWindow)||!previewWindow.HasScene
+                    ||!ReferenceEquals(previewWindow.Scene,previewScene)||_host?.IsAlive(document)!=true
+                    ||(hud!=null&&(!ReferenceEquals(_hudEditor,hud)||hud.Closed)))return;
+                if(hud!=null)hud.SetPreviewVisible(true);else settings.SetPreviewVisible(true);
+                PauseMenu.MarkOpened();_shown=true;
+            });
+            started=true;
+            if(!(hud?.SetPreviewVisible(false)??settings.SetPreviewVisible(false)))
+                throw new InvalidOperationException("The settings editor could not enter live preview.");
+            if(_host is {Active:true} previewHost)ReleaseNativeInput(previewHost);
+            _shown=false;PauseMenu.MarkClosed();
+        }
+        catch(Exception error)when(Recoverable(error))
+        {
+            if(started)try{SettingsPreview.End();}catch(Exception restoreError)when(Recoverable(restoreError))
+                {DebugLog.Line("settings","Preview restore failed: "+restoreError.Message);}
+            if(hud!=null)hud.ReportFailure("Preview failed: "+error.Message);else settings.ReportPreviewFailure(error.Message);
+        }
+    }
+
     private static void CloseFullSettings()
     {
         var source = _characterSourcePreview; _characterSourcePreview = null;
         source?.Dispose();
         var hud = _hudEditor; _hudEditor = null; _hudPointerHeld = false;
         var settings = _fullSettings; _fullSettings = null; _settingsReturnToPause = false;
-        RetireNativeArenaPicker();
-        try { hud?.Dispose(); }
-        finally { try { settings?.Dispose(); } finally { Mods.WindowGeometry.DisplayTrialActive = false; } }
-        if (settings != null) { Shell.RmlUiSettingsClosed(); ReleaseGameplayLeaseIfIdle(); }
+        try { SettingsPreview.End(); RetireNativeArenaPicker(); }
+        finally
+        {
+            try { hud?.Dispose(); }
+            finally
+            {
+                try { settings?.Dispose(); }
+                finally
+                {
+                    Mods.WindowGeometry.DisplayTrialActive = false;
+                    if (settings != null) { Shell.RmlUiSettingsClosed(); ReleaseGameplayLeaseIfIdle(); }
+                }
+            }
+        }
     }
 
     private static bool BackFullSettings()

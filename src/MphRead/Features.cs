@@ -217,17 +217,15 @@ namespace MphRead
         /// Whether the simulation camera itself should be welded to raw aim.
         /// Dynamic/Metroid keeps the legacy eased simulation basis because its
         /// drifting weapon presentation is authored from that visual state.
-        /// The local rendered camera is governed separately by
-        /// <see cref="ResponsiveAimCamera"/> so visual drift never adds mouse
-        /// latency.
+        /// The rendered camera follows the same policy so the dynamic reticle
+        /// stays on the native camera-to-aim basis in either HUD mode.
         /// </summary>
         public static bool FixedAimCamera => FixedCrosshair && FixedWeapon;
 
         /// <summary>
-        /// Whether local first-person presentation should follow raw aim and
-        /// late-latched pointer/controller input immediately. A fixed Pro
-        /// crosshair opts into the modern low-latency camera even when the
-        /// weapon presentation remains Dynamic/Metroid.
+        /// Whether local first-person presentation follows raw, late-latched aim.
+        /// Both Pro weapon styles retain responsive camera input; Dynamic keeps
+        /// its eased simulation basis only for weapon presentation.
         /// </summary>
         public static bool ResponsiveAimCamera => FixedCrosshair;
 
@@ -269,6 +267,9 @@ namespace MphRead
                 Mods.Render.Crosshair.Size = Mods.Render.Crosshair.ParseSize(value,
                     Mods.Render.Crosshair.Size);
             }
+            if (values.TryGetValue("CrosshairScale", out value) && float.TryParse(value,
+                System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float crosshairScale))
+                Mods.Render.Crosshair.Scale = crosshairScale;
             // The motion tracker: on/off, and the guides/background around it.
             // Persists for the same reason the crosshair does -- a player
             // picks a look once and does not want to answer for it again.
@@ -305,8 +306,6 @@ namespace MphRead
                 new(nameof(ProHud), ProHud.ToString().ToLower()),
                 new(nameof(ProHudFixedWeapon), ProHudFixedWeapon.ToString().ToLower()),
                 new(nameof(KillFeedEnabled), KillFeedEnabled.ToString().ToLower()),
-                new("CrosshairStyle", Mods.Render.Crosshair.Style.ToString()),
-                new("CrosshairSize", Mods.Render.Crosshair.Size.ToString()),
                 new("RadarEnabled", Mods.Render.Radar.Enabled.ToString().ToLower()),
                 new("RadarShowBackground", Mods.Render.Radar.ShowBackground.ToString().ToLower()),
                 new("RadarShowOutlines", Mods.Render.Radar.ShowOutlines.ToString().ToLower())

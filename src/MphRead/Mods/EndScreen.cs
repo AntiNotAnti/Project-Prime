@@ -121,26 +121,7 @@ namespace MphRead.Mods
         }
 
         /// <summary>The next map's name as a person knows it, or its key.</summary>
-        public static string NextRoomName
-        {
-            get
-            {
-                string key = NextRoomKey;
-                if (key.Length == 0)
-                {
-                    return "";
-                }
-                try
-                {
-                    (RoomMetadata? meta, _) = Metadata.GetRoomByName(key);
-                    return meta?.InGameName ?? key;
-                }
-                catch (Exception)
-                {
-                    return key;
-                }
-            }
-        }
+        public static string NextRoomName => Launcher.LauncherRoomDisplayName.Get(NextRoomKey);
 
         // ------------------------------------------------------- the pointer
 

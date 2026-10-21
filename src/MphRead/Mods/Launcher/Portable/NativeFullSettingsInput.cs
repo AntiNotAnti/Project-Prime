@@ -92,7 +92,7 @@ internal sealed partial class NativeFullSettingsController
             _conflictTarget=row;_conflictRows=conflicts;_conflictValue=value;_confirmationAction=25;
             Confirmation=value+" is assigned to "+string.Join(" / ",conflicts.Select(r=>r.Label))+". Choose Swap, Replace, Keep Both, or Cancel.";return;
         }
-        Stage(row,value);Status="Binding staged. Apply Changes to save, or Discard to restore.";
+        Stage(row,value);Status=AutoApply?"Saving binding…":"Binding staged. Apply Changes to save, or Discard to restore.";
     }
     private void TickInput()
     {
@@ -128,7 +128,7 @@ internal sealed partial class NativeFullSettingsController
             if(resolution is "Swap" or "Replace")foreach(var row in _conflictRows)Stage(row,resolution=="Swap"?old:"Unknown");
             Stage(target,_conflictValue);
         }
-        CancelBinding();Status="Binding resolution staged. Apply Changes to save, or Discard to restore.";return true;
+        CancelBinding();Status=AutoApply?"Saving binding…":"Binding resolution staged. Apply Changes to save, or Discard to restore.";return true;
     }
     private static bool ControllerOwned(NativeSettingRow row)=>row.BindingAction!=null||row.Category=="Controls"&&(row.Group is "Controller" or "Controller bindings" or "Controller calibration" or "Weapon wheel");
     private void RestoreCategoryBindings(bool replay)
@@ -142,7 +142,7 @@ internal sealed partial class NativeFullSettingsController
         var names=new[]{"Replay Play Pause Key","Replay Step Back Key","Replay Step Forward Key","Replay Seek Back Key","Replay Seek Forward Key","Replay Slower Key","Replay Faster Key","Replay Restart Key","Replay Camera Track Key","Replay Constant Speed Key","Replay Interpolation Key","Replay Easing Key"};
         for(int i=0;i<names.Length;i++){var row=Rows.First(r=>r.Category=="Replays"&&r.Label==names[i]);Stage(row,keys[i]);}
         var draft=ControllerDraft();foreach(var action in draft.Bindings.ReplayActions)draft.Bindings.Set(action,draft.Bindings.Default(action));ProjectControllerDraft(draft);
-        Status="Default replay controls staged. Apply Changes to save, or Discard to restore.";
+        Status=AutoApply?"Saving default replay controls…":"Default replay controls staged. Apply Changes to save, or Discard to restore.";
     }
     private GamepadRuntimeConfig ControllerDraft()
     {
@@ -159,7 +159,7 @@ internal sealed partial class NativeFullSettingsController
     }
     private void ProjectControllerDraft(GamepadRuntimeConfig draft)
     {
-        _bindingsDraft=draft.Bindings.Clone();UpdateLegacyHints(_bindingsDraft);
+        _bindingsDraft=draft.Bindings.Clone();UpdateLegacyHints(_bindingsDraft);MarkAutoApplyEdited();
         var current=GamepadRuntimeConfig.Current;
         try{GamepadRuntimeConfig.Current=draft;foreach(var row in Rows.Where(ControllerOwned)){string value=row.Read();row.Value=row.Choices.FirstOrDefault(c=>c.Equals(value,StringComparison.OrdinalIgnoreCase))??value;}}
         finally{GamepadRuntimeConfig.Current=current;}
@@ -167,12 +167,12 @@ internal sealed partial class NativeFullSettingsController
     private void StageControllerLayout(string name)
     {
         var draft=ControllerDraft();draft.Layout.Apply(name);ProjectControllerDraft(draft);
-        Status="Controller layout staged. Apply Changes to save, or Discard to restore.";
+        Status=AutoApply?"Saving controller layout…":"Controller layout staged. Apply Changes to save, or Discard to restore.";
     }
     internal bool CycleControllerDevice()
     {
         if(Busy||ConfirmingVideo||Capturing||Confirmation.Length>0)return false;
-        if(HiddenBindingsDirty||Rows.Any(r=>r.Category=="Controls"&&r.Dirty)){Status="Apply or discard Controls changes before selecting another controller.";return false;}
+        if((HiddenBindingsDirty||Rows.Any(r=>r.Category=="Controls"&&r.Dirty))&&!ReadyForOperation("Apply or discard Controls changes before selecting another controller."))return false;
         var devices=GamepadManager.Devices;int current=Array.FindIndex(devices.ToArray(),d=>d.DeviceId==GamepadManager.SelectedDeviceId)+1;
         int next=(current+1)%(devices.Count+1);GamepadManager.SelectDevice(next==0?null:devices[next-1].DeviceId);
         _calibration=null;RebaseControls();Status="Editing controller: "+CurrentDeviceLabel;return true;
@@ -207,14 +207,14 @@ internal sealed partial class NativeFullSettingsController
     internal void CalibrationAction(int action)
     {
         if(action==26){_calibration=new();_calibrationRest=true;Status="Release both sticks and triggers. Sample rest for at least one second, then choose Sample Range.";}
-        if(action==27&&_calibration!=null){_calibrationRest=false;Status="Rotate both sticks around their gates and fully press both triggers, then Stage Calibration.";}
+        if(action==27&&_calibration!=null){_calibrationRest=false;Status=AutoApply?"Rotate both sticks around their gates and fully press both triggers, then Save Calibration.":"Rotate both sticks around their gates and fully press both triggers, then Stage Calibration.";}
         if(action==28&&_calibration!=null)
         {
             if(!_calibration.Valid){Status=_calibration.Summary;return;}
             var runtime=GamepadRuntimeConfig.Current;var preview=runtime.Clone();
             try{GamepadRuntimeConfig.Current=preview;_calibration.Apply();foreach(var row in Rows.Where(r=>r.Group is "Controller" or "Controller calibration"))row.Value=row.Read();}
             finally{GamepadRuntimeConfig.Current=runtime;}
-            _calibration=null;Status="Calibration staged. Apply Changes to save, or Discard to restore.";
+            _calibration=null;MarkAutoApplyEdited();Status=AutoApply?"Saving calibration…":"Calibration staged. Apply Changes to save, or Discard to restore.";
         }
     }
 }

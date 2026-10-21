@@ -210,7 +210,7 @@ namespace MphRead
         internal long TextureSamplerStateApplications => _textureSamplerStateApplications;
         internal long TextureSamplerStateCacheHits => _textureSamplerStateCacheHits;
         private readonly Dictionary<int, Mods.Render.MaterialMapBindings> _materialMaps = new();
-        private readonly Dictionary<int, (Mods.Render.TextureAssetClass AssetClass, Mods.Render.TextureAssetChannel Channel)>
+        private readonly Dictionary<int, (Mods.Render.TextureAssetClass AssetClass, Mods.Render.TextureAssetChannel Channel, bool MipmapsAvailable, bool CanGenerateMipmaps, int ResidentMipLevels)>
             _modernTextureSampling = new();
         // Incremental authored world/material residency only. Native cartridge
         // textures are the permanent fallback and cosmetics have their own
@@ -598,6 +598,9 @@ namespace MphRead
             // are the only part of this method it wants.
             if (!Mods.Headless.Active)
             {
+#if !ANDROID && !MPHREAD_SERVER
+                Mods.Render.DesktopTextureCompressionPolicy.ProbeCurrentContext();
+#endif
                 GL.ClearColor(_clearColor);
                 GL.Enable(EnableCap.DepthTest);
                 GL.Enable(EnableCap.Texture2D);
@@ -764,62 +767,7 @@ namespace MphRead
         public void OnResize()
         {
             if (_screenTexture != 0 && Size.X > 0 && Size.Y > 0)
-            {
-                Vector2i target = RenderSize;
-                int previousFramebuffer = GL.GetInteger(GetPName.DrawFramebufferBinding);
-                int previousReadFramebuffer = GL.GetInteger(GetPName.ReadFramebufferBinding);
-                GL.ActiveTexture(TextureUnit.Texture0);
-                try
-                {
-                    GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
-                    GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, target.X, target.Y, 0,
-                        PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
-                    // Nearest is the native DS look at exactly 100%. Any scaled
-                    // target needs linear sampling: below 100% it is upscaling,
-                    // above 100% it is the resolve/downsample for supersampling.
-                    bool scaled = Mods.RenderOptions.ResolutionScale != 100;
-                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                        (int)(scaled ? TextureMinFilter.Linear : TextureMinFilter.Nearest));
-                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-                        (int)(scaled ? TextureMagFilter.Linear : TextureMagFilter.Nearest));
-                    GL.BindTexture(TextureTarget.Texture2D, 0);
-                    if (_celTexture != 0)
-                    {
-                        GL.BindTexture(TextureTarget.Texture2D, _celTexture);
-                        GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, target.X, target.Y, 0,
-                            PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
-                        GL.BindTexture(TextureTarget.Texture2D, 0);
-                    }
-                    Debug.Assert(_renderBuffer != 0);
-                    GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, _renderBuffer);
-                    GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.Depth24Stencil8, target.X, target.Y);
-                    GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
-                    if (_depthTexture != 0)
-                    {
-                        GL.BindTexture(TextureTarget.Texture2D, _depthTexture);
-                        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Depth24Stencil8,
-                            target.X, target.Y, 0, PixelFormat.DepthStencil, PixelType.UnsignedInt248, IntPtr.Zero);
-                        GL.BindTexture(TextureTarget.Texture2D, 0);
-                    }
-                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
-                    ValidateFramebuffer("Scene after resize");
-                    if (_celFrameBuffer != 0)
-                    {
-                        GL.BindFramebuffer(FramebufferTarget.Framebuffer, _celFrameBuffer);
-                        ValidateFramebuffer("Cel after resize");
-                    }
-                    // Publish only after all attachments agree on the new size.
-                    _targetSize = target;
-                    _sceneColorFormat = SceneColorFormat;
-                }
-                finally
-                {
-                    GL.BindTexture(TextureTarget.Texture2D, 0);
-                    GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
-                    GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, previousFramebuffer);
-                    GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, previousReadFramebuffer);
-                }
-            }
+                ReplaceSceneTargets(RenderSize);
         }
 
         private void InitShadersCore()
@@ -863,53 +811,8 @@ namespace MphRead
             }
 #endif
 
-            _frameBuffer = GL.GenFramebuffer();
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
-            _screenTexture = GL.GenTexture();
-
-            Vector2i renderTarget = RenderSize;
-            GL.ActiveTexture(TextureUnit.Texture0);
-            GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, renderTarget.X, renderTarget.Y, 0,
-                PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
-            // Native scale keeps the DS's nearest presentation. A non-native
-            // target uses linear sampling both for upscaling and for resolving
-            // supersampling back down to the display.
-            bool scaled = Mods.RenderOptions.ResolutionScale != 100;
-            int minParameter = (int)(scaled ? TextureMinFilter.Linear : TextureMinFilter.Nearest);
-            int magParameter = (int)(scaled ? TextureMagFilter.Linear : TextureMagFilter.Nearest);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, minParameter);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, magParameter);
-            GL.BindTexture(TextureTarget.Texture2D, 0);
-            GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
-                TextureTarget.Texture2D, _screenTexture, 0);
-
-            // The ink pass's copy of the scene. Same size and same filtering;
-            // it is only ever sampled texel for texel.
-            _celTexture = GL.GenTexture();
-
-            GL.BindTexture(TextureTarget.Texture2D, _celTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, renderTarget.X, renderTarget.Y, 0,
-                PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-            GL.BindTexture(TextureTarget.Texture2D, 0);
-
-            _renderBuffer = GL.GenRenderbuffer();
-            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, _renderBuffer);
-            GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer, RenderbufferStorage.Depth24Stencil8, renderTarget.X, renderTarget.Y);
-            GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
-            GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer, FramebufferAttachment.DepthStencilAttachment,
-                RenderbufferTarget.Renderbuffer, _renderBuffer);
-
-            FramebufferErrorCode status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
-            FramebufferStatus = status;
-            ValidateFramebuffer("Scene initialization");
-            _targetSize = renderTarget;
-
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            if (!ReplaceSceneTargets(RenderSize))
+                throw new InvalidOperationException("No drawable scene target within the allocation budget.");
 
             InitWorldUniformLocations();
 
@@ -921,15 +824,21 @@ namespace MphRead
             _shaderLocations.CelDepthQuantum = GL.GetUniformLocation(_celShaderProgramId, "depth_quantum");
             _shaderLocations.CelProbe = GL.GetUniformLocation(_celShaderProgramId, "probe");
 
+            _shaderLocations.HudInk = GL.GetUniformLocation(_rttShaderProgramId, "hud_ink");
+            _shaderLocations.NativeReticleField = GL.GetUniformLocation(_rttShaderProgramId, "native_reticle_field");
+            _shaderLocations.NativeReticleThickness = GL.GetUniformLocation(_rttShaderProgramId, "native_reticle_thickness");
+            _shaderLocations.NativeReticleExtent = GL.GetUniformLocation(_rttShaderProgramId, "native_reticle_extent");
             _shaderLocations.FadeColor = GL.GetUniformLocation(_rttShaderProgramId, "fade_color");
             _shaderLocations.LayerAlpha = GL.GetUniformLocation(_rttShaderProgramId, "alpha");
             _shaderLocations.HudZeroAlphaDiscard = GL.GetUniformLocation(_rttShaderProgramId, "hud_zero_alpha_discard");
             _shaderLocations.UseMask = GL.GetUniformLocation(_rttShaderProgramId, "use_mask");
             _shaderLocations.ViewWidth = GL.GetUniformLocation(_rttShaderProgramId, "view_width");
+            _shaderLocations.ViewOrigin = GL.GetUniformLocation(_rttShaderProgramId, "view_origin");
             _shaderLocations.ViewHeight = GL.GetUniformLocation(_rttShaderProgramId, "view_height");
             int texLocation = GL.GetUniformLocation(_rttShaderProgramId, "tex");
             int maskLocation = GL.GetUniformLocation(_rttShaderProgramId, "mask");
             GL.UseProgram(_rttShaderProgramId);
+            GL.Uniform4(_shaderLocations.HudInk, Vector4.One);
             GL.Uniform1(texLocation, 0);
             GL.Uniform1(maskLocation, 1);
 
@@ -990,6 +899,9 @@ namespace MphRead
             _shaderLocations.UseSpecularMap = GL.GetUniformLocation(_shaderProgramId, "use_specular_map");
             _shaderLocations.UseEmissiveMap = GL.GetUniformLocation(_shaderProgramId, "use_emissive_map");
             _shaderLocations.EmissiveIntensity = GL.GetUniformLocation(_shaderProgramId, "emissive_intensity");
+            InitShadowReceiverUniforms();
+            _shaderLocations.MaterialCameraPosition = GL.GetUniformLocation(_shaderProgramId, "material_camera_position");
+            _shaderLocations.ModernMaterialCorrections = GL.GetUniformLocation(_shaderProgramId, "modern_material_corrections");
             _shaderLocations.Light1Color = GL.GetUniformLocation(_shaderProgramId, "light1col");
             _shaderLocations.Light1Vector = GL.GetUniformLocation(_shaderProgramId, "light1vec");
             _shaderLocations.Light2Color = GL.GetUniformLocation(_shaderProgramId, "light2col");
@@ -1008,6 +920,7 @@ namespace MphRead
             _shaderLocations.FogMaxDistance = GL.GetUniformLocation(_shaderProgramId, "fog_max");
             _shaderLocations.UseOverride = GL.GetUniformLocation(_shaderProgramId, "use_override");
             _texturedPlayerSkinUniform = GL.GetUniformLocation(_shaderProgramId, "textured_player_skin");
+            _authoredNeutralAlbedoUniform = GL.GetUniformLocation(_shaderProgramId, "authored_neutral_albedo");
             _playerOutlineMaskUniform = GL.GetUniformLocation(_shaderProgramId, "player_outline_mask");
             _playerOutlineColorUniform = GL.GetUniformLocation(_shaderProgramId, "player_outline_color");
             _shaderLocations.OverrideColor = GL.GetUniformLocation(_shaderProgramId, "override_color");
@@ -1030,6 +943,7 @@ namespace MphRead
 
             GL.UseProgram(_shaderProgramId);
             ApplyCosmeticUniforms(default);
+            GL.Uniform1(_shaderLocations.ModernMaterialCorrections, ModernMaterialCorrectionsEnabled ? 1 : 0);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "tex"), 0);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "normal_tex"), 1);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "specular_tex"), 2);
@@ -1045,7 +959,11 @@ namespace MphRead
                 InitTextures(inst.Model);
                 GenerateLists(inst.Model, isRoom: entity.Type == EntityType.Room);
             }
+            if (entity is PlayerEntity player) player.ModWarmCharacterPresentation();
         }
+
+        private static readonly bool _shareCompiledGeometry =
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_GEOMETRY_REUSE") != "0";
 
         private void GenerateLists(Model model, bool isRoom)
         {
@@ -1053,33 +971,58 @@ namespace MphRead
             {
                 return;
             }
-            var tempListIds = new Dictionary<int, int>();
+            var tempListIds = new Dictionary<Mods.Render.GeometryCompileKey, int>();
+            int meshOrdinal = 0;
             foreach (Mesh mesh in model.Meshes)
             {
+                meshOrdinal++;
                 if (mesh.ListId != 0)
                 {
                     continue;
                 }
-                if (!tempListIds.TryGetValue(mesh.DlistId, out int listId))
+                int textureWidth = 0;
+                int textureHeight = 0;
+                Material material = model.Materials[mesh.MaterialId];
+                if (material.TextureId != -1)
                 {
-                    int textureWidth = 0;
-                    int textureHeight = 0;
-                    Material material = model.Materials[mesh.MaterialId];
-                    if (material.TextureId != -1)
-                    {
-                        Texture texture = model.Recolors[0].Textures[material.TextureId];
-                        textureWidth = texture.Width;
-                        textureHeight = texture.Height;
-                    }
-                    listId = GL.GenLists(1);
-#if !MPHREAD_SERVER
-                    if (isRoom)
-                        GL.RegisterRoomGeometryList(listId);
+                    Texture texture = model.Recolors[0].Textures[material.TextureId];
+                    textureWidth = texture.Width;
+                    textureHeight = texture.Height;
+                }
+                bool texgen = material.TexgenMode == TexgenMode.Normal;
+                int isolation = _shareCompiledGeometry ? 0 : meshOrdinal;
+#if ANDROID
+                // GLES compiles Normal3/Color3 through mutable immediate state.
+                // Skipping even a self-contained list can change the inherited
+                // normal baked into a later source. Keep its existing per-mesh
+                // compilation until that platform's attribute ownership is fixed
+                // and qualified; desktop lists inherit at call time instead.
+                isolation = meshOrdinal;
 #endif
-                    GL.NewList(listId, ListMode.Compile);
-                    bool texgen = material.TexgenMode == TexgenMode.Normal;
-                    DoDlist(model, mesh, textureWidth, textureHeight, texgen, isRoom);
-                    GL.EndList();
+                var key = new Mods.Render.GeometryCompileKey(mesh.DlistId, textureWidth, textureHeight,
+                    texgen, isRoom, isRoom ? 0 : model.NodeMatrixIds.Count, isolation);
+                if (!tempListIds.TryGetValue(key, out int listId))
+                {
+                    listId = GL.GenLists(1);
+                    if (listId == 0) throw new ProgramException("Could not allocate geometry list.");
+                    try
+                    {
+#if !MPHREAD_SERVER
+                        if (isRoom)
+                            GL.RegisterRoomGeometryList(listId);
+#endif
+                        GL.NewList(listId, ListMode.Compile);
+                        try { DoDlist(model, mesh, textureWidth, textureHeight, texgen, isRoom); }
+                        finally { GL.EndList(); }
+                    }
+                    catch
+                    {
+                        GL.DeleteLists(listId, 1);
+                        throw;
+                    }
+                    // SharedModelResources owns model-scoped IDs and deletes
+                    // each distinct ID once after the last scene lease ends.
+                    tempListIds.Add(key, listId);
                 }
                 mesh.ListId = listId;
             }
@@ -1429,7 +1372,23 @@ namespace MphRead
             }
         }
 
+        private readonly record struct AuthoredTextureRefresh(Model Model, int Material,
+            int Texture, int Palette, int Recolor, Mods.Render.Materials.MaterialAssetKey Key);
+
         private void EnsureAuthoredTextures(Model model, TextureMap map)
+        {
+            foreach (var job in MissingAuthoredTextures(model, map)) ApplyAuthoredTextureRefresh(job, map);
+        }
+
+        private void ApplyAuthoredTextureRefresh(AuthoredTextureRefresh job, TextureMap map)
+        {
+            var slot = (job.Material, job.Texture, job.Palette, job.Recolor);
+            if (map.Authored.ContainsKey(slot)) return;
+            bool opaque = BindTexture(job.Model, job.Texture, job.Palette, job.Recolor, authoredKey: job.Key);
+            map.Authored[slot] = (_lastTextureId, opaque);
+        }
+
+        private IEnumerable<AuthoredTextureRefresh> MissingAuthoredTextures(Model model, TextureMap map)
         {
             foreach (var (index, scope) in model.AuthoredMaterialScopes)
             {
@@ -1480,9 +1439,7 @@ namespace MphRead
                             || (!nativeFlipbook && !explicitMaterial))
                             continue;
 
-                        bool opaque = BindTexture(model, pair.Texture, pair.Palette,
-                            recolor, authoredKey: key);
-                        map.Authored[slot] = (_lastTextureId, opaque);
+                        yield return new AuthoredTextureRefresh(model, index, pair.Texture, pair.Palette, recolor, key);
                     }
                 }
             }
@@ -1513,6 +1470,16 @@ namespace MphRead
             return texture;
         }
 
+        internal int UploadNativeReticleField(int binding, int width, int height, float[] pixels)
+        {
+            if (binding < 0) binding = AllocateTexture();
+            GL.BindTexture(TextureTarget.Texture2D, binding);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f,
+                width, height, 0, PixelFormat.Rgba, PixelType.Float, pixels);
+            GL.BindTexture(TextureTarget.Texture2D, 0);
+            return binding;
+        }
+
         private void InvalidateTextureSampling(int texture)
         {
             _mipmappedTextures.Remove(texture);
@@ -1525,6 +1492,8 @@ namespace MphRead
             _flatColors.Remove(texture);
             InvalidateTextureSampling(texture);
             _modernTextureSampling.Remove(texture);
+            _textureUploadSampling.Remove(texture);
+            _deferredTextureSampling.Remove(texture);
             _textureSources.Remove(texture);
             _streamingTextureVersions.Remove(texture);
             if (_materialMaps.Remove(texture, out Mods.Render.MaterialMapBindings maps))
@@ -1547,7 +1516,7 @@ namespace MphRead
         {
             Mods.Render.TextureSamplerDescriptor sampling =
                 Mods.Render.TextureSamplingPolicy.ResolveModern(asset.AssetClass, asset.Channel);
-            bool mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1);
+            bool mipmaps = sampling.Mipmaps && asset.MipmapsAvailable;
             long bytes = asset.EstimateGpuBytes(mipmaps);
             _worldMaterialTextureBytes.TryGetValue(texture, out long previous);
             long next = checked(_worldMaterialResidentBytes - previous + bytes);
@@ -1577,7 +1546,25 @@ namespace MphRead
                 asset, repeat, out width, out height))
                 return true;
             ReleaseWorldMaterialResidency(texture);
+            RestoreNativeWorldTexture(texture);
             return false;
+        }
+
+        private void RestoreNativeWorldTexture(int binding)
+        {
+            if (!_textureSources.TryGetValue(binding, out var source)) return;
+            Texture native = source.Model.Recolors[source.Recolor].Textures[source.Texture];
+            var pixels = source.Model.GetPixels(source.Texture, source.Palette, source.Recolor);
+            uint[] rgba = new uint[pixels.Count];
+            for (int i = 0; i < rgba.Length; i++) rgba[i] = pixels[i].ToUint();
+            rgba = Mods.Render.TextureUpscaler.Scale(rgba, native.Width, native.Height,
+                Mods.RenderOptions.TextureUpscaleFactor, out int width, out int height);
+            GL.BindTexture(TextureTarget.Texture2D, binding);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, rgba);
+            InvalidateTextureSampling(binding);
+            _modernTextureSampling.Remove(binding);
+            _textureUploadSampling[binding] = Mods.Render.TextureSamplingPolicy.ResolveNativeWorld();
         }
 
         private Mods.Render.PreparedTextureAsset? DecodeWorldMaterial(
@@ -1590,13 +1577,14 @@ namespace MphRead
 
         private Mods.Render.MaterialMapBindings UploadWorldMaterialCompanions(
             Mods.Render.Materials.ResolvedMaterial material,
-            Mods.Render.TextureAssetClass assetClass)
+            Mods.Render.TextureAssetClass assetClass,
+            Mods.Render.MaterialMapBindings existing = default)
             => new(
-                UploadWorldMaterialCompanion(material.Normal,
+                existing.Normal != 0 ? existing.Normal : UploadWorldMaterialCompanion(material.Normal,
                     Mods.Render.TextureAssetChannel.Normal, assetClass),
-                UploadWorldMaterialCompanion(material.SpecularRoughness,
+                existing.Specular != 0 ? existing.Specular : UploadWorldMaterialCompanion(material.SpecularRoughness,
                     Mods.Render.TextureAssetChannel.Material, assetClass),
-                UploadWorldMaterialCompanion(material.Emissive,
+                existing.Emissive != 0 ? existing.Emissive : UploadWorldMaterialCompanion(material.Emissive,
                     Mods.Render.TextureAssetChannel.Emissive, assetClass));
 
         private int UploadWorldMaterialCompanion(Mods.Render.Materials.MaterialImage? image,
@@ -1620,7 +1608,7 @@ namespace MphRead
                     ReleaseTexture(texture);
                     return 0;
                 }
-                RegisterModernTexture(texture, assetClass, channel);
+                RegisterModernTexture(texture, assetClass, channel, asset);
                 Mods.DebugLog.Line("render",
                     $"material map {asset.Key} ({width}x{height}) "
                     + $"world-resident={_worldMaterialResidentBytes / (1024.0 * 1024.0):0.0}/"
@@ -1666,6 +1654,21 @@ namespace MphRead
         private readonly Queue<StreamingTextureRequest> _streamingTextureQueue = new();
         private readonly List<StreamingTextureDecode> _streamingTextureDecodes = new();
         private readonly Mods.Render.ModernTexturePromotionPacer _androidTexturePromotionPacer = new();
+        private long _streamingUploadBytes;
+        private double _streamingWorstUploadMs;
+        private long _streamingRejectedDecodeBytes;
+        internal long TexturePromotionAttemptBytes => _streamingUploadBytes;
+        internal double WorstTexturePromotionMs => _streamingWorstUploadMs;
+        internal long RejectedTextureDecodeReservationBytes => _streamingRejectedDecodeBytes;
+        internal long TextureDecodeReservationBytes
+        {
+            get
+            {
+                long bytes = 0;
+                foreach (var pending in _streamingTextureDecodes) bytes += StreamingDecodeReservation(pending.Request);
+                return bytes;
+            }
+        }
 
         private Mods.TextureUpscaleMode _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
         private Mods.TextureAssetQuality _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
@@ -1674,119 +1677,59 @@ namespace MphRead
         private bool _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
         private int _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
 
-        private void RefreshTextureQuality()
+        private void RefreshAdvancedMaterialMap(int binding)
         {
-            PumpModernTextureStreaming();
-            string samplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
-            bool replacements = Mods.RenderOptions.TextureReplacements;
-            bool advancedChanged = _uploadedAdvancedMaterials != Mods.RenderOptions.AdvancedMaterials;
-            bool baseTextureSettingsUnchanged =
-                _uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
-                && _uploadedTextureAssetQuality == Mods.RenderOptions.TextureQuality
-                && (!replacements || _uploadedTextureSamplingKey == samplingKey)
-                && _uploadedTextureReplacements == replacements
-                && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision;
-
-            if (Mods.Headless.Active) return;
-            if (baseTextureSettingsUnchanged && (!replacements || !advancedChanged)) return;
-
-            // Advanced material maps are companions of an already-resident
-            // albedo. Toggling them must not throw every HD albedo back to its
-            // native placeholder and decode it again. Refresh only the companion
-            // resources when no base-texture setting changed.
-            if (replacements && baseTextureSettingsUnchanged && advancedChanged)
-            {
-                RefreshAdvancedMaterialMaps();
-                _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
-                return;
-            }
-
-            GL.ActiveTexture(TextureUnit.Texture0);
-            // Keep binding IDs: existing materials, animations and render items
-            // may refer to them. Reupload only when a source-quality option changes.
-            foreach (var source in _textureSources)
-                BindTexture(source.Value.Model, source.Value.Texture, source.Value.Palette,
-                    source.Value.Recolor, source.Key, source.Value.Authored);
-            foreach (var model in _textureSources.Values.Select(source => source.Model).Distinct().ToArray())
-                if (_texPalMap.TryGetValue(model.Id, out var map)) EnsureAuthoredTextures(model, map);
-            _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
-            _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
-            _uploadedTextureSamplingKey = samplingKey;
-            _uploadedTextureReplacements = replacements;
-            _uploadedAdvancedMaterials = Mods.RenderOptions.AdvancedMaterials;
-            _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
-        }
-
-        private void RefreshAdvancedMaterialMaps()
-        {
-            // Companion decodes that were valid under the old toggle must never
-            // spring back to life if the option is toggled off and on quickly.
-            // Albedo streaming is independent and remains in flight/resident.
             if (!Mods.RenderOptions.AdvancedMaterials)
             {
-                var keep = _streamingTextureQueue
-                    .Where(request => request.Channel == Mods.Render.TextureAssetChannel.Albedo)
-                    .ToArray();
-                _streamingTextureQueue.Clear();
-                foreach (var request in keep) _streamingTextureQueue.Enqueue(request);
-                // Do not drop active decode tasks from the scheduler: STB work
-                // cannot be cancelled once started, so forgetting the task would
-                // only let another giant decode overlap it. Pumping discards its
-                // result while maps are off, or reuses it if the player turns
-                // them back on before it finishes.
-
-                foreach (int binding in _materialMaps.Keys.ToArray())
+                if (_materialMaps.Remove(binding, out var retiringMaps))
                 {
-                    if (!_materialMaps.Remove(binding, out var maps)) continue;
-                    if (maps.Normal != 0) ReleaseTexture(maps.Normal);
-                    if (maps.Specular != 0) ReleaseTexture(maps.Specular);
-                    if (maps.Emissive != 0) ReleaseTexture(maps.Emissive);
+                    if (retiringMaps.Normal != 0) ReleaseTexture(retiringMaps.Normal);
+                    if (retiringMaps.Specular != 0) ReleaseTexture(retiringMaps.Specular);
+                    if (retiringMaps.Emissive != 0) ReleaseTexture(retiringMaps.Emissive);
                 }
                 return;
             }
+            // A rapid off/on toggle may leave still-valid resident maps. Reuse
+            // them instead of overwriting their handles and leaking ownership.
+            if (!_textureSources.TryGetValue(binding, out var value)) return;
+            _materialMaps.TryGetValue(binding, out var existing);
+            bool promotedAlbedo = _modernTextureSampling.TryGetValue(
+                binding, out var modern)
+                && modern.Channel == Mods.Render.TextureAssetChannel.Albedo;
+            bool nativeFlipbook = value.Authored is { } authored
+                && value.Model.SourceBankMaterials?.Resolve(authored) == null
+                && Mods.Render.Materials.MapMaterialAssetRegistry.IsNativeFlipbook(authored);
+            // Ordinary materials wait for their HD albedo promotion before
+            // companions are attached. Native flipbooks intentionally keep
+            // their animated native albedo, so their companions can attach
+            // directly to that stable per-frame authored binding.
+            if (!promotedAlbedo && !nativeFlipbook)
+                return;
 
-            foreach (var source in _textureSources.ToArray())
+            Mods.Render.Materials.MaterialAssetKey modelKey =
+                Mods.Render.Materials.MaterialAssetKey.ForModel(
+                    value.Model, value.Texture, value.Palette, value.Recolor);
+            var material = Mods.Render.TextureReplacementPack.Resolve(
+                value.Model.Name, value.Texture, value.Palette, value.Recolor,
+                value.Authored ?? modelKey, modelKey, value.Model.SourceBankMaterials);
+            if (material == null) return;
+            Mods.Render.TextureAssetClass assetClass =
+                Mods.Render.TextureReplacementPack.Classify(value.Model);
+
+            bool stream = (material.Normal?.CanDecodeOffThread ?? true)
+                && (material.SpecularRoughness?.CanDecodeOffThread ?? true)
+                && (material.Emissive?.CanDecodeOffThread ?? true);
+            if (stream && _streamingTextureVersions.TryGetValue(binding, out int version))
             {
-                int binding = source.Key;
-                var value = source.Value;
-                bool promotedAlbedo = _modernTextureSampling.TryGetValue(
-                    binding, out var modern)
-                    && modern.Channel == Mods.Render.TextureAssetChannel.Albedo;
-                bool nativeFlipbook = value.Authored is { } authored
-                    && value.Model.SourceBankMaterials?.Resolve(authored) == null
-                    && Mods.Render.Materials.MapMaterialAssetRegistry.IsNativeFlipbook(authored);
-                // Ordinary materials wait for their HD albedo promotion before
-                // companions are attached. Native flipbooks intentionally keep
-                // their animated native albedo, so their companions can attach
-                // directly to that stable per-frame authored binding.
-                if (!promotedAlbedo && !nativeFlipbook)
-                    continue;
-
-                Mods.Render.Materials.MaterialAssetKey modelKey =
-                    Mods.Render.Materials.MaterialAssetKey.ForModel(
-                        value.Model, value.Texture, value.Palette, value.Recolor);
-                var material = Mods.Render.TextureReplacementPack.Resolve(
-                    value.Model.Name, value.Texture, value.Palette, value.Recolor,
-                    value.Authored ?? modelKey, modelKey, value.Model.SourceBankMaterials);
-                if (material == null) continue;
-                Mods.Render.TextureAssetClass assetClass =
-                    Mods.Render.TextureReplacementPack.Classify(value.Model);
-
-                bool stream = (material.Normal?.CanDecodeOffThread ?? true)
-                    && (material.SpecularRoughness?.CanDecodeOffThread ?? true)
-                    && (material.Emissive?.CanDecodeOffThread ?? true);
-                if (stream && _streamingTextureVersions.TryGetValue(binding, out int version))
-                {
-                    QueueModernTextureCompanions(
-                        binding, version, material, assetClass);
-                    continue;
-                }
-
-                Mods.Render.MaterialMapBindings maps =
-                    UploadWorldMaterialCompanions(material, assetClass);
-                if (!maps.Any) continue;
-                _materialMaps[binding] = maps;
+                QueueModernTextureCompanions(
+                    binding, version, material, assetClass);
+                return;
             }
+
+            Mods.Render.MaterialMapBindings maps =
+                UploadWorldMaterialCompanions(material, assetClass, existing);
+            if (!maps.Any) return;
+            _materialMaps[binding] = maps;
         }
 
         private bool BindTexture(Model model, int textureId, int paletteId, int recolorId, int existingBinding = 0, Mods.Render.Materials.MaterialAssetKey? authoredKey = null)
@@ -1846,11 +1789,10 @@ namespace MphRead
                     out replacementWidth, out replacementHeight);
             if (replaced)
             {
-                _modernTextureSampling[_lastTextureId] =
-                    (replacementClass, Mods.Render.TextureAssetChannel.Albedo);
+                RegisterModernTexture(_lastTextureId, replacementClass,
+                    Mods.Render.TextureAssetChannel.Albedo, synchronousReplacement!);
                 Mods.Render.TextureSamplerDescriptor sampling = Mods.Render.TextureSamplingPolicy.ResolveModern(
                     replacementClass, Mods.Render.TextureAssetChannel.Albedo);
-                if (sampling.Mipmaps) _mipmappedTextures.Add(_lastTextureId);
                 Mods.DebugLog.Line("render",
                     $"HD texture {model.Name}:{textureId}/{paletteId}/{recolorId} "
                     + $"{texture.Width}x{texture.Height} -> {replacementWidth}x{replacementHeight} "
@@ -1876,7 +1818,11 @@ namespace MphRead
             // Native cartridge textures keep lazy mip generation so the
             // legacy path pays nothing when filtering is disabled. Modern
             // replacements arrive with their mip chain already prepared.
-            if (!replaced) InvalidateTextureSampling(_lastTextureId);
+            if (!replaced)
+            {
+                InvalidateTextureSampling(_lastTextureId);
+                _textureUploadSampling[_lastTextureId] = Mods.Render.TextureSamplingPolicy.ResolveNativeWorld();
+            }
             GL.BindTexture(TextureTarget.Texture2D, 0);
             if (streamReplacement && replacementMaterial != null)
             {
@@ -1917,11 +1863,28 @@ namespace MphRead
         }
 
         private void RegisterModernTexture(int bindingId, Mods.Render.TextureAssetClass assetClass,
-            Mods.Render.TextureAssetChannel channel)
+            Mods.Render.TextureAssetChannel channel, Mods.Render.TextureAssetManager manager)
+        {
+            if (bindingId == 0 || !manager.TryGetMipResidency(bindingId,
+                out bool available, out bool canGenerate, out int levels)) return;
+            _modernTextureSampling[bindingId] = (assetClass, channel, available, canGenerate, levels);
+            _textureUploadSampling[bindingId] = Mods.Render.TextureSamplingPolicy.ResolveModern(assetClass, channel)
+                with { Mipmaps = available && Mods.Render.TextureSamplingPolicy.ResolveModern(assetClass, channel).Mipmaps };
+            if (available && (!canGenerate
+                || Mods.Render.TextureSamplingPolicy.ResolveModern(assetClass, channel).Mipmaps))
+                _mipmappedTextures.Add(bindingId);
+        }
+
+        private void RegisterModernTexture(int bindingId, Mods.Render.TextureAssetClass assetClass,
+            Mods.Render.TextureAssetChannel channel, Mods.Render.PreparedTextureAsset asset)
         {
             if (bindingId == 0) return;
-            _modernTextureSampling[bindingId] = (assetClass, channel);
-            if (Mods.Render.TextureSamplingPolicy.ResolveModern(assetClass, channel).Mipmaps)
+            _modernTextureSampling[bindingId] = (assetClass, channel, asset.MipmapsAvailable,
+                asset.CanGenerateMipmaps, asset.ResidentMipLevels);
+            _textureUploadSampling[bindingId] = asset.EffectiveSampling(
+                Mods.Render.TextureSamplingPolicy.ResolveModern(assetClass, channel));
+            if (asset.MipmapsAvailable && (!asset.CanGenerateMipmaps
+                || Mods.Render.TextureSamplingPolicy.ResolveModern(assetClass, channel).Mipmaps))
                 _mipmappedTextures.Add(bindingId);
         }
 
@@ -1939,13 +1902,14 @@ namespace MphRead
             Mods.Render.Materials.ResolvedMaterial material,
             Mods.Render.TextureAssetClass assetClass)
         {
-            if (material.Normal is { } normal)
+            _materialMaps.TryGetValue(bindingId, out var existing);
+            if (existing.Normal == 0 && material.Normal is { } normal)
                 QueueModernTextureStreamChannel(bindingId, version, material, assetClass,
                     Mods.Render.TextureAssetChannel.Normal, normal);
-            if (material.SpecularRoughness is { } specular)
+            if (existing.Specular == 0 && material.SpecularRoughness is { } specular)
                 QueueModernTextureStreamChannel(bindingId, version, material, assetClass,
                     Mods.Render.TextureAssetChannel.Material, specular);
-            if (material.Emissive is { } emissive)
+            if (existing.Emissive == 0 && material.Emissive is { } emissive)
                 QueueModernTextureStreamChannel(bindingId, version, material, assetClass,
                     Mods.Render.TextureAssetChannel.Emissive, emissive);
         }
@@ -1989,14 +1953,17 @@ namespace MphRead
                     request.AssetClass, request.Channel).CacheKey == request.SamplingKey;
         }
 
-        private void PumpModernTextureStreaming()
+        private void PumpModernTextureStreaming() => PumpModernTextureStreamingCore(allowPromotion: true);
+
+        private void PumpModernTextureStreamingCore(bool allowPromotion)
         {
             if (Mods.Headless.Active) return;
 
             // A large glTexImage2D is indivisible. After an expensive Android
             // promotion, leave some following frames clear of other promotions;
             // existing native textures remain visible while replacements wait.
-            bool canPromote = !OperatingSystem.IsAndroid() || _androidTexturePromotionPacer.BeginFrame();
+            bool pacingReady = !OperatingSystem.IsAndroid() || _androidTexturePromotionPacer.BeginFrame();
+            bool canPromote = allowPromotion && pacingReady;
 
             // Promote no more than one large GPU image per frame. Desktop CPU
             // decode stays two-wide; Android deliberately runs one worker so
@@ -2031,9 +1998,21 @@ namespace MphRead
                 }
                 if (asset == null) continue;
                 long uploadStart = Stopwatch.GetTimestamp();
-                try { PromoteModernTextureStream(pending.Request, asset); }
+                bool promotionMips = Mods.Render.TextureSamplingPolicy.ResolveModern(
+                    asset.AssetClass, asset.Channel).Mipmaps && asset.MipmapsAvailable;
+                long uploadBytes = asset.EstimateGpuBytes(promotionMips);
+                try
+                {
+                    using var timing = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.TextureUpload);
+                    Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.TexturePromotionAttempts);
+                    Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.TexturePromotionAttemptBytes, uploadBytes);
+                    PromoteModernTextureStream(pending.Request, asset);
+                }
                 finally
                 {
+                    _streamingUploadBytes += uploadBytes;
+                    _streamingWorstUploadMs = Math.Max(_streamingWorstUploadMs,
+                        Stopwatch.GetElapsedTime(uploadStart).TotalMilliseconds);
                     if (OperatingSystem.IsAndroid())
                     {
                         double uploadMs = Stopwatch.GetElapsedTime(uploadStart).TotalMilliseconds;
@@ -2046,7 +2025,8 @@ namespace MphRead
                 break;
             }
 
-            while (_streamingTextureQueue.Count > 0)
+            int examinedRequests = 0;
+            while (_streamingTextureQueue.Count > 0 && examinedRequests++ < 16)
             {
                 StreamingTextureRequest request = _streamingTextureQueue.Peek();
                 if (!StreamingTextureRequestCurrent(request))
@@ -2056,6 +2036,20 @@ namespace MphRead
                 }
 
                 bool largeQueued = SerializedStreamingDecode(request);
+                long decodedBytes = StreamingDecodeReservation(request);
+                long decodeBudget = OperatingSystem.IsAndroid() ? 64L * 1024 * 1024 : 256L * 1024 * 1024;
+                if (decodedBytes > decodeBudget)
+                {
+                    _streamingTextureQueue.Dequeue();
+                    _streamingRejectedDecodeBytes += decodedBytes;
+                    Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.RejectedTextureDecodeReservationBytes, decodedBytes);
+                    Mods.DebugLog.Line("render", "HD decode working-set budget exceeded; retaining native texture: " + request.Image.Path);
+                    continue;
+                }
+                long reservedBytes = 0;
+                foreach (var active in _streamingTextureDecodes)
+                    reservedBytes += StreamingDecodeReservation(active.Request);
+                if (reservedBytes + decodedBytes > decodeBudget) break;
                 bool largeActive = _streamingTextureDecodes.Any(
                     pending => SerializedStreamingDecode(pending.Request));
                 if (_streamingTextureDecodes.Count >= StreamingTextureDecodeLimit
@@ -2078,6 +2072,11 @@ namespace MphRead
             => (long)request.Image.Width * request.Image.Height * 4
                 > SerializedStreamingDecodeBytes;
 
+        // Covers decoded RGBA plus a working copy/mip chain. Native codecs may
+        // allocate additional private scratch; this is not a process-memory claim.
+        private static long StreamingDecodeReservation(StreamingTextureRequest request)
+            => checked((long)Math.Max(1, request.Image.Width) * Math.Max(1, request.Image.Height) * 12);
+
         private void PromoteModernTextureStream(StreamingTextureRequest request,
             Mods.Render.PreparedTextureAsset asset)
         {
@@ -2093,11 +2092,13 @@ namespace MphRead
                 {
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                     ReleaseWorldMaterialResidency(request.Binding);
+                    RestoreNativeWorldTexture(request.Binding);
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
                     return;
                 }
                 InvalidateTextureSampling(request.Binding);
                 RegisterModernTexture(request.Binding, request.AssetClass,
-                    Mods.Render.TextureAssetChannel.Albedo);
+                    Mods.Render.TextureAssetChannel.Albedo, asset);
                 if (request.Image.IsRawRgba && asset is Mods.Render.ModernTextureAsset rgba)
                 {
                     var average = new FlatColor();
@@ -2129,7 +2130,7 @@ namespace MphRead
                 return;
             }
             GL.BindTexture(TextureTarget.Texture2D, 0);
-            RegisterModernTexture(companion, request.AssetClass, request.Channel);
+            RegisterModernTexture(companion, request.AssetClass, request.Channel, asset);
 
             _materialMaps.TryGetValue(request.Binding, out Mods.Render.MaterialMapBindings maps);
             maps = request.Channel switch
@@ -2776,8 +2777,9 @@ namespace MphRead
         /// would make the game run differently on a fast monitor, which is the
         /// one failure this split must not have.
         /// </summary>
-        public void OnDrawFrame()
+        private void OnDrawFrameCore()
         {
+            Mods.Sound.HaloHealthAlert.Update(this);
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
             { theatre.OnDrawFrame(); return; }
             if (Mods.KillCam.Presentation(this) is { } historical)
@@ -2834,6 +2836,9 @@ namespace MphRead
             }
             // Before the frame is drawn into it, since this swaps what the
             // depth is drawn into.
+            UpdateCelColorTarget();
+            target = _targetSize;
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
             UpdateDepthAttachment(target);
             GL.Viewport(0, 0, target.X, target.Y);
             GL.UseProgram(_shaderProgramId);
@@ -2876,7 +2881,10 @@ namespace MphRead
                 UpdateCameraPosition();
             }
             if (Services.IsReplica)
+            {
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
+                SetMaterialCamera(ref _viewMatrix);
+            }
             UpdateProjection();
             _palettePreparation?.Clear();
             _palettePreparationCollecting = _palettePreparationEnabled;
@@ -2899,7 +2907,7 @@ namespace MphRead
 
         public Matrix4 GetPerspectiveMatrix(float fov)
         {
-            float aspect = Size.X / (float)Size.Y;
+            float aspect = UseDsLayout ? Mods.Input.DsLayout.Aspect : Size.X / (float)Size.Y;
             return Matrix4.CreatePerspectiveFieldOfView(fov, aspect, _nearClip, _useClip ? _farClip : 10000f);
         }
 
@@ -2945,7 +2953,7 @@ namespace MphRead
                 return new Vector4(normal, w);
             }
 
-            float aspect = Size.X / (float)Size.Y;
+            float aspect = UseDsLayout ? Mods.Input.DsLayout.Aspect : Size.X / (float)Size.Y;
             float cosFov = MathF.Cos(_cameraFov / 2);
             float cosFovDiv = cosFov / aspect;
             float sinFov = MathF.Sin(_cameraFov / 2);
@@ -3068,31 +3076,21 @@ namespace MphRead
                 return null;
             }
             if (!ExportingReplay) return Mods.Render.FinalCompositeCapture.Read(width, height);
-            byte[] buffer = new byte[width * height * 3];
-            int source = ExportingReplay ? ReplayOutputFramebuffer() : 0;
-            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, source);
-            GL.ReadBuffer(source == 0 ? ReadBufferMode.Back : ReadBufferMode.ColorAttachment0);
-            GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
-            GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
-            return buffer;
+            return Mods.Render.CaptureReadback.Read(new Mods.Render.CaptureSource(
+                ReplayOutputFramebuffer(), width, height, "replay-output"));
         }
 
         public byte[]? ReadSceneTarget(out int width, out int height)
         {
-            Vector2i target = _targetSize;
+            Vector2i target = _graphicsOutputReady ? _graphicsOutputSize : _targetSize;
             width = target.X;
             height = target.Y;
             if (_frameBuffer == 0)
             {
                 return null;
             }
-            byte[] buffer = new byte[width * height * 3];
-            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, GraphicsReadFramebuffer());
-            GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
-            GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
-            GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
-            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
-            return buffer;
+            return Mods.Render.CaptureReadback.Read(new Mods.Render.CaptureSource(
+                GraphicsReadFramebuffer(), width, height, "processed-scene"));
         }
 
         public void AfterRenderFrame()
@@ -3124,6 +3122,7 @@ namespace MphRead
         /// banding still works, and the alternative is a target that draws
         /// nothing at all.
         /// </summary>
+        private bool _renderbufferDepthRefused;
         private void UpdateDepthAttachment(Vector2i target)
         {
             bool want =
@@ -3131,6 +3130,7 @@ namespace MphRead
                 && ((Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0)
                     || Mods.RenderOptions.NeedsReadableDepth
                 );
+            if (want) _renderbufferDepthRefused = false;
             if (want == (_depthTexture != 0))
             {
                 return;
@@ -3138,12 +3138,52 @@ namespace MphRead
             _playerOutlineDepth = -1;
             if (!want)
             {
+                if (_renderbufferDepthRefused) return;
+                if (_renderBuffer == 0)
+                {
+                    int candidate = 0;
+                    try
+                    {
+                        if (!CanAllocateTargetBytes((long)target.X * target.Y * 4))
+                            throw new InvalidOperationException("Renderbuffer depth exceeds target budget.");
+                        candidate = GL.GenRenderbuffer();
+                        GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, candidate);
+                        GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer,
+                            RenderbufferStorage.Depth24Stencil8, target.X, target.Y);
+                        if (GL.GetError() != OpenTK.Graphics.OpenGL.ErrorCode.NoError)
+                            throw new InvalidOperationException("Renderbuffer depth allocation failed.");
+                        GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer,
+                            FramebufferAttachment.DepthStencilAttachment, RenderbufferTarget.Renderbuffer, candidate);
+                        ValidateFramebuffer("Replacement renderbuffer depth");
+                        Mods.Render.OpenGlFailureInjection.Hit("renderbuffer-depth-before-publish");
+                        _renderBuffer = candidate; candidate = 0;
+                    }
+                    catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+                    {
+                        GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                            FramebufferAttachment.DepthStencilAttachment, TextureTarget.Texture2D, _depthTexture, 0);
+                        _renderbufferDepthRefused = true;
+                        Mods.DebugLog.Line("render", "retaining readable depth: " + ex.Message);
+                        return;
+                    }
+                    finally
+                    {
+                        if (candidate != 0) GL.DeleteRenderbuffer(candidate);
+                        GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
+                    }
+                }
                 GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer,
                     FramebufferAttachment.DepthStencilAttachment, RenderbufferTarget.Renderbuffer,
                     _renderBuffer);
                 GL.DeleteTexture(_depthTexture);
                                 _depthTexture = 0;
                 ValidateFramebuffer("Scene renderbuffer depth");
+                return;
+            }
+            if (!CanAllocateTargetBytes((long)target.X * target.Y * 4))
+            {
+                _depthTextureRefused = true;
+                Mods.DebugLog.Line("render", "readable depth exceeds target budget; retaining renderbuffer depth");
                 return;
             }
             _depthTexture = GL.GenTexture();
@@ -3159,7 +3199,7 @@ namespace MphRead
             GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                 FramebufferAttachment.DepthStencilAttachment, TextureTarget.Texture2D, _depthTexture, 0);
             FramebufferErrorCode status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
-            if (status != FramebufferErrorCode.FramebufferComplete)
+            if (GL.GetError() != OpenTK.Graphics.OpenGL.ErrorCode.NoError || status != FramebufferErrorCode.FramebufferComplete)
             {
                 Console.WriteLine($"[render] this driver will not read the scene's depth back ({status}); "
                     + "cel shading keeps its banding and goes without the outline.");
@@ -3171,6 +3211,11 @@ namespace MphRead
                                 _depthTexture = 0;
             }
             ValidateFramebuffer("Scene depth attachment");
+            if (_depthTexture != 0 && _renderBuffer != 0)
+            {
+                GL.DeleteRenderbuffer(_renderBuffer);
+                _renderBuffer = 0;
+            }
             CheckGlError("Scene depth attachment");
             _claimedQuantum = MeasureDepthQuantum();
             _depthQuantum = _claimedQuantum;
@@ -3262,11 +3307,23 @@ namespace MphRead
         private void DrawCelOutline()
         {
             if (!Mods.RenderOptions.CelShading || Mods.RenderOptions.CelEdge <= 0
-                || _celTexture == 0 || _celShaderProgramId == 0 || _depthTexture == 0)
+                || _celShaderProgramId == 0 || _depthTexture == 0)
             {
+                DeleteTexture(ref _celTexture);
                 return;
             }
             Vector2i target = _targetSize;
+            if (_celTexture == 0)
+            {
+                _celTexture = GL.GenTexture();
+                GL.BindTexture(TextureTarget.Texture2D, _celTexture);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, target.X, target.Y, 0,
+                    PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+            }
             BeginPostProcessPass();
             // The scene, kept where the pass can read it. First, because
             // everything below draws over the target -- including the probe,
@@ -3555,7 +3612,7 @@ namespace MphRead
             }
         }
 
-        public bool OnRenderFrame()
+        private bool OnRenderFrameCore()
         {
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
                 return theatre.OnRenderFrame();
@@ -3859,6 +3916,7 @@ namespace MphRead
                 }
             }
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
+            SetMaterialCamera(ref _viewMatrix);
         }
 
         private void UpdateCameraPosition()
@@ -4861,6 +4919,7 @@ namespace MphRead
             item.Cosmetics = default;
             item.CosmeticMaterial = default;
             item.TexturedPlayerSkin = false;
+            item.AuthoredNeutralAlbedo = false;
             item.PlayerOutlineColor = null;
             item.WeightedSkinning = false;
             item.SourceGx = null;
@@ -4884,7 +4943,7 @@ namespace MphRead
             bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null,
             bool weightedSkinning = false, bool authoredTexture = false,
             RepeatMode authoredWrapS = RepeatMode.Repeat, RepeatMode authoredWrapT = RepeatMode.Repeat,
-            bool authoredDoubleSided = false, bool authoredTransparent = false)
+            bool authoredDoubleSided = false, bool authoredTransparent = false, bool independentSurface = false, Vector3? authoredSurfaceTint = null, bool authoredNeutralAlbedo = false)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4916,16 +4975,16 @@ namespace MphRead
             item.Cosmetics = CosmeticSubmission;
             item.CosmeticMaterial = CosmeticMaterialSubmission;
             item.PolygonId = polygonId;
-            item.Alpha = material.CurrentAlpha * alphaScale;
-            item.PolygonMode = material.PolygonMode;
-            item.RenderMode = authoredTransparent ? RenderMode.Translucent : material.RenderMode;
-            item.CullingMode = authoredDoubleSided ? CullingMode.Neither : material.Culling;
+            item.Alpha = (independentSurface ? 1 : material.CurrentAlpha) * alphaScale;
+            item.PolygonMode = independentSurface ? PolygonMode.Modulate : material.PolygonMode;
+            item.RenderMode = authoredTransparent ? RenderMode.Translucent : independentSurface ? RenderMode.Normal : material.RenderMode;
+            item.CullingMode = authoredDoubleSided ? CullingMode.Neither : independentSurface ? CullingMode.Back : material.Culling;
             item.BillboardMode = billboardMode;
             item.Wireframe = material.Wireframe != 0;
-            item.Lighting = material.Lighting != 0;
+            item.Lighting = independentSurface || material.Lighting != 0;
             item.NoLines = false;
-            item.Diffuse = material.CurrentDiffuse;
-            item.Ambient = material.CurrentAmbient;
+            item.Diffuse = independentSurface ? authoredSurfaceTint ?? Vector3.One : material.CurrentDiffuse;
+            item.Ambient = independentSurface ? (authoredSurfaceTint ?? Vector3.One) * 0.5f : material.CurrentAmbient;
             item.Specular = material.CurrentSpecular;
             item.Emission = emission;
             item.LightInfo = lightInfo;
@@ -4998,6 +5057,7 @@ namespace MphRead
                 Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.PalettePreparationFallbacks);
             item.OverrideColor = overrideColor;
             item.TexturedPlayerSkin = texturedPlayerSkin;
+            item.AuthoredNeutralAlbedo = independentSurface && authoredNeutralAlbedo;
             item.PlayerOutlineColor = playerOutlineColor;
             item.WeightedSkinning = weightedSkinning;
             item.PaletteOverride = paletteOverride;
@@ -5090,6 +5150,7 @@ namespace MphRead
             item.OverrideColor = null;
             item.PaletteOverride = null;
             item.TexturedPlayerSkin = false;
+            item.AuthoredNeutralAlbedo = false;
             item.PlayerOutlineColor = null;
             item.WeightedSkinning = false;
             item.Points = Array.Empty<Vector3>();
@@ -5235,6 +5296,11 @@ namespace MphRead
         private void SubmitRenderItem(
             RenderItem item, bool pooled, bool setViewModel)
         {
+            if (_collectingDetachedShadows)
+            {
+                SubmitDetachedShadow(item, pooled);
+                return;
+            }
             // Pooled items inherit the collection scope. Persistent room items
             // explicitly own world geometry and therefore keep ViewModel false.
             if (setViewModel)
@@ -5264,7 +5330,7 @@ namespace MphRead
 
         public int GetNextPolygonId()
         {
-            return _nextPolygonId++;
+            return _collectingDetachedShadows ? 0 : _nextPolygonId++;
         }
 
         public ConcurrentQueue<EntityBase> LoadedEntities { get; } = new ConcurrentQueue<EntityBase>();
@@ -5354,6 +5420,7 @@ namespace MphRead
 
         private void GetDrawItems()
         {
+            BeginDetachedShadowCollection();
             if (this.GameState.MenuPause)
             {
                 // The pause map's own animations -- the spinning octoliths,
@@ -5740,6 +5807,7 @@ namespace MphRead
         /// </summary>
         public void UnloadGl()
         {
+            Mods.Sound.HaloHealthAlert.Stop(this);
             _palettePreparationCollecting = false;
             _palettePreparation?.Clear();
             _palettePreparation = null;
@@ -5761,6 +5829,7 @@ namespace MphRead
 #if MPHREAD_SHELL
             DisposeEditorMeshes();
 #endif
+            ReleaseSupersampleResolveTargets();
             if (_ownedTextures != null)
             {
                 foreach (int texture in _ownedTextures) GL.DeleteTexture(texture);
@@ -5770,6 +5839,7 @@ namespace MphRead
             _hudSpriteTextures.Clear();
             _texPalMap.Clear();
             _textureSources.Clear();
+            ClearTextureSettingsRefresh();
             _streamingTextureVersions.Clear();
             _streamingTextureQueue.Clear();
             _streamingTextureDecodes.Clear();
@@ -5797,7 +5867,9 @@ namespace MphRead
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();
+            DisposeSpatialAntialiasing();
             DisposeShadowMap();
+            ReleaseDetachedShadowCasters();
             DisposeFrameTransientTextures();
             ReleaseSceneShaderInitialization();
             Mods.MapGen.MapRuntimeUsage.Release(this);
@@ -5916,6 +5988,7 @@ namespace MphRead
 
         private void PrepareRenderItemState(RenderItem item, bool applySharedState, bool applyObjectState)
         {
+            SetShadowReceiver(item);
             bool depthCoverage = _depthPreparationEnabled
                 && Mods.Render.DepthCoveragePreparation.CanUse(item, _depthOnlyWorldPass, _drawingPlayerOutlineMask, _proceduralBatchEnabled);
             if (applyObjectState)
@@ -6311,6 +6384,7 @@ namespace MphRead
             {
                 (Matrix4 viewMtx, Matrix4 orthoMtx) = this.Players.Main.GetPauseMapMatrices();
                 GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref viewMtx);
+                SetMaterialCamera(ref viewMtx);
                 GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref orthoMtx);
             }
         }
@@ -6324,6 +6398,7 @@ namespace MphRead
         private void SetHudLayerUniforms()
         {
             GL.Uniform1(_texturedPlayerSkinUniform, 0);
+            GL.Uniform1(_authoredNeutralAlbedoUniform, 0);
             GL.Uniform1(_playerOutlineMaskUniform, 0);
             // DrawHudModels runs inside the world target immediately after the
             // translucent passes. Treat it as a real pass boundary instead of
@@ -6377,6 +6452,7 @@ namespace MphRead
                 GL.Disable(EnableCap.CullFace);
             }
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref identity);
+            SetMaterialCamera(ref identity);
             var orthoMatrix = Matrix4.CreateOrthographic(Size.X, Size.Y, 0.5f, 1.5f);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref orthoMatrix);
         }
@@ -6387,6 +6463,7 @@ namespace MphRead
             GL.DepthMask(true);
             GL.Enable(EnableCap.DepthTest);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
+            SetMaterialCamera(ref _viewMatrix);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref _perspectiveMatrix);
         }
 
@@ -6487,14 +6564,14 @@ namespace MphRead
         /// doing. See PlayerHud.UpdateReticle.
         /// </param>
         public void DrawCustomCrosshair(Vector3 color, float posX = 0.5f, float posY = 0.5f,
-            int weapon = -1, bool zoom = false)
+            int weapon = -1, bool zoom = false, float responseScale = 1)
         {
             var runtime = Mods.Render.Hud.HudProfiles.Runtime;
             var rootCrosshair = runtime.CrosshairFor(weapon, zoom);
             if (!rootCrosshair.Enabled || !runtime[0].Enabled || Size.X <= 0 || Size.Y <= 0) return;
             float halfW = Size.X / 2f, halfH = Size.Y / 2f;
             float offX = posX * 2f - 1f, offY = 1f - posY * 2f;
-            float scale = runtime[0].Scale;
+            float scale = responseScale;
             float alpha = rootCrosshair.Opacity * runtime[0].Opacity;
             if (alpha <= 0) return;
             try
@@ -6504,31 +6581,35 @@ namespace MphRead
                 {
                     if(pass==0 && crosshair.Outline<=0) continue;
                     float partAlpha=crosshair.Opacity*runtime[0].Opacity;
-                    var partColor=crosshair.HealthColor ? color : new Vector3(crosshair.Color.X,crosshair.Color.Y,crosshair.Color.Z);
+                    var partColor=crosshair.MatchHudPalette ? new Vector3(Mods.Input.StylusZone.GuideRed,Mods.Input.StylusZone.GuideGreen,Mods.Input.StylusZone.GuideBlue) : crosshair.HealthColor ? color : new Vector3(crosshair.Color.X,crosshair.Color.Y,crosshair.Color.Z);
                     float outline = pass == 0 ? crosshair.Outline : 0;
                     GL.Uniform4(_shaderLocations.FadeColor, pass == 0 ? new Vector4(crosshair.OutlineColor.X, crosshair.OutlineColor.Y, crosshair.OutlineColor.Z, partAlpha * crosshair.OutlineOpacity) : new Vector4(partColor, partAlpha));
+                    void Vertex(float x,float y) { var v=crosshair.Transform(x,y);GL.Vertex3(offX+v.X/halfW,offY+v.Y/halfH,0f); }
                     foreach (var bar in crosshair.Bars)
                     {
                         var (left, right, bottom, top) = Mods.Render.Crosshair.EdgesOf(bar);
+                        float cx = (left + right) * .5f * scale, cy = (bottom + top) * .5f * scale;
+                        float hw = Math.Max(crosshair.MinimumVisibility ? .5f : 0, (right - left + 2 * outline) * scale * .5f);
+                        float hh = Math.Max(crosshair.MinimumVisibility ? .5f : 0, (top - bottom + 2 * outline) * scale * .5f);
                         GL.Begin(PrimitiveType.TriangleStrip);
-                        GL.Vertex3(offX + (right + outline) * scale / halfW, offY + (top + outline) * scale / halfH, 0f);
-                        GL.Vertex3(offX + (left - outline) * scale / halfW, offY + (top + outline) * scale / halfH, 0f);
-                        GL.Vertex3(offX + (right + outline) * scale / halfW, offY + (bottom - outline) * scale / halfH, 0f);
-                        GL.Vertex3(offX + (left - outline) * scale / halfW, offY + (bottom - outline) * scale / halfH, 0f);
+                        Vertex(cx+hw,cy+hh);
+                        Vertex(cx-hw,cy+hh);
+                        Vertex(cx+hw,cy-hh);
+                        Vertex(cx-hw,cy-hh);
                         GL.End();
                     }
                     var dot = pass == 0 ? crosshair.OutlineDot : crosshair.Dot;
                     if (!dot.IsEmpty)
                     {
                         GL.Begin(PrimitiveType.Triangles);
-                        foreach (var vertex in dot) GL.Vertex3(offX + vertex.X * scale / halfW, offY + vertex.Y * scale / halfH, 0f);
+                        foreach (var vertex in dot) Vertex(vertex.X*scale,vertex.Y*scale);
                         GL.End();
                     }
                     var ring = pass == 0 ? crosshair.OutlineRing : crosshair.Ring;
                     if (!ring.IsEmpty)
                     {
                         GL.Begin(PrimitiveType.TriangleStrip);
-                        foreach (var vertex in ring) GL.Vertex3(offX + vertex.X * scale / halfW, offY + vertex.Y * scale / halfH, 0f);
+                        foreach (var vertex in ring) Vertex(vertex.X*scale,vertex.Y*scale);
                         GL.End();
                     }
                 }
@@ -6565,7 +6646,7 @@ namespace MphRead
             float halfH = Size.Y / 2f;
             float offX = posX * 2f - 1f;
             float offY = 1f - posY * 2f;
-            float scale = Mods.Render.Crosshair.Scale * style.Scale * Mods.Render.Hud.HudProfiles.Runtime.GlobalScale;
+            float scale = style.Scale * Mods.Render.Hud.HudProfiles.Runtime.GlobalScale;
             float gap = style.Gap;
             float length = style.Length;
             float thickness = style.Thickness;
@@ -6666,7 +6747,7 @@ namespace MphRead
         /// what "textured" means.
         /// </summary>
         public void DrawHudTexture(float left, float top, float right, float bottom,
-            int bindingId, float alpha = 1, bool smooth = true)
+            int bindingId, float alpha = 1, bool smooth = true, Vector4? uv = null, Vector4? tint = null)
         {
             if (_profileHudAlpha <= 0) return;
             left = left * _profileHudScale + _profileHudX;
@@ -6706,17 +6787,23 @@ namespace MphRead
                 TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
             GL.TexParameter(TextureTarget.Texture2D,
                 TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+            if(tint is {} ink)
+            {
+                GL.Uniform4(_shaderLocations.HudInk,ink);
+            }
+            Vector4 tex = uv ?? new Vector4(0, 0, 1, 1);
             GL.Begin(PrimitiveType.TriangleStrip);
-            GL.TexCoord3(1f, 0f, 0f);
+            GL.TexCoord3(tex.Z, tex.Y, 0f);
             GL.Vertex3(x1, y0, 0f);
-            GL.TexCoord3(0f, 0f, 0f);
+            GL.TexCoord3(tex.X, tex.Y, 0f);
             GL.Vertex3(x0, y0, 0f);
-            GL.TexCoord3(1f, 1f, 0f);
+            GL.TexCoord3(tex.Z, tex.W, 0f);
             GL.Vertex3(x1, y1, 0f);
-            GL.TexCoord3(0f, 1f, 0f);
+            GL.TexCoord3(tex.X, tex.W, 0f);
             GL.Vertex3(x0, y1, 0f);
             GL.End();
             GL.BindTexture(TextureTarget.Texture2D, 0);
+            if(tint.HasValue)GL.Uniform4(_shaderLocations.HudInk,Vector4.One);
             GL.Uniform1(_shaderLocations.LayerAlpha, 1f);
         }
 
@@ -6887,28 +6974,33 @@ localCenter *= _profileHudScale;
         /// the destination, and only the destination.
         /// </param>
         public Mods.Render.Hud.HudSpriteBounds GetHudObjectBounds(
-            HudObjectInstance inst, int mode = 0, float scale = 1, bool isText = false)
+            HudObjectInstance inst, int mode = 0, float scale = 1, bool isText = false, Vector3? reticleTransform = null)
         {
-            float iconScale = !isText && Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom
+            float iconScale = !isText && reticleTransform == null && Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom
                 ? Mods.Render.Hud.HudProfiles.Runtime.IconScale : 1;
             return Mods.Render.Hud.HudSpriteBounds.Resolve(inst.PositionX, inst.PositionY,
-                inst.Width, inst.Height, inst.Center, mode, scale, Size.X, Size.Y,
+                (inst.Width + (inst.HighResolutionReticle ? 2 * Mods.Render.Hud.NativeReticleField.Padding : 0)) * (reticleTransform?.X ?? 1),
+                (inst.Height + (inst.HighResolutionReticle ? 2 * Mods.Render.Hud.NativeReticleField.Padding : 0)) * (reticleTransform?.Y ?? 1), inst.Center, mode, scale, Size.X, Size.Y,
                 _profileHudScale, _profileHudX, _profileHudY, _hudDrawScale, iconScale);
         }
 
-        public void DrawHudObject(HudObjectInstance inst, int mode = 0, float scale = 1, bool isText = false)
+        public void DrawHudObject(HudObjectInstance inst, int mode = 0, float scale = 1, bool isText = false, Vector3? reticleTransform = null, float nativeThickness = 0)
         {
             if (_profileHudAlpha <= 0) return;
             if (!inst.Enabled) return;
-            var bounds = GetHudObjectBounds(inst, mode, scale, isText);
+            var bounds = GetHudObjectBounds(inst, mode, scale, isText, reticleTransform);
+            bool field = inst.HighResolutionReticle;
+            GL.Uniform1(_shaderLocations.NativeReticleField, field ? 1 : 0);
+            GL.Uniform1(_shaderLocations.NativeReticleThickness, nativeThickness);
+            GL.Uniform2(_shaderLocations.NativeReticleExtent, inst.Width + (field ? 2 * Mods.Render.Hud.NativeReticleField.Padding : 0), inst.Height + (field ? 2 * Mods.Render.Hud.NativeReticleField.Padding : 0));
             GL.Uniform1(_shaderLocations.LayerAlpha, HudPresentationAlpha(inst.Alpha * _profileHudAlpha));
             GL.Uniform1(_shaderLocations.UseMask, inst.UseMask && _hudMaskActive ? 1 : 0);
             GL.BindTexture(TextureTarget.Texture2D, inst.BindingId);
             // Nearest, which is what the DS did and what every sprite in this
             // game is drawn for -- except the supersampled ones, whose texture
             // arrives bigger than the box it goes in. See HudObjectInstance.Smooth.
-            int minParameter = (int)(inst.Smooth ? TextureMinFilter.Linear : TextureMinFilter.Nearest);
-            int magParameter = (int)(inst.Smooth ? TextureMagFilter.Linear : TextureMagFilter.Nearest);
+            int minParameter = (int)(inst.Smooth || field ? TextureMinFilter.Linear : TextureMinFilter.Nearest);
+            int magParameter = (int)(inst.Smooth || field ? TextureMagFilter.Linear : TextureMagFilter.Nearest);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, minParameter);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, magParameter);
             GL.TexParameter(TextureTarget.Texture2D,
@@ -6927,21 +7019,33 @@ localCenter *= _profileHudScale;
             {
                 (bottomPos, topPos) = (topPos, bottomPos);
             }
+            float viewWidth = Size.X, viewHeight = Size.Y;
+            void Vertex(float vx,float vy)
+            {
+                if(reticleTransform is {} transform && transform.Z!=0)
+                {
+                    float cx=(leftPos+rightPos)*.5f,cy=(topPos+bottomPos)*.5f;
+                    float dx=(vx-cx)*viewWidth,dy=(vy-cy)*viewHeight,a=transform.Z*MathF.PI/180;
+                    vx=cx+(dx*MathF.Cos(a)-dy*MathF.Sin(a))/viewWidth;vy=cy+(dx*MathF.Sin(a)+dy*MathF.Cos(a))/viewHeight;
+                }
+                GL.Vertex3(vx,vy,0f);
+            }
             GL.Begin(PrimitiveType.TriangleStrip);
             // top right
             GL.TexCoord3(1f, 0f, 0f);
-            GL.Vertex3(rightPos, topPos, 0f);
+            Vertex(rightPos, topPos);
             // top left
             GL.TexCoord3(0f, 0f, 0f);
-            GL.Vertex3(leftPos, topPos, 0f);
+            Vertex(leftPos, topPos);
             // bottom right
             GL.TexCoord3(1f, 1f, 0f);
-            GL.Vertex3(rightPos, bottomPos, 0f);
+            Vertex(rightPos, bottomPos);
             // bottom left
             GL.TexCoord3(0f, 1f, 0f);
-            GL.Vertex3(leftPos, bottomPos, 0f);
+            Vertex(leftPos, bottomPos);
             GL.End();
             GL.BindTexture(TextureTarget.Texture2D, 0);
+            GL.Uniform1(_shaderLocations.NativeReticleField, 0);
         }
 
         /// <param name="scaleMult">
@@ -7145,16 +7249,7 @@ localCenter *= _profileHudScale;
         private void ApplyBoundTextureSampling(int bindingId,
             RepeatMode xRepeat, RepeatMode yRepeat)
         {
-            Mods.Render.TextureSamplerDescriptor sampling;
-            if (_modernTextureSampling.TryGetValue(bindingId, out var modern))
-            {
-                sampling = Mods.Render.TextureSamplingPolicy.ResolveModern(
-                    modern.AssetClass, modern.Channel);
-            }
-            else
-            {
-                sampling = Mods.Render.TextureSamplingPolicy.ResolveNativeWorld();
-            }
+            Mods.Render.TextureSamplerDescriptor sampling = ResolveResidentTextureSampling(bindingId);
 
             var desired = new Mods.Render.AppliedTextureSamplingState(
                 sampling, xRepeat, yRepeat);
@@ -7266,6 +7361,7 @@ localCenter *= _profileHudScale;
                         item.XRepeat, item.YRepeat);
                 }
             }
+            GL.Uniform1(_authoredNeutralAlbedoUniform, item.AuthoredNeutralAlbedo ? 1 : 0);
             BindRenderItemBaseTexture(item);
             SetFlatColor(item.HasTexture && _showTextures ? item.TextureBindingId : -1);
             GL.Uniform1(_texturedPlayerSkinUniform, !_drawingPlayerOutlineMask && item.TexturedPlayerSkin
@@ -8341,7 +8437,7 @@ localCenter *= _profileHudScale;
             {
                 string string1 = $"{(int)(_light1Color.X * 255)};{(int)(_light1Color.Y * 255)};{(int)(_light1Color.Z * 255)}";
                 string string2 = $"{(int)(_light2Color.X * 255)};{(int)(_light2Color.Y * 255)};{(int)(_light2Color.Z * 255)}";
-                _sb.Append($"Room \u001b[38;2;{string1}m████\u001b[0m \u001b[38;2;{string2}m████\u001b[0m");
+                _sb.Append($"Room \u001b[38;2;{string1}mâ–ˆâ–ˆâ–ˆâ–ˆ\u001b[0m \u001b[38;2;{string2}mâ–ˆâ–ˆâ–ˆâ–ˆ\u001b[0m");
                 _sb.AppendLine($" ({_light1Vector.X}, {_light1Vector.Y}, {_light1Vector.Z}) ({_light2Vector.X}, {_light2Vector.Y}, {_light2Vector.Z})");
             }
             else
@@ -8380,7 +8476,7 @@ localCenter *= _profileHudScale;
                 Vector3 color2 = light.Light2Color;
                 string string1 = $"{(int)(color1.X * 255)};{(int)(color1.Y * 255)};{(int)(color1.Z * 255)}";
                 string string2 = $"{(int)(color2.X * 255)};{(int)(color2.Y * 255)};{(int)(color2.Z * 255)}";
-                _sb.Append($" \u001b[38;2;{string1}m████\u001b[0m \u001b[38;2;{string2}m████\u001b[0m");
+                _sb.Append($" \u001b[38;2;{string1}mâ–ˆâ–ˆâ–ˆâ–ˆ\u001b[0m \u001b[38;2;{string2}mâ–ˆâ–ˆâ–ˆâ–ˆ\u001b[0m");
                 _sb.Append($" {light.Light1Enabled} / {light.Light2Enabled}");
                 Vector3 vector1 = light.Light1Vector;
                 Vector3 vector2 = light.Light2Vector;
@@ -9215,6 +9311,18 @@ localCenter *= _profileHudScale;
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.BeginCallback();
+            try { OnRenderFrameCore(args); }
+            catch { Mods.Render.OpenGlFrameProfiler.CancelFrame("callback-failed"); throw; }
+            finally { Mods.Render.OpenGlFrameProfiler.EndCallback(); }
+#else
+            OnRenderFrameCore(args);
+#endif
+        }
+
+        private void OnRenderFrameCore(FrameEventArgs args)
+        {
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.BeginNativePresentation(this);
 #endif
@@ -9279,10 +9387,17 @@ localCenter *= _profileHudScale;
             }
 #endif
 #if !MPHREAD_SERVER && !ANDROID
-            Mods.Render.OpenGlFrameProfiler.BeginFrame(Scene, IsFocused && WindowState != WindowState.Minimized);
+            Mods.Render.OpenGlFrameProfiler.BeginFrame(Scene, IsFocused && WindowState != WindowState.Minimized,
+                Scene.FrameAdvance || GameState.DialogPause || GameState.MenuPause);
 #endif
             ulong latencyFrame = Mods.Render.LowLatencyController.BeginFrame();
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.BeginWait();
+#endif
             Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
+#if !MPHREAD_SERVER && !ANDROID
+            Mods.Render.OpenGlFrameProfiler.EndWait();
+#endif
 
             // The pause menu wants the pointer back, and so does the results
             // screen: its hunter picker is something you click, and a grabbed
@@ -9501,7 +9616,7 @@ localCenter *= _profileHudScale;
 #if !MPHREAD_SERVER && !ANDROID
             Mods.Render.OpenGlFrameProfiler.BeginPresent();
             try { PresentFrame(); }
-            catch { Mods.Render.OpenGlFrameProfiler.CancelFrame(); throw; }
+            catch { Mods.Render.OpenGlFrameProfiler.PresentFailed(); throw; }
             Mods.Render.OpenGlFrameProfiler.EndPresent();
 #else
             PresentFrame();

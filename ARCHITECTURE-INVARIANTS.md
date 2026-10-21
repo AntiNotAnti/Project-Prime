@@ -229,6 +229,17 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## HUD profiles
 
+- Native desktop HUD controls have one editor entry. Profile and HUD-wide option
+  edits travel together through the outer settings transaction. Valid settled
+  edits save automatically; gestures save after release and Back flushes pending
+  accepted values. Invalid unfinished text is never published. Failed writes
+  restore files/runtime and retain editable values without per-frame retries.
+- Native live settings preview pauses all automatic persistence. Escape/timeout
+  restores runtime before revealing the same retained editor document; the
+  original scene/window/editor lease must still be valid.
+- Stacked LCD layout affects only client presentation and normalized pointer
+  mapping; it cannot alter simulation cadence or replay/network contracts.
+
 - HUD profiles are local presentation state, persisted separately from Features.
   Do not put them in live packets or replay protocols, or read visual scales,
   visibility, colors or layout offsets in aim assist, hit resolution, weapon
@@ -239,7 +250,8 @@ This file is the short, machine-oriented source of truth for architectural assum
   scoped render transforms; scope disposal restores presentation state.
 - Runtime profiles own detached validated values and cached crosshair geometry.
   Deserialization, dictionary resolution and geometry construction happen on
-  load/edit, never per match frame. Editor drafts are detached until Apply.
+  load/edit, never per match frame. Editor drafts stay detached until a validated
+  automatic or explicit transactional commit.
 - Radar/opponent/objective presentation must retain existing availability and
   match-rule gates. A profile can style available information, not request more.
 - Full HUD Studio acceptance, including remaining preview parity and platform

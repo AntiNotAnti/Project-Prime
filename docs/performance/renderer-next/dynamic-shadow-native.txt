@@ -1,0 +1,10 @@
+dynamic shadows native renderer=NVIDIA GeForce RTX 5080/PCIe/SSE2 gl=4.6.0 NVIDIA 617.42 mvid=6c6cc5be-32e7-4e60-b2ad-abbe9366e10a
+[map] mk_blockfort.json FP-MAP-005: Imported level could not be resolved.
+[map] mk_blockfort.json FP-MAP-006: Texture pack is missing and cannot be baked from this source.
+[map] map.json FP-MESH-001: Collision mesh has 4 open boundary edges.
+[world-shaders] variant=native elapsedMs=1.115
+[world-shaders] variant=plain elapsedMs=0.576
+[world-shaders] variant=plain-unlit elapsedMs=0.447
+[render] detached shadow packet budget reached; visible caster path remains active.
+DYNAMIC SHADOWS native covered_depth_pixels=28 target=1024 rigs=2 packet_cap=2048
+PASS: 181 detached dynamic shadow checks

@@ -517,6 +517,10 @@ namespace MphRead.Mods
         }
 
         /// <summary>Unclamped; the properties do their own clamping.</summary>
+        public static float ParseNumber(string? value, float fallback)
+            => Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed)
+                && Single.IsFinite(parsed) ? parsed : fallback;
+
         public static int ParseInt(string? value, int fallback)
         {
             if (value != null && Int32.TryParse(value.Trim().TrimEnd('%'),

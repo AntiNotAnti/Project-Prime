@@ -93,7 +93,7 @@ public sealed partial class DedicatedServer
         {
             Log("[vote] verified map " + pending.Room + " for rotation");
             _voteResult = VoteStatePacket.StatePassed;
-            Announce("map verified -- changing to " + pending.Room);
+            Announce("map verified -- changing to " + Launcher.LauncherRoomDisplayName.Get(pending.Room));
             BroadcastVoteState(now);
             _rotation.PlayNext(pending.Room, pending.Mode);
             if (SessionPolicy == ServerSessionPolicy.Lobby)

@@ -1,0 +1,10 @@
+{
+  "elapsedSeconds": 90.5,
+  "assemblySha256": "90C8997A6A98CBC1A02697E76727B3DB9D3F9992F323407642FAF41E99B3C7DC",
+  "optionalCompositorTypePresent": false,
+  "sdk": "10.0.401",
+  "deviceExecution": "NOT_RUN",
+  "warnings": 26,
+  "scope": "Windows-hosted final enrolled normal Android ARM64 full AOT build",
+  "errors": 0
+}

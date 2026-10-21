@@ -86,7 +86,7 @@ namespace MphRead.Mods
                 Math.Clamp(RenderOptions.ParseInt(settings.CelBands, 8), 2, 8)
                     .ToString(CultureInfo.InvariantCulture), "cel bands", changed);
             settings.CelEdge = Normalize(settings.CelEdge,
-                Math.Clamp(RenderOptions.ParseInt(settings.CelEdge, 50), 0, 100)
+                Math.Clamp(RenderOptions.ParseNumber(settings.CelEdge, 50), 0, 100)
                     .ToString(CultureInfo.InvariantCulture), "cel edge", changed);
 
             settings.GraphicsPreset = NormalizeEnum(settings.GraphicsPreset,
@@ -237,7 +237,7 @@ namespace MphRead.Mods
         {
             float normalized = Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
                 out float parsed) ? Math.Clamp(parsed, 0, 1) : fallback;
-            return Normalize(value, normalized.ToString("0.###", CultureInfo.InvariantCulture), name, changed);
+            return Normalize(value, normalized.ToString("R", CultureInfo.InvariantCulture), name, changed);
         }
 
         private static string Normalize(string value, string normalized, string name,

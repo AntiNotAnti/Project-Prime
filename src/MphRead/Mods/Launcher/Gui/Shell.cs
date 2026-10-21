@@ -1262,7 +1262,11 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         internal static void AfterDraw(RenderWindow window)
         {
-            if (Interlocked.Exchange(ref _firstFrameStarted, 1) == 0)
+            // Standalone matches/QA windows also call AfterDraw. They do not
+            // own launcher maintenance or the Avalonia dispatcher; a worker
+            // must not claim that dispatcher before a later pause-menu setup.
+            if (Active && ReferenceEquals(_window, window)
+                && Interlocked.Exchange(ref _firstFrameStarted, 1) == 0)
             {
                 LifecycleTiming.FirstFrame();
                 StartBackgroundStartupWork();

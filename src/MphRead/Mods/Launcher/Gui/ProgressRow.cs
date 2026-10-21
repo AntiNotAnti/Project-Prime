@@ -44,13 +44,13 @@ namespace MphRead.Mods.Launcher.Gui
             double barTop = Bounds.Height - barHeight - 2;
 
             var stage = new FormattedText(_stage, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(false), 12, GuiTheme.TextDimBrush);
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(false)), 12, GuiTheme.TextDimBrush);
             context.DrawText(stage, new Point(0, 2));
 
             string percent = ((int)Math.Round(_fraction * 100))
                 .ToString(CultureInfo.InvariantCulture) + "%";
             var number = new FormattedText(percent, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(true), 12, GuiTheme.TextBrush);
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(true)), 12, GuiTheme.TextBrush);
             context.DrawText(number, new Point(width - number.Width, 2));
 
             context.DrawRectangle(new SolidColorBrush(GuiTheme.Ink), null,

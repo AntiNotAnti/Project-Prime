@@ -1,0 +1,17 @@
+PASS Windows native KTX2 container: authored lower levels selected before allocation, exact green/blue pixels retained
+PASS compressed mip residency regression (BC7/ETC2/ASTC, base/partial/complete/1x1/NPOT/toggle/malformed)
+NOT_RUN linked-image fixture: Windows symbolic-link privilege unavailable
+Materials: Starter destination already exists.
+NOT_RUN linked-directory fixture: Windows symbolic-link privilege unavailable
+Usage: -materials inspect|validate <pack> | inventory <output.json> | starter <inventory.json> <pack-or-manifest>
+PASS Windows native authored RGBA mip content
+PASS desktop block compression remains disabled by default
+Material GPU checks PASS: 12 cycles + allocation fault, 38 allocations / 38 releases, success and failed uploads
+[world-shaders] variant=native elapsedMs=1.253
+[world-shaders] variant=plain elapsedMs=0.691
+[world-shaders] variant=plain-unlit elapsedMs=0.716
+Material provenance GPU checks PASS: shared original binding, reload creates independent red/original authored textures
+Source bank GPU checks PASS: two independent exact RGBA images, queued decode, supersession, captured generation, quality refresh and replacement toggles
+TEXTURE SETTINGS GPU PASS: one job per picture, desired/applied lag, rapid supersession, stable handles, stale release, direct/retained mip freeze, bounded prewarm and teardown
+Material editor GPU checks PASS: four lit material refreshes preserve one mesh; teardown releases all map textures
+Material pack checks PASS (56 assertions)

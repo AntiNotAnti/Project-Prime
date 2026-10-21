@@ -9,14 +9,14 @@ namespace MphRead;
 public partial class Scene
 {
     private sealed record WorldShaderProgram(int Program, ShaderLocations Locations,
-        CosmeticUniforms? Cosmetics, int Skin, int OutlineMask, int OutlineColor, int Sampler);
+        CosmeticUniforms? Cosmetics, int Skin, int OutlineMask, int OutlineColor, int Sampler, int NeutralAlbedo);
     private WorldShaderProgram? _fullWorldProgram, _nativeWorldProgram, _plainWorldProgram, _unlitWorldProgram;
     private static readonly bool _worldShaderVariantsEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("SHADER_VARIANTS");
     private static readonly bool _plainWorldShaderEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("PLAIN_SHADER");
     private static readonly bool _unlitWorldShaderEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("UNLIT_SHADER");
 
     private WorldShaderProgram SaveWorldProgram() => new(_shaderProgramId, _shaderLocations,
-        _cosmeticUniforms, _texturedPlayerSkinUniform, _playerOutlineMaskUniform, _playerOutlineColorUniform, _worldSampler);
+        _cosmeticUniforms, _texturedPlayerSkinUniform, _playerOutlineMaskUniform, _playerOutlineColorUniform, _worldSampler, _authoredNeutralAlbedoUniform);
 
     private void UseWorldProgram(WorldShaderProgram program)
     {
@@ -24,6 +24,7 @@ public partial class Scene
         _cosmeticUniforms = program.Cosmetics; _texturedPlayerSkinUniform = program.Skin;
         _playerOutlineMaskUniform = program.OutlineMask; _playerOutlineColorUniform = program.OutlineColor;
         _worldSampler = program.Sampler;
+        _authoredNeutralAlbedoUniform = program.NeutralAlbedo;
         GL.UseProgram(_shaderProgramId);
     }
 
@@ -129,6 +130,7 @@ public partial class Scene
         ResetCosmeticUniforms();
         // Refresh persistent values even when this picture skips TransformCamera.
         GL.UniformMatrix4(_shaderLocations.ViewMatrix, false, ref _viewMatrix);
+        SetMaterialCamera(ref _viewMatrix);
         GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, false, ref _perspectiveMatrix);
         SetShaderFog();
         Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.WorldShaderVariantSwitches);
@@ -200,6 +202,7 @@ public partial class Scene
 
     private void ReleaseWorldShaderVariants()
     {
+        ReleaseShadowReceivers();
         if (_fullWorldProgram != null && _fullWorldProgram.Program != _shaderProgramId)
             GL.DeleteProgram(_fullWorldProgram.Program);
         if (_nativeWorldProgram != null && _nativeWorldProgram.Program != _shaderProgramId)

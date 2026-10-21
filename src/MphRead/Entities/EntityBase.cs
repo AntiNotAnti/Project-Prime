@@ -10,7 +10,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Entities
 {
-    public abstract class EntityBase
+    public abstract partial class EntityBase
     {
         public int Id { get; protected set; } = -1; // todo: use init for Id
         public virtual int Recolor { get; set; }
@@ -556,36 +556,39 @@ namespace MphRead.Entities
             _scene.UpdateMaterials(model, recolor);
         }
 
-        protected void GetDrawItems(ModelInstance inst, int i, LightInfo? lightInfo = null)
+        protected void GetDrawItems(ModelInstance inst, int i, LightInfo? lightInfo = null, ModelInstance? detachedSource = null)
         {
             int polygonId = _scene.GetNextPolygonId();
             GetItems(inst, i, inst.Model.Nodes[0], polygonId);
 
             void GetItems(ModelInstance inst, int index, Node node, int polygonId)
             {
+                if (detachedSource != null && !_scene.DetachedShadowCapacityAvailable) return;
                 Model model = inst.Model;
+                ModelInstance materialOwner = detachedSource ?? inst;
                 if (node.Enabled)
                 {
                     int start = node.MeshId / 2;
                     for (int k = 0; k < node.MeshCount; k++)
                     {
+                        if (detachedSource != null && !_scene.DetachedShadowCapacityAvailable) break;
                         Mesh mesh = model.Meshes[start + k];
                         if (!mesh.Visible)
                         {
                             continue;
                         }
                         Material material = model.Materials[mesh.MaterialId];
-                        Vector3 emission = GetEmission(inst, material, mesh.MaterialId);
-                        Matrix4 texcoordMatrix = GetTexcoordMatrix(inst, material, mesh.MaterialId, node);
-                        Vector4? color = GetRenderColor(inst, index, material);
+                        Vector3 emission = GetEmission(materialOwner, material, mesh.MaterialId);
+                        Matrix4 texcoordMatrix = GetTexcoordMatrix(materialOwner, material, mesh.MaterialId, node);
+                        Vector4? color = GetRenderColor(materialOwner, index, material);
                         SelectionType selectionType = Selection.CheckSelection(this, inst, node, mesh);
-                        int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
+                        int? bindingOverride = GetBindingOverride(materialOwner, material, mesh.MaterialId);
                         var previousCosmeticMaterial = _scene.CosmeticMaterialSubmission;
-                        _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(inst, material, mesh.MaterialId);
+                        _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(materialOwner, material, mesh.MaterialId);
                         _scene.AddRenderItem(material, polygonId, Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix,
                             node.Animation, mesh.ListId, model.NodeMatrixIds.Count, model.MatrixStackValues, color,
                             PaletteOverride, selectionType, node.BillboardMode, _drawScale, bindingOverride,
-                            UseTexturedPlayerSkin(inst), GetPlayerOutlineColor(inst));
+                            UseTexturedPlayerSkin(materialOwner), GetPlayerOutlineColor(materialOwner));
                         _scene.CosmeticMaterialSubmission = previousCosmeticMaterial;
                     }
                     if (node.ChildIndex != -1)

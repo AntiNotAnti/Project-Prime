@@ -14,7 +14,11 @@ public enum HudEditorAction
     SaveNamed, LoadNamed, ExportJson, ImportJson, PropertyPrevious, PropertyNext, PropertyApply,
     PropertyReset, NextPalette, NextCrosshairTarget, ToggleCrosshairOverride, NextCrosshairPreset,
     ShareCrosshair, ImportCrosshair, NextRadarPreset, NudgeLeft, NudgeRight, NudgeUp, NudgeDown,
-    ScaleDown, ScaleUp, ApplyLayout
+    ScaleDown, ScaleUp, ApplyLayout, PreviousPreset, PreviousAnchor, PreviousVisibility, PreviousAspect,
+    PreviousHunter, PreviousScenario, PreviousGrid, PreviousPalette, PreviousCrosshairTarget,
+    PreviousCrosshairPreset, PreviousRadarPreset, PropertyChoicePrevious, PropertyChoiceNext,
+    SectionAppearance, SectionLayout, SectionGlobal, SectionTypography, SectionDecorations,
+    WorkspaceElements, WorkspaceProfiles, SearchProperties, ClearSearch
 }
 public readonly record struct HudEditorRect(float X, float Y, float Width, float Height)
 {
@@ -23,6 +27,8 @@ public readonly record struct HudEditorRect(float X, float Y, float Width, float
     public Vector2 Center => new(X + Width / 2, Y + Height / 2);
     public bool Contains(Vector2 point, float padding = 0) => point.X >= X-padding && point.X <= Right+padding && point.Y >= Y-padding && point.Y <= Bottom+padding;
 }
+public sealed record HudEditorOption(string Id, string Label, string Value, ImmutableArray<string> Choices,
+    string Hint = "", Func<string, string?>? Validate = null, int Section = 2, string Group = "");
 public sealed record HudEditorProperty(string Path, string Label, string Value, string Kind, ImmutableArray<string> Choices);
 public sealed record HudEditorElement(int Index, string Id, HudEditorRect Bounds, bool Enabled, bool Locked, bool Selected, float Opacity, string Color);
 public sealed record HudEditorSnapshot
@@ -38,6 +44,9 @@ public sealed record HudEditorSnapshot
     public int Selected { get; init; }
     public ImmutableArray<HudEditorElement> Elements { get; init; } = ImmutableArray<HudEditorElement>.Empty;
     public ImmutableArray<HudEditorProperty> Properties { get; init; } = ImmutableArray<HudEditorProperty>.Empty;
+    public int InspectorSection { get; init; }
+    public bool ProfilesWorkspace { get; init; }
+    public string PropertySearch { get; init; } = "";
     public int PropertyPage { get; init; }
     public int PropertyPageCount { get; init; }
     public int PropertyIndex { get; init; }

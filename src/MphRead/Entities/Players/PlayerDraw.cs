@@ -227,7 +227,10 @@ namespace MphRead.Entities
             // existing ModNodeUnresolved backstop cannot help because resolution
             // technically succeeded. Never let that mismatch hide a living remote
             // opponent. World geometry/depth still occludes the model normally.
-            if (IsMainPlayer || forceNetworkVisibility || ModNodeUnresolved || IsVisible(NodeRef))
+            bool cameraVisible = IsMainPlayer || forceNetworkVisibility || ModNodeUnresolved || IsVisible(NodeRef);
+            if (!cameraVisible && drawAlive)
+                CollectDetachedPlayerShadow(drawPosition, drawFacing, drawAltForm, lod);
+            if (cameraVisible)
             {
                 drawBiped = customDeathVisible || !IsMainPlayer || CameraType != CameraType.First
                     || (IsMainPlayer && _scene.ModThirdPersonCameraActive)
@@ -517,6 +520,8 @@ namespace MphRead.Entities
                 }
                 else if (AttachedEnemy == null && !_field6D0 && Hunter != Hunter.Guardian)
                 {
+                    if (drawAlive)
+                        CollectDetachedPlayerShadow(drawPosition, drawFacing, drawAltForm: false, lod);
                     // The arm cannon is camera-attached viewmodel geometry, not
                     // part of the room. Mark everything emitted here so the
                     // renderer can use the camera-authored FOV instead of the
@@ -542,6 +547,7 @@ namespace MphRead.Entities
                                 ApplyHunterNodePose(_gunModel, transform, gunPresentation);
                             if (!TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
                                 GetDrawItems(_gunModel, _gunModel.Model.Nodes[0], _curAlpha);
+                            TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModelArms, _curAlpha);
                         }
                         finally
                         {
@@ -647,7 +653,7 @@ namespace MphRead.Entities
                 visualGait: ModCrouchGaitActive);
 
         private void UpdateHunterBipedPose(Model model, Node spineNode, Matrix4 world, float pitch,
-            AnimationSamples.Sample? lower, AnimationSamples.Sample? upper, float crouchAmount, bool visualGait)
+            AnimationSamples.Sample? lower, AnimationSamples.Sample? upper, float crouchAmount, bool visualGait, AnimationInfo? detachedNeutral = null)
         {
             AnimationInfo lowerInfo = _bipedModel1.AnimInfo;
             AnimationInfo upperInfo = _bipedModel2.AnimInfo;
@@ -659,7 +665,7 @@ namespace MphRead.Entities
             {
                 if (visualGait)
                 {
-                    AnimationInfo neutral = ModCrouchLowerPose(model, out var neutralSample);
+                    AnimationInfo neutral = ModCrouchLowerPose(model, out var neutralSample, detachedNeutral);
                     model.AnimateNodesBlended(0, lowerInfo, lower, neutral, neutralSample,
                         Math.Max(ModCrouchWalkAmount, ModSlideVisualAmount));
                 }
@@ -741,30 +747,36 @@ namespace MphRead.Entities
         }
 
         private bool TryDrawModernCharacter(ModelInstance inst, CharacterModelPart part, float alpha,
-            int lod = 0, int recolor = -1, Vector4? overrideColor = null, Vector4? outlineColor = null, bool cosmeticDeath = false)
+            int lod = 0, int recolor = -1, Vector4? overrideColor = null, Vector4? outlineColor = null, bool cosmeticDeath = false, ModelInstance? detachedSource = null)
         {
             if (alpha <= 0) return true;
             Model model = inst.Model;
-            if (CharacterModelRuntime.TryGetWeighted(_scene, Hunter, part, model,
-                out CharacterWeightedRenderModel weighted, lod))
+            ModelInstance materialOwner = detachedSource ?? inst;
+            Model geometryModel = materialOwner.Model;
+            if (CharacterModelRuntime.TryGetWeighted(_scene, Hunter, part, geometryModel,
+                out CharacterWeightedRenderModel weighted, lod,
+                part is CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms ? CurrentWeapon : null))
             {
+                if (_health > 0) alpha = Math.Max(alpha, weighted.Asset.MinimumVisibleAlpha);
+                if (detachedSource != null) _scene.UnknownDetachedShadowBounds();
                 weighted.UpdatePalette(model);
                 int weightedPolygonId = _scene.GetNextPolygonId();
                 Node texgenNode = model.Nodes[0];
                 foreach (CharacterWeightedRenderSegment segment in weighted.Segments)
                 {
+                    if (detachedSource != null && !_scene.DetachedShadowCapacityAvailable) break;
                     Material material = model.Materials[segment.NativeMaterialIndex];
-                    Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
+                    Vector3 emission = GetEmission(materialOwner, material, segment.NativeMaterialIndex);
                     Vector4? color = PaletteOverride == null
                         ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
                             material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
                     int? authoredAlbedo = segment.GetAlbedo(_scene, Recolor);
                     int? bindingOverride = GetBindingOverride(
-                        inst, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
+                        materialOwner, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
                     bool authoredTexture = segment.AlbedoBinding.HasValue
                         && bindingOverride == authoredAlbedo;
                     Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
-                        ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
+                        ? GetTexcoordMatrix(materialOwner, material, segment.NativeMaterialIndex,
                             texgenNode, recolor)
                         : Matrix4.Identity;
 
@@ -777,15 +789,15 @@ namespace MphRead.Entities
                         && !Flags2.TestFlag(PlayerFlags2.Cloaking)
                         && _curAlpha >= 1 && !_scene.GameState.Teams)
                         _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(
-                            CosmeticAppearance.Skin, model, segment.NativeMaterialIndex,
+                            CosmeticAppearance.Skin, geometryModel, segment.NativeMaterialIndex,
                             part switch
                             {
-                                CharacterModelPart.ViewModel => Mods.Cosmetics.SkinContext.ViewModel,
+                                CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms => Mods.Cosmetics.SkinContext.ViewModel,
                                 CharacterModelPart.AlternateForm => Mods.Cosmetics.SkinContext.AltForm,
                                 _ => Mods.Cosmetics.SkinContext.Biped
                             });
                     if (!cosmeticDeath) _scene.CosmeticSubmission = CosmeticMaterial(
-                        part == CharacterModelPart.ViewModel);
+                        part is CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms);
                     if (authoredTexture && _scene.CosmeticMaterialSubmission == default
                         && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
                         _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
@@ -796,37 +808,45 @@ namespace MphRead.Entities
                         PaletteOverride, SelectionType.None, BillboardMode.None,
                         _drawScale, bindingOverride,
                         color.HasValue && Mods.RenderOptions.BrightSkins
-                            && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
+                            && (weighted.Asset.IndependentSurface || Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid),
                         PaletteOverride == null ? outlineColor : null,
                         weightedSkinning: true, authoredTexture: authoredTexture,
                         authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
                             authoredDoubleSided: segment.DoubleSided,
-                            authoredTransparent: authoredTexture && segment.Transparent);
+                            authoredTransparent: authoredTexture && segment.Transparent,
+                        independentSurface: weighted.Asset.IndependentSurface,
+                        authoredSurfaceTint: segment.SurfaceTint, authoredNeutralAlbedo: segment.NeutralAlbedo);
                     _scene.CosmeticSubmission = previousCosmetic;
                     _scene.CosmeticMaterialSubmission = previousMaterial;
                 }
                 return true;
             }
 
-            if (!CharacterModelRuntime.TryGetRigid(_scene, Hunter, part, model,
-                out CharacterRigidRenderModel replacement, lod))
+            if (!CharacterModelRuntime.TryGetRigid(_scene, Hunter, part, geometryModel,
+                out CharacterRigidRenderModel replacement, lod,
+                part is CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms ? CurrentWeapon : null))
                 return false;
 
+            if (detachedSource != null) _scene.UnknownDetachedShadowBounds();
+            if (_health > 0) alpha = Math.Max(alpha, replacement.Asset.MinimumVisibleAlpha);
             int polygonId = _scene.GetNextPolygonId();
             foreach (CharacterRigidRenderSegment segment in replacement.Segments)
             {
+                if (detachedSource != null && !_scene.DetachedShadowCapacityAvailable) break;
+                if (segment.WeaponPose >= 0 && segment.WeaponPose != (int)CurrentWeapon) continue;
                 Node node = model.Nodes[segment.NativeNodeIndex];
-                if (!node.Enabled || !model.NodeParentsEnabled(node)) continue;
+                if (!replacement.Asset.IndependentVisibility
+                    && (!node.Enabled || !model.NodeParentsEnabled(node))) continue;
                 Material material = model.Materials[segment.NativeMaterialIndex];
-                Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
+                Vector3 emission = GetEmission(materialOwner, material, segment.NativeMaterialIndex);
                 Vector4? color = PaletteOverride == null
                     ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
                         material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
                 int? authoredAlbedo = segment.GetAlbedo(_scene, Recolor);
-                int? bindingOverride = GetBindingOverride(inst, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
+                int? bindingOverride = GetBindingOverride(materialOwner, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
                 bool authoredTexture = segment.AlbedoBinding.HasValue && bindingOverride == authoredAlbedo;
                 Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
-                    ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex, node, recolor)
+                    ? GetTexcoordMatrix(materialOwner, material, segment.NativeMaterialIndex, node, recolor)
                     : Matrix4.Identity;
 
                 var previousCosmetic = _scene.CosmeticSubmission;
@@ -836,14 +856,14 @@ namespace MphRead.Entities
                     && !BrightSkins.ShouldApply(this) && !Flags2.TestFlag(PlayerFlags2.Cloaking)
                     && _curAlpha >= 1 && !_scene.GameState.Teams)
                     _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(
-                        CosmeticAppearance.Skin, model, segment.NativeMaterialIndex,
+                        CosmeticAppearance.Skin, geometryModel, segment.NativeMaterialIndex,
                         part switch
                         {
-                            CharacterModelPart.ViewModel => Mods.Cosmetics.SkinContext.ViewModel,
+                            CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms => Mods.Cosmetics.SkinContext.ViewModel,
                             CharacterModelPart.AlternateForm => Mods.Cosmetics.SkinContext.AltForm,
                             _ => Mods.Cosmetics.SkinContext.Biped
                         });
-                if (!cosmeticDeath) _scene.CosmeticSubmission = CosmeticMaterial(part == CharacterModelPart.ViewModel);
+                if (!cosmeticDeath) _scene.CosmeticSubmission = CosmeticMaterial(part is CharacterModelPart.ViewModel or CharacterModelPart.ViewModelArms);
                 if (authoredTexture && _scene.CosmeticMaterialSubmission == default
                     && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
                     _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
@@ -853,14 +873,15 @@ namespace MphRead.Entities
                 // the native material's binding/shading identity but not the
                 // cartridge display-list texture matrix.
                 _scene.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix,
-                    node.Animation, segment.ListId, 0, Array.Empty<float>(), color,
+                    (segment.AttachmentCorrection ?? Matrix4.Identity) * node.Animation, segment.ListId, 0, Array.Empty<float>(), color,
                     PaletteOverride, SelectionType.None, node.BillboardMode, _drawScale, bindingOverride,
                     color.HasValue && Mods.RenderOptions.BrightSkins
-                        && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
+                        && (replacement.Asset.IndependentSurface || Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid),
                     PaletteOverride == null ? outlineColor : null,
                     authoredTexture: authoredTexture, authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
                             authoredDoubleSided: segment.DoubleSided,
-                            authoredTransparent: authoredTexture && segment.Transparent);
+                            authoredTransparent: authoredTexture && segment.Transparent,
+                        independentSurface: replacement.Asset.IndependentSurface, authoredSurfaceTint: segment.SurfaceTint, authoredNeutralAlbedo: segment.NeutralAlbedo);
 
                 _scene.CosmeticSubmission = previousCosmetic;
                 _scene.CosmeticMaterialSubmission = previousMaterial;
@@ -869,9 +890,9 @@ namespace MphRead.Entities
         }
 
         private void GetDrawItems(ModelInstance inst, Node node, float alpha, int polygonId = -1, int recolor = -1,
-            Vector4? overrideColor = null, Vector4? outlineColor = null, bool cosmeticDeath = false)
+            Vector4? overrideColor = null, Vector4? outlineColor = null, bool cosmeticDeath = false, ModelInstance? detachedSource = null)
         {
-            if (alpha <= 0)
+            if (alpha <= 0 || detachedSource != null && !_scene.DetachedShadowCapacityAvailable)
             {
                 return;
             }
@@ -880,34 +901,37 @@ namespace MphRead.Entities
                 polygonId = _scene.GetNextPolygonId();
             }
             Model model = inst.Model;
+            ModelInstance materialOwner = detachedSource ?? inst;
+            Model geometryModel = materialOwner.Model;
             if (node.Enabled)
             {
                 int start = node.MeshId / 2;
                 for (int i = 0; i < node.MeshCount; i++)
                 {
+                    if (detachedSource != null && !_scene.DetachedShadowCapacityAvailable) break;
                     Mesh mesh = model.Meshes[start + i];
                     if (!mesh.Visible)
                     {
                         continue;
                     }
                     Material material = model.Materials[mesh.MaterialId];
-                    Vector3 emission = GetEmission(inst, material, mesh.MaterialId);
-                    Matrix4 texcoordMatrix = GetTexcoordMatrix(inst, material, mesh.MaterialId, node, recolor);
+                    Vector3 emission = GetEmission(materialOwner, material, mesh.MaterialId);
+                    Matrix4 texcoordMatrix = GetTexcoordMatrix(materialOwner, material, mesh.MaterialId, node, recolor);
                     Vector4? color = PaletteOverride == null
                         ? BrightSkins.ForMaterial(overrideColor, material.TextureId != -1,
                             material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
                     SelectionType selectionType = SelectionType.None;
-                    int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
+                    int? bindingOverride = GetBindingOverride(materialOwner, material, mesh.MaterialId);
                     var previousCosmetic = _scene.CosmeticSubmission;
                     var previousMaterial = _scene.CosmeticMaterialSubmission;
                     if (Mods.RenderOptions.ShowCustomCosmetics && !BrightSkinStatusOverride && !BrightSkinFrozenOverlay
                         && !ModMatchSpawnProtectionActive && _timeSinceDamage >= Values.DamageFlashTime * 2
                         && !BrightSkins.ShouldApply(this) && !Flags2.TestFlag(PlayerFlags2.Cloaking)
                         && _curAlpha >= 1 && !_scene.GameState.Teams)
-                        _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(CosmeticAppearance.Skin, model, mesh.MaterialId,
-                            inst == _gunModel ? Mods.Cosmetics.SkinContext.ViewModel : IsAltForm ? Mods.Cosmetics.SkinContext.AltForm : Mods.Cosmetics.SkinContext.Biped);
-                    bool cosmeticBody = inst == _gunModel || inst == _altModel || inst == _bipedModel1 || inst == _bipedModel2;
-                    if (!cosmeticDeath) _scene.CosmeticSubmission = cosmeticBody ? CosmeticMaterial(inst == _gunModel) : default;
+                        _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(CosmeticAppearance.Skin, geometryModel, mesh.MaterialId,
+                            materialOwner == _gunModel ? Mods.Cosmetics.SkinContext.ViewModel : IsAltForm ? Mods.Cosmetics.SkinContext.AltForm : Mods.Cosmetics.SkinContext.Biped);
+                    bool cosmeticBody = materialOwner == _gunModel || materialOwner == _altModel || materialOwner == _bipedModel1 || materialOwner == _bipedModel2;
+                    if (!cosmeticDeath) _scene.CosmeticSubmission = cosmeticBody ? CosmeticMaterial(materialOwner == _gunModel) : default;
                     if (!cosmeticBody) _scene.CosmeticMaterialSubmission = default;
                     _scene.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix,
                         node.Animation, mesh.ListId, model.NodeMatrixIds.Count, model.MatrixStackValues, color,
@@ -920,12 +944,12 @@ namespace MphRead.Entities
                 }
                 if (node.ChildIndex != -1)
                 {
-                    GetDrawItems(inst, model.Nodes[node.ChildIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath);
+                    GetDrawItems(inst, model.Nodes[node.ChildIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath, detachedSource);
                 }
             }
             if (node.NextIndex != -1)
             {
-                GetDrawItems(inst, model.Nodes[node.NextIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath);
+                GetDrawItems(inst, model.Nodes[node.NextIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath, detachedSource);
             }
         }
 

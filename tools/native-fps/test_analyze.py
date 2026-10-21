@@ -18,6 +18,46 @@ def capture(values, cap=100):
 
 
 class AnalyzeTests(unittest.TestCase):
+    def schema3(self):
+        document = capture([10, 200, 10, 500, 10])
+        document.update(schema=3, timestampFrequency=1000, droppedBoundaryRecords=0,
+                        boundaries=[{"Timestamp": 1, "Segment": 0, "Reason": "first-present",
+                                     "GenerationBefore": 0, "GenerationAfter": 0}])
+        stamp, generation = 1, 0
+        for i, row in enumerate(document['frames']):
+            before = generation
+            reason = 'catch-up-overflow' if i == 1 else 'timing-stall' if i == 3 else 'none'
+            if reason != 'none': generation += 1
+            row.update(IntervalStartTimestamp=stamp, PresentationGenerationBefore=before,
+                       PresentationGeneration=generation, BoundaryReason=reason,
+                       StallsThisFrame=int(i == 3), DroppedStepsThisFrame=7 if i == 1 else 0,
+                       CallbackToPresentMs=1, ProviderWaitMs=0)
+            stamp += row['IntervalMs']
+            row['PresentTimestamp'] = stamp
+        return document
+
+    def test_schema3_keeps_trigger_and_following_intervals(self):
+        report = analyze(self.schema3())
+        self.assertEqual(report['chronologicalIntervalsMs'], [10, 200, 10, 500, 10])
+        self.assertEqual([event['reason'] for event in report['timingBoundaries']], ['catch-up-overflow', 'timing-stall'])
+        self.assertEqual(len(report['lifecycleBoundaries']), 1)
+
+    def test_schema3_rejects_missing_intervals_flags_and_boundary_overflow(self):
+        document = self.schema3()
+        document['frames'].pop(2)
+        document['summary']['samples'] -= 1
+        with self.assertRaisesRegex(ValueError, 'missing interval'):
+            analyze(document)
+        document = self.schema3(); document['frames'][1]['BoundaryReason'] = 'none'
+        with self.assertRaisesRegex(ValueError, 'boundary generation/reason'):
+            analyze(document)
+        document = self.schema3(); document['droppedBoundaryRecords'] = 1
+        with self.assertRaisesRegex(ValueError, 'incomplete boundary'):
+            analyze(document)
+        document = self.schema3(); document['frames'][3]['Cap'] = 60
+        with self.assertRaisesRegex(ValueError, 'mixed segments/caps'):
+            analyze(document)
+
     def test_rank_and_true_low(self):
         report = analyze(capture(list(range(1, 1001))))
         self.assertEqual(report["frameIntervalP50Ms"], 500)

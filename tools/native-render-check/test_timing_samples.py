@@ -17,6 +17,8 @@ class TimingSamplesTests(unittest.TestCase):
 using System;
 using System.Collections.Generic;
 static void Check(bool value, string name) { if (!value) throw new Exception(name); }
+foreach (int cap in new[]{-1,0,30,60,120,144,240,500}) Check(NativeTimingIntervals.ValidCap(cap), "supported cap");
+foreach (int cap in new[]{-2,1,29,501,int.MaxValue}) Check(!NativeTimingIntervals.ValidCap(cap), "invalid cap");
 Check(NativeTimingIntervals.ValidSeconds(8,false), "minimum duration");
 Check(NativeTimingIntervals.ValidSeconds(604,false), "ten-minute plus warmup");
 Check(NativeTimingIntervals.ValidSeconds(1804,false), "thirty-minute plus warmup");

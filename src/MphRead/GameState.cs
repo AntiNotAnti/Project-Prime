@@ -1941,7 +1941,7 @@ namespace MphRead
                 Features = Features.Commit(),
                 MenuSettings = menuSettings
             };
-            File.WriteAllText(GetSettingsPath(), JsonSerializer.Serialize(settings, _jsonOpt));
+            MphRead.Mods.Settings.SettingsPersistence.WriteText(GetSettingsPath(), JsonSerializer.Serialize(settings, _jsonOpt));
         }
 
         public void Reset()

@@ -26,6 +26,7 @@ using var window = new NativeWindow(settings);
 window.Context.MakeCurrent();
 GL.LoadBindings(new GLFWBindingsContext());
 Console.WriteLine($"RENDERRESOURCES mvid={typeof(Scene).Module.ModuleVersionId} vendor={GL.GetString(StringName.Vendor)} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)}");
+failures += SceneTargetChecks.Run();
 for (int cycle = 0; cycle < 3; cycle++)
 {
     var scene = new Scene(new Vector2i(32, 32), SyntheticInput.CreateKeyboard(),

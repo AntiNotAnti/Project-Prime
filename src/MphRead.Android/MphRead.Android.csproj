@@ -300,4 +300,10 @@
     <Error Condition="'$(AndroidGcNurserySize)' != '16m' and '$(AndroidGcNurserySize)' != '32m' and '$(AndroidGcNurserySize)' != '64m'"
            Text="AndroidGcNurserySize must be empty, 16m, 32m or 64m." />
   </Target>
+  <ItemGroup>
+    <EmbeddedResource Include="../MphRead/Assets/HudFonts/*.bin" Link="Assets/HudFonts/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../MphRead/Assets/DsHud/*.bin;../MphRead/Assets/DsHud/*.rgb" Link="Assets/DsHud/%(Filename)%(Extension)" />
+    <AvaloniaResource Include="../MphRead/Assets/HudFonts/*.ttf" Link="Assets/HudFonts/%(Filename)%(Extension)" />
+    <AndroidAsset Include="../MphRead/Assets/HudFonts/*-*.txt;../MphRead/Assets/DsHud/*LICENSE.txt" Link="licenses/hud/%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

@@ -138,86 +138,9 @@ namespace MphRead.Mods
         /// the scrolling here and the picture agree.</summary>
         public static int Window { get; private set; } = 4;
 
-        /// <summary>
-        /// What a row calls a map: its in-game name, made unambiguous.
-        ///
-        /// Several rooms share one in-game name -- AD1 TRANSFER LOCK and AD1
-        /// TRANSFER LOCK BT are both "Transfer Lock", and there are more of
-        /// these than you would expect -- so a list drawn from the names alone
-        /// offers two identical rows and no way to tell which is which. The
-        /// key's own prefix is what tells them apart on every screen that
-        /// shows the key, so a duplicated name takes it.
-        /// </summary>
-        public static string NameOf(string roomKey)
-        {
-            if (roomKey.Length == 0)
-            {
-                return "";
-            }
-            if (_labels.TryGetValue(roomKey, out string? label))
-            {
-                return label;
-            }
-            return PlainName(roomKey);
-        }
-
-        private static string PlainName(string roomKey)
-        {
-            if (IsReturnToLobby(roomKey))
-            {
-                return "Return to lobby";
-            }
-            try
-            {
-                (RoomMetadata? meta, _) = Metadata.GetRoomByName(roomKey);
-                return meta?.InGameName ?? roomKey;
-            }
-            catch (Exception)
-            {
-                return roomKey;
-            }
-        }
-
-        private static readonly Dictionary<string, string> _labels =
-            new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        /// <summary>
-        /// Work out the labels once, when the list is read. A name is used as
-        /// it is unless another room in this list answers to it, in which case
-        /// both take the key's leading token -- "TRANSFER LOCK AD1" and
-        /// "TRANSFER LOCK AD1 BT", which is at least two different rows.
-        /// </summary>
-        private static void BuildLabels()
-        {
-            _labels.Clear();
-            var seen = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < _rooms.Count; i++)
-            {
-                string name = PlainName(_rooms[i]);
-                seen[name] = seen.TryGetValue(name, out int count) ? count + 1 : 1;
-            }
-            for (int i = 0; i < _rooms.Count; i++)
-            {
-                string key = _rooms[i];
-                string name = PlainName(key);
-                if (seen[name] <= 1 || String.Equals(name, key, StringComparison.OrdinalIgnoreCase))
-                {
-                    _labels[key] = name;
-                    continue;
-                }
-                // Whatever of the key the name does not already carry, which
-                // for this game's rooms is the AD1/MP3/CTF1 prefix and the BT
-                // suffix -- the two things that actually differ.
-                string extra = key;
-                foreach (string word in name.Split(' '))
-                {
-                    extra = extra.Replace(word, "", StringComparison.OrdinalIgnoreCase);
-                }
-                extra = String.Join(' ', extra.Split(' ',
-                    StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
-                _labels[key] = extra.Length > 0 ? $"{name} {extra}" : name;
-            }
-        }
+        /// <summary>The exact in-game title; ballot identities remain room keys.</summary>
+        public static string NameOf(string roomKey) => IsReturnToLobby(roomKey)
+            ? "Return to lobby" : Launcher.LauncherRoomDisplayName.Get(roomKey);
 
         // ---------------------------------------------------------- the list
 
@@ -248,7 +171,6 @@ namespace MphRead.Mods
             {
                 _rooms.Add(ReturnToLobbyKey);
             }
-            BuildLabels();
             Open = open && _rooms.Count > 0;
             Cursor = 0;
             Scroll = 0;
@@ -353,7 +275,6 @@ namespace MphRead.Mods
             _rooms.Clear();
             _tally.Clear();
             _voted.Clear();
-            _labels.Clear();
             Picked = "";
             Open = false;
             Cursor = 0;

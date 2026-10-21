@@ -672,7 +672,7 @@ namespace MphRead.Droid
             // room -- so naming it would leave "Loading ..." on screen for the
             // length of the load.
             ShowNotice(plan.RoomKey.Length > 0
-                ? $"Loading {plan.RoomKey}..."
+                ? $"Loading {LauncherRoomDisplayName.Get(plan.RoomKey)}..."
                 : "Loading your game...");
             Console.WriteLine($"[android] starting {plan.RoomKey} from "
                 + $"{_lastSize.Width}x{_lastSize.Height}");
@@ -939,7 +939,7 @@ namespace MphRead.Droid
             // below the window, so an ordinary view still covers it, but the
             // touch overlay was added after it -- put it back on top so the
             // player reads the loading line and not the controls behind it.
-            ShowNotice($"Loading {plan.RoomKey}...");
+            ShowNotice($"Loading {LauncherRoomDisplayName.Get(plan.RoomKey)}...");
             _notice?.BringToFront();
         }
 
