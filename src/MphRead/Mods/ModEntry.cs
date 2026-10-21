@@ -1000,6 +1000,9 @@ namespace MphRead.Mods
             // the old behaviour, and -noupdate turns off the checking too.
             // See Mods/Update/ServerUpdate.cs for why the swap is not the
             // desktop's.
+            string? approvedHostWeaponStore = null;
+            if ((HasFlag(args, "masterserver") || HasFlag(args, "server") || HasFlag(args, "dedicated"))
+                && !TryReadHostWeaponStore(args, out approvedHostWeaponStore)) return true;
             if (HasFlag(args, "masterserver") || HasFlag(args, "server")
                 || HasFlag(args, "dedicated"))
             {
@@ -1035,6 +1038,7 @@ namespace MphRead.Mods
                     masterPort = parsedMasterPort;
                 }
                 var master = new MasterServer(masterPort);
+                master.SetWeaponStore(approvedHostWeaponStore);
                 using var masterSignals = new ShutdownSignals();
                 // The ports it may start games on, for players whose routers
                 // will not forward one. A range by default, because the whole
@@ -1247,6 +1251,7 @@ namespace MphRead.Mods
                     RetentionDays: replayRetentionDays,
                     KeepLast: replayKeepLast)
             };
+            server.Hosts.SetWeaponStore(approvedHostWeaponStore);
             if (weaponPackage != null)
             {
                 try { server.ConfigureWeaponPackage(weaponPackage.StoreDirectory, weaponPackage.ArchiveHash); }
@@ -2188,6 +2193,16 @@ namespace MphRead.Mods
             string? hostGame = ValueAfter(args, "hostgame");
             if (hostGame != null)
             {
+                if (!TryReadLocalWeaponPackage(args, "hostgame", out var requestedWeaponPackage)) return true;
+                CustomWeapons.Packages.WeaponPackageLease? hostClientLease = null;
+                try { hostClientLease = requestedWeaponPackage?.Acquire(default); }
+                catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException
+                    or ArgumentException or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException)
+                {
+                    Console.Error.WriteLine("[hostgame] The exact selected weapon package must be installed locally before requesting a host.");
+                    Environment.ExitCode = 2; return true;
+                }
+                using var selectedClientPackage = hostClientLease;
                 string masterHost = ValueAfter(args, "master") ?? NetMasterConfig.DefaultHost;
                 int masterPort = NetMasterConfig.DefaultPort;
                 string? masterPortValue = ValueAfter(args, "masterport");
@@ -2230,7 +2245,7 @@ namespace MphRead.Mods
                 HostedGame game = NetMasterClient.RequestGame(masterHost, masterPort,
                     hostGame, hostMode, timeLimit: 7 * 60, pointGoal: 7,
                     maxPlayers: PlayerEntity.SlotCapacity, serverName: $"{hostName}'s game",
-                    rotation: hostRotation);
+                    rotation: hostRotation, weaponArchiveHash: requestedWeaponPackage?.ArchiveHash);
                 if (!game.Started)
                 {
                     Console.WriteLine($"[net] it would not: {game.Reason}");
@@ -2239,7 +2254,8 @@ namespace MphRead.Mods
                 }
                 Console.WriteLine($"[net] running on {game.Host}:{game.Port}; joining it");
                 Network.NetConnectCommand.Run(game.Host, game.Port, hostName,
-                    ParseHunter(args), ParseRecolor(args));
+                    ParseHunter(args), ParseRecolor(args), ownerToken: game.OwnerToken,
+                    weaponPackage: requestedWeaponPackage);
                 return true;
             }
 
@@ -2857,6 +2873,27 @@ namespace MphRead.Mods
                 }
             }
             return -1;
+        }
+
+        private static bool TryReadHostWeaponStore(string[] args, out string? directory)
+        {
+            directory = null;
+            if (!HasFlag(args, "hostweaponstore")) return true;
+            string? selected = ValueAfter(args, "hostweaponstore");
+            if (!String.IsNullOrWhiteSpace(selected) && selected.Length <= 4096 && !selected.StartsWith('-')
+                && !selected.Any(char.IsControl)
+                && args.Count(value => value.TrimStart('-').Equals("hostweaponstore", StringComparison.OrdinalIgnoreCase)) == 1)
+            {
+                try
+                {
+                    _ = new CustomWeapons.Packages.WeaponPackageStore(selected);
+                    directory = System.IO.Path.GetFullPath(selected); return true;
+                }
+                catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException
+                    or ArgumentException or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException) { }
+            }
+            Console.Error.WriteLine("[host] Supply -hostweaponstore <approved local directory> once.");
+            Environment.ExitCode = 2; return false;
         }
 
         private static bool TryReadLocalWeaponPackage(string[] args, string command,

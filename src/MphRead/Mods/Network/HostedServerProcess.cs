@@ -93,7 +93,8 @@ namespace MphRead.Mods.Network
 
         public static HostedServerProcess? Start(int port, in HostRequestPacket request,
             string name, string masterHost, int masterPort, bool listed,
-            Guid ownerToken, out string reason, HostedMapPreparation? hostedMaps = null)
+            Guid ownerToken, out string reason, HostedMapPreparation? hostedMaps = null,
+            PreparedLocalWeaponPackage? weapon = null)
         {
             try
             {
@@ -151,27 +152,36 @@ namespace MphRead.Mods.Network
             // rotations. A null preparation makes LocalServer inherit the host's
             // entire map catalog and validate unrelated packages during startup.
             hostedMaps ??= new HostedMapPreparation(Array.Empty<HostedMapArchive>());
-            int started = LocalServer.Start(name, maps,
-                Math.Clamp((int)request.MaxPlayers, 2, MphRead.Entities.PlayerEntity.SlotCapacity),
-                request.TimeLimit, request.PointGoal,
-                masterHost, masterPort, listed,
-                CancellationToken.None,
-                lobby: request.Policy == ServerSessionPolicy.Lobby,
-                requestedPort: port,
-                ownerToken: ownerToken,
-                format: request.Format,
-                requireReady: request.RequireReady,
-                allowJoinInProgress: request.AllowJoinInProgress,
-                waitUntilReady: false, requiredMap: request.MapIdentity, hostedMaps: hostedMaps);
-            Process? process = started < 0 ? null : LocalServer.DetachRunning();
-            if (started < 0 || process == null)
+            lock (LocalServer.StartLifecycleGate)
             {
-                LocalServer.CleanupHostedLibrary(LocalServer.HostedLibrary);
-                reason = LocalServer.LastError ?? $"could not start server on port {port}";
-                return null;
+                int started = weapon != null
+                    ? LocalServer.StartPrepared(weapon, name, maps,
+                        Math.Clamp((int)request.MaxPlayers, 2, MphRead.Entities.PlayerEntity.SlotCapacity),
+                        request.TimeLimit, request.PointGoal, masterHost, masterPort, listed, port,
+                        ownerToken, request.Format, request.RequireReady, request.AllowJoinInProgress,
+                        request.MapIdentity, hostedMaps)
+                    : LocalServer.Start(name, maps,
+                    Math.Clamp((int)request.MaxPlayers, 2, MphRead.Entities.PlayerEntity.SlotCapacity),
+                    request.TimeLimit, request.PointGoal,
+                    masterHost, masterPort, listed,
+                    CancellationToken.None,
+                    lobby: request.Policy == ServerSessionPolicy.Lobby,
+                    requestedPort: port,
+                    ownerToken: ownerToken,
+                    format: request.Format,
+                    requireReady: request.RequireReady,
+                    allowJoinInProgress: request.AllowJoinInProgress,
+                    waitUntilReady: false, requiredMap: request.MapIdentity, hostedMaps: hostedMaps);
+                Process? process = started < 0 ? null : LocalServer.DetachRunning();
+                if (started < 0 || process == null)
+                {
+                    LocalServer.CleanupHostedLibrary(LocalServer.HostedLibrary);
+                    reason = LocalServer.LastError ?? $"could not start server on port {port}";
+                    return null;
+                }
+                reason = "";
+                return new HostedServerProcess(process, started);
             }
-            reason = "";
-            return new HostedServerProcess(process, started);
         }
 
         /// <summary>

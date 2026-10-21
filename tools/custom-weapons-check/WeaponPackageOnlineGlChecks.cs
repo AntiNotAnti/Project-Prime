@@ -27,7 +27,7 @@ internal static class WeaponPackageOnlineGlChecks
 {
     const BindingFlags Hidden=BindingFlags.Instance|BindingFlags.NonPublic;
     static readonly Action<KeyboardState,Keys,bool> Key=typeof(KeyboardState).GetMethod("SetKeyState",Hidden|BindingFlags.Public)!.CreateDelegate<Action<KeyboardState,Keys,bool>>();
-    internal static int Run(string data,string output,string serverDll,bool localHost=false)
+    internal static int Run(string data,string output,string serverDll,bool localHost=false,string? remoteHost=null)
     {
         string cwd=Directory.GetCurrentDirectory();string? oldStore=Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE");
         bool force=MapAudit.ForceEveryone,script=NetTestScript.Enabled,scope=InputSettings.CustomScopeHold;
@@ -53,6 +53,15 @@ internal static class WeaponPackageOnlineGlChecks
             var start=new ProcessStartInfo(dotnet){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=data};start.ArgumentList.Add(serverDll);
             foreach(string arg in new[]{"-server","-port",port.ToString(),"-players","2","-lobby","-nomaster","-noserverreplays","-rotation",rotation,"-weaponstore",serverStorePath,"-weaponarchive",package.PackageHash})start.ArgumentList.Add(arg);
             start.Environment["PROJECT_PRIME_USER_DATA"]=data;start.Environment["DOTNET_PROCESSOR_COUNT"]="2";
+            if(remoteHost!=null)
+            {
+                if(remoteHost is not ("directory" or "dedicated"))throw new ArgumentException("Expected directory or dedicated allocator.");
+                Check(LocalServer.Available() is {} available&&Path.GetFullPath(available.WorkingDirectory)==Path.GetDirectoryName(serverDll),"remote allocator uses explicitly staged matching dedicated build");
+                int first=Enumerable.Range(42000,2000).First(candidate=>Enumerable.Range(candidate,4).All(LocalServer.PortAvailable));
+                start.ArgumentList.Clear();start.ArgumentList.Add(serverDll);
+                foreach(string arg in new[]{remoteHost=="directory"?"-masterserver":"-server","-port",port.ToString(),"-hostports",first+"-"+(first+3),"-hostweaponstore",serverStorePath,"-noupdate","-noautoupdate"})start.ArgumentList.Add(arg);
+                if(remoteHost=="dedicated")foreach(string arg in new[]{"-lobby","-nomaster","-noserverreplays","-rotation",rotation})start.ArgumentList.Add(arg);
+            }
             Guid ownerToken=default;
             if(localHost)
             {
@@ -73,9 +82,16 @@ internal static class WeaponPackageOnlineGlChecks
             void Step(int count=1){for(int i=0;i<count;i++){Bound();if(scene==null)NetSession.Pump();else scene.OnSimulationFrame();sawCwmDuringStarting|=NetSession.IsStarting&&NetSession.CustomWeaponReadinessConfirmed;if(observeShotPose&&scene!=null){var pose=scene.CustomRiflePose(scene.Players.Main);sawShotPose|=pose.Kick>0||pose.Bolt>0||pose.Flash>0;}nextStep=Math.Max(nextStep+1000d/60,watch.Elapsed.TotalMilliseconds);int wait=(int)(nextStep-watch.Elapsed.TotalMilliseconds);if(wait>0)Thread.Sleep(wait);}}
             void Until(Func<bool> condition,string label,int seconds=20){var deadline=watch.Elapsed.TotalSeconds+seconds;while(!condition()){if(watch.Elapsed.TotalSeconds>deadline)throw new TimeoutException(label+"; "+NetSession.LastError+"; "+NetSession.WeaponPackagePreparationMessage+"; receipt="+NetSession.LastCustomWeaponReceipt?.Receipt+"; denial="+NetSession.LastCustomControlDenied+"; state="+NetSession.CustomWeaponPresentationState+"; localFrame="+NetSession.NetFrame);Step();}Check(true,label);}
             if(!localHost)Until(()=>{lock(logGate)return logs.ToString().Contains("listening on UDP",StringComparison.Ordinal);},"actual separate dedicated process listens with exact configured package");
+            if(remoteHost!=null)
+            {
+                var hosted=NetMasterClient.RequestGame("127.0.0.1",port,"MP3 PROVING GROUND",GameMode.Battle,0,10000,2,
+                    "Exact remote package GL",weaponArchiveHash:package.PackageHash);
+                Check(hosted.Started&&hosted.OwnerToken!=Guid.Empty,"actual "+remoteHost+" allocator verifies archive and starts reachable dedicated child: "+hosted.Reason);
+                port=hosted.Port;ownerToken=hosted.OwnerToken;
+            }
             Environment.SetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE",clientStorePath);
             Check(NetLaunch.Connect("127.0.0.1",port,"CreatorPackageGL",Hunter.Samus,ownerToken:ownerToken,
-                weaponPackage:localHost?new(clientStorePath,package.PackageHash):null),"ordinary NetLaunch client joins actual package lobby");
+                weaponPackage:localHost||remoteHost!=null?new(clientStorePath,package.PackageHash):null),"ordinary NetLaunch client joins actual package lobby");
             Until(()=>NetSession.RequiredWeaponPackagesReady&&NetSession.LocalIsLobbyOwner,"actual asynchronous package preparation and authority confirmation finish in lobby");
             Check(clientStore.Uninstall(package.PackageHash)&&clientStore.Prune()==0,"prepared lobby client retains exact archive after marker uninstall before match transition");
             Check(NetSession.SendLobbyCommand(LobbyCommandType.SetReady,ready:true),"ordinary client sends lobby ready");Until(()=>!NetSession.LobbyCommandPending&&NetSession.SlotLobbyReady[NetSession.LocalSlot],"ordinary lobby ready settles");
