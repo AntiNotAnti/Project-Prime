@@ -7,10 +7,11 @@ internal static partial class ReplayFormatV3
 {
     private const uint CustomWeaponCapabilityMagic = 0x31574350; // PCW1
     internal const int MaxCustomConstruction = ReplayReplicaCheckpoint.MaximumCustomBytes + 65536 + 1;
-    internal const int MaxCustomHeader = MaxHeader + MaxCustomConstruction + ReplayCustomWeaponDescriptor.MaximumBytes + 24;
+    internal const int MaxCustomHeader = MaxHeader + MaxCustomConstruction + ReplayCustomWeaponDescriptor.MaximumBytes
+        + Replay.ReplayWorldCheckpoint.MaximumBytes + 24;
 
-    // An explicit detached archive contract. World capsules and live recording
-    // remain gated until a custom world/resource owner exists. Metadata cannot
+    // An explicit detached archive/world contract. Live Scene recording and
+    // playback remain gated until a resource owner exists. Metadata cannot
     // substitute for a verified historical package lease at Scene creation.
     internal static ReplayReplicaState? ValidateCustomArchiveMetadata(ReplayMetadata metadata)
     {
@@ -20,10 +21,10 @@ internal static partial class ReplayFormatV3
             return null;
         }
         if (metadata.ProtocolVersion != 83 || metadata.CustomWeapons is not { MetadataDefinition: not null } descriptor
-            || metadata.WorldCheckpoint.Length != 0 || metadata.Bootstrap.Packets.Count != 1
+            || metadata.WorldCheckpoint.Length > Replay.ReplayWorldCheckpoint.MaximumBytes || metadata.Bootstrap.Packets.Count != 1
             || metadata.Bootstrap.Packets[0] is not { Length: > 1 } packet || packet.Length > MaxCustomConstruction || packet[0] != 253
             || (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames > uint.MaxValue)
-            throw new InvalidDataException("Format7 requires an exact custom descriptor and one replica15 construction, without a native world capsule.");
+            throw new InvalidDataException("Format7 requires an exact custom descriptor and one replica15 construction; an optional world must be explicit version12.");
         var checkpoint = ReplayTimelineArchive.ReadConstruction(packet, custom: true);
         var state = new ReplayReplicaState(); state.RestoreCustomCheckpoint(checkpoint);
         if (state.CustomWeaponDescriptor == null || !state.CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes())
@@ -32,6 +33,12 @@ internal static partial class ReplayFormatV3
             || match.Mode != (byte)metadata.Mode || state.RecordingFrame != metadata.OriginRecordingFrame
             || state.TimedShots.Enabled != metadata.TimedShotCertificates)
             throw new InvalidDataException("Custom archive descriptor, construction, clocks or match disagree.");
+        if (metadata.WorldCheckpoint.Length != 0)
+        {
+            using var world = Replay.ReplayWorldCheckpoint.FromCustomBytes(metadata.WorldCheckpoint, metadata.BuildId);
+            if (world.Frame != metadata.OriginRecordingFrame) throw new InvalidDataException("Custom archive world clock differs from its origin.");
+            world.ValidateCustomArchive(metadata, checkpoint);
+        }
         return state;
     }
     private static void WriteCustomArchiveCapability(BinaryWriter writer, ReplayMetadata metadata)

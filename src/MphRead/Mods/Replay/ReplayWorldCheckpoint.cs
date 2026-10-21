@@ -23,6 +23,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
     private const ushort Version = 11;
+    private const ushort CustomVersion = 12;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -35,6 +36,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     internal bool HasGrappleContract => (_appendices & ReplayWorldCheckpointAppendices.Grapple) != 0;
     internal bool HasTimedPickupContract => (_appendices & ReplayWorldCheckpointAppendices.Pickups) != 0;
     internal bool HasTimedShotContract => (_decoderFeatures & ReplayReplicaCheckpointFeatures.TimedShots) != 0;
+    internal bool HasCustomWeaponContract => (_appendices & ReplayWorldCheckpointAppendices.CustomWeapons) != 0;
+    internal ReplayCustomWeaponDescriptor? CustomWeaponDescriptor { get; }
     internal bool RequiresNativeTouchContract => (_decoderFeatures & ReplayReplicaCheckpointFeatures.NativeTouch) != 0;
     private readonly ReplayWorldCheckpointAppendices _appendices;
     private readonly ReplayReplicaCheckpointFeatures _decoderFeatures;
@@ -42,17 +45,23 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null,
         bool indexedFirePresentation = false, bool hasPresentationContract = true, bool hasAuthorityFormHistory = true, bool hasTurretOutcomeContract = true,
         ReplayWorldCheckpointAppendices appendices = ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups | ReplayWorldCheckpointAppendices.Grapple,
-        ReplayReplicaCheckpointFeatures decoderFeatures = ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple)
+        ReplayReplicaCheckpointFeatures decoderFeatures = ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple,
+        ReplayCustomWeaponDescriptor? customDescriptor = null)
     {
         _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract;
         IndexedFirePresentation = indexedFirePresentation; HasPresentationContract = hasPresentationContract;
         HasAuthorityFormHistory = hasAuthorityFormHistory; HasTurretOutcomeContract = hasTurretOutcomeContract;
         _appendices = appendices; _decoderFeatures = decoderFeatures;
+        CustomWeaponDescriptor = customDescriptor;
     }
     private bool _disposed;
     public void Dispose() { if (!_disposed) { _disposed = true; _data.Release(); GC.SuppressFinalize(this); } }
     ~ReplayWorldCheckpoint() => Dispose();
     internal static ReplayWorldCheckpoint FromBytes(ReadOnlySpan<byte> bytes, string? producerBuild = null)
+        => FromBytesCore(bytes, producerBuild, custom: false);
+    internal static ReplayWorldCheckpoint FromCustomBytes(ReadOnlySpan<byte> bytes, string? producerBuild = null)
+        => FromBytesCore(bytes, producerBuild, custom: true);
+    private static ReplayWorldCheckpoint FromBytesCore(ReadOnlySpan<byte> bytes, string? producerBuild, bool custom)
     {
         if (bytes.Length > MaximumBytes) throw new InvalidDataException("Replay world exceeds its checkpoint budget.");
         var data = ReplayPayload.Copy(bytes);
@@ -60,16 +69,18 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         {
             using var stream = data.OpenRead(); using var reader = new BinaryReader(stream);
             var (version, declared) = ReadWorldHeader(reader);
+            if ((version == CustomVersion) != custom)
+                throw new InvalidDataException("An explicit custom world12 inspection contract is required; native and custom capsules are distinct.");
             string sourceContract = reader.ReadString();
             if (!SupportsContract(sourceContract, producerBuild))
                 throw new InvalidDataException("This replay uses a different saved-world layout. Open it with the game version that recorded it.");
-            reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
+            string room = reader.ReadString(); var mode = (GameMode)reader.ReadInt32(); reader.ReadUInt64();
             uint frame = reader.ReadUInt32();
-            var inspection = InspectWorldBody(reader, version, declared);
+            var inspection = InspectWorldBody(reader, version, declared, room, mode, frame);
             return new(data, frame, sourceContract, indexedFirePresentation: inspection.IndexedFire,
                 hasPresentationContract: version >= 6, hasAuthorityFormHistory: version >= 7,
                 hasTurretOutcomeContract: version >= 8, appendices: inspection.Appendices,
-                decoderFeatures: inspection.DecoderFeatures);
+                decoderFeatures: inspection.DecoderFeatures, customDescriptor: inspection.CustomDescriptor);
         }
         catch { data.Release(); throw; }
     }
@@ -81,17 +92,26 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         ReadWorldHeader(reader); reader.ReadString();
         string room = reader.ReadString(); var mode = (GameMode)reader.ReadInt32(); ulong map = reader.ReadUInt64();
         uint origin = reader.ReadUInt32();
-        return new ReplayMetadata { FormatVersion = HasTimedShotContract ? (byte)6 : (byte)4,
+        return new ReplayMetadata { FormatVersion = HasCustomWeaponContract ? (byte)7 : HasTimedShotContract ? (byte)6 : (byte)4,
             TimedShotCertificates = HasTimedShotContract, Type = ReplayType.Clip, RoomKey = room, Mode = mode,
             MapHash = map, OriginRecordingFrame = origin, LeadInFrames = leadIn,
-            WorldCheckpoint = Bytes.ToArray(), Players = players };
+            WorldCheckpoint = Bytes.ToArray(), Players = players, CustomWeapons = CustomWeaponDescriptor,
+            Bootstrap = HasCustomWeaponContract ? new() { Packets = new[] { ReplayTimelineArchive.Construction(DecoderState()) } } : new() };
     }
     internal ReplayReplicaCheckpoint ConstructionState()
     {
         using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
         ReadWorldHeader(reader); reader.ReadString(); reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
         reader.ReadUInt32(); reader.ReadUInt32(); reader.ReadUInt32();
-        return new(ReadBytes(reader, ReplayReplicaCheckpoint.MaximumBytes));
+        return new(ReadBytes(reader, HasCustomWeaponContract ? ReplayReplicaCheckpoint.MaximumCustomBytes : ReplayReplicaCheckpoint.MaximumBytes));
+    }
+    internal ReplayReplicaCheckpoint DecoderState()
+    {
+        using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
+        ReadWorldHeader(reader); reader.ReadString(); reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
+        reader.ReadUInt32(); reader.ReadUInt32(); reader.ReadUInt32();
+        int maximum = HasCustomWeaponContract ? ReplayReplicaCheckpoint.MaximumCustomBytes : ReplayReplicaCheckpoint.MaximumBytes;
+        ReadBytes(reader, maximum); return new(ReadBytes(reader, maximum));
     }
 
     private static readonly BindingFlags InstanceFields = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
@@ -226,6 +246,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
 
     internal static ReplayWorldCheckpoint Capture(PassiveReplayScene replay, uint? recordingFrame = null, bool boundAccessors = true)
     {
+        if (replay.State.CustomWeapons != null)
+            throw new InvalidOperationException("Custom Scene capture requires the retained historical resource and presentation contract.");
         using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Checkpoint);
         using var stream = new ReplayCheckpointWriter();
         using var writer = new BinaryWriter(stream);
@@ -382,6 +404,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
 
     internal void Restore(PassiveReplayScene replay, uint? playbackFrame = null)
     {
+        if (HasCustomWeaponContract)
+            throw new InvalidOperationException("Custom Scene restore requires the retained historical resource and presentation contract.");
         if (replay.HasStepped) throw new InvalidOperationException("Restore requires a new unpublished replica.");
         using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
         if (Bytes.Length > MaximumBytes) throw new InvalidDataException("Invalid replay world capsule.");
