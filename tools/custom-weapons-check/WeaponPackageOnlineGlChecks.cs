@@ -37,10 +37,13 @@ internal static class WeaponPackageOnlineGlChecks
         void Check(bool ok,string label){if(!ok)throw new InvalidOperationException(label);checks++;Console.WriteLine("ONLINE PACKAGE GL PASS "+label);}
         var recorder=ReplayCapture.Recorder;
         var acceptedFacts=new List<(byte[] Payload,ReplayCustomWeaponContext? Context,uint RecordingFrame,uint ServerTick)>();
+        byte[]? latestMatch=null,frozenMatch=null;uint latestMatchFrame=0,frozenMatchFrame=0;
         bool captureOverflow=false;long capturedBytes=0;
         void CaptureFact(ReplayTimelineRecord record)
         {
+            if(record.Kind==ReplayFactKind.Match&&record.Payload.Length>0&&record.Payload[0]==(byte)PacketType.MatchState){if(record.Payload.Length>64*1024){captureOverflow=true;return;}latestMatch=record.Payload.ToArray();latestMatchFrame=record.RecordingFrame;return;}
             if(record.Kind!=ReplayFactKind.CustomWeapon)return;
+            if(acceptedFacts.Count==0){frozenMatch=latestMatch?.ToArray();frozenMatchFrame=latestMatchFrame;}
             if(acceptedFacts.Count>=8192||capturedBytes+record.Payload.Length>32L*1024*1024){captureOverflow=true;return;}
             byte[] bytes=record.Payload.ToArray();capturedBytes+=bytes.Length;
             acceptedFacts.Add((bytes,recorder.CustomWeaponContext,record.RecordingFrame,record.ServerTick));
@@ -192,6 +195,16 @@ internal static class WeaponPackageOnlineGlChecks
                     int leftCount=left.CopyFlights(leftFlights),rightCount=right.CopyFlights(rightFlights);
                     return leftCount==rightCount&&leftFlights.AsSpan(0,leftCount).SequenceEqual(rightFlights.AsSpan(0,rightCount));
                 }
+                Check(frozenMatch!=null&&frozenMatch[0]==(byte)PacketType.MatchState&&frozenMatchFrame<=acceptedFacts[0].RecordingFrame,"actual native Match precedes first custom bootstrap");
+                var inspectionDescriptor=ReplayCustomWeaponDescriptor.ForInspection(context);
+                File.WriteAllBytes(Path.Combine(output,"inspection-descriptor.bin"),inspectionDescriptor.CopyBytes());
+                File.WriteAllBytes(Path.Combine(output,"inspection-match.bin"),frozenMatch!);
+                ReplayReplicaState InspectionOwner(){var owner=new ReplayReplicaState();owner.EnableCustomInspection(inspectionDescriptor);owner.Accept(frozenMatch!,frozenMatchFrame);return owner;}
+                var inspectionFinal=InspectionOwner();uint inspectionRng1=inspectionFinal.Rng1,inspectionRng2=inspectionFinal.Rng2;
+                foreach(var item in parsedFacts)inspectionFinal.Accept(item.Fact.CopyBytes(),item.Frame);
+                var finalReplica=inspectionFinal.CaptureCheckpoint();
+                Check(inspectionFinal.Rng1==inspectionRng1&&inspectionFinal.Rng2==inspectionRng2,"accepted custom inspection leaves native RNG unchanged");
+                File.WriteAllBytes(Path.Combine(output,"final-replica-checkpoint.bin"),finalReplica.Bytes.ToArray());
                 var descriptorBytes=new ReplayCustomWeaponDescriptor(context).CopyBytes();
                 File.WriteAllBytes(Path.Combine(output,"descriptor.bin"),descriptorBytes);
                 File.WriteAllBytes(Path.Combine(output,"final-checkpoint.bin"),linear.CaptureCheckpointBytes());
@@ -203,6 +216,14 @@ internal static class WeaponPackageOnlineGlChecks
                 {
                     var prefix=new ReplayCustomWeaponState(context);
                     for(int n=0;n<=index;n++)prefix.Accept(parsedFacts[n].Fact,parsedFacts[n].Frame);
+                    var replicaPrefix=InspectionOwner();for(int n=0;n<=index;n++)replicaPrefix.Accept(parsedFacts[n].Fact.CopyBytes(),parsedFacts[n].Frame);
+                    var replicaBytes=replicaPrefix.CaptureCheckpoint();
+                    Check(BinaryPrimitives.ReadUInt16LittleEndian(replicaBytes.Bytes[4..])==15,"explicit custom replica checkpoint version fifteen");
+                    ReplayReplicaState.InspectCustomCheckpointLayout(replicaBytes);
+                    var replicaRestored=new ReplayReplicaState();replicaRestored.RestoreCustomCheckpoint(replicaBytes);
+                    Check(replicaRestored.CaptureCheckpoint().Bytes.SequenceEqual(replicaBytes.Bytes)&&replicaRestored.CustomWeapons!.CaptureCheckpointBytes().AsSpan().SequenceEqual(prefix.CaptureCheckpointBytes()),"explicit replica prefix canonical custom lane parity");
+                    for(int n=index+1;n<parsedFacts.Count;n++)replicaRestored.Accept(parsedFacts[n].Fact.CopyBytes(),parsedFacts[n].Frame);
+                    Check(replicaRestored.CaptureCheckpoint().Bytes.SequenceEqual(finalReplica.Bytes)&&replicaRestored.CustomWeapons!.CaptureCheckpointBytes().AsSpan().SequenceEqual(linear.CaptureCheckpointBytes())&&replicaRestored.Rng1==inspectionRng1&&replicaRestored.Rng2==inspectionRng2,"explicit replica actual suffix canonical parity and unchanged RNG");
                     var point=prefix.CaptureRestorePoint();
                     var freshContext=new ReplayCustomWeaponContext(context.Bootstrap,context.Definition,context.Layout);
                     var restored=point.Restore(freshContext);
@@ -225,11 +246,12 @@ internal static class WeaponPackageOnlineGlChecks
                     if(backwards)backwardRestores++;else forwardRestores++;
                 }
                 File.WriteAllText(Path.Combine(output,"accepted-facts-results.json"),JsonSerializer.Serialize(new{count=acceptedFacts.Count,capturedBytes,
-                    package.PackageHash,context=context.Digest.ToString(),checkpointSha256=Convert.ToHexString(SHA256.HashData(linear.CaptureCheckpointBytes())),counts=counts.ToDictionary(pair=>pair.Key.ToString(),pair=>pair.Value),facts=receipt,
+                    package.PackageHash,inspectionMatchFrame=frozenMatchFrame,replicaCheckpointBytes=finalReplica.Bytes.Length,
+                    replicaCheckpointSha256=Convert.ToHexStringLower(SHA256.HashData(finalReplica.Bytes)),context=context.Digest.ToString(),checkpointSha256=Convert.ToHexString(SHA256.HashData(linear.CaptureCheckpointBytes())),counts=counts.ToDictionary(pair=>pair.Key.ToString(),pair=>pair.Value),facts=receipt,
                     observations=new{recordedEmpty,recordedPickup,recordedSpent,recordedReloading,recordedReloaded,recordedOptic4},
                     passiveRestore=new{completePoints=completePoints.Count,forwardRestores,backwardRestores,suffixFactsApplied,
                         finalSequence=linear.Sequence,finalWorld=linear.World,finalRecordingFrame=linear.RecordingFrame},
-                    scope="Copied accepted ordinary-client facts, persisted CWRD/CWRS passive state and typed/byte restores in both directions with actual suffix and canonical state equality. No actual contact capture expected from this single-client wall shot. The fact dump remains a test-only length-prefixed file; no Demo archive, whole Scene checkpoint, passive playback or archive seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
+                    scope="Copied accepted ordinary-client custom lane plus its actual native Match context; CWRD1/2, CWRS and explicit replica15 cold restores preserve canonical bytes and RNG across actual suffixes. No actual contact capture expected from this single-client wall shot. No native Roster/Snapshot construction, Demo archive, whole Scene checkpoint, passive playback or archive seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
             }
             Check(clientStore.Prune()==0,"ordinary live session and scene retain archive uninstalled before match transition");NetSession.Stop();Check(clientStore.Prune()==0&&scene.LocalWeaponPackage?.PackageHash==package.PackageHash,"session Stop preserves independently retained ordinary scene package owner");scene.DoCleanup();scene=null;Check(clientStore.Prune()==1,"ordinary scene cleanup releases final retained client archive");
             File.WriteAllText(Path.Combine(output,"online-package-gl-results.json"),JsonSerializer.Serialize(new{checks,renderer,version,sawCwmDuringStarting,package.PackageHash,contentId=package.Project.ContentId,seconds=watch.Elapsed.TotalSeconds,pictures,scope="Actual separate dedicated process and ordinary NetSession client/native GL; genuine package preparation, native world admission, W world pickup,scope4,fire,reload. Authored approach placement is declared; no synthetic snapshots, grant or client authority."},new JsonSerializerOptions{WriteIndented=true}));Console.WriteLine($"PASS {checks} ordinary online package client GL checks");return 0;

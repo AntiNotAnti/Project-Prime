@@ -105,6 +105,7 @@ namespace MphRead.Mods.Network
         }
         public void Rewind()
         {
+            CustomWeaponDescriptor = null; CustomWeapons = null;
             ResetTurretOutcomes(); ResetPickupFacts(); TimedGrants.Reset();
             TimedShots.Reset();
             _bombPackets.Clear();
@@ -147,7 +148,7 @@ namespace MphRead.Mods.Network
         {
             if (packet.IsEmpty) throw new InvalidDataException("Empty replay packet.");
             if (packet[0] == ReplayCustomWeaponFact.Tag)
-                throw new InvalidDataException("Custom replay facts require a supported exact-package archive contract.");
+            { AcceptCustomWeaponRecord(packet, frame); return; }
             if (packet[0] == 253)
             {
                 RestoreCheckpoint(ReplayTimelineArchive.ReadConstruction(packet)); return;
@@ -184,8 +185,7 @@ namespace MphRead.Mods.Network
                 case PacketType.MatchState:
                     if (payload.Length != MatchStatePacket.Size) throw Malformed();
                     var match = MatchStatePacket.Read(payload);
-                    if (((MatchModifierFlags)match.RuleBits
-                            & (MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable)) != 0
+                    if (!CustomMatchAllowed(match)
                         || !Movement.MovementModelRules.ValidRules((MatchModifierFlags)match.RuleBits)
                         || Movement.MovementModelRules.UsesMomentumSolver(Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits))
                             && ((MatchModifierFlags)match.RuleBits & (MatchModifierFlags.BalancedMode | MatchModifierFlags.EnhancedHunters)) != 0
@@ -206,8 +206,8 @@ namespace MphRead.Mods.Network
                     accepted = true;
                     break;
                 case PacketType.SessionState:
-                    if (!SessionStatePacket.TryReadArchived(payload, out var configuration)
-                        || configuration.Match.RiftlineM7Available || configuration.Match.PackagedWeaponAvailable) throw Malformed();
+                    if (!ReadReplicaConfiguration(payload, CustomWeaponDescriptor != null, out var configuration)
+                        || !CustomConfigurationAllowed(configuration)) throw Malformed();
                     if (Match.HasValue && !Matches(configuration.MatchId, configuration.AuthorityEpoch)) break;
                     if (Configuration is SessionStatePacket old && configuration.Revision != old.Revision
                         && !SessionStatePacket.IsNewer(configuration.Revision, old.Revision)) break;
