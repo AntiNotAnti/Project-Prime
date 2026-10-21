@@ -40,6 +40,12 @@ receive independent map GUIDs. `PROJECT_PRIME_Q3_CACHE` can select a private
 disposable conversion cache; a cross-process publication lease protects its
 eight-entry / 512 MiB retention and abandoned pending-artifact cleanup.
 
+Room prewarm owns a cancellation source for its generation. Switching or
+clearing the room cancels its generation-lease/build wait and prevents a retired
+worker from starting a model decode after its last file read. Shared compiler
+work still follows waiter ownership; an independently needed build survives.
+Already executing model decoding and atomic publication finish normally.
+
 `MapOutputSet` owns all five filenames. A missing output, damaged output, changed source/import/texture/asset, schema or compiler setting makes the build stale. `map.build.json` records SHA-256 fingerprints and output hashes. Every output is prepared before publication; the sidecar is written last, so interruption causes regeneration on the next launch.
 
 Diagnostics carry stable `FP-MAP-*` codes, severity and optional object ID. Validators check geometry transforms/ranges/topology, materials/assets, spawn placement/headroom, multiplayer pickups, jump-pad settings, modes, imported dependencies and collision budgets. Runtime limits produce warnings at 70%/90% and errors at 100%. `-mapinspect` also generates navigation and reports node/edge budgets.

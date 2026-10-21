@@ -321,8 +321,9 @@ namespace MphRead.Mods.MapGen
         /// the common online-match path and avoids re-validating every custom
         /// package each time Start Match is pressed.
         /// </summary>
-        public static void GenerateMissing(string roomName)
+        public static void GenerateMissing(string roomName, CancellationToken cancellation = default)
         {
+            cancellation.ThrowIfCancellationRequested();
             if (String.IsNullOrWhiteSpace(roomName)) return;
             MapDefinition? definition;
             try
@@ -334,10 +335,10 @@ namespace MphRead.Mods.MapGen
             {
                 return;
             }
-            if (definition != null) GenerateIfNeeded(definition);
+            if (definition != null) GenerateIfNeeded(definition, cancellation);
         }
 
-        private static void GenerateIfNeeded(MapDefinition def)
+        private static void GenerateIfNeeded(MapDefinition def, CancellationToken cancellation = default)
         {
             // Lobby prewarm, Android preview workers and the real match can ask
             // for the same runtime outputs concurrently. Fence publication across
@@ -345,19 +346,22 @@ namespace MphRead.Mods.MapGen
             // waiter except the first becomes a cache hit.
             try
             {
-                using var lease = AcquireGenerationLease(def);
+                using var lease = AcquireGenerationLease(def, cancellation);
                 if (!NeedsGenerating(def))
                     return;
+                cancellation.ThrowIfCancellationRequested();
                 Console.WriteLine($"[mapgen] building {def.Name}");
-                MapPacker.Generate(def, ArchiveDirectory(def), EntityDirectory(), NodeDirectory(), verbose: false);
+                MapPacker.Generate(def, ArchiveDirectory(def), EntityDirectory(), NodeDirectory(), verbose: false,
+                    cancellation: cancellation);
             }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { throw; }
             catch (Exception ex)
             {
                 Console.WriteLine($"[mapgen] {def.Name} could not be built: {ex.Message}");
             }
         }
 
-        private static FileStream AcquireGenerationLease(MapDefinition def)
+        private static FileStream AcquireGenerationLease(MapDefinition def, CancellationToken cancellation)
         {
             // Serialize runtime generation separately from publication. Generate
             // calls MapBuildScheduler.Install, which acquires the manifest's
@@ -369,6 +373,7 @@ namespace MphRead.Mods.MapGen
             var timeout = Stopwatch.StartNew();
             while (true)
             {
+                cancellation.ThrowIfCancellationRequested();
                 try
                 {
                     return new FileStream(path, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);

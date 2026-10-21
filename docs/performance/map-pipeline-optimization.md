@@ -131,6 +131,30 @@ The benchmark makes private source copies and isolates/disposes its cache. No
 input map or creator content is rewritten. Raw receipts are retained alongside
 the download samples in `map-pipeline-evidence/`.
 
+## Prewarm cancellation and real rendering smoke
+
+`RoomPrewarm` now cancels the retired generation's runtime build wait, including
+the cross-process generation lease. It checks cancellation again before starting
+model decoding after file reads. The worker keeps its configured-files lease
+until it really finishes, and only that worker disposes its cancellation source.
+The existing scheduler preserves builds still needed by other waiters. An active
+model decode or atomic publication is not interrupted unsafely; there are no new
+OpenGL calls or threads. The regression holds a real generation lease, cancels
+the waiting worker, and verifies no runtime manifest was published.
+
+Actual Windows OpenGL 4.6 / NVIDIA 617.42 eight-player `-maptest DUST2` runs against
+the preserved original and optimized assemblies produced identical MAPTEST
+summaries: 1,048 frames, 8/8 spawned, 10 spawns, 30 item spawns and identical
+visibility/remote-node counters and lighting samples. Both returned exit 0.
+Both also report **burn probe FAIL**; this existing diagnostic failure remains
+unresolved and prevents treating these smokes as all-green gameplay acceptance.
+The summaries are retained in `map-pipeline-evidence/`; no proprietary assets
+or captured pixels are included. These runs do not measure load-time percentiles.
+
+The full combined Windows map-editor suite passed 510 checks. Archive-cache
+checks passed 22 checks, transfer checks 61, and multiplayer acceptance completed
+its isolated clients, rotation, restart, rejection and historical-package cases.
+
 ## Acceptance still required
 
 The broad plan's 30% cold-load / 50% warm-load objectives remain unproven until
