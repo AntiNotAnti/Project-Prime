@@ -78,6 +78,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [968](https://github.com/AntiNotAnti/Project-Prime/pull/968) | Source drone unfold/fire/fold driven by native phase and held Ready return; Windows244385 runtime checks, unchanged1418-step gameplay and separate420-step recovery trace, full rig/selected GPU uniforms and inspected/deleted captures | `72ff875c2443d8527f7bafd1a3c8f52ab68512e2` |
 | [969](https://github.com/AntiNotAnti/Project-Prime/pull/969) | Source laser29 driven by native next frame with unchanged native beam/gameplay; Windows364571 checks, exact all-four-pattern3083-step native trace, independent134-phase/held-fade gold and26 inspected/deleted views | `4169e311e9869cc3ff659cf5748b94098a4c418e` |
 | [970](https://github.com/AntiNotAnti/Project-Prime/pull/970) | Six source drone flight loops, completed-native velocity selector/held transitions, and native fallback through40-step camera handoff; Windows640884 checks/four native trace parities and18 inspected/deleted captures with controlled settled-camera pairs | `3d5ee32fe4eb9b63820f78b74bb32a4a359c2619` |
+| [971](https://github.com/AntiNotAnti/Project-Prime/pull/971) | Source post-flash hit18 at native damage ages4–71 with laser priority; Windows795909 checks, exact1666-record ordinary damage trace and four unchanged prior traces, eight inspected/deleted native-camera pictures | `01273614a9dba6c84322a0f22dce25eea9e3c18d` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -85,6 +86,14 @@ records its exact source and test scope. Merges follow local verification;
 this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
+
+The [Scout Drone post-flash hit slice](second-hunt-scout-drone-hit-2026-10-21.md)
+adds the original source hit tail from native damage age after the complete
+native red flash. Windows795909 actual Scene/GPU checks retain all four previous
+gameplay traces and exact Native/Alpha/Gamma damage/invulnerability/opacity parity
+in a new1666-record trace. Eight native-camera views were inspected/deleted;
+HUD overlap limits detailed art judgement. Source weapons, Arsenal presentation,
+combat admission and broader character engineering remain unfinished.
 
 The [Scout Drone directional flight slice](second-hunt-scout-drone-movement-2026-10-21.md)
 adds six full-rig source loops from completed native movement, eight-step choice

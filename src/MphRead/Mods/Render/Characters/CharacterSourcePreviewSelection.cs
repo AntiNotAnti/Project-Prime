@@ -26,19 +26,26 @@ internal sealed class CharacterSourcePreviewSelection
     internal PrivateCharacterAppearance SelectedAppearance { get; }
     internal bool HasCannon { get; }
     internal bool RuntimeCannon { get; }
+    internal bool RuntimeArsenalBody { get; }
     internal bool HasBall { get; }
     internal bool RuntimeBall { get; }
     internal int FixedCannonOrdinal => NativeHunter == Hunter.Weavel ? 1 : 32;
     internal Hunter NativeHunter => SelectedAppearance.CharacterId == "trooper" ? Hunter.Weavel : Hunter.Samus;
     internal static readonly PrivateCharacterAppearance Appearance = new("darksamus", "MP2DarkSamus");
-    private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon, bool runtimeCannon, bool hasBall)
-        => (Pack, Generation, Clips, SelectedAppearance, HasCannon, RuntimeCannon, HasBall, RuntimeBall) = (pack, generation, Array.AsReadOnly(clips), appearance, hasCannon, runtimeCannon, hasBall, hasBall && runtimeCannon);
+    private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon, bool runtimeCannon, bool hasBall, bool arsenalBody)
+        => (Pack, Generation, Clips, SelectedAppearance, HasCannon, RuntimeCannon, HasBall, RuntimeBall, RuntimeArsenalBody) = (pack, generation, Array.AsReadOnly(clips), appearance, hasCannon, runtimeCannon, hasBall, hasBall && runtimeCannon, arsenalBody);
 
     internal static CharacterSourcePreviewSelection Load(string id, CancellationToken cancellation, string? root = null)
         => LoadCore(id, cancellation, root, runtimeCannon: false);
     internal static CharacterSourcePreviewSelection LoadForLocalBody(string id, CancellationToken cancellation, string? root = null)
         => LoadCore(id, cancellation, root, runtimeCannon: true);
-    private static CharacterSourcePreviewSelection LoadCore(string id, CancellationToken cancellation, string? root, bool runtimeCannon)
+    internal static CharacterSourcePreviewSelection LoadForArsenalBody(string id, CancellationToken cancellation, string? root = null)
+    {
+        if (CharacterGeneratedTrooperProfile.Find(id) == null)
+            throw new NotSupportedException("Arsenal body selection requires an exact Trooper profile.");
+        return LoadCore(id, cancellation, root, runtimeCannon: true, arsenalBody: true);
+    }
+    private static CharacterSourcePreviewSelection LoadCore(string id, CancellationToken cancellation, string? root, bool runtimeCannon, bool arsenalBody = false)
     {
         bool final = id == "darksamus-overcharged-echoes";
         var trooper = CharacterGeneratedTrooperProfile.Find(id);
@@ -113,6 +120,6 @@ internal sealed class CharacterSourcePreviewSelection
         }
         if (clips.Count == 0) throw new InvalidDataException("No qualified strict source clips are available.");
         lease.Require(asset); cancellation.ThrowIfCancellationRequested();
-        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, true, runtimeCannon,hasBall);
+        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, true, runtimeCannon,hasBall,arsenalBody);
     }
 }

@@ -213,6 +213,8 @@ namespace MphRead.NetTest
             }
             if (args.Length == 1 && args[0] == "--offline-character-gameplay")
                 return OfflineCharacterGameplayTests.Run();
+            if (args.Length == 1 && args[0] == "--arsenal-body-presentation")
+                return ArsenalBodyPresentationTests.Run();
             if (args.Length == 1 && args[0] == "--scout-drone-laser-geometry") return ScoutDroneLaserGeometryTests.Run();
             if (args.Length > 0 && args[0] == "--scout-drone-gl")
             {
