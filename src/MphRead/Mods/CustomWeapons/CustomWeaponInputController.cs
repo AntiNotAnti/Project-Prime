@@ -26,6 +26,7 @@ internal sealed class CustomWeaponInputController
     private Optic? _optic;
     private bool _canonicalSelected,_available,_uncertain,_holdWasDown,_holdMode,_holdSelected,_holdSampled,_holdReconcile,_ambiguousEquip;
     private byte _canonicalOptic,_preferredOptic=1;
+    private byte _opticCount=2;
     internal bool Selected=>_selection?.Custom??_canonicalSelected;
     internal bool SuppressNative=>_canonicalSelected||_selection.HasValue||_nativeFence!=0||_uncertain;
     internal byte PresentationOptic=>Selected?(_optic?.Value??_canonicalOptic):(byte)0;
@@ -33,9 +34,9 @@ internal sealed class CustomWeaponInputController
     internal void Reset()
     {
         _owner=default;_bootstrap=default;_manifest=default;_selection=null;_optic=null;_nativeFence=0;_canonicalSelected=_available=_uncertain=false;
-        _canonicalOptic=0;_preferredOptic=1;_holdWasDown=_holdMode=_holdSelected=_holdSampled=_holdReconcile=_ambiguousEquip=false;
+        _canonicalOptic=0;_preferredOptic=1;_opticCount=2;_holdWasDown=_holdMode=_holdSelected=_holdSampled=_holdReconcile=_ambiguousEquip=false;
     }
-    internal void Synchronize(CustomInputProjection? projection)
+    internal void Synchronize(CustomInputProjection? projection,int opticCount=2)
     {
         if(projection is not {} state)
         { _uncertain|=SuppressNative;_available=false;return; }
@@ -43,6 +44,8 @@ internal sealed class CustomWeaponInputController
         {Reset();_owner=state.Owner;_bootstrap=state.Bootstrap;_manifest=state.Manifest;}
         if(!state.HasWeapon)
         {Reset();_owner=state.Owner;_bootstrap=state.Bootstrap;_manifest=state.Manifest;return;}
+        _opticCount=(byte)System.Math.Clamp(opticCount,1,4);
+        if(_preferredOptic>_opticCount)_preferredOptic=1;
         _available=true;_uncertain=false;_canonicalSelected=state.Selected;_canonicalOptic=state.Optic;
         if(_nativeFence!=0&&(state.SettledSequence>=_nativeFence
             ||!_ambiguousEquip&&state.SelectionDenied==_nativeFence))
@@ -86,7 +89,7 @@ internal sealed class CustomWeaponInputController
         byte wanted=PresentationOptic;
         if(input.CycleOptic)
         {
-            byte preferred=_preferredOptic==1?(byte)2:(byte)1;
+            byte preferred=(byte)(_preferredOptic%_opticCount+1);
             _preferredOptic=preferred;if(wanted!=0)wanted=preferred;
         }
         if(input.HoldScope)

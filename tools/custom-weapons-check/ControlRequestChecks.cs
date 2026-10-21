@@ -125,7 +125,7 @@ internal static class ControlRequestChecks
         foreach (var kind in Enum.GetValues<CustomWeaponActionKind>())
         for (int optic=0;optic<=255;optic++)
         {
-            bool valid=optic<=2 && (kind is CustomWeaponActionKind.Fire or CustomWeaponActionKind.Optic || optic==0);
+            bool valid=optic<=4 && (kind is CustomWeaponActionKind.Fire or CustomWeaponActionKind.Optic || optic==0);
             var changed=Change(Change(bytes,74,(byte)kind),75,(byte)optic);
             check(CustomControlRequest.TryRead(changed,out var read)==valid && (valid || read==default),
                 "only Fire/Optic may carry declared optic values; other controls require zero");

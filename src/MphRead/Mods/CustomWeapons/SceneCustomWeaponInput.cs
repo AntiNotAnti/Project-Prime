@@ -105,7 +105,8 @@ public partial class Scene
             var life=ShotKey.For(slot,0);
             if(life!=_customInputLife){_customInput!.Reset();_customInputLife=life;}
         }
-        _customInput!.Synchronize(projection);
+        _customInput!.Synchronize(projection,(NetSession.Active?NetSession.CustomWeaponPresentationMechanics:OfflineWeapons?.Mechanics)
+            ?.OpticMagnificationsMilli.Count??2);
         _customFeedback??=new();_customFeedback.Synchronize(projection);
         bool inputAllowed=allowed&&!Mods.SpectatorMode.IsSpectating&&GamepadContexts.Current==GamepadContext.Gameplay
             &&player.Health>0&&!player.IsAltForm&&!player.IsMorphing&&!player.IsUnmorphing

@@ -108,12 +108,29 @@ internal sealed class CustomWeaponPackageManifest
 internal sealed class WeaponMatchPackageBinding : IDisposable
 {
     private WeaponPackageLease[]? _leases;
+    private readonly WeaponPackageResources[]? _resources;
     internal CustomWeaponPackageManifest Manifest { get; }
-    private WeaponMatchPackageBinding(CustomWeaponPackageManifest manifest, WeaponPackageLease[] leases)
-    { Manifest = manifest; _leases = leases; }
+    private WeaponMatchPackageBinding(CustomWeaponPackageManifest manifest, WeaponPackageLease[] leases, WeaponPackageResources[]? resources = null)
+    { Manifest = manifest; _leases = leases; _resources = resources; }
     private WeaponPackageLease[] Active => _leases ?? throw new ObjectDisposedException(nameof(WeaponMatchPackageBinding));
     internal int Count => Active.Length;
     internal WeaponPackage Package(int index) => Active[index].Package;
+    internal WeaponPackageResources Resources(int index)
+    {
+        _ = Active;
+        return _resources?[index] ?? throw new InvalidOperationException("Package presentation resources have not been prepared.");
+    }
+    internal WeaponMatchPackageBinding Retain()
+    {
+        var leases = Active;
+        var retained = new List<WeaponPackageLease>(leases.Length);
+        try
+        {
+            foreach (var lease in leases) retained.Add(lease.Retain());
+            return new(Manifest, retained.ToArray(), _resources);
+        }
+        catch { foreach (var lease in retained) lease.Dispose(); throw; }
+    }
     internal WeaponDefinition Definition(WeaponRuntimeId runtime)
     {
         int index = runtime.Value - 10;
@@ -124,6 +141,16 @@ internal sealed class WeaponMatchPackageBinding : IDisposable
         CancellationToken cancellationToken = default) => Bind(store, manifest, false, cancellationToken);
     internal static WeaponMatchPackageBinding BindHistorical(WeaponPackageStore store, CustomWeaponPackageManifest manifest,
         CancellationToken cancellationToken = default) => Bind(store, manifest, true, cancellationToken);
+    internal static WeaponMatchPackageBinding PrepareInstalled(WeaponPackageStore store, CustomWeaponPackageManifest manifest,
+        CancellationToken cancellationToken = default)
+    {
+        using var verified = BindInstalled(store, manifest, cancellationToken);
+        var resources = new WeaponPackageResources[verified.Count];
+        for (int i = 0; i < resources.Length; i++) resources[i] = WeaponPackageResources.Prepare(verified.Package(i), cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Transfer the verified owner's handles only after all resources succeed.
+        return new(manifest, Interlocked.Exchange(ref verified._leases, null)!, resources);
+    }
     private static WeaponMatchPackageBinding Bind(WeaponPackageStore store, CustomWeaponPackageManifest manifest,
         bool historical, CancellationToken cancellationToken)
     {

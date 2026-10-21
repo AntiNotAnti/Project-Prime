@@ -16,17 +16,24 @@ public partial class Scene
     internal void PrepareCustomRiflePackageResources()
     {
         var package=LocalWeaponPackage??throw new InvalidOperationException("No local weapon package is bound.");
-        var model=Mods.CustomWeapons.CustomRifleModel.Decode(package.CopyResource(package.Project.ModelPath));
-        var waves=new float[4][];
-        for(int cue=0;cue<waves.Length;cue++)
-            waves[cue]=WeaponPackage.DecodeWave(package.CopyResource(package.Project.AudioPaths[cue]));
+        _weaponPackageResources=WeaponPackageResources.Prepare(package);
+        ApplyCustomRiflePackageResources(_weaponPackageResources);
+    }
+    private void ApplyCustomRiflePackageResources(WeaponPackageResources resources)
+    {
         ReleaseCustomRifleAudio(); // Retire any builtin/device voices before rebinding.
-        _customRifleModel=model;_customRifleModelAttempted=true;
-        _customRifleAudioWaves=waves;
+        _customRifleModel=resources.Model;_customRifleModelAttempted=true;
+        _customRifleAudioWaves=resources.AudioSamples;
     }
     private void PrewarmCustomRifleModel()
     {
-        if(LocalWeaponPackage!=null)return; // Package CPU work belongs to explicit activation.
+        if(LocalWeaponPackage!=null)
+        {
+            // Context recreation restores detached prewarmed objects, never bytes.
+            if(_customRifleModel==null&&_weaponPackageResources!=null)
+            {_customRifleModel=_weaponPackageResources.Model;_customRifleModelAttempted=true;}
+            return;
+        }
         if(_customRifleModelAttempted||Headless.Active||Services.IsReplica)return;
         _customRifleModelAttempted=true;
         try{_customRifleModel=Mods.CustomWeapons.CustomRifleModel.LoadBuiltin();}

@@ -17,7 +17,7 @@ public sealed partial class DedicatedServer
     private CustomReplicaAudience? _customAudience;
     private MatchStartIdentity _customAudienceStart;
     private bool CustomNativeRecipientReady(Peer peer)
-        => (uint)peer.SlotIndex < 8 && peer.SceneLoaded && peer.MatchReady && peer.AdmissionReady
+        => (uint)peer.SlotIndex < 8 && PackagePeerReady(peer) && peer.SceneLoaded && peer.MatchReady && peer.AdmissionReady
             && peer.BootstrapLength != 0 && peer.BootstrapIdentity.Start == CurrentStartIdentity
             && peer.BootstrapIdentity.SlotGeneration == _slotGenerations[peer.SlotIndex];
     private bool CustomNativeReady(Peer peer)=>!peer.Spectating&&CustomNativeRecipientReady(peer);
@@ -43,7 +43,8 @@ public sealed partial class DedicatedServer
                 || (entry.Boundary!=null)!=source || (entry.Replica!=null)!=CustomWeaponCombatEnabled)
             {
                 InvalidateCustomEntry(entry);
-                var state = new CustomReadinessPeer(peer.BootstrapIdentity,(byte)slot,connection,now);
+                var state = new CustomReadinessPeer(peer.BootstrapIdentity,(byte)slot,connection,now,
+                    CurrentDefinition.PackagedWeaponAvailable ? _weaponPackages!.Definition(new(10)) : null);
                 entry = new(peer,state,source ? new(state) : null,source ? new(state.Wire) : null,
                     CustomWeaponCombatEnabled ? new(state.Wire,connection,NetSession.Clock) : null);
                 _customReadyEntries[slot] = entry;
@@ -162,7 +163,7 @@ public sealed partial class DedicatedServer
         if (!CustomWeaponReadinessEnabled)
             throw new InvalidOperationException("Developer custom combat requires its separate capability handshake.");
         var root=scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene),
-            pickupOnly:PublicCustomWeaponMatch);
+            pickupOnly:PublicCustomWeaponMatch,definition:CurrentDefinition.PackagedWeaponAvailable ? _weaponPackages!.Definition(new(10)) : null);
         if(PublicCustomWeaponMatch)root.ConfigurePickups(CurrentStartIdentity,CurrentDefinition.MapIdentity.Content(CurrentDefinition.RoomKey));
         _customAudience?.Close();_customAudience=new(root.Definition.Mechanics.LifetimeTicks);_customAudienceStart=CurrentStartIdentity;
     }
@@ -179,7 +180,7 @@ public static partial class NetSession
     private static CustomReadinessClient? _customReadiness;
     private static ulong _customReadinessConnection;
     internal static bool CustomWeaponReadinessConfirmed => CustomWeaponReadinessEnabled
-        && Role == NetRole.Client && !_playback && WorldAdmissionConfirmed
+        && Role == NetRole.Client && !_playback && WorldAdmissionConfirmed && RequiredWeaponPackagesReady && PreparedPackageSceneReady
         && _customReadiness is { Confirmed: true,Invalidated: false } state
         && state.Wire.Slot == LocalSlot
         && ConfirmedWorldBootstrap == state.Wire.Bootstrap
@@ -187,14 +188,15 @@ public static partial class NetSession
     private static CustomReadinessClient? CurrentCustomReadiness(double now)
     {
         if (!CustomWeaponReadinessEnabled || Role != NetRole.Client || _playback || IsAuthority
-            || LocalSlot is < 0 or >= 8 || !WorldAdmissionConfirmed || ConfirmedWorldBootstrap is not { } bootstrap
+            || LocalSlot is < 0 or >= 8 || !WorldAdmissionConfirmed || !RequiredWeaponPackagesReady || !PreparedPackageSceneReady
+            || ConfirmedWorldBootstrap is not { } bootstrap
             || bootstrap.SlotGeneration != NetPlayerLifecycle.Generation(LocalSlot))
         { _customReadiness = null; ResetCustomReplica(); return null; }
         ulong connection = _hostEndPoint == null ? 0 : _transport?.ConnectionStats(_hostEndPoint)?.ConnectionId ?? 0;
         if (connection == 0) { _customReadiness = null; ResetCustomReplica(); return null; }
         if (_customReadiness?.Wire.Bootstrap != bootstrap || _customReadiness.Wire.Slot != LocalSlot
             || _customReadinessConnection != connection)
-        { ResetCustomReplica(); _customReadiness = new(bootstrap,(byte)LocalSlot,now); _customReadinessConnection = connection; }
+        { ResetCustomReplica(); _customReadiness = new(bootstrap,(byte)LocalSlot,now,PreparedWeaponDefinition); _customReadinessConnection = connection; }
         return _customReadiness;
     }
     private static void HandleCustomReadiness(ReceivedPacket packet,double now)

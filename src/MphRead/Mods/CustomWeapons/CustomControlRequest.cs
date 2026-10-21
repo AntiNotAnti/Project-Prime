@@ -13,7 +13,7 @@ internal readonly record struct CustomControlRequest(WorldBootstrapIdentity Boot
     internal WeaponOwnerContext Owner => new(Bootstrap.Start.MatchId,Bootstrap.Start.AuthorityEpoch,Slot,Bootstrap.SlotGeneration,Life);
     internal bool IsValid => CustomWeaponProtocol.ValidBootstrap(Bootstrap) && Manifest.IsValid
         && Slot<8 && Life!=0 && Weapon.Value is >=10 and <=73 && Sequence!=0
-        && Knowledge.IsValid && (byte)Kind is >=1 and <=5 && Optic<=2
+        && Knowledge.IsValid && (byte)Kind is >=1 and <=5 && Optic<=4
         && (Kind is CustomWeaponActionKind.Fire or CustomWeaponActionKind.Optic || Optic==0);
     internal bool Matches(in CustomWeaponAction action) => IsValid && action.IsValid && Bootstrap==action.Bootstrap
         && Manifest==action.Manifest && Slot==action.Slot && Life==action.Life && Weapon==action.Weapon
