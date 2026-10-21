@@ -131,6 +131,11 @@ namespace MphRead.Mods.Network
             try
             {
                 scene.Session.AttachCustomArchive(prepared);
+                // Preserve the producer's saved firing contract. Merely
+                // opening a file must not relabel an unindexed world.
+                scene.Scene.ReplayPoses = new(scene, prepared, world.IndexedFirePresentation);
+                scene.Scene.BeginOwnerPresentation(prepared.Path);
+                scene.PrepareCustomPresentation();
                 while (scene.Session.RecordingFrame < prepared.TargetFrame)
                     if (!scene.StepCustomArchiveInspection()) throw new InvalidDataException("Custom archive ended before its requested seek frame.");
                 return scene;
@@ -196,13 +201,23 @@ namespace MphRead.Mods.Network
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             Session.AdvanceCustomInspection(frame, records);
+            PrepareCustomPresentation();
             Scene.StepReplica(); HasStepped = true;
         }
         internal bool StepCustomArchiveInspection()
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             if (!Session.AdvanceCustomArchiveInspection()) return false;
+            PrepareCustomPresentation();
             Scene.StepReplica(); HasStepped = true; return true;
+        }
+        private void PrepareCustomPresentation()
+        {
+            if (Scene.ReplayPoses is { } poses && !poses.Prepare())
+            {
+                Session.FailCustomPresentation(poses.LastError);
+                throw new InvalidDataException(Session.LastError);
+            }
         }
         public void Dispose()
         {

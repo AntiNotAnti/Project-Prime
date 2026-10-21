@@ -86,6 +86,12 @@ namespace MphRead.Mods.Network
 
         /// <summary>True once the file has no more records -- the scene holds on the last state rather than closing itself.</summary>
         internal bool IsCustomArchiveInspection => _customInspection && !_live && _reader != null;
+        internal void FailCustomPresentation(string? error)
+        {
+            if (!_customInspection) throw new InvalidOperationException("Custom inspection required.");
+            Stop(); LastResult = ReplayOpenResult.Corrupt;
+            LastError = "Custom presentation stopped: " + error;
+        }
         public bool AtEnd => IsActive && !_live && (IsCustomArchiveInspection ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LastFrame
             : _clip != null ? _started && _frame >= LastFrame : _pending == null);
 

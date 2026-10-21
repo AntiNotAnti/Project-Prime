@@ -55,7 +55,8 @@ internal sealed partial class ReplayWorldCheckpoint
         if (!HasCustomWeaponContract || metadata.FormatVersion != 7 || CustomWeaponDescriptor == null || metadata.CustomWeapons == null
             || metadata.Bootstrap.Packets.Count != 1
             || !CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(metadata.CustomWeapons.CopyBytes())
-            || HasTimedShotContract != metadata.TimedShotCertificates)
+            || HasTimedShotContract != metadata.TimedShotCertificates
+            || metadata.IndexedFireContinuation is { } indexed && indexed != IndexedFirePresentation)
             throw new InvalidDataException("World12 differs from its custom archive capability.");
         if (ReplayReplicaState.InspectCustomCheckpointLayout(ConstructionState()).Protocol != metadata.ProtocolVersion
             || ReplayReplicaState.InspectCustomCheckpointLayout(DecoderState()).Protocol != metadata.ProtocolVersion)

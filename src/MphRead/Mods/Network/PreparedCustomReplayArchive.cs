@@ -62,6 +62,8 @@ internal sealed class PreparedCustomReplayArchive : IDisposable
                 uint absolute = checked(metadata.OriginRecordingFrame + selectedCheckpoint.Frame);
                 using var candidate = ReplayWorldCheckpoint.FromCustomBytes(reader.ReadCheckpoint(selectedCheckpoint), metadata.BuildId);
                 candidate.ValidateCustomArchive(metadata);
+                if (candidate.IndexedFirePresentation != world.IndexedFirePresentation)
+                    throw new InvalidDataException("Custom checkpoint firing contract differs from its archive baseline.");
                 if (candidate.Frame != absolute) throw new InvalidDataException("Custom checkpoint index differs from its recorded frame.");
                 if (candidate.Frame >= world.Frame)
                 { var replacement = ReplayWorldCheckpoint.FromCustomBytes(candidate.Bytes, metadata.BuildId); world.Dispose(); world = replacement; }
