@@ -24,7 +24,6 @@ internal static partial class RmlUiOpenGlSmoke
         }
         public TheatreExportContext Capture()
         {
-            if (DemoPlayback.IsCustomPlayback) throw new InvalidOperationException("Custom replay export is not qualified.");
             lock (ReplayAnnotationWitness.Gate)
             {
                 var replay = ReplayAnnotationWitness.Capture();
@@ -63,7 +62,6 @@ internal static partial class RmlUiOpenGlSmoke
             =>ReplayDetachedExportQueue.Snapshot();
         public void Enqueue(TheatreExportContext context, TheatreExportOptions options)
         {
-            if (DemoPlayback.IsCustomPlayback) throw new InvalidOperationException("Custom replay export is not qualified.");
             lock (ReplayAnnotationWitness.Gate)
             {
                 if (!IsCurrent(context)) throw new TheatreExportStaleException("The reviewed replay, marks or camera changed. Refresh export inputs.");

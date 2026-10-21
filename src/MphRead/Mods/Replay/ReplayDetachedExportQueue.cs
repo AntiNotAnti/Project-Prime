@@ -12,6 +12,7 @@ using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
+using MphRead.Mods.CustomWeapons.Packages;
 
 namespace MphRead.Mods.Replay;
 
@@ -22,6 +23,8 @@ internal static class ReplayDetachedExportQueue
     private sealed class Admission:IDisposable
     {
         internal readonly FileStream Replay;
+        internal readonly WeaponPackage? Weapon;
+        private readonly WeaponPackageLease? _weaponLease;
         internal readonly FileStream? OwnerPresentation;
         internal readonly string? OwnerPresentationHash;
         internal readonly Dictionary<string,FileStream> Waves=new(StringComparer.Ordinal);
@@ -41,8 +44,30 @@ internal static class ReplayDetachedExportQueue
                 if(new FileInfo(source).LinkTarget!=null)throw new IOException("Choose an ordinary replay file.");
                 replay=new(source,FileMode.Open,FileAccess.Read,FileShare.Read);
                 using (var reader=DemoReader.Open(source,out _))
-                    if(reader?.Metadata?.CustomWeapons!=null)
-                        throw new InvalidOperationException("Custom replay export is not supported.");
+                    if(reader?.Metadata?.CustomWeapons is { } custom)
+                    {
+                        var row=custom.Bootstrap.Packages.Rows[0];
+                        if(frozen==null)
+                        {
+                            string store=Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE")
+                                is {Length:>0} configured?configured:Path.Combine(Platform.AppPaths.UserDataDirectory,"weapons");
+                            _weaponLease=new WeaponPackageStore(store).Acquire(row.Archive.ToString());
+                            Weapon=_weaponLease.Package;
+                        }
+                        else
+                        {
+                            string archive=Path.Combine(frozen.WorkDirectory,"weapon.ppweapon");
+                            var info=new FileInfo(archive);
+                            if(!info.Exists||info.LinkTarget!=null||info.Length is <1 or >WeaponPackageLimits.MaximumArchiveBytes
+                                ||!frozen.InputHashes.TryGetValue(archive,out var expected)
+                                ||ReplayDetachedExportFiles.Hash(archive)!=expected)
+                                throw new IOException("The retained exact weapon package is unavailable.");
+                            Weapon=WeaponPackage.Parse(File.ReadAllBytes(archive));
+                            if(ReplayDetachedExportFiles.Hash(archive)!=expected)throw new IOException("The retained weapon changed during retry.");
+                        }
+                        if(CustomPackageManifestRow.For(row.Weapon.RuntimeId,Weapon)!=row)
+                            throw new InvalidDataException("Export weapon bytes differ from the recorded package identities.");
+                    }
                 string ownerPath = source + ReplayOwnerTrack.Extension;
                 bool expectedOwner = frozen?.InputHashes.ContainsKey(ownerPath) ?? File.Exists(ownerPath);
                 if (expectedOwner)
@@ -84,12 +109,12 @@ internal static class ReplayDetachedExportQueue
                 UserMapDirectory=frozen?.UserMapDirectory??Path.GetFullPath(CustomRooms.UserMapDirectory);
                 Replay=replay;replay=null;
             }
-            catch{replay?.Dispose();OwnerPresentation?.Dispose();foreach(var wave in Waves.Values)wave.Dispose();Files.Dispose();throw;}
+            catch{replay?.Dispose();_weaponLease?.Dispose();OwnerPresentation?.Dispose();foreach(var wave in Waves.Values)wave.Dispose();Files.Dispose();throw;}
         }
         internal void ReleaseStreams()
         {
             if(Interlocked.Exchange(ref _streamsReleased,1)!=0)return;
-            Replay.Dispose();OwnerPresentation?.Dispose();foreach(var wave in Waves.Values)wave.Dispose();
+            Replay.Dispose();_weaponLease?.Dispose();OwnerPresentation?.Dispose();foreach(var wave in Waves.Values)wave.Dispose();
         }
         public void Dispose(){ReleaseStreams();Files.Dispose();}
     }
@@ -198,6 +223,14 @@ internal static class ReplayDetachedExportQueue
     {
         var token=job.Cancellation.Token;var inputs=job.Inputs;var hashes=new Dictionary<string,string>(StringComparer.Ordinal);
         string replay=Path.Combine(job.WorkDirectory,"replay.ppdemo");hashes.Add(replay,CopyInput(inputs.Replay,replay,token,job.ExpectedHash));
+        if(inputs.Weapon is { } weapon)
+        {
+            token.ThrowIfCancellationRequested();
+            string archive=Path.Combine(job.WorkDirectory,"weapon.ppweapon");
+            using(var output=new FileStream(archive,FileMode.CreateNew,FileAccess.Write,FileShare.None))
+            {output.Write(weapon.CopyArchive());output.Flush(true);}
+            hashes.Add(archive,ReplayDetachedExportFiles.Hash(archive));
+        }
         if (inputs.OwnerPresentation != null)
         {
             string owner = replay + ReplayOwnerTrack.Extension;

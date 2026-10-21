@@ -146,8 +146,8 @@ namespace MphRead.Mods.Network
         }
         internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
         {
-            if (prepared.FormatVersion != 7)
-                throw new InvalidDataException("Ordinary custom archive Scene admission requires format7.");
+            if (prepared.FormatVersion is not (7 or 8))
+                throw new InvalidDataException("Ordinary custom archive Scene admission requires format7 or format8.");
             return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
         }
         internal static PassiveReplayScene OpenPostWorldArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)

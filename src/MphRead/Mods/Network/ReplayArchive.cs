@@ -87,10 +87,6 @@ namespace MphRead.Mods.Network
             using DemoReader? reader = DemoReader.Open(source, out var result);
             if (reader == null) return result;
             if (!ReplayIdentityCompatibility.Supports(reader.ProtocolVersion)) return ReplayOpenResult.ProtocolMismatch;
-            // Range extraction needs to preserve post-world facts at its chosen
-            // origin and end. Keep format7 extraction until that phase-aware
-            // consumer is implemented; never silently downgrade format8 to7.
-            if (reader.FormatVersion == 8) return ReplayOpenResult.UnsupportedFormat;
             ReplayMetadata metadata = reader.Metadata ?? new ReplayMetadata();
             if (reader.FormatVersion <= 2)
             {
@@ -221,10 +217,11 @@ namespace MphRead.Mods.Network
                 if (start > duration || start > end) return ReplayOpenResult.Empty;
                 end = Math.Min(end, duration);
                 uint lead = checked(source.LeadInFrames + start), last = checked(source.LeadInFrames + end);
-                bool? continuation = source.Type == ReplayType.FullMatch ? true : source.IndexedFireContinuation;
+                bool? continuation = source.CustomWeapons != null ? source.IndexedFireContinuation
+                    : source.Type == ReplayType.FullMatch ? true : source.IndexedFireContinuation;
                 var metadata = new ReplayMetadata
                 {
-                    FormatVersion = source.CustomWeapons != null ? (byte)7 : source.TimedShotCertificates ? (byte)6 : continuation.HasValue ? (byte)5 : (byte)4,
+                    FormatVersion = source.CustomWeapons != null ? source.FormatVersion : source.TimedShotCertificates ? (byte)6 : continuation.HasValue ? (byte)5 : (byte)4,
                     TimedShotCertificates = source.TimedShotCertificates, ProtocolVersion = source.ProtocolVersion,
                     CustomWeapons = source.CustomWeapons,
                     BuildVersion = source.BuildVersion, BuildId = source.BuildId, RecordedAtUtc = source.RecordedAtUtc,
@@ -241,6 +238,7 @@ namespace MphRead.Mods.Network
                 {
                     cancellation.ThrowIfCancellationRequested();
                     if (record.Frame > last) break;
+                    if (source.CustomWeapons != null && record.Data.Length == 1 && record.Data[0] == 255) continue;
                     writer.WriteRecord(record.Frame, record.Data);
                 }
                 if (reader.LastResult != ReplayOpenResult.Success) { writer.Abort(); return reader.LastResult; }
