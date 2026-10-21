@@ -60,11 +60,11 @@ internal static class ParkourWallstrafeSceneTests
             Case("real-wall-gain-and-mirror", () =>
             {
                 Capture east = CaptureScene("east-W-D", MovementModel.Parkour, new(42, .5f, 10),
-                    new(3, 0, 1), 1, 150, _ => new());
+                    new(3, 0, 1), 1, 180, _ => new());
                 Capture west = CaptureScene("west-W-A", MovementModel.Parkour, new(-42, .5f, 10),
-                    new(-3, 0, 1), -1, 150, _ => new());
+                    new(-3, 0, 1), -1, 180, _ => new());
                 Capture legacy = CaptureScene("Traversal-east-control", MovementModel.Traversal, new(42, .5f, 10),
-                    new(3, 0, 1), 1, 150, _ => new());
+                    new(3, 0, 1), 1, 180, _ => new());
                 rows.Add(new { east, west, legacy });
                 Tick[] earned = east.Ticks.Where(t => t.Applied).ToArray();
                 Check(earned.Length >= 5, "normal keyboard motion earns repeated actual static wall impulses");
