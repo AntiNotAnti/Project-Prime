@@ -111,7 +111,7 @@ internal static class ParkourGrappleWireTests
     private static void IntentBytes()
     {
         Check(IntentPacket.FullSize == 1287 && IntentPacket.Protocol80TouchSize == 1296
-            && IntentPacket.TouchCanonicalSize == 1298 && CompactIntentCodec.HeaderSize == 136,
+            && IntentPacket.Protocol82TouchSize == 1298 && IntentPacket.TouchCanonicalSize == 1299 && CompactIntentCodec.HeaderSize == 136,
             "old canonical/touch prefixes and compact header retain literal widths");
         var intent = Intent(0x1234);
         intent.NativeTouch = new(true, true, true, 100, -25, 7, false);
@@ -135,10 +135,10 @@ internal static class ParkourGrappleWireTests
             byte[] compact = Enumerable.Repeat((byte)0xCC, 1200).ToArray();
             int size = CompactIntentCodec.Write(intent, compact);
             int eventStart = 136 + (native && count < 14 ? 9 : 0);
-            Check(size == 138 + (native && count < 14 ? 9 : 0) + count * 74
-                && compact[size] == 0xCC && BinaryPrimitives.ReadUInt16LittleEndian(compact.AsSpan(size - 2)) == nonce,
+            Check(size == 139 + (native && count < 14 ? 9 : 0) + count * 74
+                && compact[size] == 0xCC && BinaryPrimitives.ReadUInt16LittleEndian(compact.AsSpan(size - 3)) == nonce,
                 $"literal compact length/trailer/guard {nonce}/{native}/{count}");
-            Check(size + 24 + 1 <= 1200 && (count != 14 || size + 24 + 1 == 1199), "actual SlotIntent MTU including slot/header");
+            Check(size + 24 + 1 <= 1200 && (count != 14 || size + 24 + 1 == 1200), "actual SlotIntent MTU including slot/header");
             Check(CompactIntentCodec.TryRead(compact.AsSpan(0, size), out var read)
                 && read.GrappleRequestNonce == nonce && read.Buttons == intent.Buttons && read.FireEventCount == count
                 && (count == 0 || read.FireEvents[count - 1] == intent.FireEvents[count - 1]), "compact actual nonce/control/combat roundtrip");
@@ -205,7 +205,7 @@ internal static class ParkourGrappleWireTests
             oldIntent.Write(packet.AsSpan(2));
             var intentBytes = ReplayIdentityCompatibility.Convert(packet, protocol);
             var read = IntentPacket.Read(intentBytes[2..]);
-            Check(intentBytes.Length == 2 + 1298 && intentBytes[1] == 3 && read.GrappleRequestNonce == 0
+            Check(intentBytes.Length == 2 + 1299 && intentBytes[1] == 3 && read.GrappleRequestNonce == 0
                 && read.Buttons == (oldIntent.Buttons & ~IntentButtons.Grapple) && read.NativeTouch == oldIntent.NativeTouch
                 && intentBytes.Slice(2 + 8, 1296 - 8).SequenceEqual(packet.AsSpan(2 + 8)),
                 "historical reserved grapple bit cleared, touch/pivot prefix retained, nonce synthesized zero " + protocol);

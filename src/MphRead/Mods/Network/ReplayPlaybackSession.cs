@@ -112,7 +112,7 @@ namespace MphRead.Mods.Network
             var match = validated.Match ?? throw new InvalidDataException("Custom inspection has no recorded match.");
             Stop(); _host.Start(); passive.State.RestoreCustomCheckpoint(construction);
             _frame = validated.RecordingFrame; LastFrame = _frame; _live = _customInspection = true; _started = false; IsActive = true;
-            _liveMetadata = new ReplayMetadata { FormatVersion = 7, ProtocolVersion = 83, MapHash = mapHash, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+            _liveMetadata = new ReplayMetadata { FormatVersion = 7, ProtocolVersion = NetConfig.ProtocolVersion, MapHash = mapHash, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
                 OriginRecordingFrame = _frame, CustomWeapons = prepared.Descriptor, TimedShotCertificates = validated.TimedShots.Enabled,
                 Bootstrap = new() { Packets = new[] { ReplayTimelineArchive.Construction(construction) } } };
             LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;

@@ -21,7 +21,39 @@ internal static class ReplayIdentityCompatibility
         => protocol >= OldestReplayProtocol && protocol < NetConfig.ProtocolVersion;
 
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
-        => NormalizeLegacyTuck(NormalizeLegacyStance(UpgradeGrapple(ConvertCore(packet, protocol), protocol), protocol), protocol);
+        => NormalizeLegacyParkourPose(NormalizeLegacyTuck(NormalizeLegacyStance(UpgradeGrapple(ConvertCore(packet, protocol), protocol), protocol), protocol), protocol);
+
+    private static ReadOnlySpan<byte> NormalizeLegacyParkourPose(ReadOnlySpan<byte> packet, int protocol)
+    {
+        if (protocol >= 84 || packet.IsEmpty) return packet;
+        PacketType type = (PacketType)packet[0];
+        if (type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int prefix = type == PacketType.Intent ? 1 : 2;
+            Require(packet.Length >= prefix + IntentPacket.Size && packet.Length <= prefix + IntentPacket.TouchCanonicalSize);
+            byte[] result = new byte[prefix + IntentPacket.TouchCanonicalSize];
+            packet.CopyTo(result); result[^1] = 0;
+            return result;
+        }
+        if (type is PacketType.Snapshot or PacketType.SnapshotFast)
+        {
+            Require(packet.Length >= 1 + SnapshotHeader.Size);
+            var header = SnapshotHeader.Read(packet[1..]);
+            Require(header.PlayerCount <= 8);
+            int stride = type == PacketType.SnapshotFast ? SnapshotFast.PlayerSize : PlayerState.Size;
+            int auxiliary = 54 + DamageEvent.Size * PlayerState.DamageHistory - (type == PacketType.SnapshotFast ? 7 : 0);
+            Require(packet.Length >= 1 + SnapshotHeader.Size + header.PlayerCount * stride);
+            bool reserved = false;
+            for (int slot = 0; slot < header.PlayerCount; slot++)
+                reserved |= (packet[1 + SnapshotHeader.Size + slot * stride + auxiliary] & 0xf0) != 0;
+            if (!reserved) return packet;
+            byte[] result = packet.ToArray();
+            for (int slot = 0; slot < header.PlayerCount; slot++)
+                result[1 + SnapshotHeader.Size + slot * stride + auxiliary] &= 15;
+            return result;
+        }
+        return packet;
+    }
 
     private static ReadOnlySpan<byte> UpgradeGrapple(ReadOnlySpan<byte> packet, int protocol)
     {

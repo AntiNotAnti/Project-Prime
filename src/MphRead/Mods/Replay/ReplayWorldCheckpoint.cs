@@ -587,6 +587,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
                 PlayerGrappleState.TryRead(row[4..], out state);
             }
             replay.Scene.Players.Items[slot].ModRestoreGrapplePresentation(state, generation, life);
+            replay.Scene.Players.Items[slot].ModRestoreMantleVisual(
+                replay.State.TryGetPlayer(slot, out var recorded) ? recorded.MantleVisualPhase : (byte)0);
         }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
     }

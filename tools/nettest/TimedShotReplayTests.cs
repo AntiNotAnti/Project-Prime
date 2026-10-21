@@ -193,17 +193,17 @@ internal static class TimedShotReplayTests
     {
         var ordinary = new ReplayReplicaState();
         var baseline = ordinary.CaptureCheckpoint().Bytes.ToArray();
-        Check(BinaryPrimitives.ReadUInt16LittleEndian(baseline.AsSpan(4)) == 14
-            && baseline[6] == 83 && baseline[7] == 23,
-            "current normal checkpoint declares v14/protocol83 with exact untimed features23");
+        Check(BinaryPrimitives.ReadUInt16LittleEndian(baseline.AsSpan(4)) == 16
+            && baseline[6] == 84 && baseline[7] == 87,
+            "current normal checkpoint declares v16/protocol84 with exact untimed features87");
         var producer = new ReplayReplicaState(); Match(producer);
         Check(producer.TimedShots.Begin(23, 7, 41, TimedGrantProofMode.Enforce), "checkpoint producer enables timed capture");
         var fact = Fact(granted: true);
         Check(producer.TimedShots.Remember(fact, 100) == TimedShotRetention.Stored, "checkpoint owns full fact");
         var timed = producer.CaptureCheckpoint().Bytes.ToArray();
-        Check(BinaryPrimitives.ReadUInt16LittleEndian(timed.AsSpan(4)) == 14
-            && timed[6] == 83 && timed[7] == 31,
-            "current timed checkpoint declares v14/protocol83 with exact timed features31");
+        Check(BinaryPrimitives.ReadUInt16LittleEndian(timed.AsSpan(4)) == 16
+            && timed[6] == 84 && timed[7] == 95,
+            "current timed checkpoint declares v16/protocol84 with exact timed features95");
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(new(timed));
         Check(restored.CaptureCheckpoint().Bytes.SequenceEqual(timed)
             && restored.TimedShots.TryGet(fact.Key, fact.Fire.SourceFrame, 41, 100, out var found) && found == fact,
@@ -219,24 +219,24 @@ internal static class TimedShotReplayTests
         var baselineLayout = ReplayReplicaState.InspectCheckpointLayout(new(oldBaseline));
         Check(timedLayout.Version == 13 && timedLayout.Protocol == 80 && oldTimed[7] == 15
             && timedLayout.HeaderBytes == 8 && timedLayout.PlayerBytes == 173 && timedLayout.IntentBytes == 1296
-            && timed.Length - oldTimed.Length == 8 * (19 + 2),
+            && timed.Length - oldTimed.Length == 8 * (19 + 2 + 1),
             "published v13 fixture retains exact timed features15 and historical173/1296 actor widths");
         Check(baselineLayout.Version == 12 && baselineLayout.Protocol == 80 && oldBaseline[7] == 7
             && baselineLayout.HeaderBytes == 8 && baselineLayout.PlayerBytes == 173 && baselineLayout.IntentBytes == 1296
-            && baseline.Length - oldBaseline.Length == 8 * (19 + 2),
+            && baseline.Length - oldBaseline.Length == 8 * (19 + 2 + 1),
             "published v12 fixture retains exact ordinary features7 and historical173/1296 actor widths");
         restored.RestoreCheckpoint(new(oldTimed));
         var recapturedTimed = restored.CaptureCheckpoint().Bytes.ToArray();
-        Check(BinaryPrimitives.ReadUInt16LittleEndian(recapturedTimed.AsSpan(4)) == 14
-            && recapturedTimed[6] == 83 && recapturedTimed[7] == 31
+        Check(BinaryPrimitives.ReadUInt16LittleEndian(recapturedTimed.AsSpan(4)) == 16
+            && recapturedTimed[6] == 84 && recapturedTimed[7] == 95
             && restored.TimedShots.Enabled && restored.TimedShots.Count == 1
             && restored.TimedShots.TryGet(fact.Key, fact.Fire.SourceFrame, 41, 100, out found) && found == fact,
-            "published v13 restores its timed fact and recaptures current v14 semantics");
+            "published v13 restores its timed fact and recaptures current v16 semantics");
         restored.RestoreCheckpoint(new(oldBaseline));
         var recapturedBaseline = restored.CaptureCheckpoint().Bytes.ToArray();
         Check(!restored.TimedShots.Enabled && restored.TimedShots.Count == 0
-            && BinaryPrimitives.ReadUInt16LittleEndian(recapturedBaseline.AsSpan(4)) == 14
-            && recapturedBaseline[6] == 83 && recapturedBaseline[7] == 23,
+            && BinaryPrimitives.ReadUInt16LittleEndian(recapturedBaseline.AsSpan(4)) == 16
+            && recapturedBaseline[6] == 84 && recapturedBaseline[7] == 87,
             "published v12 restore clears timed capability and recaptures current ordinary semantics");
     }
     private static ReplayMetadata Metadata(byte version, bool? indexed = null, bool timed = false)

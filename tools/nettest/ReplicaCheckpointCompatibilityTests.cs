@@ -14,8 +14,8 @@ internal static class ReplicaCheckpointCompatibilityTests
     // Literal frozen widths keep this oracle independent of future writers.
     internal static byte[] Protocol80Rows(byte[] current)
     {
-        if (current[4] != 14 || current[6] != 83 || PlayerState.Size != 192
-            || IntentPacket.TouchCanonicalSize != 1298)
+        if (current[4] != 16 || current[6] != 84 || PlayerState.Size != 192
+            || IntentPacket.TouchCanonicalSize != 1299)
             throw new InvalidOperationException("Unexpected current checkpoint fixture contract.");
         using var input = new MemoryStream(current, writable: false);
         using var reader = new BinaryReader(input);
@@ -30,22 +30,23 @@ internal static class ReplicaCheckpointCompatibilityTests
         output.Write(current.AsSpan(0, at));
         for (int slot = 0; slot < 8; slot++)
         {
+            if ((current[at + 7 + 114] & 0xf0) != 0) throw new InvalidOperationException("Historical fixture cannot discard mantle presentation.");
             output.Write(current.AsSpan(at, 7 + 173)); at += 7 + 173;
             if (current.AsSpan(at, 19).IndexOfAnyExcept((byte)0) >= 0)
                 throw new InvalidOperationException("Historical fixture cannot discard grapple state.");
             at += 19;
             output.WriteByte(current[at++]); // hasIntent
             if ((BinaryPrimitives.ReadUInt32LittleEndian(current.AsSpan(at + 4)) & (1u << 29)) != 0
-                || BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(at + 1296)) != 0)
+                || BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(at + 1296)) != 0 || current[at + 1298] != 0)
                 throw new InvalidOperationException("Historical fixture cannot discard grapple request.");
-            output.Write(current.AsSpan(at, 1296)); at += 1298;
+            output.Write(current.AsSpan(at, 1296)); at += 1299;
             output.Write(current.AsSpan(at, 4)); at += 4;
         }
         output.Write(current.AsSpan(at));
         byte[] result = output.ToArray();
         bool timed = (result[7] & (byte)ReplayReplicaCheckpointFeatures.TimedShots) != 0;
         BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(4), timed ? (ushort)13 : (ushort)12);
-        result[6] = 80; result[7] &= unchecked((byte)~(byte)ReplayReplicaCheckpointFeatures.Grapple);
+        result[6] = 80; result[7] &= unchecked((byte)~(byte)(ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose));
         return result;
     }
 

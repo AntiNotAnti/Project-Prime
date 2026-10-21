@@ -90,7 +90,7 @@ internal static class CompactIntentCodecTests
                 "full combat history preserves native mode but defers touch sample");
             packet.NativeTouch = default;
             size = CompactIntentCodec.Write(packet, bytes);
-            Check(size == 1174 && size + 24 + 1 == 1199
+            Check(size == 1175 && size + 24 + 1 == 1200
                 && CompactIntentCodec.TryRead(bytes[..size], out decoded) && decoded.FireEventCount == NetFireEvents.LiveCapacity,
                 "maximum SlotIntent fits 1200-byte datagram");
             packet.Write(canonical);

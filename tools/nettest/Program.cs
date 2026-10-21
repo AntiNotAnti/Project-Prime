@@ -580,6 +580,7 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
             }
+            if (args.Length > 0 && args[0] == "--parkour-animation-wire") return ParkourAnimationWireTests.Run();
             if (args.Length > 0 && args[0] == "--movement-telemetry-hud") return MovementTelemetryHudTests.Run();
             if (args.Length > 1 && args[0] == "--traversal-self-splash")
             {
@@ -615,6 +616,17 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
                 return ParkourGrappleAuthoritySceneTests.Run(output);
+            }
+            if (args.Length > 1 && args[0] == "--parkour-animation-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-animation";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourAnimationSceneTests.Run(output);
             }
             if (args.Length > 1 && args[0] == "--parkour-grapple-scene")
             {

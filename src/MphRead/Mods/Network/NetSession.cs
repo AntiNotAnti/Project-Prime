@@ -2157,6 +2157,7 @@ namespace MphRead.Mods.Network
                     Enhanced = new Mods.EnhancedHunters.EnhancedHunterNetState { TargetSlot = byte.MaxValue },
                     Form = player.ModCaptureForm(),
                     Grapple = player.ModGrappleState,
+                    MantleVisualPhase = player.ModPublishedMantleVisualPhase,
                     SlotIndex = (byte)i,
                     SlotGeneration = NetPlayerLifecycle.Generation(i),
                     LifeId = NetPlayerLifecycle.Get(i),

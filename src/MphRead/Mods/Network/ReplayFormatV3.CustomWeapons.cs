@@ -20,12 +20,14 @@ internal static partial class ReplayFormatV3
             if (metadata.CustomWeapons != null) throw new InvalidDataException("Custom metadata requires archive format7.");
             return null;
         }
-        if (metadata.ProtocolVersion != 83 || metadata.CustomWeapons is not { MetadataDefinition: not null } descriptor
+        if (metadata.ProtocolVersion is not (83 or 84) || metadata.CustomWeapons is not { MetadataDefinition: not null } descriptor
             || metadata.WorldCheckpoint.Length > Replay.ReplayWorldCheckpoint.MaximumBytes || metadata.Bootstrap.Packets.Count != 1
             || metadata.Bootstrap.Packets[0] is not { Length: > 1 } packet || packet.Length > MaxCustomConstruction || packet[0] != 253
             || (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames > uint.MaxValue)
             throw new InvalidDataException("Format7 requires an exact custom descriptor and one replica15 construction; an optional world must be explicit version12.");
         var checkpoint = ReplayTimelineArchive.ReadConstruction(packet, custom: true);
+        if (ReplayReplicaState.InspectCustomCheckpointLayout(checkpoint).Protocol != metadata.ProtocolVersion)
+            throw new InvalidDataException("Custom construction protocol differs from its archive.");
         var state = new ReplayReplicaState(); state.RestoreCustomCheckpoint(checkpoint);
         if (state.CustomWeaponDescriptor == null || !state.CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes())
             || state.CustomWeapons is not { CompleteForRestore: true }
@@ -52,7 +54,7 @@ internal static partial class ReplayFormatV3
     private static (ReplayCustomWeaponDescriptor Descriptor, bool Timed, bool? Continuation)
         ReadCustomArchiveCapability(BinaryReader reader, byte protocol)
     {
-        if (protocol != 83 || reader.ReadUInt32() != CustomWeaponCapabilityMagic || reader.ReadByte() != 1)
+        if (protocol is not (83 or 84) || reader.ReadUInt32() != CustomWeaponCapabilityMagic || reader.ReadByte() != 1)
             throw new InvalidDataException("Unsupported custom archive capability.");
         byte flags = reader.ReadByte(), continuation = reader.ReadByte(), reserved = reader.ReadByte();
         int length = reader.ReadInt32();

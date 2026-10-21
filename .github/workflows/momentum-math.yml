@@ -187,6 +187,8 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-rules
       - name: Crouch wire and historical checkpoint compatibility
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-network
+      - name: Parkour animation wire, presentation lease and historical contracts
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-animation-wire
       - name: Crouch keyboard and saved gamepad binding contract
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --crouch-input-check
       - name: Historical replay widths and Quake III identity

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text.Json;
 using MphRead;
 using MphRead.Entities;
@@ -24,7 +25,7 @@ internal static class ParkourGrappleAuthoritySceneTests
 
     internal static int Run(string? output = null)
     {
-        _checks = 0; var rows = new List<object>(); string? failure = null; int result = 0;
+        _checks = 0; var rows = new List<object>(); string? failure = null; int result = 0, grappleChecks = 0;
         var sim = new ServerSim();
         try
         {
@@ -79,6 +80,8 @@ internal static class ParkourGrappleAuthoritySceneTests
                 var state = player.ModGrappleState;
                 rows.Add(new { label, packet.Frame, packet.MatchId, packet.AuthorityEpoch, packet.SlotGeneration,
                     packet.LifeId, packet.GrappleRequestNonce, admitted, fresh, state.Active,
+                    packet.MantleVisualPhase, publishedMantlePhase = published.MantleVisualPhase,
+                    nativeMantle = player.ModParkourMantleActive,
                     acceptedNonce = state.RequestNonce, anchorX = state.Anchor.X, anchorY = state.Anchor.Y,
                     anchorZ = state.Anchor.Z, state.RopeLength, selections = player.ModGrappleSelectionCount,
                     forces = player.ModGrappleForceCount });
@@ -137,6 +140,95 @@ internal static class ParkourGrappleAuthoritySceneTests
             State(8, true, baseline + 6,
                 "only a subsequent jointly accepted pose and new request can grant the next capability");
             Check(snapshots > 0 && player.ModGrappleForceCount == 0, "authority emits accepted states while owner-only forces remain absent");
+            grappleChecks = _checks;
+
+            // This extra sequence uses the same serialized normal intake and
+            // jointly accepted pose/control seam. A cosmetic hint is not a
+            // mantle capability: the authority puppet has no W/Jump/contact
+            // route, and its body remains on the reported native flat floor.
+            int visualSelections = player.ModGrappleSelectionCount;
+            IntentPacket VisualPacket(byte phase)
+            {
+                var packet = Packet(9, false); packet.MantleVisualPhase = phase; return packet;
+            }
+            var receivedField = typeof(PlayerEntity).GetField("_modMantleVisualReceived", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            var sourceField = typeof(PlayerEntity).GetField("_modMantleVisualSource", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            (ulong Received, uint Source) VisualStamp() => ((ulong)receivedField.GetValue(player)!, (uint)sourceField.GetValue(player)!);
+            void Phase(byte expected, string label)
+            {
+                Check(published.MantleVisualPhase == expected && player.ModPublishedMantleVisualPhase == expected,
+                    label + ": actual authority snapshot publishes exactly the accepted current cosmetic phase");
+                Check(!player.ModParkourMantleActive && player.ModParkourMantleTicks == 0
+                    && !player.ModParkourMantleApplied(scene.FrameCount - 1)
+                    && player.ModLocalMantleVisualPhase == 0,
+                    label + ": remote visual hint never activates or advances the native mantle controller");
+                Check(!player.ModGrappleState.Active && player.ModGrappleSelectionCount == visualSelections
+                    && player.ModGrappleForceCount == 0,
+                    label + ": cosmetic phase never selects an anchor or grants owner forces");
+            }
+            var clearVisual = VisualPacket(0);
+            Intake("mantle-visual-release-and-none", clearVisual, true);
+            Phase(0, "no phase");
+            // Two native zero-control ticks establish the matched steady body
+            // before comparing phase-only carriers. No body or velocity writes.
+            Intake("mantle-visual-native-baseline", VisualPacket(0), true);
+            var nativePhysics = (player.Position, player.Speed, player.ModBipedBottom,
+                player.ModBipedTop, player.ModBipedEyeOffset, player.ModCrouched, player.ModSliding, player.ModTucked,
+                player.IsAltForm, player.IsMorphing, player.IsUnmorphing);
+            for (byte phase = 1; phase <= 15; phase++)
+            {
+                var visual = VisualPacket(phase);
+                Intake("mantle-visual-current-phase-" + phase, visual, true);
+                Phase(phase, "current phase " + phase);
+                Check(VisualStamp().Source == visual.Frame,
+                    "jointly accepted fresh phase is tied to its actual current source frame");
+                Check(nativePhysics == (player.Position, player.Speed, player.ModBipedBottom,
+                    player.ModBipedTop, player.ModBipedEyeOffset, player.ModCrouched, player.ModSliding, player.ModTucked,
+                    player.IsAltForm, player.IsMorphing, player.IsUnmorphing),
+                    "changing only a cosmetic phase leaves matched actual native body, velocity and stance exact");
+            }
+            var acceptedVisual = VisualPacket(6);
+            Intake("mantle-visual-established-source", acceptedVisual, true); Phase(6, "established phase");
+            var acceptedStamp = VisualStamp();
+            var repeatVisual = acceptedVisual; repeatVisual.MantleVisualPhase = 12;
+            Intake("mantle-visual-repeat-source-cannot-rewrite", repeatVisual, false); Phase(6, "repeat source");
+            Check(VisualStamp() == acceptedStamp, "same-frame carrier cannot rewrite or refresh visual acceptance age");
+            var olderVisual = acceptedVisual; olderVisual.Frame--; olderVisual.MantleVisualPhase = 13;
+            Intake("mantle-visual-old-source-cannot-rewrite", olderVisual, false); Phase(6, "old source");
+            Check(VisualStamp() == acceptedStamp, "older frame cannot refresh the accepted visual source or age");
+            var wrongVisualLife = VisualPacket(14); wrongVisualLife.LifeId ^= 0x4000;
+            Intake("mantle-visual-wrong-life", wrongVisualLife, false); Phase(6, "wrong life");
+            Check(VisualStamp() == acceptedStamp, "wrong lifecycle cannot replace or refresh the current visual hint");
+            var wrongVisualEpoch = VisualPacket(15); wrongVisualEpoch.AuthorityEpoch++;
+            Intake("mantle-visual-wrong-epoch", wrongVisualEpoch, false); Phase(6, "wrong epoch");
+            Check(VisualStamp() == acceptedStamp, "wrong authority epoch cannot refresh visual age");
+            for (int tick = 0; tick < 35; tick++)
+            {
+                var badVisualPose = VisualPacket(11); badVisualPose.Position = rejectedPosition;
+                Intake("mantle-visual-fresh-transport-rejected-pose-" + tick, badVisualPose, true);
+                Check(NetSession.RemoteIntents[0].MantleVisualPhase == 11
+                    && NetSession.RemoteIntents[0].Position == rejectedPosition && NetSession.RemoteIntentAge(0) <= 1,
+                    "phase-bearing finite bad pose really updates normal transport carrier age");
+                Check(VisualStamp() == acceptedStamp && player.Position != rejectedPosition,
+                    "joint pose rejection cannot install a phase or refresh its accepted source/scene age");
+                byte expected = scene.FrameCount - acceptedStamp.Received <= 30 ? (byte)6 : (byte)0;
+                Phase(expected, "rejected pose visual tick " + tick);
+                Check(nativePhysics == (player.Position, player.Speed, player.ModBipedBottom,
+                    player.ModBipedTop, player.ModBipedEyeOffset, player.ModCrouched, player.ModSliding, player.ModTucked,
+                    player.IsAltForm, player.IsMorphing, player.IsUnmorphing),
+                    "bad phase-bearing carriers preserve the matched native body without cosmetic physics");
+            }
+            Phase(0, "accepted visual age expires despite fresh bad-pose transport");
+            var renewedVisual = VisualPacket(9);
+            Intake("mantle-visual-valid-joint-pose-resumes", renewedVisual, true); Phase(9, "renewed valid phase");
+            Check(VisualStamp().Source == renewedVisual.Frame && VisualStamp() != acceptedStamp,
+                "only a subsequent current-life jointly accepted pose renews cosmetic visual publication");
+            Intake("mantle-visual-explicit-release-zero", VisualPacket(0), true); Phase(0, "explicit release");
+            for (int repeat = 0; repeat < 3; repeat++)
+            {
+                Intake("mantle-visual-repeat-none-" + repeat, VisualPacket(0), true);
+                Phase(0, "repeated none");
+            }
         }
         catch (Exception error) { failure = error.ToString(); Console.Error.WriteLine("PARKOUR GRAPPLE AUTHORITY FAIL " + error); result = 1; }
         finally { sim.Stop(); NetSession.Stop(); }
@@ -144,7 +236,8 @@ internal static class ParkourGrappleAuthoritySceneTests
         {
             string path = Path.GetFullPath(output); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { status = result == 0 ? "PASS" : "FAIL",
-                checks = _checks, failure, scope = "Actual ServerSim authority and native accepted pose/control seam; serialized in-process carrier intake and initial placement, no live UDP qualification", rows },
+                checks = _checks, grappleChecks, mantleVisualChecks = _checks - grappleChecks,
+                failure, scope = "Actual ServerSim authority and native accepted pose/control seam; serialized in-process carrier intake and initial placement, including cosmetic mantle phase source/age/life isolation; no live UDP qualification", rows },
                 new JsonSerializerOptions { WriteIndented = true }));
         }
         Console.WriteLine($"PARKOUR GRAPPLE AUTHORITY {(result == 0 ? "PASS" : "FAIL")} {_checks} assertions"); return result;

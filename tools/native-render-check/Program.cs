@@ -16,6 +16,7 @@ using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 
+if (args.Contains("-parkouranimationcheck")) return ParkourAnimationRenderCheck.Run(args);
 if (args.Contains("--shader-source-ledger-selftest") || args.Contains("-resource-shader-ledger-selftest")) return ShaderSourceLedger.SelfTest();
 if (args.Contains("--pose-input-isolation-selftest")) return DisplayPoseInputIsolation.SelfTest();
 if (args.Contains("--minimal-gl-selftest")) return MinimalGlControl.SelfTest();
