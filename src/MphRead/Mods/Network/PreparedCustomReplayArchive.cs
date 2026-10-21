@@ -84,6 +84,21 @@ internal sealed class PreparedCustomReplayArchive : IDisposable
             return _world != null && _reader != null ? ReplayWorldCheckpoint.FromCustomBytes(_world.Bytes, _reader.Metadata?.BuildId)
                 : throw new ObjectDisposedException(nameof(PreparedCustomReplayArchive));
     }
+    internal bool MatchesArchiveBaseline(ReplayMetadata expected, uint duration)
+    {
+        lock (_gate)
+        {
+            var metadata = _reader?.Metadata;
+            return metadata != null && _reader!.DurationFrames == duration && metadata.ProtocolVersion == expected.ProtocolVersion
+                && metadata.OriginRecordingFrame == expected.OriginRecordingFrame && metadata.RoomKey == expected.RoomKey
+                && metadata.Mode == expected.Mode && metadata.MapHash == expected.MapHash
+                && metadata.IndexedFireContinuation == expected.IndexedFireContinuation
+                && metadata.TimedShotCertificates == expected.TimedShotCertificates
+                && metadata.WorldCheckpoint.AsSpan().SequenceEqual(expected.WorldCheckpoint)
+                && metadata.CustomWeapons != null && expected.CustomWeapons != null
+                && metadata.CustomWeapons.CopyBytes().AsSpan().SequenceEqual(expected.CustomWeapons.CopyBytes());
+        }
+    }
     internal DemoReader TakeReader()
     {
         lock (_gate)

@@ -85,6 +85,8 @@ namespace MphRead.Mods.Network
             NoteInput();
         }
         internal void Stop() { State = ReplayState.Inactive; _steps = 0; _target = null; _rebuild = null; _fraction = 0; _presentationStartFrame = CurrentFrame; }
+        internal void Fail()
+        { State = ReplayState.Error; _steps = 0; _target = null; _rebuild = null; _fraction = 0; _presentationStartFrame = CurrentFrame; }
         public void Play()
         {
             if (State == ReplayState.Error) Restart();

@@ -15,7 +15,7 @@ internal sealed record ReplayPlayerOptions(bool EnableSeeking = true, bool Enabl
     internal static readonly ReplayPlayerOptions Linear = new(false, false, false);
 }
 
-internal sealed class PassiveReplayPlayer : IDisposable
+internal sealed partial class PassiveReplayPlayer : IDisposable
 {
     internal const int MaximumStepsPerUpdate = 120;
     private const int MaximumCheckpoints = 128;
@@ -40,7 +40,8 @@ internal sealed class PassiveReplayPlayer : IDisposable
     internal int RejectedCheckpoints { get; private set; }
     internal int RejectedDurableCheckpoints => _rejectedDurable?.Count ?? 0;
     internal string? LastCheckpointError { get; private set; }
-    internal bool Ready => !Transport.IsSeeking && !Current.Session.IsWarming;
+    internal bool Ready => !Transport.IsSeeking && !Current.Session.IsWarming && _customWork == null
+        && (!_customArchive || Current.Session.IsActive && Current.Session.LastResult == ReplayOpenResult.Success);
 
     public PassiveReplayPlayer(string path, Vector2i size, ReplayPlayerOptions? options = null)
     {
@@ -73,6 +74,7 @@ internal sealed class PassiveReplayPlayer : IDisposable
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         maximumSteps = Math.Clamp(maximumSteps, 1, MaximumStepsPerUpdate);
+        if (_customArchive) return UpdateCustom(maximumSteps, maximumMilliseconds);
         long updateStart = Stopwatch.GetTimestamp();
         bool BudgetAvailable() => Stopwatch.GetElapsedTime(updateStart).TotalMilliseconds < maximumMilliseconds;
         uint? target = Transport.SeekTarget;
@@ -182,7 +184,13 @@ internal sealed class PassiveReplayPlayer : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true; Current.Dispose(); if (_checkpoints != null) foreach (var checkpoint in _checkpoints.Values) checkpoint.Dispose();
-        _checkpoints?.Clear(); CheckpointBytes = 0;
+        _disposed = true;
+        try { Current.Dispose(); }
+        finally
+        {
+            RetireCustomPreparation();
+            if (_checkpoints != null) foreach (var checkpoint in _checkpoints.Values) checkpoint.Dispose();
+            _checkpoints?.Clear(); CheckpointBytes = 0;
+        }
     }
 }
