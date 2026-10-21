@@ -20,6 +20,9 @@ internal static class NetCombatPayments
         public CombatAckEntry Outcome;
     }
     private static readonly Entry[,] Entries = new Entry[8, CapacityPerShooter];
+    // Avoid a second ledger scan on native contacts until a rescued claim
+    // has actually paid for this shooter during the current match.
+    private static readonly bool[] MayHaveRescuedClaim = new bool[8];
     internal static long Suppressed, CapacityRefused, Payments;
     // Per-process evidence survives the authority clearing its final empty room.
     internal static long LifetimePayments, LifetimeSuppressed, LifetimeCapacityRefused;
@@ -56,13 +59,14 @@ internal static class NetCombatPayments
     // collision on a different rewind timeline. Only that cross-timeline pair
     // is exclusive. Two independent native contacts and different child
     // components/victims are deliberately not collapsed.
-    private static int FindAlternative(in ShotPaymentKey key, bool incomingClaim)
+    private static int FindAlternative(in ShotPaymentKey key, byte weapon, bool incomingClaim)
     {
-        if (!Valid(key)) return -1;
+        if (!Valid(key) || !incomingClaim && !MayHaveRescuedClaim[key.Shot.ShooterSlot]) return -1;
         for (int i = 0; i < CapacityPerShooter; i++)
         {
             ref readonly var entry = ref Entries[key.Shot.ShooterSlot, i];
-            if (Expired(entry) || !entry.Paid || (!incomingClaim && !entry.RescuedClaim)
+            if (Expired(entry) || !entry.Paid || entry.Weapon != weapon
+                || (!incomingClaim && !entry.RescuedClaim)
                 || entry.Key.Shot != key.Shot || entry.Key.Victim != key.Victim
                 || entry.Key.Generation != key.Generation || entry.Key.Life != key.Life
                 || entry.Key.Component != key.Component || entry.Key.Phase != key.Phase
@@ -76,7 +80,7 @@ internal static class NetCombatPayments
     internal static bool TryGetClaimOutcome(in ShotPaymentKey key, byte weapon, out CombatAckEntry outcome)
     {
         if (TryGet(key, weapon, out outcome)) return true;
-        int at = FindAlternative(key, incomingClaim: true);
+        int at = FindAlternative(key, weapon, incomingClaim: true);
         if (at >= 0 && Entries[key.Shot.ShooterSlot, at].Weapon == weapon)
         { outcome = Entries[key.Shot.ShooterSlot, at].Outcome; return true; }
         outcome = default; return false;
@@ -104,6 +108,7 @@ internal static class NetCombatPayments
             if (entry.Key != _key || entry.Paid) return;
             outcome.ShotId = _key.Shot.ShotId;
             entry.Outcome = outcome; entry.Paid = true; Payments++; LifetimePayments++;
+            if (entry.RescuedClaim) MayHaveRescuedClaim[_slot] = true;
             NetCampaignEvidence.TimelinePayment("payment-committed", _key, entry.Weapon, outcome: outcome, claimId: claimId);
             NetCombatFastPath.Payment(_key, outcome);
             NetSelfSplash.RecordPayment(_key, outcome);
@@ -133,7 +138,7 @@ internal static class NetCombatPayments
     {
         if (!Valid(key)) return new(true);
         NetCampaignEvidence.TimelinePayment("payment-attempt", key, weapon);
-        if (Find(key) >= 0 || FindAlternative(key, fromClaim) >= 0)
+        if (Find(key) >= 0 || FindAlternative(key, weapon, fromClaim) >= 0)
         {
             NetCampaignEvidence.TimelinePayment("payment-refused", key, weapon, result: 1);
             Suppressed++; LifetimeSuppressed++; return new(false);
@@ -186,5 +191,5 @@ internal static class NetCombatPayments
                 if (owner == slot || Entries[owner, i].Key.Victim == slot) Entries[owner, i] = default;
     }
     internal static void Reset()
-    { Array.Clear(Entries); Suppressed = CapacityRefused = Payments = 0; }
+    { Array.Clear(Entries); Array.Clear(MayHaveRescuedClaim); Suppressed = CapacityRefused = Payments = 0; }
 }
