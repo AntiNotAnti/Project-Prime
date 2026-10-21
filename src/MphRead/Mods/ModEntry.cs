@@ -34,6 +34,12 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            int weaponIndex = Array.FindIndex(args, value => value.Equals("-weapon", StringComparison.OrdinalIgnoreCase));
+            if (weaponIndex >= 0)
+            {
+                Environment.ExitCode = CustomWeapons.Packages.WeaponPackageCli.Run(args.Skip(weaponIndex + 1).ToArray());
+                return true;
+            }
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             if (HasFlag(args, "replayexportworker"))
             {
