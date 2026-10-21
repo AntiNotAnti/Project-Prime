@@ -2,7 +2,7 @@ import copy
 import json
 import unittest
 from ncx_receipts import REASONS, audit
-from test_ncx_timeline import row, report
+from test_ncx_timeline import row, report, as_schema2
 
 
 def captured(rows, **counts):
@@ -13,6 +13,31 @@ def captured(rows, **counts):
 
 
 class ReceiptAuditTests(unittest.TestCase):
+    def test_schema2_preserves_conservation_and_ignores_optional_pose_metadata(self):
+        legacy = captured([row('claim-declared'), row('receipt-retired', Result=0)], Created=1, Delivered=1)
+        extended = as_schema2(legacy); before = copy.deepcopy(extended)
+        self.assertEqual(audit({'peer-0': legacy}), audit({'peer-0': extended}))
+        self.assertEqual(audit({'peer-0': extended})['status'], 'PASS')
+        self.assertEqual(extended, before)
+        self.assertNotIn('unexported-v2-extension-canary', json.dumps(audit({'peer-0': extended})))
+
+    def test_unknown_future_or_untyped_schema_never_passes_closed_receipts(self):
+        for schema in (None, 0, 3, 1 << 31, True, '2', 2.0):
+            source = captured([row('claim-declared'), row('receipt-retired', Result=0)], Created=1, Delivered=1)
+            source['ShotTimeline']['Schema'] = schema
+            result = audit({'peer-0': source})
+            self.assertEqual(result['status'], 'INCOMPLETE', schema)
+            self.assertEqual(result['processes'], [], schema)
+
+    def test_schema2_core_row_malformation_does_not_hide_behind_pose(self):
+        for field, value in (('Timestamp', -1), ('LocalFrame', 1 << 32), ('AckFrame', True)):
+            source = as_schema2(captured([row('claim-declared'), row('receipt-retired', Result=0)], Created=1, Delivered=1))
+            source['ShotTimeline']['Rows'][0][field] = value
+            self.assertEqual(audit({'peer-0': source})['status'], 'INCOMPLETE', field)
+        source = as_schema2(captured([row('claim-declared'), row('receipt-retired', Result=0)], Created=1, Delivered=1))
+        source['ShotTimeline']['Rows'][0]['Key']['ShotId'] = 0
+        self.assertEqual(audit({'peer-0': source})['status'], 'INCOMPLETE')
+
     def test_exact_delivery_is_not_a_payment_and_has_no_raw_source_identifiers(self):
         source = captured([row('claim-declared'), row('receipt-retired', Result=0)], Created=1, Delivered=1)
         result = audit({'peer-0': source})

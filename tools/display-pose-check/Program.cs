@@ -176,7 +176,7 @@ internal static class Program
         Console.WriteLine($"Core sampling allocation check: 20,000 warmed reads, {allocated} managed bytes.");
     }
 
-    private static string Schedule(int rate)
+    private static string Schedule(int rate, string schedule = "steady")
     {
         FrameTiming.Reset();
         FrameTiming.ResetDiagnostics();
@@ -200,7 +200,7 @@ internal static class Program
         int fractionalSamples = 0, draws = 0;
         while (completed < ticks)
         {
-            int steps = FrameTiming.Advance(1d / rate);
+            int steps = FrameTiming.Advance(DisplayPosePlan.Elapsed(schedule, rate, draws));
             for (int step = 0; step < steps && completed < ticks; step++)
             {
                 for (int i = 0; i < entities; i++)
@@ -243,7 +243,7 @@ internal static class Program
         Check(rate == 60 ? fractionalSamples == 0 : fractionalSamples > ticks,
             rate + " Hz schedule samples the expected intermediate poses");
         string digest = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
-        Console.WriteLine($"{rate} Hz: {draws} draws, {completed} canonical ticks, {fractionalSamples} fractional poses, canonical SHA-256 {digest}");
+        Console.WriteLine($"{rate} Hz {schedule}: {draws} draws, {completed} canonical ticks, {fractionalSamples} fractional poses, canonical SHA-256 {digest}");
         return digest;
     }
 
@@ -260,7 +260,7 @@ internal static class Program
         LifetimeChecks();
         AllocationChecks();
         TimingChecks();
-        string[] hashes = new[] { 60, 120, 144, 240 }.Select(Schedule).ToArray();
+        string[] hashes = DisplayPosePlan.OutputRates.Select(rate => Schedule(rate)).Append(Schedule(144, "jitter144")).ToArray();
         Check(hashes.Distinct().Count() == 1, "canonical state stream is identical across display schedules");
         Console.WriteLine($"DISPLAY POSE PASS {_checks} checks. Source-only fixture; no 3D/device/performance acceptance.");
         return 0;

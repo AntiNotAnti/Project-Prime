@@ -142,6 +142,13 @@ says which.
 4. **Every remote prediction is reconciled.** Hit claims/verdicts identify the
    exact prediction and retire its hold whether the authority resolved it,
    rescued it, or refused it.
+   Presentation uses bounded possible overlap between pending damage and compact
+   snapshot history to avoid subtracting damage twice before its ACK. Compact
+   events never retire claims. Accepted event exclusions survive feedback
+   consumption and late validated ACKs after eviction; body/form cursors remain
+   independent. Missing history is explicitly ambiguous, with a net-health-drop
+   bound rather than an invented shot match. See
+   [NCX-06](../../docs/network/ncx-prediction-presentation.md) for scope and limits.
 5. **Headshot presentation waits for authority confirmation.** The client may
    locally classify a headshot for reconciliation, but speculative HEADSHOT HUD
    text is suppressed until the authoritative result agrees.

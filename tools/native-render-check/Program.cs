@@ -17,6 +17,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 
 if (args.Contains("--shader-source-ledger-selftest") || args.Contains("-resource-shader-ledger-selftest")) return ShaderSourceLedger.SelfTest();
+if (args.Contains("--pose-input-isolation-selftest")) return DisplayPoseInputIsolation.SelfTest();
 if (args.Contains("--minimal-gl-selftest")) return MinimalGlControl.SelfTest();
 if (args.Contains("--minimal-gl") || args.Contains("--minimal-gl-describe")) return MinimalGlControl.Run(args);
 if (args.Contains("-resource-retention-selftest")) return AudioRetentionProbe.SelfTest();
@@ -37,6 +38,11 @@ int seconds = int.Parse(Value("-seconds", "24"));
 int players = int.Parse(Value("-players", "8"));
 Hunter hunter = Enum.Parse<Hunter>(Value("-hunter", "Samus"), true);
 bool poseCheck = args.Contains("-posecheck");
+int? poseFov = args.Contains("-pose-fov") ? int.Parse(Value("-pose-fov", "")) : null;
+if (poseFov.HasValue && (!poseCheck || poseFov.Value is not (60 or 78 or 120)))
+    throw new ArgumentException("-pose-fov requires -posecheck and 60|78|120.");
+string poseSchedule = DisplayPosePlan.ResolveSchedule(args.Contains("-pose-schedule")
+    ? Value("-pose-schedule", "") : null, poseCheck, cap);
 bool crouchGaitCheck = args.Contains("-crouchgaitcheck");
 bool crouchCheck = args.Contains("-crouchcheck") || crouchGaitCheck;
 if (crouchGaitCheck && args.Contains("-crouchcheck")) throw new ArgumentException("Choose one crouch diagnostic.");
@@ -77,7 +83,7 @@ if (args.Contains("-impactcheck") && (players < 2 || shots == null || outlines !
     throw new ArgumentException("-impactcheck requires -players 2..8, -shots, and -outlines Off.");
 if (poseCheck && (players != 2 || shots == null || seconds != 24 || !DisplayPosePlan.OutputRates.Contains(cap)
     || args.Any(a => a is "-resourcestress" or "-windowcycle" or "-outlinecheck" or "-bombcheck" or "-impactcheck" or "-stablehud" or "-glprofile" or "-glgpu" or "-camera" or "-facing")))
-    throw new ArgumentException("-posecheck requires -players 2, -shots, -seconds 24, -hz 60|120|144|240; separate from other capture/performance modes.");
+    throw new ArgumentException("-posecheck requires -players 2, -shots, -seconds 24, -hz 60|120|144|240|360|500; separate from other capture/performance modes.");
 if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
 if ((cap != -1 && cap < 30) || cap > 500 || !NativeTimingIntervals.ValidSeconds(seconds, shots != null))
     throw new ArgumentOutOfRangeException("Use -hz -1 or 30..500, -seconds 8..1804 (capture: 8..120).");
@@ -102,7 +108,7 @@ if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "m
     ResourceAttribution.DisableMusic();
 CheckWindow CreateWindow(string[] options)
 {
-    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck);
+    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck, poseSchedule, poseFov);
     try
     {
         value.ConfigureResourceStress(options);
@@ -112,7 +118,7 @@ CheckWindow CreateWindow(string[] options)
     catch { value.Dispose(); throw; }
 }
 if (args.Contains("-resource-context-cycles")) return ContextControl.Run(args, output, CreateWindow);
-using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck);
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck, poseSchedule, poseFov);
 window.ConfigureResourceStress(args);
 window.ConfigureDiagnosticOptions(args);
 try
@@ -142,6 +148,7 @@ catch (Exception ex)
 finally
 {
     // Run's unload handles gameplay; explicitly release GL before its context dies.
+    window.RestoreDisplayPoseInputIsolation();
     window.ClearResourceFailureCallback();
     window.EndScene();
 }
@@ -211,7 +218,7 @@ sealed partial class CheckWindow : RenderWindow
     private string? _glVendor, _glRenderer, _glVersion;
     public bool Complete { get; private set; }
 
-    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario, bool lateProvenanceControl = false, string poseFocusControl = "none", bool crouchCheck = false, bool crouchGaitCheck = false)
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario, bool lateProvenanceControl = false, string poseFocusControl = "none", bool crouchCheck = false, bool crouchGaitCheck = false, string poseSchedule = "steady", int? poseFov = null)
     {
         _crouchCheck = crouchCheck;
         _crouchGaitCheck = crouchGaitCheck;
@@ -225,6 +232,8 @@ sealed partial class CheckWindow : RenderWindow
         _poseCheck = poseCheck;
         _posePixels = posePixels;
         _poseScenario = poseScenario;
+        _poseScheduleId = poseSchedule;
+        _poseRequestedFov = poseFov;
         MinimumSize = new Vector2i(160, 90);
         double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
         ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
@@ -351,7 +360,7 @@ sealed partial class CheckWindow : RenderWindow
         if (_poseCheck)
         {
             BeforeDisplayPoseFrame();
-            base.OnRenderFrame(new FrameEventArgs(1.0 / _cap));
+            base.OnRenderFrame(new FrameEventArgs(PoseElapsed));
             AfterDisplayPoseFrame();
             return;
         }

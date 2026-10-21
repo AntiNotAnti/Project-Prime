@@ -46,8 +46,12 @@ internal static class TransportStressTests
                     {
                         if (packet.Type == PacketType.SessionState)
                             NetArchitectureTests.Check(controls[i].Add(BinaryPrimitives.ReadInt32LittleEndian(packet.Payload)), "control applied once on actual impaired UDP");
-                        if (packet.Type == PacketType.Snapshot)
+                        if (packet.Type == PacketType.SnapshotFast)
                         {
+                            NetArchitectureTests.Check(packet.Payload.Length == 1148
+                                && packet.Payload.Length + NetHeader.Size == 1172
+                                && NetReplicationReceiver.ValidateFast(packet.Payload, 1, 1, out var fastHeader)
+                                && fastHeader.PlayerCount == 8, "actual eight-player fast datagram shape and identities survive impaired UDP");
                             var snapshot = SnapshotHeader.Read(packet.Payload);
                             if (SequenceMath.Newer(snapshot.Frame, frames[i])) { frames[i] = snapshot.Frame; received[i]++; }
                         }
@@ -68,7 +72,12 @@ internal static class TransportStressTests
             server.ResetContentionStats();
             clock.Restart(); uint frame = 0; double nextTick = 0;
             byte[] intentBytes = NetArchitectureTests.IntentFixture();
-            byte[] snapshotBytes = new byte[SnapshotHeader.Size + 8 * PlayerState.Size];
+            byte[] canonicalSnapshot = new byte[SnapshotHeader.Size + 8 * PlayerState.Size];
+            for (byte slot = 0; slot < 8; slot++)
+                new PlayerState { SlotIndex = slot, SlotGeneration = 1, LifeId = 1, Health = 100,
+                    Flags = PlayerState.FlagActive | PlayerState.FlagSpawned }
+                    .Write(canonicalSnapshot.AsSpan(SnapshotHeader.Size + slot * PlayerState.Size, PlayerState.Size));
+            byte[] snapshotBytes = new byte[SnapshotFast.MaximumEncodedSize - NetHeader.Size];
             while (clock.Elapsed.TotalSeconds < 8)
             {
                 double now = clock.Elapsed.TotalMilliseconds;
@@ -76,11 +85,14 @@ internal static class TransportStressTests
                 {
                     nextTick = now + 1000.0 / 60; frame++;
                     BinaryPrimitives.WriteUInt32LittleEndian(intentBytes, frame);
-                    new SnapshotHeader { Frame = frame, MatchId = 1, AuthorityEpoch = 1, PlayerCount = 8 }.Write(snapshotBytes);
+                    new SnapshotHeader { Frame = frame, MatchId = 1, AuthorityEpoch = 1, PlayerCount = 8 }.Write(canonicalSnapshot);
+                    int snapshotLength = SnapshotFast.Write(canonicalSnapshot, snapshotBytes);
+                    NetArchitectureTests.Check(snapshotLength == 1148 && snapshotLength + NetHeader.Size == 1172
+                        && snapshotLength + NetHeader.Size <= 1200, "production fast writer keeps eight owners within realtime MTU");
                     for (int i = 0; i < 8; i++)
                     {
                         clients[i].Send(address, PacketType.Intent, intentBytes);
-                        server.Send(endpoints[i], PacketType.Snapshot, snapshotBytes);
+                        server.Send(endpoints[i], PacketType.SnapshotFast, snapshotBytes);
                     }
                 }
                 Pump(now is >= 500 and < 900);

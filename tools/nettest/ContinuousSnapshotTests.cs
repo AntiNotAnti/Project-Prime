@@ -219,9 +219,13 @@ internal static class ContinuousSnapshotTests
         NetContinuousPresentation.Reset(); NetContinuousPresentation.Confirm(key, point);
 
         var lanes = new NetReplicationLanes(); lanes.Prepare(canonical);
-        Check(lanes.SlowLength + NetHeader.Size <= 1200 && NetReplicationLanes.SlowEntry == 10 + ContinuousPresentation.Size + 2 + PlayerFormState.Size
+        Check(NetReplicationLanes.GrappleOffset == 58 && PlayerGrappleState.Size == 19
+            && NetReplicationLanes.SlowEntry == 77
+            && NetReplicationLanes.SlowEntry == 10 + ContinuousPresentation.Size + 2 + PlayerFormState.Size + PlayerGrappleState.Size
+            && lanes.SlowLength == 695 && lanes.SlowLength + NetHeader.Size == 719
+            && lanes.SlowLength + NetHeader.Size + 4 + WorldBootstrapIdentity.Size + 1 == 756
             && lanes.SlowLength + NetHeader.Size + 4 + WorldBootstrapIdentity.Size + 1 <= 1200,
-            "eight owner presentation sidecars remain within the slow-lane MTU");
+            "eight protocol82 presentation/form/grapple sidecars retain literal live and full bootstrap MTUs");
         byte[] firstSlow = lanes.Slow.AsSpan(0, lanes.SlowLength).ToArray();
         var receiver = new NetReplicationReceiver();
         Check(receiver.Receive(PacketType.PlayerSlowState, firstSlow, 51, 4), "presentation sidecar slow packet admitted");

@@ -70,10 +70,103 @@ def lethal_ack_floor(row, identity, source, bases):
                and basis["active"]==row["TurretActive"] for basis in bases)
 
 
+def terminal_ack_body_join(server, peer, row, identity, source, local_slot):
+    """Independent authority terminal bytes plus this client's exact receipt key.
+
+    A fast body ACK can precede the next form snapshot, including a native morph
+    later in the authority step. This proves only the historical body outcome;
+    turret presence/health, phase and anchor still use the unchanged form gates.
+    Missing, ambiguous or unsupported evidence never supplies a basis.
+    """
+    if (type(row.get("BodyPredictionDebit")) is not int or row["BodyPredictionDebit"] != 0
+            or type(row.get("BodyHp")) is not int or not 0 < row["BodyHp"] <= 65535
+            or type(row.get("ObservedDamageEvent")) is not int or not 0 < row["ObservedDamageEvent"] <= 65535):
+        return None
+    raw = row.get("BodyAckSource")
+    if raw is None: return None
+    if not isinstance(raw, str) or len(raw) != 46:
+        raise ValueError("invalid retained CombatAck23")
+    data = bytes.fromhex(raw)
+    fields = ("ClaimId", "Result", "VictimSlot", "VictimGeneration", "VictimLife",
+              "DamageApplied", "HealthAfter", "HalfturretHealthAfter", "DamageSequence", "Flags", "ShotId")
+    ack = dict(zip(fields, struct.unpack("<HBBHHHHHIBI", data)))
+    if not (ack["ClaimId"] > 0 and ack["ShotId"] > 0 and ack["Result"] in (0, 1, 13)
+            and tuple(ack[f] for f in fields[2:5]) == identity[2:]
+            and ack["DamageApplied"] > 0 and ack["HealthAfter"] == row["BodyHp"]
+            and ack["HalfturretHealthAfter"] == row["TurretHp"]
+            and 0 < ack["DamageSequence"] <= 65535
+            and ack["DamageSequence"] == row.get("ObservedDamageEvent")
+            and newer(ack["DamageSequence"], source["damage"], 16)
+            and ack["Flags"] & 64 and not ack["Flags"] & (2 | 32) and ack["Flags"] <= 127):
+        return None
+    joins, timeline = server.get("TimedCaseJoins", {}), peer.get("ShotTimeline", {})
+    if not isinstance(joins, dict) or not isinstance(timeline, dict): return None
+    if (type(joins.get("Schema")) is not int or joins["Schema"] != 1
+            or type(timeline.get("Schema")) is not int or timeline["Schema"] != 2
+            or timeline.get("Enabled") is not True or timeline.get("Complete") is not True
+            or type(timeline.get("Overflow")) is not int or timeline["Overflow"] != 0
+            or type(timeline.get("UnkeyedRows")) is not int or timeline["UnkeyedRows"] != 0):
+        return None
+    terminals = joins.get("Terminals")
+    budgets = joins.get("Budgets", {})
+    if not isinstance(budgets, dict): return None
+    budget = budgets.get("Terminals", {})
+    if (not isinstance(terminals, list) or not isinstance(budget, dict)
+            or any(type(budget.get(f)) is not int for f in ("Dropped", "Count", "Observed"))
+            or budget.get("Dropped") != 0
+            or budget.get("Count") != len(terminals) or budget.get("Observed") != len(terminals)):
+        return None
+    receipt_rows = timeline.get("Rows")
+    if (not isinstance(receipt_rows, list) or any(not isinstance(r, dict) for r in receipt_rows)
+            or any(not isinstance(t, dict) or not isinstance(t.get("Outcome"), dict) for t in terminals)):
+        return None
+    def shot_key(value):
+        if not isinstance(value, dict): raise ValueError("invalid terminal shot key")
+        key = tuple(integer(value[f], 0 if f == "ShooterSlot" else 1,
+                    7 if f == "ShooterSlot" else 2**64-1 if f == "AuthorityEpoch"
+                    else 2**32-1 if f == "ShotId" else 65535)
+                    for f in ("AuthorityEpoch", "MatchId", "ShooterSlot", "Generation", "LifeId", "ShotId"))
+        return key
+    receipts = []
+    for receipt in receipt_rows:
+        if (receipt.get("Stage") != "terminal-delivered" or receipt.get("ClaimId") != ack["ClaimId"]
+                or tuple(receipt.get(f) for f in ("Victim", "VictimGeneration", "VictimLife")) != identity[2:]):
+            continue
+        key = shot_key(receipt["Key"])
+        if key[:2] != identity[:2] or key[2] != local_slot or key[5] != ack["ShotId"]:
+            continue
+        receipts.append((receipt, key))
+    # A repeated or competing receipt is not an unambiguous historical witness.
+    if len(receipts) != 1: return None
+    receipt, key = receipts[0]
+    if (any(type(receipt.get(f)) is not int for f in ("ClaimId", "Victim", "VictimGeneration", "VictimLife", "DamageEventId", "Value", "Result"))
+            or receipt.get("DamageEventId") != ack["DamageSequence"] or receipt.get("Value") != ack["DamageApplied"]
+            or receipt.get("Result") != ack["Result"]
+            or not (integer(receipt["LocalFrame"]) == row["ObservedFrame"]
+                    or newer(row["ObservedFrame"], receipt["LocalFrame"]))):
+        return None
+    # The raw ACK carries claim/shot and recipient, but no shooter launch-life.
+    # Establish uniqueness before filtering source keys, so an unkeyed or
+    # competing-generation/life copy cannot silently disappear from the proof.
+    candidates = [t for t in terminals if t["Outcome"].get("ClaimId") == ack["ClaimId"]
+                  and ((t.get("Key") is not None and shot_key(t["Key"]) == key)
+                       or (t.get("ShooterSlot") == key[2] and t["Outcome"].get("ShotId") == ack["ShotId"]))]
+    if len(candidates) != 1: return None
+    terminal = candidates[0]
+    if terminal.get("Key") is None or shot_key(terminal["Key"]) != key: return None
+    outcome = terminal.get("Outcome", {})
+    if (type(terminal.get("ShooterSlot")) is not int or terminal["ShooterSlot"] != key[2]
+            or not newer(integer(terminal["ObservedFrame"]), source["frame"])
+            or any(type(outcome.get(f)) is not int or outcome[f] != ack[f] for f in fields)):
+        return None
+    return dict(ordinal=integer(terminal["Ordinal"], 1, 2**64-1), authorityFrame=terminal["ObservedFrame"],
+                receiptFrame=receipt["LocalFrame"], shotKey=key, outcome=ack)
+
+
 def audit(server, peers, summary, manifest, owner_slot=1):
     failures, missing = [], []
     metrics = {"peers": {}, "authoritySamples": 0, "independentAnchorWitnesses": 0,
-               "healthDisagreements": [], "ownerPhaseDifferences": 0, "newerHealthJoins": 0, "predictionDebitJoins": 0, "inactiveAnchorNotLocationProofSamples": 0, "lethalAckFloorJoins": []}
+               "healthDisagreements": [], "ownerPhaseDifferences": 0, "newerHealthJoins": 0, "predictionDebitJoins": 0, "inactiveAnchorNotLocationProofSamples": 0, "lethalAckFloorJoins": [], "terminalAckBodyJoins": []}
     expected = {p["name"] for p in summary.get("processes", []) if p.get("name") != "server"}
     if not expected or expected != set(peers): missing.append("complete expected peer evidence unavailable")
     if summary.get("status") == "FAIL": failures.append("base campaign failed")
@@ -179,9 +272,14 @@ def audit(server, peers, summary, manifest, owner_slot=1):
                     else:
                         bases = [other for candidate, other in by_life.get(key, [])
                                  if other["started"] == form["started"] and other["damage"] == observed_damage]
+                        terminal_join = (terminal_ack_body_join(server, peer, row, key, form, membership[context])
+                                         if not bases and key[2] == owner_slot and not local and only_body else None)
                         if any(actual_health(other) == actual for other in bases):
                             metrics["newerHealthJoins"] += 1
                             if debit: metrics["predictionDebitJoins"] += 1
+                        elif terminal_join is not None:
+                            metrics["terminalAckBodyJoins"].append(dict(peer=name, identity=key,
+                                sourceFrame=form["frame"], sourceDamage=form["damage"], proof=terminal_join))
                         elif key[2] == owner_slot and bases and not local and row["BodyHp"] == 1 and form["body_hp"] > 0:
                             floor = lethal_ack_floor(row, key, form, bases)
                             if floor is True:
@@ -239,7 +337,7 @@ def audit(server, peers, summary, manifest, owner_slot=1):
     if not authority: missing.append("nonempty authority form sources required")
     return dict(status="FAIL" if failures else "INCOMPLETE" if missing else "PASS", failures=failures,
                 incomplete=list(dict.fromkeys(missing)), metrics=metrics,
-                scope="exact accepted form-source identity, observer phase and turret anchor/presence/health; owner animation phase may lead; exact pending remote body debit may explain predicted health; inactive turret anchors are not location proof; exact lethal ACK may hold body1 until a death snapshot; initial late-observer active/inactive form is reported separately (active bootstrap tested by asset-backed form-scene fixture); existing base health/score/drain gates retained")
+                scope="exact accepted form-source identity, observer phase and turret anchor/presence/health; owner animation phase may lead; exact pending remote body debit may explain predicted health; inactive turret anchors are not location proof; exact lethal ACK may hold body1 until a death snapshot; otherwise a newer remote body-only ACK with zero prediction debit requires matching complete authority terminal23 fields and this client's exact full-key receipt; initial late-observer active/inactive form is reported separately (active bootstrap tested by asset-backed form-scene fixture); existing base health/score/drain gates retained")
 
 
 def main():
