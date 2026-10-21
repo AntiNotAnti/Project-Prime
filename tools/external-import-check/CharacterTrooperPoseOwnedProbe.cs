@@ -46,6 +46,7 @@ internal static class CharacterTrooperPoseOwnedProbe
         int checks = 0, refusals = 0, lockedFiles = 0, constructorCount = 0, poseSamples = 0;
         int initialReads = 0, finalReads = 0; long? proofBefore = null, proofAfter = null;
         int numericalBranches = 0; double maximumNumericalBranchRadians = 0, maximumUnadjustedTransitionDifference = 0, maximumNumericalEndpointDifference = 0;
+        var numericalBranchNodes = new HashSet<string>(StringComparer.Ordinal);
         double maxError = 0; var observations = new List<object>(); var captures = new List<Captured>();
         Dictionary<string, string>? components = null;
         void Check(bool condition, string why) { if (!condition) { failed = why; throw new InvalidDataException(why); } checks++; }
@@ -187,17 +188,17 @@ internal static class CharacterTrooperPoseOwnedProbe
                                 var history = (M[])typeof(CharacterSourceTrooperPose).GetField("_last", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(pose)!;
                                 var from = (M[])typeof(CharacterSourceTrooperPose).GetField("_from", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(pose)!;
                                 var privateClips = (IReadOnlyDictionary<string, CharacterSourceClip>)typeof(CharacterSourceTrooperPose).GetField("_clips", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(pose)!;
-                                int spine = Node(captured.Rig, "source_bone_30_Spine_1");
+                                var observedTarget = ObservedTarget(captured.Rig, privateClips, newLower, (lowerReset ? k : 12 + k) / 60d,
+                                    newUpper, (upperReset ? k : 12 + k) / 60d);
                                 foreach (int node in Enumerable.Range(0, expected.Length).Where(i => Distance(ToN(history[i]), expected[i]) >= .0004))
                                 {
+                                    Console.WriteLine(JsonSerializer.Serialize(new { Diagnostic = "pose-nearidentity-candidate", oldLower, oldUpper, newLower, newUpper,
+                                        restartLower, restartUpper, Tick = k, Node = captured.Rig.Nodes[node].Name, Difference = Distance(ToN(history[node]), expected[node]) }));
                                     // Shipped OpenTK Slerp returns endpoint A when its float dot rounds to 1.
                                     // The independent raw-bank endpoint can differ by one ULP and fall below 1.
-                                    // Admit only this proven branch, only an upper local descendant, with strict
+                                    // Admit only this proven branch in a six-tick local blend, with strict
                                     // independent endpoints/translation and <=0.0008 rad (0.046 degrees) error.
-                                    Check(node != spine && Under(captured.Rig, node, spine) && Upper.ContainsKey(newUpper),
-                                        "Quaternion rounding exception is confined to an upper local descendant during six-tick blending.");
-                                    var clip = privateClips[Upper[newUpper]];
-                                    M endpoint = clip.Sample(((upperReset ? k : 12 + k) / 60d) % clip.Duration)[node];
+                                    M endpoint = observedTarget[node];
                                     var ar = from[node].ExtractRotation(); var br = endpoint.ExtractRotation();
                                     float dot = ar.W * br.W + (ar.X * br.X + ar.Y * br.Y + ar.Z * br.Z);
                                     var branch = ToN(M.CreateFromQuaternion(ar));
@@ -214,6 +215,7 @@ internal static class CharacterTrooperPoseOwnedProbe
                                         && angle <= .0008,
                                         "Nearidentity OpenTK endpoint-return branch is independently bounded without relaxing raw, steady or other transition poses.");
                                     numericalBranches++; maximumNumericalBranchRadians = Math.Max(maximumNumericalBranchRadians, angle);
+                                    numericalBranchNodes.Add(captured.Rig.Nodes[node].Name);
                                     maximumNumericalEndpointDifference = Math.Max(maximumNumericalEndpointDifference,
                                         Math.Max(Distance(ToN(from[node]), prior[node]), Distance(ToN(endpoint), target[node])));
                                     maximumUnadjustedTransitionDifference = Math.Max(maximumUnadjustedTransitionDifference, Distance(ToN(history[node]), expected[node]));
@@ -287,9 +289,10 @@ internal static class CharacterTrooperPoseOwnedProbe
             QuaternionBlendPolicy = "Independent normalized-linear branch at absdot>=0.99, matching the shipped OpenTK4.9.4 Slerp numerical contract; spherical otherwise",
             NearParallelQuaternionBlends = _linearBlends, SphericalQuaternionBlends = _sphericalBlends,
             NearIdentityEndpointReturnBranches = numericalBranches, MaximumEndpointReturnErrorRadians = maximumNumericalBranchRadians,
+            NearIdentityEndpointReturnNodes = numericalBranchNodes.OrderBy(n => n, StringComparer.Ordinal),
             MaximumEndpointReturnOracleEndpointDifference = maximumNumericalEndpointDifference,
             MaximumUnadjustedTransitionDifference = maximumUnadjustedTransitionDifference,
-            EndpointReturnScope = "Only six-tick upper-local nearidentity OpenTK dot>=1 early return; independent endpoints/translation <2e-6, angle<=0.0008rad; all raw/steady/other poses retain matrix<0.0004",
+            EndpointReturnScope = "Only six-tick local nearidentity OpenTK dot>=1 early return; independent endpoints/translation <2e-6, angle<=0.0008rad; all raw/steady/other poses retain matrix<0.0004",
             ExclusivelyLockedImportedFiles = lockedFiles, CapturedFileReadsBefore = initialReads, CapturedFileReadsAfter = finalReads,
             ProofReadsBefore = proofBefore, ProofReadsAfter = proofAfter, ImportedComponentsUnchanged = filesUnchanged,
             ImportedComponentHashes = components?.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => new { FileId = p.Key, Sha256 = p.Value }),
@@ -377,6 +380,29 @@ internal static class CharacterTrooperPoseOwnedProbe
         V pivot = world[spine].Translation; N desired = world[spine]; desired.Translation = V.Zero;
         desired *= N.CreateRotationX(-pitch); desired.Translation = pivot;
         N.Invert(world[parent], out var inverse); result[spine] = desired * inverse;
+    }
+    // Diagnostic intermediate only: endpoints are still checked against the independent
+    // raw-bank oracle before this can explain the shipped Slerp rounding branch.
+    private static M[] ObservedTarget(CharacterSourceRig rig, IReadOnlyDictionary<string, CharacterSourceClip> clips,
+        PlayerAnimation lower, double lowerSeconds, PlayerAnimation upper, double upperSeconds)
+    {
+        var low = clips[Lower[lower]]; M[] result = low.Sample(lowerSeconds % low.Duration).ToArray();
+        if (Upper.TryGetValue(upper, out string? name))
+        {
+            var top = clips[name]; var torso = top.Sample(upperSeconds % top.Duration);
+            M[] World(IReadOnlyList<M> local)
+            {
+                var world = new M[local.Count]; var done = new bool[local.Count];
+                M Resolve(int n) { if (!done[n]) { int p = rig.Nodes[n].Parent; world[n] = p < 0 ? local[n] : local[n] * Resolve(p); done[n] = true; } return world[n]; }
+                for (int i = 0; i < local.Count; i++) Resolve(i); return world;
+            }
+            int spine = Node(rig, "source_bone_30_Spine_1"), parent = rig.Nodes[spine].Parent;
+            M[] lowerWorld = World(result), upperWorld = World(torso);
+            M full = upperWorld[spine].ClearTranslation(); full.Row3 = lowerWorld[spine].Row3;
+            result[spine] = parent < 0 ? full : full * lowerWorld[parent].Inverted();
+            for (int i = 0; i < result.Length; i++) if (i != spine && Under(rig, i, spine)) result[i] = torso[i];
+        }
+        return result;
     }
     private static double RotationAngle(N a, N b)
     {
