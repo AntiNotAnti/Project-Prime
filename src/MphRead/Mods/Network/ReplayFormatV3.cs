@@ -339,6 +339,7 @@ namespace MphRead.Mods.Network
         private readonly byte _version;
         private readonly bool _timedShotCertificates;
         private readonly ReplayCustomWeaponContext? _customContext;
+        private readonly ReplayMetadata _metadata;
         internal bool HasCustomWeaponContract => _customContext != null;
         private readonly uint _origin;
         private readonly string _producerBuild;
@@ -361,7 +362,10 @@ namespace MphRead.Mods.Network
             byte[] header = ReplayFormatV3.EncodeMetadata(metadata);
             // The writer can also receive bootstrap packets extracted from an external v2
             // replay. Validate those before creating a file we would subsequently refuse.
-            _ = ReplayFormatV3.DecodeMetadata(metadata.ProtocolVersion, header, metadata.FormatVersion);
+            // Keep the validated header's owned arrays. A caller may retire or
+            // reuse its bootstrap buffer after construction; optional worlds
+            // must still be checked against the header committed to this file.
+            _metadata = ReplayFormatV3.DecodeMetadata(metadata.ProtocolVersion, header, metadata.FormatVersion);
             _stream = new FileStream(PartialPath, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             _writer = new BinaryWriter(_stream, Encoding.UTF8, true);
             _records = new BinaryWriter(_chunk, Encoding.UTF8, true);
@@ -403,10 +407,12 @@ namespace MphRead.Mods.Network
         internal void WriteCheckpoint(uint frame, ReadOnlySpan<byte> bytes)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (HasCustomWeaponContract || _version < 4 || bytes.Length is < 1 or > Replay.ReplayWorldCheckpoint.MaximumBytes
+            if (_version < 4 || bytes.Length is < 1 or > Replay.ReplayWorldCheckpoint.MaximumBytes
                 || frame > ReplayFormatV3.MaxFrame)
                 throw new InvalidDataException("Invalid durable replay checkpoint.");
-            using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes, _producerBuild);
+            using var checkpoint = HasCustomWeaponContract ? Replay.ReplayWorldCheckpoint.FromCustomBytes(bytes, _producerBuild)
+                : Replay.ReplayWorldCheckpoint.FromBytes(bytes, _producerBuild);
+            if (HasCustomWeaponContract) checkpoint.ValidateCustomArchive(_metadata);
             if (checkpoint.HasTimedShotContract != _timedShotCertificates)
                 throw new InvalidDataException("Durable timed shot contract differs from the recording capability.");
             if (checkpoint.Frame != (ulong)frame + _origin) throw new InvalidDataException("Invalid durable replay checkpoint clock.");
@@ -626,7 +632,7 @@ namespace MphRead.Mods.Network
                 lastEvent = e.Frame;
             }
             int checkpoints = footer.ReadInt32();
-            if (checkpoints < 0 || checkpoints > ReplayFormatV3.MaxCheckpoints || (Metadata.FormatVersion < 4 || Metadata.FormatVersion == 7) && checkpoints != 0
+            if (checkpoints < 0 || checkpoints > ReplayFormatV3.MaxCheckpoints || Metadata.FormatVersion < 4 && checkpoints != 0
                 || (long)checkpoints * 24 > bytes.Length - footer.BaseStream.Position)
                 throw new InvalidDataException("Invalid checkpoint index.");
             uint priorCheckpoint = 0;
@@ -695,6 +701,13 @@ namespace MphRead.Mods.Network
                 deflate.ReadExactly(raw);
                 if (deflate.ReadByte() != -1 || ReplayFormatV3.Crc(raw) != entry.Crc)
                     throw new InvalidDataException("Replay checkpoint checksum/length failed.");
+                if (Metadata.CustomWeapons != null)
+                {
+                    using var world = Replay.ReplayWorldCheckpoint.FromCustomBytes(raw, Metadata.BuildId);
+                    world.ValidateCustomArchive(Metadata);
+                    if ((ulong)entry.Frame + Metadata.OriginRecordingFrame != world.Frame)
+                        throw new InvalidDataException("Custom archive checkpoint clock differs from its index.");
+                }
                 return raw;
             }
             finally { _stream.Position = position; }
