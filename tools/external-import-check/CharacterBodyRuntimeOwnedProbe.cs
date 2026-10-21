@@ -195,7 +195,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
                     var capturedLabels = new HashSet<string>(StringComparer.Ordinal);
                     Picture(false); // Establish native draw-derived anchors before invariance assertions.
                     int clipReads = CharacterSourceClip.CapturedFileReads;
-                    long proofReads = CharacterSourceProofIO.OpenedReads, proofPaths = CharacterSourceProofIO.PathWitnesses;
+                    using var sourceFiles = new SourceFileLocks(imports);
                     // Scene load, native first-picture preparation and optional
                     // source compilation have different one-time work. Seed the
                     // identical authoritative fixture only after that barrier.
@@ -267,9 +267,9 @@ internal static class CharacterBodyRuntimeOwnedProbe
                         "actual native keyboard script earns jump, morph, native shot/charge, injected death and native respawn");
                     Check(moved, "native keyboard movement stages earn actor displacement");
                     Check(turned, "native mouse turn stage earns facing change");
-                    Check(CharacterSourceClip.CapturedFileReads == clipReads && CharacterSourceProofIO.OpenedReads == proofReads
-                        && CharacterSourceProofIO.PathWitnesses == proofPaths,
-                        "actual complete native input/simulation/repeated-world-draw script performs no source clip/proof/path IO");
+                    Check(CharacterSourceClip.CapturedFileReads == clipReads && sourceFiles.Count > 0,
+                        "actual complete native input/simulation/repeated-world-draw script succeeds with every source component exclusively locked and no clip reads");
+                    sourceFiles.Dispose();
                     if (owner != null)
                     {
                         Check(sourceFrames > 0 && fallbackFrames > 0 && paletteHashes.Count > 1,
@@ -480,6 +480,21 @@ internal static class CharacterBodyRuntimeOwnedProbe
     }
 
     private static List<RenderItem> BodyItems(Scene scene) => (List<RenderItem>)typeof(Scene).GetField("_sourceBodyItems", Hidden)!.GetValue(scene)!;
+    private sealed class SourceFileLocks : IDisposable
+    {
+        private readonly List<FileStream> _files = new();
+        internal int Count => _files.Count;
+        internal SourceFileLocks(string root)
+        {
+            try
+            {
+                foreach (string path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+                    _files.Add(new(path, FileMode.Open, FileAccess.Read, FileShare.None));
+            }
+            catch { Dispose(); throw; }
+        }
+        public void Dispose() { foreach (var file in _files) file.Dispose(); _files.Clear(); }
+    }
     private static IEnumerable<RenderItem> WorldItems(Scene scene) => new[] { "_nonDecalItems", "_translucentItems", "_decalItems" }
         .SelectMany(name => (List<RenderItem>)typeof(Scene).GetField(name, Hidden)!.GetValue(scene)!);
     private static string Palette(CharacterWeightedRenderModel model)
