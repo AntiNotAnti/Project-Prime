@@ -66,10 +66,14 @@ internal static class ShotInputTests
             intent = new IntentPacket { Frame = 139, Aim = Vector3.UnitZ, Target = NetTargetIdentity.None };
             sender.Fill(139, life, ref intent);
             Span<byte> bytes = stackalloc byte[IntentPacket.FullSize];
+            intent.GrappleRequestNonce = 0x1234;
             int length = CompactIntentCodec.Write(intent, bytes);
-            Check(length == 136 && CompactIntentCodec.TryRead(bytes[..length], out var decoded)
+            Check(length == 138 && CompactIntentCodec.HeaderSize == 136 && CompactIntentCodec.ShotInputOffset == 103
+                && bytes[136] == 0x34 && bytes[137] == 0x12
+                && CompactIntentCodec.TryRead(bytes[..length], out var decoded)
+                && decoded.GrappleRequestNonce == 0x1234
                 && decoded.ShotInputCount == 32 && decoded.ShotInputs.Equals(intent.ShotInputs),
-                "all 32 physical input bytes roundtrip through fixed live header");
+                "all 32 physical input bytes and appended nonce roundtrip at protocol82 literal offsets");
             Check(ShotInputHistory.Sample(8, true, true, true) == 0x78
                 && ShotInputHistory.Sample(0, false, false, false) == 0,
                 "sample bits carry actual weapon, held shoot, physical zoom and native eligibility only");
@@ -105,8 +109,8 @@ internal static class ShotInputTests
             Check(canonicalBefore.SequenceEqual(canonicalAfter) && replay.ShotInputCount == 0
                 && replay.ShotInputs.Valid(0) && IntentPacket.FullSize == 1287,
                 "ephemeral physical input history never changes canonical replay bytes or reader");
-            Check(CompactIntentCodec.HeaderSize + NetFireEvents.LiveCapacity * FireEvent.Size + 24 + 1 == 1197,
-                "maximum live intent with independent input fits 1200-byte datagram");
+            Check(CompactIntentCodec.HeaderSize + NetFireEvents.LiveCapacity * FireEvent.Size + 2 + 24 + 1 == 1199,
+                "maximum live intent including nonce, network header and slot fits 1200-byte datagram");
             Console.WriteLine("shot input codec and sender tests passed");
             return 0;
         }

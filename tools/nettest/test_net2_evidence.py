@@ -5,7 +5,7 @@ import struct
 from pathlib import Path
 import tempfile
 import unittest
-from net2_evidence import adjudicate, slow_states, initial_world_admission
+from net2_evidence import adjudicate, slow_states, slow_lane_parity, initial_world_admission
 
 
 class EvidenceTests(unittest.TestCase):
@@ -785,7 +785,7 @@ class EvidenceTests(unittest.TestCase):
 
     @staticmethod
     def slow(revision, frame, kills=0, deaths=0, generation=3, epoch=111, match=2, context=0,
-             protocol=41, cosmetic=None, form=None):
+             protocol=41, cosmetic=None, form=None, grapple=None):
         # Raw PlayerSlowState payload excludes the outer transport packet header.
         payload = struct.pack("<HQIBBH", match, epoch, revision, 1, 0, generation)
         payload += struct.pack("<BhHH", 0, 0, kills, deaths)
@@ -793,6 +793,8 @@ class EvidenceTests(unittest.TestCase):
             payload += bytes(18) if cosmetic is None else cosmetic
         if protocol >= 49:
             payload += bytes(30) if form is None else form
+        if protocol >= 82:
+            payload += bytes(19) if grapple is None else grapple
         payload += bytes(64)
         return dict(Epoch=epoch, Match=match, Revision=revision, Frame=frame,
                     Context=context, Payload=payload.hex())
@@ -876,6 +878,69 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(slow_states(report)[0]["scores"][(1, 4)], struct.pack("<BhHH", 0, 0, 2, 3))
         row["Payload"] = (bytes.fromhex(row["Payload"])[:-64] + struct.pack("<16f", float("nan"), *([1.0] * 15))).hex()
         with self.assertRaises(ValueError): slow_states(report)
+
+    def test_protocol79_and82_slow_literal_widths(self):
+        for protocol, stride in ((79, 58), (80, 58), (81, 58), (82, 77)):
+            row = self.slow(1, 6, protocol=protocol)
+            self.assertEqual(len(bytes.fromhex(row["Payload"])), 15 + stride + 64)
+            self.assertEqual(len(slow_states(dict(Protocol=protocol, SlowStates=[row]))), 1)
+
+    def test_protocol82_slow_all_owner_counts_and_time_offset(self):
+        for count in range(9):
+            row = self.slow(1, 6, protocol=82)
+            header = struct.pack("<HQIB", 2, 111, 1, count)
+            entries = b"".join(struct.pack("<BH", slot, slot + 3)
+                + struct.pack("<BhHH", 0, 0, slot + 10, slot + 20) + bytes(67)
+                for slot in range(count))
+            row["Payload"] = (header + entries + struct.pack("<16f", *([1.0] * 16))).hex()
+            self.assertEqual(len(bytes.fromhex(row["Payload"])), 79 + count * 77)
+            scores = slow_states(dict(Protocol=82, SlowStates=[row]))[0]["scores"]
+            self.assertEqual(len(scores), count)
+            if count:
+                self.assertEqual(scores[count - 1, count + 2], struct.pack("<BhHH", 0, 0, count + 9, count + 19))
+            data = bytearray.fromhex(row["Payload"])
+            struct.pack_into("<f", data, 15 + count * 77, float("nan"))
+            row["Payload"] = data.hex()
+            with self.assertRaisesRegex(ValueError, "time state"):
+                slow_states(dict(Protocol=82, SlowStates=[row]))
+
+    def test_protocol79_and82_strides_cannot_masquerade(self):
+        for protocol, wire in ((79, 82), (82, 79), (82, 48), (82, 45)):
+            with self.subTest(protocol=protocol, wire=wire), self.assertRaises(ValueError):
+                slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=wire)]))
+
+    def test_slow_protocol_is_required_typed_and_known(self):
+        for protocol in (None, True, False, "82", 82.0, 0, 40, 83):
+            with self.subTest(protocol=protocol), self.assertRaisesRegex(ValueError, "protocol"):
+                slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=82)]))
+        with self.assertRaisesRegex(ValueError, "protocol"):
+            slow_states(dict(SlowStates=[self.slow(1, 6, protocol=82)]))
+
+    def test_protocol82_slow_preserves_atomic_structure_guards(self):
+        row = self.slow(1, 6, protocol=82)
+        good = bytes.fromhex(row["Payload"])
+        malformed = [good[:-1], good + b"\x00", good[:14] + b"\x09" + good[15:],
+                     good[:15] + b"\x08" + good[16:], good[:16] + b"\x00\x00" + good[18:]]
+        for data in malformed:
+            with self.subTest(data=data.hex()), self.assertRaises(ValueError):
+                slow_states(dict(Protocol=82, SlowStates=[dict(row, Payload=data.hex())]))
+        with self.assertRaisesRegex(ValueError, "duplicate revision/context"):
+            slow_states(dict(Protocol=82, SlowStates=[row, copy.deepcopy(row)]))
+        with self.assertRaisesRegex(ValueError, "identity mismatch"):
+            slow_states(dict(Protocol=82, SlowStates=[dict(row, Match=3)]))
+        with self.assertRaisesRegex(ValueError, "Context"):
+            slow_states(dict(Protocol=82, SlowStates=[dict(row, Context=1)]), authority=True)
+
+    def test_protocol82_grapple_bytes_remain_in_exact_payload_parity(self):
+        self.lanes()
+        for report in (self.server, self.client):
+            report["Protocol"] = 82
+            report["SlowStates"] = [self.slow(1, 6, protocol=82), self.slow(2, 180, kills=1, protocol=82)]
+        self.assertEqual(slow_lane_parity(self.server, self.client)[1], [])
+        self.client["SlowStates"][-1] = self.slow(2, 180, kills=1, protocol=82, grapple=b"\x01" + bytes(18))
+        result, errors = slow_lane_parity(self.server, self.client)
+        self.assertEqual(result["slowLaneCompleteness"], "FAIL")
+        self.assertTrue(any("full payload mismatch" in error for error in errors))
 
     def test_schema1_score_lag_still_fails(self):
         self.server["States"][-1]["Kills"] = 1

@@ -249,10 +249,13 @@ def health_value(row, schema=1):
 
 def slow_states(report, authority=False):
     """Validate exact PlayerSlowState payloads; its revision has its own clock."""
-    # Protocols 46–48 append the continuous endpoint sidecar; protocol 49
-    # adds observed form/turret state. Scores remain in the first 10 bytes.
-    protocol = report.get("Protocol", 0)
-    stride = 58 if protocol >= 49 else 28 if protocol >= 46 else 10
+    # Protocols 46–48 append the continuous endpoint sidecar; protocol49–81
+    # add observed form/turret state; protocol82 appends19 grapple bytes.
+    # Scores retain the first10-byte prefix. Unknown wire layouts fail closed.
+    protocol = report.get("Protocol")
+    if type(protocol) is not int or not 41 <= protocol <= 82:
+        raise ValueError("unsupported slow-lane protocol")
+    stride = 77 if protocol == 82 else 58 if protocol >= 49 else 28 if protocol >= 46 else 10
     rows = report.get("SlowStates")
     if not isinstance(rows, list) or not rows:
         raise ValueError("missing/nonempty slow-lane evidence")
