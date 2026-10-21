@@ -23,8 +23,18 @@ internal sealed partial class ReplayRecorder
         && context.Bootstrap.World.Start.MatchId == _matchId && context.Bootstrap.World.Start.AuthorityEpoch == _epoch;
     private bool PublishCustom(ReplayCustomWeaponFact fact, uint recordingFrame)
     {
-        PublishTransient(new(recordingFrame, fact.World, ReplayFactKind.CustomWeapon, fact.CopyBytes()));
-        _customFactSequence = fact.Sequence; AcceptedCustomWeaponFacts++; return true;
+        if (CustomWeaponCaptureFailed) return false;
+        try
+        {
+            PublishTransient(new(recordingFrame, fact.World, ReplayFactKind.CustomWeapon, fact.CopyBytes()));
+            _customFactSequence = fact.Sequence; AcceptedCustomWeaponFacts++; return true;
+        }
+        catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+        {
+            // A failed observer may have seen a prefix. Close this capture;
+            // never turn a replay sink failure into missing gameplay ACKs.
+            CustomWeaponCaptureFailed = true; return false;
+        }
     }
     internal bool AcceptCustomWeaponBaseline(ReplayCustomWeaponContext context, in CustomReplicaCapture capture,
         ReadOnlySpan<CustomReplicaSlot> slots, ReadOnlySpan<CustomReplicaFlight> flights, uint recordingFrame)
@@ -41,7 +51,7 @@ internal sealed partial class ReplayRecorder
             var first = ReplayCustomWeaponFact.Bootstrap(context);
             var baseline = ReplayCustomWeaponFact.Baseline(context, 2, capture, slots, flights);
             RetireCustomWeaponFacts(); CustomWeaponContext = context;
-            PublishCustom(first, recordingFrame); return PublishCustom(baseline, recordingFrame);
+            return PublishCustom(first, recordingFrame) && PublishCustom(baseline, recordingFrame);
         }
         catch (Exception error) when (error is InvalidDataException or ArgumentException)
         { CustomWeaponCaptureFailed = true; return false; }
@@ -52,7 +62,8 @@ internal sealed partial class ReplayRecorder
         try
         {
             var fact = ReplayCustomWeaponFact.State(CustomWeaponContext!, _customFactSequence + 1, world, slots);
-            PublishCustom(fact, recordingFrame); _customFactStateRevision = revision; return true;
+            if (!PublishCustom(fact, recordingFrame)) return false;
+            _customFactStateRevision = revision; return true;
         }
         catch (Exception error) when (error is InvalidDataException or ArgumentException)
         { CustomWeaponCaptureFailed = true; return false; }
@@ -82,7 +93,8 @@ internal sealed partial class ReplayRecorder
         try
         {
             var fact = ReplayCustomWeaponFact.Pickup(CustomWeaponContext!, _customFactSequence + 1, world, index, item);
-            PublishCustom(fact, recordingFrame); _customRecordedPickups[index] = item; return true;
+            if (!PublishCustom(fact, recordingFrame)) return false;
+            _customRecordedPickups[index] = item; return true;
         }
         catch (Exception error) when (error is InvalidDataException or ArgumentException)
         { CustomWeaponCaptureFailed = true; return false; }
@@ -120,7 +132,7 @@ public static partial class NetSession
             if (consumer.DeliveredEvents != previousEvents && consumer.LatestAcceptedEvent is { } fact)
                 recorder.AcceptCustomWeaponEvent(fact, NetFrame);
         }
-        catch (Exception error) when (error is InvalidDataException or ArgumentException)
+        catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
         { recorder.FailCustomWeaponFacts(); }
         finally { Array.Clear(_customReplaySlots); Array.Clear(_customReplayFlights); }
     }
