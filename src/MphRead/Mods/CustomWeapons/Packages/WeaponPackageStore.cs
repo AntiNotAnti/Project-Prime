@@ -122,18 +122,20 @@ public sealed class WeaponPackageStore
         return result.AsReadOnly();
     }
 
-    public WeaponPackageLease Acquire(string packageHash)
+    public WeaponPackageLease Acquire(string packageHash) => Acquire(packageHash, default);
+    public WeaponPackageLease Acquire(string packageHash, CancellationToken cancellationToken)
     {
         Hash(packageHash);
-        using var gate = Enter(false, default);
+        using var gate = Enter(false, cancellationToken);
         if (gate == null) throw new FileNotFoundException("Weapon package archive is unavailable.");
         return ReadLease(packageHash); // Open under gate, retain after gate is released.
     }
 
-    public WeaponPackageLease AcquireInstalled(string packageHash)
+    public WeaponPackageLease AcquireInstalled(string packageHash) => AcquireInstalled(packageHash, default);
+    public WeaponPackageLease AcquireInstalled(string packageHash, CancellationToken cancellationToken)
     {
         Hash(packageHash);
-        using var gate = Enter(false, default);
+        using var gate = Enter(false, cancellationToken);
         if (gate == null) throw new FileNotFoundException("Weapon package is not installed.");
         var lease = ReadLease(packageHash);
         try { VerifyMarker(MarkerPath(packageHash), lease.Package); return lease; }
