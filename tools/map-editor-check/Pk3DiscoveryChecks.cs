@@ -17,12 +17,14 @@ static class Pk3DiscoveryChecks
         for (int i = 0; i <= level.Length - texture.Length; i++)
             if (level.AsSpan(i, texture.Length).SequenceEqual(texture))
                 Encoding.ASCII.GetBytes("textures/absent/art").CopyTo(level, i);
-        void Archive(params string[] entries)
+        void WriteLevelArchive(string path, byte[] bytes, params string[] entries)
         {
-            using var zip = ZipFile.Open(archive, ZipArchiveMode.Create);
+            using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
             foreach (string entry in entries)
-            { using var stream = zip.CreateEntry(entry).Open(); stream.Write(level); }
+            { using var stream = zip.CreateEntry(entry).Open(); stream.Write(bytes); }
         }
+        void Archive(params string[] entries)
+            => WriteLevelArchive(archive, level, entries);
         Archive("maps/alpha.bsp", "maps/beta.bsp");
         check(Pk3DiscoveryService.Discover(archive).Select(l => l.Name).SequenceEqual(new[] { "alpha", "beta" }),
             "PK3 adapter discovers explicit levels in ZIP archives");
@@ -33,6 +35,83 @@ static class Pk3DiscoveryChecks
             && key != Pk3DiscoveryService.Fingerprint(options, "alpha", new[] { archive })
             && key != Pk3DiscoveryService.Fingerprint(options, "beta", new[] { archive }, converterVersion:"next"),
             "PK3 cache invalidates for level, patch options and converter version");
+        string fingerprintMutation = Path.Combine(root, "fingerprint-mutation.bsp");
+        File.WriteAllBytes(fingerprintMutation, File.ReadAllBytes(bsp));
+        DateTime mutationTime = File.GetLastWriteTimeUtc(fingerprintMutation);
+        var mutationOptions = options with { Source = fingerprintMutation };
+        string beforeMutation = Pk3DiscoveryService.Fingerprint(mutationOptions, "beta", new[] { fingerprintMutation });
+        byte[] changedSource = File.ReadAllBytes(fingerprintMutation);
+        changedSource[^1] ^= 0x5a;
+        File.WriteAllBytes(fingerprintMutation, changedSource);
+        File.SetLastWriteTimeUtc(fingerprintMutation, mutationTime);
+        string afterMutation = Pk3DiscoveryService.Fingerprint(mutationOptions, "beta", new[] { fingerprintMutation });
+        check(new FileInfo(fingerprintMutation).Length == changedSource.Length
+            && File.GetLastWriteTimeUtc(fingerprintMutation) == mutationTime && beforeMutation != afterMutation,
+            "PK3 conversion fingerprint detects same-size source edits with restored timestamps");
+
+        string priorityOne = Path.Combine(root, "priority-one.pk3");
+        string priorityTwo = Path.Combine(root, "priority-two.pk3");
+        void WritePriorityArchive(string path, byte color)
+        {
+            using var zip = ZipFile.Open(path, ZipArchiveMode.Create);
+            using var stream = zip.CreateEntry("textures/prime/test.tga", CompressionLevel.NoCompression).Open();
+            byte[] image = new byte[30]; image[2] = 2; image[12] = 2; image[14] = 2;
+            image[16] = 24; image[17] = 0x20;
+            for (int i = 18; i < image.Length; i += 3) image[i + 2] = color;
+            stream.Write(image);
+        }
+        WritePriorityArchive(priorityOne, 240);
+        WritePriorityArchive(priorityTwo, 32);
+        string forwardPrecedence = Pk3DiscoveryService.Fingerprint(options, "beta",
+            new[] { archive, priorityOne, priorityTwo });
+        string reversePrecedence = Pk3DiscoveryService.Fingerprint(options, "beta",
+            new[] { archive, priorityTwo, priorityOne });
+        check(forwardPrecedence != reversePrecedence,
+            "PK3 conversion fingerprint invalidates when duplicate-texture archive precedence changes");
+
+        string? previousCacheOverride = Pk3DiscoveryService.CacheDirectoryOverride;
+        string? previousCacheEnvironment = Environment.GetEnvironmentVariable("PROJECT_PRIME_Q3_CACHE");
+        string envCache = Path.Combine(root, "environment-q3-cache");
+        string overrideCache = Path.Combine(root, "override-q3-cache");
+        string cacheProbe = Path.Combine(root, "cache-env-probe");
+        Directory.CreateDirectory(cacheProbe);
+        File.WriteAllText(Path.Combine(cacheProbe, "probe.bin"), "cache root probe");
+        try
+        {
+            Environment.SetEnvironmentVariable("PROJECT_PRIME_Q3_CACHE", envCache);
+            Pk3DiscoveryService.CacheDirectoryOverride = overrideCache;
+            string overrideKey = new string('a', 64);
+            Pk3DiscoveryService.Store(overrideKey, cacheProbe, default);
+            Pk3DiscoveryService.CacheDirectoryOverride = null;
+            string environmentKey = new string('b', 64);
+            Pk3DiscoveryService.Store(environmentKey, cacheProbe, default);
+            check(File.Exists(Path.Combine(overrideCache, overrideKey, "probe.bin"))
+                && File.Exists(Path.Combine(envCache, environmentKey, "probe.bin")),
+                "Q3 conversion cache honors internal test override before PROJECT_PRIME_Q3_CACHE");
+
+            string orphanCache = Path.Combine(root, "orphan-q3-cache");
+            string orphanKey = new string('c', 64);
+            string orphanPending = Path.Combine(orphanCache,
+                orphanKey + ".pending-" + Guid.NewGuid().ToString("N"));
+            string unrelatedPending = Path.Combine(orphanCache, "unrelated.pending-not-owned");
+            Directory.CreateDirectory(orphanPending);
+            Directory.CreateDirectory(unrelatedPending);
+            Pk3DiscoveryService.CacheDirectoryOverride = orphanCache;
+            string recoveryKey = new string('d', 64);
+            bool missingRecoveryArtifact = !Pk3DiscoveryService.Restore(recoveryKey,
+                Path.Combine(root, "orphan-recovery-staging"), default);
+            Pk3DiscoveryService.Store(recoveryKey, cacheProbe, default);
+            check(missingRecoveryArtifact && !Directory.Exists(orphanPending)
+                && Directory.Exists(unrelatedPending)
+                && File.Exists(Path.Combine(orphanCache, recoveryKey, "probe.bin")),
+                "Q3 cache removes only abandoned valid pending artifacts and recovers publication");
+        }
+        finally
+        {
+            Pk3DiscoveryService.CacheDirectoryOverride = previousCacheOverride;
+            Environment.SetEnvironmentVariable("PROJECT_PRIME_Q3_CACHE", previousCacheEnvironment);
+        }
+
         var noFallback = Q3ImportService.Import(options with { AllowFallbackTextures = false,
             DestinationDirectory = Path.Combine(root, "pk3-no-fallback") });
         check(!noFallback.Succeeded && !Directory.Exists(Path.Combine(root, "pk3-no-fallback")),
@@ -56,6 +135,56 @@ static class Pk3DiscoveryChecks
             check(reimported.Succeeded && reopened.MapId == identity && reopened.Description == "authored description",
                 "PK3 cached reimport preserves authored metadata and map identity");
         }
+
+        string relocationOne = Path.Combine(root, "job-uuid-one");
+        string relocationTwo = Path.Combine(root, "job-uuid-two");
+        Directory.CreateDirectory(relocationOne); Directory.CreateDirectory(relocationTwo);
+        string relocatedSourceOne = Path.Combine(relocationOne, "upload.pk3");
+        string relocatedSourceTwo = Path.Combine(relocationTwo, "upload.pk3");
+        string relocatedDependencyOne = Path.Combine(relocationOne, "textures.pk3");
+        string relocatedDependencyTwo = Path.Combine(relocationTwo, "textures.pk3");
+        string relocatedDependencyFixture = Path.Combine(root, "relocated-textures.pk3");
+        File.Copy(priorityOne, relocatedDependencyFixture);
+        File.Copy(archive, relocatedSourceOne);
+        File.Copy(archive, relocatedSourceTwo);
+        File.Copy(relocatedDependencyFixture, relocatedDependencyOne);
+        File.Copy(relocatedDependencyFixture, relocatedDependencyTwo);
+        var relocatedOptionsOne = options with
+        {
+            Source = relocatedSourceOne, RoomName = "PK3_RELOCATED",
+            DestinationDirectory = Path.Combine(root, "relocated-import-one"),
+            Dependencies = new[] { relocatedDependencyOne }
+        };
+        var relocatedOptionsTwo = options with
+        {
+            Source = relocatedSourceTwo, RoomName = "PK3_RELOCATED",
+            DestinationDirectory = Path.Combine(root, "relocated-import-two"),
+            Dependencies = new[] { relocatedDependencyTwo }
+        };
+        IReadOnlyList<string> relocatedArchivesOne = MapTextureBake.DiscoverArchives(
+            relocatedOptionsOne.Source, relocatedOptionsOne.Dependencies);
+        IReadOnlyList<string> relocatedArchivesTwo = MapTextureBake.DiscoverArchives(
+            relocatedOptionsTwo.Source, relocatedOptionsTwo.Dependencies);
+        string relocatedKeyOne = Pk3DiscoveryService.Fingerprint(relocatedOptionsOne, "beta", relocatedArchivesOne);
+        string relocatedKeyTwo = Pk3DiscoveryService.Fingerprint(relocatedOptionsTwo, "beta", relocatedArchivesTwo);
+        var relocatedFirst = Q3ImportService.Import(relocatedOptionsOne);
+        var relocatedSecond = Q3ImportService.Import(relocatedOptionsTwo);
+        bool relativeRelocatedPaths = false;
+        if (relocatedSecond.ProjectPath != null)
+        {
+            var relocatedMap = MapDefinition.Load(relocatedSecond.ProjectPath);
+            string projectDirectory = Path.GetDirectoryName(relocatedSecond.ProjectPath)!;
+            relativeRelocatedPaths = relocatedMap.Import != null
+                && !Path.IsPathRooted(relocatedMap.Import.Source)
+                && !String.IsNullOrEmpty(relocatedMap.Import.Textures)
+                && !Path.IsPathRooted(relocatedMap.Import.Textures)
+                && File.Exists(Path.Combine(projectDirectory, relocatedMap.Import.Source))
+                && File.Exists(Path.Combine(projectDirectory, relocatedMap.Import.Textures));
+        }
+        check(relocatedKeyOne == relocatedKeyTwo && relocatedFirst.Succeeded && relocatedSecond.Succeeded
+            && relocatedSecond.Diagnostics.Any(d => d.Message == "Q3 conversion cache hit.") && relativeRelocatedPaths,
+            "identical relocated PK3 imports reuse conversion while retaining relative source and texture paths");
+
         check(Pk3DiscoveryService.CacheDirectoryOverride != null
             && Path.GetFullPath(Pk3DiscoveryService.CacheDirectoryOverride).StartsWith(Path.GetFullPath(root) + Path.DirectorySeparatorChar,
                 StringComparison.Ordinal), "Q3 checks isolate conversion cache from user artifacts");

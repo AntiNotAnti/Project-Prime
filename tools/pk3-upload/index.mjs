@@ -32,6 +32,13 @@ if (!path.isAbsolute(root || "") || !path.isAbsolute(converter || "") ||
   const st = await fs.lstat(converter);
   if (!st.isFile() || st.isSymbolicLink())
     throw new Error("Converter executable must be a regular file.");
+  // Disposable conversion artifacts must outlive individual job directories.
+  // The converter enforces its own 512 MiB/eight-entry retention budget.
+  const conversionCache = path.join(root, "conversion-cache");
+  await fs.mkdir(conversionCache, { recursive: true, mode: 0o700 });
+  const cacheInfo = await fs.lstat(conversionCache);
+  if (!cacheInfo.isDirectory() || cacheInfo.isSymbolicLink())
+    throw new Error("Conversion cache must be a private directory.");
   // Only keyless Supabase verification via the existing Community ticket
   // function. The service_role credential never enters this process.
   const cache = new Map();
@@ -66,7 +73,8 @@ if (!path.isAbsolute(root || "") || !path.isAbsolute(converter || "") ||
   // A child process performs the expensive parsing and compilation. Pass an
   // explicit safe env, not the parent's Supabase settings. An operator must
   // additionally apply OS network/FS isolation and cgroup resource limits.
-  async function runConverter({ input, output, roomName, levelName, cwd }) {
+  async function runConverter({ input, output, roomName, levelName, cwd, signal }) {
+    signal?.throwIfAborted();
     const args = ["--source", input, "--output", output, "--room", roomName];
     if (levelName) args.push("--level", levelName);
     return new Promise((resolve, reject) => {
@@ -80,6 +88,7 @@ if (!path.isAbsolute(root || "") || !path.isAbsolute(converter || "") ||
           XDG_CACHE_HOME: cwd,
           DOTNET_CLI_HOME: cwd,
           TMPDIR: cwd,
+          PROJECT_PRIME_Q3_CACHE: conversionCache,
         },
       });
       let stdout = "", stderrBytes = 0, finished = false;
@@ -95,6 +104,8 @@ if (!path.isAbsolute(root || "") || !path.isAbsolute(converter || "") ||
         if (!finished) reject(new Error("Conversion exceeded 300-second budget."));
       }, 300_000);
       timer.unref();
+      signal?.addEventListener("abort", kill, { once: true });
+      child.once("spawn", () => { if (signal?.aborted) kill(); });
       child.stdout.setEncoding("utf8");
       child.stdout.on("data", block => {
         stdout += block;
@@ -105,10 +116,13 @@ if (!path.isAbsolute(root || "") || !path.isAbsolute(converter || "") ||
         if (stderrBytes > 1024 * 1024) kill();
       });
       child.on("error", error => {
+        signal?.removeEventListener("abort", kill);
         clearTimeout(timer); finished = true; reject(error);
       });
       child.on("close", code => {
+        signal?.removeEventListener("abort", kill);
         clearTimeout(timer); finished = true;
+        if (signal?.aborted) return reject(signal.reason);
         if (code !== 0) return reject(new Error("Converter exited without verified output"));
         try {
           const result = JSON.parse(stdout.trim());

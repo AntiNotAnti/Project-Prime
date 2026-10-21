@@ -59,14 +59,9 @@ namespace MphRead.Mods.MapGen
             Action<string>? log = null, Action<int,int,string>? textureProgress = null)
         {
             cancellation.ThrowIfCancellationRequested();
-            void Log(string message)
-            {
-                if (log != null) log(message);
-                else Console.WriteLine(message);
-            }
             if (!File.Exists(source))
             {
-                Log($"No such file: {source}");
+                WriteLog(log, $"No such file: {source}");
                 return 1;
             }
             Q3Bsp bsp;
@@ -77,7 +72,37 @@ namespace MphRead.Mods.MapGen
             catch (OperationCanceledException) { throw; }
             catch (Exception ex)
             {
-                Log(ex.Message);
+                WriteLog(log, ex.Message);
+                return 1;
+            }
+            mapName ??= Q3Bsp.ListMaps(source).FirstOrDefault();
+            return RunLoaded(source, bsp, mapName, roomName, outputDir, dropClip, dropItems, forcedScale,
+                textureSize, cancellation, textureArchives, log, textureProgress);
+        }
+
+        /// <summary>
+        /// Converts a BSP that the import preflight has already parsed. The
+        /// public file-based entry point retains its loading and validation path.
+        /// </summary>
+        internal static int Run(string source, Q3Bsp bsp, string? mapName, string? roomName, string? outputDir,
+            bool dropClip, bool dropItems, float? forcedScale, int textureSize,
+            CancellationToken cancellation = default, IReadOnlyList<string>? textureArchives = null,
+            Action<string>? log = null, Action<int,int,string>? textureProgress = null)
+        {
+            return RunLoaded(source, bsp, mapName, roomName, outputDir, dropClip, dropItems, forcedScale,
+                textureSize, cancellation, textureArchives, log, textureProgress);
+        }
+
+        private static int RunLoaded(string source, Q3Bsp bsp, string? mapName, string? roomName, string? outputDir,
+            bool dropClip, bool dropItems, float? forcedScale, int textureSize,
+            CancellationToken cancellation, IReadOnlyList<string>? textureArchives,
+            Action<string>? log, Action<int,int,string>? textureProgress)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            void Log(string message) => WriteLog(log, message);
+            if (!File.Exists(source))
+            {
+                Log($"No such file: {source}");
                 return 1;
             }
             mapName ??= Q3Bsp.ListMaps(source).FirstOrDefault();
@@ -225,6 +250,12 @@ namespace MphRead.Mods.MapGen
             }
             Log($"  then: ProjectPrime -mapgen \"{room}\"");
             return 0;
+        }
+
+        private static void WriteLog(Action<string>? log, string message)
+        {
+            if (log != null) log(message);
+            else Console.WriteLine(message);
         }
 
         /// <summary>

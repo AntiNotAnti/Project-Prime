@@ -31,6 +31,15 @@ Q3 imports are transactional. Conversion happens in a sibling staging directory 
 
 `MapDependencyAnalyzer` supplies content fingerprints and the portable asset set used by packaging, package reference checks and Save As. Base-room content affects runtime fingerprints but is never packaged. Source directories are part of in-memory compiler-cache identity because compiled imports retain path resolvers; persistent binary cache identity depends on content.
 
+Q3 conversion artifacts use source/dependency bytes, source basename, ordered
+archive roles, selected level, settings and compiler/generator identity. Job
+directory relocation does not invalidate identical inputs; the selected source
+is hashed once per fingerprint. Import reuses its analyzed BSP on a cache miss
+and rechecks source contents before storing/publishing. Fresh imports still
+receive independent map GUIDs. `PROJECT_PRIME_Q3_CACHE` can select a private
+disposable conversion cache; a cross-process publication lease protects its
+eight-entry / 512 MiB retention and abandoned pending-artifact cleanup.
+
 `MapOutputSet` owns all five filenames. A missing output, damaged output, changed source/import/texture/asset, schema or compiler setting makes the build stale. `map.build.json` records SHA-256 fingerprints and output hashes. Every output is prepared before publication; the sidecar is written last, so interruption causes regeneration on the next launch.
 
 Diagnostics carry stable `FP-MAP-*` codes, severity and optional object ID. Validators check geometry transforms/ranges/topology, materials/assets, spawn placement/headroom, multiplayer pickups, jump-pad settings, modes, imported dependencies and collision budgets. Runtime limits produce warnings at 70%/90% and errors at 100%. `-mapinspect` also generates navigation and reports node/edge budgets.

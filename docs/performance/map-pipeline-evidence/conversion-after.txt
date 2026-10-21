@@ -1,0 +1,7 @@
+Q3 conversion benchmark: one import and one identical import from a relocated job directory
+Source and dependency files: 1; 2,709,119 bytes
+BSP parse: 47.42 ms; 40,210,024 allocated bytes; 4,140,672 retained managed bytes
+Fingerprint A after warmup: 1.20 ms; 84,408 allocated bytes
+Fingerprint B relocated after warmup: 1.19 ms; 84,408 allocated bytes; same key=True
+Import A: 295.61 ms; 101,919,560 allocated bytes; cache hit=False
+Import B relocated: 65.26 ms; 82,081,184 allocated bytes; cache hit=True

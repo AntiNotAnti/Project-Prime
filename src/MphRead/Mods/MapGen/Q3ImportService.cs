@@ -48,6 +48,8 @@ public static class Q3ImportService
         public IReadOnlyList<MapDiagnostic> GameplayWarnings { get; init; } = Array.Empty<MapDiagnostic>();
     }
 
+    private sealed record PreparedAnalysis(Analysis Analysis, Q3Bsp? Bsp);
+
     public sealed record ReimportDiff(
         Analysis? Current, Analysis Next,
         int AuthoredGeometry, int AuthoredEntities, int AuthoredMaterials)
@@ -75,6 +77,11 @@ public static class Q3ImportService
     public static Analysis Analyze(string source, string? mapName = null,
         IReadOnlyList<string>? dependencies = null, float? scale = null,
         CancellationToken cancellation = default)
+        => AnalyzeCore(source, mapName, dependencies, scale, cancellation).Analysis;
+
+    private static PreparedAnalysis AnalyzeCore(string source, string? mapName = null,
+        IReadOnlyList<string>? dependencies = null, float? scale = null,
+        CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
         if (scale.HasValue && (!float.IsFinite(scale.Value) || scale.Value <= 0))
@@ -100,12 +107,13 @@ public static class Q3ImportService
         int spawns = Q3Gameplay.Spawns(bsp, unit).Count;
         int patches = bsp.Faces.Count(f => f.Type == 2);
         int pickups = Q3Import.Pickups(bsp, unit).Count();
-        return new Analysis(source, selected, maps, auto,
+        var analysis = new Analysis(source, selected, maps, auto,
             (max[0] - min[0]) / unit,
             (max[2] - min[2]) / unit,
             (max[1] - min[1]) / unit,
             bsp.Faces.Count, patches, bsp.Brushes.Count, clips, spawns, pickups, coverage)
         { GameplayWarnings = Q3Gameplay.Inspect(bsp, unit) };
+        return new PreparedAnalysis(analysis, bsp);
     }
 
     public static ReimportDiff PreviewReimport(MapDefinition existing,string source,string? mapName=null,
@@ -148,8 +156,9 @@ public static class Q3ImportService
             string selectedMap = options.MapName ?? Q3Bsp.ListMaps(options.Source).FirstOrDefault()
                 ?? throw new InvalidDataException("Quake source contains no BSP levels.");
             string cacheKey = Pk3DiscoveryService.Fingerprint(options, selectedMap, archives, cancellation);
-            Analysis analysis = Analyze(options.Source, options.MapName, options.Dependencies,
+            PreparedAnalysis prepared = AnalyzeCore(options.Source, options.MapName, options.Dependencies,
                 options.UnitsPerUnit, cancellation);
+            Analysis analysis = prepared.Analysis;
             if (!options.AllowFallbackTextures && analysis.Textures.Missing.Count != 0)
                 throw new InvalidDataException("Missing source textures. Add a local dependency archive or allow fallback textures.");
             foreach (var warning in analysis.GameplayWarnings)
@@ -168,7 +177,7 @@ public static class Q3ImportService
             }
             bool cacheHit = false;
             try { cacheHit = Pk3DiscoveryService.Restore(cacheKey, staging, cancellation); }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
             {
                 Directory.Delete(staging, true);
                 Directory.CreateDirectory(staging);
@@ -178,7 +187,9 @@ public static class Q3ImportService
             if (!cacheHit)
             {
                 progress?.Invoke("Copying source and preparing textures…");
-                int status = Q3Convert.Run(options.Source, analysis.MapName, options.RoomName, staging,
+                int status = Q3Convert.Run(options.Source, prepared.Bsp
+                    ?? throw new InvalidOperationException("Q3 analysis did not retain its parsed level."), analysis.MapName,
+                    options.RoomName, staging,
                     dropClip: !options.KeepClip, dropItems: !options.KeepItems,
                     forcedScale: options.UnitsPerUnit, textureSize: options.TextureSize,
                     cancellation: cancellation, textureArchives: archives, log: lines.Add,
@@ -188,9 +199,10 @@ public static class Q3ImportService
                 if (status != 0) throw new IOException("Quake 3 conversion failed.");
                 RequireUnchangedSource();
                 try { Pk3DiscoveryService.Store(cacheKey, staging, cancellation); }
-                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
                 { diagnostics.Add(new(Severity.Warning, "Conversion cache unavailable: " + ex.Message)); }
             }
+            else prepared = prepared with { Bsp = null };
 
             progress?.Invoke("Finalizing imported project…");
             string projectPath = Directory.EnumerateFiles(staging, "*.json").Single();
