@@ -813,7 +813,7 @@ void main()
             Check("LegacyVertexShader", Shaders.LegacyVertexShader, "10d6837ed1a7531c81f5ec6d5f39473c03efc0266541b66a79de89eb268d63db");
             Check("LegacyEsVertexShader", LegacyVertexShader, "7a496438c2700e57515923d54035dff2092829831dc5fe7e395f2a6410d89db8");
             Check("FragmentShader", Shaders.FragmentShader,
-                "0220aba401751fab2300184a0a0b61490347753fae17393b16f00cd618d27ae3");
+                "f62c71f4cfa109331aa85f70d1bb9d8689ca743f576ffc7698a22189737af43a");
             Check("RttVertexShader", Shaders.RttVertexShader,
                 "af070f447840bf1fc51d6bba88a339fab067a4e3a01e460351a2549ca9107f4f");
             Check("RttFragmentShader", Shaders.RttFragmentShader,
