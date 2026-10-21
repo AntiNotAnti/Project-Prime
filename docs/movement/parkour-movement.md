@@ -46,11 +46,13 @@ Native jump/SpaceJump flags remain owned by their existing controller. Native
 pads, teleports and external acceleration retain priority over a pending kick.
 
 Current live peers use protocol 79 / Parkour v3. Protocol 78 recordings retain
-Parkour v2 and protocol 77 recordings retain Parkour v1, and earlier protocols cannot acquire Parkour. Passive replay worlds
+Parkour v2 and protocol 77 recordings retain Parkour v1. Earlier protocols cannot
+acquire Parkour. Passive replay worlds
 consume accepted positions and shapes rather than rerunning current wall forces.
 The existing life-fenced owner-position multiplayer contract remains in effect;
 the authority does not independently resimulate remote trajectories.
 
-Short ledge scramble and optional grapple are subsequent ordered slices.
-Windows qualification of wallstrafe and wallrun is pending restoration of the
-Windows test connection. Source checks alone do not qualify these controllers.
+See [wallstrafe validation](parkour-wallstrafe-results.md) for completed Windows
+scene, multiplayer and replay results. Wallrun/kick Windows qualification is
+pending; source checks alone do not qualify the new controller. Short ledge
+scramble and optional grapple are subsequent ordered slices.

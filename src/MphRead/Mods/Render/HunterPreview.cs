@@ -389,16 +389,19 @@ namespace MphRead.Mods.Render
         {
             if (_model != null)
             {
-                _model.UpdateAnimFrames();
-                // The launcher drives this clock independently of a live
-                // FrameTiming simulation. Record after its owned 60-Hz update;
-                // a separate wall-clock phase is only for displaying the
-                // intermediate pose. It never advances the actual animation.
+                // Preview simulation and cosmetics run at 60 Hz, just like a
+                // live scene. Native model frames advance only every other
+                // tick (EntityBase.UpdateAnimFrames), so their authored idle
+                // animation plays at 30 Hz regardless of display refresh.
                 long step = ++_previewSteps;
                 _lastPreviewStepStamp = System.Diagnostics.Stopwatch.GetTimestamp();
-                var info = _model.AnimInfo;
-                _model.PresentationSamples.Record(info, 0, step);
-                _model.PresentationSamples.Record(info, 1, step);
+                if (step % 2 == 0)
+                {
+                    _model.UpdateAnimFrames();
+                    var info = _model.AnimInfo;
+                    _model.PresentationSamples.Record(info, 0, step);
+                    _model.PresentationSamples.Record(info, 1, step);
+                }
             }
             _cosmeticTime += 1f / 60;
             if (Mods.Cosmetics.CosmeticPreview.LoopDeath && _deathRequest != 0

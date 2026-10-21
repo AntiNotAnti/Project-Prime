@@ -261,6 +261,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--instagib-ion-fracture") return InstagibIonFractureTests.Run();
             if (args.Length > 0 && args[0] == "--browser-join") return BrowserJoinTests.Run();
             if (args.Length > 0 && args[0] == "--map-vote-ready") return MapVoteReadyTests.Run();
+            if (args.Length > 0 && args[0] == "--hunter-preview-timing") { HunterPreviewTimingTests.Run(); return 0; }
             if (args.Length > 0 && args[0] == "--animation-sampling") return AnimationSamplingTests.Run();
             if (args.Length > 0 && args[0] == "--particle-presentation") return ParticlePresentationTests.Run();
             if (args.Length > 0 && args[0] == "--beam-presentation") return BeamPresentationTests.Run();

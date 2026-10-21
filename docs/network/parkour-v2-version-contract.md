@@ -12,5 +12,5 @@ normalization remains independent of current profile selection. Passive replicas
 do not rerun the active wallstrafe controller.
 
 [Parkour guide](../movement/parkour-movement.md) describes controls and limits.
-Windows validation and its exact source/binary evidence will be recorded with
-the completed wallstrafe slice.
+[Windows validation](../movement/parkour-wallstrafe-results.md) records the
+exact source, binary, multiplayer and replay evidence for the completed slice.

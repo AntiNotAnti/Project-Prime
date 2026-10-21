@@ -578,6 +578,17 @@ internal static partial class NativeHunterStageGlAcceptance
             var plan = RmlUiHunterStagePlan.Build(lobbyHub, lobby, roster);
             Check(plan.Count == 8 && plan.Formation[0].NetSlot == 7 && plan.Formation[0].Local,
                 "explicit local slot 7 sorts to front pad without network identity");
+            layout.SetText("lobby_brief_title", "EXPLICIT FIXTURE LOBBY");
+            for (int pad = 0; pad < 8; pad++)
+            {
+                layout.SetBool($"slot{pad}_occupied", true);
+                layout.SetBool($"slot{pad}_ready", true);
+                layout.SetBool($"slot{pad}_local", pad == 0);
+                layout.SetText($"slot{pad}_name", "FIXTURE " + (pad + 1));
+                layout.SetText($"slot{pad}_hunter", plan.Formation[pad].Hunter.ToString().ToUpperInvariant());
+                layout.SetText($"slot{pad}_state", "READY");
+            }
+            layout.Flush(); host.Update(); layout.AfterUpdate();
             Clear(width, height);
             RmlUiHunterStageRenderer.Draw(window, host, RmlUiMenuPage.Lobby, false, lobbyHub, lobby, roster, width, height);
             Check(Canonical(sentinel) == canonicalBefore, "eight-pad drawing preserves inactive canonical state/RNG");
