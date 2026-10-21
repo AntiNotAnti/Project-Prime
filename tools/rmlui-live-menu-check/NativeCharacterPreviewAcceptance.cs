@@ -42,31 +42,30 @@ internal static class NativeCharacterPreviewAcceptance
                 while (parts.CharacterPreviewId != source.Id) parts.CycleCharacterPreview();
                 parts.CheckCharacterPreview(); Wait(parts);
                 Check(parts.Status.Contains("body v5: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("ball v3: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("Source authoring bundle;", StringComparison.Ordinal)
-                    && parts.Status.Contains("normal and Overcharged Echoes support a source-program body preview with preview lighting", StringComparison.Ordinal)
-                    && parts.Status.Contains("First-person and playable animation/morph remain unqualified.", StringComparison.Ordinal),
-                    "complete verified synthetic v6 bundle reports body-v5 and ball-v3 Ready with explicit source-program preview and gameplay qualification limits");
+                    && parts.Status.Contains("ball v4: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("Choose an updated imported body in Hunters for local offline matches.", StringComparison.Ordinal)
+                    && parts.Status.Contains("Unsupported states and online matches use native presentation.", StringComparison.Ordinal),
+                    "complete verified synthetic v7 bundle reports body-v5 and ball-v4 Ready with explicit local-only source presentation limits");
                 var spec = RetroCharacterPreviewExporter.BundleSpec(source.Id);
-                Check(spec.Version == 6 && spec.RequiredComponents.Length == 20,
-                    "normal source authoring recipe-v6 independently requires all twenty components");
-                foreach(var component in new[]{(".obj","geometry"),(".cinf.bin","skeleton-source"),(".animations.bin","animation-resources"),(".source.glb","source-rig-geometry"),(".source.json","generated-provenance")})
+                Check(spec.Version == 7 && spec.RequiredComponents.Length == 23,
+                    "normal source authoring recipe-v7 independently requires all twenty-three components");
+                foreach(var component in new[]{(".obj","geometry"),(".cinf.bin","skeleton-source"),(".animations.bin","animation-resources"),(".source.glb","source-rig-geometry"),(".source.json","generated-provenance"),(".ancs-graph.json","animation-graph"),(".ancs.bin","animation-graph-source"),(".materials.bin","source-materials")})
                 {
                     var installed = LocalImportBundle.Inspect(root, source.Id, spec);
                     string name = RetroCharacterPreviewExporter.PartStem(source.Id, "ball") + component.Item1;
                     File.Delete(installed.Files.Single(file => Path.GetFileName(file) == name));
                     parts.CheckCharacterPreview(); Wait(parts);
                     Check(parts.Status.Contains("body v5: Ready", StringComparison.Ordinal)
-                        && parts.Status.Contains("ball v3: Incomplete", StringComparison.Ordinal)
+                        && parts.Status.Contains("ball v4: Incomplete", StringComparison.Ordinal)
                         && parts.Status.Contains(component.Item2+" v1 Incomplete", StringComparison.Ordinal)
-                        && parts.Status.Contains("Source authoring bundle;", StringComparison.Ordinal)
-                        && parts.Status.Contains("First-person and playable animation/morph remain unqualified.", StringComparison.Ordinal),
+                        && parts.Status.Contains("Choose an updated imported body in Hunters for local offline matches.", StringComparison.Ordinal)
+                        && parts.Status.Contains("Unsupported states and online matches use native presentation.", StringComparison.Ordinal),
                         "missing required ball component leaves body Ready and identifies exact incomplete role without playable qualification: "+component.Item2);
                     LocalImportBundle.Publish(root, spec, spec.RequiredComponents.ToDictionary(c => c, c => Encoding.UTF8.GetBytes("synthetic fixture: " + c)));
                     parts.CheckCharacterPreview(); Wait(parts);
                     Check(parts.Status.Contains("body v5: Ready", StringComparison.Ordinal)
-                        && parts.Status.Contains("ball v3: Ready", StringComparison.Ordinal),
-                        "complete republish repairs v6 synthetic component fixture before removal and snapshot checks: "+component.Item2);
+                        && parts.Status.Contains("ball v4: Ready", StringComparison.Ordinal),
+                        "complete republish repairs v7 synthetic component fixture before removal and snapshot checks: "+component.Item2);
                 }
             }
             using(var manifestOwner=new NativeFullSettingsController(settings))
@@ -74,7 +73,7 @@ internal static class NativeCharacterPreviewAcceptance
                 const string normal="darksamus-echoes";
                 while(manifestOwner.CharacterPreviewId!=normal)manifestOwner.CycleCharacterPreview();
                 var spec=RetroCharacterPreviewExporter.BundleSpec(normal);
-                foreach (var component in new[] { ("characters.json", "source-preview-manifest v2"), ("darksamus-echoes.cannon-source.json", "source-cannon-recipe v1"),
+                foreach (var component in new[] { ("characters.json", "source-preview-manifest v3"), ("darksamus-echoes.cannon-source.json", "source-cannon-recipe v1"),
                     ("darksamus-echoes.materials.bin", "source-materials v1") })
                 {
                 var installed=LocalImportBundle.Inspect(root,normal,spec);
@@ -82,11 +81,11 @@ internal static class NativeCharacterPreviewAcceptance
                 manifestOwner.CheckCharacterPreview();Wait(manifestOwner);
                 Check(manifestOwner.Status.Contains("body v5: Incomplete",StringComparison.Ordinal)
                     &&manifestOwner.Status.Contains(component.Item2+" Incomplete",StringComparison.Ordinal)
-                    &&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
+                    &&manifestOwner.Status.Contains("ball v4: Ready",StringComparison.Ordinal),
                     "missing normal manifest identifies incomplete body without hiding verified ball components");
                 LocalImportBundle.Publish(root,spec,spec.RequiredComponents.ToDictionary(c=>c,c=>Encoding.UTF8.GetBytes("synthetic fixture: "+c)));
                 manifestOwner.CheckCharacterPreview();Wait(manifestOwner);
-                Check(manifestOwner.Status.Contains("body v5: Ready",StringComparison.Ordinal)&&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
+                Check(manifestOwner.Status.Contains("body v5: Ready",StringComparison.Ordinal)&&manifestOwner.Status.Contains("ball v4: Ready",StringComparison.Ordinal),
                     "normal component repair restores complete synthetic inventory before removal checks");
                 }
             }
