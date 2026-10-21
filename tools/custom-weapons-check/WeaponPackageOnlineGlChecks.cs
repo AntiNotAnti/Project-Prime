@@ -174,6 +174,7 @@ internal static class WeaponPackageOnlineGlChecks
                     "ordinary client capture contains exactly one bootstrap and baseline");
                 Check(counts.GetValueOrDefault(ReplayCustomWeaponFactKind.State)>=1&&counts.GetValueOrDefault(ReplayCustomWeaponFactKind.Launch)>=1
                     &&counts.GetValueOrDefault(ReplayCustomWeaponFactKind.Pickup)>=2,"ordinary capture contains state launch and pickup facts");
+                Check(counts.GetValueOrDefault(ReplayCustomWeaponFactKind.Clock)>=1,"ordinary accepted snapshots publish genuine custom Clock facts");
                 Check(recordedEmpty,"accepted tables preserve initial absence of a granted weapon");
                 Check(recordedPickup,"accepted tables preserve actual pickup resources six/twentythree");
                 Check(recordedSpent,"accepted tables preserve authority-paid five/twentythree");
@@ -182,6 +183,10 @@ internal static class WeaponPackageOnlineGlChecks
                 Check(recordedOptic4,"accepted tables preserve fourth creator optic");
                 Check(linear.CompleteForRestore&&!linear.Invalidated&&completePoints.Count>0,
                     "actual accepted facts produce complete passive custom state");
+                Check(recorder.TryCaptureCustomWeaponState(out var recorderDescriptor,out var recorderCheckpoint),"recorder exposes complete immutable current custom state");
+                Check(recorderDescriptor!=null&&BinaryPrimitives.ReadUInt16LittleEndian(recorderDescriptor.CopyBytes().AsSpan(4))==2&&recorderDescriptor.InspectContext().Digest==context.Digest,"recorder current descriptor is exact inspection V2");
+                Check(recorderCheckpoint.AsSpan().SequenceEqual(linear.CaptureCheckpointBytes()),"recorder current CWRS equals actual accepted linear state including clocks");
+                Console.WriteLine($"CUSTOM CLOCK FACTS {counts.GetValueOrDefault(ReplayCustomWeaponFactKind.Clock)} TOTAL FACTS {parsedFacts.Count} COMPLETE POINTS {completePoints.Count}; restore prefix work is quadratic with bounded live snapshots");
                 var leftFlights=new CustomReplicaFlight[ReplayCustomWeaponState.FlightCapacity];
                 var rightFlights=new CustomReplicaFlight[ReplayCustomWeaponState.FlightCapacity];
                 bool SameState(ReplayCustomWeaponState left,ReplayCustomWeaponState right)

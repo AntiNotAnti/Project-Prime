@@ -132,9 +132,18 @@ internal sealed partial class ReplayRecorder
         if (header.PlayerCount > RosterPacket.MaxSlots
             || packet.Length < 1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size) return;
         if (_matchId == 0 || header.MatchId != _matchId || header.AuthorityEpoch != _epoch || header.Frame != tick) return;
+        // Live callers have already admitted the canonical snapshot. Keep the
+        // new durable clock bounded to that complete native framing too; a
+        // header-only capture cannot advance custom projectile time.
+        int tail = 1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
+        if (packet.Length >= tail + NetMatchTimeSync.Size + NetHealthSync.HeaderSize
+            && NetMatchTimeSync.Validate(packet.Slice(tail, NetMatchTimeSync.Size))
+            && NetHealthSync.Validate(packet[(tail + NetMatchTimeSync.Size)..])
+            && System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(packet[(tail + NetMatchTimeSync.Size)..]) == header.MatchId)
+            AcceptCustomWeaponClock(tick, frame);
         _snapshot?.Release();
         _snapshot = new(frame, tick, ReplayFactKind.Snapshot, packet);
-        if (!ProducesWorldCheckpoints && (Timeline.NeedsRestorePoint || frame - _lastRestore >= 300))
+        if (!HasCustomWeaponMatch && !ProducesWorldCheckpoints && (Timeline.NeedsRestorePoint || frame - _lastRestore >= 300))
         {
             if (_match != null && _roster != null)
             {
@@ -192,6 +201,7 @@ internal sealed partial class ReplayRecorder
 
     internal void SeedWorld(Action<ReplayTimelineRecord> accept)
     {
+        if (HasCustomWeaponMatch) throw new InvalidOperationException("Custom world construction requires an explicit historical archive/world contract.");
         if (_match is { } match) accept(match);
         if (_configuration is { } configuration) accept(configuration);
         if (_roster is { } roster) accept(roster);
@@ -253,7 +263,7 @@ internal sealed partial class ReplayRecorder
         => AppendWorldCheckpoint(new ReplayTimelineRecord(frame, tick, ReplayFactKind.World, bytes));
     private bool AppendWorldCheckpoint(ReplayTimelineRecord world)
     {
-        if (_match == null || _roster == null || _snapshot == null) { world.Release(); return false; }
+        if (HasCustomWeaponMatch || _match == null || _roster == null || _snapshot == null) { world.Release(); return false; }
         uint frame = world.RecordingFrame, tick = world.ServerTick;
         // Packet baselines remain available to metadata/compatibility tools. Only
         // the World record is allowed to restore a replica scene.

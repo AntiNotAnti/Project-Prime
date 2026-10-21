@@ -88,6 +88,8 @@ internal sealed partial class ReplayCustomWeaponState
             }
             if (Sequence == ulong.MaxValue || fact.Sequence != Sequence + 1)
                 throw new InvalidDataException("Missing or reordered custom replay fact.");
+            if (fact.Kind == ReplayCustomWeaponFactKind.Clock && (!HasBaseline || !Before(World, fact.World)))
+                throw new InvalidDataException("Custom replay clock requires a strictly newer recorded authority tick.");
             Advance(fact.World, recordingFrame);
             if (!_bootstrap)
             {
@@ -175,6 +177,8 @@ internal sealed partial class ReplayCustomWeaponState
     {
         switch (fact.Kind)
         {
+            case ReplayCustomWeaponFactKind.Clock:
+                break; // Advance consumed the recorded clock; no mechanics or ownership simulation.
             case ReplayCustomWeaponFactKind.State:
                 if (Before(fact.World, _stateWorld) || !fact.CopyTable(Context, _scratchSlots, _scratchFlights, out _))
                     throw new InvalidDataException("Custom replay state table regressed.");

@@ -32,14 +32,14 @@ internal sealed class ReplayCustomWeaponContext
     internal CustomPickupWorld PickupWorld => new(Bootstrap.World.Start, Bootstrap.Packages.MechanicsDigest, Layout.Digest);
 }
 
-internal enum ReplayCustomWeaponFactKind : byte { Bootstrap = 1, Baseline, State, Launch, Contact, Pickup }
+internal enum ReplayCustomWeaponFactKind : byte { Bootstrap = 1, Baseline, State, Launch, Contact, Pickup, Clock }
 
 // File-only v1 semantic projections. Outer recipient delivery IDs, transport ACK envelopes,
 // retries and private acquisition knowledge are deliberately absent. Original
 // accepted source certificates retain their full source/bootstrap identity.
 internal sealed class ReplayCustomWeaponFact
 {
-    internal const byte Tag = 250, Version = 1;
+    internal const byte Tag = 250, Version = 1, ClockVersion = 2;
     internal const int HeaderSize = 49, MaximumBytes = 16 * 1024, PickupSize = 25;
     private readonly byte[] _bytes;
     internal ReplayCustomWeaponFactKind Kind { get; }
@@ -58,7 +58,7 @@ internal sealed class ReplayCustomWeaponFact
         ulong sequence, uint world, ReadOnlySpan<byte> body)
     {
         if (body.Length > MaximumBytes - HeaderSize) throw new InvalidDataException("Custom replay fact exceeds its byte budget.");
-        byte[] bytes = new byte[HeaderSize + body.Length]; bytes[0] = Tag; bytes[1] = Version; bytes[2] = (byte)kind;
+        byte[] bytes = new byte[HeaderSize + body.Length]; bytes[0] = Tag; bytes[1] = kind == ReplayCustomWeaponFactKind.Clock ? ClockVersion : Version; bytes[2] = (byte)kind;
         BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(3), (ushort)body.Length);
         BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(5), sequence);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(13), world); context.Digest.Write(bytes.AsSpan(17, 32));
@@ -68,6 +68,8 @@ internal sealed class ReplayCustomWeaponFact
     }
     internal static ReplayCustomWeaponFact Bootstrap(ReplayCustomWeaponContext context)
         => Make(context, ReplayCustomWeaponFactKind.Bootstrap, 1, context.Bootstrap.World.AuthorityFrame, context.Bootstrap.CopyBytes());
+    internal static ReplayCustomWeaponFact Clock(ReplayCustomWeaponContext context, ulong sequence, uint world)
+        => Make(context, ReplayCustomWeaponFactKind.Clock, sequence, world, ReadOnlySpan<byte>.Empty);
     internal static ReplayCustomWeaponFact Baseline(ReplayCustomWeaponContext context, ulong sequence,
         in CustomReplicaCapture capture, ReadOnlySpan<CustomReplicaSlot> slots, ReadOnlySpan<CustomReplicaFlight> flights)
     {
@@ -126,10 +128,11 @@ internal sealed class ReplayCustomWeaponFact
     internal static bool TryRead(ReadOnlySpan<byte> bytes, ReplayCustomWeaponContext context, out ReplayCustomWeaponFact? fact)
     {
         fact = null;
-        if (context == null || bytes.Length is < HeaderSize or > MaximumBytes || bytes[0] != Tag || bytes[1] != Version
+        if (context == null || bytes.Length is < HeaderSize or > MaximumBytes || bytes[0] != Tag || bytes[1] is not (Version or ClockVersion)
             || bytes.Length != HeaderSize + BinaryPrimitives.ReadUInt16LittleEndian(bytes[3..])
             || WeaponDigest.Read(bytes[17..49]) != context.Digest) return false;
         var kind = (ReplayCustomWeaponFactKind)bytes[2]; ulong sequence = BinaryPrimitives.ReadUInt64LittleEndian(bytes[5..]);
+        if ((bytes[1] == ClockVersion) != (kind == ReplayCustomWeaponFactKind.Clock)) return false;
         uint world = BinaryPrimitives.ReadUInt32LittleEndian(bytes[13..]); var body = bytes[HeaderSize..];
         if (sequence == 0 || Before(world, context.Bootstrap.World.AuthorityFrame)) return false;
         if (kind == ReplayCustomWeaponFactKind.Bootstrap)
@@ -158,6 +161,9 @@ internal sealed class ReplayCustomWeaponFact
                         || BinaryPrimitives.ReadUInt64LittleEndian(body[4..]) == 0
                         || (BinaryPrimitives.ReadUInt64LittleEndian(body[17..]) == 0) != (BinaryPrimitives.ReadUInt64LittleEndian(body[4..]) == 1)
                         || (body[16] == 1) != !Before(world, BinaryPrimitives.ReadUInt32LittleEndian(body[12..]))) return false;
+                    break;
+                case ReplayCustomWeaponFactKind.Clock:
+                    if (!body.IsEmpty) return false;
                     break;
                 default: return false;
             }
