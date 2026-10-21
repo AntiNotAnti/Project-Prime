@@ -1,9 +1,9 @@
 # CW-12b — package preparation before loading
 
-Protocol80 deliberately separates exact package preparation from both ordinary
+Protocol81 deliberately separates exact package preparation from both ordinary
 lobby Ready and the existing bootstrap-bound CWM1 source-readiness handshake.
 Native packet layouts, native weapon IDs and CWM1 encodings remain unchanged.
-Live peers require an exact protocol match; protocol79 peers are refused by the
+Live peers require an exact protocol match; protocol80 peers are refused by the
 ordinary Hello boundary. Historical native replay bodies retain their reviewed
 layouts and movement profile attribution. Package/custom replay still refuses.
 

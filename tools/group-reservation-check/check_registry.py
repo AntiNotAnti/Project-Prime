@@ -17,12 +17,13 @@ additions = {'PartyReservationRequest': 80, 'PartyReservationState': 81, 'PartyR
              'CustomWeaponResultAck': 89, 'CustomWeaponState': 90,
              'CustomWeaponControl': 91, 'CustomWeaponControlDenied': 92, 'CustomWeaponInput': 93,
              'CustomWeaponReplicaPage': 94, 'CustomWeaponReplicaEvent': 95, 'CustomWeaponReplicaAck': 96,
-             'CustomWeaponPickupState': 97, 'CustomWeaponPickupAck': 98}
+             'CustomWeaponPickupState': 97, 'CustomWeaponPickupAck': 98,
+             'WeaponPackageOffer': 99, 'WeaponPackageReady': 100, 'WeaponPackageConfirmed': 101}
 assert {k:v for k,v in values.items() if k not in baseline['packet_types']} == additions
 assert len(set(values.values())) == len(values) - 1
-assert 'public const int ProtocolVersion = 80;' in source
+assert 'public const int ProtocolVersion = 81;' in source
 status = source.split('public struct ServerStatusPacket', 1)[1].split('public struct ', 1)[0]
 assert dict(re.findall(r'public const byte (Flag\w+) = (\d+);', status)) == {'FlagCanHost': '1', 'FlagPartyReservationsV1': '2'}
 output = 'namespace MphRead.Mods.Network;\npublic enum PacketType : byte {\n' + ',\n'.join(f'{k}={v}' for k,v in values.items()) + '\n}\n'
 (pathlib.Path(__file__).parent / 'Registry.generated.cs').write_text(output)
-print(f'PASS actual registry: {len(baseline["packet_types"])} old names unchanged; IDs80-98 and optional flag2 added; protocol80')
+print(f'PASS actual registry: {len(baseline["packet_types"])} old names unchanged; IDs80-101 and optional flag2 added; protocol81')

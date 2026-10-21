@@ -11,7 +11,7 @@ using MphRead.Mods.CustomWeapons.Packages;
 namespace MphRead.Mods.Network;
 
 // Independent of lobby Ready/revision and of the post-load CWM1 source barrier.
-// Protocol 80 currently admits exactly one package into the single-weapon runtime.
+// Protocol 81 currently admits exactly one package into the single-weapon runtime.
 internal readonly record struct WeaponPackagePreparationKey(ushort Match, ulong Epoch,
     ulong Configuration, byte Slot, ushort Generation, ulong Connection, WeaponDigest Manifest)
 {

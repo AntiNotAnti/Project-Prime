@@ -34,8 +34,8 @@ internal static class CustomMatchPolicyChecks
             &&!Native.RiftlineM7Available&&(Native.Rules&MatchModifierFlags.RiftlineM7Available)==0,
             "native/default match definitions never opt into M7 availability");
         check((uint)MatchModifierFlags.RiftlineM7Available==262144
-            &&MovementModelRules.KnownModifierMask==2097151&&NetConfig.ProtocolVersion==80,
-            "protocol80 retains availability bit18 while preserving every earlier modifier ID");
+            &&MovementModelRules.KnownModifierMask==2097151&&NetConfig.ProtocolVersion==81,
+            "protocol81 retains availability bit18 while preserving every earlier modifier ID");
         var requested=Native with{RiftlineM7Available=true};
         check(requested.Rules==(Native.Rules|MatchModifierFlags.RiftlineM7Available)
             &&requested.ModifierSummary.Contains("Riftline M7",StringComparison.Ordinal),
@@ -108,14 +108,14 @@ internal static class CustomMatchPolicyChecks
         check(SessionStatePacket.TryRead(Bytes(packaged),out var packageLive)&&packageLive.Match==packaged
             &&packaged.Rules==(requested.Rules|MatchModifierFlags.PackagedWeaponAvailable)
             &&!SessionStatePacket.TryReadArchived(Bytes(packaged),out _),
-            "protocol80 package bit20 preserves exact live configuration and refuses unsupported archive playback");
+            "protocol81 package bit20 preserves exact live configuration and refuses unsupported archive playback");
         byte[] orphan=Bytes(Native with{PackagedWeaponAvailable=true});
         check(!SessionStatePacket.TryRead(orphan,out _)&&SessionStatePacket.TryRead(orphan,out var orphanRequest,validateDefinition:false)
             &&LobbyRules.ValidateDefinition(orphanRequest.Match,out _)!=LobbyResultCode.Ok
             &&!SessionStatePacket.TryReadArchived(orphan,out _),
             "structural package request still requires pickup availability before live admission and cannot enter archives");
         var packageArchive=new byte[orphan.Length+1];packageArchive[0]=(byte)PacketType.SessionState;orphan.CopyTo(packageArchive,1);
-        for(int protocol=31;protocol<=80;protocol++)
+        for(int protocol=31;protocol<=NetConfig.ProtocolVersion;protocol++)
             check(Refused(()=>{_ = ReplayIdentityCompatibility.Convert(packageArchive,protocol).Length;}),
                 "every historical/current native archive refuses standalone package rule bit20: "+protocol);
         foreach(int bit in Enumerable.Range(21,11))

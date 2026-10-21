@@ -6,8 +6,8 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **80** (`NetConfig.ProtocolVersion`).
-- Protocol80 adds the operator-selected package availability bit20 and bounded
+- The current wire protocol is **81** (`NetConfig.ProtocolVersion`).
+- Protocol81 adds the operator-selected package availability bit20 and bounded
   package offer/Ready/confirmation messages99–101. They pin CWPK v1 exact
   archive/content/dependency metadata to match, configuration, slot generation
   and connection before loading. CWM1 and native packet bodies retain their

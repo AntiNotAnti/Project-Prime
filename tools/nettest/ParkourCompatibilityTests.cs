@@ -22,7 +22,7 @@ internal static class ParkourCompatibilityTests
             catch (InvalidDataException) { rejected = true; }
             Check(rejected, $"Protocol{protocol} must reject Parkour bit19.");
         }
-        Check(NetConfig.ProtocolVersion == 80, "Current Parkour v4 requires protocol80.");
+        Check(NetConfig.ProtocolVersion == 81, "Current protocol81 preserves Parkour v4.");
         Check((byte)MovementModel.Parkour == 4 && (uint)MatchModifierFlags.ParkourMovement == 524288u,
             "Parkour model4 and bit19 are stable.");
         Check(MovementModelRules.KnownModifierMask == 2097151u,

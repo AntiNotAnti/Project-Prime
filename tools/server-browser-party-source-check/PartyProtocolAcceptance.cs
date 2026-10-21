@@ -12,7 +12,7 @@ internal static class PartyProtocolAcceptance
         using(var input=Assembly.GetExecutingAssembly().GetManifestResourceStream("packet-registry-baseline.json")!)
         using(var baseline=JsonDocument.Parse(input))
         {
-            Check(NetConfig.ProtocolVersion==80,"actual DLL uses protocol 80");
+            Check(NetConfig.ProtocolVersion==81,"actual DLL uses protocol 81");
             foreach(var old in baseline.RootElement.GetProperty("packet_types").EnumerateObject())
                 Check(Enum.TryParse<PacketType>(old.Name,out var type)&&(byte)type==old.Value.GetInt32(),"old packet registry "+old.Name);
             var approved = new (string Name, byte Id)[]
@@ -57,13 +57,13 @@ internal static class PartyProtocolAcceptance
         var protocol62Hello=Convert.FromHexString("393E040302010807060504030201");
         Check(!QueueHelloPacket.TryRead(protocol62Hello,out _),"literal protocol62 QueueHello refused by current live admission");
         Check(!QueueHelloPacket.TryRead(Convert.FromHexString("393F040302010807060504030201"),out _),"literal protocol63 QueueHello refused by current live admission");
-        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3947040302010807060504030201"),out _),"literal protocol71 QueueHello refused by protocol80 live admission");
-        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3948040302010807060504030201"),out _),"literal protocol72 QueueHello refused by protocol80 live admission");
-        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3949040302010807060504030201"),out _),"literal protocol73 QueueHello refused by protocol80 live admission");
-        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3951040302010807060504030201"),out _),"literal future81 QueueHello refused by protocol80 live admission");
-        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394A040302010807060504030201"),out _),"literal protocol74 QueueHello refused by protocol80 live admission");
-        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394B040302010807060504030201"),out _),"literal protocol75 QueueHello refused by protocol80 live admission");
-        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394F040302010807060504030201"),out _),"literal protocol79 QueueHello refused by protocol80 live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3947040302010807060504030201"),out _),"literal protocol71 QueueHello refused by protocol81 live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3948040302010807060504030201"),out _),"literal protocol72 QueueHello refused by protocol81 live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3949040302010807060504030201"),out _),"literal protocol73 QueueHello refused by protocol81 live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3952040302010807060504030201"),out _),"literal future82 QueueHello refused by protocol81 live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394A040302010807060504030201"),out _),"literal protocol74 QueueHello refused by protocol81 live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394B040302010807060504030201"),out _),"literal protocol75 QueueHello refused by protocol81 live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394F040302010807060504030201"),out _),"literal protocol79 QueueHello refused by protocol81 live admission");
         var hello=new QueueHelloPacket(NetConfig.ProtocolVersion,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
         Check(Convert.ToHexString(h)=="39"+NetConfig.ProtocolVersion.ToString("X2")+"040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2))&&QueueHelloPacket.TryRead(h,out _),"current QueueHello preserves historical payload bytes and changes only its version byte");
         var join=new QueueJoinPacket(0x0102030405060708);var j=new byte[QueueJoinPacket.Size];join.Write(j);
