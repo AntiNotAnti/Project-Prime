@@ -130,6 +130,7 @@ public static partial class RetroCharacterPreviewExporter
                     cancellation.ThrowIfCancellationRequested();
                     parts.Add(WritePart(spec, part, disc.GameId, staging, root, Resource, staged, edition, cancellation));
                 }
+                if (spec.Id == "darksamus-echoes") AppendNormalBallManifest(staging);
                 if (spec.AlternateForm != null)
                 {
                     string name = spec.Id + ".parts.json";

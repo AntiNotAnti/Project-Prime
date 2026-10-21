@@ -26,11 +26,13 @@ internal sealed class CharacterSourcePreviewSelection
     internal PrivateCharacterAppearance SelectedAppearance { get; }
     internal bool HasCannon { get; }
     internal bool RuntimeCannon { get; }
+    internal bool HasBall { get; }
+    internal bool RuntimeBall { get; }
     internal int FixedCannonOrdinal => NativeHunter == Hunter.Weavel ? 1 : 32;
     internal Hunter NativeHunter => SelectedAppearance.CharacterId == "trooper" ? Hunter.Weavel : Hunter.Samus;
     internal static readonly PrivateCharacterAppearance Appearance = new("darksamus", "MP2DarkSamus");
-    private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon, bool runtimeCannon)
-        => (Pack, Generation, Clips, SelectedAppearance, HasCannon, RuntimeCannon) = (pack, generation, Array.AsReadOnly(clips), appearance, hasCannon, runtimeCannon);
+    private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon, bool runtimeCannon, bool hasBall)
+        => (Pack, Generation, Clips, SelectedAppearance, HasCannon, RuntimeCannon, HasBall, RuntimeBall) = (pack, generation, Array.AsReadOnly(clips), appearance, hasCannon, runtimeCannon, hasBall, hasBall && runtimeCannon);
 
     internal static CharacterSourcePreviewSelection Load(string id, CancellationToken cancellation, string? root = null)
         => LoadCore(id, cancellation, root, runtimeCannon: false);
@@ -67,6 +69,16 @@ internal sealed class CharacterSourcePreviewSelection
                 throw new InvalidDataException("The generated source cannon is unavailable.");
             pack.CaptureGeneratedCannonMaterials(asset, cannonAsset);
         }
+        bool hasBall = id == "darksamus-echoes";
+        if (hasBall)
+        {
+            if (!pack.TryResolvePrivate(Hunter.Samus,appearance,CharacterModelPart.AlternateForm,0,out var ballAsset)
+                || !pack.HasSourceBall(ballAsset)) throw new InvalidDataException("Update the normal import to include its own complete source ball.");
+            if (runtimeCannon) pack.CaptureSourceBallMaterials(ballAsset);
+            if (!pack.TryCreateSourcePreviewLease(ballAsset,out var ballLease)) throw new InvalidDataException("Normal source ball lease is unavailable.");
+            var ball = CharacterWeightedModelLoader.LoadSourcePreview(ballAsset,ballLease);
+            _ = CharacterSourceClip.Load(ballLease,ballAsset,ball.SourceRig!,CharacterGeneratedNormalBallProfile.ClipOrdinal).Sample(0);
+        }
         if (!pack.TryCreateSourcePreviewLease(asset, out var lease) || lease.SourceAnimations == null)
             throw new InvalidDataException("Generated source preview owner is unavailable.");
         // This product viewer admits the generated importer profile only.
@@ -101,6 +113,6 @@ internal sealed class CharacterSourcePreviewSelection
         }
         if (clips.Count == 0) throw new InvalidDataException("No qualified strict source clips are available.");
         lease.Require(asset); cancellation.ThrowIfCancellationRequested();
-        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, true, runtimeCannon);
+        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, true, runtimeCannon,hasBall);
     }
 }

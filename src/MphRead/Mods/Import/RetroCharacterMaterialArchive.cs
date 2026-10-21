@@ -159,7 +159,7 @@ public static class RetroCharacterMaterialArchive
             && Zero(input.Slice(202, 2)) && input.Slice(204, 32).SequenceEqual(PixelHash) && Zero(input.Slice(236, 20)),
             "Unsupported character material archive header or pixel contract.");
         string id = U32(input, 16) switch { 1 => "darksamus-echoes", 2 => "darksamus-overcharged-echoes",
-            3 => "trooper-power", 4 => "trooper-ice", 5 => "trooper-wave", 6 => "trooper-plasma",
+            3 => "trooper-power", 4 => "trooper-ice", 5 => "trooper-wave", 6 => "trooper-plasma", 7 => "darksamus-echoes-ball",
             _ => throw new InvalidDataException("Unknown character material profile.") };
         bool echoes = IsEchoes(id);
         Require(input.Slice(196, 6).SequenceEqual(echoes ? "G2ME01"u8 : "GM8E01"u8),
@@ -261,25 +261,27 @@ public static class RetroCharacterMaterialArchive
     {
         ArgumentNullException.ThrowIfNull(source);
         bool echoes = IsEchoes(source.CharacterId);
+        bool ball = source.CharacterId == "darksamus-echoes-ball";
         (uint cmdl, uint cskr) = source.CharacterId switch
         {
             "darksamus-echoes" => (0xd2c3805bu, 0xb9ec2f8du),
             "darksamus-overcharged-echoes" => (0xfaa12c05u, 0x918e83d3u),
+            "darksamus-echoes-ball" => (0x2f2c1e6fu, 0x4403b1b9u),
             "trooper-power" => (0xf8691b86u, 0x9346b450u),
             "trooper-ice" => (0x45e6de5bu, 0x2ec9718du),
             "trooper-wave" => (0x5eb5adfau, 0x359a022cu),
             "trooper-plasma" => (0x202ac74cu, 0x4b05689au),
             _ => throw new InvalidDataException("Unsupported character material appearance.")
         };
-        string expected = RetroCharacterPreviewExporter.BundleSpec(source.CharacterId,
+        string expected = RetroCharacterPreviewExporter.BundleSpec(ball ? "darksamus-echoes" : source.CharacterId,
             echoes ? ExternalSourceEdition.OriginalRecipe : ExternalSourceEdition.PrimeUsaRevision2).SourceFingerprint;
-        Require(source.Cmdl == cmdl && source.Cskr == cskr && source.Cinf == (echoes ? 0x4abc8a50u : 0x0c9669bcu)
-            && source.Ancs == (echoes ? 0x39900a11u : 0x8169653au)
+        Require(source.Cmdl == cmdl && source.Cskr == cskr && source.Cinf == (ball ? 0xc7dbc44au : echoes ? 0x4abc8a50u : 0x0c9669bcu)
+            && source.Ancs == (ball ? 0x654a3f97u : echoes ? 0x39900a11u : 0x8169653au)
             && source.SourceFingerprint == expected, "Unsupported character material source edition or part.");
     }
-    private static bool IsEchoes(string id) => Profile(id) <= 2;
+    private static bool IsEchoes(string id) => Profile(id) is 1 or 2 or 7;
     private static int Profile(string id) => id switch { "darksamus-echoes" => 1, "darksamus-overcharged-echoes" => 2,
-        "trooper-power" => 3, "trooper-ice" => 4, "trooper-wave" => 5, "trooper-plasma" => 6,
+        "trooper-power" => 3, "trooper-ice" => 4, "trooper-wave" => 5, "trooper-plasma" => 6, "darksamus-echoes-ball" => 7,
         _ => throw new InvalidDataException("Unsupported character material appearance.") };
     private static bool Hex(string? s, int length) => s?.Length == length && s.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
     private static bool Zero(ReadOnlySpan<byte> bytes) { foreach (byte b in bytes) if (b != 0) return false; return true; }
