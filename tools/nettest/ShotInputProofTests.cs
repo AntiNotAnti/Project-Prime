@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using MphRead.Entities;
+using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
@@ -52,6 +53,45 @@ internal static class ShotInputProofTests
         }
         return carrier;
     }
+    private static int SimulatedVoltShots(int tapEvery, int frames)
+    {
+        VoltDriverTapBuffer buffer = default;
+        int sinceShot = 255, shots = 0;
+        for (int frame = 0; frame < frames; frame++)
+        {
+            sinceShot++; // Native player's shot timer advances before biped input.
+            bool press = frame % tapEvery == 0;
+            bool buffered = buffer.Step(true, press, press, sinceShot, 10);
+            if (press && sinceShot >= 10 || buffered)
+            {
+                shots++;
+                sinceShot = 0;
+                buffer.Reset();
+            }
+        }
+        return shots;
+    }
+    private static void VerifyVoltTapBuffer()
+    {
+        Check(VoltDriverTapBuffer.MaxDelayFrames(10) == 9,
+            "Volt buffer bounds physical tap history below native cooldown");
+        foreach (int every in new[] { 2, 3, 4, 5, 6, 7, 8 })
+            Check(SimulatedVoltShots(every, 61) == 7,
+                $"fast Volt taps every {every} frames reach six shots/sec without rhythm");
+        Check(SimulatedVoltShots(15, 61) == 5,
+            "slow Volt taps remain input-limited, not an autofire toggle");
+        VoltDriverTapBuffer queue = default;
+        queue.Step(true, pressed: true, held: true, framesSinceShot: 1, cooldownFrames: 10);
+        bool phantom = false;
+        for (int age = 2; age <= 11; age++)
+            phantom |= queue.Step(true, pressed: false, held: age < 11,
+                framesSinceShot: age, cooldownFrames: 10);
+        Check(!phantom, "long-held Volt charge never triggers buffered uncharged fire");
+        queue.Step(true, pressed: true, held: true, framesSinceShot: 2, cooldownFrames: 10);
+        queue.Step(false, pressed: false, held: false, framesSinceShot: 3, cooldownFrames: 10);
+        Check(!queue.Step(true, pressed: false, held: false, framesSinceShot: 10, cooldownFrames: 10),
+            "weapon switch, morph and unavailable states clear pending Volt taps");
+    }
     private static byte Missile(bool shoot, bool eligible = true)
         => ShotInputHistory.Sample((byte)BeamType.Missile, shoot, false, eligible);
     private static byte Scoped(int offset) => ScopedSample(offset, 3);
@@ -75,6 +115,7 @@ internal static class ShotInputProofTests
         try
         {
             NetShotProof.Mode = ShotProofMode.Shadow;
+            VerifyVoltTapBuffer();
             Check(NetHitClaims.Arbitrating && !player.IsBot && player.SlotIndex != NetSession.LocalSlot,
                 "real authority scene uses remote nonbot input validator path");
             Check(player.Hunter == Hunter.Samus && Weapons.GetAffinityBeam(Hunter.Samus) == BeamType.Missile,
@@ -180,6 +221,47 @@ internal static class ShotInputProofTests
             Feed(key, start, longRun, i => ScopedSample(i, longRun - 1));
             Decision(player, key, scopedFire with { SourceFrame = start + (uint)longRun - 1 }, false,
                 ShotProofReason.Verified, "observed scope survives raw ring compaction without reported scope state");
+
+            // Delayed Volt events must be proven by recent real input edges,
+            // without accepting held-fire, missing history, stale taps or a
+            // weapon change disguised as the earlier physical press.
+            const uint voltStart = 4000;
+            int voltCooldown = player.OwningScene.WeaponRules[(int)BeamType.VoltDriver].ShotCooldown * 2;
+            Check(voltCooldown == 10 && player.OwningScene.WeaponRules[(int)BeamType.VoltDriver + 9].ShotCooldown * 2 == 10,
+                "native ordinary and affinity Volt share the 10-frame maximum firing cadence");
+            byte Volt(bool shoot, bool eligible = true) =>
+                ShotInputHistory.Sample((byte)BeamType.VoltDriver, shoot, false, eligible);
+            key = Seed(player, voltStart);
+            Feed(key, voltStart, voltCooldown + 1, i => Volt(i == 0 || i == 8));
+            var bufferedVolt = Fire(key, voltStart + (uint)voltCooldown,
+                weapon: BeamType.VoltDriver, kind: FireEventKind.PressFire);
+            Decision(player, key, bufferedVolt, false, ShotProofReason.Verified,
+                "buffered Volt fires on cooldown after a real early tap and release");
+            key = Seed(player, voltStart); Feed(key, voltStart, voltCooldown + 1, i => Volt(i == 0));
+            Decision(player, key, bufferedVolt, false, ShotProofReason.InvalidCharge,
+                "old Volt press cannot be reused to manufacture a later shot");
+            key = Seed(player, voltStart); Feed(key, voltStart, voltCooldown + 1, i => Volt(i == 8), missing: 9);
+            Decision(player, key, bufferedVolt, false, ShotProofReason.SourceInputUnavailable,
+                "missing evidence within buffered Volt interval fails closed");
+            key = Seed(player, voltStart); Feed(key, voltStart, voltCooldown + 1,
+                i => i == 9 ? ShotInputHistory.Sample((byte)BeamType.PowerBeam, false, false, true)
+                    : Volt(i == 8));
+            Decision(player, key, bufferedVolt, false, ShotProofReason.InvalidCharge,
+                "switching weapons after the Volt press invalidates the buffer proof");
+            key = Seed(player, voltStart); Feed(key, voltStart, voltCooldown + 1, i => Volt(i == 8, eligible: i != 9));
+            Decision(player, key, bufferedVolt, false, ShotProofReason.InvalidCharge,
+                "ineligible Volt source frame cannot contribute to buffered fire");
+            key = Seed(player, voltStart); Feed(key, voltStart, voltCooldown + 1, i => Volt(i >= 7));
+            Decision(player, key, bufferedVolt, false, ShotProofReason.InvalidCharge,
+                "held Volt trigger cannot forge a second press event");
+            key = Seed(player, voltStart); Feed(key, voltStart, voltCooldown + 1, i => Volt(i == 10));
+            Decision(player, key, bufferedVolt, false, ShotProofReason.Verified,
+                "unbuffered physical Volt press remains legal at cooldown boundary");
+            key = Seed(player, voltStart); Feed(key, voltStart, voltCooldown + 1,
+                i => ShotInputHistory.Sample((byte)BeamType.Missile, i == 8, false, true));
+            Decision(player, key, Fire(key, voltStart + (uint)voltCooldown,
+                weapon: BeamType.Missile, kind: FireEventKind.PressFire), false,
+                ShotProofReason.InvalidCharge, "Volt-only tap buffering leaves other weapons unchanged");
 
             uint wrapStart = uint.MaxValue - (uint)(full / 2);
             key = Seed(player, wrapStart);
