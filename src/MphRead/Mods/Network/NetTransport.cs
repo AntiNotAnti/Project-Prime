@@ -635,6 +635,7 @@ namespace MphRead.Mods.Network
                 or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
                 or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
                 or PacketType.CustomWeaponPickupState or PacketType.CustomWeaponPickupAck
+                or PacketType.WeaponPackageOffer or PacketType.WeaponPackageReady or PacketType.WeaponPackageConfirmed
                 or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed
                 or PacketType.MatchSemanticEvent or PacketType.MatchAward
                 or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome

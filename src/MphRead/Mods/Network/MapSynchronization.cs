@@ -34,6 +34,7 @@ public static partial class NetSession
     public static void RequireExactMapForLoad()
     {
         if (_playback || ServerSession is not { } session) return;
+        RequireWeaponPackagesForLoad();
         if (!session.Match.MapIdentity.IsCustom)
         {
             if (!Metadata.IsBuiltInRoom(session.Match.RoomKey)) throw new InvalidDataException("The server omitted custom map identity.");

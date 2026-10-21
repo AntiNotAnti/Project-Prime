@@ -19,6 +19,9 @@ internal static class CustomReplayBoundary
         // Frozen availability already makes this a custom match, including
         // the interval before its first replica page is received.
         if (NetSession.PublicCustomWeaponAvailability) return true;
+        if (NetSession.Active && (NetSession.ServerSession?.Match.PackagedWeaponAvailable == true
+            || NetSession.ServerMatch is { } match
+                && ((MatchModifierFlags)match.RuleBits & MatchModifierFlags.PackagedWeaponAvailable) != 0)) return true;
         var owner = scene ?? GameState.Current.Owner;
         if (owner == null) return _ownerlessSelected;
         if (_ownerlessSelected)

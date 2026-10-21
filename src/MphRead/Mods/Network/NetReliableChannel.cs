@@ -98,6 +98,7 @@ public sealed class NetReliableChannel
         or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
         or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
         or PacketType.CustomWeaponPickupState or PacketType.CustomWeaponPickupAck
+        or PacketType.WeaponPackageOffer or PacketType.WeaponPackageReady or PacketType.WeaponPackageConfirmed
                 or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest
         or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
         or PacketType.PartyReservationRequest or PacketType.PartyReservationState or PacketType.PartyReservationAction
@@ -112,6 +113,7 @@ public sealed class NetReliableChannel
         or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
         or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
         or PacketType.CustomWeaponPickupState or PacketType.CustomWeaponPickupAck
+        or PacketType.WeaponPackageOffer or PacketType.WeaponPackageReady or PacketType.WeaponPackageConfirmed
                 or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest
         or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed or PacketType.Roster or PacketType.LobbyCommand
         or PacketType.LobbyCommandResult or PacketType.MatchSemanticEvent or PacketType.MatchAward

@@ -41,6 +41,7 @@ namespace MphRead.Mods.Network
         CustomWeaponInput = 93, // opt-in unreliable wrapper; ordinary native Intent bytes remain unchanged
         CustomWeaponReplicaPage = 94, CustomWeaponReplicaEvent = 95, CustomWeaponReplicaAck = 96,
         CustomWeaponPickupState = 97, CustomWeaponPickupAck = 98,
+        WeaponPackageOffer = 99, WeaponPackageReady = 100, WeaponPackageConfirmed = 101,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -475,7 +476,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80)
                 status = Read(src);
             else
             {
@@ -494,7 +495,9 @@ namespace MphRead.Mods.Network
                 && (status.Protocol >= 77 || (((uint)status.Rules | status.Match.RuleBits)
                     & (uint)MatchModifierFlags.ParkourMovement) == 0)
                 && (status.Protocol >= 70 || (((uint)status.Rules | status.Match.RuleBits)
-                    & (uint)MatchModifierFlags.RiftlineM7Available) == 0);
+                    & (uint)MatchModifierFlags.RiftlineM7Available) == 0)
+                && (status.Protocol >= 80 || (((uint)status.Rules | status.Match.RuleBits)
+                    & (uint)MatchModifierFlags.PackagedWeaponAvailable) == 0);
         }
 
         public static ServerStatusPacket Read(ReadOnlySpan<byte> src)
@@ -2631,7 +2634,7 @@ namespace MphRead.Mods.Network
         // Protocol77 adds Parkour profile v1 at model4 / modifier bit19; packet widths remain unchanged.
         // Protocol78 selects Parkour v2 wall-strafe policy; native packet widths and protocol77 tuck boundaries remain unchanged.
         // Protocol79 selects Parkour v3; packet widths and historical stance boundaries remain unchanged.
-        public const int ProtocolVersion = 79;
+        public const int ProtocolVersion = 80;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
