@@ -28,8 +28,8 @@ internal sealed class SfxOpenAlBackend : ISfxNativeBackend
     public bool MakeCurrent(ALContext context) => ALC.MakeContextCurrent(context);
     public void GenBuffers(Span<int> ids) { ClearPriorError("generate buffers"); AL.GenBuffers(ids); CheckError("generate buffers"); }
     public void GenSources(Span<int> ids) { ClearPriorError("generate sources"); AL.GenSources(ids); CheckError("generate sources"); }
-    public void DeleteBuffer(int id) { ClearPriorError("delete buffer"); AL.DeleteBuffer(id); CheckError("delete buffer"); }
-    public void DeleteSource(int id) { ClearPriorError("delete source"); AL.DeleteSource(id); CheckError("delete source"); }
+    public void DeleteBuffer(int id) { ClearPriorError($"delete buffer {id}"); AL.DeleteBuffer(id); CheckError($"delete buffer {id}"); }
+    public void DeleteSource(int id) { ClearPriorError($"delete source {id}"); AL.DeleteSource(id); CheckError($"delete source {id}"); }
     public void DestroyContext(ALContext context) => ALC.DestroyContext(context);
     public void CloseDevice(ALDevice device)
     {
