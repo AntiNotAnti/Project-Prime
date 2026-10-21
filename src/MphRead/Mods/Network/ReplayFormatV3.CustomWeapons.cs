@@ -24,7 +24,7 @@ internal static partial class ReplayFormatV3
             || metadata.WorldCheckpoint.Length > Replay.ReplayWorldCheckpoint.MaximumBytes || metadata.Bootstrap.Packets.Count != 1
             || metadata.Bootstrap.Packets[0] is not { Length: > 1 } packet || packet.Length > MaxCustomConstruction || packet[0] != 253
             || (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames > uint.MaxValue)
-            throw new InvalidDataException("Format7 requires an exact custom descriptor and one replica15 construction; an optional world must be explicit version12.");
+            throw new InvalidDataException("Format7 requires an exact custom descriptor and custom construction; an optional world must be explicit version12/13.");
         var checkpoint = ReplayTimelineArchive.ReadConstruction(packet, custom: true);
         if (ReplayReplicaState.InspectCustomCheckpointLayout(checkpoint).Protocol != metadata.ProtocolVersion)
             throw new InvalidDataException("Custom construction protocol differs from its archive.");

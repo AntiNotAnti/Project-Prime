@@ -34,10 +34,10 @@ internal static class WeaponPackageContactGlChecks
         using var stream=File.OpenRead(path);
         Console.WriteLine($"CONTACT LOADED ASSEMBLY role={role} path={path} sha256={Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(stream))}");
     }
-    private sealed record Config(string Data,string Output,string Store,string Hash,int Port);
+    private sealed record Config(string Data,string Output,string Store,string Hash,int Port,bool History=false);
     private sealed record Command(int Sequence,string Phase,float[]? Position=null,float[]? Facing=null);
     private sealed record NativeFireReceipt(byte Slot,ushort Generation,ushort Life,uint ShotId,uint SourceFrame,byte Weapon,int Carriers,uint FirstRecordingFrame,uint LastRecordingFrame,float[] Origin,float[] Direction);
-    private sealed record Status(string Phase,int Slot,int Health,ushort Generation,ushort Life,ushort DamageEventId,uint Frame,float[] Position,int CommandSequence,string? Error=null,float MaxPickupHeight=0,float BipedTop=0,NativeFireReceipt[]? NativeFires=null);
+    private sealed record Status(string Phase,int Slot,int Health,ushort Generation,ushort Life,ushort DamageEventId,uint Frame,float[] Position,int CommandSequence,string? Error=null,float MaxPickupHeight=0,float BipedTop=0,NativeFireReceipt[]? NativeFires=null,int MorphStage=0,bool AltForm=false,bool Morphing=false,bool Unmorphing=false);
     private static void ObserveNative(ReplayTimelineRecord record,Dictionary<(byte,ushort,ushort,uint),NativeFireReceipt> fires,bool local)
     {
         if(record.Kind!=ReplayFactKind.Intent||record.Payload.Length!=2+IntentPacket.TouchCanonicalSize||record.Payload[0]!=(byte)PacketType.SlotIntent)return;
@@ -99,7 +99,7 @@ internal static class WeaponPackageContactGlChecks
             _window=new NativeWindow(settings);_graphics=new DesktopGraphicsSession(_window);GLFW.SwapInterval(0);_keyboard=SyntheticInput.CreateKeyboard();
             Scene=new(_window.FramebufferSize,_keyboard,SyntheticInput.CreateMouse(),_=>{},()=>{});NetLaunch.BuildPlayers(Scene,Hunter.Samus,0);Scene.AddRoom(NetSession.ServerMatch!.Value.RoomKey,GameMode.Battle,playerCount:NetLaunch.RoomPlayerCount);Scene.OnLoad();Scene.OnResize();NetSession.MarkMatchLoaded();
             var mode=typeof(Scene).GetField("_inputMode",BindingFlags.Instance|BindingFlags.NonPublic)!;mode.SetValue(Scene,Enum.Parse(mode.FieldType,"All"));
-            foreach(var button in Player.Controls.All){button.Type=ButtonType.Key;button.Key=Keys.Unknown;}Player.Controls.Shoot.Key=Keys.Enter;Player.Controls.MoveUp.Key=Keys.W;Player.Controls.CustomWeapon.Key=Keys.C;Player.Controls.Zoom.Key=Keys.Z;Player.Controls.CustomReload.Key=Keys.R;Player.Controls.PowerBeam.Key=Keys.D1;Player.Controls.MouseAim=Player.Controls.KeyboardAim=false;Player.IsBot=false;
+            foreach(var button in Player.Controls.All){button.Type=ButtonType.Key;button.Key=Keys.Unknown;}Player.Controls.Shoot.Key=Keys.Enter;Player.Controls.MoveUp.Key=Keys.W;Player.Controls.CustomWeapon.Key=Keys.C;Player.Controls.Zoom.Key=Keys.Z;Player.Controls.CustomReload.Key=Keys.R;Player.Controls.PowerBeam.Key=Keys.D1;Player.Controls.Morph.Key=Keys.M;Player.Controls.MouseAim=Player.Controls.KeyboardAim=false;Player.IsBot=false;
         }
         internal void Hold(Keys key,bool down)=>Key(_keyboard,key,down);
         internal void Press(Keys key){Hold(key,true);Step();Hold(key,false);Step(3);}
@@ -114,18 +114,20 @@ internal static class WeaponPackageContactGlChecks
         LoadedAssemblyReceipt("target");
         Config? config=null;
         var nativeFires=new Dictionary<(byte,ushort,ushort,uint),NativeFireReceipt>();
-        void NativeCapture(ReplayTimelineRecord record)=>ObserveNative(record,nativeFires,local:false);
+        uint lastAcceptedRecordingFrame=0;Action<ReplayTimelineRecord>? headObserver=null;var historyTimeline=new List<object>();
+        void NativeCapture(ReplayTimelineRecord record){lastAcceptedRecordingFrame=record.RecordingFrame;ObserveNative(record,nativeFires,local:false);headObserver?.Invoke(record);}
         ReplayCapture.Recorder.Accepted+=NativeCapture;
         try
         {
             config=Read<Config>(Path.GetFullPath(configPath));Directory.CreateDirectory(config.Output);using var client=new Client(config.Data,config.Store,config.Hash,config.Port,"ContactTarget");
-            int commandSequence=0;Command command=new(0,"spawn");bool readySent=false;int ticks=0;
+            int commandSequence=0;Command command=new(0,"spawn");bool readySent=false;int ticks=0,morphStage=0,settledAltTicks=0,headAgeTicks=0;bool morphTriggered=false;
+            headObserver=record=>{if(!config.History||command.Phase!="head-morph"||morphTriggered||record.Kind!=ReplayFactKind.CustomWeapon||ReplayCapture.Recorder.CustomWeaponContext is not{} context)return;if(ReplayCustomWeaponFact.TryRead(record.Payload,context,out var fact)&&fact!.TryContact(context,out _,out var contact)&&contact.Contact.Headshot&&!contact.Lethal&&contact.Contact.Key.Victim.Slot==NetSession.LocalSlot&&contact.Contact.Key.Victim.Generation==NetPlayerLifecycle.Generation(NetSession.LocalSlot)&&contact.Contact.Key.Victim.Life==NetPlayerLifecycle.Get(NetSession.LocalSlot)){morphTriggered=true;Console.WriteLine($"HISTORY genuine head arms ordinary Morph input frame={record.RecordingFrame} life={contact.Contact.Key.Victim.Life}");}};
             client.BeforeFrame=()=>
             {
                 // Declared owner pose setup occurs before every simulation frame.
-                if(command.Position!=null&&command.Facing!=null&&client.Player.Health>0)
+                if(command.Position!=null&&command.Facing!=null&&client.Player.Health>0&&(!config.History||command.Phase!="head-morph"||!morphTriggered))
                 {var position=Vec(command.Position);var facing=Vec(command.Facing).Normalized();client.Player.Reposition(position,facing,client.Scene!.Room!.GetNodeRefByPosition(position));client.Player.ModSetAim(facing);client.Player.Speed=Vector3.Zero;}
-                client.Hold(Keys.Enter,client.Player.Health<=0&&command.Phase is "spawn" or "respawn");
+                client.Hold(Keys.Enter,client.Player.Health<=0&&command.Phase is "spawn" or "respawn");                if(config.History&&morphTriggered){if(morphStage==0&&++headAgeTicks>=6)morphStage=1;client.Hold(Keys.M,morphStage is 1 or 4);if(morphStage==1)morphStage=2;else if(morphStage==4)morphStage=5;}
             };
             while(true)
             {
@@ -133,16 +135,23 @@ internal static class WeaponPackageContactGlChecks
                 if(NetSession.RequiredWeaponPackagesReady&&NetSession.IsInLobby&&!readySent){if(NetSession.SendLobbyCommand(LobbyCommandType.SetReady,ready:true))readySent=true;}
                 if(NetSession.IsStarting&&client.Scene==null)client.Load();
                 client.Step();
+                if(config.History&&command.Phase=="head-morph"&&client.Scene!=null)
+                {
+                    if(morphStage==2&&client.Player.IsAltForm&&!client.Player.IsMorphing)morphStage=3;
+                    if(morphStage==3&&++settledAltTicks>=12)morphStage=4;
+                    if(morphStage==5&&!client.Player.IsAltForm&&!client.Player.IsMorphing&&!client.Player.IsUnmorphing)morphStage=6;
+                    if(historyTimeline.Count>=4096)throw new InvalidDataException("Head/form timeline exceeds bound.");var pose=client.Scene.ModHeadHitPose(client.Player);historyTimeline.Add(new{lastAcceptedRecordingFrame,netFrame=NetSession.NetFrame,morphStage,client.Player.Health,generation=NetPlayerLifecycle.Generation(NetSession.LocalSlot),life=NetPlayerLifecycle.Get(NetSession.LocalSlot),client.Player.IsAltForm,client.Player.IsMorphing,client.Player.IsUnmorphing,hitAmount=pose.Amount,hitDirection=Array(pose.Direction),position=Array(client.Player.Position)});
+                }
                 if(++ticks%4==0)
                 {
                     int slot=NetSession.LocalSlot;var native=slot>=0?NetSession.RemoteStates[slot]:default;var position=client.Scene==null?Vector3.Zero:client.Player.Position;
-                    Atomic(Path.Combine(config.Output,"status.json"),new Status(client.Scene==null?"lobby":client.Player.Health>0?"alive":"dead",slot,client.Scene==null?0:client.Player.Health,NetPlayerLifecycle.Generation(slot),NetPlayerLifecycle.Get(slot),native.DamageEventId,NetSession.NetFrame,Array(position),commandSequence,MaxPickupHeight:client.Scene==null?0:Fixed.ToFloat(client.Player.Values.MaxPickupHeight),BipedTop:client.Scene==null?0:client.Player.ModBipedTop,NativeFires:nativeFires.Values.ToArray()));
+                    Atomic(Path.Combine(config.Output,"status.json"),new Status(client.Scene==null?"lobby":client.Player.Health>0?"alive":"dead",slot,client.Scene==null?0:client.Player.Health,NetPlayerLifecycle.Generation(slot),NetPlayerLifecycle.Get(slot),native.DamageEventId,NetSession.NetFrame,Array(position),commandSequence,MaxPickupHeight:client.Scene==null?0:Fixed.ToFloat(client.Player.Values.MaxPickupHeight),BipedTop:client.Scene==null?0:client.Player.ModBipedTop,NativeFires:nativeFires.Values.ToArray(),MorphStage:morphStage,AltForm:client.Scene!=null&&client.Player.IsAltForm,Morphing:client.Scene!=null&&client.Player.IsMorphing,Unmorphing:client.Scene!=null&&client.Player.IsUnmorphing));
                 }
             }
             return 0;
         }
         catch(Exception error){Console.Error.WriteLine("CONTACT TARGET FAIL "+error);if(config!=null)Atomic(Path.Combine(config.Output,"status.json"),new Status("error",-1,0,0,0,0,0,Array(Vector3.Zero),0,error.ToString()));return 1;}
-        finally{ReplayCapture.Recorder.Accepted-=NativeCapture;if(config!=null)File.WriteAllText(Path.Combine(config.Output,"native-fire-receipts.json"),JsonSerializer.Serialize(nativeFires.Values,Json));}
+        finally{ReplayCapture.Recorder.Accepted-=NativeCapture;if(config!=null)File.WriteAllText(Path.Combine(config.Output,"native-fire-receipts.json"),JsonSerializer.Serialize(nativeFires.Values,Json));if(config!=null&&config.History)File.WriteAllText(Path.Combine(config.Output,"head-form-timeline.json"),JsonSerializer.Serialize(historyTimeline,Json));}
     }
     private static WeaponPackage Package()
     {
@@ -150,7 +159,7 @@ internal static class WeaponPackageContactGlChecks
         var mechanics=JsonNode.Parse(resources[reference.Project.MechanicsPath])!;mechanics["damage"]!["body"]=37;mechanics["damage"]!["head"]=50;mechanics["magazineCapacity"]=6;mechanics["initialReserve"]=23;mechanics["maximumReserve"]=40;mechanics["shotCooldownTicks"]=24;mechanics["reloadTicks"]=42;resources[reference.Project.MechanicsPath]=Encoding.UTF8.GetBytes(mechanics.ToJsonString());
         var project=JsonNode.Parse(reference.Project.ToCanonicalBytes())!;project["contentId"]="14c014c0-1122-3344-5566-778899aabbcc";project["name"]="Original ordinary contact capture fixture";return WeaponPackage.Parse(WeaponPackageBuilder.Build(WeaponProject.Parse(Encoding.UTF8.GetBytes(project.ToJsonString())),resources));
     }
-    internal static int Source(string data,string output,string serverDll)
+    internal static int Source(string data,string output,string serverDll,bool history=false)
     {
         LoadedAssemblyReceipt("source");
         data=Path.GetFullPath(data);output=Path.GetFullPath(output);serverDll=Path.GetFullPath(serverDll);Directory.CreateDirectory(output);
@@ -194,7 +203,7 @@ internal static class WeaponPackageContactGlChecks
             Directory.SetCurrentDirectory(data);Paths.UpdatePaths();Paths.ChooseMphPath();
             server=Launch(serverDll,new[]{"-server","-port",port.ToString(),"-players","2","-lobby","-nomaster","-noserverreplays","-rotation",rotation,"-weaponstore",serverStore,"-weaponarchive",package.PackageHash},Path.Combine(output,"server-profile"));
             using var client=new Client(data,sourceStore,package.PackageHash,port,"ContactSource");client.Until(()=>NetSession.RequiredWeaponPackagesReady&&NetSession.LocalIsLobbyOwner,"source ordinary package lobby",40);
-            string targetFolder=Path.Combine(output,"target");Directory.CreateDirectory(targetFolder);string configPath=Path.Combine(targetFolder,"config.json");Atomic(configPath,new Config(data,targetFolder,targetStore,package.PackageHash,port));target=Launch(typeof(WeaponPackageContactGlChecks).Assembly.Location,new[]{"--weapon-package-contact-target",configPath},Path.Combine(targetFolder,"profile"));
+            string targetFolder=Path.Combine(output,"target");Directory.CreateDirectory(targetFolder);string configPath=Path.Combine(targetFolder,"config.json");Atomic(configPath,new Config(data,targetFolder,targetStore,package.PackageHash,port,History:history));target=Launch(typeof(WeaponPackageContactGlChecks).Assembly.Location,new[]{"--weapon-package-contact-target",configPath},Path.Combine(targetFolder,"profile"));
             Status TargetStatus(){if(target.HasExited)throw new InvalidOperationException("Target exited "+target.ExitCode);var status=Read<Status>(Path.Combine(targetFolder,"status.json"));if(status.Error!=null)throw new InvalidOperationException(status.Error);return status;}
             client.Until(()=>File.Exists(Path.Combine(targetFolder,"status.json"))&&TargetStatus().Slot>=0&&NetSession.SlotLobbyReady[TargetStatus().Slot],"target ordinary lobby preparation and ready",45);
             if(!NetSession.SendLobbyCommand(LobbyCommandType.SetReady,ready:true))throw new InvalidOperationException("Source ready failed.");client.Until(()=>!NetSession.LobbyCommandPending&&NetSession.SlotLobbyReady[NetSession.LocalSlot],"source ready settles");if(!NetSession.SendLobbyCommand(LobbyCommandType.StartMatch))throw new InvalidOperationException("Ordinary start failed.");client.Until(()=>NetSession.IsStarting,"ordinary match starts");client.Load();client.Spawn();client.Until(()=>TargetStatus().Phase=="alive","target ordinary native spawn",45);client.Step(420);
@@ -246,7 +255,9 @@ internal static class WeaponPackageContactGlChecks
                 if(outcome.Contact.Headshot!=head||outcome.Contact.Key.Victim.Slot!=targetSlot||outcome.Health.BodyRemoved<=0)throw new InvalidOperationException("Actual contact geometry/payment differs from declared shot.");client.Until(()=>TargetStatus().Health==outcome.Health.BodyAfter&&NetSession.RemoteStates[targetSlot].Health==outcome.Health.BodyAfter,"target local and source native HP agree with accepted authority outcome",12);return outcome;
             }
             var body=Fire(false);if(body.Health.BodyBefore!=initialHealth||body.Health.BodyRemoved!=37||body.Lethal)throw new InvalidOperationException("Actual first body debit differs.");
-            var firstHead=Fire(true);if(firstHead.Lethal||firstHead.Health.BodyRemoved!=50)throw new InvalidOperationException("Genuine nonlethal head contact absent.");int shots=0;var lethal=firstHead;while(!lethal.Lethal&&shots++<8)lethal=Fire(true);if(!lethal.Lethal)throw new InvalidOperationException("No genuine lethal head.");
+            if(history){Atomic(Path.Combine(targetFolder,"command.json"),new Command(++commandSequence,"head-morph",Array(laneTarget),Array(laneFacing)));client.Until(()=>TargetStatus().CommandSequence==commandSequence,"ordinary target arms genuine head-to-Morph history");}
+            var firstHead=Fire(true);
+            if(history){client.Until(()=>TargetStatus().MorphStage==6,"ordinary target completes genuine head→M Morph→M unmorph without transition pose rewrites",20);var transition=TargetStatus();if(transition.Life!=firstLife||transition.Generation!=firstGeneration||transition.Health!=firstHead.Health.BodyAfter||transition.AltForm||transition.Morphing||transition.Unmorphing)throw new InvalidDataException("Actual head/form transition identity or payment differs.");Atomic(Path.Combine(targetFolder,"command.json"),new Command(++commandSequence,"lane",Array(laneTarget),Array(laneFacing)));client.Until(()=>TargetStatus().CommandSequence==commandSequence,"post-transition declared lane resumes only after ordinary unmorph");}if(firstHead.Lethal||firstHead.Health.BodyRemoved!=50)throw new InvalidOperationException("Genuine nonlethal head contact absent.");int shots=0;var lethal=firstHead;while(!lethal.Lethal&&shots++<8)lethal=Fire(true);if(!lethal.Lethal)throw new InvalidOperationException("No genuine lethal head.");
             client.Until(()=>NetSession.RemoteStates[scoreSourceSlot].Kills==initialSourceScore.Kills+1&&NetSession.RemoteStates[scoreSourceSlot].Points==initialSourceScore.Points+1&&NetSession.RemoteStates[scoreTargetSlot].Deaths==initialTargetScore.Deaths+1,"actual accepted native kill point and death scores advance exactly once",12);
             Atomic(Path.Combine(targetFolder,"command.json"),new Command(++commandSequence,"respawn",Array(laneTarget),Array(laneFacing)));client.Until(()=>TargetStatus().Health>0&&TargetStatus().Life!=firstLife,"target keyboard respawn produces new native life",40);client.Step(420);ushort newLife=TargetStatus().Life,newGeneration=TargetStatus().Generation;var newContact=Fire(false);if(newContact.Contact.Key.Victim.Life!=newLife)throw new InvalidOperationException("New-life contact identity differs.");
             int nativeBodyBefore=TargetStatus().Health;ushort nativeBodyLife=TargetStatus().Life;SelectPowerBeam();aimPoint=laneTarget+Vector3.UnitY*.2f;client.Step(30);var nativeBodyFire=FireNativeCarrier("after-newlife-custom-body");

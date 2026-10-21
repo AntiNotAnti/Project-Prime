@@ -19,7 +19,8 @@ internal sealed partial class ReplayWorldCheckpoint
         for(int i=0;i<nodes.Length;i++)nodes[i]=new(reader.ReadUInt16(),reader.ReadUInt64(),ReadBytes(reader,MaximumBytes));
         foreach(string name in new[]{"Assets","Cosmetics","BombWorld","Traversal","AuthorityForms","NativeTouch","PickupBindings"})sections[name]=ReadBytes(reader,MaximumBytes);
         sections["Grapple"]=version>=11?ReadBytes(reader,184):Array.Empty<byte>();
-        sections["CustomWeapons"]=version==CustomVersion?ReadBytes(reader,CustomWorldAppendixSize):Array.Empty<byte>();
+        sections["CustomWeapons"]=IsCustomWorldVersion(version)?ReadBytes(reader,CustomWorldAppendixSize):Array.Empty<byte>();
+        sections["HeadHistory"]=version==CustomVersion?ReadBytes(reader,ReplayHeadSeedCodec.MaximumBytes):Array.Empty<byte>();
         sections["IndexedFirePresentation"]=new[]{reader.ReadByte()};return new(nodes,sections);
     }
     internal ReplayGraphDifference[] CanonicalGraphDifferences(ReplayWorldCheckpoint other,int maximum=64)

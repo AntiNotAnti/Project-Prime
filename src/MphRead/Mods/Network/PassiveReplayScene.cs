@@ -19,6 +19,15 @@ namespace MphRead.Mods.Network
         internal ulong MapHash { get; }
         internal bool HasStepped { get; private set; }
         internal bool HasRestoredCustomWorld { get; private set; }
+        internal uint? CustomHeadHistoryOrigin { get; private set; }
+        internal void BeginCustomHeadHistory()
+        {
+            if (!Session.IsActive || !Session.IsCustomInspection || Session.IsCustomArchiveInspection
+                || HasStepped || HasRestoredCustomWorld || CustomHeadHistoryOrigin.HasValue)
+                throw new InvalidOperationException("Head history must begin on a fresh private custom source before stepping or restoration.");
+            CustomHeadHistoryOrigin = Session.RecordingFrame;
+        }
+        internal void RestoreCustomHeadHistoryOrigin(uint origin) => CustomHeadHistoryOrigin = origin;
         internal void MarkCustomWorldRestored() => HasRestoredCustomWorld = true;
         private bool _disposed;
         private bool _ownsScene = true;
@@ -118,7 +127,7 @@ namespace MphRead.Mods.Network
         }
         internal static PassiveReplayScene RestoreCustomInspection(Replay.ReplayWorldCheckpoint checkpoint, PreparedReplayWeaponPackage prepared, Vector2i size)
         {
-            if (!checkpoint.HasCustomWeaponContract) throw new InvalidDataException("An explicit custom world12 capsule is required.");
+            if (!checkpoint.HasCustomWeaponContract) throw new InvalidDataException("An explicit custom world12/13 capsule is required.");
             var metadata = checkpoint.ClipMetadata(0, Array.Empty<ReplayPlayerInfo>());
             var scene = CreateCustomInspection(checkpoint.ConstructionState(), prepared, metadata.MapHash, size);
             try { checkpoint.RestoreCustom(scene); return scene; }
