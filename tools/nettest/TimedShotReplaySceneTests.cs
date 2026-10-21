@@ -366,8 +366,8 @@ internal static class TimedShotReplaySceneTests
             var defaultCheckpoint = detached.CaptureCheckpoint();
             Check(!detached.TimedShots.Enabled && detached.TimedShots.Count == 0
                 && BinaryPrimitives.ReadUInt16LittleEndian(defaultCheckpoint.Bytes[4..]) == 14
-                && defaultCheckpoint.Bytes[6] == 82 && defaultCheckpoint.Bytes[7] == 0x17,
-                "reopened default file keeps protocol82 checkpoint v14 and exact native-touch/pickup/grant/grapple features without timed capability");
+                && defaultCheckpoint.Bytes[6] == 83 && defaultCheckpoint.Bytes[7] == 0x17,
+                "reopened default file keeps protocol83 checkpoint v14 and exact native-touch/pickup/grant/grapple features without timed capability");
             var restoredDefault = new ReplayReplicaState(); restoredDefault.RestoreCheckpoint(defaultCheckpoint);
             Check(!restoredDefault.TimedShots.Enabled && restoredDefault.TimedShots.Count == 0,
                 "default checkpoint v14 restore cannot invent timed capability");

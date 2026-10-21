@@ -879,8 +879,8 @@ class EvidenceTests(unittest.TestCase):
         row["Payload"] = (bytes.fromhex(row["Payload"])[:-64] + struct.pack("<16f", float("nan"), *([1.0] * 15))).hex()
         with self.assertRaises(ValueError): slow_states(report)
 
-    def test_protocol79_and82_slow_literal_widths(self):
-        for protocol, stride in ((79, 58), (80, 58), (81, 58), (82, 77)):
+    def test_protocol79_through83_slow_literal_widths(self):
+        for protocol, stride in ((79, 58), (80, 58), (81, 58), (82, 77), (83, 77)):
             row = self.slow(1, 6, protocol=protocol)
             self.assertEqual(len(bytes.fromhex(row["Payload"])), 15 + stride + 64)
             self.assertEqual(len(slow_states(dict(Protocol=protocol, SlowStates=[row]))), 1)
@@ -910,26 +910,50 @@ class EvidenceTests(unittest.TestCase):
                 slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=wire)]))
 
     def test_slow_protocol_is_required_typed_and_known(self):
-        for protocol in (None, True, False, "82", 82.0, 0, 40, 83):
+        for protocol in (None, True, False, "83", 83.0, 0, 40, 84):
             with self.subTest(protocol=protocol), self.assertRaisesRegex(ValueError, "protocol"):
                 slow_states(dict(Protocol=protocol, SlowStates=[self.slow(1, 6, protocol=82)]))
         with self.assertRaisesRegex(ValueError, "protocol"):
             slow_states(dict(SlowStates=[self.slow(1, 6, protocol=82)]))
 
-    def test_protocol82_slow_preserves_atomic_structure_guards(self):
-        row = self.slow(1, 6, protocol=82)
-        good = bytes.fromhex(row["Payload"])
-        malformed = [good[:-1], good + b"\x00", good[:14] + b"\x09" + good[15:],
-                     good[:15] + b"\x08" + good[16:], good[:16] + b"\x00\x00" + good[18:]]
-        for data in malformed:
-            with self.subTest(data=data.hex()), self.assertRaises(ValueError):
-                slow_states(dict(Protocol=82, SlowStates=[dict(row, Payload=data.hex())]))
-        with self.assertRaisesRegex(ValueError, "duplicate revision/context"):
-            slow_states(dict(Protocol=82, SlowStates=[row, copy.deepcopy(row)]))
-        with self.assertRaisesRegex(ValueError, "identity mismatch"):
-            slow_states(dict(Protocol=82, SlowStates=[dict(row, Match=3)]))
-        with self.assertRaisesRegex(ValueError, "Context"):
-            slow_states(dict(Protocol=82, SlowStates=[dict(row, Context=1)]), authority=True)
+    def test_protocol82_and83_slow_preserve_atomic_structure_guards(self):
+        for protocol in (82, 83):
+            row = self.slow(1, 6, protocol=protocol)
+            good = bytes.fromhex(row["Payload"])
+            malformed = [good[:-1], good + b"\x00", good[:14] + b"\x09" + good[15:],
+                         good[:15] + b"\x08" + good[16:], good[:16] + b"\x00\x00" + good[18:]]
+            for data in malformed:
+                with self.subTest(protocol=protocol, data=data.hex()), self.assertRaises(ValueError):
+                    slow_states(dict(Protocol=protocol, SlowStates=[dict(row, Payload=data.hex())]))
+            with self.subTest(protocol=protocol), self.assertRaisesRegex(ValueError, "duplicate revision/context"):
+                slow_states(dict(Protocol=protocol, SlowStates=[row, copy.deepcopy(row)]))
+            with self.subTest(protocol=protocol), self.assertRaisesRegex(ValueError, "identity mismatch"):
+                slow_states(dict(Protocol=protocol, SlowStates=[dict(row, Match=3)]))
+            with self.subTest(protocol=protocol), self.assertRaisesRegex(ValueError, "Context"):
+                slow_states(dict(Protocol=protocol, SlowStates=[dict(row, Context=1)]), authority=True)
+
+    def test_protocol83_full_slow_payload_parity_and_future84_refusal(self):
+        self.lanes()
+        for report in (self.server, self.client):
+            report["Protocol"] = 83
+            report["SlowStates"] = [self.slow(1, 6, protocol=83), self.slow(2, 180, kills=1, protocol=83)]
+        self.write()
+        result = adjudicate(self.out, self.processes, expected_protocol=83)
+        self.assertEqual(result["status"], "PASS")
+        self.assertEqual(result["parity"]["shooter"]["slowSamplesCompared"], 2)
+        self.assertEqual(bytes.fromhex(self.client["SlowStates"][-1]["Payload"]),
+                         slow_states(self.client)[-1]["payload"])
+        self.client["SlowStates"][-1] = self.slow(2, 180, kills=1, protocol=83, grapple=b"\x01" + bytes(18))
+        self.write()
+        result = adjudicate(self.out, self.processes, expected_protocol=83)
+        self.assertEqual(result["status"], "FAIL")
+        self.assertTrue(any("full payload mismatch" in error for error in result["failures"]))
+        self.client["SlowStates"] = copy.deepcopy(self.server["SlowStates"])
+        self.server["Protocol"] = self.client["Protocol"] = 84
+        self.write()
+        result = adjudicate(self.out, self.processes, expected_protocol=84)
+        self.assertEqual(result["status"], "FAIL")
+        self.assertTrue(any("unsupported slow-lane protocol" in error for error in result["failures"]))
 
     def test_protocol82_grapple_bytes_remain_in_exact_payload_parity(self):
         self.lanes()
