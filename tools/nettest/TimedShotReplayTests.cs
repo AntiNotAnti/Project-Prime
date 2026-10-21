@@ -194,16 +194,16 @@ internal static class TimedShotReplayTests
         var ordinary = new ReplayReplicaState();
         var baseline = ordinary.CaptureCheckpoint().Bytes.ToArray();
         Check(BinaryPrimitives.ReadUInt16LittleEndian(baseline.AsSpan(4)) == 14
-            && baseline[6] == 82 && baseline[7] == 23,
-            "current normal checkpoint declares v14/protocol82 with exact untimed features23");
+            && baseline[6] == 83 && baseline[7] == 23,
+            "current normal checkpoint declares v14/protocol83 with exact untimed features23");
         var producer = new ReplayReplicaState(); Match(producer);
         Check(producer.TimedShots.Begin(23, 7, 41, TimedGrantProofMode.Enforce), "checkpoint producer enables timed capture");
         var fact = Fact(granted: true);
         Check(producer.TimedShots.Remember(fact, 100) == TimedShotRetention.Stored, "checkpoint owns full fact");
         var timed = producer.CaptureCheckpoint().Bytes.ToArray();
         Check(BinaryPrimitives.ReadUInt16LittleEndian(timed.AsSpan(4)) == 14
-            && timed[6] == 82 && timed[7] == 31,
-            "current timed checkpoint declares v14/protocol82 with exact timed features31");
+            && timed[6] == 83 && timed[7] == 31,
+            "current timed checkpoint declares v14/protocol83 with exact timed features31");
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(new(timed));
         Check(restored.CaptureCheckpoint().Bytes.SequenceEqual(timed)
             && restored.TimedShots.TryGet(fact.Key, fact.Fire.SourceFrame, 41, 100, out var found) && found == fact,
@@ -228,7 +228,7 @@ internal static class TimedShotReplayTests
         restored.RestoreCheckpoint(new(oldTimed));
         var recapturedTimed = restored.CaptureCheckpoint().Bytes.ToArray();
         Check(BinaryPrimitives.ReadUInt16LittleEndian(recapturedTimed.AsSpan(4)) == 14
-            && recapturedTimed[6] == 82 && recapturedTimed[7] == 31
+            && recapturedTimed[6] == 83 && recapturedTimed[7] == 31
             && restored.TimedShots.Enabled && restored.TimedShots.Count == 1
             && restored.TimedShots.TryGet(fact.Key, fact.Fire.SourceFrame, 41, 100, out found) && found == fact,
             "published v13 restores its timed fact and recaptures current v14 semantics");
@@ -236,7 +236,7 @@ internal static class TimedShotReplayTests
         var recapturedBaseline = restored.CaptureCheckpoint().Bytes.ToArray();
         Check(!restored.TimedShots.Enabled && restored.TimedShots.Count == 0
             && BinaryPrimitives.ReadUInt16LittleEndian(recapturedBaseline.AsSpan(4)) == 14
-            && recapturedBaseline[6] == 82 && recapturedBaseline[7] == 23,
+            && recapturedBaseline[6] == 83 && recapturedBaseline[7] == 23,
             "published v12 restore clears timed capability and recaptures current ordinary semantics");
     }
     private static ReplayMetadata Metadata(byte version, bool? indexed = null, bool timed = false)

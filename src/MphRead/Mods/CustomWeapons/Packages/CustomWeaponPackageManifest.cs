@@ -143,8 +143,14 @@ internal sealed class WeaponMatchPackageBinding : IDisposable
         CancellationToken cancellationToken = default) => Bind(store, manifest, true, cancellationToken);
     internal static WeaponMatchPackageBinding PrepareInstalled(WeaponPackageStore store, CustomWeaponPackageManifest manifest,
         CancellationToken cancellationToken = default)
+        => Prepare(store, manifest, false, cancellationToken);
+    internal static WeaponMatchPackageBinding PrepareHistorical(WeaponPackageStore store, CustomWeaponPackageManifest manifest,
+        CancellationToken cancellationToken = default)
+        => Prepare(store, manifest, true, cancellationToken);
+    private static WeaponMatchPackageBinding Prepare(WeaponPackageStore store, CustomWeaponPackageManifest manifest,
+        bool historical, CancellationToken cancellationToken)
     {
-        using var verified = BindInstalled(store, manifest, cancellationToken);
+        using var verified = Bind(store, manifest, historical, cancellationToken);
         var resources = new WeaponPackageResources[verified.Count];
         for (int i = 0; i < resources.Length; i++) resources[i] = WeaponPackageResources.Prepare(verified.Package(i), cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
