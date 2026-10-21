@@ -135,6 +135,8 @@ namespace MphRead.Mods.Network
         }
         internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
         {
+            if (prepared.FormatVersion != 7)
+                throw new InvalidDataException("Post-world Scene playback requires phase-aware pose/fire presentation; CPU inspection is available separately.");
             using var world = prepared.CopyWorld();
             var scene = RestoreCustomInspection(world, prepared.Resources, size);
             try

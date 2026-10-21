@@ -144,7 +144,16 @@ namespace MphRead.Mods.Network
 
         private bool Matches(ushort match, ulong authority) => Match is MatchStatePacket current
             && current.MatchId == match && current.AuthorityEpoch == authority;
-        public void Accept(ReadOnlySpan<byte> packet, uint frame)
+        public void Accept(ReadOnlySpan<byte> packet, uint frame) => Accept(packet, frame, frame);
+
+        internal void AcceptPostWorld(ReadOnlySpan<byte> packet, uint sourceFrame, uint applicationFrame)
+        {
+            if ((ulong)sourceFrame + 1 != applicationFrame)
+                throw new InvalidDataException("Post-world facts apply before exactly the following fixed step.");
+            Accept(packet, sourceFrame, applicationFrame);
+        }
+
+        private void Accept(ReadOnlySpan<byte> packet, uint frame, uint applicationFrame)
         {
             if (packet.IsEmpty) throw new InvalidDataException("Empty replay packet.");
             if (packet[0] == ReplayCustomWeaponFact.Tag)
@@ -258,10 +267,13 @@ namespace MphRead.Mods.Network
                 case PacketType.ReplayShotFact:
                     if (!ReplayShotFactPacket.TryRead(payload, out var shotFact)) throw Malformed();
                     if (!Matches(shotFact.MatchId, shotFact.AuthorityEpoch)) break;
-                    if (_shotFactsFrame != frame)
+                    // Source clocks still drive input ages and recorded hit
+                    // freshness. Only this transient simulation batch belongs to
+                    // the following application frame for post-world delivery.
+                    if (_shotFactsFrame != applicationFrame)
                     {
                         _shotFacts.Clear();
-                        _shotFactsFrame = frame;
+                        _shotFactsFrame = applicationFrame;
                     }
                     bool duplicateShotFact = false;
                     foreach (var existing in _shotFacts)
