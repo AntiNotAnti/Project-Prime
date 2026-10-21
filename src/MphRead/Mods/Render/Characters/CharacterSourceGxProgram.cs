@@ -31,12 +31,13 @@ internal sealed class CharacterSourceGxProgram
     internal Pass DrawPass { get; }
     internal int InitialRegisterDependencies { get; }
     internal Vector4 InitialRegister1 { get; }
+    internal float PresentationAlphaScale { get; }
     internal string Vertex120 { get; }
     internal string Fragment120 { get; }
     internal string Vertex300 { get; }
     internal string Fragment300 { get; }
 
-    private CharacterSourceGxProgram(Cmdl.Material m, Vector4 initialRegister1)
+    private CharacterSourceGxProgram(Cmdl.Material m, Vector4 initialRegister1, float presentationAlphaScale)
     {
         Require(float.IsFinite(initialRegister1.X) && float.IsFinite(initialRegister1.Y)
             && float.IsFinite(initialRegister1.Z) && float.IsFinite(initialRegister1.W)
@@ -60,6 +61,9 @@ internal sealed class CharacterSourceGxProgram
             (1, 0) => Pass.Opaque, (4, 5) => Pass.Alpha, (1, 1) => Pass.Additive,
             _ => throw new InvalidDataException("Unsupported body framebuffer blend factors.")
         };
+        Require(float.IsFinite(presentationAlphaScale) && presentationAlphaScale is >= 0 and <= 1
+            && (presentationAlphaScale == 1 || DrawPass == Pass.Alpha), "Only an Alpha pass accepts presentation shell alpha.");
+        PresentationAlphaScale = presentationAlphaScale;
         Require(SourceDepthWrite && SourceDepthSorting == (DrawPass != Pass.Opaque), "Unsupported body depth policy.");
         Textures = Array.AsReadOnly(m.TexIds.ToArray());
         Generators = Array.AsReadOnly(m.TexGens.Select(g =>
@@ -102,8 +106,8 @@ internal sealed class CharacterSourceGxProgram
         Vertex120 = Vertex(es: false); Fragment120 = Fragment(es: false);
         Vertex300 = Vertex(es: true); Fragment300 = Fragment(es: true);
     }
-    internal static CharacterSourceGxProgram Compile(Cmdl.Material material, Vector4 initialRegister1 = default)
-        => new(material, initialRegister1);
+    internal static CharacterSourceGxProgram Compile(Cmdl.Material material, Vector4 initialRegister1 = default, float presentationAlphaScale = 1)
+        => new(material, initialRegister1, presentationAlphaScale);
     internal static void Require(bool condition, string message)
     { if (!condition) throw new InvalidDataException(message); }
 
@@ -132,6 +136,7 @@ internal sealed class CharacterSourceGxProgram
         }
         var result = Vector4.Clamp(regs[0], Vector4.Zero, Vector4.One);
         if (DrawPass == Pass.Opaque) result.W = 1;
+        else result.W *= PresentationAlphaScale;
         return result;
     }
 
@@ -218,7 +223,9 @@ internal sealed class CharacterSourceGxProgram
             string A(int v) => v switch { 0 => "r0.a", 4 => $"tx{i}.a", 6 => "1.0", _ => "0.0" };
             b.Append($"vec3 c{i}=clamp({C(s.D)}+mix({C(s.A)},{C(s.B)},{C(s.C)}),0.0,1.0);\nfloat a{i}=clamp({A(s.Ad)}+mix({A(s.Aa)},{A(s.Ab)},{A(s.Ac)}),0.0,1.0);\nr{s.ColorDestination}.rgb=c{i}; r{s.AlphaDestination}.a=a{i};\n");
         }
-        b.Append($"{(es ? "gx_output" : "gl_FragColor")}=vec4(clamp(r0.rgb,0.0,1.0),{(DrawPass == Pass.Opaque ? "1.0" : "clamp(r0.a,0.0,1.0)")});\n}}\n");
+        string alpha = DrawPass == Pass.Opaque ? "1.0" : "clamp(r0.a,0.0,1.0)";
+        if (PresentationAlphaScale != 1) alpha += "*" + F(PresentationAlphaScale);
+        b.Append($"{(es ? "gx_output" : "gl_FragColor")}=vec4(clamp(r0.rgb,0.0,1.0),{alpha});\n}}\n");
         return b.ToString();
     }
 }
@@ -244,19 +251,41 @@ internal sealed class CharacterSourceGxMaterials
         Programs = Array.AsReadOnly(archive.Programs.Select(p => CharacterSourceGxProgram.Compile(archive.ReadProgram(p.Ordinal), c1)).ToArray());
         Images = new System.Collections.ObjectModel.ReadOnlyDictionary<uint, RetroTextureSource.Decoded>(archive.Textures.ToDictionary(t => t.ResourceId, t => archive.DecodeTexture(t.ResourceId)));
     }
+    private CharacterSourceGxMaterials(CharacterSourceGxMaterials original)
+    {
+        Archive = original.Archive; Images = original.Images;
+        Policy = original.Policy + ":final-cannon-alpha055-v1";
+        Programs = Array.AsReadOnly(Archive.Programs.Select(p => {
+            var material = Archive.ReadProgram(p.Ordinal);
+            return CharacterSourceGxProgram.Compile(material, presentationAlphaScale:
+                material.BlendSrc == 4 && material.BlendDst == 5 ? .55f : 1f);
+        }).ToArray());
+    }
+    internal CharacterSourceGxMaterials ForFinalCannon()
+    {
+        CharacterSourceGxProgram.Require(Archive.Binding.CharacterId == "darksamus-overcharged-echoes"
+            && Archive.GeometrySha256 == CharacterModelPack.GeneratedFinalSourceGlbSha256
+            && Archive.Sha256 == "69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d"
+            && Programs.Count == 9 && Programs.All(p => p.PresentationAlphaScale == 1),
+            "Only the original qualified Final body archive can produce its cannon shell presentation.");
+        return new(this);
+    }
     internal static CharacterSourceGxMaterials Read(byte[] bytes, string modelSha, string character)
     {
         var trooper = CharacterGeneratedTrooperProfile.Find(character);
         string expected = character switch {
             "darksamus-echoes" => "6a5666bfb14ee989658c7543543429d8de824820bee2531f0051a21a42be86d7",
             "darksamus-overcharged-echoes" => "69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d",
+            "darksamus-echoes-ball" => CharacterGeneratedNormalBallProfile.MaterialSha,
             _ => trooper?.MaterialSha ?? throw new InvalidDataException("No qualified source body material profile.") };
         CharacterSourceGxProgram.Require(bytes.Length is > RetroCharacterMaterialArchive.HeaderBytes and <= RetroCharacterMaterialArchive.MaxArchiveBytes
             && Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)) == expected,
             "Exact source body material archive required before semantic decode.");
         var a = RetroCharacterMaterialArchive.Read(bytes);
         CharacterSourceGxProgram.Require(a.Sha256 == expected && a.Binding.CharacterId == character
-            && a.GeometrySha256 == modelSha && (trooper == null || modelSha == trooper.ModelSha),
+            && a.GeometrySha256 == modelSha && (trooper == null || modelSha == trooper.ModelSha)
+            && (character != CharacterGeneratedNormalBallProfile.MaterialId || modelSha == CharacterGeneratedNormalBallProfile.ModelSha
+                && a.Programs.Count == 1 && a.Textures.Count == 4),
             "Source body archive/appearance/geometry identity mismatch.");
         return new(a);
     }

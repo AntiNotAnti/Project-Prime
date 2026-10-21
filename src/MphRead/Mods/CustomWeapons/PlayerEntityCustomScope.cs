@@ -13,13 +13,16 @@ public partial class PlayerEntity
     private bool _customScopeSelected,_customScopeTransition;
     private byte _customScopeOptic,_customScopeLens;
     private float _customScopeTargetFov,_customScopeLensFov;
+    private int _customScopeLensMagnification=1000;
     internal bool ModCustomScopeSelected=>_customScopeSelected;
     internal bool ModCustomScopeActive=>_customScopeSelected&&_customScopeOptic!=0;
     private float CustomNormalFov=>Fixed.ToFloat(Values.NormalFov)*2;
     internal float ModCustomScopeBlend=>_customScopeTransition
         ?Math.Clamp((CustomNormalFov-CameraInfo.Fov)/MathF.Max(.001f,CustomNormalFov-_customScopeLensFov),0,1):0;
     internal float ModCustomScopeSensitivity
-        =>1+((_customScopeLens==2?InputSettings.CustomScope4Sensitivity:InputSettings.CustomScope25Sensitivity)-1)*ModCustomScopeBlend;
+        =>1+((InputSettings.CustomScope25Sensitivity
+            +(InputSettings.CustomScope4Sensitivity-InputSettings.CustomScope25Sensitivity)
+                *Math.Clamp((_customScopeLensMagnification-2500)/1500f,0,1))-1)*ModCustomScopeBlend;
     internal void ModSetCustomScope(WeaponOwnerContext owner,bool selected,byte optic,int magnification=1000,WorldBootstrapIdentity bootstrap=default,WeaponDigest manifest=default)
     {
         bool eligible=Health>0&&!IsAltForm&&!IsMorphing&&!IsUnmorphing&&!ScanVisor
@@ -33,7 +36,7 @@ public partial class PlayerEntity
         _customScopeOptic=_customScopeSelected?optic:(byte)0;
         _customScopeTargetFov=CustomScopeMath.TargetFov(CustomNormalFov,_customScopeOptic!=0?magnification:1000);
         if(_customScopeOptic!=0)
-        {_customScopeLens=_customScopeOptic;_customScopeLensFov=_customScopeTargetFov;_customScopeTransition=true;}
+        {_customScopeLens=_customScopeOptic;_customScopeLensMagnification=magnification;_customScopeLensFov=_customScopeTargetFov;_customScopeTransition=true;}
         // Readiness/lifecycle loss removes a stale custom lens immediately.
         if(!eligible||owner==default)
         {

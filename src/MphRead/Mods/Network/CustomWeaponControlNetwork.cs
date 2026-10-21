@@ -13,7 +13,8 @@ public sealed partial class DedicatedServer
             || !entry.Combat.Admit(now) || !CustomCanReceiveAction(scene,entry.Combat)
             || !CustomControlRequest.TryRead(packet.Payload,out var request) || request.Slot!=peer.SlotIndex
             || request.Bootstrap!=peer.BootstrapIdentity || request.Manifest!=entry.State.Wire.Manifest.Digest
-            || request.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(request.Slot,request.Owner.Generation,request.Life)
+            || request.Weapon.Value!=10 || request.Optic>entry.State.Wire.Definition.Mechanics.OpticMagnificationsMilli.Count
+            || !NetPlayerLifecycle.Matches(request.Slot,request.Owner.Generation,request.Life)
             || !entry.Combat.AcceptsMode(request.Owner,2)
             || !entry.Boundary.TryGetFence(request.Owner,out ulong fence)) return;
         AdmitCustomControl(scene,entry,request,fence,now);
@@ -22,7 +23,7 @@ public sealed partial class DedicatedServer
     {
         if (entry.Combat==null) return;
         var root=scene.CustomCombat;
-        if (root==null) return;
+        if (root==null || request.Optic>root.Definition.Mechanics.OpticMagnificationsMilli.Count) return;
         // The real client also needs canonical initial state. Never retain a
         // primary control across an unbound/invalid life waiting for a favorable
         // biped pose to create its resource grant.

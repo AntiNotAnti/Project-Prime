@@ -92,18 +92,21 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                 var pin = CharacterGeneratedTrooperProfile.Find(id)!;
                 var spec = RetroCharacterPreviewExporter.BundleSpec(id, ExternalSourceEdition.PrimeUsaRevision2);
                 var state = LocalImportBundle.Inspect(imports, id, spec);
-                Check(spec.Version == 5 && state.State == ImportBundleState.Ready && state.Receipt?.Version == 5
-                    && spec.RequiredComponents.Contains(id + ".materials.bin"), id + " current v5 recipe includes raw materials.");
+                Check(spec.Version == 6 && state.State == ImportBundleState.Ready && state.Receipt?.Version == 6
+                    && spec.RequiredComponents.Length == 13 && spec.RequiredComponents.Contains(id + ".materials.bin")
+                    && spec.RequiredComponents.Contains(id + ".cannon-source.json"), id + " current v6 recipe includes raw materials and its fixed cannon recipe.");
                 string folder = Path.GetDirectoryName(state.Files.Single(f => Path.GetFileName(f) == "characters.json"))!;
                 Check(Path.GetFileName(folder) == state.Receipt!.Generation && state.Files.All(f => Path.GetDirectoryName(f) == folder), id + " has one immutable committed generation.");
                 foreach (string file in state.Files) LocalImportBundle.CheckPath(file, imports);
                 var selection = CharacterSourcePreviewSelection.Load(id, CancellationToken.None, imports);
                 Check(selection.NativeHunter == Hunter.Weavel && selection.SelectedAppearance == new PrivateCharacterAppearance("trooper", pin.Skin)
-                    && !selection.HasCannon && !selection.RuntimeCannon && selection.Generation == state.Receipt.Generation,
-                    id + " captures only its closed Weavel body-viewer appearance.");
+                    && selection.HasCannon && !selection.RuntimeCannon && selection.Generation == state.Receipt.Generation,
+                    id + " captures its closed Weavel viewer appearance and cannon asset without runtime gun activation.");
                 bool found = selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.Biped, 0, out var asset);
                 Check(found && !selection.Pack.TryResolvePrivate(Hunter.Samus, selection.SelectedAppearance, CharacterModelPart.Biped, 0, out _)
-                    && !selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.ViewModel, 0, out _), id + " cannot alias Samus or a cannon.");
+                    && selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.ViewModel, 0, out _)
+                    && !selection.Pack.TryResolvePrivate(Hunter.Samus, selection.SelectedAppearance, CharacterModelPart.ViewModel, 0, out _),
+                    id + " resolves its own Weavel cannon asset and cannot alias Samus.");
                 Check(selection.Pack.TryCreateSourcePreviewLease(asset, out var lease) && lease.SourceMaterials != null
                     && lease.SourceAnimations != null && lease.ModelSha256 == pin.ModelSha, id + " lease captures exact whole-pinned model/material/animation authority.");
                 var materials = lease.SourceMaterials!;
@@ -121,15 +124,16 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                     && selection.Clips.All(c => lease.SourceAnimations!.Data.Roots.Any(r => r.Ordinal == c.Ordinal && r.CharacterDeclared && r.StrictPlay)), id + " exposes exactly113 genuine strict source clips.");
                 var localBody = CharacterSourcePreviewSelection.LoadForLocalBody(id, CancellationToken.None, imports);
                 Check(localBody.NativeHunter == Hunter.Weavel && localBody.SelectedAppearance == selection.SelectedAppearance
-                    && localBody.Generation == selection.Generation && !localBody.HasCannon && !localBody.RuntimeCannon
+                    && localBody.Generation == selection.Generation && localBody.HasCannon && localBody.RuntimeCannon
                     && localBody.Clips.Select(c => c.Ordinal).SequenceEqual(selection.Clips.Select(c => c.Ordinal)),
-                    id + " explicit local-body selection preserves its Weavel generation/strict clips without a cannon.");
+                    id + " explicit local-body selection preserves its Weavel generation/strict clips and enables its exact source cannon.");
                 Reject(() => CharacterSourceClip.Load(lease, asset, geometry.SourceRig!, int.MaxValue), id + ": undeclared clip refuses");
                 Check(!selection.Pack.TryCreateSourcePreviewLease(asset with { }, out _), id + " copied asset cannot mint owner authority.");
                 captured.Add(new(id, folder, selection, asset, lease, materials, state.Files.ToDictionary(f => f, HashFile)));
                 profiles.Add(new { Character = id, selection.Generation, ModelSha256 = pin.ModelSha, MaterialSha256 = pin.MaterialSha,
                     ProvenanceSha256 = pin.ProvenanceSha, SourceTriangles = 1970, Joints = 35, Nodes = 36, StrictClips = selection.Clips.Count,
-                    SourcePrograms = 3, SourceTextures = 7, C1 = new[] { c1.X, c1.Y, c1.Z, c1.W }, HasCannon = false });
+                    SourcePrograms = 3, SourceTextures = 7, C1 = new[] { c1.X, c1.Y, c1.Z, c1.W },
+                    HasCannon = selection.HasCannon, RuntimeCannon = selection.RuntimeCannon, LocalBodyRuntimeCannon = localBody.RuntimeCannon });
             }
             // Mutations use disposable flat packs. No original generation is
             // edited and no rejected profile is submitted to a GL owner.
@@ -283,6 +287,21 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                                 ZeroPaletteSha256 = readyA.Palette, OffgridPaletteSha256 = readyB.Palette,
                                 PaletteChanged = readyA.Palette != readyB.Palette, PixelsChanged = readyA.Pixels != readyB.Pixels,
                                 TimeChangeIsObservationOnly = true });
+                            var cannonA = Draw(c, 1, 0, capture: context == 0, captureTag: "cannon-zero", part: CharacterModelPart.ViewModel);
+                            var cannonAgain = Draw(c, 1, 0, part: CharacterModelPart.ViewModel);
+                            Check(cannonA.Visible && cannonAgain.Visible && ReferenceEquals(cannonA.Model, cannonAgain.Model)
+                                && cannonA.Palette == cannonAgain.Palette && cannonA.Pixels == cannonAgain.Pixels
+                                && cannonA.Lists.SequenceEqual(cannonAgain.Lists) && cannonA.Textures.SequenceEqual(cannonAgain.Textures)
+                                && cannonA.Programs.SequenceEqual(cannonAgain.Programs),
+                                c.Id + " fixed gunloop cannon repeat preserves its visible framebuffer, raw palette and complete GPU resources.");
+                            var bodyAgain = Draw(c, ready.Ordinal, 0);
+                            Check(bodyAgain.Visible && bodyAgain.Model.SourceCannon == null
+                                && bodyAgain.Palette == readyA.Palette && bodyAgain.Pixels == readyA.Pixels,
+                                c.Id + " returning from its ViewModel restores the complete ready body and exact framebuffer/palette content.");
+                            observations.Add(new { Context = context, Character = c.Id, Part = "ViewModel", Clip = 1,
+                                ClipName = "A_gunloop_pirate", Seconds = 0, SourceTriangles = 206, Joints = 35,
+                                GxPrograms = cannonA.Programs.Distinct().Count(), PixelSha256 = cannonA.Pixels,
+                                PaletteSha256 = cannonA.Palette, RepeatedDrawStable = true, BodyRestored = true });
                         }
                     }
                     Check(((IDictionary)Get(scene, "_sourceGxPrograms")!).Count == expectedPrograms,
@@ -322,9 +341,14 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                     contexts.Add(new { Context = context, SelectedAppearances = captured.Count, ExpectedPrograms = expectedPrograms, LivePrograms = gpuPrograms.Count,
                         LiveTextures = gpuTextures.Count, ObservedLists = gpuLists.Count, AllSelectedSameScene = true, SourceOwnerReleased = true });
 
-                    Frame Draw(Captured c, int ordinal, double seconds, bool capture = false, string captureTag = "pose")
+                    Frame Draw(Captured c, int ordinal, double seconds, bool capture = false, string captureTag = "pose",
+                        CharacterModelPart part = CharacterModelPart.Biped)
                     {
-                        var request = new CharacterSourceStageRequest(owner, c.Selection.Pack, c.Selection.SelectedAppearance, ordinal, seconds);
+                        CosmeticPreview.Mode = part == CharacterModelPart.ViewModel ? SkinContext.ViewModel : SkinContext.Biped;
+                        // The actual native preview part owner advances at60Hz,
+                        // so allow one step when switching body/cannon modes.
+                        if (Preview(scene).Mode != CosmeticPreview.Mode) Thread.Sleep(20);
+                        var request = new CharacterSourceStageRequest(owner, c.Selection.Pack, c.Selection.SelectedAppearance, ordinal, seconds, part);
                         Check(request.NativeHunter == c.Selection.NativeHunter, c.Id + " request computes its real native owner.");
                         LauncherHunter.Hunter = c.Selection.NativeHunter;
                         LauncherHunter.SourcePreviewRequest = request; Clear(width, height); LauncherHunter.Draw(window, width, height); GL.Finish(); frames++;
@@ -332,13 +356,37 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                             && scene.SideScene && !window.HasScene && !RenderOptions.CharacterModelReplacements,
                             c.Id + " complete production sideScene draw succeeds without Scene replacement or global replacement setting.");
                         var currentPreview = Preview(scene);
-                        Check(currentPreview.TryGetSourceRigPreview(out var model) && ReferenceEquals(model.Asset, c.Asset)
-                            && model.Joints.Count == c.Joints && model.IndexCount/3 == c.Triangles && model.SourceCannon == null,
-                            c.Id + " active GPU model is the exact captured complete body.");
+                        bool cannon = part == CharacterModelPart.ViewModel;
+                        Check(currentPreview.TryGetSourceRigPreview(out var model)
+                            && c.Selection.Pack.TryResolvePrivate(c.Selection.NativeHunter, c.Selection.SelectedAppearance, part, 0, out var activeAsset)
+                            && ReferenceEquals(model.Asset, activeAsset)
+                            && currentPreview.Mode == CosmeticPreview.Mode && model.Joints.Count == c.Joints
+                            && model.IndexCount/3 == (cannon ? 206 : c.Triangles)
+                            && (cannon ? c.Joints == 35 && ordinal == 1 && seconds == 0
+                                && request.FixedCannonOrdinal == 1 && model.SourceCannon is { IsGenerated: true, TriangleCount: 206 }
+                                : ReferenceEquals(model.Asset, c.Asset) && model.SourceCannon == null),
+                            c.Id + " active GPU model is the exact captured complete source part: " + part);
                         var geometry = Get(model, "_sourceGeometry") as CharacterWeightedModelData;
-                        Check(geometry != null && geometry.Primitives.Count == model.Segments.Count
-                            && geometry.Primitives.SelectMany(p => p.SourceTriangleIds ?? Array.Empty<int>()).Order().SequenceEqual(Enumerable.Range(0, c.Triangles)),
-                            c.Id + " GPU segments preserve every original source triangle.");
+                        Check(geometry != null && geometry.Primitives.Count == model.Segments.Count, c.Id + " GPU segments retain complete source part geometry.");
+                        if (cannon)
+                        {
+                            var selected = Enumerable.Range(0, 3).Select(m => geometry!.Primitives.Where(p => p.SourceMaterialOrdinal == m)
+                                .SelectMany(p => p.SourceTriangleIds ?? Array.Empty<int>()).Order().ToArray()).ToArray();
+                            string expectedCutHash = c.Id switch
+                            {
+                                "trooper-power" => "4eaf218709076c4ad2cbc9b5555bb02c5ffe02c5dcffd2a839523b5e9abe982c",
+                                "trooper-wave" => "a536ea8f7c1f5d35340362fbecfb8b817f80460f61e11a02f8ee1203b3f5cf3c",
+                                "trooper-ice" or "trooper-plasma" => "dbbaa1ad440004d2aad78827bca6ea8f0a9bb8a62d1bd9081158c2070950d85c",
+                                _ => throw new InvalidDataException("Only the four closed Trooper cannon profiles are admitted by this fixture.")
+                            };
+                            Check(geometry!.SourceAuthoringPose is { Count: 36 } && geometry.SourceRig?.Nodes.Count == 36
+                                && selected.Select(ids => ids.Length).SequenceEqual(new[] { 10, 32, 164 })
+                                && selected.SelectMany(ids => ids).Distinct().Count() == 206
+                                && Sha(JsonSerializer.SerializeToUtf8Bytes(selected)) == expectedCutHash,
+                                c.Id + " GPU cannon preserves full35-joint fixed pose and exactly206 original whole triangles in material0/1/2.");
+                        }
+                        else Check(geometry!.Primitives.SelectMany(p => p.SourceTriangleIds ?? Array.Empty<int>()).Order()
+                            .SequenceEqual(Enumerable.Range(0, c.Triangles)), c.Id + " GPU body segments preserve every original source triangle.");
                         for (int i = 0; i < model.Segments.Count; i++)
                         {
                             var segment = model.Segments[i]; int material = geometry!.Primitives[i].SourceMaterialOrdinal;
@@ -376,7 +424,7 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                             {
                                 string path = Path.Combine(captures, c.Id + "-clip" + ordinal + "-" + captureTag + "-generated-context" + context + ".png");
                                 Check(!File.Exists(path) && ScreenCapture.SaveWindow(width, height, path), c.Id + " optional ignored QA capture saved.");
-                                pictures.Add(new { Character = c.Id, Context = context, ClipOrdinal = ordinal, Seconds = seconds, Label = captureTag,
+                                pictures.Add(new { Character = c.Id, Context = context, Part = part.ToString(), ClipOrdinal = ordinal, Seconds = seconds, Label = captureTag,
                                     Path = path, Sha256 = HashFile(path), DeleteAfterVisualReview = true });
                             }
                             return new(Sha(pixels), PaletteHash(model), lists, textures, programs, pixels.Where((_, i) => i % 4 != 3).Any(v => v != 0), model);

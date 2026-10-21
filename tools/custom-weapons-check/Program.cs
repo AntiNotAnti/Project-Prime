@@ -4,6 +4,14 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length == 5 && args[0] == "--weapon-package-remote-host") return RemoteWeaponPackageHostChecks.Run(args[1],args[2],args[3],args[4]);
+if (args.Length == 5 && args[0] == "--weapon-package-remote-host-gl") return WeaponPackageOnlineGlChecks.Run(args[1],args[2],args[3],remoteHost:args[4]);
+if (args.Length is 1 or 2 && args[0] == "--weapon-package-host-preparation") return RemoteWeaponPackagePreparationChecks.Run(args.Length==2?args[1]:null);
+if (args.Length == 1 && args[0] == "--weapon-package-host-request") return RemoteWeaponPackageRequestChecks.Run();
+if (args.Length == 3 && args[0] == "--weapon-package-local-host") return LocalWeaponPackageHostChecks.Run(args[1],args[2]);
+if (args.Length == 4 && args[0] == "--weapon-package-local-host-gl") return WeaponPackageOnlineGlChecks.Run(args[1],args[2],args[3],localHost:true);
+if (args.Length == 4 && args[0] == "--weapon-package-online-gl") return WeaponPackageOnlineGlChecks.Run(args[1],args[2],args[3]);
+if (args.Length == 2 && args[0] == "--weapon-package-execution-udp") return NetLobbyTest.RunWeaponPackageExecution(args[1]);
 if (args.Length == 1 && args[0] == "--weapon-package-preparation-udp") return NetLobbyTest.RunWeaponPackagePreparation();
 if (args.Length is 1 or 2 && args[0] == "--weapon-package-manifest") return WeaponPackageManifestChecks.Run(args.Length==2?args[1]:null);
 if (args.Length == 3 && args[0] == "--weapon-package-gl") return WeaponPackageGameplayChecks.Run(args[1],args[2]);

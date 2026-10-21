@@ -1,5 +1,9 @@
 # Trooper bodies in local offline Weavel matches
 
+Merged in [PR950](https://github.com/AntiNotAnti/Project-Prime/pull/950) at
+`73f5ebf62b111de4321183296c51d11166e7e397`. The merge tree exactly matches
+qualified PR head `d42b8fd09d342696cd45e9005f952ffc6df8394b`.
+
 This slice adds opt-in Power, Ice, Wave and Plasma Trooper **body cosmetics**
 to real local offline Weavel matches. Hunters owns selection, Apply, Discard and
 saved preferences. Native is the default. A suit/body selection does not enable

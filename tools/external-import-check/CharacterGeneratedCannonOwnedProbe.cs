@@ -12,7 +12,7 @@ using OpenTK.Mathematics;
 
 // Optional local CPU acceptance. Original source and all temporary derivatives
 // remain private; only identity hashes, counts and boolean outcomes are printed.
-internal static class CharacterGeneratedCannonOwnedProbe
+internal static partial class CharacterGeneratedCannonOwnedProbe
 {
     private const string Id="darksamus-echoes",Receipt=Id+".cannon-source.json";
     internal static int Run(string rvz)

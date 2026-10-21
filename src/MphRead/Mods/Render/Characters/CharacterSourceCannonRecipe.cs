@@ -15,7 +15,7 @@ internal sealed partial class CharacterModelPack
  internal static byte[] ReadCannonInput(string root,string name,int maximum)=>CharacterSourceProofIO.ReadFile(ContainedPath(root,name),maximum);
 }
 
-// Fixed private Echoes authoring recipe. The same pack/lease owns source proof;
+// Fixed private source cannon recipes. The same pack/lease owns source proof;
 // this is not a user constructible proof token or generic first-person capability.
 internal sealed partial class CharacterSourceCannonRecipe
 {
@@ -24,15 +24,23 @@ internal sealed partial class CharacterSourceCannonRecipe
  internal string ReceiptSha256 {get;}
  internal Matrix4 ToCannon {get;}
  internal bool IsGenerated {get;}
+ internal CharacterGeneratedTrooperProfile? GeneratedTrooper {get;}
+ internal bool GeneratedFinal {get;}
+ internal int ClipOrdinal=>GeneratedTrooper==null?32:1;
+ internal uint ClipResourceId=>GeneratedTrooper==null?0xd12fdfa3u:0x5528972bu;
+ internal int TriangleCount=>GeneratedTrooper!=null?206:GeneratedFinal?793:392;
  private readonly ReadOnlyDictionary<string,string> _inputs;
  private readonly ReadOnlyCollection<ReadOnlyCollection<int>> _triangles;
- private CharacterSourceCannonRecipe(string sha,Matrix4 basis,Dictionary<string,string> inputs,int[][] triangles,bool generated=false)
-  =>(ReceiptSha256,ToCannon,_inputs,_triangles,IsGenerated)=(sha,basis,new(inputs),Array.AsReadOnly(triangles.Select(a=>Array.AsReadOnly(a.ToArray())).ToArray()),generated);
+ private CharacterSourceCannonRecipe(string sha,Matrix4 basis,Dictionary<string,string> inputs,int[][] triangles,bool generated=false,CharacterGeneratedTrooperProfile? trooper=null,bool final=false)
+  =>(ReceiptSha256,ToCannon,_inputs,_triangles,IsGenerated,GeneratedTrooper,GeneratedFinal)=(sha,basis,new(inputs),Array.AsReadOnly(triangles.Select(a=>Array.AsReadOnly(a.ToArray())).ToArray()),generated,trooper,final);
  private static void Require(bool c,string why){if(!c)throw new InvalidDataException(why);}
  private static string Sha(byte[] bytes)=>Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
  private static int Budget(string name)=>name switch{"body.glb"=>128*1024*1024,"mesh.json"=>32*1024*1024,"clip-d12fdfa3.json"=>16*1024*1024,_=>1024*1024};
  internal static CharacterSourceCannonRecipe Load(string root,CharacterModelManifestEntry entry,string modelSha)
  {
+  if(entry.SourceCannonReceipt==FinalReceiptFile)return LoadGeneratedFinal(root,entry,modelSha);
+  if(CharacterGeneratedTrooperProfile.FromSkin(entry.SkinSource) is { } trooper && entry.SourceCannonReceipt==trooper.Id+".cannon-source.json")
+   return LoadGeneratedTrooper(root,entry,modelSha,trooper);
   if(entry.SourceCannonReceipt==GeneratedReceiptFile)return LoadGenerated(root,entry,modelSha);
   Require(entry.Part==CharacterModelPart.ViewModel&&entry.Lod==0&&entry.PoseSource==CharacterPoseSource.SourceRigPreview
    &&entry.SourceCannonReceipt=="source-cannon-receipt.json"&&entry.SourceCannonSha256==QualifiedReceiptSha256
@@ -58,6 +66,8 @@ internal sealed partial class CharacterSourceCannonRecipe
  }
  internal void Revalidate(string root,CharacterModelManifestEntry entry,string modelSha)
  {
+  if(GeneratedFinal){RevalidateGeneratedFinal(root,entry,modelSha);return;}
+  if(GeneratedTrooper is { } trooper){RevalidateGeneratedTrooper(root,entry,modelSha,trooper);return;}
   if(IsGenerated){RevalidateGenerated(root,entry,modelSha);return;}
   Require(entry.Part==CharacterModelPart.ViewModel&&entry.SourceCannonSha256==ReceiptSha256&&modelSha==QualifiedBodySha256
    &&entry.SourceCannonReceipt=="source-cannon-receipt.json"&&Sha(CharacterModelPack.ReadCannonInput(root,entry.SourceCannonReceipt,1024*1024))==ReceiptSha256,"Exact cannon receipt/part/hash owner");
@@ -69,6 +79,8 @@ internal sealed partial class CharacterSourceCannonRecipe
  }
  internal CharacterWeightedModelData Derive(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,CharacterWeightedModelData source)
  {
+  if(GeneratedFinal)return DeriveGeneratedFinal(lease,asset,source);
+  if(GeneratedTrooper!=null)return DeriveGeneratedTrooper(lease,asset,source);
   if(IsGenerated)return DeriveGenerated(lease,asset,source);
   lease.Require(asset);Require(ReferenceEquals(lease.SourceCannon,this)&&asset.Part==CharacterModelPart.ViewModel&&source.SourceCannon==null,"Exact issued cannon lease/part");
   var rig=source.SourceRig;Require(rig!=null&&source.Joints.Count==39&&rig.Nodes.Count==40&&source.Primitives.Count==7

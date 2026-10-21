@@ -55,7 +55,7 @@ internal static class KillCam
 
     internal static void AfterSimulation(Scene scene)
     {
-        if (CustomReplayBoundary.IsBlocked(scene)) { Reset(); return; }
+        if (CustomReplayBoundary.IsBlocked(scene)) { ResetUnsupported(); return; }
         _live = scene;
         if (Interlocked.Exchange(ref _skipRequested, 0) != 0) { Controller.Skip(); _releaseFire = true; }
         if (_finalRequested && scene.GameState.MatchTime <= 0)
@@ -155,7 +155,7 @@ internal static class KillCam
     }
     internal static Scene? Presentation(Scene live)
     {
-        if (CustomReplayBoundary.IsBlocked(live)) { Reset(); return null; }
+        if (CustomReplayBoundary.IsBlocked(live)) { ResetUnsupported(); return null; }
         if (live.Services.IsReplica || !ReferenceEquals(live, _live)) return null;
         if (!NetSession.Active) { Controller.Reset(KillcamEndReason.Disconnected); return null; }
         if (Controller.Playing?.Kill is { } kill && (kill.MatchId != NetSession.CurrentMatchId || kill.AuthorityEpoch != NetSession.AuthorityEpoch))
@@ -168,6 +168,10 @@ internal static class KillCam
     internal static bool IsRecentFinalKill(uint kill, uint end) => KillcamController.FinalEligible(kill, end, timedEnd: true, causalEnd: false);
     internal static string WeaponName(int value) => value is >= sbyte.MinValue and <= sbyte.MaxValue
         && Enum.IsDefined(typeof(BeamType), (sbyte)value) ? ((BeamType)value).ToString().ToUpperInvariant() : "";
+    // An unavailable replay retires history without consuming gameplay input.
+    // Re-arming the replay-skip latch every live step would swallow every shot.
+    private static void ResetUnsupported()
+    { Reset(); _releaseFire = false; }
     internal static void Reset()
     {
         Controller.Reset(KillcamEndReason.SceneClosed); _live = null; _finalRequested = false; _finalIdentityWaitStarted = null;

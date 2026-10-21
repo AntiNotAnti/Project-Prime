@@ -14,6 +14,15 @@ internal sealed record CharacterGeneratedTrooperProfile(string Id, string Skin, 
 {
     internal const string AncsSha = "7f9ae5c119a9d9a1ddca105be582e9914e51b8c36d1435ea8ba742b7da78c5d4";
     internal const string CinfSha = "937aa40d2074d819a6d4d89946eb7a059f44db73f6f2b54854de7b914b7ddbf9";
+    // Filled from independently compared actual importer output before admission.
+    internal string CannonReceiptSha => Id switch
+    {
+        "trooper-power" => "2b128462891c9aa85ebae92b68306345386c7dcaeabdee043ff522de69a4ecc5",
+        "trooper-ice" => "2074a896f47f0bd72402076afa1347287958bfef5682a225a287e4a83afe9363",
+        "trooper-wave" => "1c1cb397a741ebab61d1a36d785c194b4bad7f764c9d6684d86ec9f50e42c79b",
+        "trooper-plasma" => "1f8a1dc3eaf7d5a43cdc3d7e2fde28cdff63b95040f066fad57e1eb2d86584c1",
+        _ => ""
+    };
     private static readonly CharacterGeneratedTrooperProfile Power = new("trooper-power", "MP1PowerTrooper", "power_trooper", 0xf8691b86, 0x9346b450,
         "54f298805409fa12f34c34203cf7db2f5085f5b5ec4410ac04b3d329da71f3e8", "512da9abe64956aa8d7765611cef9dc596eea96c5403353013cfad8bbe4717c3",
         "a1b05e777345420456b1c2ace0c961a07bb2c54992536d30ef656e78593257b8", "303b654c5fbe3d98165ee0ef13e62a8acf9117915c687868b124c5ba6b69f0a0",
@@ -40,14 +49,15 @@ internal sealed record CharacterGeneratedTrooperProfile(string Id, string Skin, 
         PrivateCharacterAppearance appearance, string? verifiedModelSha)
     {
         string sha = verifiedModelSha ?? CharacterSourceProofIO.HashFile(asset.ModelPath, CharacterModelPack.MaximumModelBytes);
+        bool cannon = CharacterSourceCannonRecipe.IsGeneratedTrooperEntry(entry, sha, this);
         // The retained authoring provenance remains truthful: runtimeInstall is
         // false and its unqualified fields never self-grant actor authority.
         // Exact whole-file qualification covers every original source fact.
         if (entry.Provenance != Id + ".source.json" || entry.ProvenanceSha256 != ProvenanceSha
-            || asset.Hunter != Hunter.Weavel || asset.Part != CharacterModelPart.Biped || asset.Lod != 0
+            || asset.Hunter != Hunter.Weavel || !(asset.Part == CharacterModelPart.Biped || cannon) || asset.Lod != 0
             || asset.Skinning != CharacterSkinningMode.Weighted4 || asset.PoseSource != CharacterPoseSource.SourceRigPreview
             || appearance != new PrivateCharacterAppearance("trooper", Skin) || entry.MobileModel != null
-            || entry.BoneMap.Count != 0 || entry.SourceCannonReceipt != null || entry.SourceCannonSha256 != null
+            || entry.BoneMap.Count != 0 || !cannon && (entry.SourceCannonReceipt != null || entry.SourceCannonSha256 != null)
             || entry.SourceGraphProof != null || entry.SourceAnimationArchive != Id + ".animations.bin"
             || entry.SourceAnimationArchiveSha256 != AnimationSha || sha != ModelSha
             || receipt.GetProperty("format").GetInt32() != 1

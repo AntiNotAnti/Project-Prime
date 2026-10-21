@@ -12,7 +12,7 @@ using MphRead.Mods.Render;
 using MphRead.Mods.Render.Characters;
 using OpenTK.Graphics.OpenGL;
 
-// Explicit Mac GPU transport/presentation probe. The product importer and
+// Explicit qualified desktop GPU transport/presentation probe. The product importer and
 // LauncherHunter side Scene are exercised; no source picture/pose is retained.
 internal static class CharacterGeneratedPreviewOwnedProbe
 {
@@ -23,7 +23,9 @@ internal static class CharacterGeneratedPreviewOwnedProbe
     private sealed record ClockSample(int SubmittedPackets, bool SubmittedSecondsMatch, double? MinimumSubmittedSeconds,
         double? MaximumSubmittedSeconds, int ProgramZeroAliases, int ProgramZeroLastSubmittedMaterial, int ActivePrimaryRows, string GpuPrimaryRowsSha256,
         string CpuIdentityPrimaryRowsSha256, bool ProgramZeroAllMode2, bool GpuRowsMatchCpuIdentity,
-        bool AnyNonzeroScrollRates, int TextureUniqueRgbaCount);
+        bool AnyNonzeroScrollRates, int TextureUniqueRgbaCount, int ReportedPrimaryArraySize, string ReportedPrimaryType,
+        int[] RequiredPrimaryRows, int[] ActivePrimaryRowIndices, int[] GpuPrimaryRowFloatBits, int[] CpuPrimaryRowFloatBits,
+        string ProgramZeroVertexShaderSha256);
     private sealed record Frame(string Pixels, string Palette, int[] Lists, int[] Textures, int[] Programs, int Segments, int Joints, bool Visible, CharacterWeightedRenderModel Model, ClockSample? Clock);
 
     internal static int Run(string rvz)
@@ -45,21 +47,26 @@ internal static class CharacterGeneratedPreviewOwnedProbe
         var materialFrames = new List<object>();
         var finalFrames = new List<object>();
         var admissionFailures = new List<object>();
-        void Check(bool value, string why) { if (!value) { failedCheck = why; throw new InvalidDataException(why); } checks++; }
+        void Check(bool value, string why) { if (!value) { failedCheck ??= why; throw new InvalidDataException(why); } checks++; }
         try
         {
-            Check(OperatingSystem.IsMacOS() && System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
-                == System.Runtime.InteropServices.Architecture.Arm64, "This actual GPU proof requires the qualified macOS arm64 source profile.");
+            Check(CharacterSourceRootWitness.QualifiedForCurrentProcess,
+                "This actual GPU proof requires a qualified Windows x64 or macOS arm64 source profile.");
             rvz = Path.GetFullPath(rvz); rvzBefore = HashFile(rvz);
             // Read only the existing configured path. Never copy original MPH
             // companions into the derived root or change the user's paths.txt.
-            string config = Path.Combine(cwd, "paths.txt");
-            if (!File.Exists(config)) config = AppPaths.PathsFile;
-            Check(new FileInfo(config).Length is > 0 and <= 65536, "A bounded existing paths.txt is required.");
-            string[] matches = File.ReadAllLines(config).Select(l => l.Split('=', 2))
-                .Where(p => p.Length == 2 && p[0].Trim() == Ver.AMHE1).Select(p => p[1].Trim()).ToArray();
-            Check(matches.Length == 1 && matches[0].Length > 0, "Exactly one configured owned AMHE1 root is required.");
-            nativeRoot = Path.GetFullPath(matches[0], Path.GetDirectoryName(Path.GetFullPath(config))!);
+            string? explicitNative = Environment.GetEnvironmentVariable("PRIME_BODY_TEST_ASSETS");
+            if (!string.IsNullOrWhiteSpace(explicitNative)) nativeRoot = Path.GetFullPath(explicitNative);
+            else
+            {
+                string config = Path.Combine(cwd, "paths.txt");
+                if (!File.Exists(config)) config = AppPaths.PathsFile;
+                Check(new FileInfo(config).Length is > 0 and <= 65536, "A bounded existing paths.txt is required.");
+                string[] matches = File.ReadAllLines(config).Select(l => l.Split('=', 2))
+                    .Where(p => p.Length == 2 && p[0].Trim() == Ver.AMHE1).Select(p => p[1].Trim()).ToArray();
+                Check(matches.Length == 1 && matches[0].Length > 0, "Exactly one configured owned AMHE1 root is required.");
+                nativeRoot = Path.GetFullPath(matches[0], Path.GetDirectoryName(Path.GetFullPath(config))!);
+            }
             nativeBefore = NativeInventory(nativeRoot);
             Directory.CreateDirectory(temporary);
             string user = Path.Combine(temporary, "user-data"), imports = Path.Combine(temporary, "imports");
@@ -75,7 +82,7 @@ internal static class CharacterGeneratedPreviewOwnedProbe
             RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz, imports, selectedIds: new[] { Id, FinalId });
             var normalSelection = CharacterSourcePreviewSelection.Load(Id, CancellationToken.None, imports);
             var finalSelection = CharacterSourcePreviewSelection.Load(FinalId, CancellationToken.None, imports);
-            Check(normalSelection.HasCannon && !finalSelection.HasCannon
+            Check(normalSelection.HasCannon && finalSelection.HasCannon && !normalSelection.RuntimeCannon && !finalSelection.RuntimeCannon
                 && normalSelection.SelectedAppearance != finalSelection.SelectedAppearance,
                 "Normal and Final selections retain distinct body identities and cannon capability.");
             var capturedMaterials = new Dictionary<CharacterSourcePreviewSelection, CharacterSourceGxMaterials>();
@@ -168,6 +175,23 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                         PixelSha256=finalA.Pixels,RotatedPixelSha256=finalB.Pixels,PaletteSha256=finalA.Palette,
                         DisplayLists=finalA.Lists.Length,TextureBindings=finalA.Textures.Distinct().Count(),HasCannon=selection.HasCannon});
                     MaterialClock(finalClip.Ordinal,finalClip.Duration*.5,"Final");
+                    var finalCannonA=Draw(32,0,0,CharacterModelPart.ViewModel);
+                    var finalCannonB=Draw(32,0,90,CharacterModelPart.ViewModel);
+                    var finalCannonAgain=Draw(32,0,0,CharacterModelPart.ViewModel);
+                    Check(finalCannonA.Visible&&finalCannonB.Visible&&finalCannonAgain.Visible&&finalCannonA.Pixels!=finalCannonB.Pixels
+                        &&finalCannonA.Pixels==finalCannonAgain.Pixels&&finalCannonA.Palette==finalCannonB.Palette&&finalCannonA.Palette==finalCannonAgain.Palette
+                        &&finalCannonA.Lists.SequenceEqual(finalCannonB.Lists)&&finalCannonA.Lists.SequenceEqual(finalCannonAgain.Lists)
+                        &&finalCannonA.Textures.SequenceEqual(finalCannonB.Textures)&&finalCannonA.Programs.SequenceEqual(finalCannonB.Programs),
+                        "Final's own four-material cannon is visible and rotatable with fixed source pose and stable private GX resources.");
+                    var finalBodyRestored=Draw(finalClip.Ordinal,finalClip.Duration*.5,0);
+                    Check(finalBodyRestored.Visible&&finalBodyRestored.Model.SourceCannon==null
+                        &&finalBodyRestored.Palette==finalA.Palette&&finalBodyRestored.Pixels==finalA.Pixels
+                        &&capturedMaterials[finalSelection].Programs.All(p=>p.PresentationAlphaScale==1),
+                        "Returning from Final cannon restores its exact nine-program body without shell alpha mutation.");
+                    cannonFrames.Add(new{Context=context,Character=FinalId,Triangles=793,Indices=2379,
+                        MaterialOrdinals=new[]{3,4,5,7},MaterialTriangles=new[]{392,66,314,21},ClipOrdinal=32,Seconds=0,
+                        PixelSha256=finalCannonA.Pixels,RotatedPixelSha256=finalCannonB.Pixels,
+                        FixedPaletteSha256=finalCannonA.Palette,PrivateShellAlpha=.55f,ReturnedBody=true});
                     selection=normalSelection;
                     var restoredNormal=Draw(chosen,0,0);
                     Check(restoredNormal.Visible&&restoredNormal.Palette==a.Palette&&restoredNormal.Pixels==a.Pixels,
@@ -330,8 +354,11 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                             Check(clockA.Clock?.SubmittedSecondsMatch==true&&clockB.Clock?.SubmittedSecondsMatch==true&&clockAgain.Clock?.SubmittedSecondsMatch==true,
                                 label+" every actual submitted source packet carries the requested independent material seconds.");
                             Check(new[]{clockA.Clock!,clockB.Clock!,clockAgain.Clock!}.All(c=>c.ProgramZeroAllMode2
-                                    &&c.ActivePrimaryRows==(label=="normal"?9:6)&&c.GpuRowsMatchCpuIdentity),
-                                label+" every actual program-zero primary row matches the exact CPU mode2 time calculation bit for bit.");
+                                    &&c.ActivePrimaryRows is >0 and <=9&&c.ActivePrimaryRows%3==0
+                                    &&c.ReportedPrimaryArraySize==c.ActivePrimaryRows&&c.ReportedPrimaryType==ActiveUniformType.FloatVec4.ToString()
+                                    &&c.RequiredPrimaryRows.Length>0&&c.RequiredPrimaryRows.All(c.ActivePrimaryRowIndices.Contains)
+                                    &&c.GpuRowsMatchCpuIdentity),
+                                label+" GL-reported primary extent covers every needed texgen and all reported rows match CPU mode2 time bit for bit.");
                             Check(clockA.Clock!.GpuPrimaryRowsSha256!=clockB.Clock!.GpuPrimaryRowsSha256
                                 &&clockA.Clock.GpuPrimaryRowsSha256==clockAgain.Clock!.GpuPrimaryRowsSha256,
                                 label+" material clock changes actual GPU primary uniforms and returns exact A/B/A independently of pose.");
@@ -367,8 +394,10 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                             part, 0, out var asset) ? asset : null), "GPU model belongs to the captured generated pack and part.");
                         if (part == CharacterModelPart.ViewModel)
                         {
-                            Check(ReferenceEquals(selection,normalSelection)&&selection.HasCannon&&model.Segments.All(s=>s.SourceGx==null),
-                                "Only normal's fixed cannon uses diagnostic albedo; Final never receives a borrowed cannon or body program.");
+                            bool finalCannon=ReferenceEquals(selection,finalSelection);
+                            Check(selection.HasCannon&&(finalCannon?model.Segments.All(s=>s.SourceGx!=null&&s.AlbedoBinding==null)
+                                :ReferenceEquals(selection,normalSelection)&&model.Segments.All(s=>s.SourceGx==null)),
+                                "Final cannon uses its own source GX while normal retains its unchanged diagnostic cannon materials.");
                             var nativeMaterials = ((ModelInstance)Get(preview, "_model")!).Model.Materials;
                             Check(model.Segments.All(s => (uint)s.NativeMaterialIndex < nativeMaterials.Count
                                 && nativeMaterials[s.NativeMaterialIndex].Alpha == 31
@@ -381,12 +410,30 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                             Check(ordinal == 32 && seconds == 0 && model.SourceCannon?.IsGenerated == true && source != null
                                 && source.SourceAuthoringPose is { Count: 40 } && source.SourceRig?.Nodes.Count == 40,
                                 "Cannon uses the complete generated fixed source pose at root32/framezero.");
-                            Check(source != null && source.Primitives.Sum(p => p.Indices.Length) == 1176
-                                && source.Primitives.All(p => p.SourceMaterialOrdinal is 2 or 5)
-                                && source.Primitives.Where(p => p.SourceMaterialOrdinal == 2).Sum(p => p.Indices.Length / 3) == 66
-                                && source.Primitives.Where(p => p.SourceMaterialOrdinal == 5).Sum(p => p.Indices.Length / 3) == 326
-                                && source.Primitives.SelectMany(p => p.SourceTriangleIds ?? Array.Empty<int>()).Distinct().Count() == 392,
-                                "GPU cannon retains exactly392 whole source triangles in material2/5 only.");
+                            int[] ordinals=finalCannon?new[]{3,4,5,7}:new[]{2,5};
+                            int[] counts=finalCannon?new[]{392,66,314,21}:new[]{66,326};
+                            Check(source!=null&&source.Primitives.Sum(p=>p.Indices.Length)==(finalCannon?2379:1176)
+                                &&source.Primitives.Select(p=>p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(ordinals)
+                                &&ordinals.Select(m=>source.Primitives.Where(p=>p.SourceMaterialOrdinal==m).Sum(p=>p.Indices.Length/3)).SequenceEqual(counts)
+                                &&source.Primitives.SelectMany(p=>p.SourceTriangleIds??Array.Empty<int>()).Distinct().Count()==(finalCannon?793:392),
+                                "GPU cannon retains its own exact complete source triangle/material inventory.");
+                            if(finalCannon)
+                            {
+                                var materials=capturedMaterials[finalSelection];var variant=materials.ForFinalCannon();
+                                Check(ReferenceEquals(variant.Archive,materials.Archive)&&ReferenceEquals(variant.Images,materials.Images)
+                                    &&materials.Programs.All(p=>p.PresentationAlphaScale==1)
+                                    &&model.Segments.Select((segment,i)=>segment.SourceGx is{} gx&&ReferenceEquals(gx.Owner,current)
+                                        &&gx.Program.Vertex120==materials.Programs[source!.Primitives[i].SourceMaterialOrdinal].Vertex120
+                                        &&gx.Program.Fragment120==variant.Programs[source!.Primitives[i].SourceMaterialOrdinal].Fragment120
+                                        &&gx.Program.PresentationAlphaScale==(gx.Program.DrawPass==CharacterSourceGxProgram.Pass.Alpha?.55f:1f)
+                                        &&GL.IsProgram(gx.ProgramId)&&gx.Textures.Count==gx.Program.Textures.Count&&gx.Textures.All(GL.IsTexture)).All(v=>v)
+                                    &&model.Segments.Any(s=>s.SourceGx!.Program.PresentationAlphaScale==.55f),
+                                    "Final cannon submits own four source GX bindings with alpha055 only on alpha passes and unchanged body archive/images/programs.");
+                                int[][] cut=Enumerable.Range(0,9).Select(m=>source!.Primitives.Where(p=>p.SourceMaterialOrdinal==m)
+                                    .SelectMany(p=>p.SourceTriangleIds??Array.Empty<int>()).Order().ToArray()).ToArray();
+                                Check(Sha(JsonSerializer.SerializeToUtf8Bytes(cut))=="7a91aae9dbe748d23143b8c2ea655435df1db1403ec59fb84a43242577cdd594",
+                                    "Actual Final GPU cannon reproduces independently frozen nine-array793-triangle identity after twelve raw-UV trim removals.");
+                            }
                         }
                         else
                         {
@@ -415,12 +462,13 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                                 MaterialArchiveSha256=materials.Archive.Sha256,Complete=true});
                         }
                         int[] lists = model.Segments.Select(s => s.ListId).ToArray();
-                        int[] textures = part==CharacterModelPart.Biped?model.Segments.SelectMany(s=>s.SourceGx!.Textures).ToArray()
+                        bool sourcePrograms=part==CharacterModelPart.Biped||ReferenceEquals(selection,finalSelection);
+                        int[] textures = sourcePrograms?model.Segments.SelectMany(s=>s.SourceGx!.Textures).ToArray()
                             :model.Segments.Select(s=>s.AlbedoBinding??0).ToArray();
-                        int[] programs = part==CharacterModelPart.Biped?model.Segments.Select(s=>s.SourceGx!.ProgramId).ToArray():Array.Empty<int>();
+                        int[] programs = sourcePrograms?model.Segments.Select(s=>s.SourceGx!.ProgramId).ToArray():Array.Empty<int>();
                         Check(model.IsSourcePreview && model.Joints.Count == 39 && lists.All(GL.IsList)
                             && textures.Length>0&&textures.All(t => t != 0 && GL.IsTexture(t)), "Complete source rig and live source-program or diagnostic-cannon GPU resources required.");
-                        if(part==CharacterModelPart.Biped)
+                        if(sourcePrograms)
                         {
                             foreach(int program in programs)contextPrograms.Add(program);
                             foreach(int texture in textures)contextTextures.Add(texture);
@@ -480,12 +528,12 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                 cleaned = !Directory.Exists(temporary);
                 if (rvzBefore != null) rvzAfter = HashFile(rvz);
                 if (nativeRoot != null && nativeBefore != null) nativeAfter = NativeInventory(nativeRoot);
-                Check(cleaned && rvzBefore != null && rvzBefore == rvzAfter && nativeBefore != null && nativeBefore == nativeAfter,
+                Check(cleaned && (rvzBefore == null || rvzBefore == rvzAfter) && (nativeBefore == null || nativeBefore == nativeAfter),
                     "All derived data deleted and both owned sources unchanged.");
                 Check(coreBefore == HashFile(core) && toolBefore == HashFile(tool), "Core/tool assemblies unchanged during GPU proof.");
             }
             catch (Exception ex) { error ??= ex.GetType().Name; errorSha ??= Sha(Encoding.UTF8.GetBytes(ex.Message)); }
-            Console.WriteLine(JsonSerializer.Serialize(new { Scope = "Actual normal and Final Echoes source-program bodies plus normal diagnostic cannon in LauncherHunter sideScene; no gameplay/UI-intent/hardware-parity claim",
+            Console.WriteLine(JsonSerializer.Serialize(new { Scope = "Actual normal and Final Echoes source-program bodies, normal diagnostic cannon and Final private-alpha source GX cannon in LauncherHunter sideScene; no gameplay/UI-intent/hardware-parity claim",
                 Pass = error == null, Checks = checks, Frames = frames, Generation = generation, ChosenClipOrdinal = chosen,
                 SourceSha256Before = rvzBefore, SourceSha256After = rvzAfter, NativeInventorySha256Before = nativeBefore,
                 NativeInventorySha256After = nativeAfter, CoreSha256 = coreBefore, ToolSha256 = toolBefore,
@@ -502,11 +550,19 @@ internal static class CharacterGeneratedPreviewOwnedProbe
         var items=(IEnumerable<RenderItem>)Get(scene,"_previewItems")!;
         var packets=items.Select(i=>i.SourceGx).Where(g=>g!=null).Select(g=>g!).ToArray();
         var primary=zero.Program.Matrices(seconds,System.Numerics.Matrix4x4.Identity).Primary;
-        var gpuRows=new List<float>();var cpuRows=new List<float>();int active=0;
+        var gpuRows=new List<float>();var cpuRows=new List<float>();var activeIndices=new List<int>();int active=0;
+        GL.GetProgram(zero.ProgramId,GetProgramParameterName.ActiveUniforms,out int uniformCount);
+        int reportedSize=0;string reportedType="absent";
+        for(int i=0;i<uniformCount;i++)
+        {
+            string name=GL.GetActiveUniform(zero.ProgramId,i,out int size,out ActiveUniformType type);
+            if(name is "gx_primary" or "gx_primary[0]"){reportedSize=size;reportedType=type.ToString();}
+        }
+        int[] requiredRows=zero.Program.Generators.Where(g=>g.Primary>=0).SelectMany(g=>Enumerable.Range(g.Primary*3,3)).Distinct().Order().ToArray();
         for(int i=0;i<9;i++)
         {
             int location=GL.GetUniformLocation(zero.ProgramId,"gx_primary["+i+"]");if(location<0)continue;
-            var actual=new float[4];GL.GetUniform(zero.ProgramId,location,actual);gpuRows.AddRange(actual);active++;
+            var actual=new float[4];GL.GetUniform(zero.ProgramId,location,actual);gpuRows.AddRange(actual);active++;activeIndices.Add(i);
             var m=primary[i/3];
             cpuRows.AddRange((i%3) switch{0=>new[]{m.M11,m.M21,m.M31,m.M41},1=>new[]{m.M12,m.M22,m.M32,m.M42},_=>new[]{m.M13,m.M23,m.M33,m.M43}});
         }
@@ -522,7 +578,9 @@ internal static class CharacterGeneratedPreviewOwnedProbe
             programs.Count(p=>model.Segments.Any(s=>ReferenceEquals(s.SourceGx!.Program,p)&&s.SourceGx.ProgramId==zero.ProgramId)),
             lastOrdinal,active,Digest(gpuRows),Digest(cpuRows),zero.Program.Animations.All(a=>a.Mode==2),
             gpuRows.Select(BitConverter.SingleToInt32Bits).SequenceEqual(cpuRows.Select(BitConverter.SingleToInt32Bits)),
-            programs.SelectMany(p=>p.Animations).Any(a=>a.Mode==2&&(a.RateS!=0||a.RateT!=0)),uniqueRgba);
+            programs.SelectMany(p=>p.Animations).Any(a=>a.Mode==2&&(a.RateS!=0||a.RateT!=0)),uniqueRgba,
+            reportedSize,reportedType,requiredRows,activeIndices.ToArray(),gpuRows.Select(BitConverter.SingleToInt32Bits).ToArray(),
+            cpuRows.Select(BitConverter.SingleToInt32Bits).ToArray(),Sha(Encoding.UTF8.GetBytes(zero.Program.Vertex120)));
     }
     private static Scene CurrentScene() => SideScene.GetValue(null) as Scene ?? throw new InvalidDataException("Launcher did not create its side Scene.");
     private static HunterPreviewEntity Preview(Scene scene) => Get(scene, "_preview") as HunterPreviewEntity ?? throw new InvalidDataException("Launcher did not create its owned preview.");

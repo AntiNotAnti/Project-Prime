@@ -22,6 +22,14 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
     private readonly Model? _nativeCannon;
     private readonly CharacterSourcePreviewInstance? _cannonInstance;
     private readonly CharacterWeightedRenderModel? _cannonModel;
+    private readonly Model? _nativeBall;
+    private readonly CharacterSourcePreviewInstance? _ballInstance;
+    private readonly CharacterWeightedRenderModel? _ballModel;
+    internal Matrix4 BallFit { get; }
+    internal CharacterWeightedRenderModel? BallModel => _ballModel;
+    internal bool BallReady { get; private set; }
+    private long _ballTicks;
+    internal double BallMaterialSeconds => _ballTicks / 60d;
     internal Matrix4 FeetFit { get; }
     private readonly int _slot;
     private readonly long _sceneGeneration;
@@ -82,14 +90,30 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
                 _cannonInstance = new(cannonAnchor, CharacterModelPart.ViewModel, bodyOwner: this);
                 if (!CharacterModelRuntime.TryGetSourcePreview(scene, player.Hunter, CharacterModelPart.ViewModel,
                     _nativeCannon, selection.Pack, selection.SelectedAppearance, _cannonInstance, true, out _cannonModel)
-                    || _cannonModel.SourceCannon?.IsGenerated != true || _cannonModel.IndexCount != 392 * 3
+                    || _cannonModel.SourceCannon?.IsGenerated != true || _cannonModel.IndexCount != _cannonModel.SourceCannon.TriangleCount * 3
                     || _cannonModel.Segments.Count == 0 || _cannonModel.Segments.Any(s => s.SourceGx == null
                         || s.SourceJointPalette is not { Count: > 0 and <= 32 } || s.SourcePresentationPalette == null))
-                    throw new InvalidDataException("The selected normal source cannon could not bind completely.");
+                    throw new InvalidDataException("The selected source cannon could not bind completely.");
+            }
+            if (selection.RuntimeBall)
+            {
+                _nativeBall=player.ModSourceNativeBall;
+                string ballAnchor=_nativeBall.Materials.GroupBy(m=>m.Name,StringComparer.Ordinal).Where(g=>g.Count()==1)
+                    .Select(g=>g.Single()).First(m=>CharacterModelRuntime.CanUseAuthoredTexcoords(m.TexgenMode,true)).Name;
+                _ballInstance=new(ballAnchor,CharacterModelPart.AlternateForm,bodyOwner:this);
+                if (!CharacterModelRuntime.TryGetSourcePreview(scene,player.Hunter,CharacterModelPart.AlternateForm,
+                    _nativeBall,selection.Pack,selection.SelectedAppearance,_ballInstance,true,out _ballModel)
+                    || _ballModel.Joints.Count!=2 || _ballModel.IndexCount!=2220*3 || _ballModel.Segments.Count==0
+                    || _ballModel.Segments.Any(s=>s.SourceGx==null||s.SourceJointPalette is not {Count:>0 and <=32})
+                    || !CharacterModelRuntime.TryLoadSourceClip(scene,_ballInstance,_ballModel,CharacterGeneratedNormalBallProfile.ClipOrdinal,out var ready))
+                    throw new InvalidDataException("The selected normal source ball could not bind completely.");
+                var pose=ready.Sample(0);_ballModel.UpdateSourcePreviewPalette(pose);
+                BallFit=_ballModel.FitSourceBall(pose,Fixed.ToFloat(player.Values.AltColRadius));
             }
         }
         catch
         {
+            if (_ballInstance != null) CharacterModelRuntime.ReleaseSourcePreview(scene,_ballInstance);
             if (_cannonInstance != null) CharacterModelRuntime.ReleaseSourcePreview(scene, _cannonInstance);
             CharacterModelRuntime.ReleaseSourcePreview(scene, _instance); throw;
         }
@@ -103,7 +127,9 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
             && ReferenceEquals(_player.BipedModel2.Model, _native)
             && (ReferenceEquals(instance, _instance) && ReferenceEquals(native, _native)
                 || _cannonInstance != null && ReferenceEquals(instance, _cannonInstance)
-                    && ReferenceEquals(native, _nativeCannon) && ReferenceEquals(_player.ModSourceNativeGun, _nativeCannon))
+                    && ReferenceEquals(native, _nativeCannon) && ReferenceEquals(_player.ModSourceNativeGun, _nativeCannon)
+                || _ballInstance != null && ReferenceEquals(instance,_ballInstance)
+                    && ReferenceEquals(native,_nativeBall) && ReferenceEquals(_player.ModSourceNativeBall,_nativeBall))
             && !_player.IsBot && _player.SlotIndex == _slot && (uint)_slot < _scene.Players.Items.Count
             && ReferenceEquals(_scene.Players.Items[_slot], _player)
             && _player.Hunter == _selection.NativeHunter && !_scene.Services.IsReplica && !_scene.GameState.SinglePlayer
@@ -115,14 +141,19 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
     internal bool CannonCurrent => Current && _cannonInstance != null && _cannonModel != null
         && Owns(_scene, _nativeCannon!, _selection.Pack, _selection.SelectedAppearance, _cannonInstance)
         && CharacterModelRuntime.IsSourceBodyCurrent(_scene, _cannonInstance, _cannonModel);
+    internal bool BallCurrent => Current && _ballInstance != null && _ballModel != null
+        && Owns(_scene,_nativeBall!,_selection.Pack,_selection.SelectedAppearance,_ballInstance)
+        && CharacterModelRuntime.IsSourceBodyCurrent(_scene,_ballInstance,_ballModel);
 
     internal void Step(ulong step, long life, PlayerAnimation lower, int lowerFrame,
-        PlayerAnimation upper, int upperFrame, float aimY, bool supported)
+        PlayerAnimation upper, int upperFrame, float aimY, bool supported, bool ballSupported=false)
     {
         if (_disposed || _step == step) return;
         _step = step;
-        if (!Current) { Ready = false; return; }
-        if (_life != life) { _life = life; _ticks = 0; _pose.Reset(); }
+        if (!Current) { Ready = false; BallReady=false; return; }
+        if (_life != life) { _life = life; _ticks = 0; _ballTicks=0; _pose.Reset(); }
+        BallReady=ballSupported&&BallCurrent;
+        if(BallReady)_ballTicks++;
         Ready = supported && _pose.Supports(lower, upper);
         if (!Ready) { _pose.Reset(); return; }
         var pose = _pose.Sample(lower, lowerFrame, upper, upperFrame, aimY);
@@ -150,11 +181,19 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
         _cannonModel!.PrepareSourcePreviewPresentation(presentation); // ToCannon exactly once, inside this owner.
         return true;
     }
+    internal bool PrepareBall(Matrix4 roll,out Matrix4 presentation)
+    {
+        presentation=Matrix4.Identity;
+        if(!BallReady||!BallCurrent)return false;
+        presentation=BallFit*roll;
+        _ballModel!.PrepareSourcePreviewPresentation(presentation);return true;
+    }
 
     public void Dispose()
     {
         if (_disposed) return;
-        _disposed = true; Ready = false;
+        _disposed = true; Ready = false; BallReady=false;
+        if (_ballInstance != null) CharacterModelRuntime.ReleaseSourcePreview(_scene,_ballInstance);
         if (_cannonInstance != null) CharacterModelRuntime.ReleaseSourcePreview(_scene, _cannonInstance);
         CharacterModelRuntime.ReleaseSourcePreview(_scene, _instance);
     }

@@ -80,7 +80,7 @@ public static partial class NetSession
         {
             using var registry=new WeaponRegistry(true,new[]{ready.Wire.Definition});
             var layout=new CustomPickupLayout(session.Match.MapIdentity.Content(session.Match.RoomKey),ready.Wire.Manifest,registry,
-                StockRiftlinePickups.ForRoom(session.Match.RoomKey));
+                StockRiftlinePickups.ForRoom(session.Match.RoomKey,ready.Wire.Definition));
             _customPickupReceiver=new(ready.Wire.Bootstrap,layout);_customPickupWire=ready.Wire;_customPickupConnection=_customReadinessConnection;
         }
         return _customPickupReceiver;

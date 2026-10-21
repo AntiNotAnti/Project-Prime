@@ -36,9 +36,9 @@ internal static class CharacterCannonRuntimeOwnedProbe
         new("charge-release",40),new("turn",30),new("walk",30),new("missile",50),new("power",50),
         new("morph",100),new("unmorph",100),new("settle",100)];
     private sealed record Result(string Identity, string[] Trace, object[] Stages, int CannonFrames,
-        int FallbackFrames, int RepeatedDraws, double MaximumTipError, double MaximumPaletteError, object[] FractionalSchedules);
+        int FallbackFrames, int RepeatedDraws, double MaximumTipError, double MaximumPaletteError, object[] FractionalSchedules, object? Ball = null);
 
-    internal static int Run(string rvz)
+    internal static int Run(string rvz, bool trooper = false, bool probeBall = false)
     {
         string temporary = Path.Combine(Path.GetTempPath(), "prime-cannon-runtime-" + Guid.NewGuid().ToString("N"));
         string cwd = Environment.CurrentDirectory;
@@ -55,6 +55,8 @@ internal static class CharacterCannonRuntimeOwnedProbe
         int oldFov = RenderOptions.FieldOfView, oldCap = FrameTiming.FrameRateCap;
         ShadowQuality oldShadow = RenderOptions.Shadows;
         var runs = new List<Result>(); var captures = new List<object>();
+        var script=probeBall?Script.SelectMany(s=>s.Name=="morph"?new[]{s,new Stage("ball-roll",90),new Stage("ball-bomb",20),new Stage("ball-settle",50),
+            new Stage("ball-death-respawn",420),new Stage("ball-after-life-morph",100),new Stage("ball-after-life-roll",60)}:new[]{s}).ToArray():Script;
         bool cleaned = false; int checks = 0;
         string coreSha = HashFile(typeof(Scene).Assembly.Location), toolSha = HashFile(typeof(CharacterCannonRuntimeOwnedProbe).Assembly.Location);
         var watch = Stopwatch.StartNew();
@@ -89,20 +91,26 @@ internal static class CharacterCannonRuntimeOwnedProbe
             GamepadContexts.MenuVisible=GamepadContexts.Capturing=GamepadContexts.TextEntryActive=false;
             PointerInput.StylusMode=false; PointerInput.Reset(); PointerDevice.Reset();
             Scene.LauncherPreview=false; Scene.PreviewWanted=false;
-            RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz,imports,selectedIds:["darksamus-echoes","darksamus-overcharged-echoes"]);
-            var normal=CharacterSourcePreviewSelection.LoadForLocalBody("darksamus-echoes",CancellationToken.None,imports);
-            var final=CharacterSourcePreviewSelection.LoadForLocalBody("darksamus-overcharged-echoes",CancellationToken.None,imports);
-            Check(normal.HasCannon && !final.HasCannon,"Final retains no borrowed normal cannon capability");
-            Check(normal.Pack.TryResolvePrivate(Hunter.Samus,normal.SelectedAppearance,CharacterModelPart.Biped,0,out var normalBody),
-                "normal cannon comparison resolves canonical source body");
-            Check(normal.Pack.TryCreateSourcePreviewLease(normalBody,out var normalLease) && normalLease.SourceMaterials!=null,
-                "normal cannon comparison captures canonical normal body GX archive");
-            var canonicalMaterials=normalLease!.SourceMaterials!;
+            string[] ids=trooper?["trooper-power","trooper-ice","trooper-wave","trooper-plasma"]
+                :["darksamus-echoes","darksamus-overcharged-echoes"];
+            RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz,imports,selectedIds:ids);
+            var selections=ids.Select(id=>CharacterSourcePreviewSelection.LoadForLocalBody(id,CancellationToken.None,imports)).ToArray();
+            Check(selections.All(s=>s.HasCannon&&s.RuntimeCannon),
+                "only the exact supported appearance owns its own source cannon capability");
+            var canonicalByAppearance=new Dictionary<PrivateCharacterAppearance,CharacterSourceGxMaterials>();
+            foreach(var selected in selections.Where(s=>s.RuntimeCannon))
+            {
+                Check(selected.Pack.TryResolvePrivate(selected.NativeHunter,selected.SelectedAppearance,CharacterModelPart.Biped,0,out var sourceBody),
+                    "cannon comparison resolves its own canonical source body");
+                Check(selected.Pack.TryCreateSourcePreviewLease(sourceBody,out var bodyLease)&&bodyLease.SourceMaterials!=null,
+                    "cannon comparison captures its own canonical body GX archive");
+                canonicalByAppearance.Add(selected.SelectedAppearance,bodyLease!.SourceMaterials!);
+            }
             var settings=DesktopGlContext.Settings(background:true); settings.ClientSize=new(640,480);
             settings.StartVisible=true; settings.StartFocused=false; settings.Title="Project Prime actual owned source cannon runtime";
             using var window=new NativeWindow(settings); using var graphics=new DesktopGraphicsSession(window); GLFW.SwapInterval(0);
             renderer=GL.GetString(StringName.Renderer);version=GL.GetString(StringName.Version);
-            foreach(var selection in new CharacterSourcePreviewSelection?[]{null,normal,final})
+            foreach(var selection in new CharacterSourcePreviewSelection?[]{null}.Concat(selections))
             {
                 Result result=Exercise(selection); runs.Add(result);
                 if(runs.Count>1)
@@ -116,13 +124,14 @@ internal static class CharacterCannonRuntimeOwnedProbe
 
             Result Exercise(CharacterSourcePreviewSelection? selection)
             {
+                bool final=selection?.SelectedAppearance.SkinSource=="MP2DarkSamusFinal";
                 Bound();FrameTiming.Reset();PointerInput.Reset();PointerDevice.Reset();
                 Rng.SetRng1(8128);Rng.SetRng2(0x8128a5a5);
                 var keyboard=SyntheticInput.CreateKeyboard();var mouse=SyntheticInput.CreateMouse();Scene? scene=null;
                 try
                 {
                     scene=new(window.FramebufferSize,keyboard,mouse,_=>{},()=>{});
-                    scene.Random.SetRng1(123456);scene.Random.SetRng2(654321);scene.AddPlayer(Hunter.Samus);
+                    scene.Random.SetRng1(123456);scene.Random.SetRng2(654321);scene.AddPlayer(trooper?Hunter.Weavel:Hunter.Samus);
                     scene.AddRoom("MP3 PROVING GROUND",GameMode.Battle,playerCount:1,nodeLayerMask:0);scene.OnLoad();scene.OnResize();
                     var inputMode=typeof(Scene).GetField("_inputMode",Hidden)!;inputMode.SetValue(scene,Enum.Parse(inputMode.FieldType,"All"));
                     scene.GameState.MatchTime=-1;scene.GameState.PointGoal=10000;scene.GameState.ThirdPersonCamera=false;
@@ -130,18 +139,55 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     var player=scene.Players.Main;player.IsBot=false;player.IgnoreItemPickups=true;
                     foreach(var button in player.Controls.All){button.Type=ButtonType.Key;button.Key=Keys.Unknown;}
                     player.Controls.Shoot.Key=Keys.Enter;player.Controls.MoveUp.Key=Keys.W;
+                    if(probeBall){player.Controls.AltAttack.Key=Keys.Enter;player.Controls.RollUp.Key=Keys.W;}
                     player.Controls.Missile.Key=Keys.M;player.Controls.PowerBeam.Key=Keys.P;player.Controls.Morph.Key=Keys.B;
                     player.Controls.MouseAim=true;player.Controls.KeyboardAim=false;
                     Key(keyboard,Keys.Enter,true);
                     for(int n=0;n<600&&!player.LoadFlags.TestFlag(LoadFlags.Spawned);n++)scene.OnSimulationFrame();
                     Key(keyboard,Keys.Enter,false);scene.CameraSequences.Current?.End();
                     for(int n=0;n<240;n++)scene.OnSimulationFrame();scene.CameraSequences.Current?.End();
-                    Check(player.Health>0&&player.ModIsInPlay&&!player.IsAltForm,"native input reaches actual first-person Samus life");
+                    Check(player.Health>0&&player.ModIsInPlay&&!player.IsAltForm,"native input reaches actual first-person matching Hunter life");
                     if(selection!=null)player.ModBindSourceBody(selection);
                     CharacterSourceBodyOwner? owner=player.ModSourceBody;CharacterWeightedRenderModel? cannon=owner?.CannonModel;
-                    bool expectsCannon=ReferenceEquals(selection,normal);
+                    bool expectsCannon=selection?.RuntimeCannon==true;
+                    bool expectsBall=selection?.RuntimeBall==true;
+                    var sourceBall=owner?.BallModel;
+                    var nativeBallLists=player.ModSourceNativeBall.Meshes.Select(m=>m.ListId).Where(id=>id>0).ToHashSet();
+                    CharacterWeightedModelData? ballGeometry=null;Matrix4[]? ballSkin=null;Vector3 ballCenter=Vector3.Zero;double ballRadiusError=0;
+                    if(probeBall)
+                    {
+                        Check(expectsBall?owner is {BallCurrent:true}&&sourceBall!=null:sourceBall==null,
+                            "only normal local-body selection owns the original source ball; Final keeps its native ball");
+                        if(expectsBall)
+                        {
+                            Check(sourceBall!.Joints.Count==2&&sourceBall.IndexCount==2220*3&&sourceBall.SourceCannon==null,
+                                "original source ball retains full two-joint geometry without cannon cut");
+                            ballGeometry=(CharacterWeightedModelData)typeof(CharacterWeightedRenderModel).GetField("_sourceGeometry",Hidden)!.GetValue(sourceBall)!;
+                            Check(selection!.Pack.TryResolvePrivate(Hunter.Samus,selection.SelectedAppearance,CharacterModelPart.AlternateForm,0,out var ballAsset)
+                                &&selection.Pack.TryCreateSourcePreviewLease(ballAsset,out _),"actual ball has its own admitted load-boundary lease");
+                            selection.Pack.TryCreateSourcePreviewLease(ballAsset,out var ballLease);
+                            var ready=CharacterSourceClip.Load(ballLease,ballAsset,ballGeometry.SourceRig!,1).Sample(0);
+                            ballSkin=ballGeometry.SourceRig!.Evaluate(ready,ballGeometry.Joints);
+                            var posed=new List<Vector3>();var minimum=new Vector3(float.PositiveInfinity);var maximum=new Vector3(float.NegativeInfinity);
+                            foreach(var primitive in ballGeometry.Primitives)foreach(var vertex in primitive.Vertices)
+                            {
+                                var point=Vector3.Zero;var position=new Vector3(vertex.Position.X,vertex.Position.Y,vertex.Position.Z);
+                                for(int influence=0;influence<4;influence++)if(vertex.Weights[influence]>0)
+                                    point+=Vector3.TransformPosition(position,ballSkin[primitive.JointPalette![vertex.PackedJoints>>(5*influence)&31]])*vertex.Weights[influence];
+                                posed.Add(point);minimum=Vector3.ComponentMin(minimum,point);maximum=Vector3.ComponentMax(maximum,point);
+                            }
+                            ballCenter=(minimum+maximum)*.5f;
+                            float fittedRadius=posed.Max(point=>Vector3.TransformPosition(point,owner!.BallFit).Length);
+                            ballRadiusError=Math.Abs(fittedRadius-Fixed.ToFloat(player.Values.AltColRadius));
+                            Check(Vector3.TransformPosition(ballCenter,owner!.BallFit).Length<.00001&&ballRadiusError<.00001,
+                                "all original ready-pose vertices fit the unchanged native collision sphere radius and centre");
+                            Check(sourceBall.Segments.All(s=>s.SourceGx is {} gx&&gx.Program.DrawPass==CharacterSourceGxProgram.Pass.Opaque),
+                                "normal ball compiles its own complete opaque source material");
+                        }
+                    }
+                    var canonicalMaterials=expectsCannon?canonicalByAppearance[selection!.SelectedAppearance]:null;
                     Check(expectsCannon ? owner is {CannonCurrent:true}&&cannon!=null : cannon==null,
-                        "only normal local-body selection owns a runtime cannon");
+                        "only the requested qualified local-body selection owns a runtime cannon");
                     var gun=(ModelInstance)typeof(PlayerEntity).GetField("_gunModel",Hidden)!.GetValue(player)!;
                     var nativeGunLists=gun.Model.Meshes.Select(mesh=>mesh.ListId).Where(id=>id>0).ToHashSet();
                     Check(nativeGunLists.Count>0,"actual native gun owns positive mesh list identities");
@@ -150,41 +196,72 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     Matrix4[]? globals=null,skin=null;
                     if(cannon!=null)
                     {
-                        Check(cannon.Joints.Count==39&&cannon.IndexCount==392*3&&geometry!.SourceAuthoringPose!=null
-                            &&geometry.SourceRig!=null&&geometry.SourceCannon!=null,"fixed runtime cannon is392triangles/full39rig with original authoring pose");
+                        Check(cannon.Joints.Count==(trooper?35:39)&&cannon.IndexCount==(trooper?206:final?793:392)*3&&geometry!.SourceAuthoringPose!=null
+                            &&geometry.SourceRig!=null&&geometry.SourceCannon!=null,"fixed runtime cannon retains complete source cut/rig and original authoring pose");
                         int[] materialIds=geometry!.Primitives.Select(p=>p.SourceMaterialOrdinal).Distinct().Order().ToArray();
-                        Check(materialIds.SequenceEqual(new[]{2,5})&&geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==2).Sum(p=>p.Indices.Length)==66*3
-                            &&geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==5).Sum(p=>p.Indices.Length)==326*3,
-                            "runtime cannon retains exact whole-triangle material2/5 cut");
+                        Check(trooper?materialIds.SequenceEqual(new[]{0,1,2})
+                                &&new[]{0,1,2}.Select(m=>geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==m).Sum(p=>p.Indices.Length)/3).SequenceEqual(new[]{10,32,164})
+                            :final?materialIds.SequenceEqual(new[]{3,4,5,7})
+                                &&new[]{3,4,5,7}.Select(m=>geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==m).Sum(p=>p.Indices.Length)/3).SequenceEqual(new[]{392,66,314,21})
+                            :materialIds.SequenceEqual(new[]{2,5})&&geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==2).Sum(p=>p.Indices.Length)==66*3
+                                &&geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==5).Sum(p=>p.Indices.Length)==326*3,
+                            "runtime cannon retains exact whole-triangle original material cut");
                         globals=Globals(geometry.SourceRig!,geometry.SourceAuthoringPose!);
                         skin=geometry.Joints.Select((joint,i)=>joint.InverseBind*globals[geometry.SourceRig!.JointNodes[i]]).ToArray();
                         for(int segment=0;segment<cannon.Segments.Count;segment++)
                         {
                             var batch=cannon.Segments[segment];var primitive=geometry.Primitives[segment];
-                            Check(batch.SourceGx!=null&&batch.SourceGx.Program.Vertex120==canonicalMaterials.Programs[primitive.SourceMaterialOrdinal].Vertex120
-                                &&batch.SourceGx.Program.Fragment120==canonicalMaterials.Programs[primitive.SourceMaterialOrdinal].Fragment120,
-                                "cannon material comes from exact original normal body GX program");
+                            var original=canonicalMaterials!.Programs[primitive.SourceMaterialOrdinal];
+                            var expected=final?canonicalMaterials.ForFinalCannon().Programs[primitive.SourceMaterialOrdinal]:original;
+                            Check(batch.SourceGx!=null&&batch.SourceGx.Program.Vertex120==original.Vertex120
+                                &&batch.SourceGx.Program.Fragment120==expected.Fragment120
+                                &&batch.SourceGx.Program.InitialRegister1==canonicalMaterials.Programs[primitive.SourceMaterialOrdinal].InitialRegister1,
+                                "cannon material and C1 come from its exact original body GX program");
+                            Check(!final||batch.SourceGx!.Program.PresentationAlphaScale==(original.DrawPass==CharacterSourceGxProgram.Pass.Alpha?.55f:1f),
+                                "Final applies donor shell alpha only to its Alpha pass; raw body programs remain unmodified");
                         }
                     }
                     int sourceFrames=0,fallbackFrames=0,repeats=0,sourceFire=0,sourceCharge=0,sourceRelease=0;
+                    int ballFrames=0,ballFallback=0,maxBombs=0,afterLifeBallFrames=0;double maxBallError=0;bool ballMoved=false,died=false,respawned=false;
+                    Vector3? ballFirst=null;
                     double maxTip=0,maxPalette=0;bool fired=false,charged=false,morphed=false,missile=false;
                     var trace=new List<string>();var stages=new List<object>();var captured=new HashSet<string>();
                     var fractionalSchedules=new List<object>();
+                    using var sourceLocks = selection == null ? null : new SourceFileLocks(imports);
+                    Check(selection == null || sourceLocks!.Count >= ids.Length * 13,
+                        "all imported component files remain exclusively locked through actual match steps and draws");
                     Picture(false);Rng.SetRng1(123456);Rng.SetRng2(654321);scene.Random.SetRng1(123456);scene.Random.SetRng2(654321);
-                    foreach(Stage stage in Script)
+                    foreach(Stage stage in script)
                     {
+                        if(stage.Name=="ball-death-respawn")
+                        {player.TakeDamage(10000,DamageFlags.Death|DamageFlags.IgnoreInvuln,null,null);died=player.Health==0;}
                         int beforeSource=sourceFrames;var animations=new HashSet<string>();
                         for(int age=0;age<stage.Steps;age++)
                         {
                             Bound();foreach(Keys key in KeysUsed)Key(keyboard,key,false);
-                            if(stage.Name=="fire"&&age<2||stage.Name=="charge")Key(keyboard,Keys.Enter,true);
-                            if(stage.Name=="walk")Key(keyboard,Keys.W,true);
+                            if(stage.Name=="fire"&&age<2||stage.Name=="charge"||stage.Name=="ball-bomb"&&age==0
+                                ||stage.Name=="ball-death-respawn"&&age%30==0)Key(keyboard,Keys.Enter,true);
+                            if(stage.Name is "walk" or "ball-roll" or "ball-after-life-roll")Key(keyboard,Keys.W,true);
                             if(stage.Name=="missile"&&age==0)Key(keyboard,Keys.M,true);
                             if(stage.Name=="power"&&age==0)Key(keyboard,Keys.P,true);
-                            if(stage.Name is "morph" or "unmorph"&&age==0)Key(keyboard,Keys.B,true);
+                            if(stage.Name is "morph" or "unmorph" or "ball-after-life-morph"&&age==0)Key(keyboard,Keys.B,true);
                             if(stage.Name=="turn")MousePosition(mouse,mouse.Position+new Vector2(8,0));
                             FrameTiming.Reset();scene.OnSimulationFrame();Picture(true,stage.Name);
-                            trace.Add(State(scene,player));animations.Add(player.GunAnimation.ToString());
+                            if(probeBall&&stage.Name=="ball-roll"&&age==0)
+                                Console.WriteLine(JsonSerializer.Serialize(new{Probe="ball-admission-state",Identity=selection?.SelectedAppearance.SkinSource??"native",
+                                    player.IsAltForm,player.IsMorphing,player.IsUnmorphing,player.Health,
+                                    Common=typeof(PlayerEntity).GetProperty("SourcePresentationStateSupported",Hidden)!.GetValue(player),
+                                    BallSupported=typeof(PlayerEntity).GetProperty("SourceBallStateSupported",Hidden)!.GetValue(player),
+                                    owner?.Current,owner?.BallCurrent,owner?.BallReady,BallPackets=BallItems(scene).Count,
+                                    player.ModCrouched,player.ModTucked,Crouch=typeof(PlayerEntity).GetProperty("ModCrouchVisualAmount",Hidden)!.GetValue(player),
+                                    Alpha=typeof(PlayerEntity).GetField("_curAlpha",Hidden)!.GetValue(player),
+                                    PaletteOverridePresent=typeof(EntityBase).GetProperty("PaletteOverride",Hidden)!.GetValue(player)!=null,
+                                    CameraSequence=scene.CameraSequences.Current!=null,Bright=BrightSkins.ShouldApply(player),
+                                    DamageTimer=typeof(PlayerEntity).GetField("_timeSinceDamage",Hidden)!.GetValue(player)}));
+                            trace.Add(State(scene,player)+(probeBall?":"+BombState(scene,player):""));animations.Add(player.GunAnimation.ToString());
+                            respawned|=died&&player.Health>0&&player.ModIsInPlay;
+                            if(respawned&&BallItems(scene).Count>0)afterLifeBallFrames++;
+                            if(probeBall)maxBombs=Math.Max(maxBombs,SceneBombs(scene).Count(b=>ReferenceEquals(b.Owner,player)));
                             fired|=player.EquipInfo.Beams.Any(beam=>beam.Lifespan>0&&ReferenceEquals(beam.Owner,player));
                             charged|=player.EquipInfo.ChargeLevel>=player.EquipInfo.Weapon.MinCharge*2&&player.EquipInfo.ChargeLevel>0;
                             morphed|=player.IsAltForm;missile|=player.CurrentWeapon==BeamType.Missile;
@@ -197,6 +274,60 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         stages.Add(observation);Console.WriteLine(JsonSerializer.Serialize(new{Probe="cannon-stage",Identity=selection?.SelectedAppearance.SkinSource??"native",observation}));
                     }
                     Check(fired&&charged&&morphed&&missile,"native input earns shot, charge, missile selection and morph");
+                    if(probeBall)Console.WriteLine(JsonSerializer.Serialize(new{Probe="ball-run-summary",Identity=selection?.SelectedAppearance.SkinSource??"native",maxBombs,ballFrames,ballFallback,ballMoved}));
+                    if(probeBall)Check(maxBombs>0&&died&&respawned&&(!expectsBall||ballFrames>0&&ballMoved&&afterLifeBallFrames>0),
+                        "actual native input earns bomb, injected death/native respawn and moving source ball in both lives where selected");
+                    var ballSchedules=new List<object>();
+                    if(probeBall&&expectsBall)
+                    {
+                        foreach(Keys key in KeysUsed)Key(keyboard,key,false);
+                        Key(keyboard,Keys.B,true);scene.OnSimulationFrame();Key(keyboard,Keys.B,false);
+                        for(int n=0;n<110;n++){scene.OnSimulationFrame();Picture(false);}
+                        Check(player.IsAltForm&&!player.IsMorphing&&BallItems(scene).Count==sourceBall!.Segments.Count,
+                            "post-trace ball contracts start from a genuine settled native morph");
+                        double frozenClock=owner!.BallMaterialSeconds;string frozenSkin=RawPalette(sourceBall!);
+                        scene.GameState.PauseMenu();
+                        try
+                        {
+                            for(int n=0;n<4;n++){scene.OnSimulationFrame();Picture(true);}
+                            Check(owner.BallMaterialSeconds==frozenClock&&RawPalette(sourceBall!)==frozenSkin,
+                                "paused simulation and repeated draw preserve fixed ball raw skin and material clock");
+                        }
+                        finally{scene.GameState.UnpauseMenu();}
+                        var flagsProperty=typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!;var flags=player.Flags2;
+                        flagsProperty.SetValue(player,flags|PlayerFlags2.Cloaking);
+                        try{Picture(true);Check(BallItems(scene).Count==0&&WorldItems(scene).Any(i=>nativeBallLists.Contains(i.ListId)),"cloak guard draws full native sphere with zero source ball packets");}
+                        finally{flagsProperty.SetValue(player,flags);}
+                        RenderOptions.Shadows=ShadowQuality.Low;
+                        try{Picture(true);Check(BallItems(scene).Count==0&&WorldItems(scene).Any(i=>nativeBallLists.Contains(i.ListId)),"dynamic-shadow guard draws full native sphere with zero source packets");}
+                        finally{RenderOptions.Shadows=ShadowQuality.Off;}
+                        Picture(false);
+                        Check(BallItems(scene).Count==sourceBall!.Segments.Count&&owner.BallMaterialSeconds==frozenClock&&RawPalette(sourceBall)==frozenSkin,
+                            "guard restoration resumes the complete captured sphere without simulation, IO or clock advance");
+                        Key(keyboard,Keys.W,true);
+                        foreach(int rate in new[]{90,120,240,540})
+                        {
+                            FrameTiming.FrameRateCap=rate>FrameTiming.MaxCap?FrameTiming.Unlimited:rate;
+                            FrameTiming.Reset();int stepsTotal=0,zeroSteps=0,fractional=0,firstPictures=ballFrames;
+                            double firstClock=owner.BallMaterialSeconds;ulong firstStep=scene.FrameCount;
+                            for(int picture=0;picture<rate;picture++)
+                            {
+                                int steps=FrameTiming.Advance(1d/rate);stepsTotal+=steps;if(steps==0)zeroSteps++;
+                                if(FrameTiming.PresentationAlpha>1e-6&&FrameTiming.PresentationAlpha<1-1e-6)fractional++;
+                                for(int step=0;step<steps;step++)scene.OnSimulationFrame();
+                                Picture(true);
+                                Check(RawPalette(sourceBall)==frozenSkin&&Math.Abs(owner.BallMaterialSeconds-firstClock-stepsTotal/60d)<1e-9,
+                                    "fractional native roll pictures never advance the fixed source pose or independent material clock");
+                            }
+                            Check(scene.FrameCount-firstStep==(ulong)stepsTotal&&ballFrames-firstPictures==rate&&zeroSteps>0&&fractional>0,
+                                "source ball follows the native specialized draw owner for every fractional-rate picture");
+                            ballSchedules.Add(new{Rate=rate,Pictures=rate,CompletedSteps=stepsTotal,ZeroStepPictures=zeroSteps,FractionalPictures=fractional,
+                                MaterialClockAdvance=owner.BallMaterialSeconds-firstClock,NativeRollPolicyUnchanged=true});
+                        }
+                        Key(keyboard,Keys.W,false);FrameTiming.FrameRateCap=oldCap;FrameTiming.Reset();
+                        Key(keyboard,Keys.B,true);scene.OnSimulationFrame();Key(keyboard,Keys.B,false);
+                        for(int n=0;n<110;n++){scene.OnSimulationFrame();Picture(false);}
+                    }
                     if(expectsCannon)
                     {
                         Check(sourceFrames>0&&sourceFire>0&&sourceCharge>0&&sourceRelease>0,
@@ -204,7 +335,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         foreach(Keys key in KeysUsed)Key(keyboard,key,false);
                         for(int n=0;n<300&&SourceItems(scene).Count==0;n++){scene.OnSimulationFrame();Picture(false);}
                         Check(SourceItems(scene).Count==cannon!.Segments.Count,"fallback fixtures start from complete source cannon");
-                        // This normal-only phase follows the captured parity
+                        // This source-cannon phase follows the captured parity
                         // trace. Its additional steps/pictures are separately
                         // counted and never presented as part of that trace.
                         int savedSourceFrames=sourceFrames,savedFallbackFrames=fallbackFrames,savedRepeats=repeats;
@@ -291,6 +422,24 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             Check(SourceItems(scene).Count==cannon.Segments.Count&&owner.MaterialSeconds==priorClock,
                                 abilityFlag+" guard restoration resumes complete source cannon without simulation");
                         }
+                        // Accepted presentation-state fixture; controller execution is separate.
+                        var grappleField=typeof(PlayerEntity).GetField("_modGrapple",Hidden)!;
+                        var savedGrapple=player.ModGrappleState;
+                        var injectedGrapple=new PlayerGrappleState(true,1,player.Position+new Vector3(0,2,4),4);
+                        Check(injectedGrapple.IsValid,"injected grapple presentation fixture is valid");
+                        string grappleState=State(scene,player),grapplePalette=RawPalette(cannon);
+                        double grappleClock=owner!.MaterialSeconds;
+                        try
+                        {
+                            grappleField.SetValue(player,injectedGrapple);Picture(true);
+                            Check(SourceItems(scene).Count==0&&WorldItems(scene).Any(item=>item.ViewModel&&nativeGunLists.Contains(item.ListId)),
+                                "accepted grapple presentation falls back to complete native first-person gun");
+                        }
+                        finally{grappleField.SetValue(player,savedGrapple);}
+                        Picture(false);
+                        Check(SourceItems(scene).Count==cannon.Segments.Count&&State(scene,player)==grappleState
+                            &&RawPalette(cannon)==grapplePalette&&owner.MaterialSeconds==grappleClock,
+                            "grapple restoration resumes source cannon with unchanged native state, raw palette and clock");
                         var flagsProperty=typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!;var flags=player.Flags2;
                         flagsProperty.SetValue(player,flags|PlayerFlags2.Cloaking);
                         try{Picture(false);Check(SourceItems(scene).Count==0,"cloaking falls back before any source cannon packet");}
@@ -302,17 +451,62 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         player.TakeDamage(10,DamageFlags.IgnoreInvuln|DamageFlags.NoDmgInvuln,null,null);
                         try{Picture(false);Check(SourceItems(scene).Count==0,"native damage flash falls back before any source cannon packet");}
                         finally{typeof(PlayerEntity).GetField("_timeSinceDamage",Hidden)!.SetValue(player,damageTimer);}
-                        int[] lists=cannon.Segments.Select(segment=>segment.ListId).ToArray();
+                        int[] lists=cannon.Segments.Select(segment=>segment.ListId).ToArray(),ballLists=sourceBall?.Segments.Select(s=>s.ListId).ToArray()??[];
                         CharacterModelRuntime.Release(scene);
                         Check(!owner!.CannonCurrent&&lists.All(id=>!GL.IsList(id)),"context retirement deletes cannon geometry and authority");
+                        Check(sourceBall==null||!owner.BallCurrent&&ballLists.All(id=>!GL.IsList(id)),"context retirement deletes every source sphere batch and its authority");
                         scene.OnDrawFrame();Check(SourceItems(scene).Count==0&&!owner.CannonCurrent,"retired cannon never resurrects on draw");
+                        if(probeBall&&expectsBall)
+                        {
+                            foreach(Keys key in KeysUsed)Key(keyboard,key,false);
+                            Key(keyboard,Keys.B,true);scene.OnSimulationFrame();Key(keyboard,Keys.B,false);
+                            for(int n=0;n<110;n++){scene.OnSimulationFrame();Picture(false);}
+                            Check(player.IsAltForm&&!player.IsMorphing&&!owner.BallCurrent&&BallItems(scene).Count==0
+                                &&WorldItems(scene).Any(i=>nativeBallLists.Contains(i.ListId)),
+                                "native remorph after context retirement draws native sphere without IO or source resurrection");
+                        }
                     }
-                    else Check(sourceFrames==0,"native and Final first-person paths retain native gun rendering");
-                    return new(selection?.SelectedAppearance.SkinSource??"native",trace.ToArray(),stages.ToArray(),sourceFrames,fallbackFrames,repeats,maxTip,maxPalette,fractionalSchedules.ToArray());
+                    else Check(sourceFrames==0,"native first-person path retains native gun rendering");
+                    return new(selection?.SelectedAppearance.SkinSource??"native",trace.ToArray(),stages.ToArray(),sourceFrames,fallbackFrames,repeats,maxTip,maxPalette,fractionalSchedules.ToArray(),
+                        probeBall?new{BallFrames=ballFrames,AfterLifeBallFrames=afterLifeBallFrames,NativeBallFallbackPictures=ballFallback,Moving=ballMoved,
+                            Died=died,Respawned=respawned,MaximumPaletteOrCenterError=maxBallError,CollisionRadiusFitError=ballRadiusError,
+                            MaximumOwnedBombs=maxBombs,FractionalSchedules=ballSchedules}:null);
 
                     void Picture(bool repeat,string? label=null)
                     {
                         scene.OnDrawFrame();var items=SourceItems(scene);
+                        if(probeBall)
+                        {
+                            var balls=BallItems(scene);
+                            if(balls.Count>0)
+                            {
+                                Check(expectsBall&&owner!.BallCurrent&&owner.BallReady&&balls.Count==sourceBall!.Segments.Count
+                                    &&balls.All(i=>!i.ViewModel&&i.SourceGx!.AlternateForm&&i.SourceGx.BodyOwner==owner),
+                                    "actual source-ball packets are complete, world-projected and owned by the current local actor");
+                                Check(WorldItems(scene).All(i=>!nativeBallLists.Contains(i.ListId)),"source ball replaces native sphere meshes completely");
+                                player.ModGetDrawActorPose(out var drawPosition,out _);
+                                var roll=player.ModGetAlternateFormDrawPose(drawPosition,out _);roll.Row3.Y+=Fixed.ToFloat(player.Values.AltColYPos);
+                                var expected=owner!.BallFit*roll;var center=drawPosition.AddY(Fixed.ToFloat(player.Values.AltColYPos));
+                                foreach(var item in balls)
+                                {
+                                    double error=(Vector3.TransformPosition(ballCenter,item.Transform)-center).Length;
+                                    maxBallError=Math.Max(maxBallError,error);
+                                    Check(error<.0001&&Distance(item.Transform,expected)<.0001,"original ready ball follows native interpolated roll and unchanged collision centre");
+                                    var segment=sourceBall!.Segments.Single(s=>s.ListId==item.ListId);
+                                    for(int slot=0;slot<segment.SourceJointPalette!.Count;slot++)
+                                    {
+                                        var raw=ballSkin![segment.SourceJointPalette[slot]];double delta=Distance(ReadMatrix(item.MatrixStack,slot*16),raw*expected);
+                                        maxBallError=Math.Max(maxBallError,delta);
+                                        Check(delta<.0001&&Distance(ReadMatrix(segment.SourceMatrixPalette!,slot*16),raw)<.00002,
+                                            "fixed original two-joint source skin composes with native roll once without raw travel or native palette substitution");
+                                    }
+                                }
+                                ballFirst??=player.Position;ballMoved|=(player.Position-ballFirst.Value).Length>.1f;ballFrames++;
+                            }
+                            else if(player.IsAltForm)ballFallback++;
+                            if(player.IsMorphing||player.IsUnmorphing||!player.IsAltForm||!expectsBall)
+                                Check(balls.Count==0,"both morph transitions, Final and native choices retain complete native ball presentation");
+                        }
                         Check(items.All(item=>item.ViewModel),"first-person source collection contains only viewmodel geometry");
                         if(items.Count>0)
                         {
@@ -329,7 +523,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             float scale=owner!.FeetFit.Row0.Xyz.Length*.7f;
                             Matrix4 caller=Matrix4.CreateScale(scale)*Matrix4.CreateTranslation(0,0,Fixed.ToFloat(player.Values.MuzzleOffset))*gunTransform;
                             Matrix4 expectedTransform=geometry!.SourceCannon!.ToCannon*caller;
-                            int tip=Enumerable.Range(0,geometry.SourceRig!.Nodes.Count).Single(i=>geometry.SourceRig.Nodes[i].Name=="source_bone_32_GUN_Particle_LCTR");
+                            int tip=Enumerable.Range(0,geometry.SourceRig!.Nodes.Count).Single(i=>geometry.SourceRig.Nodes[i].Name==(trooper?"source_bone_34_R_gun_LCTR":"source_bone_32_GUN_Particle_LCTR"));
                             Vector3 nativeTip=Vector3.TransformPosition(new(0,0,Fixed.ToFloat(player.Values.MuzzleOffset)),gunTransform);
                             foreach(string effectName in new[]{"_chargeEffect","_muzzleEffect"})
                                 if(typeof(PlayerEntity).GetField(effectName,Hidden)!.GetValue(player) is EffectEntry active
@@ -358,6 +552,20 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         if(player.IsAltForm||player.IsMorphing||player.IsUnmorphing||player.CurrentWeapon!=BeamType.PowerBeam)
                             Check(items.Count==0,"native form/weapon transitions have zero partial source cannon submissions");
                         Check(scene.OnRenderFrame(),"actual native Scene renders first-person cannon frame");
+                        if(probeBall&&BallItems(scene).Count>0)
+                        {
+                            Matrix4 projection=(Matrix4)typeof(Scene).GetField("_perspectiveMatrix",Hidden)!.GetValue(scene)!;
+                            foreach(int program in BallItems(scene).Select(i=>i.SourceGx!.Binding.ProgramId).Distinct())
+                            {
+                                float[] actual=new float[16];GL.GetUniform(program,GL.GetUniformLocation(program,"gx_projection"),actual);
+                                Check(Distance(ReadMatrix(actual,0),projection)<.00002,"actual source sphere uses world camera projection");
+                            }
+                            if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "ball-roll" or "ball-bomb"&&captured.Add(label))
+                            {
+                                string path=Path.Combine(capturesRoot,selection!.SelectedAppearance.SkinSource+"-"+label+".png");
+                                Check(ScreenCapture.SaveWindow(scene,path),"optional actual source ball frame saved");captures.Add(new{Path=path,Sha256=HashFile(path),SourcePackets=BallItems(scene).Count});
+                            }
+                        }
                         if(items.Count>0)
                         {
                             Matrix4 vm=(Matrix4)typeof(Scene).GetField("_viewModelPerspectiveMatrix",Hidden)!.GetValue(scene)!,
@@ -378,9 +586,12 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         if(repeat)
                         {
                             string state=State(scene,player),raw=cannon==null?"":RawPalette(cannon);double? clock=owner?.MaterialSeconds;
+                            string ballRaw=sourceBall==null?"":RawPalette(sourceBall),bombState=probeBall?BombState(scene,player):"";double? ballClock=owner?.BallMaterialSeconds;
                             scene.OnDrawFrame();Check(scene.OnRenderFrame(),"repeated actual first-person frame renders");
                             Check(State(scene,player)==state&&owner?.MaterialSeconds==clock&&(cannon==null||RawPalette(cannon)==raw),
                                 "repeated draw preserves native effects/projectiles/aim/ammo/RNG and fixed raw cannon/owner clock");repeats++;
+                            Check(!probeBall||ballClock==owner?.BallMaterialSeconds&&(sourceBall==null||RawPalette(sourceBall)==ballRaw)&&BombState(scene,player)==bombState,
+                                "repeated draw preserves fixed source sphere, its clock and native bombs");
                         }
                         Check(GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"actual source/native first-person frame is GL-clean");
                         DesktopGraphicsSession.Present(window);scene.AfterRenderFrame();
@@ -412,14 +623,24 @@ internal static class CharacterCannonRuntimeOwnedProbe
                 CoreSha256=coreSha,ToolSha256=toolSha,Renderer=renderer,GlVersion=version,SourceSha256Before=sourceBefore,SourceSha256After=sourceAfter,
                 NativeSha256Before=nativeBefore,NativeSha256After=nativeAfter,TemporaryDerivedDataDeleted=cleaned,Captures=captures,
                 Runs=runs.Select(run=>new{run.Identity,Frames=run.Trace.Length,GameplayTraceSha256=Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.Trace))),
-                    run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError,run.FractionalSchedules}),
-                Scope="Actual owned offline first-person input/Scene/GX; fixed source pose, original material2/5 cut, native muzzle/effect/weapon authority;675-step parity trace plus separately counted normal-only simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
-                Unqualified=new[]{"physical controls","Android/macOS","online/replay","source cannon skeletal animation","other weapons","Overcharged source cannon","achieved refresh rate","visual art completeness"}}));
+                    run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError,run.FractionalSchedules,run.Ball}),
+                Scope="Actual owned offline input/Scene/GX; fixed "+(trooper?"Weavel/four Trooper206tri/35joint/three-material":"Samus/normal392tri+Final793tri/39joint/own source materials+Final shell alpha")+" source cannon; "+(probeBall?"normal2220tri/2joint source ball and native Final ball,1415-step parity trace with native roll/bomb/injected death/native respawn plus separately counted ball pause/guards/fractional schedules/retirement;":"675-step parity trace;")+" native muzzle/effect/weapon authority plus separately counted source-cannon simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
+                Unqualified=new[]{"physical controls","Android/macOS","online/replay","source cannon skeletal animation","other weapons","achieved refresh rate","visual art completeness"}}));
         }
         return error==null?0:1;
     }
 
-    private static List<RenderItem> SourceItems(Scene scene)=>(List<RenderItem>)typeof(Scene).GetField("_sourceBodyItems",Hidden)!.GetValue(scene)!;
+    private static List<RenderItem> AllSourceItems(Scene scene)=>(List<RenderItem>)typeof(Scene).GetField("_sourceBodyItems",Hidden)!.GetValue(scene)!;
+    private static List<RenderItem> SourceItems(Scene scene)=>AllSourceItems(scene).Where(i=>i.ViewModel).ToList();
+    private static List<RenderItem> BallItems(Scene scene)=>AllSourceItems(scene).Where(i=>i.SourceGx?.AlternateForm==true).ToList();
+    private static IEnumerable<BombEntity> SceneBombs(Scene scene)=>((IEnumerable<EntityBase>)typeof(Scene).GetField("_entities",Hidden)!.GetValue(scene)!).OfType<BombEntity>();
+    private static string BombState(Scene scene,PlayerEntity player)
+    {
+        using var bytes=new MemoryStream();using var writer=new BinaryWriter(bytes);
+        foreach(var bomb in SceneBombs(scene)){writer.Write((int)bomb.BombType);writer.Write(bomb.Countdown);writer.Write((int)bomb.Flags);writer.Write(bomb.Position.X);writer.Write(bomb.Position.Y);writer.Write(bomb.Position.Z);
+            writer.Write(bomb.Radius);writer.Write(bomb.SelfRadius);writer.Write(bomb.Damage);writer.Write(bomb.EnemyDamage);writer.Write(ReferenceEquals(bomb.Owner,player));}
+        return Sha(bytes.ToArray());
+    }
     private static IEnumerable<RenderItem> WorldItems(Scene scene)=>new[]{"_nonDecalItems","_translucentItems","_decalItems"}
         .SelectMany(name=>(List<RenderItem>)typeof(Scene).GetField(name,Hidden)!.GetValue(scene)!);
     private static Matrix4[] Globals(CharacterSourceRig rig,IReadOnlyList<Matrix4> pose)
@@ -455,6 +676,21 @@ internal static class CharacterCannonRuntimeOwnedProbe
             }
         }
         return Sha(stream.ToArray());
+    }
+    private sealed class SourceFileLocks : IDisposable
+    {
+        private readonly List<FileStream> _files = new();
+        internal int Count => _files.Count;
+        internal SourceFileLocks(string root)
+        {
+            try
+            {
+                foreach (string path in Directory.EnumerateFiles(root,"*",SearchOption.AllDirectories))
+                    _files.Add(new(path,FileMode.Open,FileAccess.Read,FileShare.None));
+            }
+            catch { Dispose(); throw; }
+        }
+        public void Dispose() { foreach(var file in _files)file.Dispose();_files.Clear(); }
     }
     private static void Release(Scene scene)
     {var commit=PostMatchCommitContext.Capture(scene.GameState,0,SaveWhen.Never,0);try{scene.DoCleanup();}finally{try{scene.UnloadGl();}finally{commit.Commit();commit.Release();ForegroundSceneBinding.TryRelease(commit);}}}

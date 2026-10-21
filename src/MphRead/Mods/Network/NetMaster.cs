@@ -273,6 +273,7 @@ namespace MphRead.Mods.Network
         /// the range once.
         /// </summary>
         public void SetHostPorts(int first, int last) => _hosts.SetPorts(first, last);
+        public void SetWeaponStore(string? directory) => _hosts.SetWeaponStore(directory);
 
         public bool CanHost => _hosts.CanHost && _hostingReady;
 
@@ -399,7 +400,7 @@ namespace MphRead.Mods.Network
                 {
                     lastMapPump = now;
                     _mapRequests.Pump(now,
-                        (request, sender, time, packages) => _hosts.Start(request, sender, time, packages),
+                        (request, sender, time, packages) => _hosts.StartPrepared(request, sender, time, packages),
                         SendHostReply);
                 }
                 // The directory keeps itself current too, and waits on the
@@ -532,9 +533,9 @@ namespace MphRead.Mods.Network
                 {
                     try
                     {
-                        if (request.RequiresMapPreparation)
+                        if (request.RequiresPreparation)
                         {
-                            _mapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
+                            _mapRequests.Enqueue(request, packet.Sender, now, SendHostReply, _hosts.WeaponStoreDirectory);
                             return;
                         }
                         reply = _hosts.Start(request, packet.Sender, now);
@@ -1119,8 +1120,12 @@ namespace MphRead.Mods.Network
             int maxPlayers, string serverName, int timeoutMs = 6000,
             IReadOnlyList<(string RoomKey, GameMode Mode)>? rotation = null,
             ServerSessionPolicy policy = ServerSessionPolicy.Continuous,
-            NetworkMapIdentity? requiredMap = null)
+            NetworkMapIdentity? requiredMap = null, string? weaponArchiveHash = null)
         {
+            if (!String.IsNullOrEmpty(weaponArchiveHash)
+                && (!CustomWeapons.WeaponIdentity.IsDigest(weaponArchiveHash)
+                    || weaponArchiveHash.AsSpan().IndexOfAnyExcept('0') < 0))
+                return new HostedGame { Reason = "Invalid exact weapon archive selection." };
             if (requiredMap is { } exact && (!exact.IsValid || !exact.IsCustom
                 || String.IsNullOrWhiteSpace(roomKey) || Metadata.IsBuiltInRoom(roomKey)))
                 return new HostedGame { Reason = "Invalid exact custom map selection." };
@@ -1213,7 +1218,8 @@ namespace MphRead.Mods.Network
                     PointGoal = (ushort)Math.Clamp(pointGoal, 0, UInt16.MaxValue),
                     RoomKey = roomKey, MapIdentity = preparedMaps.Identity,
                     ServerName = serverName,
-                    Policy = policy, AllowJoinInProgress = true, RequireReady = false,
+                    Policy = String.IsNullOrEmpty(weaponArchiveHash) ? policy : ServerSessionPolicy.Lobby,
+                    WeaponArchiveHash = weaponArchiveHash, AllowJoinInProgress = true, RequireReady = false,
                     Rotation = preparedMaps.Rotation,
                     HostNonce = hostNonce, HostCookie = challengeReply.Cookie
                 };
@@ -1222,14 +1228,14 @@ namespace MphRead.Mods.Network
                 request.Write(datagram.AsSpan(1));
                 socket.Send(datagram, datagram.Length, endPoint);
                 var from = new IPEndPoint(IPAddress.Any, 0);
-                int requestTimeout = request.RequiresMapPreparation ? Math.Max(timeoutMs, 150_000) : timeoutMs;
-                socket.Client.ReceiveTimeout = request.RequiresMapPreparation ? 1000 : timeoutMs;
+                int requestTimeout = request.RequiresPreparation ? Math.Max(timeoutMs, 150_000) : timeoutMs;
+                socket.Client.ReceiveTimeout = request.RequiresPreparation ? 1000 : timeoutMs;
                 DateTime deadline = DateTime.UtcNow.AddMilliseconds(requestTimeout);
                 while (DateTime.UtcNow < deadline)
                 {
                     byte[] reply;
                     try { reply = socket.Receive(ref from); }
-                    catch (SocketException ex) when (request.RequiresMapPreparation && ex.SocketErrorCode == SocketError.TimedOut)
+                    catch (SocketException ex) when (request.RequiresPreparation && ex.SocketErrorCode == SocketError.TimedOut)
                     { socket.Send(datagram, datagram.Length, endPoint); continue; }
                     if (reply.Length < 1 + HostReplyPacket.Size
                         || reply[0] != (byte)PacketType.HostReply || !from.Equals(endPoint))
@@ -1255,7 +1261,7 @@ namespace MphRead.Mods.Network
                     // learned the truth from an eight-second join timeout.
                     // StatusQuery proves the actual game endpoint is answering.
                     var readyClock = System.Diagnostics.Stopwatch.StartNew();
-                    int readyTimeoutMs = request.RequiresMapPreparation ? 120_000 : 30_000;
+                    int readyTimeoutMs = request.RequiresPreparation ? 120_000 : 30_000;
                     while (readyClock.ElapsedMilliseconds < readyTimeoutMs)
                     {
                         int remaining = readyTimeoutMs - (int)readyClock.ElapsedMilliseconds;

@@ -104,10 +104,7 @@ public sealed partial class DedicatedServer
         { reason = "The server has no exact single-weapon package binding."; return false; }
         var waiting = _peers.FirstOrDefault(peer => !PackagePeerReady(peer));
         if (waiting != null) { reason = $"Waiting for {waiting.Name} to verify the exact installed weapon package."; return false; }
-        // CW-12b establishes a real pre-load barrier. The next slice connects
-        // the retained definition/resources to authority and ordinary clients.
-        reason = "Package preparation is complete; online package execution is not enabled in this build.";
-        return false;
+        return true;
     }
 }
 
@@ -124,20 +121,31 @@ public static partial class NetSession
         internal double NextAck;
     }
     private static WeaponPackagePreparation? _weaponPreparation;
+    private static LocalWeaponPackageSelection? _localClientWeaponPackage;
     // A retired synchronous parser cannot be interrupted midway. Keep its task
     // as a fence across Stop/reconnect so another parser cannot overlap it.
     private static Task<WeaponMatchPackageBinding>? _weaponPackageWorker;
     public static string WeaponPackagePreparationMessage => _weaponPreparation?.Error
         ?? (ServerSession?.Match.PackagedWeaponAvailable == true && !RequiredWeaponPackagesReady
             ? "Waiting for the exact installed weapon package to be verified." : "");
-    internal static string WeaponPackageStoreDirectory => Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE")
-        is { Length: > 0 } path ? path : Path.Combine(Platform.AppPaths.UserDataDirectory, "weapons");
-    public static bool RequiredWeaponPackagesReady => ServerSession is not { Match.PackagedWeaponAvailable: true }
+    internal static string WeaponPackageStoreDirectory => _localClientWeaponPackage?.StoreDirectory
+        ?? (Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE")
+            is { Length: > 0 } path ? path : Path.Combine(Platform.AppPaths.UserDataDirectory, "weapons"));
+    public static bool RequiredWeaponPackagesReady => Role != NetRole.Client
+        || ServerSession is not { Match.PackagedWeaponAvailable: true }
         || !_playback && _weaponPreparation is { Confirmed: true, Binding: not null, Error: null } state && CurrentPackageKey(state.Key);
 
     private static bool CurrentPackageKey(WeaponPackagePreparationKey key) => !_playback && Role == NetRole.Client
         && ServerSession is { Match.PackagedWeaponAvailable: true } session && session.MatchId == key.Match
         && session.AuthorityEpoch == key.Epoch && LocalSlot == key.Slot
+        && NetPlayerLifecycle.Generation(LocalSlot) == key.Generation && _hostEndPoint != null
+        && _transport?.ConnectionStats(_hostEndPoint)?.ConnectionId == key.Connection;
+
+    // A session-state packet can announce Start before its next offer arrives.
+    // Retain the prepared owner across that gap, but never acknowledge its old key.
+    private static bool CanCarryPackagePreparation(WeaponPackagePreparationKey key) => !_playback && Role == NetRole.Client
+        && ServerSession is { Match.PackagedWeaponAvailable: true } session && session.AuthorityEpoch == key.Epoch
+        && NetLifecycleTracker.Newer(session.MatchId, key.Match) && LocalSlot == key.Slot
         && NetPlayerLifecycle.Generation(LocalSlot) == key.Generation && _hostEndPoint != null
         && _transport?.ConnectionStats(_hostEndPoint)?.ConnectionId == key.Connection;
 
@@ -178,18 +186,40 @@ public static partial class NetSession
         // Operator package selection is immutable for this match/incarnation.
         // Ignore contradictory offers instead of spawning unbounded workers.
         if (_weaponPreparation is { } pinned && CurrentPackageKey(pinned.Key)) return;
+        if (_localClientWeaponPackage is {} selected
+            && manifest.Rows[0].Archive != WeaponDigest.FromHex(selected.ArchiveHash))
+        {
+            ResetWeaponPackagePreparation();
+            _weaponPreparation = new(key) { Error = "The server offered a different package than the explicit local selection." };
+            return;
+        }
+        // Starting advances match ID after the lobby barrier. Carry independent
+        // ownership of already verified/prewarmed bytes into the new key; an
+        // uninstall after preparation cannot break that frozen start attempt.
+        WeaponMatchPackageBinding? carried = null;
+        if (_weaponPreparation is { Binding: not null, Error: null } previous
+            && previous.Key.Epoch == key.Epoch && previous.Key.Configuration == key.Configuration
+            && previous.Key.Slot == key.Slot && previous.Key.Generation == key.Generation
+            && previous.Key.Connection == key.Connection && previous.Key.Manifest == key.Manifest
+            && NetLifecycleTracker.Newer(key.Match, previous.Key.Match)) carried = previous.Binding.Retain();
         ResetWeaponPackagePreparation();
+        if (carried != null) { _weaponPreparation = new(key) { Binding = carried }; return; }
         if (_weaponPackageWorker is { IsCompleted: false }) return;
         var state = new WeaponPackagePreparation(key); _weaponPreparation = state;
-        state.Work = Task.Run(() => WeaponMatchPackageBinding.BindInstalled(
-            new WeaponPackageStore(WeaponPackageStoreDirectory), manifest, state.Cancel.Token), state.Cancel.Token);
+        string storeDirectory = WeaponPackageStoreDirectory; // Freeze this connection's path before queueing work.
+        state.Work = Task.Run(() => WeaponMatchPackageBinding.PrepareInstalled(
+            new WeaponPackageStore(storeDirectory), manifest, state.Cancel.Token), state.Cancel.Token);
         _weaponPackageWorker = state.Work;
     }
 
     private static void PumpWeaponPackagePreparation(double now)
     {
         if (_weaponPreparation is not { } state) return;
-        if (!CurrentPackageKey(state.Key)) { ResetWeaponPackagePreparation(); return; }
+        if (!CurrentPackageKey(state.Key))
+        {
+            if (!CanCarryPackagePreparation(state.Key)) ResetWeaponPackagePreparation();
+            return;
+        }
         if (state.Binding == null && state.Error == null && state.Work is { IsCompleted: true } work)
         {
             try { state.Binding = work.GetAwaiter().GetResult(); }
@@ -204,5 +234,19 @@ public static partial class NetSession
     internal static void RequireWeaponPackagesForLoad()
     {
         if (!RequiredWeaponPackagesReady) throw new InvalidDataException("Exact weapon packages have not completed preparation.");
+    }
+    internal static WeaponDefinition? PreparedWeaponDefinition => RequiredWeaponPackagesReady
+        && _weaponPreparation is { Binding: not null } state && CurrentPackageKey(state.Key)
+        ? state.Binding.Definition(new(10)) : null;
+    internal static bool PreparedPackageSceneReady => ServerSession is not { Match.PackagedWeaponAvailable: true } session
+        || RequiredWeaponPackagesReady && _weaponPreparation is { Binding: not null } state
+            && GameState.Current.Owner?.HasOnlineWeaponPackage(StartIdentity(session), state.Binding.Manifest.Digest) == true;
+    private static void BindPreparedPackageScene()
+    {
+        if (ServerSession is not { Match.PackagedWeaponAvailable: true } session) return;
+        if (!RequiredWeaponPackagesReady || _weaponPreparation?.Binding is not { } prepared
+            || GameState.Current.Owner is not { } scene || scene.Room?.Meta.Name != session.Match.RoomKey)
+            throw new InvalidDataException("The current client scene has no exact prepared weapon package.");
+        scene.BindOnlineWeaponPackage(prepared, StartIdentity(session));
     }
 }

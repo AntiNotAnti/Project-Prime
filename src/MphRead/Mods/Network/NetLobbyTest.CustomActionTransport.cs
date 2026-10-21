@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Threading;
 using MphRead.Entities;
 using MphRead.Mods.CustomWeapons;
+using MphRead.Mods.CustomWeapons.Packages;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
@@ -27,7 +28,7 @@ public static partial class NetLobbyTest
     private sealed class ActionResultProbe
     {
         private readonly Client _client;
-        private readonly WeaponDefinition _definition=RiftlineM7.Create();
+        private readonly WeaponDefinition _definition;
         private readonly CustomWeaponManifest _manifest;
         internal readonly Dictionary<uint,CustomReceiptMessage> Receipts=new();
         internal readonly Dictionary<uint,CustomContactMessage> Contacts=new();
@@ -35,9 +36,9 @@ public static partial class NetLobbyTest
         internal CustomStateMessage? State;
         internal uint SnapshotWorld;
         internal int ReceiptPackets,ContactPackets,StatePackets,DiscardReceipts;
-        internal ActionResultProbe(Client client)
+        internal ActionResultProbe(Client client,WeaponDefinition? definition=null)
         {
-            _client=client; _manifest=new(new[] { _definition });
+            _client=client; _definition=definition??RiftlineM7.Create(); _manifest=new(new[] { _definition });
             var readiness=client.PacketReceived;
             client.PacketReceived=packet => { readiness?.Invoke(packet); Receive(packet); };
         }
@@ -104,6 +105,10 @@ public static partial class NetLobbyTest
         internal readonly Client First,Second;
         internal readonly CustomReadinessProbe FirstReady,SecondReady;
         internal readonly ActionResultProbe A,B;
+        internal readonly PackagePreparationProbe? FirstPackage,SecondPackage;
+        internal readonly WeaponDefinition Definition;
+        internal WeaponMechanics Mechanics=>Definition.Mechanics;
+        private readonly bool _acquireFirst,_packageFixture;
         private readonly ServerSim _sim;
         private readonly Scene _scene;
         private readonly FieldInfo _sinkField;
@@ -117,11 +122,12 @@ public static partial class NetLobbyTest
         private Vector3 _publicLaneFirst,_publicLaneSecond;
         private readonly System.Collections.Generic.Dictionary<CustomWeaponAction,CustomResourceKnowledge> _actionKnowledge=new();
         internal ActionWorldSnapshot Latest => Volatile.Read(ref _latest) ?? throw new InvalidOperationException("No engine snapshot.");
-        internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2,Guid ownerToken=default,bool tokenOwnerSecond=false,bool publicAvailability=false)
+        internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2,Guid ownerToken=default,bool tokenOwnerSecond=false,bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
         {
             ResetActionLag();
+            Definition=package?.Definition??RiftlineM7.Create();_acquireFirst=acquireFirst;_packageFixture=package!=null;publicAvailability|=package!=null;
             if(tokenOwnerSecond&&ownerToken==Guid.Empty)throw new ArgumentException("Second-slot token owner fixture requires an actual owner token.");
-            Rig=new(token:ownerToken,simulate:true,room:"MP3 PROVING GROUND",maxPlayers:maxPlayers,customReadiness:!publicAvailability,customCombat:!publicAvailability,publicAvailability:publicAvailability);
+            Rig=new(token:ownerToken,simulate:true,room:"MP3 PROVING GROUND",maxPlayers:maxPlayers,customReadiness:!publicAvailability,customCombat:!publicAvailability,publicAvailability:publicAvailability,weaponStore:serverStore,weaponArchive:package?.PackageHash);
             try
             {
                 _impaired=impaired; _publicAvailability=publicAvailability;
@@ -133,9 +139,25 @@ public static partial class NetLobbyTest
                     Console.WriteLine("CUSTOM ACTION UDP FAULTS: "+NetLag.Describe()+"; client transports only");
                 }
                 First=Rig.Add(9140,tokenOwnerSecond ? default:ownerToken); Second=Rig.Add(9141,tokenOwnerSecond ? ownerToken:default);
-                FirstReady=new(First); SecondReady=new(Second); A=new(First); B=new(Second);
+                if(package!=null)
+                {
+                    FirstPackage=new(First,new WeaponPackageStore(firstStore??throw new ArgumentException("First package store required.")));
+                    SecondPackage=new(Second,new WeaponPackageStore(secondStore??throw new ArgumentException("Second package store required.")));
+                }
+                FirstReady=new(First,Definition); SecondReady=new(Second,Definition); A=new(First,Definition); B=new(Second,Definition);
+                void PreparePackages()
+                {
+                    if(FirstPackage==null||SecondPackage==null)return;
+                    Rig.Wait(()=>FirstPackage.Key is {} firstKey&&SecondPackage.Key is {} secondKey
+                        &&firstKey.Match==First.State!.Value.MatchId&&secondKey.Match==Second.State!.Value.MatchId
+                        &&FirstPackage.Binding!=null&&SecondPackage.Binding!=null,"both actual clients decode and retain exact selected package before readiness ACK",10000);
+                    FirstPackage.Send();SecondPackage.Send();
+                    Rig.Wait(()=>Rig.Server.IsWeaponPackagePrepared(First.Slot)&&Rig.Server.IsWeaponPackagePrepared(Second.Slot),"both actual endpoints confirm current package match/incarnation before native scene-loaded ACK");
+                }
+                PreparePackages();
                 var startOwner=tokenOwnerSecond ? Second:First;
                 Rig.ReadyAll(); Rig.Expect(startOwner,startOwner.Command(LobbyCommandType.StartMatch),LobbyResultCode.Ok);
+                PreparePackages();
                 First.Loaded(); Second.Loaded();
                 Rig.Wait(()=>First.State?.Phase==SessionPhase.InMatch && FirstReady.Ready.HasValue && SecondReady.Ready.HasValue,
                     "actual dedicated match supplies both endpoint-bound custom manifests",15000);
@@ -170,7 +192,9 @@ public static partial class NetLobbyTest
                         PlayerState native=default; NetDamage.Write(client.Slot,ref native);
                         bool history=false;
                         for (int i=0;i<PlayerState.DamageHistory;i++) history|=native.EventAt(i).EventId!=0;
-                        return new(owner,player.Position,Fixed.ToFloat(player.Values.MaxPickupHeight)-.15f,player.Health,
+                        // Package acceptance uses a generous head-region ray,
+                        // avoiding the front capsule's body/head threshold.
+                        return new(owner,player.Position,Fixed.ToFloat(player.Values.MaxPickupHeight)-(package==null?.15f:.05f),player.Health,
                             NetDamage.Sequence(client.Slot),history,state,resource,input,source,observation,
                             _scene.GameState.Kills[client.Slot],_scene.GameState.Deaths[client.Slot]);
                     }
@@ -187,7 +211,7 @@ public static partial class NetLobbyTest
                 Observe(First,_firstSource,false);
                 if (completeRoom) { Observe(Second,_secondSource,false); WaitInitialStates(); }
             }
-            catch { Rig.Dispose(); ResetActionLag(); throw; }
+            catch { FirstPackage?.Dispose();SecondPackage?.Dispose();Rig.Dispose(); ResetActionLag(); throw; }
         }
         private void SetupActors()
         {
@@ -214,7 +238,7 @@ public static partial class NetLobbyTest
             {
                 foreach (var direction in new[] { Vector3.UnitZ,Vector3.UnitX,-Vector3.UnitX,-Vector3.UnitZ })
                 {
-                    Vector3 start=origin+Vector3.UnitY*height,end=start+direction*3,muzzle=start+Vector3.UnitY*.4f;
+                    Vector3 start=origin+Vector3.UnitY*height,end=start+direction*(_packageFixture?8:3),muzzle=start+Vector3.UnitY*.4f;
                     if (BeamProjectileEntity.TryBeamObstacle(muzzle,end+Vector3.UnitY*.2f,_scene,out _,out _)
                         || BeamProjectileEntity.TryBeamObstacle(muzzle,end+Vector3.UnitY*(Fixed.ToFloat(second.Values.MaxPickupHeight)-.15f),_scene,out _,out _)) continue;
                     first.ModPlaceAt(start); second.ModPlaceAt(end); clear=true; break;
@@ -259,7 +283,7 @@ public static partial class NetLobbyTest
                 Rig.Wait(()=>A.State is {HasWeapon:false}&&B.State is {HasWeapon:false}
                     &&FirstReady.Pickups?.IsReady==true&&SecondReady.Pickups?.IsReady==true,
                     "both public lives publish empty inventory and durably consume actual authored pickup baseline");
-                AcquirePublic(First);return;
+                if(_acquireFirst)AcquirePublic(First);return;
             }
             Rig.Wait(()=>A.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
                 && B.State is { State.Magazine:4,State.Reserve:16,State.Phase:CustomWeaponPhase.Unequipped }
@@ -376,8 +400,8 @@ public static partial class NetLobbyTest
             Rig.Wait(()=>probe.State is {HasWeapon:true} funded&&funded.State.Owner==owner&&funded.Knowledge.IsPresent
                 &&receiver.Pickups.TryState(0,out var consumed)&&consumed.Key.Incarnation==available.Key.Incarnation+1&&!consumed.Available,
                 "real authored contact funds only approached current life and publishes next incarnation/private knowledge");
-            Check(steps>0&&probe.State!.Value.State is {Magazine:4,Reserve:16,Phase:CustomWeaponPhase.Unequipped}
-                &&!probe.State.Value.Selected.IsValid,"public first ownership is actual contact-funded4/16 with native selection preserved");
+            Check(steps>0&&probe.State!.Value.State is {Phase:CustomWeaponPhase.Unequipped} acquired&&acquired.Magazine==Mechanics.MagazineCapacity&&acquired.Reserve==Mechanics.InitialReserve
+                &&!probe.State.Value.Selected.IsValid,"public first ownership uses exact selected mechanics capacity/reserve with native selection preserved");
             Mutate(scene=>
             {
                 scene.Players.Items[First.Slot].ModPlaceAt(_publicLaneFirst);
@@ -412,11 +436,11 @@ public static partial class NetLobbyTest
             Rig.Wait(()=>Rig.Server.TryGetCustomActionPending(client.Slot,out int pending) && pending==0,
                 "full-identity application receipt acknowledgements retire settled nonfire reservations");
         }
-        internal CustomWeaponAction Press(Client client,uint sequence,bool head=false,uint? ack=null)
+        internal CustomWeaponAction Press(Client client,uint sequence,bool head=false,uint? ack=null,byte optic=1)
         {
             if (client==First) Observe(client,++_firstSource,true,head,ack);
             else Observe(client,++_secondSource,true,head,ack);
-            return Action(client,sequence,CustomWeaponActionKind.Fire,1);
+            return Action(client,sequence,CustomWeaponActionKind.Fire,optic);
         }
         internal long DroppedDatagrams()
         {
@@ -440,7 +464,7 @@ public static partial class NetLobbyTest
             Volatile.Write(ref _retiring,1);
             // The original native sink remains valid while ServerSim retires.
             if (_sinkField!=null) _sinkField.SetValue(null,_original);
-            try { FirstReady?.Dispose(); SecondReady?.Dispose(); Rig.Dispose(); }
+            try { FirstReady?.Dispose(); SecondReady?.Dispose(); FirstPackage?.Dispose();SecondPackage?.Dispose();Rig.Dispose(); }
             finally { ResetActionLag(); }
         }
     }
@@ -451,7 +475,7 @@ public static partial class NetLobbyTest
         NetLag.ConfigureSeed("1");
     }
 
-    public static int RunCustomActionTransport(string data,bool publicAvailability=false)
+    public static int RunCustomActionTransport(string data,bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
     {
         string directory=Directory.GetCurrentDirectory(); _checks=0;
         try
@@ -468,9 +492,9 @@ public static partial class NetLobbyTest
         finally { NetSession.Stop(); Directory.SetCurrentDirectory(directory); }
     }
 
-    private static void CustomActionUdpDamage(bool head,bool protect,bool publicAvailability=false)
+    private static void CustomActionUdpDamage(bool head,bool protect,bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
     {
-        using var f=new ActionTransportFixture(protect,publicAvailability:publicAvailability); f.Equip(f.First);
+        using var f=new ActionTransportFixture(protect,publicAvailability:publicAvailability,package:package,serverStore:serverStore,firstStore:firstStore,secondStore:secondStore,acquireFirst:acquireFirst); f.Equip(f.First);
         if(publicAvailability) f.Rig.Server.RiftlineM7Available=false;
         var action=f.Press(f.First,3,head);
         f.A.DiscardReceipts=1;
@@ -522,9 +546,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"real UDP action/contact processing has no simulation exceptions");
     }
 
-    private static void CustomActionUdpCapacity(bool publicAvailability=false)
+    private static void CustomActionUdpCapacity(bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
     {
-        using var f=new ActionTransportFixture(publicAvailability:publicAvailability);
+        using var f=new ActionTransportFixture(publicAvailability:publicAvailability,package:package,serverStore:serverStore,firstStore:firstStore,secondStore:secondStore,acquireFirst:acquireFirst);
         for (uint sequence=1;sequence<=16;sequence++)
         {
             var kind=sequence==1 ? CustomWeaponActionKind.Equip:CustomWeaponActionKind.Optic;
@@ -550,9 +574,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"outbox backpressure and recovery leave actual simulation healthy");
     }
 
-    private static void CustomActionUdpOwnership(bool publicAvailability=false)
+    private static void CustomActionUdpOwnership(bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
     {
-        using var f=new ActionTransportFixture(publicAvailability:publicAvailability);
+        using var f=new ActionTransportFixture(publicAvailability:publicAvailability,package:package,serverStore:serverStore,firstStore:firstStore,secondStore:secondStore,acquireFirst:acquireFirst);
         var equip=f.Action(f.First,1,CustomWeaponActionKind.Equip);
         f.Send(f.Second,equip);
         ObserveCustomReadiness(f.Rig,100,"different admitted UDP slot carries copied custom action");
@@ -580,9 +604,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"ownership and duplicate conflicts do not throw on simulation thread");
     }
 
-    private static void CustomActionUdpRoomGate(bool publicAvailability=false)
+    private static void CustomActionUdpRoomGate(bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
     {
-        using var f=new ActionTransportFixture(completeRoom:false,publicAvailability:publicAvailability);
+        using var f=new ActionTransportFixture(completeRoom:false,publicAvailability:publicAvailability,package:package,serverStore:serverStore,firstStore:firstStore,secondStore:secondStore,acquireFirst:acquireFirst);
         if(publicAvailability)
         {
             Check(f.Latest.First is { HasState:false,HasSource:true }
@@ -620,9 +644,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"room capability gate leaves ordinary native simulation running");
     }
 
-    private static void CustomActionUdpTrade(bool earlierKill,bool publicAvailability=false)
+    private static void CustomActionUdpTrade(bool earlierKill,bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
     {
-        using var f=new ActionTransportFixture(publicAvailability:publicAvailability); f.Equip(f.First); f.Equip(f.Second);
+        using var f=new ActionTransportFixture(publicAvailability:publicAvailability,package:package,serverStore:serverStore,firstStore:firstStore,secondStore:secondStore,acquireFirst:acquireFirst); f.Equip(f.First); f.Equip(f.Second);
         f.SeedHealth(65,65);
         uint sharedAck=f.Latest.World;
         var first=f.Press(f.First,3,ack:sharedAck);
@@ -676,9 +700,9 @@ public static partial class NetLobbyTest
         Check(f.Latest.StepFailures==0,"actual UDP trade and earlier-kill denial complete without engine exceptions");
     }
 
-    private static void CustomActionUdpRespawnRetention(bool publicAvailability=false)
+    private static void CustomActionUdpRespawnRetention(bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
     {
-        using var f=new ActionTransportFixture(publicAvailability:publicAvailability); f.Equip(f.First);
+        using var f=new ActionTransportFixture(publicAvailability:publicAvailability,package:package,serverStore:serverStore,firstStore:firstStore,secondStore:secondStore,acquireFirst:acquireFirst); f.Equip(f.First);
         var fire=f.Press(f.First,3); var receipt=f.Settle(f.First,fire);
         f.Rig.Wait(()=>f.A.Contacts.ContainsKey(3) && f.Latest.Second.Health==135,
             "old firing life owns a genuine emitted UDP receipt and canonical contact before respawn");
@@ -713,9 +737,9 @@ public static partial class NetLobbyTest
             && f.Latest.StepFailures==0,"old-life ACK retirement and genuine public reacquisition leave fresh inventory intact");
     }
 
-    private static void CustomActionUdpImpaired(bool publicAvailability=false)
+    private static void CustomActionUdpImpaired(bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
     {
-        using var f=new ActionTransportFixture(impaired:true,publicAvailability:publicAvailability);
+        using var f=new ActionTransportFixture(impaired:true,publicAvailability:publicAvailability,package:package,serverStore:serverStore,firstStore:firstStore,secondStore:secondStore,acquireFirst:acquireFirst);
         const BindingFlags hidden=BindingFlags.Instance|BindingFlags.NonPublic;
         var serverTransport=(NetTransport)typeof(DedicatedServer).GetField("_transport",hidden)!.GetValue(f.Rig.Server)!;
         Check(typeof(NetTransport).GetField("_lagWorker",hidden)!.GetValue(serverTransport)==null

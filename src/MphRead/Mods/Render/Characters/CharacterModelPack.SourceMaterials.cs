@@ -40,25 +40,57 @@ internal sealed partial class CharacterModelPack
     private void RevalidateSourceMaterials(CharacterModelAsset asset)
     {
         if (!_sourceMaterials.TryGetValue(asset, out var captured)) return;
-        string path = ContainedPath(_sourceRoot!, captured.Materials.Archive.Binding.CharacterId + ".materials.bin");
+        string materialId = captured.Materials.Archive.Binding.CharacterId;
+        string path = ContainedPath(_sourceRoot!, (materialId == CharacterGeneratedNormalBallProfile.MaterialId
+            ? CharacterGeneratedNormalBallProfile.Stem : materialId) + ".materials.bin");
         if (path != captured.Path || CharacterSourceProofIO.HashFile(path, RetroCharacterMaterialArchive.MaxArchiveBytes) != captured.Materials.Archive.Sha256)
             throw new InvalidDataException("Captured source material generation changed.");
     }
 
-    // The generated normal cannon is a whole-triangle cut of this exact body,
+    internal void CaptureSourceBallMaterials(CharacterModelAsset asset)
+    {
+        if (_sourceRoot == null || !HasSourceBall(asset) || !_sourceProofs.TryGetValue(asset,out var proof))
+            throw new InvalidDataException("Exact original normal ball owner required for its own material capture.");
+        ValidateAtGeneration(asset,proof.ModelSha,_sourceGeneration);
+        string path=ContainedPath(_sourceRoot,CharacterGeneratedNormalBallProfile.Stem+".materials.bin");
+        var materials=CharacterSourceGxMaterials.Read(CharacterSourceProofIO.ReadFile(path,RetroCharacterMaterialArchive.MaxArchiveBytes),
+            proof.ModelSha,CharacterGeneratedNormalBallProfile.MaterialId);
+        ValidateAtGeneration(asset,proof.ModelSha,_sourceGeneration);
+        lock(_sourceProofLock)
+        {
+            if (_sourceMaterials.TryGetValue(asset,out var old))
+            {
+                if(old.Path!=path || old.Materials.Archive.Sha256!=materials.Archive.Sha256)
+                    throw new InvalidDataException("Captured normal ball materials changed.");
+                return;
+            }
+            _sourceMaterials.Add(asset,new(path,materials));_sourceGeneration++;
+        }
+    }
+
+    // A qualified generated cannon is a whole-triangle cut of this exact body,
     // not a second CMDL/material edition. Publish both before issuing live leases.
-    internal void CaptureGeneratedNormalCannonMaterials(CharacterModelAsset body, CharacterModelAsset cannon)
+    internal void CaptureGeneratedCannonMaterials(CharacterModelAsset body, CharacterModelAsset cannon)
     {
         if (!_sourceMaterials.TryGetValue(body, out var captured)
             || !_sourceProofs.TryGetValue(body, out var bodyProof)
             || !_sourceProofs.TryGetValue(cannon, out var cannonProof)
             || body.Part != CharacterModelPart.Biped || cannon.Part != CharacterModelPart.ViewModel
-            || body.PrivateAppearance != CharacterSourcePreviewSelection.Appearance
             || cannon.PrivateAppearance != body.PrivateAppearance || cannon.ModelPath != body.ModelPath
-            || bodyProof.SourceCharacter != "darksamus-echoes" || cannonProof.SourceCharacter != bodyProof.SourceCharacter
-            || bodyProof.ModelSha != GeneratedNormalSourceGlbSha256 || cannonProof.ModelSha != bodyProof.ModelSha
+            || cannon.Hunter != body.Hunter || cannonProof.SourceCharacter != bodyProof.SourceCharacter
+            || cannonProof.ModelSha != bodyProof.ModelSha
             || !_sourceCannons.TryGetValue(cannon, out var recipe) || !recipe.IsGenerated)
-            throw new InvalidDataException("Same-generation generated normal body/cannon material authority required.");
+            throw new InvalidDataException("Same-generation generated body/cannon material authority required.");
+        bool qualified = recipe.GeneratedTrooper is { } profile
+            ? body.Hunter == Hunter.Weavel && body.PrivateAppearance == new PrivateCharacterAppearance("trooper", profile.Skin)
+                && bodyProof.SourceCharacter == profile.Id && bodyProof.ModelSha == profile.ModelSha
+                && captured.Materials.Archive.Sha256 == profile.MaterialSha
+            : recipe.GeneratedFinal ? body.Hunter == Hunter.Samus && body.PrivateAppearance == new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal")
+                && bodyProof.SourceCharacter == "darksamus-overcharged-echoes" && bodyProof.ModelSha == GeneratedFinalSourceGlbSha256
+                && captured.Materials.Archive.Sha256 == "69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d"
+            : body.Hunter == Hunter.Samus && body.PrivateAppearance == CharacterSourcePreviewSelection.Appearance
+                && bodyProof.SourceCharacter == "darksamus-echoes" && bodyProof.ModelSha == GeneratedNormalSourceGlbSha256;
+        if (!qualified) throw new InvalidDataException("Cannon must use its own qualified source body's material archive.");
         ValidateAtGeneration(body, bodyProof.ModelSha, _sourceGeneration);
         ValidateAtGeneration(cannon, cannonProof.ModelSha, _sourceGeneration);
         lock (_sourceProofLock)

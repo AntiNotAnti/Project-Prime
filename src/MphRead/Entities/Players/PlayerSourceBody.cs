@@ -12,6 +12,7 @@ public partial class PlayerEntity
     private long _sourceBodyLife;
     internal CharacterSourceBodyOwner? ModSourceBody => _sourceBody;
     internal Model ModSourceNativeGun => _gunModel.Model;
+    internal Model ModSourceNativeBall => _altModel.Model;
 
     internal void ModBindSourceBody(CharacterSourcePreviewSelection selection)
     {
@@ -21,8 +22,7 @@ public partial class PlayerEntity
     internal void ModRetireSourceBody() { _sourceBody?.Dispose(); _sourceBody = null; }
     internal void ModResetSourceBodyLife() { unchecked { _sourceBodyLife++; } }
 
-    private bool SourceBodyStateSupported => Health > 0 && !IsAltForm && !IsMorphing && !IsUnmorphing
-        && RenderOptions.Shadows == ShadowQuality.Off
+    private bool SourcePresentationStateSupported => Health > 0 && RenderOptions.Shadows == ShadowQuality.Off
         && !ModCrouched && !ModTucked && ModCrouchVisualAmount == 0
         && !ModParkourMantleActive && !ModParkourWallrunActive && !ModGrappleState.Active
         && _frozenTimer == 0 && _frozenGfxTimer == 0 && _burnTimer == 0
@@ -34,12 +34,42 @@ public partial class PlayerEntity
         && _scene.CameraSequences.Current == null && !_scene.Services.IsReplica
         && !Mods.Network.NetSession.Active && !Mods.Network.DemoPlayback.IsActive
         && !Mods.KillCam.Active;
+    private bool SourceBodyStateSupported => SourcePresentationStateSupported && !IsAltForm && !IsMorphing && !IsUnmorphing;
+    private bool SourceBallStateSupported => SourcePresentationStateSupported && Hunter == Hunter.Samus
+        && IsAltForm && !IsMorphing && !IsUnmorphing;
 
     internal void ModStepSourceBody()
     {
         if (_sourceBody == null) return;
         _sourceBody.Step(_scene.FrameCount, _sourceBodyLife, Biped1Anim, _bipedModel1.AnimInfo.Frame[0],
-            Biped2Anim, _bipedModel2.AnimInfo.Frame[0], _facingVector.Y, SourceBodyStateSupported);
+            Biped2Anim, _bipedModel2.AnimInfo.Frame[0], _facingVector.Y, SourceBodyStateSupported,SourceBallStateSupported);
+    }
+
+    private bool ModTryDrawSourceBall(Matrix4 nativeRoll,float alpha,Vector4? overrideColor,Vector4? outlineColor)
+    {
+        if (_sourceBody is not { } owner || !SourceBallStateSupported || alpha != 1 || overrideColor != null
+            || outlineColor != null || !RenderOptions.ShowCustomCosmetics) return false;
+        // The native specialized draw pose already owns interpolated rotation
+        // and position. Add only the native sphere-center offset in world Y.
+        nativeRoll.Row3.Y += Fixed.ToFloat(Values.AltColYPos);
+        if(!owner.PrepareBall(nativeRoll,out var presentation))return false;
+        var model=owner.BallModel!;int polygonId=_scene.GetNextPolygonId();
+        var previous=_scene.SourceGxSubmission;
+        try
+        {
+            foreach(var segment in model.Segments)
+            {
+                _scene.SourceGxSubmission=new(segment.SourceGx!,owner.BallMaterialSeconds,owner,AlternateForm:true);
+                _scene.AddRenderItem(_altModel.Model.Materials[segment.NativeMaterialIndex],polygonId,1,
+                    Vector3.Zero,GetLightInfo(),Matrix4.Identity,presentation,segment.ListId,
+                    segment.SourceJointPalette!.Count,segment.SourcePresentationPalette!,null,null,SelectionType.None,BillboardMode.None,1,
+                    segment.AlbedoBinding,weightedSkinning:true,authoredTexture:true,authoredWrapS:segment.WrapS,
+                    authoredWrapT:segment.WrapT,authoredDoubleSided:true,
+                    authoredTransparent:segment.SourceGx!.Program.DrawPass!=CharacterSourceGxProgram.Pass.Opaque);
+            }
+        }
+        finally{_scene.SourceGxSubmission=previous;}
+        return true;
     }
 
     private bool ModTryDrawSourceBody(Vector3 drawPosition, Vector3 drawFacing, float alpha,

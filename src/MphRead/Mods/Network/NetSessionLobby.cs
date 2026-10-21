@@ -398,6 +398,9 @@ namespace MphRead.Mods.Network
                 return;
             }
             var identity = new MatchStartIdentity(state.MatchId, state.AuthorityEpoch, state.StartGeneration);
+            try { BindPreparedPackageScene(); }
+            catch (Exception error) when (error is InvalidOperationException or System.IO.InvalidDataException)
+            { LastError = error.Message; ReportMatchLoadFailed(error.Message); return; }
             ushort generation = NetPlayerLifecycle.Generation(LocalSlot);
             if (_loadedStart == identity && _loadedSlot == LocalSlot && _loadedSlotGeneration == generation) return;
             NetBombs.Reset();
@@ -454,6 +457,7 @@ namespace MphRead.Mods.Network
             CustomReplayBoundary.ResetMatch();
             ResetMapPreparation(); _lastMapReport = 0;
             ResetWeaponPackagePreparation();
+            _localClientWeaponPackage = null;
             _appliedBootstrap = _receivingBootstrap = null;
             _bootstrapMask = 0;
             _laneReceiver.Reset(0, 0);

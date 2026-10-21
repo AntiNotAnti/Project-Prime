@@ -37,7 +37,8 @@ namespace MphRead.Mods.Network
         public static bool StartAndJoin(int port, string playerName, Hunter hunter,
             string roomKey, GameMode mode, float timeLimit, int pointGoal,
             int maxPlayers = PlayerEntity.SlotCapacity,
-            (string Host, int Port, string Name)? listing = null)
+            (string Host, int Port, string Name)? listing = null,
+            LocalWeaponPackageSelection? weaponPackage = null)
         {
             Stop();
             LastError = null;
@@ -46,21 +47,27 @@ namespace MphRead.Mods.Network
             string masterHost = listing?.Host ?? NetMasterConfig.DefaultHost;
             int masterPort = listing?.Port ?? NetMasterConfig.DefaultPort;
             var rotation = new[] { (roomKey, mode) };
-            int started = LocalServer.Start(serverName, rotation, maxPlayers,
-                timeLimit, pointGoal, masterHost, masterPort,
-                listed: listing != null,
-                requestedPort: port,
-                friendlyFire: GameState.FriendlyFire,
-                shadowFreeze: GameState.ShadowFreeze,
-                affinityWeapons: GameState.AffinityWeapons,
-                spawnProtection: GameState.SpawnProtection);
-            if (started < 0 || LocalServer.Running == null)
+            int started;
+            Guid ownerToken;
+            lock (LocalServer.StartLifecycleGate)
             {
-                LastError = LocalServer.LastError ?? "the local server would not start";
-                return false;
+                started = LocalServer.Start(serverName, rotation, maxPlayers,
+                    timeLimit, pointGoal, masterHost, masterPort,
+                    listed: listing != null,
+                    requestedPort: port,
+                    friendlyFire: GameState.FriendlyFire,
+                    shadowFreeze: GameState.ShadowFreeze,
+                    affinityWeapons: GameState.AffinityWeapons,
+                    spawnProtection: GameState.SpawnProtection, weaponPackage: weaponPackage);
+                if (started < 0 || LocalServer.Running == null)
+                {
+                    LastError = LocalServer.LastError ?? "the local server would not start";
+                    return false;
+                }
+                ownerToken = LocalServer.OwnerToken;
+                _process = LocalServer.DetachRunning();
             }
-            _process = LocalServer.Running;
-            if (!NetLaunch.Join("127.0.0.1", started, playerName, hunter))
+            if (!NetLaunch.Join("127.0.0.1", started, playerName, hunter, ownerToken: ownerToken, weaponPackage: weaponPackage))
             {
                 LastError = "the local server started but the client could not join it";
                 Stop();

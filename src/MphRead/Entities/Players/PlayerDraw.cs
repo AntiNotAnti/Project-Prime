@@ -275,7 +275,8 @@ namespace MphRead.Entities
                         {
                             if (altSample)
                                 ApplyHunterNodePose(_altModel, _modelTransform, altPresentation);
-                            if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
+                            if (!ModTryDrawSourceBall(_modelTransform,_curAlpha,brightSkin,outlineColor)
+                                && !TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
                                 _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
                                 GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
                                     overrideColor: brightSkin, outlineColor: outlineColor);

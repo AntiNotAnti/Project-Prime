@@ -6,14 +6,19 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **82** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **83** (`NetConfig.ProtocolVersion`).
+- Protocol83 appends an optional exact weapon archive hash to hosting requests.
+  The allocator resolves it only against an operator-approved local store.
+  Native intents, snapshots, CWM1 and replay checkpoint14 retain protocol82 shapes.
 - Protocol82 adds accepted Parkour v5 grapple state to slow/canonical lanes and a request nonce to intents. The fast prefix stays138 bytes. Humans remain owner-reported; passive replicas never run the grapple controller. See `docs/network/parkour-v5-version-contract.md`.
 - Protocol81 adds the operator-selected package availability bit20 and bounded
   package offer/Ready/confirmation messages99–101. They pin CWPK v1 exact
   archive/content/dependency metadata to match, configuration, slot generation
   and connection before loading. CWM1 and native packet bodies retain their
-  existing bytes. CW-12b deliberately refuses package gameplay until authority
-  and presentation integration is qualified. Native archives remain readable;
+  existing bytes. CW-12c binds the selected definition to authoritative combat
+  and exact prewarmed resources to ordinary client scenes before loaded ACKs.
+  Availability never grants inventory; authored world contact owns acquisition.
+  Native archives remain readable;
   custom/package replay continues to refuse rather than substitute definitions.
 - Protocol76 selects Quake3 profile v4 and Traversal profile v5. Qualified static
   walkable ground uses surface-speed acceleration and contact redirection;

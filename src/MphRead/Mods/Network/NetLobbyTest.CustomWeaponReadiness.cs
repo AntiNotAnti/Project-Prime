@@ -19,7 +19,7 @@ public static partial class NetLobbyTest
     private sealed class CustomReadinessProbe : IDisposable
     {
         private readonly Client _client;
-        private readonly WeaponDefinition _definition = RiftlineM7.Create();
+        private readonly WeaponDefinition _definition;
         private readonly WeaponRegistry _registry;
         private CustomManifestAssembler? _assembler;
         internal WorldBootstrapIdentity? NativeBootstrap;
@@ -36,10 +36,10 @@ public static partial class NetLobbyTest
         internal int PickupPackets,PickupAcks,WithheldPickupAcks;
         internal bool DiscardPickupAcks;
         internal byte[]? LastPickupAck;
-        internal CustomReadinessProbe(Client client)
+        internal CustomReadinessProbe(Client client,WeaponDefinition? definition=null)
         {
-            _client = client; _registry = new(true,new[] { _definition });
-            client.PacketReceived = Receive;
+            _client = client; _definition=definition??RiftlineM7.Create(); _registry = new(true,new[] { _definition });
+            var previous=client.PacketReceived;client.PacketReceived=packet=>{previous?.Invoke(packet);Receive(packet);};
         }
         private void Receive(ReceivedPacket packet)
         {
@@ -67,7 +67,7 @@ public static partial class NetLobbyTest
                     && packet.Sender.Equals(_client.Server)
                     && packet.ConnectionId==_client.Transport.ConnectionStats(_client.Server)!.Value.ConnectionId,
                     "public custom facts arrive from exact admitted authority endpoint/connection after manifest resolution");
-                ReplicaWire ??= new(Ready!.Value.Bootstrap,(byte)_client.Slot);
+                ReplicaWire ??= new(Ready!.Value.Bootstrap,(byte)_client.Slot,_definition);
                 Replica ??= new(ReplicaWire,NetSession.Clock);
                 Check(Replica.Receive(packet.Type,packet.Payload,NetSession.Clock,out var ack),
                     "actual UDP public baseline/event is durably consumed by production bounded presentation consumer");

@@ -188,8 +188,34 @@ internal static class CharacterBodyLaunchOwnedProbe
                     "real load barrier binds captured appearance/generation before native life spawn");
                 if (trooper)
                     Check(player.Hunter == Hunter.Weavel && plan.OfflineCharacter == OfflineCharacterMode.Native && !plan.IsPlaytest
-                        && owner.CannonModel == null && !owner.CannonCurrent && owner.Model.Joints.Count == 35 && owner.Model.IndexCount == 1970 * 3,
-                        "Trooper load barrier preserves native Weavel gameplay and complete35-joint body without a first-person cannon");
+                        && owner.CannonCurrent && owner.CannonModel is { } cannon && cannon.IndexCount == 206 * 3
+                        && cannon.SourceCannon is { IsGenerated: true, TriangleCount: 206 }
+                        && owner.Model.Joints.Count == 35 && owner.Model.IndexCount == 1970 * 3,
+                        "Trooper load barrier preserves native Weavel gameplay, complete35-joint body and its exact206-triangle generated cannon owner");
+                else
+                    Check(owner.CannonCurrent && owner.CannonModel is { } echoesCannon
+                        && echoesCannon.IndexCount == (appearance == "MP2DarkSamusFinal" ? 793 : 392) * 3
+                        && echoesCannon.SourceCannon is { IsGenerated:true } recipe
+                        && recipe.GeneratedFinal == (appearance == "MP2DarkSamusFinal"),
+                        "Echoes load barrier owns its independent normal or Final cannon recipe and exact complete source cut");
+                bool expectsBall = !trooper && appearance == "MP2DarkSamus";
+                Check(expectsBall ? owner.BallCurrent && owner.BallModel != null : !owner.BallCurrent && owner.BallModel == null,
+                    "load barrier admits only normal's independent local source ball; Final and Troopers retain native alternate forms");
+                if (expectsBall)
+                {
+                    var ball = owner.BallModel!;
+                    Check(ball.Asset.Part == CharacterModelPart.AlternateForm && ball.Asset.Hunter == Hunter.Samus
+                        && ball.Asset.PrivateAppearance?.SkinSource == "MP2DarkSamus"
+                        && ball.Joints.Count == 2 && ball.SourceRig != null && ball.IndexCount == 2220 * 3
+                        && ball.SourceCannon == null && ball.Segments.Count > 0
+                        && ball.Segments.All(s => s.SourceGx is { } gx && ReferenceEquals(gx.Owner, scene)
+                            && gx.Program.DrawPass == CharacterSourceGxProgram.Pass.Opaque
+                            && s.SourceJointPalette is { Count: > 0 and <= 2 } && s.SourcePresentationPalette != null)
+                        && !ReferenceEquals(ball, owner.Model) && !ReferenceEquals(ball, owner.CannonModel)
+                        && ball.Segments.All(s => owner.Model.Segments.Concat(owner.CannonModel!.Segments)
+                            .All(other => !ReferenceEquals(s.SourceGx, other.SourceGx) && s.ListId != other.ListId)),
+                        "normal launch owns its complete two-joint 2220-triangle opaque ball with separate body/cannon programs and geometry");
+                }
                 var mode = typeof(Scene).GetField("_inputMode", Hidden)!;
                 mode.SetValue(scene, Enum.Parse(mode.FieldType, "All"));
                 foreach (var button in player.Controls.All) { button.Type = ButtonType.Key; button.Key = Keys.Unknown; }
@@ -208,14 +234,18 @@ internal static class CharacterBodyLaunchOwnedProbe
                 scene.AfterRenderFrame();
                 events.Add(new { Phase = "Begin", Appearance = appearance, Generation = generation,
                     SceneGeneration = scene.LifetimeGeneration, SourcePackets = packets.Count, NativeHunter = player.Hunter.ToString(),
-                    OfflineCharacter = plan.OfflineCharacter.ToString(), HasSourceCannon = owner.CannonModel != null });
+                    OfflineCharacter = plan.OfflineCharacter.ToString(), HasSourceCannon = owner.CannonModel != null,
+                    HasSourceBall = owner.BallModel != null, owner.BallCurrent,
+                    BallJoints = owner.BallModel?.Joints.Count, BallTriangles = owner.BallModel?.IndexCount / 3 });
                 return owner;
             }
             void EndBody(CharacterSourceBodyOwner owner, string phase)
             {
-                int[] lists = owner.Model.Segments.Select(segment => segment.ListId).ToArray();
+                int[] lists = owner.Model.Segments.Concat(owner.CannonModel?.Segments ?? Array.Empty<CharacterWeightedRenderSegment>())
+                    .Concat(owner.BallModel?.Segments ?? Array.Empty<CharacterWeightedRenderSegment>()).Select(segment => segment.ListId).ToArray();
                 window.EndScene(); retired.Add(owner);
-                Check(!window.HasScene && !owner.Current && !owner.Ready && lists.All(id => !GL.IsList(id)),
+                Check(!window.HasScene && !owner.Current && !owner.Ready && !owner.CannonCurrent && !owner.BallCurrent && !owner.BallReady
+                    && lists.All(id => !GL.IsList(id)),
                     "actual EndScene retires source owner and every owned geometry list: " + phase);
                 events.Add(new { Phase = phase, Retired = true });
             }
