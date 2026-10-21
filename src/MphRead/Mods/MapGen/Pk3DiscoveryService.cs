@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Diagnostics;
+using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -13,16 +15,29 @@ namespace MphRead.Mods.MapGen;
 /// <summary>Local archive discovery and immutable, bounded Q3 conversion artifacts.</summary>
 public static class Pk3DiscoveryService
 {
-    public const string ConverterVersion = "prime-q3-2";
+    public const string ConverterVersion = "prime-q3-3";
     public const long MaxArchiveBytes = 512L * 1024 * 1024;
     public const long MaxExpandedBytes = 1024L * 1024 * 1024;
     public const long MaxEntryBytes = 128L * 1024 * 1024;
     public const int MaxEntries = 20000;
+    private static readonly TimeSpan CacheLeaseTimeout = TimeSpan.FromSeconds(5);
+    private const string CacheLeaseFileName = ".publication.lock";
     private static readonly object CacheLock = new();
+    private static readonly StringComparer StringComparerForPaths = OperatingSystem.IsWindows()
+        ? StringComparer.OrdinalIgnoreCase : StringComparer.Ordinal;
     private static readonly string DefaultCacheRoot = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "ProjectPrime", "q3-conversion-cache");
     internal static string? CacheDirectoryOverride { get; set; }
-    private static string CacheRoot => CacheDirectoryOverride ?? DefaultCacheRoot;
+    private static string CacheRoot
+    {
+        get
+        {
+            string? configured = CacheDirectoryOverride;
+            if (String.IsNullOrWhiteSpace(configured))
+                configured = Environment.GetEnvironmentVariable("PROJECT_PRIME_Q3_CACHE");
+            return Path.GetFullPath(String.IsNullOrWhiteSpace(configured) ? DefaultCacheRoot : configured);
+        }
+    }
     public sealed record Level(string Name, string Entry, long Bytes);
 
     public static IReadOnlyList<Level> Discover(string source)
@@ -79,22 +94,35 @@ public static class Pk3DiscoveryService
         IReadOnlyList<string> archives, CancellationToken cancellation = default, string converterVersion = ConverterVersion)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        void Add(string value) => hash.AppendData(Encoding.UTF8.GetBytes(value + "\0"));
+        void Add(string value)
+        {
+            byte[] bytes = Encoding.UTF8.GetBytes(value);
+            Span<byte> length = stackalloc byte[sizeof(int)];
+            BinaryPrimitives.WriteInt32LittleEndian(length, bytes.Length);
+            hash.AppendData(length);
+            hash.AppendData(bytes);
+        }
         Add(converterVersion);
         Add(MapBuildFingerprint.CurrentCompilerVersion.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        Add(MapBuildFingerprint.CurrentGeneratorHash);
         Add(selectedMap.ToLowerInvariant());
-        Add(Path.GetFileName(options.Source));
         Add(JsonSerializer.Serialize(options with { Source = "", MapName = selectedMap, DestinationDirectory = "", Dependencies = null }));
-        foreach (string path in new[] { options.Source }.Concat(archives))
+
+        string sourcePath = Path.GetFullPath(options.Source);
+        bool SamePath(string left, string right) => StringComparerForPaths.Equals(left, right);
+        byte[] buffer = new byte[81920];
+        void AddFileContents(string path)
         {
             cancellation.ThrowIfCancellationRequested();
-            // Archive order is significant: the first archive resolves duplicate textures.
-            Add(Path.GetFullPath(path));
-            using var stream = File.OpenRead(path);
+            using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+                bufferSize: 81920, FileOptions.SequentialScan);
             long limit = Path.GetExtension(path).Equals(".bsp", StringComparison.OrdinalIgnoreCase) ? MaxEntryBytes : MaxArchiveBytes;
-            if (stream.Length > limit) throw new InvalidDataException("Quake source exceeds the fingerprint size limit.");
-            long consumed = 0;
-            byte[] buffer = new byte[81920]; int read;
+            long expected = stream.Length;
+            if (expected > limit) throw new InvalidDataException("Quake source exceeds the fingerprint size limit.");
+            Span<byte> length = stackalloc byte[sizeof(long)];
+            BinaryPrimitives.WriteInt64LittleEndian(length, expected);
+            hash.AppendData(length);
+            long consumed = 0; int read;
             while ((read = stream.Read(buffer)) > 0)
             {
                 cancellation.ThrowIfCancellationRequested();
@@ -102,7 +130,33 @@ public static class Pk3DiscoveryService
                 if (consumed > limit) throw new InvalidDataException("Quake source grew beyond the fingerprint size limit.");
                 hash.AppendData(buffer.AsSpan(0, read));
             }
-            Add("end");
+            if (consumed != expected)
+                throw new IOException("Quake source changed while its conversion fingerprint was being computed.");
+            cancellation.ThrowIfCancellationRequested();
+        }
+
+        Add("source");
+        AddFileContents(sourcePath);
+        Add("source-name");
+        Add(Path.GetFileName(options.Source));
+        Add("archive-count");
+        Add(archives.Count.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        for (int i = 0; i < archives.Count; i++)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            string path = Path.GetFullPath(archives[i]);
+            // Archive order is significant: the first archive resolves duplicate textures.
+            // The selected source is already in the hash stream above; its archive role is
+            // represented by this marker so it is not read and hashed a second time.
+            Add("archive");
+            Add(i.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            Add(Path.GetExtension(path).ToLowerInvariant());
+            if (SamePath(path, sourcePath)) Add("same-as-source");
+            else
+            {
+                Add("archive-bytes");
+                AddFileContents(path);
+            }
         }
         return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
     }
@@ -111,7 +165,11 @@ public static class Pk3DiscoveryService
     {
         lock (CacheLock)
         {
-            string artifact = Path.Combine(CacheRoot, key);
+            string cacheRoot = CacheRoot;
+            Directory.CreateDirectory(cacheRoot);
+            using var lease = AcquireCacheLease(cacheRoot, cancellation);
+            CleanupOrphanedPending(cacheRoot, cancellation);
+            string artifact = Path.Combine(cacheRoot, key);
             if (!Directory.Exists(artifact)) return false;
             bool InvalidArtifact() { Directory.Delete(artifact, true); return false; }
             string manifest = Path.Combine(artifact, ".cache-hashes");
@@ -134,8 +192,11 @@ public static class Pk3DiscoveryService
     {
         lock (CacheLock)
         {
-            Directory.CreateDirectory(CacheRoot);
-            string artifact = Path.Combine(CacheRoot, key);
+            string cacheRoot = CacheRoot;
+            Directory.CreateDirectory(cacheRoot);
+            using var lease = AcquireCacheLease(cacheRoot, cancellation);
+            CleanupOrphanedPending(cacheRoot, cancellation);
+            string artifact = Path.Combine(cacheRoot, key);
             if (Directory.Exists(artifact)) return;
             string temp = artifact + ".pending-" + Guid.NewGuid().ToString("N");
             try
@@ -146,7 +207,7 @@ public static class Pk3DiscoveryService
                 File.WriteAllText(Path.Combine(temp, ".cache-hashes"), JsonSerializer.Serialize(hashes));
                 long bytes = Directory.EnumerateFiles(temp, "*", SearchOption.AllDirectories).Sum(f => new FileInfo(f).Length);
                 if (bytes > MaxArchiveBytes) return;
-                var entries = new DirectoryInfo(CacheRoot).GetDirectories()
+                var entries = new DirectoryInfo(cacheRoot).GetDirectories()
                     .Where(d => !d.Name.Contains(".pending-")).OrderBy(d => d.CreationTimeUtc).ToList();
                 long total = entries.Sum(d => d.EnumerateFiles("*", SearchOption.AllDirectories).Sum(f => f.Length));
                 while (entries.Count >= 8 || total + bytes > MaxArchiveBytes)
@@ -159,6 +220,46 @@ public static class Pk3DiscoveryService
             }
             finally { if (Directory.Exists(temp)) Directory.Delete(temp, true); }
         }
+    }
+
+    private static FileStream AcquireCacheLease(string cacheRoot, CancellationToken cancellation)
+    {
+        string leasePath = Path.Combine(cacheRoot, CacheLeaseFileName);
+        var timer = Stopwatch.StartNew();
+        while (true)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            try { return new FileStream(leasePath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None); }
+            catch (IOException ex)
+            {
+                if (timer.Elapsed >= CacheLeaseTimeout)
+                    throw new IOException("Timed out waiting for the Q3 conversion cache publication lease.", ex);
+                cancellation.WaitHandle.WaitOne(TimeSpan.FromMilliseconds(25));
+            }
+        }
+    }
+
+    private static void CleanupOrphanedPending(string cacheRoot, CancellationToken cancellation)
+    {
+        foreach (string directory in Directory.EnumerateDirectories(cacheRoot, "*", SearchOption.TopDirectoryOnly))
+        {
+            cancellation.ThrowIfCancellationRequested();
+            string name = Path.GetFileName(directory);
+            const string marker = ".pending-";
+            int markerIndex = name.IndexOf(marker, StringComparison.Ordinal);
+            if (markerIndex != 64 || name.Length != markerIndex + marker.Length + 32
+                || !IsLowerHex(name.AsSpan(0, markerIndex))
+                || !IsLowerHex(name.AsSpan(markerIndex + marker.Length)))
+                continue;
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    private static bool IsLowerHex(ReadOnlySpan<char> value)
+    {
+        foreach (char c in value)
+            if (!(c is >= '0' and <= '9' or >= 'a' and <= 'f')) return false;
+        return true;
     }
 
     private static void Copy(string source, string destination, CancellationToken cancellation)

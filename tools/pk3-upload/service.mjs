@@ -87,6 +87,8 @@ export function createPk3UploadService({
     return window.count <= 180;
   }
   let activeJob = null;
+  let activeCancellation = null;
+  let activeCompletion = Promise.resolve();
   let closing = false;
   let service;
   let cleanupTimer;
@@ -148,6 +150,9 @@ export function createPk3UploadService({
     const job = candidates[0];
     if (!job || activeJob || closing) return;
     activeJob = job.id;
+    activeCancellation = new AbortController();
+    let complete;
+    activeCompletion = new Promise(resolve => { complete = resolve; });
     const folder = path.join(jobRoot, job.id);
     const input = path.join(folder, "input.pk3");
     const output = path.join(folder, "output.ppmap");
@@ -157,6 +162,7 @@ export function createPk3UploadService({
       const result = await runConverter({
         input, output, roomName: job.roomName,
         levelName: job.levelName || null, cwd: folder,
+        signal: activeCancellation.signal,
       });
       const size = (await fs.stat(output)).size;
       if (size < 1 || size > maxOutputBytes || !validHash(result.packageHash) ||
@@ -175,13 +181,16 @@ export function createPk3UploadService({
       });
     } catch (error) {
       // Preserve no worker-internal path/stack traces in public job state.
-      console.error("PK3 conversion job failed", job.id, error?.name || "unknown");
+      if (!closing) console.error("PK3 conversion job failed", job.id, error?.name || "unknown");
       await fs.rm(output, { force: true });
       await atomicJson(path.join(folder, "job.json"), {
-        ...saved, status: "failed", stage: "Conversion failed", finishedAt: now(),
+        ...saved, status: closing ? "queued" : "failed",
+        stage: closing ? "Interrupted by service shutdown" : "Conversion failed", finishedAt: now(),
       });
     } finally {
       activeJob = null;
+      activeCancellation = null;
+      complete();
       if (!closing) setImmediate(() => void startJobQueue().catch(console.error));
     }
   }
@@ -448,7 +457,9 @@ export function createPk3UploadService({
     async close() {
       closing = true;
       clearInterval(cleanupTimer);
+      activeCancellation?.abort(new Error("Conversion service is shutting down."));
       await new Promise(resolve => service.close(() => resolve()));
+      await activeCompletion;
     },
   };
 }

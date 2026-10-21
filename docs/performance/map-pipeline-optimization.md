@@ -8,7 +8,7 @@ gameplay-ready latency and other platforms require their own acceptance runs.
 
 | Stage | Current implementation and ownership | Finding / action |
 |---|---|---|
-| Website selection | Website `mapUploadFormats`, bulk uploader, guest upload flow | Mixed queues, drag/drop, per-file cancellation and retries already exist. Filename-based routing is a convenience; services validate archives. Structural browser preflight remains an acceptance gap. |
+| Website selection | Website `mapUploadFormats`, bulk uploader, guest upload flow | Mixed selection, per-file cancellation and manual retry already exist. **P2:** drag/drop is missing and routing starts from filename extensions. Add a shared structural ZIP preflight and route both selection methods through it; services remain authoritative. |
 | Upload | Website `mapPublishing` / `pk3Publishing`; `MapCommunityClient`; `pk3-upload/service.mjs` | Bounded chunks, offset recovery, exact digests, authentication and quotas exist. **P2:** full owner catalog fetched for every file in a batch; share only within an authenticated batch with explicit invalidation. |
 | Conversion | `Q3ImportService`, `Pk3DiscoveryService`, `Q3Convert`, `MapTextureBake` | **P1:** conversion keys contain job directory paths and hash the source twice. Child process HOME also makes the cache job-local. Use portable content keys, keep dependency precedence, explicit generator invalidation and a bounded persistent service cache. Analysis and texture extraction still repeat archive indexing/parsing. |
 | Packaging | `MapBuildScheduler.PackageAsync`, `MapPackageBuilder`, `MapPackageReader` | Deterministic streamed asset payloads and strict readback already exist; preserve golden archive bytes. Packages intentionally remain source-compatible and platform-neutral. |
@@ -85,6 +85,51 @@ remote-bandwidth or full-map-loading improvement is inferred from this result.
 `community-transfer-check` additionally passed 61 checks, including actual
 cross-process ownership, deduplication, crash recovery, pause/cancel, resumed
 HTTP Range and corrupt archive repair.
+
+## Reusable Q3 conversion artifacts
+
+Conversion keys exclude temporary job paths and include source bytes/basename,
+dependency bytes in precedence order, level, options and compiler/generator
+identity. The source's archive role is explicit without hashing its bytes twice.
+Reused artifacts contain relative filenames; fresh imports retain independent
+map GUIDs and reimports preserve their authored identity. No package format,
+published hash, collision algorithm or multiplayer protocol changes.
+
+The web worker sets `PROJECT_PRIME_Q3_CACHE` to a service-owned persistent
+directory rather than its short-lived job HOME. Existing eight-entry / 512 MiB
+retention is protected by a cancellation-aware cross-process publication lease.
+Only owned, recognizable pending artifacts are removed after a terminated
+writer. Shutdown aborts and joins the child, retaining its verified input queued
+for restart. OS isolation still owns forced parent/container termination.
+
+The importer passes its already parsed BSP into conversion on misses. The public
+file-based converter still validates/loads its source. Source-content mutation
+checks before cache storage and final publication remain intact.
+
+| Dust2 import, 2,709,119-byte source | Original | Optimized |
+|---|---:|---:|
+| Cold import (ms) | 313.78 | 295.61 |
+| Cold same-thread allocated bytes | 142,296,016 | 101,919,560 |
+| Repeat from relocated directory (ms) | 126.47 (miss) | 65.26 (hit) |
+| Repeat same-thread allocated bytes | 132,287,016 | 82,081,184 |
+| Fingerprint (ms, after warmup) | 2.38 | 1.20 |
+| Fingerprint allocated bytes | 168,056 | 84,408 |
+
+These are one before/after importer pair on the same Windows machine, not
+statistical load-time percentiles. JIT/cache effects remain; the second import
+is warm in both arms. The same compiled benchmark ran against the preserved
+original production assembly, then the optimized assembly; it restores the
+optimized DLL afterward. It measures import, not final package compilation or
+gameplay readiness. Reproduce with:
+
+```powershell
+dotnet run --project tools/pk3-conversion-bench -c Release -- --source maps/dust2/df_dust2.pk3 --room PIPELINE_BENCH --map df_dust2
+```
+
+Use `--allow-relocated-miss` only when measuring the original implementation.
+The benchmark makes private source copies and isolates/disposes its cache. No
+input map or creator content is rewritten. Raw receipts are retained alongside
+the download samples in `map-pipeline-evidence/`.
 
 ## Acceptance still required
 

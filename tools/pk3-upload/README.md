@@ -48,6 +48,15 @@ retain ticket strings or call the map publisher on their own.
   again by `MapPackageReader`.
 - Sessions/jobs are stored under random or owner-hashed private directories.
   Data is removed after 24h; job queue can recover after service restart.
+- Conversion artifacts are disposable and shared between child jobs under
+  `PK3_STORAGE_ROOT/conversion-cache` via `PROJECT_PRIME_Q3_CACHE`. Content and
+  compiler identity, selected level, settings and archive precedence determine
+  reuse. The converter bounds retained artifacts to eight entries / 512 MiB;
+  reserve that additional space beyond the HTTP service's 2 GiB job budget.
+  Creator jobs, tickets, output packages and map identities remain independent.
+- Graceful shutdown aborts the active converter process group and waits for it
+  to exit. Its immutable input remains queued for restart; no partial package
+  becomes downloadable. OS/container limits remain required for forced crashes.
 - The HTTP service returns generic errors, never a source absolute path or
   client-supplied filesystem entry. It runs independently of multiplayer.
 - Never automatically publish material merely because it converted. The

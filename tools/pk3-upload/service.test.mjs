@@ -46,7 +46,7 @@ test("cross-origin allowlist accepts only exact HTTPS origins", () => {
   assert.equal(validOrigin("http://projectprime.gg"), false);
 });
 
-async function fixture() {
+async function fixture(overrides = {}) {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), "prime-pk3-api-"));
   let invocation = 0;
   const api = createPk3UploadService({
@@ -66,6 +66,7 @@ async function fixture() {
         warnings: ["Review unsupported shader behavior"],
       };
     },
+    ...overrides,
   });
   await api.init();
   await new Promise(resolve => api.server.listen(0, "127.0.0.1", resolve));
@@ -227,4 +228,62 @@ test("one creator can convert two BSP variants from the same .pk3 independently"
     const mismatch = await env.request(b, "POST", meta("Q3_LEVEL_ONE", "map1"));
     assert.equal(mismatch.status, 400);
   } finally { await env.cleanup(); }
+});
+
+test("shutdown aborts active conversion and preserves its immutable input for restart", { timeout: 10000 }, async () => {
+  let started;
+  const running = new Promise(resolve => { started = resolve; });
+  let cancelled = false;
+  const env = await fixture({
+    runConverter: async ({ signal }) => {
+      started();
+      await new Promise((resolve, reject) => {
+        const abort = () => { cancelled = true; reject(signal.reason); };
+        if (signal.aborted) abort();
+        else signal.addEventListener("abort", abort, { once: true });
+      });
+    },
+  });
+  let restarted;
+  try {
+    const input = Buffer.from("shutdown recovery source");
+    const uri = "/v1/sources/" + sum(input) + "?roomName=Q3_SHUTDOWN";
+    assert.equal((await env.request(uri, "POST", JSON.stringify({
+      bytes: input.length, roomName: "Q3_SHUTDOWN", rightsConfirmed: true,
+    }))).status, 201);
+    assert.equal((await env.request(uri + "&offset=0", "PUT", input)).status, 200);
+    const submission = await env.request(uri.replace("?", "/complete?"), "POST");
+    const { jobId } = await submission.json();
+    await running;
+    await env.api.close();
+    assert.equal(cancelled, true);
+    const folder = path.join(env.root, "jobs", jobId);
+    const state = JSON.parse(await fs.readFile(path.join(folder, "job.json"), "utf8"));
+    assert.equal(state.status, "queued");
+    assert.deepEqual(await fs.readFile(path.join(folder, "input.pk3")), input);
+    assert.equal(await fs.stat(path.join(folder, "output.ppmap")).then(() => true, () => false), false);
+    let resumed = 0;
+    restarted = createPk3UploadService({
+      root: env.root, allowedOrigins: ["https://projectprime.gg"],
+      verifyTicket: async () => ({ creatorId: creator }),
+      runConverter: async ({ input: source, output }) => {
+        resumed++;
+        assert.deepEqual(await fs.readFile(source), input);
+        const bytes = Buffer.from("verified resumed package");
+        await fs.writeFile(output, bytes);
+        return { packageHash: sum(bytes), packageBytes: bytes.length,
+          contentHash: "c".repeat(64), mapId: "cccccccc-cccc-4ccc-cccc-cccccccccccc" };
+      },
+    });
+    await restarted.init();
+    let recovered;
+    for (let attempt = 0; attempt < 100; attempt++) {
+      recovered = JSON.parse(await fs.readFile(path.join(folder, "job.json"), "utf8"));
+      if (recovered.status === "ready") break;
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    assert.equal(recovered.status, "ready");
+    assert.equal(resumed, 1);
+    assert.equal(recovered.id, jobId);
+  } finally { if (restarted) await restarted.close(); await env.cleanup(); }
 });
