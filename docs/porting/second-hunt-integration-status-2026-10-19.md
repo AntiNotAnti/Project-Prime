@@ -82,13 +82,23 @@ this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
 
+The [Scout Drone Ready runtime slice](second-hunt-scout-drone-runtime-2026-10-21.md)
+adds separate Alpha/Gamma source owners to explicit solo practice, full33-joint
+geometry, both source material groups and an independently checked private Ready
+loop. Native burst/laser/status/morph presentation remains the complete fallback;
+native movement, planted body, beams, laser and RNG trace match across all three
+appearances. Actual Windows runtime176324 checks, native Hunters persistence and
+retirement checks pass. Source attack animation and broader character engineering
+remain unfinished.
+
 The [Scout Drone source authoring slice](second-hunt-scout-drone-authoring-2026-10-21.md)
 adds independent Alpha/Gamma v1 bundles from pinned Rev2 Metroid3/AudioGrp,
 full33-joint geometry, raw materials and strict banks. All52 existing Trooper
 v6 components and recipe identities remain unchanged. Edition-aware group
 requests preserve original Prime's four bodies while Rev2 includes six sources.
-Windows CPU checks qualify source transport/transactions only; imported drone
-runtime, GX drawing and gameplay integration remain engineering.
+That authoring slice qualifies source transport/transactions only. The later
+Ready runtime slice above adds Windows GX drawing and solo presentation without
+changing the existing private practice gameplay owner.
 
 The [source ball boost slice](second-hunt-source-ball-boost-2026-10-21.md)
 adds blue hue at native brightness to each source ball's own boost136 effect
