@@ -28,9 +28,24 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--recorded-killcam")
+            {
+                if (args.Length != 5 || !byte.TryParse(args[3], out byte victim) || victim >= 8)
+                {
+                    Console.Error.WriteLine("Usage: --recorded-killcam <asset profile> <recording> <victim slot 0..7> <json>");
+                    return 1;
+                }
+                string profile = System.IO.Path.GetFullPath(args[1]);
+                string recording = System.IO.Path.GetFullPath(args[2]);
+                string output = System.IO.Path.GetFullPath(args[4]);
+                System.IO.Directory.SetCurrentDirectory(profile);
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return RecordedKillcamTests.Run(recording, victim, output);
+            }
             if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
             {
                 Console.WriteLine("Usage: nettest [host] [port]\n"
+                    + "  --recorded-killcam <profile> <recording> <victim> <json> Diagnose actual marker clip fidelity and lifecycle fences.\n"
                     + "  --prediction-health-projection    Test bounded snapshot/prediction overlap without settlement.\n"
                     + "  --ncx-timeline off|on              Test bounded opt-in shot timeline and clock identity.\n"
                     + "  --ncx-visibility                  Test exact pixel differences and restoration controls.\n"
