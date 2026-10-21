@@ -29,7 +29,7 @@
 #lobby_map_image { display:block; width:100%; height:104dp; }
 #lobby_map_preview_status { margin-top:4dp; color:#a0b9cb; font-size:12dp; line-height:14dp; white-space:normal; }
 #lobby_map_preview:hover, #lobby_map_preview:focus { border-color:#78caff; background-color:#12364b; }
-#lobby_right_panels { position:absolute; right:24dp; top:16dp; bottom:76dp; width:21%; max-width:320dp; display:flex; flex-direction:column; }
+#lobby_right_panels { position:absolute; right:24dp; top:16dp; bottom:12dp; width:21%; max-width:320dp; display:flex; flex-direction:column; }
 /* Fit the eight rows; let chat use the remaining right-rail height. */
 #lobby_roster_panel { flex:0 1 auto; min-height:0; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; }
 .lobby_roster_header { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; min-height:24dp; }
@@ -115,7 +115,8 @@
 @media (max-width:1000dp) {
     #lobby_heading { left:12dp; width:26%; }
     #lobby_left_panels { left:12dp; width:24%; }
-    #lobby_right_panels { right:12dp; width:25%; }
+    /* The compact action row spans beneath both columns. */
+    #lobby_right_panels { right:12dp; width:25%; bottom:76dp; }
     #lobby_brief { left:36%; right:36%; }
     .lobby_nameplate { display:none; }
     #lobby_actions { left:26%; right:8dp; }

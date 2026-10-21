@@ -790,6 +790,22 @@ public sealed class RmlUiMenuController : IDisposable
                     if (mapError.Length > 0) { _rulesStatus = mapError; Dirty(); }
                     return false;
                 }
+                if (_mapOpenedRules)
+                {
+                    // A picker opened from the lobby is a map-only operation.
+                    // Keep the authoritative limits/flags intact and submit via
+                    // the existing revision-fenced UpdateMatch service.
+                    if (!_rules.Validate(out mapError) || !_services.SubmitRules(_rules.Draft, out mapError))
+                    {
+                        _rulesStatus = String.IsNullOrEmpty(mapError)
+                            ? "SERVER CANNOT ACCEPT THIS MAP RIGHT NOW." : mapError;
+                        Dirty();
+                        return false;
+                    }
+                    CloseRules();
+                    Status("MAP CHANGE REQUEST SENT // WAITING FOR SERVER CONFIRMATION");
+                    return true;
+                }
                 RetireMapPicker();
                 _mapOpenedRules = false;
                 Dirty();
@@ -1495,7 +1511,7 @@ public sealed class RmlUiMenuController : IDisposable
             if (!live.HasValue) return false;
             _rules = new(live.Value);
             _rulesStatus = lobby.Owner
-                ? "SELECT A MAP // APPLY RULES TO SUBMIT TO SERVER"
+                ? "CHOOSE A MAP // SELECT TO SEND TO SERVER"
                 : "VIEW ONLY // THE LOBBY OWNER CONTROLS MAP SELECTION";
         }
         RetireMapPicker();
@@ -2171,6 +2187,7 @@ public sealed class RmlUiMenuController : IDisposable
         Text("map_page", _mapPicker == null ? "" : $"{_mapPicker.Page + 1} / {_mapPicker.Pages}");
         Text("map_status", !lobby.Owner ? "VIEW ONLY // THE LOBBY OWNER SELECTS MAPS"
             : _rulesSubmitted ? "WAITING FOR SERVER CONFIRMATION"
+            : _mapOpenedRules ? _rulesStatus
             : "CHOOSE AN INSTALLED MAP // APPLY IN THE RULES PANEL");
         string categoryName = (_mapPicker?.Category ?? 0) switch { 0 => "MPH", 2 => "ECHOES", 3 => "HALO", 4 => "QUAKE", _ => "COMMUNITY" };
         Text("map_empty_text", _mapCatalogStatus.Length > 0 && _mapPicker?.Category != 0
