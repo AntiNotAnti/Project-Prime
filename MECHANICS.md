@@ -97,7 +97,7 @@ Speeds are units per frame as the engine stores them (20.12 fixed point converte
 | State | Cause | Duration | Effect |
 |---|---|---|---|
 | Frozen | Judicator, affinity version, **charged shot only** | 75 frames doubled; 15 doubled if refrozen within 60 doubled | cannot act; the ice layer draws over the hunter; animation frames stop advancing |
-| Disrupted | Volt Driver, affinity, **charged** | 60 doubled | HUD distortion, aim disrupted |
+| Disrupted | Volt Driver, affinity, **charged** | 60 doubled | HUD screen distortion only; aim direction and projectile accuracy remain unchanged |
 | Burning | Magmaul, affinity, **charged** | 150 doubled | damage over time, attributed to whoever set the fire |
 
 Every affliction in the game sits on the charged entry of its weapon's
