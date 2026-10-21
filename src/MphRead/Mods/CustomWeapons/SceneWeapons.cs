@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MphRead.Mods.CustomWeapons;
+using MphRead.Mods.CustomWeapons.Packages;
 
 namespace MphRead;
 
@@ -12,6 +13,35 @@ public partial class Scene
     // No native-only allocation. No input, UI, save, replay or wire entry point
     // activates this foundation; gameplay admission is a later explicit gate.
     internal OfflineCustomWeaponRuntime? OfflineWeapons { get; private set; }
+    private WeaponPackageLease? _localWeaponLease;
+    internal WeaponPackage? LocalWeaponPackage => _localWeaponLease?.Package;
+    // Explicit local sandbox activation. The store operation alone never calls
+    // this method. A scene must bind exact resources before its first fixed tick.
+    internal OfflineCustomWeaponRuntime EnableOfflinePackageAvailability(WeaponPackageStore store, string packageHash, bool optIn)
+    {
+        ArgumentNullException.ThrowIfNull(store);
+        if (!optIn || FrameCount != 0 || _exiting || OfflineWeapons != null || CustomCombat != null
+            || PirateBlaster != null || CustomWeapons != null || _localWeaponLease != null
+            || Mods.Network.NetSession.Active || Mods.Network.DemoPlayback.IsActive || Services.IsReplica || IsReplayLab || AimTrainer != null)
+            throw new InvalidOperationException("Package playback requires explicit opt-in on a fresh offline scene.");
+        Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
+        var lease = store.AcquireInstalled(packageHash);
+        try
+        {
+            _localWeaponLease = lease;
+            PrepareCustomRiflePackageResources();
+            var runtime = new OfflineCustomWeaponRuntime(this, true, publicAvailability: true, definition: lease.Package.Definition);
+            OfflineWeapons = runtime;
+            PrewarmCustomRifleAudio();
+            return runtime;
+        }
+        catch
+        {
+            ReleaseCustomWeaponRegistry();
+            lease.Dispose();
+            throw;
+        }
+    }
     internal TrooperPirateBlasterRuntime? PirateBlaster { get; private set; }
     internal void EnablePirateBlaster(Entities.PlayerEntity player)
     {
@@ -63,5 +93,6 @@ public partial class Scene
         CustomCombat?.Dispose(); CustomCombat = null;
         CustomWeapons?.Dispose();
         CustomWeapons = null;
+        _localWeaponLease?.Dispose(); _localWeaponLease = null;
     }
 }

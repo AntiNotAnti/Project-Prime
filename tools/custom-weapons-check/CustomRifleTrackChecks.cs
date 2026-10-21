@@ -50,13 +50,19 @@ internal static class CustomRifleTrackChecks
             Online with{Manifest=default},Online with{Bootstrap=Bootstrap with{Start=Bootstrap.Start with{MatchId=4}}},
             Online with{Bootstrap=Bootstrap with{Start=Bootstrap.Start with{AuthorityEpoch=2}}},
             Online with{Weapon=WeaponIdentity.Native(BeamType.Imperialist)},
-            Online with{Weapon=WeaponIdentity.Custom(Guid.Parse("10000000-0000-0000-0000-000000000001"),Definition.Identity.DefinitionHash!)},
             Offline with{Bootstrap=Bootstrap},Offline with{Manifest=Manifest},Online with{Offline=true}})
         {
             var track=New();track.Submitted(Online,1,true);
             check(!invalid.IsValid&&track.Synchronize(invalid,State(invalid),true,138,invalid.Offline)==0
                 &&track.Context==default&&!track.Selected&&track.Sample(0).Kick==0,"invalid context clears prior cosmetic identity and prediction");
         }
+        var packageContext=Online with{Weapon=WeaponIdentity.Custom(Guid.Parse("11c011c0-1122-3344-5566-778899aabbcc"),Definition.Identity.DefinitionHash!)};
+        check(packageContext.IsValid&&(packageContext with{Bootstrap=default,Manifest=default,Offline=true}).IsValid,$"complete creator content identities are valid online and offline contexts online={packageContext.IsValid} offline={(packageContext with{Bootstrap=default,Manifest=default,Offline=true}).IsValid} weapon={packageContext.Weapon.IsValid}/{packageContext.Weapon.Kind}/{packageContext.Weapon.ContentId} loaded={typeof(CustomRifleContext).Assembly.Location} owner={Owner.IsValid} bootstrap={CustomWeaponProtocol.ValidBootstrap(Bootstrap)}");
+        var changed=New();check(changed.Submitted(Online,1,true)&&changed.Sample(0).Kick>0,"old exact identity seeds visible prediction");
+        check(changed.Synchronize(packageContext,State(packageContext,1),true,42,false)==0&&changed.Context==packageContext
+            &&changed.Sample(0).Kick==0&&changed.Sample(0).Flash==0&&!changed.Submitted(Online,2,true),"content identity switch resets old clocks silently and rejects stale producer");
+        int staleCues=0;for(int age=0;age<80;age++)if(changed.Step()!=0)staleCues++;
+        check(staleCues==0,"content identity switch never emits delayed old bolt cues");
         var wrongOwner=new WeaponOwnerContext(Owner.MatchId,Owner.AuthorityEpoch,1,Owner.Generation,Owner.Life);
         var t=New();t.Synchronize(Online,State(Online) with{Owner=wrongOwner},true,138,false);
         check(t.Context==default&&!t.Selected,"state cannot cross owner even when context valid");

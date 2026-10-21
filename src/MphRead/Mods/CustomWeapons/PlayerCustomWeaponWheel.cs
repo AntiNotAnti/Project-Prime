@@ -127,12 +127,13 @@ public partial class PlayerEntity
             bool selected=i==_customWheel.Selection;
             _scene.DrawHudFlatBox(rect.Left,rect.Top,rect.Left+rect.Width,rect.Top+rect.Height,
                 selected?new Vector4(.08f,.55f,.65f,.95f):enabled?new Vector4(.08f,.16f,.2f,.88f):new Vector4(.08f,.08f,.08f,.7f));
-            var entry=_customWheel[i];string label=entry.Custom?"M7":entry.Native switch
+            var entry=_customWheel[i];string label=entry.Custom?(_scene.LocalWeaponPackage?.Project.Name??"M7"):entry.Native switch
             {BeamType.PowerBeam=>"POWER BEAM",BeamType.Missile=>"MISSILE",BeamType.VoltDriver=>"VOLT DRIVER",
              BeamType.Battlehammer=>"BATTLEHAMMER",BeamType.Imperialist=>"IMPERIALIST",BeamType.Judicator=>"JUDICATOR",
              BeamType.Magmaul=>"MAGMAUL",BeamType.ShockCoil=>"SHOCK COIL",BeamType.OmegaCannon=>"OMEGA CANNON",_=>""};
-            DrawText2D(rect.Left+rect.Width/2,rect.Top+(rect.Height-8*scale)/2,Align.Center,0,label,
-                color:enabled?new ColorRgba(255,255,255,255):new ColorRgba(110,110,110,255),scale:scale,alpha:Features.HudOpacity);
+            float labelScale=_scene.LocalWeaponPackage!=null&&entry.Custom?Math.Min(scale,rect.Width/Math.Max(1,label.Length*8)):scale;
+            DrawText2D(rect.Left+rect.Width/2,rect.Top+(rect.Height-8*labelScale)/2,Align.Center,0,label,
+                color:enabled?new ColorRgba(255,255,255,255):new ColorRgba(110,110,110,255),scale:labelScale,alpha:Features.HudOpacity);
         }
     }
 }

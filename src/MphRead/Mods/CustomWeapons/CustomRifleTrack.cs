@@ -7,7 +7,7 @@ namespace MphRead.Mods.CustomWeapons;
 internal readonly record struct CustomRifleContext(WeaponOwnerContext Owner,WorldBootstrapIdentity Bootstrap,
     WeaponDigest Manifest,WeaponIdentity Weapon,bool Offline=false)
 {
-    internal bool IsValid=>Owner.IsValid&&Weapon.Kind==WeaponIdentityKind.Custom&&Weapon.ContentId==RiftlineM7.ContentId
+    internal bool IsValid=>Owner.IsValid&&Weapon.IsValid&&Weapon.Kind==WeaponIdentityKind.Custom
         &&(Offline?Bootstrap==default&&Manifest==default:Manifest.IsValid&&CustomWeaponProtocol.ValidBootstrap(Bootstrap)
             &&Bootstrap.Start.MatchId==Owner.MatchId&&Bootstrap.Start.AuthorityEpoch==Owner.AuthorityEpoch);
 }

@@ -1340,7 +1340,7 @@ namespace MphRead.Entities
             }
             try
             {
-                if(ModCustomShot is {} custom&&custom.Definition.Identity.ContentId==Mods.CustomWeapons.RiftlineM7.ContentId)
+                if(ModCustomShot is {} custom&&custom.Definition.Mechanics.Behavior==Mods.CustomWeapons.WeaponBehavior.SemiAutoPrecision)
                 {
                     var from=ModBeamDrawBack;
                     if(Age<=.035f&&Owner is PlayerEntity local
