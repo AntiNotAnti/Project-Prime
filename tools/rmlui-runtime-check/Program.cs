@@ -68,7 +68,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.LobbyMapCategory => 5,
         RmlUiIntentKind.LobbyTeamSelect => 4,
         RmlUiIntentKind.HunterSelect => 7,
-        RmlUiIntentKind.HunterBodySelect => 3,
+        RmlUiIntentKind.HunterBodySelect => 7,
         RmlUiIntentKind.HunterSkinSelect => 7,
         RmlUiIntentKind.HunterArmorSelect => 21,
         RmlUiIntentKind.HunterDeathSelect => 8,

@@ -26,8 +26,13 @@ internal static class CharacterBodyLaunchOwnedProbe
         .GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
     private const string Normal = "darksamus-echoes", Final = "darksamus-overcharged-echoes";
 
-    internal static int Run(string rvz)
+    internal static int Run(string rvz, bool trooper = false)
     {
+        string primaryId = trooper ? "trooper-power" : Normal, secondaryId = trooper ? "trooper-ice" : Final;
+        string primarySkin = trooper ? "MP1PowerTrooper" : "MP2DarkSamus", secondarySkin = trooper ? "MP1IceTrooper" : "MP2DarkSamusFinal";
+        Hunter nativeHunter = trooper ? Hunter.Weavel : Hunter.Samus;
+        LocalBodyAppearance primaryBody = trooper ? LocalBodyAppearance.TrooperPower : LocalBodyAppearance.DarkSamusEchoes,
+            secondaryBody = trooper ? LocalBodyAppearance.TrooperIce : LocalBodyAppearance.DarkSamusOvercharged;
         string temporary = Path.Combine(Path.GetTempPath(), "prime-body-launch-" + Guid.NewGuid().ToString("N"));
         string cwd = Environment.CurrentDirectory, oldFiles = GameFiles.Root, oldPrefsDirectory = LauncherPrefs.Directory;
         string? oldData = Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA");
@@ -53,6 +58,13 @@ internal static class CharacterBodyLaunchOwnedProbe
             Check(!string.IsNullOrWhiteSpace(native) && Directory.Exists(native), "existing owned AMHE1 fixture is required");
             rvz = Path.GetFullPath(rvz); native = Path.GetFullPath(native!);
             before = HashFile(rvz); nativeBefore = Inventory(native);
+            if (trooper)
+            {
+                using var disc = GameCubeDiscReader.Open(rvz);
+                Check(disc.GameId == "GM8E01" && disc.Revision == 2 && disc.DiscNumber == 0
+                    && ExternalSourceRequirements.VerifyKnown(disc).All(r => r.Status == ExternalArchiveStatus.Verified),
+                    "Trooper launch requires the actual pinned Prime USA Rev2 source before import");
+            }
             string user = Path.Combine(temporary, "user"); Directory.CreateDirectory(user);
             File.WriteAllText(Path.Combine(user, "paths.txt"), "0.19.0.0\n" + Ver.AMHE1 + "=" + native + "\nExport=" + Path.Combine(user, "Export") + "\n");
             Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA", user);
@@ -68,23 +80,39 @@ internal static class CharacterBodyLaunchOwnedProbe
             Check(Path.GetFullPath(imports).StartsWith(Path.GetFullPath(temporary) + Path.DirectorySeparatorChar,
                 StringComparison.OrdinalIgnoreCase), "actual default importer root is isolated");
             var settings = new MenuSettings { TeamPlay = "off", ThirdPersonCamera = "on", SpawnProtection = "off" };
-            LauncherPrefs.LocalBody = LocalBodyAppearance.DarkSamusEchoes;
-            LaunchPlan normalPlan = OfflineLaunch.Preview(settings, "MP3 PROVING GROUND", GameMode.Battle, Hunter.Samus, 0, 0, 0);
-            LauncherPrefs.LocalBody = LocalBodyAppearance.DarkSamusOvercharged;
-            LaunchPlan finalPlan = OfflineLaunch.Preview(settings, "MP3 PROVING GROUND", GameMode.Battle, Hunter.Samus, 0, 0, 0);
+            LauncherPrefs.LocalBody = primaryBody;
+            LaunchPlan normalPlan = OfflineLaunch.Preview(settings, "MP3 PROVING GROUND", GameMode.Battle, nativeHunter, 0, 0, 0);
+            LauncherPrefs.LocalBody = secondaryBody;
+            LaunchPlan finalPlan = OfflineLaunch.Preview(settings, "MP3 PROVING GROUND", GameMode.Battle, nativeHunter, 0, 0, 0);
+            var extraPlans = new List<(string Id, string Skin, LaunchPlan Plan)>();
+            if (trooper)
+            {
+                foreach (var appearance in new[] { (LocalBodyAppearance.TrooperWave, "trooper-wave", "MP1WaveTrooper"),
+                    (LocalBodyAppearance.TrooperPlasma, "trooper-plasma", "MP1PlasmaTrooper") })
+                {
+                    LauncherPrefs.LocalBody = appearance.Item1;
+                    var plan = OfflineLaunch.Preview(settings, "MP3 PROVING GROUND", GameMode.Battle, nativeHunter, 0, 0, 0);
+                    extraPlans.Add((appearance.Item2, appearance.Item3, plan));
+                }
+            }
             LauncherPrefs.LocalBody = LocalBodyAppearance.Native;
-            LaunchPlan nativePlan = OfflineLaunch.Preview(settings, "MP3 PROVING GROUND", GameMode.Battle, Hunter.Samus, 0, 0, 0);
-            Check(normalPlan.LocalBody == LocalBodyAppearance.DarkSamusEchoes
-                && finalPlan.LocalBody == LocalBodyAppearance.DarkSamusOvercharged && nativePlan.LocalBody == LocalBodyAppearance.Native,
+            LaunchPlan nativePlan = OfflineLaunch.Preview(settings, "MP3 PROVING GROUND", GameMode.Battle, nativeHunter, 0, 0, 0);
+            Check(normalPlan.LocalBody == primaryBody
+                && finalPlan.LocalBody == secondaryBody && nativePlan.LocalBody == LocalBodyAppearance.Native,
                 "actual Offline preview captures detached normal, Final and native plans before later preference edits");
+            if (trooper)
+                Check(new[] { normalPlan, finalPlan }.Concat(extraPlans.Select(p => p.Plan)).Select(p => (int)p.LocalBody).SequenceEqual(new[] { 3, 4, 5, 6 })
+                    && new[] { normalPlan, finalPlan, nativePlan }.Concat(extraPlans.Select(p => p.Plan)).All(p => p.Hunter == Hunter.Weavel
+                        && p.OfflineCharacter == OfflineCharacterMode.Native && !p.IsPlaytest),
+                    "all four detached Trooper plans retain native Weavel and never enable Trooper practice gameplay");
             window = new RenderWindow(shell: true); window.ClientSize = new(640, 480); window.Context.MakeCurrent();
             GLFW.SwapInterval(0); Check(!window.HasScene, "actual shell RenderWindow initially owns no match Scene");
             Refused(normalPlan, "missing-normal");
             BeginNative();
-            Export(Normal, Final);
-            var normalInspection = Inspect(Normal); var finalInspection = Inspect(Final);
+            Export(new[] { primaryId, secondaryId }.Concat(extraPlans.Select(p => p.Id)).ToArray());
+            var normalInspection = Inspect(primaryId); var finalInspection = Inspect(secondaryId);
             string normalGeneration = normalInspection.Receipt!.Generation, finalGeneration = finalInspection.Receipt!.Generation;
-            CharacterSourceBodyOwner first = BeginBody(normalPlan, normalGeneration, "MP2DarkSamus");
+            CharacterSourceBodyOwner first = BeginBody(normalPlan, normalGeneration, primarySkin);
             EndBody(first, "normal-end");
 
             string damaged = normalInspection.Files.First(path => Path.GetExtension(path) == ".glb");
@@ -92,23 +120,28 @@ internal static class CharacterBodyLaunchOwnedProbe
                 StringComparison.OrdinalIgnoreCase), "corruption fixture targets isolated derived geometry only");
             using (var file = new FileStream(damaged, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
             { file.Position = file.Length - 1; int value = file.ReadByte(); file.Position--; file.WriteByte((byte)(value ^ 1)); file.Flush(true); }
-            Check(LocalImportBundle.Inspect(imports, Normal, RetroCharacterPreviewExporter.BundleSpec(Normal)).State == ImportBundleState.Failed,
+            Check(LocalImportBundle.Inspect(imports, primaryId, Spec(primaryId)).State == ImportBundleState.Failed,
                 "actual local inventory detects modified component integrity");
             Refused(normalPlan, "corrupt-normal");
-            Export(Normal);
-            string repairedGeneration = Inspect(Normal).Receipt!.Generation;
+            Export(primaryId);
+            string repairedGeneration = Inspect(primaryId).Receipt!.Generation;
             Check(repairedGeneration != normalGeneration, "actual Update repairs into a fresh immutable generation");
-            CharacterSourceBodyOwner repaired = BeginBody(normalPlan, repairedGeneration, "MP2DarkSamus");
+            CharacterSourceBodyOwner repaired = BeginBody(normalPlan, repairedGeneration, primarySkin);
             Check(!ReferenceEquals(first, repaired) && !first.Current, "updated launch never resurrects the ended original owner");
-            Check(LocalImportBundle.Remove(imports, Normal), "actual Remove withdraws discovery");
+            Check(LocalImportBundle.Remove(imports, primaryId), "actual Remove withdraws discovery");
             Check(repaired.Current, "Remove retains the current Scene's admitted immutable generation");
             EndBody(repaired, "removed-generation-end");
             Refused(normalPlan, "removed-normal");
             BeginNative();
-            CharacterSourceBodyOwner final = BeginBody(finalPlan, finalGeneration, "MP2DarkSamusFinal");
+            CharacterSourceBodyOwner final = BeginBody(finalPlan, finalGeneration, secondarySkin);
             EndBody(final, "final-end");
-            Export(Normal);
-            CharacterSourceBodyOwner reinstalled = BeginBody(normalPlan, Inspect(Normal).Receipt!.Generation, "MP2DarkSamus");
+            foreach (var extra in extraPlans)
+            {
+                var owner = BeginBody(extra.Plan, Inspect(extra.Id).Receipt!.Generation, extra.Skin);
+                EndBody(owner, extra.Id + "-end");
+            }
+            Export(primaryId);
+            CharacterSourceBodyOwner reinstalled = BeginBody(normalPlan, Inspect(primaryId).Receipt!.Generation, primarySkin);
             Check(retired.All(owner => !owner.Current) && !ReferenceEquals(first, reinstalled),
                 "reinstall and relaunch create fresh owner while every retired owner stays retired");
             EndBody(reinstalled, "reinstalled-end");
@@ -121,9 +154,11 @@ internal static class CharacterBodyLaunchOwnedProbe
                 RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz, selectedIds: ids);
                 events.Add(new { Phase = "Update", Ids = ids });
             }
+            ImportBundleSpec Spec(string id) => RetroCharacterPreviewExporter.BundleSpec(id,
+                trooper ? ExternalSourceEdition.PrimeUsaRevision2 : ExternalSourceEdition.OriginalRecipe);
             ImportBundleInspection Inspect(string id)
             {
-                var state = LocalImportBundle.Inspect(imports, id, RetroCharacterPreviewExporter.BundleSpec(id));
+                var state = LocalImportBundle.Inspect(imports, id, Spec(id));
                 Check(state.State == ImportBundleState.Ready && state.Receipt != null, "actual current import is complete: " + id);
                 return state;
             }
@@ -140,6 +175,7 @@ internal static class CharacterBodyLaunchOwnedProbe
             {
                 Check(MatchStart.Begin(window, settings, nativePlan), "actual native Begin recovers independently of source imports: " + MatchStart.LastError);
                 Check(window.HasScene && window.Scene.Players.Main.ModSourceBody == null, "native captured plan attaches no source owner");
+                if (trooper) Check(window.Scene.Players.Main.Hunter == Hunter.Weavel, "native recovery keeps the captured Weavel gameplay actor");
                 window.EndScene(); Check(!window.HasScene, "native EndScene returns same window to shell");
             }
             CharacterSourceBodyOwner BeginBody(LaunchPlan plan, string generation, string appearance)
@@ -150,6 +186,10 @@ internal static class CharacterBodyLaunchOwnedProbe
                 Check(owner.Current && owner.Generation == generation && owner.Model.Asset.PrivateAppearance?.SkinSource == appearance
                     && scene.Room != null && player.Health == 0 && !player.IsBot,
                     "real load barrier binds captured appearance/generation before native life spawn");
+                if (trooper)
+                    Check(player.Hunter == Hunter.Weavel && plan.OfflineCharacter == OfflineCharacterMode.Native && !plan.IsPlaytest
+                        && owner.CannonModel == null && !owner.CannonCurrent && owner.Model.Joints.Count == 35 && owner.Model.IndexCount == 1970 * 3,
+                        "Trooper load barrier preserves native Weavel gameplay and complete35-joint body without a first-person cannon");
                 var mode = typeof(Scene).GetField("_inputMode", Hidden)!;
                 mode.SetValue(scene, Enum.Parse(mode.FieldType, "All"));
                 foreach (var button in player.Controls.All) { button.Type = ButtonType.Key; button.Key = Keys.Unknown; }
@@ -167,7 +207,8 @@ internal static class CharacterBodyLaunchOwnedProbe
                     "launcher-created body renders through real world GL without errors");
                 scene.AfterRenderFrame();
                 events.Add(new { Phase = "Begin", Appearance = appearance, Generation = generation,
-                    SceneGeneration = scene.LifetimeGeneration, SourcePackets = packets.Count });
+                    SceneGeneration = scene.LifetimeGeneration, SourcePackets = packets.Count, NativeHunter = player.Hunter.ToString(),
+                    OfflineCharacter = plan.OfflineCharacter.ToString(), HasSourceCannon = owner.CannonModel != null });
                 return owner;
             }
             void EndBody(CharacterSourceBodyOwner owner, string phase)
@@ -209,7 +250,7 @@ internal static class CharacterBodyLaunchOwnedProbe
             Console.WriteLine(JsonSerializer.Serialize(new { Pass = error == null, Checks = checks, FailedCheck = failed,
                 ErrorType = error, ErrorMessageSha256 = errorHash, CoreSha256 = coreHash, ToolSha256 = toolHash,
                 RvzSha256Before = before, RvzSha256After = after, NativeSha256Before = nativeBefore, NativeSha256After = nativeAfter,
-                TemporaryDerivedDataDeleted = cleaned, Events = events,
+                TemporaryDerivedDataDeleted = cleaned, Trooper = trooper, Events = events,
                 Scope = "Actual RenderWindow/OfflineLaunch.Preview/MatchStart.Begin/LoadScene/EndScene and importer Update/Remove; isolated owned-source imports, no media captures",
                 Unqualified = new[] { "native menu clicks", "physical controls", "online/replay", "Android/macOS", "combat or visual art completeness" } }));
         }
