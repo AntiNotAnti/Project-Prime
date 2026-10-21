@@ -19,6 +19,8 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
     private readonly CharacterWeightedRenderModel _model;
     private readonly CharacterSourceClip _clip;
     private readonly CharacterSourceDronePose _pose;
+    private readonly CharacterSourceDroneMotion _motion=new();
+    private Vector3 _lastCenter;
     private readonly int _slot;
     private readonly long _generation;
     private readonly Matrix4 _fit;
@@ -32,6 +34,7 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
     internal CharacterWeightedRenderModel Model => _model;
     internal CharacterSourceClip Clip => _clip;
     internal CharacterSourceDronePose Pose => _pose;
+    internal CharacterSourceDroneMotion Motion => _motion;
     internal Matrix4 Fit => _fit;
     internal CharacterSourceDroneOwner(Scene scene,PlayerEntity player,CharacterSourceDroneSelection selection)
     {
@@ -39,6 +42,7 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
             ||player.ModCharacterGameplay!=CharacterGameplayRules.TrooperDroneV1||player.ModSourceNativeDrone==null)
             throw new InvalidOperationException("Initialized solo native Scout Drone practice owner required.");
         (_scene,_player,_native,_selection,_slot,_generation)=(scene,player,player.ModSourceNativeDrone,selection,player.SlotIndex,scene.LifetimeGeneration);
+        _lastCenter=player.Position.AddY(Fixed.ToFloat(player.Values.AltColYPos));
         string anchor=_native.Materials.GroupBy(m=>m.Name,StringComparer.Ordinal).Where(g=>g.Count()==1).Select(g=>g.Single())
             .First(m=>CharacterModelRuntime.CanUseAuthoredTexcoords(m.TexgenMode,true)).Name;
         _instance=new(anchor,CharacterModelPart.AlternateForm,bodyOwner:this);
@@ -83,12 +87,24 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
     {
         if(_disposed||_step==step)return;
         _step=step;
-        if(!Current){Ready=false;_pose.Suspend();return;}
-        if(_life!=life){_life=life;CompletedSteps=0;_pose.Reset();}
+        // Always observe one completed native displacement, even during full
+        // fallback or priority attacks. Draw interpolation never enters this history.
+        Vector3 center=_player.Position.AddY(Fixed.ToFloat(_player.Values.AltColYPos));
+        Vector3 velocity=(center-_lastCenter)*60f;_lastCenter=center;
+        if(!Current){Ready=false;_pose.Suspend();_motion.Reset();return;}
+        if(_life!=life){_life=life;CompletedSteps=0;_pose.Reset();_motion.Reset();velocity=Vector3.Zero;}
         Ready=supported&&CharacterSourceDronePose.Supports(_player.ModSourceDroneState,_player.ModSourceDroneFrame);
-        if(!Ready){_pose.Suspend();return;}
+        if(!Ready){_pose.Suspend();_motion.Reset();return;}
         CompletedSteps++;
-        _model.UpdateSourcePreviewPalette(_pose.Sample(_player.ModSourceDroneState,_player.ModSourceDroneFrame));
+        int state=_player.ModSourceDroneState,frame=_player.ModSourceDroneFrame;
+        if(state==0)
+        {
+            Vector3 facing=_player.FacingVector;
+            if(facing.X*facing.X+facing.Z*facing.Z<=1e-8f)facing=new(_player.Field70,0,_player.Field74);
+            state=CharacterSourceDronePose.StateForFreeOrdinal(_motion.Sample(velocity,facing));
+        }
+        // Pending free-motion choice/clock freezes behind native laser/burst.
+        _model.UpdateSourcePreviewPalette(_pose.Sample(state,frame));
     }
     internal bool Prepare(Matrix4 nativeFacing,out Matrix4 presentation)
     {

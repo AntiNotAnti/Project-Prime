@@ -76,6 +76,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [966](https://github.com/AntiNotAnti/Project-Prime/pull/966) | Independent Alpha/Gamma Rev2 source drone v1 bundles, full33-rig/raw materials/strict banks, unchanged52 Trooper components and edition-aware group import; Windows CPU/transaction qualification, no imported drone renderer/gameplay activation | `5927946086ea4dd0a97b0a935608c487bfc5cda7` |
 | [967](https://github.com/AntiNotAnti/Project-Prime/pull/967) | Explicit solo imported Alpha/Gamma Ready owners/full33 rig/two GX groups, private pinned-root loop, Hunters persistence, native attack/status fallback; Windows actual176324 checks/1418-step native trace parity, shader/clock/lifecycle and inspected/deleted captures | `76a8b84d1e6b5333981049e1a2b3818ca2ee4c76` |
 | [968](https://github.com/AntiNotAnti/Project-Prime/pull/968) | Source drone unfold/fire/fold driven by native phase and held Ready return; Windows244385 runtime checks, unchanged1418-step gameplay and separate420-step recovery trace, full rig/selected GPU uniforms and inspected/deleted captures | `72ff875c2443d8527f7bafd1a3c8f52ab68512e2` |
+| [969](https://github.com/AntiNotAnti/Project-Prime/pull/969) | Source laser29 driven by native next frame with unchanged native beam/gameplay; Windows364571 checks, exact all-four-pattern3083-step native trace, independent134-phase/held-fade gold and26 inspected/deleted views | `4169e311e9869cc3ff659cf5748b94098a4c418e` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -83,6 +84,16 @@ records its exact source and test scope. Merges follow local verification;
 this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
+
+The [Scout Drone directional flight slice](second-hunt-scout-drone-movement-2026-10-21.md)
+adds six full-rig source loops from completed native movement, eight-step choice
+holds, source free-phase clocks and held-current transitions. A real camera
+handoff gap found during captures is fixed with complete native fallback through
+native camera progress0–39. Final Windows640884 runtime checks retain all four
+Native/Alpha/Gamma gameplay traces, including a new2793-step directional/moving
+attack sequence. All18 captures were inspected/deleted; the final settled Down
+pairs pass exact same-camera comparison with HUD detail limits. Source hit,
+combat/arsenal admission and broader character engineering remain unfinished.
 
 The [Scout Drone laser runtime slice](second-hunt-scout-drone-laser-2026-10-21.md)
 adds the pinned source laser body pose across native windup/sweep/recovery while
