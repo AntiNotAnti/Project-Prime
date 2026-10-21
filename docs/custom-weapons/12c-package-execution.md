@@ -1,11 +1,12 @@
 # CW-12c — exact single-package execution
 
-This document describes the current source implementation. It is not a
-validation receipt, release qualification, or declaration that CW-12 is complete.
+This document describes the current source implementation. Local results and
+their limits are in the [CW-12c evidence receipt](evidence/CW-12c.md).
+Full CW-12 and release qualification remain incomplete.
 The integrated live path uses protocol82; package metadata was introduced in81.
-Native packet layouts, native weapon IDs,
-the existing CWM1 encoding and historical Parkour profile attribution remain
-unchanged. CWPK continues to pin archive, content, dependency and mechanics
+CW-12c adds no native packet-layout changes beyond the inherited protocol82
+grapple widths. Native weapon IDs, CWM1 and historical Parkour profile
+attribution remain unchanged. CWPK continues to pin archive, content, dependency and mechanics
 identities separately.
 
 The dedicated-server command accepts one explicitly installed package:
