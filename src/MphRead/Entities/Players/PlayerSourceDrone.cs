@@ -17,7 +17,8 @@ public partial class PlayerEntity
     }
     private void ModRetireSourceDrone(){_sourceDrone?.Dispose();_sourceDrone=null;}
     private bool SourceDroneStateSupported => SourcePresentationStateSupported&&ScoutDroneEnabled
-        &&IsAltForm&&!IsMorphing&&!IsUnmorphing&&_droneFireState==0&&_droneLaserFrame<0;
+        &&IsAltForm&&!IsMorphing&&!IsUnmorphing&&_droneLaserFrame<0
+        &&CharacterSourceDronePose.Supports(_droneFireState,_droneFireFrame);
     private bool ModTryDrawSourceDrone(Vector3 drawPosition,Vector3 drawFacing,Vector4? color,Vector4? outline)
     {
         if(_sourceDrone is not { } owner||!SourceDroneStateSupported||color!=null||outline!=null

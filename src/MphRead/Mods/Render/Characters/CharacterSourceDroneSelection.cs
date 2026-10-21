@@ -28,8 +28,8 @@ internal sealed record CharacterSourceDroneSelection(CharacterModelPack Pack, st
             ||!pack.HasSourceDrone(asset)||!pack.TryCreateSourcePreviewLease(asset,out var lease))
             throw new InvalidDataException("Complete own drone source owner required.");
         var geometry=CharacterWeightedModelLoader.LoadSourcePreview(asset,lease);
-        _=CharacterSourceClip.Load(lease,asset,geometry.SourceRig!,CharacterGeneratedDroneProfile.ClipOrdinal)
-            .WithPinnedDroneRootMotion().Sample(0);
+        foreach(int ordinal in CharacterSourceDronePose.RequiredOrdinals)
+            _=CharacterSourceClip.Load(lease,asset,geometry.SourceRig!,ordinal).WithPinnedDroneRootMotion().Sample(0);
         lease.Require(asset);cancellation.ThrowIfCancellationRequested();return selection;
     }
 }

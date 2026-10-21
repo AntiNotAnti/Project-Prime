@@ -1,6 +1,9 @@
 # Local Scout Drone Ready presentation
 
-Delivered in [PR967](https://github.com/AntiNotAnti/Project-Prime/pull/967).
+Merged in [PR967](https://github.com/AntiNotAnti/Project-Prime/pull/967) at
+`76a8b84d1e6b5333981049e1a2b3818ca2ee4c76`. The complete merge tree equals
+qualified head `2f8ed9e4cd69ba405db9b73483e6b59bbd6e09f9`:
+`3e87e8a02e4e28f416e0ada30be579e3398f0f2a`.
 
 Alpha and Gamma imported drones have a separate local presentation owner in
 explicit solo Scout Drone practice. Hunters saves Native/Alpha/Gamma independently

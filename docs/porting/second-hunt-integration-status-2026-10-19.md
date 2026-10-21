@@ -74,6 +74,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [963](https://github.com/AntiNotAnti/Project-Prime/pull/963) | Normal/Overcharged blue native ball-trail tint with unchanged18-slot history/geometry/timing; Windows actual gameplay/trail/RNG trace parity, native fallback and launcher checks; axial screenshots remain visibility-limited | `734b7544e3679ac9d6e0e6a47aa80c156a04de9b` |
 | [965](https://github.com/AntiNotAnti/Project-Prime/pull/965) | Current-picture own boost136 blue tint at native sampled brightness; transient Scene/packet ownership, reference/pool/guard isolation and combined main964 Windows gameplay/effect/trail parity; GL color state without visible-pixel claim | `11c94e1342129784d0d20cbb08801cdcbd02693a` |
 | [966](https://github.com/AntiNotAnti/Project-Prime/pull/966) | Independent Alpha/Gamma Rev2 source drone v1 bundles, full33-rig/raw materials/strict banks, unchanged52 Trooper components and edition-aware group import; Windows CPU/transaction qualification, no imported drone renderer/gameplay activation | `5927946086ea4dd0a97b0a935608c487bfc5cda7` |
+| [967](https://github.com/AntiNotAnti/Project-Prime/pull/967) | Explicit solo imported Alpha/Gamma Ready owners/full33 rig/two GX groups, private pinned-root loop, Hunters persistence, native attack/status fallback; Windows actual176324 checks/1418-step native trace parity, shader/clock/lifecycle and inspected/deleted captures | `76a8b84d1e6b5333981049e1a2b3818ca2ee4c76` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -81,6 +82,15 @@ records its exact source and test scope. Merges follow local verification;
 this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
+
+The [Scout Drone burst runtime slice](second-hunt-scout-drone-burst-2026-10-21.md)
+adds source unfold/fire/fold driven by native counters, Snap entries and held
+Ready return fades to the same solo Alpha/Gamma owners. Windows qualification
+passes244385 checks with unchanged1418-step native trace and a separate420-step
+quick-release/cloak/recovery trace. Both complete source material groups and all
+33 joints are checked; four captures were inspected and individually deleted.
+Native laser/status/morph fallback remains. Source laser, movement and hit
+animation and broader character engineering remain unfinished.
 
 The [Scout Drone Ready runtime slice](second-hunt-scout-drone-runtime-2026-10-21.md)
 adds separate Alpha/Gamma source owners to explicit solo practice, full33-joint

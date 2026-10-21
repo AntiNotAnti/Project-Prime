@@ -47,7 +47,7 @@
                 </div>
                 <div id="hunter_local_drone" style="display:none">
                     <div class="section-title">SOLO PRACTICE DRONE</div>
-                    <div class="hint">Applies only in Scout Drone practice. Requires the matching local import. Flight and hover use the source Ready animation; attacks and unsupported states use the native drone. The Hunters preview shows your native alternate form.</div>
+                    <div class="hint">Applies only in Scout Drone practice. Requires the matching local import. Flight, hover and burst use source animations; laser and unsupported states use the native drone. The Hunters preview shows your native alternate form.</div>
                     <div class="hunter-suits">
                         <button id="hunter_drone0" data-action="hunter:drone-select:0">NATIVE</button>
                         <button id="hunter_drone1" data-action="hunter:drone-select:1">ALPHA</button>

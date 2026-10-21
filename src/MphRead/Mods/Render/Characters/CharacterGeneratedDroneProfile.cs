@@ -13,6 +13,15 @@ internal sealed record CharacterGeneratedDroneProfile(string Id, string Skin, ui
     internal const string CinfSha = "c15a40b472878958c71a84fa7912ca7535aef9c9f5e3692b7738f1707ca00c9c";
     internal const int ClipOrdinal = 13;
     internal const uint ClipId = 0xb45b6445;
+    // A closed primitive list; retaining a raw bank never grants its other roots.
+    internal static bool MatchesClip(int ordinal,uint id,string sha) => (ordinal,id,sha) switch
+    {
+        (13,0xb45b6445,"d714b3f01328ad897a82ed67de2f3e20e0922283bd9e453c269939684cc46cb0") => true,
+        (75,0xdbd60f49,"eb724be315c52be55b7d7213cbfe386f886c497fd86ad18bfce8912bc7643cce") => true,
+        (73,0x90d23d02,"1ed47ddcdb8105a7f914c2b5de87658c32b9bf4daf8aec34dee19dbcbcd2991d") => true,
+        (74,0x83618e64,"707500e064576b053e04d18c63ee5007ffea8810dc979a105df9ec5dcdebe35a") => true,
+        _ => false
+    };
     private static readonly CharacterGeneratedDroneProfile Alpha = new("trooper-drone-alpha", "MP1AlphaDrone", 0xef920604, 0x84bda9d2,
         "58ed9aba3bb4c8ffce76994db1035fe20914030cdce9549e7cc88c46b8ec9713", "2fa2cbc0d1e85bbe46c698fae9a866f243e55ce26c7db6c6e35172215e88a564",
         "d87948f0819c8003602058ee0062e03a9c6bf2881f6b21d41ac90c873e58c87c", "c2fa136f72e637bb732b1c5a12c5bc248c0bff0434c39b3e148694cd9e9c8126",

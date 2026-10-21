@@ -314,7 +314,7 @@ internal sealed class CharacterSourceBodyPose : ICharacterSourceBodyPose
         _last = pose.ToArray();
         return pose;
     }
-    private static Matrix4 Mix(Matrix4 a, Matrix4 b, float amount)
+    internal static Matrix4 Mix(Matrix4 a, Matrix4 b, float amount)
     {
         var result = Matrix4.CreateFromQuaternion(Quaternion.Slerp(a.ExtractRotation(), b.ExtractRotation(), amount));
         result.Row3.Xyz = Vector3.Lerp(a.Row3.Xyz, b.Row3.Xyz, amount);
