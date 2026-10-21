@@ -330,7 +330,10 @@ internal static class ParkourAnimationRenderCheck
         foreach (CollisionResult hit in (CollisionResult[])Get(player, "_collisionScratch")!)
             if (hit.Field0 == 0 && hit.EntityCollision == null && hit.Slipperiness == 0
                 && !hit.Flags.TestFlag(CollisionFlags.Damaging) && hit.Terrain != Terrain.Lava
-                && hit.Plane.Xyz == normal && MathF.Abs(hit.Plane.W + 48) < .001f
+                // Native collision normals are fixed-point decoded (e.g.
+                // -4095/4096), then normalized by the admitted contact owner.
+                && float.IsFinite(hit.Plane.LengthSquared) && MathF.Abs(hit.Plane.Xyz.LengthSquared - 1) < .001f
+                && hit.Plane.Xyz.Normalized() == normal && MathF.Abs(hit.Plane.W + 48) < .001f
                 && MathF.Abs(Vector3.Dot(player.Position, normal) - hit.Plane.W - radius) <= .03f) return true;
         return false;
     }

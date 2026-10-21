@@ -148,8 +148,11 @@ internal static class ParkourWallAnimationSceneTests
             float radius = Fixed.ToFloat(Player.Values.BipedColRadius);
             foreach (CollisionResult hit in (CollisionResult[])Contacts.GetValue(Player)!)
                 if (hit.EntityCollision == null && hit.Field0 == 0 && hit.Slipperiness == 0 && hit.Terrain != Terrain.Lava
-                    && !hit.Flags.TestFlag(CollisionFlags.Damaging) && hit.Plane.Xyz == normal
-                    && MathF.Abs(Vector3.Dot(Player.Position, normal) - hit.Plane.W - radius) <= .03f) return true;
+                    && !hit.Flags.TestFlag(CollisionFlags.Damaging)
+                    && float.IsFinite(hit.Plane.LengthSquared)
+                    && MathF.Abs(hit.Plane.Xyz.LengthSquared - 1) < .001f
+                    && hit.Plane.Xyz.Normalized() == normal
+                    && MathF.Abs(Vector3.Dot(Player.Position, hit.Plane.Xyz) - hit.Plane.W - radius) <= .03f) return true;
             return false;
         }
         public void Dispose() => MomentumSceneTests.Release(Scene);
@@ -242,7 +245,7 @@ internal static class ParkourWallAnimationSceneTests
 
     private static void Exclusion(string action)
     {
-        using var f = new Fixture(Hunter.Samus, 1, z: action == "corner" ? 34 : 10,
+        using var f = new Fixture(Hunter.Samus, 1, z: action == "corner" ? 34 : action == "no-wall" ? 24 : 10,
             noWall: action == "no-wall", facing: action == "head-on" ? new Vector3(1, 0, -1) : null);
         PlayerEntity p = f.Player; bool earned = false, corner = false, morphed = false; int cancel = -1;
         for (int i = 0; i < 130; i++)
@@ -263,6 +266,10 @@ internal static class ParkourWallAnimationSceneTests
                 crouch: action == "ground-crouch", morph: action == "morph" && i == cancel);
             earned |= p.ModParkourWallrunActive; morphed |= p.IsAltForm || p.IsMorphing || p.IsUnmorphing;
             var pose = p.ModGetParkourAnimationPose();
+            if (action == "no-wall")
+                Check(!f.Face(Vector3.UnitX) && !f.Face(-Vector3.UnitX)
+                    && !f.Face(Vector3.UnitZ) && !f.Face(-Vector3.UnitZ),
+                    "open-lane negative remains clear of every actual native cardinal wall face");
             bool corners = f.Face(-Vector3.UnitX) && f.Face(-Vector3.UnitZ); corner |= corners;
             if (stopped || corners || action is "no-wall" or "head-on" or "no-strafe" or "ground-crouch")
             {
