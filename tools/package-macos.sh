@@ -25,7 +25,11 @@ for resource_dir in maps fidelity-baselines rmlui licenses; do
         mv "$contents/MacOS/$resource_dir" "$contents/Resources/$resource_dir"
     fi
 done
-for resource in gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
+# The native provenance manifest accompanies the DLL in a flat publish so
+# verify-runtime.py can validate its hash before packaging. In a signed .app
+# it is non-executable metadata: Apple's code seal requires it in Resources,
+# while the dylib stays in MacOS for the runtime loader.
+for resource in PRIME-RMLUI.json gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
     if [[ -f "$contents/MacOS/$resource" ]]; then
         mv "$contents/MacOS/$resource" "$contents/Resources/$resource"
     fi
