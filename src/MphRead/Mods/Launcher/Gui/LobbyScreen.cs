@@ -125,8 +125,8 @@ namespace MphRead.Mods.Launcher.Gui
             _map.Clicked += (_, _) => OpenMapPicker();
             _mode = new ChoiceRow("Game type", _gameTypes.Select(m => m.Label).ToArray());
             _format = new ChoiceRow("Matchup", _matchups.Select(m => m.Label).ToArray());
-            _movement = new ChoiceRow("Movement", new[] { "Classic", "Momentum", "Quake III", "Traversal" });
-            ToolTip.SetTip(_movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum. Quake III adds strafe-jump speed building; Traversal adds stronger air control, ramp jumps and Magmaul jumps; alt-form abilities stay native.");
+            _movement = new ChoiceRow("Movement", new[] { "Classic", "Momentum", "Quake III", "Traversal", "Parkour" });
+            ToolTip.SetTip(_movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum. Quake III adds strafe-jump speed building; Traversal adds stronger air control, ramp jumps and Magmaul jumps. Parkour is an optional advanced movement model with airborne tuck; alt-form abilities stay native.");
             _movement.Changed += (_, _) =>
             {
                 if (_syncing) return;
@@ -712,11 +712,11 @@ namespace MphRead.Mods.Launcher.Gui
                 bool knownMovement = Movement.MovementModelRules.IsDefined(session.Match.MovementModel);
                 if (_movementHasUnsupportedChoice == knownMovement)
                 {
-                    _movement.SetItems(knownMovement ? new[] { "Classic", "Momentum", "Quake III", "Traversal" }
-                        : new[] { "Classic", "Momentum", "Quake III", "Traversal", "Choose movement" });
+                    _movement.SetItems(knownMovement ? new[] { "Classic", "Momentum", "Quake III", "Traversal", "Parkour" }
+                        : new[] { "Classic", "Momentum", "Quake III", "Traversal", "Parkour", "Choose movement" });
                     _movementHasUnsupportedChoice = !knownMovement;
                 }
-                _movement.Index = knownMovement ? (int)session.Match.MovementModel : 4;
+                _movement.Index = knownMovement ? (int)session.Match.MovementModel : 5;
             }
             _movementEpoch = session.AuthorityEpoch;
             _movementMatchId = session.MatchId;
@@ -1188,7 +1188,7 @@ namespace MphRead.Mods.Launcher.Gui
                 RoomKey = _draftRoom,
                 Mode = mode,
                 Format = format,
-                MovementModel = _movement.Index is >= 0 and <= 3
+                MovementModel = _movement.Index is >= 0 and <= 4
                     ? (Movement.MovementModel)_movement.Index : (Movement.MovementModel)byte.MaxValue,
                 CustomTeams = _customLayout,
                 RiftlineM7Available = _riftlineM7.On

@@ -61,6 +61,15 @@ internal static class MomentumReplayMetadataTests
                     "cache serialization retains movement without bootstrap " + model);
             }
         }
+        foreach (byte[][] packets in new[] { new[] { Match(MovementModel.Parkour) }, new[] { Session(MovementModel.Parkour) },
+            new[] { Match(MovementModel.Parkour), Session(MovementModel.Parkour) } })
+        {
+            Check(Metadata(77, packets).RecordedMovementModel == MovementModel.Parkour
+                && Metadata(77, packets).RecordedMovementProfileVersion == 1,
+                "explicit protocol77 Parkour bootstrap retains its frozen profile");
+            Check(Metadata(76, packets).RecordedMovementModel == null,
+                "formerly reserved Parkour rule cannot attribute historical metadata");
+        }
         Check(Metadata(68, Match(MovementModel.Traversal), Session(MovementModel.Traversal)).RecordedMovementModel == MovementModel.Traversal
             && Metadata(68, Match(MovementModel.Traversal)).RecordedMovementProfileVersion == 1,
             "protocol68 Traversal metadata retains its model and immutable profile version");
@@ -168,8 +177,20 @@ internal static class MomentumReplayMetadataTests
             File.WriteAllText(index, valid.Replace("\"RecordedMovementModel\": 2", "\"RecordedMovementModel\": 3")
                 .Replace("\"ProtocolVersion\": 60", "\"ProtocolVersion\": 67")); document.SetValue(null, null);
             Check(!ReplayLibraryIndex.TryGet(path, out _), "historical cache Traversal forces rescan");
-            File.WriteAllText(index, valid.Replace("\"Version\": 6", "\"Version\": 5")); document.SetValue(null, null);
+            File.WriteAllText(index, valid.Replace("\"Version\": 7", "\"Version\": 6")); document.SetValue(null, null);
             Check(!ReplayLibraryIndex.TryGet(path, out _), "old index version forces rescan");
+            File.WriteAllText(index, valid); document.SetValue(null, null);
+            var parkour = Metadata(77, Match(MovementModel.Parkour), Session(MovementModel.Parkour));
+            ReplayLibraryIndex.Note(path, new DemoRecording(path, Room, DateTime.Now, 1, parkour), 3);
+            ReplayLibraryIndex.Flush(); document.SetValue(null, null);
+            Check(ReplayLibraryIndex.TryGet(path, out var parkourWarm)
+                && parkourWarm.Metadata!.RecordedMovementModel == MovementModel.Parkour
+                && parkourWarm.Metadata.RecordedMovementProfileVersion == 1,
+                "warm disk cache retains explicit Parkour v1 attribution");
+            string parkourValid = File.ReadAllText(index);
+            File.WriteAllText(index, parkourValid.Replace("\"ProtocolVersion\": 77", "\"ProtocolVersion\": 76"));
+            document.SetValue(null, null);
+            Check(!ReplayLibraryIndex.TryGet(path, out _), "reserved historical Parkour cache attribution forces rescan");
         }
         finally
         {

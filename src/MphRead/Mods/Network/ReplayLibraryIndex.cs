@@ -69,7 +69,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     internal static class ReplayLibraryIndex
     {
-        private const int Version = 6; // Cache the recorded movement presentation projection.
+        private const int Version = 7; // Cache the recorded movement presentation projection.
         private sealed class Document
         {
             public int Version { get; set; } = ReplayLibraryIndex.Version;
@@ -122,7 +122,8 @@ namespace MphRead.Mods.Network
                         || !ReplayIdentityCompatibility.Supports(entry.ProtocolVersion)
                         || entry.ProtocolVersion < 59 && model != MovementModel.Native
                         || entry.ProtocolVersion < 60 && model == MovementModel.Quake3
-                        || entry.ProtocolVersion < 68 && model == MovementModel.Traversal)
+                        || entry.ProtocolVersion < 68 && model == MovementModel.Traversal
+                        || entry.ProtocolVersion < 77 && model == MovementModel.Parkour)
                     || entry.Bytes != info.Length
                     || entry.ModifiedUtcTicks != info.LastWriteTimeUtc.Ticks)
                     return false;

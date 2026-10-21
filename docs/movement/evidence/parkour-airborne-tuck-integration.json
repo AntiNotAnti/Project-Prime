@@ -1,0 +1,141 @@
+{
+  "status": "PASS_TARGETED_LATEST_MAIN_INTEGRATION",
+  "candidate": 14,
+  "baseSha": "ce3d36e24a861d9639abbd905b8bf2f7a7eae1b8",
+  "integrationBaseSha": "ee9da10f912f9175a092ed5d12d2a2e80743a263",
+  "exactCommittedProducer": true,
+  "sourceManifestSha256": "e4e51c6fa886c315baee02d89646444acd940dbcfc1f0956cf521a0b817d970b",
+  "fullSourceManifestSha256": "4514d8cf7e7341f387f1a56f99cfb28518959b80cebf51812176e84394376599",
+  "fullSourceFiles": 6419,
+  "sourceBundleSha256": "c414af8e024dbc6fa6c848a6bd8e7fa7e4a4cff0b990aa2b0dea9b2ab2fa44ac",
+  "sourceBundleBytes": 11554580,
+  "sdkVersion": "10.0.401",
+  "overlaySha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85",
+  "movementNetworkPlayerNettestFilesByteIdentical13": 758,
+  "previousFullFunctionalProducer": {
+    "candidate": 13,
+    "baseSha": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+    "evidenceSha256": "83d718573951cd7d9cf348680725044a5a2a7b88275f8deea5a4b932069a9a55",
+    "selectionSha256": "60435bdcfd0dca847c52680558181c3fd204bd7071f66682b896cadb7d9c2af1",
+    "scope": "20 focused gates/custom, actual clean/faulted cohorts and replays, six historical archives/protocol58, bounded eight-bot benchmark pairs; retained with original producer attribution"
+  },
+  "buildProvenance": "candidate14 fresh full normal Windows Release; no reused production/reference outputs",
+  "normalBuildSummary": [
+    "1 Warning(s)",
+    "0 Error(s)",
+    "Time Elapsed 00:00:54.35"
+  ],
+  "warningCodes": [
+    "CS0649"
+  ],
+  "buildExitCode": 0,
+  "customBuildExitCode": 0,
+  "customDefaultExitCode": 0,
+  "binaries": {
+    "ProjectPrime.dll": "ad682a9368662e0869fa92d2c9932d565891c5b701aaef433417d8e2ef0a51a2",
+    "nettest.dll": "b03d1909b6c76eb57001f76502b0ca34af9755435ac0ac663472c5095094cca6",
+    "MphRead.CorpsePhysics.dll": "6be3b933e0e5874cea72b30161a85e73ac128653f2257fa5d85ac3ac413a1eeb",
+    "BepuPhysics.dll": "5bbd07c09f058025049e741e136a4e7ab8a68afe56f391f58072429f44262fbe",
+    "BepuUtilities.dll": "4666356f52ed46fce9707786cda72cfb6ba6460f8bcd789d75cb816a744643f6"
+  },
+  "customToolSha256": "6d23c0f60ac3bdc63822d8148766a1f334b8d801b936ccd0babc601e6ca51023",
+  "coreUnchangedDuringCustomBuild": true,
+  "gates": [
+    {
+      "name": "timed-shot-replay",
+      "exitCode": 0,
+      "summary": "PASS: 4673 pure timed-shot archival assertions. SCOPE: explicit storage fixtures; no native admission or visual fidelity claim."
+    },
+    {
+      "name": "parkour-tuck-scene",
+      "exitCode": 0,
+      "summary": "PARKOUR TUCK SCENE PASS 33971 assertions; 0 failed cases"
+    },
+    {
+      "name": "parkour-compatibility",
+      "exitCode": 0,
+      "summary": "Parkour compatibility: 43 checks passed."
+    }
+  ],
+  "customDefaultPassLines": [
+    "Pickup funding foundation passed: 143 assertions; trusted-contact/source-oracle fixtures, no live world activation claim.",
+    "Pickup layout/ledger foundation passed: 139 assertions; pure contacts/trusted callbacks, no scene activation claim.",
+    "Public pickup replica contracts passed: 1545 assertions; pure state/ACK fixtures, no live pickup activation claim.",
+    "Original M7 model CPU checks passed: 4252; asset contract only, no full CW-06 rendering claim.",
+    "Original M7 cue CPU checks passed:289; playback/scene integration is separate.",
+    "M7 track/mount pure checks passed: 325; cosmetic fixtures only, no actual rig/render/audio acceptance claim.",
+    "M7 device-free PCM voice checks passed:173; concurrency stress has no allocation claim.",
+    "Custom payment: 1203 pure state-machine checks passed; no live authority coverage.",
+    "PASS 35717 custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/input-carrier/replica-delivery/payment checks (pure contracts; scene fixture requires --scene)"
+  ],
+  "physicalCorpseRigLifecycleGlRun": false,
+  "retained13RecordingsReplayed": [
+    {
+      "kind": "clean",
+      "recordingProducer": 13,
+      "replayProducer": 14,
+      "archiveSha256": "c301c0519b805cd6e10cd4790303a0f21d921d541ee826dfb7c80df891e7497d",
+      "archiveUnchanged": true,
+      "gameplayPresentationDigest": "FEDF463796954F8B292AC9807803DB3314C9C9925E8474BCD0E2FC5DE5536190",
+      "digestUnchangedFrom13": true,
+      "checks": 124319,
+      "frames": 2400,
+      "recordedProtocol": 77,
+      "recordedProfileVersion": 1,
+      "snapshotPoseChecks": 6841,
+      "snapshotStanceChecks": 6841,
+      "tuckedSnapshotChecks": 951,
+      "continuedFrames": 2351,
+      "memoryCheckpointCount": 8,
+      "checkpointCount": 11,
+      "seekCount": 89,
+      "reportSha256": "e4cb065e0af1d6227eda3c3a5e3bc543ad7d94293000dafa68091612bd6831c6"
+    },
+    {
+      "kind": "faulted",
+      "recordingProducer": 13,
+      "replayProducer": 14,
+      "archiveSha256": "a342438db0091b70f9e495c5251e41bd4eb9fbbe332615918e2b6abb698e7c11",
+      "archiveUnchanged": true,
+      "gameplayPresentationDigest": "03498EC7E4BF7AFB145E7FF2AB0729DE57664126D887F47E4E097E6165288255",
+      "digestUnchangedFrom13": true,
+      "checks": 126177,
+      "frames": 2404,
+      "recordedProtocol": 77,
+      "recordedProfileVersion": 1,
+      "snapshotPoseChecks": 7032,
+      "snapshotStanceChecks": 7032,
+      "tuckedSnapshotChecks": 999,
+      "continuedFrames": 2343,
+      "memoryCheckpointCount": 8,
+      "checkpointCount": 11,
+      "seekCount": 114,
+      "reportSha256": "ed012a2705c253f216173339885262543bee8c40c980dd99e9944369845b8025"
+    }
+  ],
+  "sourceClosureGuard": {
+    "status": "PASS",
+    "exitCode": 0,
+    "scope": "all files in exact committed PR closure versus latest main",
+    "baseSha": "ce3d36e24a861d9639abbd905b8bf2f7a7eae1b8",
+    "integrationBaseSha": "ee9da10f912f9175a092ed5d12d2a2e80743a263",
+    "closureFileCount": 77,
+    "guardLogSha256": "18d1c289c8a5dfe5c2268fce29892b054f915882564265ec3477ca6e70d02d02",
+    "macRuntimeBuildOrUiUsed": false
+  },
+  "cleanup": {
+    "status": "PASS",
+    "ownedRuntimeProcessCount": 0,
+    "ownedScheduledTasksCreated": 0,
+    "sourceBinaryLeaseUnchanged": true,
+    "customCoreToolAndCorpseDependenciesUnchanged": true,
+    "allArchiveSeedsByteIdentical": true,
+    "bothRetained13ArchivesByteIdentical": true,
+    "freeBytes": 181842235392,
+    "cleanupDeletesPerformed": false
+  },
+  "evidenceSha256": "13bcfa8b1a6ec9a4a8759217a4285621a4310736e2c3de12b5958ea673fdb19a",
+  "evidenceBytes": 442421,
+  "scope": "Fresh Windows Release nettest/custom builds with new Core corpse-physics dependencies; custom default CPU contracts, three targeted CPU gates, and both original13 recordings replayed with byte-identical archives, digests and key counts. No fresh cohorts, historical batch, benchmark or rendered/device qualification on14.",
+  "selectionScriptSha256": "7c666ecf9949b72c2843542500a301c6e975ad3028b923df67e66ac19228ebf5"
+}

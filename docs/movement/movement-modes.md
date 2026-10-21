@@ -20,7 +20,12 @@ and does not reproduce every Quake Live physics detail. [Quake III guide](quake3
 and explicitly tagged training-map surfing. It has a separate ruleset identity
 and keeps Quake III tuning unchanged. See the [Traversal guide](traversal-movement.md).
 
-In a lobby, the owner opens Match Rules, chooses **Movement: Classic / Momentum / Quake III / Traversal**
+**Parkour** is a separate optional profile that inherits Traversal v5 and adds
+an airborne crouch tuck. Hold Ctrl in flight to raise the low capsule without
+adding jump force or airborne velocity. Its accepted stance follows multiplayer
+snapshots and replay checkpoints. [Parkour guide and results](parkour-airborne-tuck-results.md).
+
+In a lobby, the owner opens Match Rules, chooses **Movement: Classic / Momentum / Quake III / Traversal / Parkour**
 and applies the draft. Guests can review the accepted selection. Pending edits
 do not change the live session; stale or unauthorized updates are refused. The
 server freezes the choice at match start. A local control preference cannot
@@ -31,7 +36,7 @@ other practice rules. Cancel discards edits. Campaign continues to use Classic
 without discarding the saved multiplayer/practice selection. All optional movement profiles require
 Native Hunter tuning and cannot be combined with Balanced or Enhanced variants.
 
-For a standalone server use `-server -movement Momentum` or `-server -movement Quake3` or `-server -movement Traversal`; use `Native` or omit
+For a standalone server use `-server -movement Momentum` or `-server -movement Quake3` or `-server -movement Traversal` or `-server -movement Parkour`; use `Native` or omit
 the option to retain Classic. [Server instructions](../../SERVER.md#movement-rules)
 describe operator selection and rollback. Returning to Classic before the next
 match needs no emergency packet-format change.
@@ -41,12 +46,12 @@ Replay labels come from recorded rule facts, including after cache reload and
 seeking. A current recording whose usable rule facts are missing is labeled
 Unknown, rather than silently described as Classic. Historical archive
 compatibility remains versioned; metadata labels do not enable movement on
-replica bodies. Current peers use protocol 76; older recordings are converted
+replica bodies. Current peers use protocol 77; older recordings are converted
 at the playback boundary while retaining their recorded movement semantics.
-Current Quake III recordings select profile v4 and Traversal recordings select profile v5. Quake III supports
+Current Quake III recordings select profile v4, Traversal recordings select profile v5, and Parkour recordings select profile v1. Quake III supports
 held landing hops, circle/strafe-jump chains and self-missile rocket jumps; see the [technique guide](quake3-movement.md).
 Protocol-60/61 Quake III recordings retain profile v1; 62–70 retain v2, and 71–75 retain v3.
-Traversal protocol 68 recordings retain v1, 69–70 retain v2, 71–73 retain v3, and 74–75 retain v4. Protocol 76 selects the new ramp/slope profiles. Native payload
+Traversal protocol 68 recordings retain v1, 69–70 retain v2, 71–73 retain v3, and 74–75 retain v4. Protocol 76 selects the new ramp/slope profiles; protocol 77 explicitly introduces Parkour v1. Native payload
 widths and the protocol 69 stance boundary remain unchanged.
 
 Momentum remains an experimental opt-in. The [v1 closeout](pr09-closeout.md)

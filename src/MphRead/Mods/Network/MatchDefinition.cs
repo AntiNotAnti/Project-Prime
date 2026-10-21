@@ -52,7 +52,8 @@ namespace MphRead.Mods.Network
         EnhancedHunters = 1024, Fiesta = 2048, OneInTheChamber = 4096, BalancedMode = 8192, ThirdPersonCamera = 16384,
         MomentumMovement = 32768, Quake3Movement = 65536, TraversalMovement = 131072,
         // Protocol70: frozen availability; selection stays a per-life action.
-        RiftlineM7Available = 262144
+        RiftlineM7Available = 262144,
+        ParkourMovement = 524288
     }
 
     public readonly record struct MatchDefinition
@@ -127,7 +128,8 @@ namespace MphRead.Mods.Network
             BalancedMode ? "Balanced" : null, ThirdPersonCamera ? "Third person" : null,
             MovementModel == Movement.MovementModel.Momentum ? "Momentum v1"
                 : MovementModel == Movement.MovementModel.Quake3 ? "Quake III"
-                : MovementModel == Movement.MovementModel.Traversal ? "Traversal" : null }.Where(value => value != null));
+                : MovementModel == Movement.MovementModel.Traversal ? "Traversal"
+                : MovementModel == Movement.MovementModel.Parkour ? "Parkour" : null }.Where(value => value != null));
 
         public MatchModifierFlags Rules => (FriendlyFire ? MatchModifierFlags.FriendlyFire : 0)
             | (AffinityWeapons ? MatchModifierFlags.AffinityWeapons : 0)

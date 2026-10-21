@@ -14,9 +14,9 @@ internal static class TraversalRulesTests
 {
     private static int _checks;
     private static readonly MovementModel[] Models = { MovementModel.Native, MovementModel.Momentum,
-        MovementModel.Quake3, MovementModel.Traversal };
+        MovementModel.Quake3, MovementModel.Traversal, MovementModel.Parkour };
     private const MatchModifierFlags MovementBits = MatchModifierFlags.MomentumMovement
-        | MatchModifierFlags.Quake3Movement | MatchModifierFlags.TraversalMovement;
+        | MatchModifierFlags.Quake3Movement | MatchModifierFlags.TraversalMovement | MatchModifierFlags.ParkourMovement;
     private static void Check(bool value, string label)
     { _checks++; if (!value) throw new InvalidOperationException(label); }
     private static void Near(float actual, float expected, string label, float tolerance = .000002f)
@@ -56,8 +56,8 @@ internal static class TraversalRulesTests
     private static void SelectionAndRules()
     {
         Check((byte)MovementModel.Native == 0 && (byte)MovementModel.Momentum == 1
-            && (byte)MovementModel.Quake3 == 2 && (byte)MovementModel.Traversal == 3,
-            "four stable explicit movement enum values");
+            && (byte)MovementModel.Quake3 == 2 && (byte)MovementModel.Traversal == 3 && (byte)MovementModel.Parkour == 4,
+            "five stable explicit movement enum values");
         Check((uint)MatchModifierFlags.TraversalMovement == 1u << 17,
             "Traversal has its own bit17 rule identity");
         Check(new MatchDefinition().MovementModel == MovementModel.Native
@@ -78,14 +78,14 @@ internal static class TraversalRulesTests
         for (int index = 0; index < Models.Length; index++)
         {
             MovementModel model = Models[index];
-            Check(MovementModelRules.IsDefined(model), "all four movement choices are defined");
+            Check(MovementModelRules.IsDefined(model), "all five movement choices are defined");
             Check(MovementModelRules.Next(model) == Models[(index + 1) % Models.Length],
-                "selection cycles all four explicit modes");
+                "selection cycles all five explicit modes");
             Check(MovementModelRules.UsesMomentumSolver(model) == (model != MovementModel.Native),
                 "Classic excludes the horizontal adapter");
             Check(MovementModelRules.FromRules(MovementModelRules.Modifier(model)) == model,
                 "each explicit modifier maps back to its mode");
-            Check(MovementModelRules.ProfileVersion(model) == new[] { 0, 1, 4, 5 }[index],
+            Check(MovementModelRules.ProfileVersion(model) == new[] { 0, 1, 4, 5, 1 }[index],
                 "existing profile versions remain distinct from live Traversal v2");
             Check(MovementModelRules.DisplayName(model).Length > 0
                 && MovementModelRules.DisplayName(model) != "Unsupported", "all modes have presentation labels");
@@ -117,8 +117,8 @@ internal static class TraversalRulesTests
                 && !MovementModelRules.IsDefined(MovementModelRules.FromRules(conflicting)),
                 "every pair of nondefault movement bits is mutually exclusive");
         }
-        Check(!MovementModelRules.ValidRules(MovementBits), "all three custom bits cannot be combined");
-        foreach (MovementModel invalid in new[] { (MovementModel)4, (MovementModel)255 })
+        Check(!MovementModelRules.ValidRules(MovementBits), "all four custom bits cannot be combined");
+        foreach (MovementModel invalid in new[] { (MovementModel)5, (MovementModel)255 })
         {
             Check(!MovementModelRules.IsDefined(invalid), "unknown movement enum remains undefined");
             Reject(() => MovementModelRules.Modifier(invalid), "unknown enum cannot become a rule bit");
@@ -127,7 +127,7 @@ internal static class TraversalRulesTests
             Check(LobbyRules.ValidateDefinition(Definition(invalid), out _) == LobbyResultCode.InvalidConfiguration,
                 "unknown enum fails match admission");
         }
-        Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 19)),
+        Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 20)),
             "next unassigned modifier bit remains invalid");
     }
 
@@ -136,7 +136,7 @@ internal static class TraversalRulesTests
         var state = new SceneGameState(new ScenePlayerRegistry());
         // Start from Traversal, then explicitly visit each other mode to expose stale opt-in state.
         foreach (MovementModel model in new[] { MovementModel.Traversal, MovementModel.Native,
-            MovementModel.Momentum, MovementModel.Quake3, MovementModel.Traversal, MovementModel.Native })
+            MovementModel.Momentum, MovementModel.Quake3, MovementModel.Traversal, MovementModel.Parkour, MovementModel.Native })
         {
             var match = Definition(model) with { ThirdPersonCamera = true, FriendlyFire = true };
             match.ApplyInitialConfiguration(state);

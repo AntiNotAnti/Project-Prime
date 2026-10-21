@@ -150,7 +150,7 @@ internal static class CustomCombatResults
         {
             BinaryPrimitives.WriteUInt32LittleEndian(bytes[125..],source.ObservedWorldFrame); BinaryPrimitives.WriteUInt32LittleEndian(bytes[129..],source.TargetWorldFrame);
             bytes[133]=source.TargetWorldSubFrame; CustomWeaponProtocol.WriteVector(bytes[134..],source.Body); CustomWeaponProtocol.WriteVector(bytes[146..],source.Aim);
-            bytes[158]=(byte)((source.CanUseWeapon ? 1:0)|(source.DoubleDamage ? 2:0)|(source.PrimeHunter ? 4:0)|(source.Crouched ? 8:0));
+            bytes[158]=(byte)((source.CanUseWeapon ? 1:0)|(source.DoubleDamage ? 2:0)|(source.PrimeHunter ? 4:0)|(source.Crouched ? 8:0)|(source.Tucked ? 16:0));
             WriteSnapshot(bytes[159..],receipt.Before!.Value); WriteSnapshot(bytes[184..],receipt.After!.Value);
         }
     }
@@ -165,9 +165,9 @@ internal static class CustomCombatResults
         { for (int i=125;i<209;i++) if (bytes[i]!=0) return false; }
         else
         {
-            byte flags=bytes[158]; if (flags>15) return false;
+            byte flags=bytes[158]; if (flags>31) return false;
             source=new(action,BinaryPrimitives.ReadUInt32LittleEndian(bytes[125..]),BinaryPrimitives.ReadUInt32LittleEndian(bytes[129..]),bytes[133],
-                CustomWeaponProtocol.ReadVector(bytes[134..]),CustomWeaponProtocol.ReadVector(bytes[146..]),(flags&1)!=0,(flags&2)!=0,(flags&4)!=0,(flags&8)!=0);
+                CustomWeaponProtocol.ReadVector(bytes[134..]),CustomWeaponProtocol.ReadVector(bytes[146..]),(flags&1)!=0,(flags&2)!=0,(flags&4)!=0,(flags&8)!=0,(flags&16)!=0);
             before=ReadSnapshot(bytes[159..],action.Owner,definition); after=ReadSnapshot(bytes[184..],action.Owner,definition);
         }
         var value=new CustomReceiptMessage(BinaryPrimitives.ReadUInt64LittleEndian(bytes[109..]),new(action,

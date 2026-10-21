@@ -63,6 +63,22 @@ internal static class EngineSourceHistoryChecks
             && f.History.TryGet(f.Owner,1000,5001,out var retained) && retained == source
             && retained.MuzzleOrigin != facts.Body + Vector3.UnitY * TraversalStance.CustomMuzzleOffset(false),
             "later standing facts cannot revise an earlier source stance or move its emitted origin");
+        var tuckedFixture = new Fixture(); var tuckedInput = tuckedFixture.Input();
+        var tuckedFacts = facts with { Tucked = true };
+        check(tuckedFixture.History.Observe(tuckedInput,tuckedFacts,5000) == CustomObservationResult.Captured
+            && tuckedFixture.History.TryGet(tuckedFixture.Owner,1000,5000,out var tuckedSource)
+            && tuckedSource.Crouched && tuckedSource.Tucked
+            && tuckedSource.MuzzleOrigin == tuckedFacts.Body + Vector3.UnitY * (TraversalStance.CustomMuzzleOffset(true) + ParkourStance.TuckRise)
+            && tuckedSource.TraceOrigin == tuckedFacts.Body + Vector3.UnitY * (TraversalStance.CustomTraceOffset(true) + ParkourStance.TuckRise),
+            "retained tuck shifts muzzle and trace by the shared physical stance offset");
+        tuckedFixture.History.TryGet(tuckedFixture.Owner,1000,5000,out var originalTuck);
+        check(tuckedFixture.History.Observe(tuckedInput,Facts() with { Body = new(80,90,100) },5001) == CustomObservationResult.Duplicate
+            && tuckedFixture.History.TryGet(tuckedFixture.Owner,1000,5001,out var retainedTuck)
+            && retainedTuck == originalTuck && retainedTuck.Crouched && retainedTuck.Tucked,
+            "later standing facts cannot replace retained tuck or shift its emitted origins");
+        var invalidFixture = new Fixture();
+        check(invalidFixture.History.Observe(invalidFixture.Input(),Facts() with { Tucked = true, Crouched = false },5000)
+            == CustomObservationResult.Invalid, "source history refuses tucked facts without accepted crouch");
         var next = f.Input(1001);
         check(f.History.Observe(next,Facts(),5001) == CustomObservationResult.Captured
             && f.History.TryGet(f.Owner,1001,5001,out var standing) && !standing.Crouched

@@ -48,7 +48,7 @@ namespace MphRead.Mods.Launcher
                     ? "Trooper arsenal practice requires Weavel, a valid suit, zero to seven opponents and a valid difficulty."
                     : "Drone combat practice requires Weavel, a valid suit, zero to seven opponents and a valid difficulty.");
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
-                throw new ArgumentException("MovementModel must be Native, Momentum or Quake3.", nameof(settings));
+                throw new ArgumentException("MovementModel must be Native, Momentum, Quake3, Traversal or Parkour.", nameof(settings));
             var plan = new LaunchPlan
             {
                 Kind = LaunchKind.Offline,

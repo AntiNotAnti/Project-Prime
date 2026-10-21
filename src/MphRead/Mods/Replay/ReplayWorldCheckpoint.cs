@@ -502,7 +502,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             // advancing live crouch/slide physics during a passive seek.
             player.ModResetTraversalStance();
             if (replay.State.TryGetPlayer(player.SlotIndex, out var stance))
-                player.ModApplyReplicatedCrouch(stance.Crouched);
+                player.ModApplyReplicatedCrouch(stance.Crouched, isLocal: false, tucked: stance.Tucked);
         }
         if (cosmetics != null)
         {

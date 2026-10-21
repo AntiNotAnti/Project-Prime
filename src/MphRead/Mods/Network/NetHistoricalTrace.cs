@@ -87,8 +87,8 @@ public static class NetHistoricalTrace
     {
         var volume = PlayerEntity.PlayerVolumes[(int)player.Hunter, pose.AltForm ? 2 : 0];
         return new(player.SlotIndex, pose.Position + (pose.AltForm ? volume.SpherePosition : Vector3.Zero),
-            volume.SphereRadius, pose.AltForm ? Fixed.ToFloat(player.Values.MinPickupHeight) : player.ModBipedBottom,
-            pose.AltForm ? Fixed.ToFloat(player.Values.MaxPickupHeight) : player.ModBipedTopFor(pose.Crouched),
+            volume.SphereRadius, pose.AltForm ? Fixed.ToFloat(player.Values.MinPickupHeight) : player.ModBipedBottomFor(pose.Crouched, pose.Tucked),
+            pose.AltForm ? Fixed.ToFloat(player.Values.MaxPickupHeight) : player.ModBipedTopFor(pose.Crouched, pose.Tucked),
             !pose.AltForm ? HistoricalBodyType.BipedCylinder : player.Hunter == Hunter.Kanden
                 ? HistoricalBodyType.KandenChain : HistoricalBodyType.AltSphere, pose.AltPose);
     }

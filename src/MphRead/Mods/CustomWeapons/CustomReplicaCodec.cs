@@ -88,14 +88,14 @@ internal static class CustomReplicaCodec
         var source=launch.Source;source.Action.Write(bytes);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[109..],source.ObservedWorldFrame);BinaryPrimitives.WriteUInt32LittleEndian(bytes[113..],source.TargetWorldFrame);
         bytes[117]=source.TargetWorldSubFrame;CustomWeaponProtocol.WriteVector(bytes[118..],source.Body);CustomWeaponProtocol.WriteVector(bytes[130..],source.Aim);
-        bytes[142]=(byte)((source.CanUseWeapon?1:0)|(source.DoubleDamage?2:0)|(source.PrimeHunter?4:0)|(source.Crouched?8:0));
+        bytes[142]=(byte)((source.CanUseWeapon?1:0)|(source.DoubleDamage?2:0)|(source.PrimeHunter?4:0)|(source.Crouched?8:0)|(source.Tucked?16:0));
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[143..],launch.World);CustomWeaponProtocol.WriteVector(bytes[147..],launch.Origin);CustomWeaponProtocol.WriteVector(bytes[159..],launch.Direction);
     }
     private static bool ReadLaunch(ReadOnlySpan<byte> bytes,CustomReadinessWire wire,uint world,out CustomReplicaLaunch launch)
     {
-        launch=default;if(!CustomWeaponAction.TryRead(bytes[..109],out var action)||bytes[142]>15)return false;
+        launch=default;if(!CustomWeaponAction.TryRead(bytes[..109],out var action)||bytes[142]>31)return false;
         byte flags=bytes[142];var source=new CustomSourceCertificate(action,BinaryPrimitives.ReadUInt32LittleEndian(bytes[109..]),
-            BinaryPrimitives.ReadUInt32LittleEndian(bytes[113..]),bytes[117],CustomWeaponProtocol.ReadVector(bytes[118..]),CustomWeaponProtocol.ReadVector(bytes[130..]),(flags&1)!=0,(flags&2)!=0,(flags&4)!=0,(flags&8)!=0);
+            BinaryPrimitives.ReadUInt32LittleEndian(bytes[113..]),bytes[117],CustomWeaponProtocol.ReadVector(bytes[118..]),CustomWeaponProtocol.ReadVector(bytes[130..]),(flags&1)!=0,(flags&2)!=0,(flags&4)!=0,(flags&8)!=0,(flags&16)!=0);
         var value=new CustomReplicaLaunch(source,BinaryPrimitives.ReadUInt32LittleEndian(bytes[143..]),CustomWeaponProtocol.ReadVector(bytes[147..]),CustomWeaponProtocol.ReadVector(bytes[159..]));
         if(!ValidLaunch(value,wire,world))return false;launch=value;return true;
     }

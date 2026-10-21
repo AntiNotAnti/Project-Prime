@@ -2164,6 +2164,7 @@ namespace MphRead.Mods.Network
                     HalfturretActive = player.Flags2.TestFlag(PlayerFlags2.Halfturret),
                     SpawnProtected = player.ModMatchSpawnProtectionActive,
                     Crouched = player.ModCrouched,
+                    Tucked = player.ModTucked,
                     HalfturretHealth = (ushort)Math.Clamp(player.Halfturret?.Health ?? 0, 0, ushort.MaxValue),
                     JumpPadEventId = player.ModJumpPadAudioEventId,
                     CurrentWeapon = (byte)player.CurrentWeapon,

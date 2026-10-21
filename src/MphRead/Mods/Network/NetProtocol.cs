@@ -475,7 +475,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77)
                 status = Read(src);
             else
             {
@@ -491,6 +491,8 @@ namespace MphRead.Mods.Network
                 && Movement.MovementModelRules.ValidRules((MatchModifierFlags)status.Match.RuleBits)
                 && Movement.MovementModelRules.ValidRules(status.Rules)
                 && (status.Protocol >= 68 || (((uint)status.Rules | status.Match.RuleBits) & 131072u) == 0)
+                && (status.Protocol >= 77 || (((uint)status.Rules | status.Match.RuleBits)
+                    & (uint)MatchModifierFlags.ParkourMovement) == 0)
                 && (status.Protocol >= 70 || (((uint)status.Rules | status.Match.RuleBits)
                     & (uint)MatchModifierFlags.RiftlineM7Available) == 0);
         }
@@ -1002,7 +1004,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         ReadyState = 1u << 21,
         Crouch = 1u << 22,
-        CrouchedState = 1u << 23
+        CrouchedState = 1u << 23,
+        TuckedState = 1u << 24,
+        // Cumulative ground stance-pivot count, not an input action.
+        TuckRebaseMask = 15u << 25
     }
 
     /// <summary>
@@ -1840,6 +1845,7 @@ namespace MphRead.Mods.Network
         private const byte AuxHalfturretActive = 1 << 0;
         private const byte AuxSpawnProtected = 1 << 1;
         private const byte AuxCrouched = 1 << 2;
+        private const byte AuxTucked = 1 << 3;
         private const int JumpPadEventOffset = HalfturretOffset + 3;
         public const int LegacySize = JumpPadEventOffset + 2;
         public const int Protocol48Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
@@ -1849,6 +1855,7 @@ namespace MphRead.Mods.Network
         public bool HalfturretActive;
         public bool SpawnProtected;
         public bool Crouched;
+        public bool Tucked;
         public ushort HalfturretHealth;
         /// <summary>
         /// Monotonic per-player launch sequence. Remote clients use this to play
@@ -1989,7 +1996,7 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt16LittleEndian(dest[50..], LifeId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[52..], DamageEventId);
             dest[HalfturretOffset] = (byte)((HalfturretActive ? AuxHalfturretActive : 0)
-                | (SpawnProtected ? AuxSpawnProtected : 0) | (Crouched ? AuxCrouched : 0));
+                | (SpawnProtected ? AuxSpawnProtected : 0) | (Crouched ? AuxCrouched : 0) | (Crouched && Tucked ? AuxTucked : 0));
             BinaryPrimitives.WriteUInt16LittleEndian(dest[(HalfturretOffset + 1)..], HalfturretHealth);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[JumpPadEventOffset..], JumpPadEventId);
             for (int i = 0; i < DamageHistory; i++)
@@ -2025,6 +2032,7 @@ namespace MphRead.Mods.Network
                 HalfturretActive = (auxiliary & AuxHalfturretActive) != 0,
                 SpawnProtected = (auxiliary & AuxSpawnProtected) != 0,
                 Crouched = (auxiliary & AuxCrouched) != 0,
+                Tucked = (auxiliary & (AuxCrouched | AuxTucked)) == (AuxCrouched | AuxTucked),
                 HalfturretHealth = BinaryPrimitives.ReadUInt16LittleEndian(suffix[((HalfturretOffset + 1) - 48)..]),
                 JumpPadEventId = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(JumpPadEventOffset - 48)..]),
                 Damage0 = DamageEvent.Read(suffix[(54 - 48)..]),
@@ -2620,7 +2628,8 @@ namespace MphRead.Mods.Network
         // Protocol75 adds public custom pickup state/application acknowledgements at97/98.
         // Protocol76 selects Quake3 profile v4 and Traversal profile v5 for ramp/slope movement.
         // Native packet widths and the protocol70/72/73/75 custom boundaries are unchanged.
-        public const int ProtocolVersion = 76;
+        // Protocol77 adds Parkour profile v1 at model4 / modifier bit19; packet widths remain unchanged.
+        public const int ProtocolVersion = 77;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

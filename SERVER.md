@@ -25,11 +25,11 @@ ProjectPrimeServer.exe -server -port 27888 -players 8 -servername "My server"
 
 Classic (the `Native` configuration value) remains the default. An operator can
 opt in a standalone game server with `-server -movement Momentum` or
-`-server -movement Quake3` or `-server -movement Traversal`; use
+`-server -movement Quake3` or `-server -movement Traversal` or `-server -movement Parkour`; use
 `-movement Native`, or omit the option, for original Hunter movement. Unknown
 values are refused. This option does not change master/allocator policy.
 
-In an editable lobby, its owner can choose **Movement: Classic / Momentum / Quake III / Traversal** in
+In an editable lobby, its owner can choose **Movement: Classic / Momentum / Quake III / Traversal / Parkour** in
 Match Rules and apply the draft. The server validates the change before start;
 guests see the effective choice and cannot apply it. The choice freezes when
 the match starts and is retained in session/replay facts. Roll back by selecting
@@ -43,7 +43,8 @@ no artificial total-speed cap. Its profile v4 also chains held jumps on legal
 landings and supports additive self-missile rocket jumps with normal self-damage.
 Traversal adds stronger air control, ramp jumps, Magmaul jumps, crouch/power sliding and tagged training-map
 surfing; see the [Traversal guide](docs/movement/traversal-movement.md).
-All live peers must use protocol 76; older clients are refused
+Parkour adds optional airborne crouch tuck; see the [Parkour guide](docs/movement/parkour-airborne-tuck-results.md).
+All live peers must use protocol 77; older clients are refused
 rather than assigned different movement rules.
 Older Classic and Momentum recordings remain readable with their original rules. It remains an
 experimental opt-in while the final platform, combat and performance matrix is
