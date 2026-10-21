@@ -63,4 +63,13 @@ public static class RetroFinalBallPresentation
         double G(double center, double width) => Math.Exp(-Math.Pow((phase - center) / width, 2));
         return 1 + .3 * G(.26, .07) + .15 * G(.55, .06) - .3 * G(.10, .05) - .18 * G(.42, .045);
     }
+
+    // Canonical integer cycle for the existing60Hz owner. The donor's Gaussian
+    // endpoints differ; floating seconds/.8 can select the previous endpoint
+    // at e.g.2.4 seconds. Every completed48-step cycle must start identically.
+    public static double HeartScaleAtStep(long completedSteps)
+    {
+        if(completedSteps<0)throw new InvalidDataException("Nonnegative completed source steps required.");
+        return HeartScale((completedSteps%48)/60d);
+    }
 }

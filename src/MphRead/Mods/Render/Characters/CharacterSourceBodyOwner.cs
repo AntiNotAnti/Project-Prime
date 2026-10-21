@@ -29,6 +29,7 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
     internal CharacterWeightedRenderModel? BallModel => _ballModel;
     internal bool BallReady { get; private set; }
     private long _ballTicks;
+    internal long BallCompletedSteps => _ballTicks;
     internal double BallMaterialSeconds => _ballTicks / 60d;
     internal Matrix4 FeetFit { get; }
     private readonly int _slot;
@@ -186,7 +187,7 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
         presentation=Matrix4.Identity;
         if(!BallReady||!BallCurrent)return false;
         presentation=BallFit*roll;
-        _ballModel!.PrepareSourceBallPresentation(presentation,BallMaterialSeconds);return true;
+        _ballModel!.PrepareSourceBallPresentation(presentation,BallCompletedSteps);return true;
     }
 
     public void Dispose()

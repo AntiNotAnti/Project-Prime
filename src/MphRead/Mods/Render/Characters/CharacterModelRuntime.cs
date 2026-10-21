@@ -137,14 +137,14 @@ namespace MphRead.Mods.Render.Characters
             if(IsFinalSourceBall)source=source with{Primitives=source.Primitives.Where(p=>p.SourceMaterialOrdinal==0).ToArray()};
             return CharacterSourceBallPose.Fit(source,readyPose,nativeRadius);
         }
-        internal void PrepareSourceBallPresentation(Matrix4 presentation,double seconds)
+        internal void PrepareSourceBallPresentation(Matrix4 presentation,long completedSteps)
             => PrepareSourcePreviewPresentation(presentation,IsFinalSourceBall
-                ?(float)Import.RetroFinalBallPresentation.HeartScale(CharacterSourceGxProgram.Clock(seconds)):null);
+                ?(float)Import.RetroFinalBallPresentation.HeartScaleAtStep(completedSteps):null);
         private Matrix4 HeartTransform(float scale) => Matrix4.CreateTranslation(-_finalBallCenter)
             *Matrix4.CreateScale(scale)*Matrix4.CreateTranslation(_finalBallCenter);
-        internal Matrix4 SourceBallSegmentPresentation(CharacterWeightedRenderSegment segment,Matrix4 presentation,double seconds)
+        internal Matrix4 SourceBallSegmentPresentation(CharacterWeightedRenderSegment segment,Matrix4 presentation,long completedSteps)
             => IsFinalSourceBall&&segment.SourcePrimitiveOrdinal==5
-                ?HeartTransform((float)Import.RetroFinalBallPresentation.HeartScale(CharacterSourceGxProgram.Clock(seconds)))*presentation:presentation;
+                ?HeartTransform((float)Import.RetroFinalBallPresentation.HeartScaleAtStep(completedSteps))*presentation:presentation;
         internal void UpdateSourcePreviewPalette(IReadOnlyList<Matrix4>? localPose = null)
         {
             if (_sourceGeometry?.SourceRig is not { } rig) throw new InvalidOperationException("Model is not a source preview.");

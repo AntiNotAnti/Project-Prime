@@ -34,7 +34,11 @@ try
         return CharacterGeneratedCannonOwnedProbe.RunFinal(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-normal-ball-source")
         return CharacterNormalBallSourceOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-final-ball-source")
+        return CharacterFinalBallSourceOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-normal-ball-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true);
+    if (args.Length == 2 && args[0] == "--probe-character-final-ball-runtime")
         return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true);
     if (args.Length == 2 && args[0] == "--probe-character-generated-profile")
         return CharacterGeneratedProfileOwnedProbe.Run(args[1]);
