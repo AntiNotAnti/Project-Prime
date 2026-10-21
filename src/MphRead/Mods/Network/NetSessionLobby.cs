@@ -45,6 +45,27 @@ namespace MphRead.Mods.Network
                 && LocalSlot >= 0 && (session.ExpectedParticipants & (1 << LocalSlot)) != 0));
         public static string LobbyMessage { get; private set; } = "";
         public static bool LobbyCommandPending => _pendingLobby.Count != 0;
+        // Map acquisition must not lock the owner's bot and player controls.
+        // Every other pending command still uses the existing serial command fence.
+        public static bool LobbyAdministrationPending
+        {
+            get
+            {
+                foreach (var pending in _pendingLobby.Values)
+                    if (!PendingCustomMapSelection(pending.Packet)) return true;
+                return false;
+            }
+        }
+
+        private static bool PendingCustomMapSelection(LobbyCommandPacket command)
+            => command.Type == LobbyCommandType.UpdateMatch
+                && command.Configuration.Match.MapIdentity.IsCustom;
+
+        private static bool CanInterruptMapSelection(LobbyCommandType type)
+            => type is LobbyCommandType.AddBot or LobbyCommandType.RemoveBot
+                or LobbyCommandType.UpdateBot or LobbyCommandType.SetTeam
+                or LobbyCommandType.SetHandicap or LobbyCommandType.KickPlayer
+                or LobbyCommandType.TransferOwner or LobbyCommandType.CloseLobby;
         internal static int ConnectionPort => _transport?.LocalPort ?? -1;
         public static bool SessionTimedOut => IsClient && !DemoPlayback.IsActive && _hostEndPoint != null
             && Clock - _lastServerPacket > NetConfig.TimeoutSeconds;
@@ -109,7 +130,15 @@ namespace MphRead.Mods.Network
             sbyte team = -1, bool ready = false, SessionStatePacket? configuration = null,
             byte hunter = 0, byte color = 0, byte botLevel = 1, byte damageReduction = 0)
         {
-            if (!Active || ServerSession == null || _pendingLobby.Count != 0) return false;
+            if (!Active || ServerSession == null) return false;
+            if (_pendingLobby.Count != 0)
+            {
+                // Only an administrative command may interrupt exactly one
+                // outstanding custom-map selection. The server cancels its
+                // acquisition before executing the newer command.
+                if (_pendingLobby.Count != 1 || !CanInterruptMapSelection(type)
+                    || LobbyAdministrationPending) return false;
+            }
             uint id = ++_nextCommandId;
             if (id == 0) id = ++_nextCommandId;
             var command = new LobbyCommandPacket { CommandId = id, ExpectedRevision = SessionRevision,
