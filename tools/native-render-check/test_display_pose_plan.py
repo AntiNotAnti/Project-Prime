@@ -11,7 +11,7 @@ from xml.sax.saxutils import escape
 class DisplayPosePlanTests(unittest.TestCase):
     def test_actual_frame_clock_and_capture_plan(self):
         root = Path(__file__).resolve().parents[2]
-        bundled = Path.home() / ".dotnet/dotnet"
+        bundled = Path(os.environ.get("PROJECT_PRIME_DOTNET", str(Path.home() / ".dotnet/dotnet")))
         dotnet = str(bundled) if bundled.exists() else shutil.which("dotnet")
         if not dotnet:
             self.skipTest("Local .NET 10 SDK unavailable; GL acceptance remains NOT_RUN")
@@ -35,20 +35,27 @@ foreach(string scenario in new[]{DisplayPosePlan.OriginalScenario,DisplayPosePla
  for(int tick=1;tick<=1440;tick++)Check(DisplayPosePlan.RetreatsDuringCharge(scenario,tick)==(scenario==DisplayPosePlan.RetreatScenario&&tick>=361&&tick<=390),"only fixed thirty charge inputs change");
 }
 foreach(string invalid in new[]{"","NATIVE-POSE-V1","future"}){try{DisplayPosePlan.ResolveScenario(invalid,true);throw new Exception("unknown scenario");}catch(ArgumentException){checks++;}}
-Check(DisplayPosePlan.OutputRates.SequenceEqual(new[]{60,120,144,240}),"bounded Mac output matrix");
+Check(DisplayPosePlan.OutputRates.SequenceEqual(new[]{60,120,144,240,360,500}),"bounded native output matrix");
+Check(DisplayPosePlan.ResolveSchedule(null,false,60)=="steady","missing schedule preserves ordinary modes");
+Check(DisplayPosePlan.ResolveSchedule("jitter144",true,144)=="jitter144","explicit jitter identity");
+Check(Enumerable.Range(0,4).Sum(i=>DisplayPosePlan.Elapsed("jitter144",144,i))==4.0/144,"jitter cycle mean fixed");
+foreach(var arm in new[]{("jitter144",false,144),("jitter144",true,60),("unknown",true,144)}){try{DisplayPosePlan.ResolveSchedule(arm.Item1,arm.Item2,arm.Item3);throw new Exception("bad schedule admitted");}catch(ArgumentException){checks++;}}
 Check(DisplayPosePlan.Captures.Count==13&&DisplayPosePlan.Captures.Keys.All(k=>k>240&&k<=1440),"all captures bounded after warmup");
 Check(Enumerable.Range(1,1440).Select(DisplayPosePlan.Phase).Distinct().Count()==6,"every declared fixture phase reachable");
 foreach(int invalid in new[]{0,-1,1441}){try{DisplayPosePlan.Phase(invalid);throw new Exception("invalid phase");}catch(ArgumentOutOfRangeException){checks++;}}
-foreach(int hz in DisplayPosePlan.OutputRates)
+foreach(var arm in DisplayPosePlan.OutputRates.Select(hz=>(hz, schedule:"steady")).Append((144,"jitter144")))
 {
+ int hz=arm.Item1;string schedule=arm.Item2;
  FrameTiming.Reset();FrameTiming.ResetDiagnostics();FrameTiming.FrameRateCap=hz;
  int ticks=0,outputs=0,zero=0;bool reset=false;
  while(ticks<1440&&outputs<hz*26)
  {
   if(ticks==1389&&!reset){FrameTiming.Reset();reset=true;}
   double accumulator=(double)typeof(FrameTiming).GetField("_accumulator",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)!.GetValue(null)!;
-  int prepared=DisplayPosePlan.PreviewSteps(accumulator,1.0/hz,FrameTiming.StepSeconds);
-  int actual=FrameTiming.Advance(1.0/hz);
+  double dt=DisplayPosePlan.Elapsed(schedule,hz,outputs);
+  Check(dt>0&&dt<=FrameTiming.StepSeconds,"every declared jitter output bounded to at most one simulation step");
+  int prepared=DisplayPosePlan.PreviewSteps(accumulator,dt,FrameTiming.StepSeconds);
+  int actual=FrameTiming.Advance(dt);
   Check(prepared==actual&&actual<=1,"input preparation follows actual sole production scheduler");
   ticks+=actual;outputs++;if(actual==0)zero++;
  }

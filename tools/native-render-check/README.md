@@ -99,6 +99,35 @@ python3 tools/native-render-check/run_display_pose.py \
   --output /absolute/new/matrix
 ```
 
+The current harness admits steady schedules 60/120/144/240/360/500 on Windows
+and macOS. `-pose-schedule jitter144 -hz 144` instead supplies the repeating
+elapsed sequence `(0.5, 1.5, 0.75, 1.25) / 144` seconds. Its mean is 144 outputs
+per simulated second and every interval is below one 60 Hz simulation step.
+Both the input preview and ordinary `RenderWindow` callback use the same
+declared elapsed value; the production frame clock remains the only scheduler.
+The sequence uses no simulation RNG. A requested schedule does not measure
+physical display refresh, scanout, input-device polling or performance.
+
+The bounded NCX-06 recovery plan is thirteen serial arms: Samus at all six
+steady rates plus jitter144, then Kanden/Trace/Sylux/Noxus/Spire/Weavel at 500.
+Select it with `--ncx06-matrix` on the command above. Other Hunters have
+single-rate coverage in that plan; only Samus has cross-schedule qualification.
+Use `--jitter` to add a jitter144 arm per requested Hunter in an ordinary matrix.
+
+New native reports retain the exact established gameplay/presentation hashes
+and additionally record independent, fixture-local combat, canonical source
+input/shot pose, and scene/global RNG witnesses per simulation tick. The runner
+requires exact agreement for these witnesses across requested schedules,
+including input edge states, and requires unchanged witnesses on zero-step
+draws, repeated draws and temporary external-camera captures. These observations
+do not change replay hash schemas, stored recordings or scheduling. The analyzer
+can require them explicitly with `--require-supplemental`; `--require-jitter`
+requires a jitter144 result per requested Hunter. Reports identify the actual
+Windows or Mac platform, and cross-schedule comparisons reject mixed platforms.
+The fixture scopes a disconnected view over connected controllers and blocks
+physical polling, then restores cached input and focus state on completion or failure. Native OS focus and physical
+mouse/controller behavior remain separate acceptance work.
+
 `--require-particle-sampling` additionally requires both particle and beam
 consumed-value counters (current at 60, positive history samples above 60).
 Those counters do not substitute for isolated beam/free-particle pixels.
@@ -119,8 +148,9 @@ dotnet /absolute/immutable/native-render-check.dll \
   -shots /absolute/fresh/samus-60-shots -output /absolute/fresh/samus-60.json
 ```
 
-Run a Samus 60/144 pilot first. The bounded matrix is Samus, Kanden, Trace,
-Sylux, Noxus, Spire and Weavel at each output schedule 60/120/144/240. Every
+Run a Samus 60/144 pilot first. The default matrix is Samus, Kanden, Trace,
+Sylux, Noxus, Spire and Weavel at each steady output schedule
+60/120/144/240/360/500. Every
 process needs fresh asset-only user data, working directory, JSON and capture
 directory. The existing `campaign_identity.isolate_user_data` copies only a
 normalized `paths.txt` referencing the operator's read-only assets. Keep the
@@ -199,7 +229,7 @@ Neither is a world-render acceptance run. Native captures include repeated
 draws/readbacks, so this mode supplies no performance comparison. Requested
 output schedules are distinct from panel refresh or scanout, and the reported
 GLFW primary-monitor mode does not measure panel scanout. Replay playback,
-OS focus behavior, network behavior and non-Mac platforms remain separate gates.
+OS focus behavior, network behavior and physical-device acceptance remain separate gates.
 
 For combat HUD parity, add `-stablehud` to both capture arms. The fixture runs
 simulation faster than wall time, while the kill feed normally expires/fades
@@ -637,7 +667,15 @@ the profiler's raw capture timestamps the actual swap-return boundary separately
 Pose readback mode observes OS focus separately from its synthetic keyboard/mouse
 owner. Native focus callbacks do not latch that synthetic device off; ordinary
 native timing, resource and lifecycle modes retain the production focus path.
-OS focus and physical input acceptance remain NOT_CLAIMED. Required charge fire
+OS focus and physical input acceptance remain NOT_CLAIMED. A pose-only scoped
+disconnected gamepad view blocks fixed and render-time polling plus hotplug
+callbacks, while retaining registered physical devices and preferences. The
+fixture restores cached input/edge/action/context state on exit, including
+exceptions. Reports retain whether a physical controller was connected before
+isolation and whether fixed/presentation input was isolated. Run the bounded
+content-free `--pose-input-isolation-selftest` to exercise a connected input
+negative control, isolated polls, nested scopes and exception cleanup.
+Required charge fire
 and release are checked at consumption, so missing input fails before pixel
 qualification; PowerBeam/tick420 and all positive pixel/canonical gates remain.
 
@@ -647,3 +685,38 @@ Compare its exact canonical timeline with `none` on the same frozen binary.
 path to reproduce suppression. It cannot complete/qualify normal pose acceptance.
 All three values require `-posecheck`; these are diagnostic controls, not player
 settings or hardware latency tests.
+
+The analyzer explicitly rejects `legacy`, including a forged completed/PASS
+report. `isolated` requires the labelled loss/gain pair at simulation frame244,
+immediately before tick245. Compare a baseline `none` arm and an `isolated` arm
+with the same binary, schedule and FOV; the exact canonical/input/combat/RNG
+timelines remain the acceptance gates. The negative control must remain failed
+or incomplete and must never fill a positive matrix cell.
+
+`-pose-fov 60|78|120` selects a world-FOV setting for that opt-in native pose arm.
+Omitting it preserves the existing setting. Reports distinguish the requested
+and selected setting, camera-authored degrees, and actual world/viewmodel
+projection radians. Scope changes preserve the authored magnification policy;
+the world angle during a scope is not asserted to equal the selected setting.
+The fixture restores the prior FOV when it releases its input isolation. Use
+the same explicit setting for all rates in a cross-schedule comparison.
+
+For a bounded native cartridge-gun FOV sweep without an HD replacement pack,
+the existing client diagnostic has a separate explicit mode:
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/fresh/asset-only-user-data' \
+dotnet /absolute/immutable/ProjectPrime.dll \
+  -viewmodelacceptancecheck 'MP3 PROVING GROUND' -hunter Samus \
+  -nativeprojectiononly -output /absolute/fresh/native-projection
+```
+
+That mode raises the gun through the existing movement-input helper, freezes
+simulation, requires actual native weapon-mesh packets at each selected FOV
+60/78/120, and captures three PNGs. It requires an unchanged weapon projection,
+three distinct actual world projections, the camera-authored scaling policy,
+and unchanged established canonical hashes. It writes
+`native-projection-acceptance.json`. This supplies fixed-pose OpenGL evidence;
+scope/high-refresh/physical-input/latency acceptance remains separate. Existing
+HD `-projectiononly`, animation and material checks retain their pack requirement
+and behavior.

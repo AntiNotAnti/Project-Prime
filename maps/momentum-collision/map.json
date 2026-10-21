@@ -227,6 +227,7 @@
   "geometry": [
     {
       "kind": "mesh",
+      "id": "918c11c4-c922-521f-a292-36315c5a79d3",
       "label": "Down ramp",
       "vertices": [
         [
@@ -312,6 +313,7 @@
     },
     {
       "kind": "mesh",
+      "id": "a1c9a708-3f04-535e-a307-67b5c68c874d",
       "label": "Contact installs slip1",
       "vertices": [
         [
@@ -398,6 +400,7 @@
     },
     {
       "kind": "mesh",
+      "id": "c35f2fa6-5762-5c00-bc0b-8abaf0948225",
       "label": "Contact installs slip3",
       "vertices": [
         [
@@ -484,6 +487,7 @@
     },
     {
       "kind": "mesh",
+      "id": "e102b515-e1b3-51c8-a9e5-05c975e4dc65",
       "label": "Spire finite wall face without supporting top",
       "vertices": [
         [

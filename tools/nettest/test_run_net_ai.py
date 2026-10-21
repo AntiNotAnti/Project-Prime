@@ -74,7 +74,11 @@ class FrozenBuildStagingTests(unittest.TestCase):
                 (build / name).write_bytes(name.encode())
             dependency = root / "shared.dll"
             dependency.write_bytes(b"unchanged package dependency")
-            (build / dependency.name).symlink_to(dependency)
+            try:
+                (build / dependency.name).symlink_to(dependency)
+            except OSError as error:
+                if getattr(error, "winerror", None) == 1314: self.skipTest("host does not permit symlink creation")
+                raise
             stage = root / "stage"
             receipt = RUNNER.stage_build(build, stage)
             self.assertTrue((stage / dependency.name).is_symlink())
@@ -90,7 +94,11 @@ class FrozenBuildStagingTests(unittest.TestCase):
             build.mkdir()
             client = root / "other-client.dll"
             client.write_bytes(b"wrong source")
-            (build / "ProjectPrime.dll").symlink_to(client)
+            try:
+                (build / "ProjectPrime.dll").symlink_to(client)
+            except OSError as error:
+                if getattr(error, "winerror", None) == 1314: self.skipTest("host does not permit symlink creation")
+                raise
             with self.assertRaisesRegex(RuntimeError, "physical file"):
                 RUNNER.stage_build(build, root / "stage")
             self.assertFalse((root / "stage").exists())
@@ -136,7 +144,7 @@ class TimedEvidenceRunnerTests(unittest.TestCase):
         command = RUNNER.authority_arguments(args, Path("/tmp/rotation.txt"))
         self.assertNotIn("-noserverreplays", command)
         self.assertIn("-powerups", command)
-        self.assertEqual(command[command.index("-rotation") + 1], "/tmp/rotation.txt")
+        self.assertEqual(command[command.index("-rotation") + 1], str(Path("/tmp/rotation.txt")))
         self.assertFalse(args.record)  # Archival opt-in does not request client files.
 
     def test_archival_off_and_production_enforce_are_rejected_before_launch(self):

@@ -10,7 +10,7 @@ import json
 import math
 from pathlib import Path
 from ncx_fastpath import audit as audit_parity, row_value, token
-from ncx_timeline import STAGES, integer, row_value as timeline_row
+from ncx_timeline import STAGES, integer, timeline_schema, row_value as timeline_row
 
 U32 = (1 << 32) - 1
 
@@ -33,7 +33,7 @@ def audit(report, expected_mode=None):
         if mode not in ('Shadow', 'Paid'): raise ValueError('observation disabled')
         if expected_mode and mode.lower() != expected_mode: failures.append('unexpected policy mode')
         timeline = report['ShotTimeline']
-        integer(timeline['Schema'], 1, 1)
+        timeline_schema(timeline['Schema'])
         if timeline['Clock']['Domain'] != 'ProcessStopwatch': raise ValueError('unknown clock')
         integer(timeline['Clock']['Frequency'], 1, (1 << 63) - 1)
         if timeline.get('Enabled') is not True or timeline.get('Complete') is not True:
@@ -105,7 +105,7 @@ def audit(report, expected_mode=None):
     return dict(schema=1, status='FAIL' if failures else 'INCOMPLETE' if incomplete else 'PASS',
                 mode=mode, eligibleSamples=len(samples), p95AuthorityTicks=p95,
                 samples=samples, failures=sorted(set(failures)), incomplete=sorted(set(incomplete)),
-                scope='Authority-local sufficient Ready/received to terminal-decided ticks only; exact retained payment/request joins. Default settlement Shadow and Paid both already decide paid receipts in the same Receive call. No transport receipt, one-way delay, CPU improvement, new fast payment or cross-shooter frontier claim. Raw identities/claim IDs are hashed.')
+                scope='Authority-local sufficient Ready/received to terminal-decided ticks only; exact retained payment/request joins. Timeline schemas 1 and 2 share these validated core fields; optional Pose/Provenance are outside this audit. Default settlement Shadow and Paid both already decide paid receipts in the same Receive call. No transport receipt, one-way delay, CPU improvement, new fast payment or cross-shooter frontier claim. Raw identities/claim IDs are hashed.')
 
 
 if __name__ == '__main__':
