@@ -152,7 +152,7 @@ internal static partial class RmlUiOpenGlSmoke
                 // admission. Historical home-only events no longer bypass it.
                 bool baselineIntent = _launcherPages is { Suspended: false }
                     && _news == null && _quickSettings == null && _fullSettings == null && _hudEditor == null && _hunterChoice == null
-                    && _community == null && _license == null && _studio == null && _studioEditor == null
+                    && _community == null && _license == null && _studio == null && _studioEditor == null && _weaponStudio == null
                     && _social == null && _party == null && _campaignEnding == null && _campaignShip == null && _startupNative == null;
                 if (baselineIntent)
                 {
@@ -493,7 +493,7 @@ internal static partial class RmlUiOpenGlSmoke
                 launcher.SetBool("reduce_motion", LauncherPrefs.ReduceMotion);
                 bool routeOwned = _startupNative != null || _gameFiles != null || _news != null || _quickSettings != null || _fullSettings != null || _hudEditor != null
                     || _hunterChoice != null || _community != null || _license != null
-                    || _studio != null || _studioEditor != null || _social != null || _party != null || _campaignEnding != null || _campaignShip != null;
+                    || _studio != null || _studioEditor != null || _weaponStudio != null || _social != null || _party != null || _campaignEnding != null || _campaignShip != null;
                 if (routeOwned && !launcher.Suspended) launcher.Suspend();
                 else if (!routeOwned && launcher.Suspended) launcher.Resume();
 
@@ -884,6 +884,7 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static void CloseNativeStudio()
     {
+        CloseNativeWeaponStudio();
         CloseNativeStudioProjectChange();
         CloseNativeStudioPublish();
         CloseNativeStudioEditor();
