@@ -1,5 +1,6 @@
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
 using System;
+using System.Collections.Generic;
 using System.IO;
 using MphRead.Mods.Platform;
 using MphRead.Mods.Launcher.RmlUi.Host;
@@ -994,14 +995,24 @@ internal static partial class RmlUiOpenGlSmoke
             host.Input.PointerWheel(delta);
         });
 
+    // Track keys claimed by the Studio transport separately from viewport keys
+    // so native menu KeyUp cannot activate a focused button after a shortcut.
+    private static readonly HashSet<Keys> _studioShortcutHeld = new();
+
     private static bool StudioTimelineShortcut(KeyboardKeyEventArgs key)
     {
+        if (key.Control || key.Alt || key.Command) return false;
         string command=key.Key switch
         {
             Keys.Space=>"play", Keys.Left=>key.Shift?"previous-second":"previous-frame",
             Keys.Right=>key.Shift?"next-second":"next-frame",Keys.Home=>"home",Keys.End=>"end",_=>""
         };
-        return command.Length>0 && _playback?.StudioTimelineShortcut(command)==true;
+        if (command.Length == 0) return false;
+        // Key repeat must never flip play/pause back and forth when Space is held.
+        if (key.Key == Keys.Space && _studioShortcutHeld.Contains(key.Key)) return true;
+        if (_playback?.StudioTimelineShortcut(command) != true) return false;
+        _studioShortcutHeld.Add(key.Key);
+        return true;
     }
 
     internal static bool KeyDown(KeyboardKeyEventArgs key)
@@ -1029,7 +1040,8 @@ internal static partial class RmlUiOpenGlSmoke
     internal static bool KeyUp(KeyboardKeyEventArgs key)
         => Forward(host =>
         {
-            if (ReplayKeyUp(key.Key)) return;
+            bool studioShortcut = _studioShortcutHeld.Remove(key.Key);
+            if (ReplayKeyUp(key.Key) || studioShortcut) return;
             if (!RmlUiLinuxDesktopInput.Process(_linuxIme,key,released:true))
                 RmlUiDesktopInput.KeyUp(host,key);
         });

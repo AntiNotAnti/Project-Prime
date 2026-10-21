@@ -69,14 +69,20 @@ public sealed partial class TheatrePlaybackPagePresenter
     }
     internal bool StudioTimelineShortcut(string command)
     {
+        // Replay transport shortcuts belong to the foreground Studio workspace,
+        // not only its viewport and timeline. A focused button (including
+        // LIBRARY) must not consume Space as a click, but numeric/text fields
+        // and modal dialogs retain their normal keyboard interaction.
         if(!WorkspaceMode||!IsOpen||_pages.Top!=_document||_host.CurrentInputDocument!=_document
-            ||_host.FocusedElement() is not("replay_timeline_surface" or "replay_viewport"))return false;
+            ||_host.TextInputActive)return false;
         var state=_controller.Snapshot();
         switch(command)
         {
             case "play":_controller.Dispatch(TheatrePlaybackAction.TogglePause);break;
-            case "previous-frame":_controller.Jump(-1);break;case "next-frame":_controller.Jump(1);break;
-            case "previous-second":_controller.Jump(-60);break;case "next-second":_controller.Jump(60);break;
+            // Keyboard navigation should preserve the playback state; mouse
+            // scrubs and explicit numeric seeks still pause by default.
+            case "previous-frame":_controller.Jump(-1,resume:null);break;case "next-frame":_controller.Jump(1,resume:null);break;
+            case "previous-second":_controller.Jump(-60,resume:null);break;case "next-second":_controller.Jump(60,resume:null);break;
             case "home":_controller.Dispatch(TheatrePlaybackAction.Restart);break;
             case "end":_controller.Jump(checked((int)((long)state.Duration-state.Frame)));break;
             default:return false;
