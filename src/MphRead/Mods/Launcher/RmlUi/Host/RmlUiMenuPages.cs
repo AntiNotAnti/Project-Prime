@@ -10,7 +10,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
     public static class RmlUiMenuPages
     {
         public static readonly RmlUiPageSpec Home = new("home", "pages/home/home.rml", "activity_selector");
-        public static readonly RmlUiPageSpec Play = new("play", "pages/play/browser.rml", "play_quick");
+        public static readonly RmlUiPageSpec Play = new("play", "pages/play/browser.rml", "play_create_open");
         public static readonly RmlUiPageSpec Lobby = new("lobby", "pages/lobby/lobby.rml", "lobby_ready");
         public static readonly RmlUiPageSpec Rules = new("rules", "pages/lobby/rules.rml", "rules_close_top");
         public static readonly RmlUiPageSpec Maps = new("maps", "pages/lobby/maps.rml", "map_close");
