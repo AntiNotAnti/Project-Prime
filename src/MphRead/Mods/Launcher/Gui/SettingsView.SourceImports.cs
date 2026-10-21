@@ -39,7 +39,7 @@ internal sealed partial class SettingsView
         page.Children.Add(choice);
         var status = Explain(page, "Choose an appearance, then import or check its local bundle.");
         var one = new HubNavButton("IMPORT / UPDATE SELECTED", "Choose the matching owned source disc", compact: true);
-        var group = new HubNavButton("IMPORT SAME-SOURCE GROUP", "Import both Echoes appearances or all four Prime Troopers", compact: true);
+        var group = new HubNavButton("IMPORT SAME-SOURCE GROUP", "Import all supported appearances from the selected source disc", compact: true);
         var check = new HubNavButton("CHECK SELECTED", "Verify installed bundle components", compact: true);
         var remove = new HubNavButton("REMOVE SELECTED", "Remove this appearance's current bundle selection", compact: true);
         var cancel = new HubNavButton("CANCEL IMPORT", compact: true);
@@ -66,7 +66,8 @@ internal sealed partial class SettingsView
             {
                 var selected = sources[choice.Index];
                 string[] ids = sameSource ? sources.Where(s => s.Game == selected.Game).Select(s => s.Id).ToArray() : [selected.Id];
-                var operation = SourceCharacterImportWork.Start(RetroCharacterPreviewExporter.DefaultRoot, ids, ticket.Token);
+                var operation = SourceCharacterImportWork.Start(RetroCharacterPreviewExporter.DefaultRoot, ids, ticket.Token,
+                    sameSourceGroup: sameSource);
                 _sourceImport = operation;
                 var result = await operation.Completion;
                 if (_sourceWork.Current(ticket)) status.Text = result.Message;

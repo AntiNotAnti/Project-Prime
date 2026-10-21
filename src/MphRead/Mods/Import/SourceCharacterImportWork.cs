@@ -92,7 +92,8 @@ internal static class SourceCharacterImportWork
     { public void Report(ImportPublishStage value) => report(value); }
 
     internal static Operation Start(string root, IReadOnlyCollection<string> selectedIds, CancellationToken owner,
-        Func<string, string, CancellationToken, IProgress<ImportPublishStage>, string[], IReadOnlyList<string>>? execute = null)
+        Func<string, string, CancellationToken, IProgress<ImportPublishStage>, string[], IReadOnlyList<string>>? execute = null,
+        bool sameSourceGroup = false)
     {
         root = Path.GetFullPath(root);
         string[] ids = selectedIds.ToArray();
@@ -106,7 +107,9 @@ internal static class SourceCharacterImportWork
         {
             var operation = new Operation(owner, platform.Lifetime);
             operation.Start(platform, root, ids, execute ?? ((path, destination, token, progress, selected)
-                => RetroCharacterPreviewExporter.ExportFromOwnedGame(path, destination, token, progress, selected)));
+                => sameSourceGroup
+                    ? RetroCharacterPreviewExporter.ExportSourceGroupFromOwnedGame(path, selected, destination, token, progress)
+                    : RetroCharacterPreviewExporter.ExportFromOwnedGame(path, destination, token, progress, selected)));
             return operation;
         }
         catch { Volatile.Write(ref _busy, 0); throw; }
