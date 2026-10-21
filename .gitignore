@@ -386,6 +386,9 @@ tools/hitrig/bin/
 !src/MphRead/Mods/MapGen/ModelImport/Obj/
 !src/MphRead/Mods/MapGen/ModelImport/Obj/*.cs
 
+# Weapon package validation is source, not a NuGet restore directory.
+!src/MphRead/Mods/CustomWeapons/Packages/*.cs
+
 # Local document-preview renders are disposable output, not repository source.
 /tmp/pdfs/*.png
 

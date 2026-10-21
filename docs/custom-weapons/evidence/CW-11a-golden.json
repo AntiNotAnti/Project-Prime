@@ -1,0 +1,15 @@
+{
+  "format": 1,
+  "container": "canonical stored ZIP32",
+  "contentHashFraming": "SHA256(WPD1 + NUL + canonical normalized manifest UTF-8)",
+  "identities": {
+    "contentId": "9a776851-f39f-4a76-8c13-c5d88875ef61",
+    "mechanicsHash": "3ee854525a9737a3acdaf6f994dd8da75e229b5f87d820c96d98f17c59512228",
+    "dependencyHash": "10ea078c19901f782285c3185985b5958232eb28b843042c31a23ff1c03e15a1",
+    "contentHash": "5a70fce558e7cdd0eebf28293d5258da0baaddc8b582cf73e9a8419340f6e24e",
+    "referenceHash": "5789962e4906689774acc14ab26118fe68df20b33b6ff9784e109cf375bf3631",
+    "referenceLength": 44224
+  },
+  "assetLicense": "CC0-1.0, original M7 assets only",
+  "scope": "Deterministic original reference, no extracted game assets"
+}
