@@ -22,7 +22,7 @@ internal sealed partial class ReplayRecorder
     private void ResetCustomWeaponFacts()
     { RetireCustomWeaponFacts(); CustomWeaponCaptureFailed = false; AcceptedCustomWeaponFacts = 0; }
     private bool CustomFactScope => !CustomWeaponCaptureFailed && CustomWeaponContext is { } context
-        && context.Bootstrap.World.Start.MatchId == _matchId && context.Bootstrap.World.Start.AuthorityEpoch == _epoch;
+        && context.Bootstrap.Start.MatchId == _matchId && context.Bootstrap.Start.AuthorityEpoch == _epoch;
     private bool HasCustomWeaponMatch => _match is { } match
         && (((MatchModifierFlags)MatchStatePacket.Read(match.Payload[1..]).RuleBits)
             & (MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable)) != 0;
@@ -46,8 +46,8 @@ internal sealed partial class ReplayRecorder
     internal bool AcceptCustomWeaponBaseline(ReplayCustomWeaponContext context, in CustomReplicaCapture capture,
         ReadOnlySpan<CustomReplicaSlot> slots, ReadOnlySpan<CustomReplicaFlight> flights, uint recordingFrame)
     {
-        if (CustomWeaponCaptureFailed || !HasMatch || _matchId != context.Bootstrap.World.Start.MatchId
-            || _epoch != context.Bootstrap.World.Start.AuthorityEpoch || _match is not { } match
+        if (CustomWeaponCaptureFailed || !HasMatch || _matchId != context.Bootstrap.Start.MatchId
+            || _epoch != context.Bootstrap.Start.AuthorityEpoch || _match is not { } match
             || (((MatchModifierFlags)MatchStatePacket.Read(match.Payload[1..]).RuleBits)
                 & (MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable))
                 != (MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable)
@@ -163,7 +163,7 @@ public static partial class NetSession
             }
             // A recorder retired after baseline installation cannot reconstruct
             // current flights by relabelling the original baseline as current.
-            if (recorder.CustomWeaponContext?.Bootstrap.World != wire.Bootstrap)
+            if (recorder.CustomWeaponContext?.Bootstrap.RecipientBootstrap != wire.Bootstrap)
             { recorder.FailCustomWeaponFacts(); return; }
             if (consumer.StateRevision != previousState && consumer.TryCopyState(_customReplaySlots, out uint world))
                 recorder.AcceptCustomWeaponState(consumer.StateRevision, world, _customReplaySlots, NetFrame);

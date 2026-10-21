@@ -90,7 +90,7 @@ internal sealed partial class ReplayCustomWeaponState
                 throw new InvalidDataException("Different custom checkpoint schema or context.");
             var state = new ReplayCustomWeaponState(context)
             { World = reader.ReadUInt32(), RecordingFrame = reader.ReadUInt32(), _stateWorld = reader.ReadUInt32(), Sequence = reader.ReadUInt64() };
-            uint floor = context.Bootstrap.World.AuthorityFrame;
+            uint floor = context.Bootstrap.AuthorityFrame;
             if (state.Sequence < 2UL + (ulong)context.Layout.Count || Before(state.World, floor) || Before(state._stateWorld, floor) || Before(state.World, state._stateWorld))
                 throw new InvalidDataException("Invalid custom checkpoint clocks.");
             for (int i = 0; i < 8; i++)
