@@ -301,6 +301,16 @@ jobs:
         with:
           name: prepared-maps
           path: maps
+      # Release builders need the same OpenGL development headers as the
+      # native software-frame CI job. Runtime-only libGL packages are not enough
+      # for CMake's find_package(OpenGL REQUIRED) in the GL2 native bridge.
+      - name: install Linux desktop RmlUi OpenGL build prerequisites
+        if: matrix.target == 'linux-x64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y cmake g++ pkg-config \
+            libgl1-mesa-dev libx11-dev libxinerama-dev libxcursor-dev libxi-dev
+
       - name: build the Linux desktop RmlUi native runtime
         if: matrix.target == 'linux-x64'
         run: bash tools/rmlui/build-native.sh linux-x64 gl2
