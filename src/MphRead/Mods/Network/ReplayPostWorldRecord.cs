@@ -36,7 +36,7 @@ internal static class ReplayPostWorldRecord
         return payload;
     }
 
-    private static void ValidatePayload(ReadOnlySpan<byte> packet, ReplayCustomWeaponContext? context)
+    internal static void ValidatePayload(ReadOnlySpan<byte> packet, ReplayCustomWeaponContext? context)
     {
         if (packet.Length is < 1 or > ReplayCustomWeaponFact.MaximumBytes)
             throw new InvalidDataException("Invalid post-world replay payload size.");

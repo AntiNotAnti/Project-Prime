@@ -90,13 +90,16 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     }
 
     // Detached metadata only: safe to read on a writer worker, no Scene/resource access.
-    internal ReplayMetadata ClipMetadata(uint leadIn, IReadOnlyList<ReplayPlayerInfo> players, ReplayType type = ReplayType.Clip)
+    internal ReplayMetadata ClipMetadata(uint leadIn, IReadOnlyList<ReplayPlayerInfo> players, ReplayType type = ReplayType.Clip,
+        byte customFormatVersion = 7)
     {
+        if (customFormatVersion is not (7 or 8) || customFormatVersion == 8 && (!HasCustomWeaponContract || leadIn != 0))
+            throw new InvalidDataException("Post-world metadata requires an exact custom baseline without a lead-in.");
         using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
         ReadWorldHeader(reader); reader.ReadString();
         string room = reader.ReadString(); var mode = (GameMode)reader.ReadInt32(); ulong map = reader.ReadUInt64();
         uint origin = reader.ReadUInt32();
-        return new ReplayMetadata { FormatVersion = HasCustomWeaponContract ? (byte)7 : HasTimedShotContract ? (byte)6 : (byte)4,
+        return new ReplayMetadata { FormatVersion = HasCustomWeaponContract ? customFormatVersion : HasTimedShotContract ? (byte)6 : (byte)4,
             TimedShotCertificates = HasTimedShotContract, Type = type, RoomKey = room, Mode = mode,
             MapHash = map, OriginRecordingFrame = origin, LeadInFrames = leadIn,
             WorldCheckpoint = Bytes.ToArray(), Players = players, CustomWeapons = CustomWeaponDescriptor,
