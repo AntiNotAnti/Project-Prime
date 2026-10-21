@@ -170,7 +170,7 @@ namespace MphRead.Mods.Render.Characters
             internal CharacterSourceAnimationArchive? SourceAnimations { get; }
             internal CharacterSourceGxMaterials? SourceMaterials { get; }
             internal object CacheIdentity => _owner;
-            internal CharacterSourceCacheKey CacheKey => new(_owner,Asset.ModelPath,ModelSha256,Asset.PrivateAppearance!.Value,Generation,Asset.Part,SourceCannon?.ReceiptSha256,SourceGraphProof?.ProofSha256,SourceAnimations?.Sha256,SourceMaterials?.Archive.Sha256,SourceMaterials==null?null:CharacterSourceGxProgram.Policy);
+            internal CharacterSourceCacheKey CacheKey => new(_owner,Asset.ModelPath,ModelSha256,Asset.PrivateAppearance!.Value,Generation,Asset.Part,SourceCannon?.ReceiptSha256,SourceGraphProof?.ProofSha256,SourceAnimations?.Sha256,SourceMaterials?.Archive.Sha256,SourceMaterials?.Policy);
             private SourcePreviewLease(CharacterModelPack owner,CharacterModelAsset asset,string sha,long generation)
                 { (_owner,Asset,ModelSha256,Generation)=(owner,asset,sha,generation);
                 SourceMaterials=owner._sourceMaterials.GetValueOrDefault(asset)?.Materials;
@@ -461,7 +461,8 @@ namespace MphRead.Mods.Render.Characters
             pack._sourceRoot=root;
             pack._sourceManifestSha=Convert.ToHexString(SHA256.HashData(manifestBytes)).ToLowerInvariant();
             foreach(var proof in proofs)pack._sourceProofs.Add(proof.Asset,(proof.Entry,proof.Source,proof.Sha));
-            foreach(var proof in proofs.Where(p => p.Source == "darksamus-overcharged-echoes"))
+            foreach(var proof in proofs.Where(p => p.Source == "darksamus-overcharged-echoes"
+                || CharacterGeneratedTrooperProfile.Find(p.Source) != null))
                 pack.CaptureSourceMaterials(proof.Asset, proof.Source);
             return pack;
         }
@@ -488,6 +489,9 @@ namespace MphRead.Mods.Render.Characters
                 && value.ValueKind == (expected ? JsonValueKind.True : JsonValueKind.False);
             if (receipt.TryGetProperty("format", out var generatedFormat) && generatedFormat.ValueKind == JsonValueKind.Number && generatedFormat.TryGetInt32(out int generatedVersion) && generatedVersion == 2)
                 return ValidateGeneratedSourceProvenance(receipt, entry, asset, appearance, sourceCharacter, verifiedModelSha);
+            if (Text("kind", "generated-retro-trooper-authoring-v1")
+                && CharacterGeneratedTrooperProfile.Find(sourceCharacter) is { } trooper)
+                return trooper.ValidateEntry(receipt, entry, asset, appearance, verifiedModelSha);
             if (sourceCharacter == "darksamus-overcharged-echoes")
                 throw new InvalidDataException("Final accepts only its exact generated source profile.");
             if (!receipt.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.Number
