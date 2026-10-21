@@ -533,7 +533,8 @@ namespace MphRead.Mods.Render.Characters
                 ||!privatePack.TryResolvePrivate(hunter,appearance,part,0,out var asset)||asset.PoseSource!=CharacterPoseSource.SourceRigPreview
                 ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset)
                 ||part==CharacterModelPart.AlternateForm&&(!localBody||!(instance.BodyOwner is CharacterSourceBodyOwner&&privatePack.HasSourceBall(asset)
-                    ||instance.BodyOwner is CharacterSourceDroneOwner&&privatePack.HasSourceDrone(asset))))
+                    ||instance.BodyOwner is CharacterSourceDroneOwner&&privatePack.HasSourceDrone(asset)
+                    ||instance.BodyOwner is CharacterSourceArsenalDroneOwner&&privatePack.HasSourceDrone(asset))))
             {if(instance!=null)ReleaseSourcePreview(scene,instance);return false;}
             var resources=_scenes.GetValue(scene,_=>new SceneResources());
             if(resources.TextureQuality!=RenderOptions.TextureQuality||resources.SamplingKey!=TextureSamplingPolicy.RuntimeKey)

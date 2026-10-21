@@ -208,7 +208,7 @@ public sealed class RmlUiOfflineDraft
             ? "Drone combat practice requires Weavel, Battle and zero to seven native opponents."
             : "Trooper practice requires Weavel, Battle and zero bots."
         : Current.Character == OfflineCharacterMode.TrooperArsenalPractice
-            ? "Hunters BODY selects your Trooper body and Blaster cannon; Native keeps native models. Unsupported poses and drone use native fallback. Native bolts. Private Blaster: 60 shared UA each life; Fire for bursts, cycle to reselect. Wall-cling, drone and laser. No replays."
+            ? "Hunters BODY selects your Trooper body and Blaster cannon; DRONE selects its flying appearance. Native keeps native models. Unsupported states use native fallback. Native bolts. Private Blaster: 60 shared UA each life; Fire for bursts, cycle to reselect. Wall-cling, drone and laser. No replays."
         : Current.Character is OfflineCharacterMode.TrooperScoutDronePractice or OfflineCharacterMode.TrooperScoutDroneCombatPractice
             ? "Native fallback models. Morph to split; Jump to hover, Alt Attack for a burst, Zoom for a laser. No blaster or replays."
             : "Weavel model and weapons. Jump into a tall wall to cling; Jump again to kick off. No drone, blaster or replays.";

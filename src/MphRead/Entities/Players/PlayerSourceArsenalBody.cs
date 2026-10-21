@@ -11,9 +11,17 @@ public partial class PlayerEntity
     private CharacterSourceArsenalBodyOwner? _sourceArsenalBody;
     internal CharacterSourceArsenalBodyOwner? ModSourceArsenalBody => _sourceArsenalBody;
     internal void ModBindSourceArsenalBody(CharacterSourcePreviewSelection selection, int bots)
+        => ModBindSourceArsenalPresentation(selection, null, bots);
+    internal void ModBindSourceArsenalPresentation(CharacterSourcePreviewSelection? body,
+        CharacterSourceArsenalDroneSelection? drone, int bots)
     {
         ModRetireSourceBody();
-        _sourceArsenalBody = new(_scene, this, selection, bots);
+        try
+        {
+            if (body != null) _sourceArsenalBody = new(_scene, this, body, bots);
+            if (drone != null) _sourceArsenalDrone = new(_scene, this, drone, bots);
+        }
+        catch { ModRetireSourceBody(); throw; }
     }
     private void ModRetireSourceArsenalBody()
     { _sourceArsenalBody?.Dispose(); _sourceArsenalBody = null; }
