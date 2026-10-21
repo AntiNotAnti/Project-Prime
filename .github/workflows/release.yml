@@ -236,19 +236,19 @@ jobs:
           global-json-file: global.json
       - name: nothing from the game is tracked
         run: tools/check-no-game-assets.sh
+      - name: OpenGL/GLES-only architecture and packaging contract
+        run: tools/check-opengl-only.sh
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
-      # Release can be dispatched while the normal build workflow is cancelled
-      # by a newer push. Run the asset-free lobby suite here too so wire-format
-      # regressions in Create Lobby cannot ship behind a green packaging smoke.
+      # The expensive hosted-lobby suite is isolated in release-lobby-acceptance
+      # so all target builders can start as soon as these safe map artifacts exist.
+      # Publication still requires that separate suite to pass.
       - name: updater handoff and rollback regressions
         run: dotnet run --project tools/updatecheck -c Release
       - name: release manifest portability regression
         run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
       - name: delivered server archive regressions
         run: python3 -m unittest discover -s tools -p 'test_server_archive.py'
-      - name: hosted lobby allocation protocol
-        run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
       - name: cook the map bundles
         env:
           PROJECT_PRIME_USER_DATA: ${{ github.workspace }}/.release-user-data
@@ -263,6 +263,29 @@ jobs:
           name: prepared-maps
           path: maps/**/*.ppmap
           if-no-files-found: error
+
+  # The asset-free hosted lobby acceptance takes several minutes but does not
+  # consume the prepared map artifacts. Keep it mandatory for publication and
+  # run it alongside, rather than in front of, every release platform builder.
+  release-lobby-acceptance:
+    name: release hosted lobby and allocation acceptance
+    needs: resolve
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+      - uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-${{ runner.arch }}-nuget-game-${{ hashFiles('global.json', 'src/**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-nuget-game-
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: hosted lobby allocation protocol
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --lobby
 
   release-linux:
     name: publish ${{ matrix.target }}
@@ -761,11 +784,14 @@ jobs:
         with:
           name: prepared-maps
           path: maps
-      - name: check sources
+      # prepare-release has already checked every tracked source against both
+      # the asset guard and OpenGL-only policy for this immutable tag. Avoid
+      # rescanning thousands of tracked files on each scarce macOS runner.
+      # Keep the distinct prepared-map gate here, and the published package
+      # asset guard below, so neither delivery check is relaxed.
+      - name: verify prepared macOS map inputs
         run: |
           set -euo pipefail
-          tools/check-no-game-assets.sh
-          tools/check-opengl-only.sh
           tools/check-maps-shipped.sh
       - name: test macOS signed bundle resource layout
         run: tools/test-macos-tools.sh
@@ -832,7 +858,7 @@ jobs:
             "$RUNNER_TEMP/v46" "$RUNNER_TEMP/v47"
 
   publish:
-    needs: [resolve, package-release, release-android, macos-release, v47-release-updater-acceptance]
+    needs: [resolve, package-release, release-android, macos-release, v47-release-updater-acceptance, release-lobby-acceptance]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
