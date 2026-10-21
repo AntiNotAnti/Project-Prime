@@ -20,11 +20,14 @@ internal static class CharacterMaterialArchiveAcceptance
         Check(encoded.SequenceEqual(ArchiveOwner.Encode(Source(false), f.Cmdl, f.Cskr, f.Geometry,
             id => f.Textures.Reverse().ToDictionary(p => p.Key, p => p.Value)[id])), "resource dictionary order cannot affect deterministic archive bytes");
         Check(input == InputHash(f), "encode preserves original caller bytes");
+        Check(encoded.Length == 1035 && Sha(encoded) == "3fb3aae28302ad02d03cc84f050cc742c51bc4866877347d47fa7a94c2e7f937",
+            "synthetic Echoes v1 archive stays byte-identical to its pre-Prime-extension baseline");
         Inspect(encoded, f);
         Isolation(encoded, f);
         Bindings(f);
         Corruption(encoded, f);
         BudgetsAndCancellation(f);
+        PrimeProfilesAndDialect(encoded, f);
         Console.WriteLine($"PASS: raw character material/TXTR transport ({_checks} checks; own synthetic bytes, no material/runtime activation)");
     }
 
@@ -202,10 +205,99 @@ internal static class CharacterMaterialArchiveAcceptance
         Check(partial == null, "failure exposes no partially encoded component");
     }
 
-    private sealed record Data(byte[] Cmdl, byte[] Cskr, string Geometry, byte[] Set, byte[][] Records, Dictionary<uint, byte[]> Textures);
-    private static Data Fixture()
+    private static void PrimeProfilesAndDialect(byte[] echoesBytes, Data echoes)
     {
-        byte[][] records = { Material(new[] { 2, 0, 2 }, rich: true), Material(new[] { 1 }, rich: false) };
+        // Only record syntax differs: omit Echoes' two words and use CMDL2.
+        // Invented records intentionally retain unsupported GX operations;
+        // successful authoring transport grants no renderer capability.
+        var f = Fixture(echoes: false); string input = InputHash(f);
+        var profiles = new (string Id, uint Profile, uint Cmdl, uint Cskr)[]
+        {
+            ("trooper-power", 3, 0xf8691b86, 0x9346b450),
+            ("trooper-ice", 4, 0x45e6de5b, 0x2ec9718d),
+            ("trooper-wave", 5, 0x5eb5adfa, 0x359a022c),
+            ("trooper-plasma", 6, 0x202ac74c, 0x4b05689a)
+        };
+        ArchiveOwner.Source Binding((string Id, uint Profile, uint Cmdl, uint Cskr) p) => new(p.Id, p.Cmdl, p.Cskr, 0x0c9669bc, 0x8169653a,
+            RetroCharacterPreviewExporter.BundleSpec(p.Id, ExternalSourceEdition.PrimeUsaRevision2).SourceFingerprint);
+        byte[] Encode(ArchiveOwner.Source source, byte[]? cmdl = null) => ArchiveOwner.Encode(source, cmdl ?? f.Cmdl, f.Cskr, f.Geometry, id => f.Textures[id]);
+        void Bad(byte[] original, Action<byte[]> edit, string why)
+        { byte[] bytes = (byte[])original.Clone(); edit(bytes); Refuses<InvalidDataException>(() => ArchiveOwner.Read(bytes), why); }
+        var hashes = new HashSet<string>();
+        foreach (var p in profiles)
+        {
+            var source = Binding(p); byte[] bytes = Encode(source); var archive = ArchiveOwner.Read(bytes);
+            Check(Le(bytes, 4) == 1 && Le(bytes, 8) == 256 && Le(bytes, 16) == p.Profile
+                && bytes.AsSpan(196, 6).SequenceEqual("GM8E01"u8), p.Id + " uses its closed profile ID and Prime game within unchanged v1 transport");
+            Check(Le(bytes, 32) == p.Cmdl && Le(bytes, 36) == p.Cskr && Le(bytes, 40) == 0x0c9669bc && Le(bytes, 44) == 0x8169653a
+                && bytes.AsSpan(176, 20).SequenceEqual(Convert.FromHexString(source.SourceFingerprint)) && archive.Binding == source,
+                p.Id + " retains separate exact Rev2 source/reference authority");
+            Check(bytes.SequenceEqual(Encode(source)) && hashes.Add(Sha(bytes)) && InputHash(f) == input,
+                p.Id + " is deterministic, separately bound and does not mutate invented inputs");
+            Check(archive.Programs.Count == 2 && archive.Textures.Count == 3 && archive.DecodedBytes == 384
+                && archive.MaterialSetSha256 == Sha(f.Set) && archive.CmdlSha256 == Sha(f.Cmdl)
+                && archive.RawProgram(0).SequenceEqual(f.Records[0]) && archive.RawProgram(1).SequenceEqual(f.Records[1]),
+                p.Id + " preserves all Prime record bytes and transport digests");
+            var material = archive.ReadProgram(0);
+            Check(material.EchoesUnknown == null && material.Group == 0xaabbccdd && material.VertexAttributes == 0x81003f0f
+                && material.TexIds.SequenceEqual(new uint[] { 0x22, 0x33, 0x22 }) && material.Konst[0].SequenceEqual(new byte[] { 17, 34, 51, 68 })
+                && material.IndTex == 0xabcd0123 && material.Channels.SequenceEqual(new uint[] { 0x3000, 0x3001 })
+                && material.Stages[0].RawColorOp == 0xaabb0773 && material.Stages[0].ColorIn.SequenceEqual(new[] { 31, 30, 29, 28 })
+                && material.TexGens[1].Post == 12 && material.UvAnims[1].Params[1] == .25
+                && BitConverter.DoubleToInt64Bits(material.UvAnims[1].Params[0]) == long.MinValue,
+                p.Id + " parses Prime dialect offsets without inserting Echoes words or interpreting unsupported GX");
+            material.Konst[0][0] = 0; material.Stages[0].ColorIn[0] = 0; material.UvAnims[1].Params[1] = 123;
+            var fresh = archive.ReadProgram(0);
+            Check(fresh.Konst[0][0] == 17 && fresh.Stages[0].ColorIn[0] == 31 && fresh.UvAnims[1].Params[1] == .25,
+                p.Id + " parsed nested Prime records are detached copy-out");
+            foreach (var t in archive.Textures)
+                Check(archive.RawTexture(t.ResourceId).SequenceEqual(f.Textures[t.ResourceId]) && t.SourceSha256 == Sha(f.Textures[t.ResourceId])
+                    && t.RgbaSha256 == Sha(archive.DecodeTexture(t.ResourceId).Pixels), p.Id + " uses the same raw/TXTR pixel contract");
+            foreach (uint version in new uint[] { 0, 1, 3, 4, 5 })
+            {
+                byte[] wrong = (byte[])f.Cmdl.Clone(); PutBe(wrong, 4, version);
+                Refuses<InvalidDataException>(() => Encode(source, wrong), p.Id + " rejects non-CMDL2 envelopes");
+            }
+            var next = profiles[(int)(p.Profile - 2) % profiles.Length]; var other = Binding(next);
+            foreach (var wrong in new[] { source with { Cmdl = other.Cmdl }, source with { Cskr = other.Cskr },
+                source with { Cinf = Source(false).Cinf }, source with { Ancs = Source(false).Ancs },
+                source with { SourceFingerprint = Source(false).SourceFingerprint }, source with { SourceFingerprint = new string('a', 40) },
+                source with { SourceFingerprint = RetroCharacterPreviewExporter.BundleSpec(p.Id).SourceFingerprint },
+                source with { CharacterId = "trooper" } })
+                Refuses<InvalidDataException>(() => Encode(wrong), p.Id + " rejects mixed parts, unknown appearance, Echoes/legacy/unknown source editions");
+            Bad(bytes, b => "G2ME01"u8.CopyTo(b.AsSpan(196)), p.Id + " reader rejects Echoes game under Prime profile");
+            Bad(bytes, b => PutLe(b, 16, next.Profile),
+                p.Id + " reader rejects another Prime profile with unchanged resource bindings");
+            Bad(bytes, b => PutLe(b, 16, 1), p.Id + " reader rejects Echoes profile under Prime game");
+            Bad(bytes, b => PutLe(b, 16, 7), p.Id + " reader rejects unassigned profile IDs");
+            Bad(bytes, b => Convert.FromHexString(Source(false).SourceFingerprint).CopyTo(b, 176), p.Id + " reader revalidates source fingerprint");
+        }
+        Check(hashes.Count == 4 && f.Records[0].Length + 8 == echoes.Records[0].Length && f.Records[1].Length + 8 == echoes.Records[1].Length,
+            "all four profiles remain distinct; invented Prime records differ by exactly two omitted Echoes words");
+        // Relabeling the CMDL envelope alone must not change the material dialect.
+        byte[] primeAsEchoes = (byte[])f.Cmdl.Clone(); PutBe(primeAsEchoes, 4, 4);
+        byte[] echoesAsPrime = (byte[])echoes.Cmdl.Clone(); PutBe(echoesAsPrime, 4, 2);
+        Refuses<InvalidDataException>(() => ArchiveOwner.Encode(Source(false), primeAsEchoes, f.Cskr, f.Geometry, id => f.Textures[id]), "CMDL4 envelope cannot smuggle Prime records into Echoes parser");
+        Refuses<InvalidDataException>(() => Encode(Binding(profiles[0]), echoesAsPrime), "CMDL2 envelope cannot smuggle Echoes records into Prime parser");
+        void Rebind(byte[] bytes, uint profile, ArchiveOwner.Source source, bool isEchoes)
+        {
+            PutLe(bytes, 16, profile); PutLe(bytes, 32, source.Cmdl); PutLe(bytes, 36, source.Cskr);
+            PutLe(bytes, 40, source.Cinf); PutLe(bytes, 44, source.Ancs);
+            Convert.FromHexString(source.SourceFingerprint).CopyTo(bytes, 176);
+            (isEchoes ? "G2ME01"u8 : "GM8E01"u8).CopyTo(bytes.AsSpan(196));
+        }
+        Bad(echoesBytes, b => Rebind(b, 3, Binding(profiles[0]), isEchoes: false),
+            "valid Prime header authority cannot make reader parse unchanged Echoes records as Prime");
+        Bad(Encode(Binding(profiles[0])), b => Rebind(b, 1, Source(false), isEchoes: true),
+            "valid Echoes header authority cannot make reader parse unchanged Prime records as Echoes");
+        Bad(echoesBytes, b => "GM8E01"u8.CopyTo(b.AsSpan(196)), "existing Echoes archive rejects Prime game header");
+        Bad(echoesBytes, b => PutLe(b, 16, 3), "existing Echoes archive rejects Prime profile header");
+    }
+
+    private sealed record Data(byte[] Cmdl, byte[] Cskr, string Geometry, byte[] Set, byte[][] Records, Dictionary<uint, byte[]> Textures);
+    private static Data Fixture(bool echoes = true)
+    {
+        byte[][] records = { Material(new[] { 2, 0, 2 }, rich: true, echoes), Material(new[] { 1 }, rich: false, echoes) };
         byte[] set = Set(new uint[] { 0x33, 0x11, 0x22, 0x44 }, records);
         byte[] rgb = Texture(8, 4, 4); PutBe16(rgb, 12, 0); PutBe16(rgb, 14, 0x4123); PutBe16(rgb, 16, 0xffff);
         byte[] cmpr = Texture(10, 8, 8); PutBe16(cmpr, 12, 0x001f); PutBe16(cmpr, 14, 0xf800);
@@ -214,14 +306,14 @@ internal static class CharacterMaterialArchiveAcceptance
         // though this transport's decoder exposes only top-level pixels.
         byte[] padded = Texture(8, 4, 4); byte[] ff = new byte[96]; padded.CopyTo(ff, 0); PutBe(ff, 8, 2);
         ff.AsSpan(44, 32).Fill(0x3c); ff.AsSpan(76).Fill(0xff);
-        return new(WrapCmdl(set), new byte[] { 9, 8, 7, 6, 5 }, Sha(new byte[] { 1, 3, 5, 7 }), set, records,
+        return new(WrapCmdl(set, echoes ? 4u : 2u), new byte[] { 9, 8, 7, 6, 5 }, Sha(new byte[] { 1, 3, 5, 7 }), set, records,
             new() { [0x33] = ff, [0x11] = rgb, [0x22] = cmpr });
     }
     private static ArchiveOwner.Source Source(bool final) => new(final ? "darksamus-overcharged-echoes" : "darksamus-echoes", final ? 0xfaa12c05u : 0xd2c3805bu,
         final ? 0x918e83d3u : 0xb9ec2f8du, 0x4abc8a50, 0x39900a11, RetroCharacterPreviewExporter.BundleSpec("darksamus-echoes").SourceFingerprint);
-    private static byte[] WrapCmdl(byte[] set)
+    private static byte[] WrapCmdl(byte[] set, uint version = 4)
     {
-        var result = new byte[64 + set.Length + 5]; PutBe(result, 0, 0xdeadbabe); PutBe(result, 4, 4); PutBe(result, 8, 5);
+        var result = new byte[64 + set.Length + 5]; PutBe(result, 0, 0xdeadbabe); PutBe(result, 4, version); PutBe(result, 8, 5);
         PutBe(result, 0x24, 2); PutBe(result, 0x28, 1); PutBe(result, 0x2c, (uint)set.Length); PutBe(result, 0x30, 5);
         set.CopyTo(result, 64); result.AsSpan(64 + set.Length).Fill(0x91); return result;
     }
@@ -232,13 +324,13 @@ internal static class CharacterMaterialArchiveAcceptance
         foreach (var record in records) { end += record.Length; U((uint)end); }
         foreach (var record in records) output.Write(record); output.Write(new byte[] { 0xba, 0xbe, 0x55, 0x66, 0x77 }); return output.ToArray();
     }
-    private static byte[] Material(int[] slots, bool rich)
+    private static byte[] Material(int[] slots, bool rich, bool echoes = true)
     {
         using var output = new MemoryStream();
         void U(uint v) { Span<byte> b = stackalloc byte[4]; BinaryPrimitives.WriteUInt32BigEndian(b, v); output.Write(b); }
         void H(ushort v) { Span<byte> b = stackalloc byte[2]; BinaryPrimitives.WriteUInt16BigEndian(b, v); output.Write(b); }
         U(rich ? Cmdl.Konst | Cmdl.IndStage | 0x80000080u : 0x80); U((uint)slots.Length); foreach (int slot in slots) U((uint)slot);
-        U(0x81003f0f); U(0x11223344); U(0x55667788); U(0xaabbccdd);
+        U(0x81003f0f); if (echoes) { U(0x11223344); U(0x55667788); } U(0xaabbccdd);
         if (rich) { U(1); output.Write(new byte[] { 17, 34, 51, 68 }); }
         H(5); H(4); if (rich) U(0xabcd0123); U(rich ? 2u : 0); if (rich) { U(0x3000); U(0x3001); }
         U(rich ? 2u : 0);

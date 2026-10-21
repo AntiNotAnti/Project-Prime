@@ -30,6 +30,8 @@ namespace MphRead.Mods.Network
         public static LobbyResultCode ValidateDefinition(MatchDefinition match, out string reason, bool allowRetiredEnhanced = false)
         {
             reason = "";
+            if (match.PackagedWeaponAvailable && !match.RiftlineM7Available)
+            { reason = "Package availability requires custom world pickups."; return LobbyResultCode.InvalidConfiguration; }
             if (match.RiftlineM7Available && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit(
                 match.Mode, match.Rules, online: false, bots: 0, out reason))
                 return LobbyResultCode.InvalidConfiguration;

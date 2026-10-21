@@ -21,9 +21,9 @@ Depth for a given area lives in `.claude/` (indexed in
 
 ## Network modernization
 
-The current wire version is protocol 81 (`NetConfig.ProtocolVersion` is authoritative). Protocol77 introduced Parkour v1 tuck,
+The current wire version is protocol 82 (`NetConfig.ProtocolVersion` is authoritative). Protocol77 introduced Parkour v1 tuck,
 78 selected v2 wallstrafe, 79 selected v3 wallrun/kick and 80 selects v4 static
-ledge mantle. Protocol81 selects v5 grapple, appending accepted slow/canonical state and an input nonce while preserving the fast prefix. See
+ledge mantle. Protocol81 adds exact weapon package preparation; protocol82 selects v5 grapple, appending accepted slow/canonical state and an input nonce while preserving the fast prefix. See
 `docs/network/parkour-v5-version-contract.md`. Protocol72 adds explicit private custom-weapon ownership absence; protocol73 carries private acquisition knowledge outside canonical/public Actions. Protocol74 selects Traversal profile v4; protocol75 adds public custom pickup state/ACKs at97/98. Protocol76 selects Quake3 v4 and Traversal v5 for qualified ramp travel and slide slope gravity; native payloads are unchanged. Its transport retains endpoint-bound connection IDs, sequence/ACK
 windows, selective reliable control, bounded priority queues and a generation-fenced
 load barrier. The entire migration is one unreleased train. Movement remains
@@ -938,7 +938,7 @@ MPH_MAP_DOMAIN=maps.rebooty.xyz ./deploy-map-service.sh
 
 The exe is often locked by a running game: write `MphRead.new.exe`, then `mv`.
 
-**The current protocol is `NetConfig.ProtocolVersion = 71`.** Never duplicate
+**The current protocol is `NetConfig.ProtocolVersion = 81`.** Never duplicate
 that number as a design constant elsewhere: read it from `NetProtocol.cs` when
 validating a deployment. Server and clients must match; incompatible builds are
 refused during Hello. Versions 7/8 in the measurement sections below are dated

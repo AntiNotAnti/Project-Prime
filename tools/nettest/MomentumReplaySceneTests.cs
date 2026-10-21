@@ -51,7 +51,7 @@ internal static class MomentumReplaySceneTests
             int frames = 0, continued = 0, snapshotPoseChecks = 0, morphFrames = 0, midairMorphFrames = 0, altFrames = 0, airborneFrames = 0;
             int minimumPlayers = Int32.MaxValue, maximumPlayers = 0;
             bool capturedMorph = false;
-            bool grappleArchive = expected == MovementModel.Parkour && first.Session.Metadata!.ProtocolVersion >= 81;
+            bool grappleArchive = expected == MovementModel.Parkour && first.Session.Metadata!.ProtocolVersion >= 82;
             bool capturedGrapple = false, capturedGrappleRelease = false;
             int grappleSnapshotChecks = 0;
             var grappleSeekTargets = new HashSet<uint>();
@@ -166,7 +166,7 @@ internal static class MomentumReplaySceneTests
                 Require(tuckedSnapshotChecks > 0, "Parkour archive contains accepted tucked snapshots");
             if (grappleArchive)
                 Require(grappleSnapshotChecks > 0 && capturedGrapple && capturedGrappleRelease,
-                    "current81 archive captures/restores actual Active accepted rope and subsequent release, with zero passive queries/forces");
+                    "current82 archive captures/restores actual Active accepted rope and subsequent release, with zero passive queries/forces");
             string digest = Convert.ToHexString(aggregate.GetHashAndReset());
             restored?.Dispose(); restored = null;
 
@@ -297,7 +297,7 @@ internal static class MomentumReplaySceneTests
                     .Append(':').Append(BitConverter.SingleToInt32Bits(player.ModBipedTop));
             gameplay = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(stance.ToString())));
         }
-        if (replay.Session.Metadata is { ProtocolVersion: >= 81 })
+        if (replay.Session.Metadata is { ProtocolVersion: >= 82 })
         {
             using var bytes = new MemoryStream(); using var writer = new BinaryWriter(bytes);
             writer.Write(gameplay);
@@ -322,7 +322,7 @@ internal static class MomentumReplaySceneTests
         {
             MovementModel.Native => 0,
             MovementModel.Momentum => 1,
-            MovementModel.Parkour => replay.Session.Metadata!.ProtocolVersion >= 81 ? 5 : replay.Session.Metadata.ProtocolVersion >= 80 ? 4 : replay.Session.Metadata.ProtocolVersion >= 79 ? 3 : replay.Session.Metadata.ProtocolVersion >= 78 ? 2 : 1,
+            MovementModel.Parkour => replay.Session.Metadata!.ProtocolVersion >= 82 ? 5 : replay.Session.Metadata.ProtocolVersion >= 80 ? 4 : replay.Session.Metadata.ProtocolVersion >= 79 ? 3 : replay.Session.Metadata.ProtocolVersion >= 78 ? 2 : 1,
             MovementModel.Quake3 => replay.Session.Metadata!.ProtocolVersion >= 76 ? 4 : replay.Session.Metadata.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 62 ? 2 : 1,
             MovementModel.Traversal => replay.Session.Metadata!.ProtocolVersion >= 76 ? 5 : replay.Session.Metadata.ProtocolVersion >= 74 ? 4 : replay.Session.Metadata.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 69 ? 2 : 1,
             _ => throw new InvalidDataException("Unknown expected replay movement model.")

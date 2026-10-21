@@ -542,7 +542,8 @@ namespace MphRead.Entities
                         {
                             if (gunSample)
                                 ApplyHunterNodePose(_gunModel, transform, gunPresentation);
-                            if (!TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
+                            if (!ModTryDrawSourceCannon(transform)
+                                && !TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
                                 GetDrawItems(_gunModel, _gunModel.Model.Nodes[0], _curAlpha);
                         }
                         finally

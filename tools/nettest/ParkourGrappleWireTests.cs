@@ -188,7 +188,7 @@ internal static class ParkourGrappleWireTests
         for (int at = 0; at < NetMatchTimeSync.Size; at += 4)
             BinaryPrimitives.WriteSingleLittleEndian(oldSnapshot.AsSpan(oldTail + at), at * .25f);
         BinaryPrimitives.WriteUInt16LittleEndian(oldSnapshot.AsSpan(oldTail + NetMatchTimeSync.Size), 7);
-        foreach (int protocol in new[] { 77, 78, 79, 80 })
+        foreach (int protocol in new[] { 77, 78, 79, 80, 81 })
         {
             var converted = ReplayIdentityCompatibility.Convert(oldSnapshot, protocol);
             Check(converted.Length == oldSnapshot.Length + 8 * 19
@@ -216,7 +216,7 @@ internal static class ParkourGrappleWireTests
         }
         byte[] live = new byte[1 + Canonical(100, Active, 8).Length]; live[0] = (byte)PacketType.Snapshot;
         Canonical(100, Active, 8).CopyTo(live, 1);
-        Check(ReplayIdentityCompatibility.Convert(live, 81).SequenceEqual(live), "current81 eight accepted anchors remain byte-exact through replay boundary");
+        Check(ReplayIdentityCompatibility.Convert(live, 82).SequenceEqual(live), "current82 eight accepted anchors remain byte-exact through replay boundary");
     }
 
     private static void SplitLanes()

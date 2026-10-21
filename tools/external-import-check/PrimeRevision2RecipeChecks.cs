@@ -27,8 +27,20 @@ internal static class PrimeRevision2RecipeChecks
     internal static ImportBundleSpec PreviousRev2(string id) => new(id, 2,
         PreviousRevision2.Single(p => p.Id == id).Recipe, "c55bf0ecb6cac32fa90d43cb0ad9e4a917d43ed0",
         new[] { id + ".obj", id + ".skeleton.json", id + ".weights.json", id + ".motions.json" });
-    internal static string[] FullComponents(string id) => new[] { ".obj", ".skeleton.json", ".weights.json", ".motions.json",
+    private static readonly (string Id, string Recipe)[] FrozenRevision3 =
+    {
+        ("trooper-power", "da2ada3b677642a599fb383b128d096d6a4a2c6dcffcb4592b166b87537076de"),
+        ("trooper-ice", "90ae436ff8bd6a85a4e4c5119d4a8a222dbd14b7f8996e42b911e802af62ebe0"),
+        ("trooper-wave", "085161ab3646fb21a228870e3c7bef650371e0972903a5fb831dfbade1b842b3"),
+        ("trooper-plasma", "855b8b672e1e6109c3358770d2c4ed971196f56e78a789b3bdaed9776ad10452")
+    };
+    // Frozen before adding material transport; never derive the old identity
+    // from the factory under test or an optional evidence file.
+    internal static ImportBundleSpec PreviousRev3(string id) => new(id, 3,
+        FrozenRevision3.Single(p => p.Id == id).Recipe, "c55bf0ecb6cac32fa90d43cb0ad9e4a917d43ed0", FullSourceComponents(id));
+    internal static string[] FullSourceComponents(string id) => new[] { ".obj", ".skeleton.json", ".weights.json", ".motions.json",
         ".cinf.bin", ".animations.bin", ".source.glb", ".source.json", ".ancs-graph.json", ".ancs.bin" }.Select(s => id + s).ToArray();
+    internal static string[] FullComponents(string id) => FullSourceComponents(id).Append(id + ".materials.bin").ToArray();
 
     public static void Run()
     {
@@ -48,14 +60,15 @@ internal static class PrimeRevision2RecipeChecks
                 Check(old.RequiredComponents.SequenceEqual(new[] { expected.Id + ".obj", expected.Id + ".skeleton.json",
                     expected.Id + ".weights.json", expected.Id + ".motions.json" }), "legacy four components remain exact");
                 var next = RetroCharacterPreviewExporter.BundleSpec(expected.Id, ExternalSourceEdition.PrimeUsaRevision2);
-                Check(next.Id == old.Id && next.Version == 3 && next.RecipeHash != old.RecipeHash
+                Check(next.Id == old.Id && next.Version == 4 && next.RecipeHash != old.RecipeHash
                     && next.SourceFingerprint != old.SourceFingerprint
-                    && next.RequiredComponents.Length == 10 && next.RequiredComponents.ToHashSet().SetEquals(FullComponents(expected.Id)),
-                    "revision 2 v3 has complete source-authoring outputs under a separate exact recipe/source identity");
+                    && next.RequiredComponents.Length == 11 && next.RequiredComponents.ToHashSet().SetEquals(FullComponents(expected.Id)),
+                    "revision 2 v4 requires complete source authoring plus raw material/TXTR transport");
                 Check(next.SourceFingerprint == "c55bf0ecb6cac32fa90d43cb0ad9e4a917d43ed0", "revision 2 archive fingerprint is fixed");
-                Check(next.RecipeHash != PreviousRev2(expected.Id).RecipeHash, "richer v3 recipe cannot masquerade as frozen four-component v2");
+                Check(next.RecipeHash != PreviousRev2(expected.Id).RecipeHash, "material v4 recipe cannot masquerade as frozen four-component v2");
+                Check(next.RecipeHash != PreviousRev3(expected.Id).RecipeHash, "material v4 recipe cannot masquerade as frozen ten-component v3");
                 Check(RetroCharacterPreviewExporter.PartsFor(expected.Id).Single().Version == 1
-                    && RetroCharacterPreviewExporter.PartsFor(expected.Id, ExternalSourceEdition.PrimeUsaRevision2).Single() is { Id: "body", Version: 2 },
+                    && RetroCharacterPreviewExporter.PartsFor(expected.Id, ExternalSourceEdition.PrimeUsaRevision2).Single() is { Id: "body", Version: 3 },
                     "only Rev2 advances the expected body component version");
                 VerifyInventory(Path.Combine(root, expected.Id), old, next);
             }
@@ -122,15 +135,25 @@ internal static class PrimeRevision2RecipeChecks
             && LocalImportBundle.Inspect(previousRoot, previous.Id, previous).State == ImportBundleState.Ready,
             "literal frozen Rev2 v2 remains valid under its explicit old recipe but current inspection reports Outdated");
         Check(Same(previousSnapshot, Snapshot(previousRoot)), "inspection never migrates or rewrites the old v2 receipt/generation");
-        Check(RetroCharacterPreviewExporter.InspectParts(previous.Id, previousInspection).Single() is { Version: 2, State: ImportBundleState.Outdated },
-            "old Rev2 receipt reports expected bodyv2 as Outdated, never current Ready");
+        Check(RetroCharacterPreviewExporter.InspectParts(previous.Id, previousInspection).Single() is { Version: 3, State: ImportBundleState.Outdated },
+            "old Rev2 receipt reports expected bodyv3 as Outdated, never current Ready");
+        var frozenV3 = PreviousRev3(next.Id);
+        string frozenV3Root = Path.Combine(root, "previous-rev3");
+        LocalImportBundle.Publish(frozenV3Root, frozenV3, frozenV3.RequiredComponents.ToDictionary(n => n, n => Encoding.UTF8.GetBytes("own synthetic v3 component " + n)));
+        var v3Snapshot = Snapshot(frozenV3Root);
+        var v3Inspection = RetroCharacterPreviewExporter.InspectBundle(frozenV3Root, next.Id);
+        Check(v3Inspection.State == ImportBundleState.Outdated && v3Inspection.Receipt is { Version: 3 }
+            && LocalImportBundle.Inspect(frozenV3Root, next.Id, frozenV3).State == ImportBundleState.Ready
+            && RetroCharacterPreviewExporter.InspectParts(next.Id, v3Inspection).Single() is { Version: 3, State: ImportBundleState.Outdated },
+            "literal frozen v3 remains explicitly valid while current material bodyv3 reports Outdated");
+        Check(Same(v3Snapshot, Snapshot(frozenV3Root)), "v3 inspection preserves all ten component bytes and receipt exactly");
         var parts = next.RequiredComponents.ToDictionary(n => n, n => Encoding.UTF8.GetBytes("own synthetic component " + n));
         LocalImportBundle.Publish(root, next, parts);
         var ready = RetroCharacterPreviewExporter.InspectBundle(root, next.Id);
-        Check(ready.State == ImportBundleState.Ready && ready.Receipt is { Version: 3 }
-            && ready.Files.Count == 10 && ready.Receipt.SourceFingerprint == next.SourceFingerprint, "edition-aware inspection admits fully verified revision 2 v3 inventory");
-        Check(RetroCharacterPreviewExporter.InspectParts(next.Id, ready).Single() is { Version: 2, State: ImportBundleState.Ready },
-            "current Rev2 complete bodyv2 status is Ready");
+        Check(ready.State == ImportBundleState.Ready && ready.Receipt is { Version: 4 }
+            && ready.Files.Count == 11 && ready.Receipt.SourceFingerprint == next.SourceFingerprint, "edition-aware inspection admits all eleven revision 2 v4 components");
+        Check(RetroCharacterPreviewExporter.InspectParts(next.Id, ready).Single() is { Version: 3, State: ImportBundleState.Ready },
+            "current Rev2 complete material bodyv3 status is Ready");
         Check(LocalImportBundle.Inspect(root, next.Id, old).State == ImportBundleState.UnsupportedSource,
             "legacy-only inspection still refuses revision 2 fingerprint");
         Check(RetroCharacterPreviewExporter.InspectBundle(root, "darksamus-echoes").State == ImportBundleState.NotInstalled,
@@ -156,6 +179,28 @@ internal static class PrimeRevision2RecipeChecks
             "known source edition still verifies every component digest fail closed");
         File.WriteAllBytes(component, bytes);
         Check(RetroCharacterPreviewExporter.InspectBundle(root, next.Id).State == ImportBundleState.Ready, "restoring exact component restores Ready");
+        string material = ready.Files.Single(p => Path.GetFileName(p) == next.Id + ".materials.bin");
+        byte[] materialBytes = File.ReadAllBytes(material);
+        File.WriteAllBytes(material, Encoding.UTF8.GetBytes("different invented material component"));
+        Check(RetroCharacterPreviewExporter.InspectBundle(root, next.Id).State == ImportBundleState.Failed,
+            "a changed required material archive cannot leave the v4 body Ready");
+        File.WriteAllBytes(material, materialBytes);
+        Check(RetroCharacterPreviewExporter.InspectBundle(root, next.Id).State == ImportBundleState.Ready,
+            "restoring the exact required material digest restores v4 Ready");
+        File.Delete(material);
+        try
+        {
+            var missing = RetroCharacterPreviewExporter.InspectBundle(root, next.Id);
+            var body = RetroCharacterPreviewExporter.InspectParts(next.Id, missing).Single();
+            Check(missing.State == ImportBundleState.Incomplete && body is { Version: 3, State: ImportBundleState.Incomplete }
+                && body.Components.Count == 11
+                && body.Components.Single(c => c.Role == "source-materials").State == ImportBundleState.Incomplete
+                && body.Components.Where(c => c.Role != "source-materials").All(c => c.State == ImportBundleState.Ready),
+                "missing required material component reports Incomplete while all ten preexisting authoring roles remain Ready");
+        }
+        finally { File.WriteAllBytes(material, materialBytes); }
+        Check(RetroCharacterPreviewExporter.InspectBundle(root, next.Id).State == ImportBundleState.Ready,
+            "restoring the missing exact material component restores current Ready");
         string alias = Path.Combine(root, LocalImportBundle.StorageDirectory, "darksamus-echoes"); Directory.CreateDirectory(alias);
         File.WriteAllBytes(Path.Combine(alias, "current.json"), original);
         Check(RetroCharacterPreviewExporter.InspectBundle(root, "darksamus-echoes").State == ImportBundleState.Failed,

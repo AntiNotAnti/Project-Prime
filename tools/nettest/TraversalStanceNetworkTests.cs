@@ -43,8 +43,8 @@ internal static class TraversalStanceNetworkTests
         try
         {
             _checks = 0;
-            Check(NetConfig.ProtocolVersion == 81 && (uint)IntentButtons.Crouch == 1u << 22
-                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol81 preserves distinct held and canonical stance bits");
+            Check(NetConfig.ProtocolVersion == 82 && (uint)IntentButtons.Crouch == 1u << 22
+                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol82 preserves distinct held and canonical stance bits");
             foreach (IntentButtons bits in new[] { IntentButtons.None, IntentButtons.Crouch, IntentButtons.CrouchedState, StanceBits })
             {
                 var carrier = new IntentPacket { Buttons = IntentButtons.InPlayState | bits, Aim = Vector3.UnitZ };
@@ -92,9 +92,9 @@ internal static class TraversalStanceNetworkTests
             byte[] currentPacket = Intent(intent, slotted), packet = Intent(intent, slotted, historical: true);
             int at = slotted ? 2 : 1;
             Check(IntentPacket.Read(currentPacket.AsSpan(at)).Buttons == intent.Buttons
-                && ReplayIdentityCompatibility.Convert(currentPacket, 81).SequenceEqual(currentPacket),
-                "current81 intent preserves exact held and canonical stance bytes");
-            foreach (int protocol in new[] { 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80 })
+                && ReplayIdentityCompatibility.Convert(currentPacket, 82).SequenceEqual(currentPacket),
+                "current82 intent preserves exact held and canonical stance bytes");
+            foreach (int protocol in new[] { 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81 })
                 Check(ReplayIdentityCompatibility.Convert(packet, protocol).SequenceEqual(currentPacket),
                     "historical1296-byte intent preserves original stance bytes with zero nonce: " + protocol);
             foreach (int protocol in new[] { 60, 61, 62, 63, 64, 65, 66, 67, 68 })
@@ -110,8 +110,8 @@ internal static class TraversalStanceNetworkTests
         foreach (var fixture in new[] { (Packet: full, Historical: Snapshot(player, historical: true)), (Packet: fast, Historical: fast) })
         {
             byte[] packet = fixture.Packet, historical = fixture.Historical;
-            Check(ReplayIdentityCompatibility.Convert(packet, 81).SequenceEqual(packet), "current81 full/fast stance packet remains exact");
-            foreach (int protocol in new[] { 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80 })
+            Check(ReplayIdentityCompatibility.Convert(packet, 82).SequenceEqual(packet), "current82 full/fast stance packet remains exact");
+            foreach (int protocol in new[] { 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81 })
                 Check(ReplayIdentityCompatibility.Convert(historical, protocol).SequenceEqual(packet),
                     "historical173-byte full/unchanged fast stance preserves body and real tail: " + protocol);
             foreach (int protocol in new[] { 60, 61, 62, 63, 64, 65, 66, 67, 68 })

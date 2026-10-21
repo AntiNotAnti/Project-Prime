@@ -189,7 +189,7 @@ namespace MphRead.Mods.Launcher
                 try
                 {
                     localBody = System.Threading.Tasks.Task.Run(() =>
-                        Render.Characters.CharacterSourcePreviewSelection.Load(bodyId, System.Threading.CancellationToken.None))
+                        Render.Characters.CharacterSourcePreviewSelection.LoadForLocalBody(bodyId, System.Threading.CancellationToken.None))
                         .GetAwaiter().GetResult();
                 }
                 catch (Exception ex) when (ex is not (OutOfMemoryException or AccessViolationException))

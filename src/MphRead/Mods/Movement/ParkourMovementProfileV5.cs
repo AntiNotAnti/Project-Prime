@@ -2,7 +2,7 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Movement;
 
-// Parkour v5 retains immutable v4 base tuning; protocol81 versions grapple admission separately.
+// Parkour v5 retains immutable v4 base tuning; protocol82 versions grapple admission separately.
 internal static class ParkourMovementProfileV5
 {
     internal const int ProfileVersion = 5;

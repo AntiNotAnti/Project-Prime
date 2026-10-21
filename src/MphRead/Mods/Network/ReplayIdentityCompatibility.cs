@@ -25,7 +25,7 @@ internal static class ReplayIdentityCompatibility
 
     private static ReadOnlySpan<byte> UpgradeGrapple(ReadOnlySpan<byte> packet, int protocol)
     {
-        if (protocol >= 81 || packet.IsEmpty) return packet;
+        if (protocol >= 82 || packet.IsEmpty) return packet;
         PacketType type = (PacketType)packet[0];
         if (type is PacketType.Intent or PacketType.SlotIntent)
         {
@@ -39,7 +39,7 @@ internal static class ReplayIdentityCompatibility
             return result;
         }
         // Older adapters already expand directly into the current stride.
-        if (protocol is >= 49 and <= 80 && type == PacketType.Snapshot)
+        if (protocol is >= 49 and <= 81 && type == PacketType.Snapshot)
         {
             Require(packet.Length >= 1 + SnapshotHeader.Size);
             var header = SnapshotHeader.Read(packet[1..]);
@@ -374,12 +374,12 @@ internal static class ReplayIdentityCompatibility
         if (type == PacketType.MatchState)
         {
             Require(converted.Length == 1 + MatchStatePacket.Size);
-            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & 262144u) == 0);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & (262144u | 1048576u)) == 0);
         }
         if (type == PacketType.SessionState)
         {
             Require(converted.Length == 1 + SessionStatePacket.Size);
-            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 262144u) == 0);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & (262144u | 1048576u)) == 0);
         }
         return converted;
     }

@@ -741,11 +741,17 @@ namespace MphRead.Mods.Render.Characters
                 attachment=new(scene,resources,sourceLease,asset,nativeModel,geometry,sourceAnchor);
             }
             IReadOnlyList<CharacterSourceGxBinding>? sourcePrograms = null;
-            if (sourceLease?.SourceMaterials is { } sourceMaterials && sourceLease.SourceCannon == null)
+            if (sourceLease?.SourceMaterials is { } sourceMaterials)
             {
-                if (attachment == null || asset.Part != CharacterModelPart.Biped
-                    || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count)
-                    || geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() != sourceMaterials.Programs.Count)
+                bool generatedCannonCut = sourceLease.SourceCannon?.IsGenerated == true
+                    && asset.Part == CharacterModelPart.ViewModel
+                    && asset.PrivateAppearance == CharacterSourcePreviewSelection.Appearance
+                    && sourceMaterials.Archive.Binding.CharacterId == "darksamus-echoes"
+                    && sourceMaterials.Programs.Count == 7 && geometry.IndexCount == 392 * 3
+                    && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[] { 2, 5 });
+                if (attachment == null || !(generatedCannonCut || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
+                        && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() == sourceMaterials.Programs.Count)
+                    || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count))
                     throw new InvalidDataException("Complete original body material ordinals required.");
                 sourcePrograms = scene.PrepareSourceGxMaterials(sourceMaterials);
             }

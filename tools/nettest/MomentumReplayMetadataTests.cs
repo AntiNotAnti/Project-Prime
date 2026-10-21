@@ -64,9 +64,9 @@ internal static class MomentumReplayMetadataTests
         foreach (byte[][] packets in new[] { new[] { Match(MovementModel.Parkour) }, new[] { Session(MovementModel.Parkour) },
             new[] { Match(MovementModel.Parkour), Session(MovementModel.Parkour) } })
         {
-            foreach (byte protocol in new byte[] { 77, 78, 79, 80, 81 })
+            foreach (byte protocol in new byte[] { 77, 78, 79, 80, 81, 82 })
             {
-                int profile = protocol - 76;
+                int profile = protocol >= 82 ? 5 : protocol >= 80 ? 4 : protocol - 76;
                 var metadata = Metadata(protocol, packets);
                 Check(metadata.RecordedMovementModel == MovementModel.Parkour
                     && metadata.RecordedMovementProfileVersion == profile,

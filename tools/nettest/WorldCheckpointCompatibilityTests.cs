@@ -88,6 +88,10 @@ internal static class WorldCheckpointCompatibilityTests
         using (var oldWorld = ReplayWorldCheckpoint.FromBytes(Envelope(10, 3, oldCombined, oldCombined, touch, pickups)))
             check(oldWorld.HasNativeTouchContract && oldWorld.HasTimedPickupContract && !oldWorld.HasGrappleContract,
                 "historical world10 embeds real decoder12/protocol80 rows without grapple appendix");
+        var package81 = oldCombined.ToArray(); package81[6] = 81;
+        using (var oldWorld81 = ReplayWorldCheckpoint.FromBytes(Envelope(10, 3, package81, package81, touch, pickups)))
+            check(!oldWorld81.HasGrappleContract && oldWorld81.ConstructionState().Bytes[6] == 81,
+                "historical package81 world10 keeps native173/1296 decoder12 rows without grapple");
         // Seed an actual accepted player through the replica packet admission seam.
         var grappleState = State(grant: true);
         var accepted = new PlayerGrappleState(true, 0x1234, new(3, 4, 0), 5);
@@ -104,6 +108,8 @@ internal static class WorldCheckpointCompatibilityTests
         check(grappleState.TryGetPlayer(0, out var acceptedPlayer) && acceptedPlayer.Grapple == accepted,
             "world fixture carries admitted accepted anchor and current life");
         combined = grappleState.CaptureCheckpoint().Bytes.ToArray();
+        check(combined[6] == 82 && BinaryPrimitives.ReadUInt16LittleEndian(combined.AsSpan(4)) == 14,
+            "current grapple world embeds actual protocol82 decoder14");
         byte[] grapple = new byte[184];
         BinaryPrimitives.WriteUInt16LittleEndian(grapple, 4); BinaryPrimitives.WriteUInt16LittleEndian(grapple.AsSpan(2), 5);
         Convert.FromHexString("0134120000404000008040000000000000A040").CopyTo(grapple, 4);

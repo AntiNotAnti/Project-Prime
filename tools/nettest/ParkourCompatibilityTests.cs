@@ -22,19 +22,22 @@ internal static class ParkourCompatibilityTests
             catch (InvalidDataException) { rejected = true; }
             Check(rejected, $"Protocol{protocol} must reject Parkour bit19.");
         }
-        Check(NetConfig.ProtocolVersion == 81, "Current Parkour v5 requires protocol81.");
+        Check(NetConfig.ProtocolVersion == 82, "Current Parkour v5 requires protocol82.");
         Check((byte)MovementModel.Parkour == 4 && (uint)MatchModifierFlags.ParkourMovement == 524288u,
             "Parkour model4 and bit19 are stable.");
-        Check(MovementModelRules.KnownModifierMask == 1048575u,
-            "Live known modifier mask includes bit19 only.");
+        Check(MovementModelRules.KnownModifierMask == 2097151u,
+            "Live known modifier mask includes the package availability bit20.");
         Check(MovementModelRules.ValidRules(MatchModifierFlags.ParkourMovement)
             && MovementModelRules.FromRules(MatchModifierFlags.ParkourMovement) == MovementModel.Parkour,
             "Parkour is an explicit movement selection.");
+        Check((uint)MatchModifierFlags.PackagedWeaponAvailable == 1u << 20
+            && MovementModelRules.ValidRules(MatchModifierFlags.ParkourMovement | MatchModifierFlags.PackagedWeaponAvailable),
+            "Package availability bit20 remains independent of the selected Parkour profile.");
         foreach (var other in new[] { MatchModifierFlags.MomentumMovement,
             MatchModifierFlags.Quake3Movement, MatchModifierFlags.TraversalMovement })
             Check(!MovementModelRules.ValidRules(other | MatchModifierFlags.ParkourMovement),
                 "Movement model flags remain mutually exclusive.");
-        Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 20)),
+        Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 21)),
             "Future unknown modifier remains unsupported.");
         Check(MovementModelRules.ProfileVersion(MovementModel.Parkour) == 5
             && new ReplayMetadata { ProtocolVersion = 78, IndexedMovementModel = MovementModel.Parkour }
@@ -44,7 +47,9 @@ internal static class ParkourCompatibilityTests
         Check(new ReplayMetadata { ProtocolVersion = 80, IndexedMovementModel = MovementModel.Parkour }
             .RecordedMovementProfileVersion == 4, "Protocol80 records Parkour v4 explicitly.");
         Check(new ReplayMetadata { ProtocolVersion = 81, IndexedMovementModel = MovementModel.Parkour }
-            .RecordedMovementProfileVersion == 5, "Protocol81 records Parkour v5 explicitly.");
+            .RecordedMovementProfileVersion == 4, "Protocol81 package preparation preserves Parkour v4 explicitly.");
+        Check(new ReplayMetadata { ProtocolVersion = 82, IndexedMovementModel = MovementModel.Parkour }
+            .RecordedMovementProfileVersion == 5, "Protocol82 records Parkour v5 explicitly.");
         var metadata = new ReplayMetadata { ProtocolVersion = 77, IndexedMovementModel = MovementModel.Parkour };
         Check(metadata.RecordedMovementModel == MovementModel.Parkour
             && metadata.RecordedMovementProfileVersion == 1, "Protocol77 records Parkour v1 explicitly.");
@@ -59,6 +64,13 @@ internal static class ParkourCompatibilityTests
             Reject(packet, 76);
             Check(ReplayIdentityCompatibility.Convert(packet, 77).SequenceEqual(packet),
                 "Protocol77 retains Parkour rule without changing canonical packet width.");
+            BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(offset), 524288u | 1048576u);
+            Check(ReplayIdentityCompatibility.Convert(packet, 81).SequenceEqual(packet),
+                "Historical package81 preserves Parkour v4 plus independent package availability bit20.");
+            bool rejectedPackage80 = false;
+            try { ReplayIdentityCompatibility.Convert(packet, 80); }
+            catch (InvalidDataException) { rejectedPackage80 = true; }
+            Check(rejectedPackage80, "Protocol80 cannot acquire reserved package availability bit20.");
             BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(offset), 0);
             Check(ReplayIdentityCompatibility.Convert(packet, 76).SequenceEqual(packet),
                 "Protocol76 default rules remain byte-identical.");
@@ -72,7 +84,7 @@ internal static class ParkourCompatibilityTests
         byte[] currentPlayer = new byte[192];
         new PlayerState { SlotIndex = 0, Health = 99, Crouched = false }.Write(currentPlayer);
         currentPlayer.AsSpan(0, 173).CopyTo(snapshot.AsSpan(1 + SnapshotHeader.Size));
-        foreach (int protocol in new[] { 68, 69, 76, 77, 78, 79, 80 })
+        foreach (int protocol in new[] { 68, 69, 76, 77, 78, 79, 80, 81 })
         {
             var converted = ReplayIdentityCompatibility.Convert(snapshot, protocol);
             Check(converted.Length == snapshot.Length + 19
@@ -87,8 +99,8 @@ internal static class ParkourCompatibilityTests
         byte[] liveSnapshot = new byte[snapshot.Length + 19];
         snapshot.AsSpan(0, 1 + SnapshotHeader.Size + 173).CopyTo(liveSnapshot);
         snapshot.AsSpan(1 + SnapshotHeader.Size + 173).CopyTo(liveSnapshot.AsSpan(1 + SnapshotHeader.Size + 192));
-        Check(ReplayIdentityCompatibility.Convert(liveSnapshot, 81).SequenceEqual(liveSnapshot),
-            "Current81 complete snapshot is byte-exact without historical reinterpretation.");
+        Check(ReplayIdentityCompatibility.Convert(liveSnapshot, 82).SequenceEqual(liveSnapshot),
+            "Current82 complete snapshot is byte-exact without historical reinterpretation.");
         foreach (bool fast in new[] { false, true })
         {
             byte[] packet = snapshot;

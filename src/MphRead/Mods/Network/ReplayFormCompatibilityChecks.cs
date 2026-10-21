@@ -147,10 +147,10 @@ internal static class ReplayCheckpointCheckFixture
         int matchAt = MatchOffset(current);
         int firstPlayer = matchAt + MatchStatePacket.Size + 1 + RosterPacket.Size;
         var layout = ReplayReplicaState.InspectCheckpointLayout(new(current));
-        if (layout.Version != 14 || layout.Protocol != 81 || layout.HeaderBytes != 8
+        if (layout.Version != 14 || layout.Protocol != 82 || layout.HeaderBytes != 8
             || !layout.Has(ReplayReplicaCheckpointFeatures.Grapple)
             || current[matchAt + MatchStatePacket.Size] != 0)
-            throw new InvalidOperationException("Historical check requires a v14/protocol81 match-only fixture.");
+            throw new InvalidOperationException("Historical check requires a v14/protocol82 match-only fixture.");
         using var stream = new MemoryStream();
         stream.Write(current[..firstPlayer]);
         int at = firstPlayer;

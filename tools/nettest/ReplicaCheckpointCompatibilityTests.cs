@@ -14,7 +14,7 @@ internal static class ReplicaCheckpointCompatibilityTests
     // Literal frozen widths keep this oracle independent of future writers.
     internal static byte[] Protocol80Rows(byte[] current)
     {
-        if (current[4] != 14 || current[6] != 81 || PlayerState.Size != 192
+        if (current[4] != 14 || current[6] != 82 || PlayerState.Size != 192
             || IntentPacket.TouchCanonicalSize != 1298)
             throw new InvalidOperationException("Unexpected current checkpoint fixture contract.");
         using var input = new MemoryStream(current, writable: false);
@@ -184,8 +184,8 @@ internal static class ReplicaCheckpointCompatibilityTests
             && restored.PickupVerdicts[claim.Key] == verdict,
             "actual staged A2 v10/protocol53 layout restores populated claim/verdict/item tail without invented touch");
         var checkpoint = state.CaptureCheckpoint();
-        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 14 && checkpoint.Bytes[6] == 81 && checkpoint.Bytes[7] == 23,
-            "current v14/protocol81 explicitly declares native touch, pickup, grant and grapple features");
+        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 14 && checkpoint.Bytes[6] == 82 && checkpoint.Bytes[7] == 23,
+            "current v14/protocol82 explicitly declares native touch, pickup, grant and grapple features");
         restored.RestoreCheckpoint(checkpoint);
         check(restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
             "v14 roundtrip preserves both nonzero touch and complete pickup state");
@@ -215,7 +215,7 @@ internal static class ReplicaCheckpointCompatibilityTests
             "accepted A2 v12/55 flags3 restores touch and pickups without fabricated grant coverage");
         restored.RestoreCheckpoint(checkpoint);
         var badContract = checkpoint.Bytes.ToArray(); badContract[7] = 3;
-        Reject(badContract, "protocol81/v14 cannot masquerade as the A2 feature contract");
+        Reject(badContract, "protocol82/v14 cannot masquerade as the A2 feature contract");
         var legacyWrong = staged.ToArray(); legacyWrong[4] = 11; legacyWrong[6] = 53;
         Reject(legacyWrong, "staged v11 requires its exact historical protocol54 source contract");
         bool ambiguous = false;
