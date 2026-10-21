@@ -11,6 +11,7 @@ public partial class PlayerEntity
     private CharacterSourceBodyOwner? _sourceBody;
     private long _sourceBodyLife;
     internal CharacterSourceBodyOwner? ModSourceBody => _sourceBody;
+    internal Model ModSourceNativeGun => _gunModel.Model;
 
     internal void ModBindSourceBody(CharacterSourcePreviewSelection selection)
     {
@@ -76,4 +77,38 @@ public partial class PlayerEntity
         finally { _scene.SourceGxSubmission = previous; }
         return true;
     }
+
+    private bool ModTryDrawSourceCannon(Matrix4 gun)
+    {
+        if (_sourceBody is not { } owner || !SourceBodyStateSupported || !RenderOptions.ShowCustomCosmetics
+            || _curAlpha != 1 || CurrentWeapon != BeamType.PowerBeam
+            || !SourceCannonAnimationSupported(GunAnimation)
+            || !ModGetFirstPersonGunTransform(out _) || !ModGetFirstPersonEffectTransform(out _)
+            || !owner.PrepareCannon(gun, Fixed.ToFloat(Values.MuzzleOffset), out var presentation)) return false;
+        var model = owner.CannonModel!;
+        // Positions already contain the fixed source-to-cannon basis. The item
+        // transform carries the same basis for raw-normal environment texgen.
+        Matrix4 normalTransform = model.SourceCannon!.ToCannon * presentation;
+        int polygonId = _scene.GetNextPolygonId();
+        var previous = _scene.SourceGxSubmission;
+        try
+        {
+            foreach (var segment in model.Segments)
+            {
+                _scene.SourceGxSubmission = new(segment.SourceGx!, owner.MaterialSeconds, owner, ViewModel: true);
+                _scene.AddRenderItem(_gunModel.Model.Materials[segment.NativeMaterialIndex], polygonId, 1,
+                    Vector3.Zero, GetLightInfo(), Matrix4.Identity, normalTransform, segment.ListId,
+                    segment.SourceJointPalette!.Count, segment.SourcePresentationPalette!,
+                    null, null, SelectionType.None, BillboardMode.None, 1, segment.AlbedoBinding,
+                    weightedSkinning: true, authoredTexture: true, authoredWrapS: segment.WrapS,
+                    authoredWrapT: segment.WrapT, authoredDoubleSided: true,
+                    authoredTransparent: segment.SourceGx!.Program.DrawPass != CharacterSourceGxProgram.Pass.Opaque);
+            }
+        }
+        finally { _scene.SourceGxSubmission = previous; }
+        return true;
+    }
+
+    internal static bool SourceCannonAnimationSupported(GunAnimation state)
+        => state is GunAnimation.Idle or GunAnimation.Shot or GunAnimation.Charging or GunAnimation.FullCharge or GunAnimation.ChargeShot;
 }
