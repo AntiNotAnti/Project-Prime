@@ -80,6 +80,7 @@ namespace MphRead
             if (!Services.IsReplica) throw new InvalidOperationException("A replica camera requires a replica scene.");
             Vector3 direction = target - position;
             if (!float.IsFinite(direction.LengthSquared) || direction.LengthSquared < 0.00001f) return;
+            ClearCustomInspectionFirstPerson();
             _cameraMode = CameraMode.Roam;
             _cameraPosition = position;
             _cameraFacing = direction.Normalized();

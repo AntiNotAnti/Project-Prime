@@ -110,6 +110,7 @@ namespace MphRead.Entities
                 replicaUp = replicaUp.Normalized();
             }
 
+            replicaFov = _scene.CustomInspectionCameraFov(this, replicaFov);
             position = replicaPosition;
             fov = replicaFov;
             view = Matrix4.LookAt(replicaPosition, replicaTarget, replicaUp);
