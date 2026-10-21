@@ -4,6 +4,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length is 1 or 2 && args[0] == "--custom-replay-bootstrap") return CustomReplayBootstrapChecks.Run(args.Length==2?args[1]:null);
 if (args.Length == 5 && args[0] == "--weapon-package-remote-host") return RemoteWeaponPackageHostChecks.Run(args[1],args[2],args[3],args[4]);
 if (args.Length == 5 && args[0] == "--weapon-package-remote-host-gl") return WeaponPackageOnlineGlChecks.Run(args[1],args[2],args[3],remoteHost:args[4]);
 if (args.Length is 1 or 2 && args[0] == "--weapon-package-host-preparation") return RemoteWeaponPackagePreparationChecks.Run(args.Length==2?args[1]:null);
