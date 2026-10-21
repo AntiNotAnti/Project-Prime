@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.Json;
+using MphRead.Mods.CustomWeapons.Packages;
 
 namespace MphRead.Mods.MapGen;
 
@@ -17,11 +18,14 @@ public static class CommunityAssetValidator
     public const long MaxTextureBytes = 64L * 1024 * 1024;
     public const long MaxModelBytes = 128L * 1024 * 1024;
     public const long MaxDescriptorBytes = 2L * 1024 * 1024;
+    public const long MaxWeaponBytes = WeaponPackageLimits.MaximumArchiveBytes;
+    public const string WeaponMimeType = "application/vnd.projectprime.ppweapon";
 
     public static long Limit(string kind) => CommunityContentKinds.Normalize(kind) switch
     {
         CommunityContentKinds.Texture => MaxTextureBytes,
         CommunityContentKinds.Model => MaxModelBytes,
+        CommunityContentKinds.Weapon => MaxWeaponBytes,
         CommunityContentKinds.Material or CommunityContentKinds.Prefab => MaxDescriptorBytes,
         _ => throw new InvalidDataException("Gameplay maps must use existing .ppmap validation.")
     };
@@ -36,6 +40,13 @@ public static class CommunityAssetValidator
 
         switch (CommunityContentKinds.Normalize(kind))
         {
+            case CommunityContentKinds.Weapon:
+                if (mime != WeaponMimeType)
+                    throw new InvalidDataException("Unsupported weapon package media type.");
+                byte[] archive = new byte[checked((int)stream.Length)];
+                stream.ReadExactly(archive);
+                _ = WeaponPackage.Parse(archive);
+                break;
             case CommunityContentKinds.Texture:
                 Texture(stream, mime);
                 break;
