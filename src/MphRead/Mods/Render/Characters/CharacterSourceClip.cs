@@ -71,12 +71,16 @@ internal sealed class CharacterSourceClip
  internal static CharacterSourceClip LoadImported(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,
   CharacterSourceRig rig,CharacterSourceAnimationArchive imported,int ordinal)
  {
-  Require((asset.Part==CharacterModelPart.Biped||asset.Part==CharacterModelPart.ViewModel&&lease.SourceCannon?.IsGenerated==true&&ordinal==lease.SourceCannon.ClipOrdinal)&&ReferenceEquals(lease.SourceAnimations,imported)
+  Require((asset.Part==CharacterModelPart.Biped||asset.Part==CharacterModelPart.AlternateForm&&imported.IsNormalBall&&ordinal==CharacterGeneratedNormalBallProfile.ClipOrdinal
+   ||asset.Part==CharacterModelPart.ViewModel&&lease.SourceCannon?.IsGenerated==true&&ordinal==lease.SourceCannon.ClipOrdinal)&&ReferenceEquals(lease.SourceAnimations,imported)
    &&String.Equals(rig.ContentSha256,lease.ModelSha256,StringComparison.OrdinalIgnoreCase),"Exact source-rig imported animation owner required");
   var clip=imported.Open(ordinal);
   if(asset.Part==CharacterModelPart.ViewModel)Require(clip.Source.Id==lease.SourceCannon!.ClipResourceId&&clip.RigidScale,"Exact fixed original cannon primitive required");
+  if(asset.Part==CharacterModelPart.AlternateForm)Require(imported.IsNormalBall&&clip.RigidScale
+   &&clip.Source.Id==CharacterGeneratedNormalBallProfile.ClipId&&clip.Source.Sha256==CharacterGeneratedNormalBallProfile.ClipSha,
+   "Normal ball permits only its fixed original ready primitive, never source travel layered over native roll");
   var anim=clip.CaptureAnimation();var source=imported.Skeleton.Bones;
-  Require(source.Count==(imported.RootBoneId==0?39:35)&&rig.Nodes.Count==source.Count+1,"Complete imported skeleton and source rig required");
+  Require(source.Count==imported.ExpectedJointCount&&rig.Nodes.Count==source.Count+1,"Complete imported skeleton and source rig required");
   var bindings=new List<(uint,int,double[])>();
   foreach(var bone in source.Values.OrderBy(b=>b.Id))
   {
@@ -145,7 +149,7 @@ internal sealed class CharacterSourceClip
  }
  internal ReadOnlyCollection<M> Sample(double seconds)
  {
-  if(_lease.SourceCannon!=null&&seconds!=0)throw new NotSupportedException("Source cannon holds its reviewed authoring phase; no FP clock/state semantics");
+  if((_lease.SourceCannon!=null||_asset.Part==CharacterModelPart.AlternateForm)&&seconds!=0)throw new NotSupportedException("Fixed source part holds its reviewed authoring phase; native owners retain motion");
   _lease.RequireCurrent(_asset);Require(String.Equals(_rig.ContentSha256,_lease.ModelSha256,StringComparison.OrdinalIgnoreCase),"Exact immutable rig identity");if(!double.IsFinite(seconds))throw new ArgumentOutOfRangeException(nameof(seconds));
   _anim.Sample(seconds,out var rotations,out var translations);M[] pose=Enumerable.Repeat(M.Identity,_rig.Nodes.Count).ToArray();
   foreach(var bone in _bones)

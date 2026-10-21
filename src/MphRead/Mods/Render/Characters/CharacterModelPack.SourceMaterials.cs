@@ -40,9 +40,32 @@ internal sealed partial class CharacterModelPack
     private void RevalidateSourceMaterials(CharacterModelAsset asset)
     {
         if (!_sourceMaterials.TryGetValue(asset, out var captured)) return;
-        string path = ContainedPath(_sourceRoot!, captured.Materials.Archive.Binding.CharacterId + ".materials.bin");
+        string materialId = captured.Materials.Archive.Binding.CharacterId;
+        string path = ContainedPath(_sourceRoot!, (materialId == CharacterGeneratedNormalBallProfile.MaterialId
+            ? CharacterGeneratedNormalBallProfile.Stem : materialId) + ".materials.bin");
         if (path != captured.Path || CharacterSourceProofIO.HashFile(path, RetroCharacterMaterialArchive.MaxArchiveBytes) != captured.Materials.Archive.Sha256)
             throw new InvalidDataException("Captured source material generation changed.");
+    }
+
+    internal void CaptureSourceBallMaterials(CharacterModelAsset asset)
+    {
+        if (_sourceRoot == null || !HasSourceBall(asset) || !_sourceProofs.TryGetValue(asset,out var proof))
+            throw new InvalidDataException("Exact original normal ball owner required for its own material capture.");
+        ValidateAtGeneration(asset,proof.ModelSha,_sourceGeneration);
+        string path=ContainedPath(_sourceRoot,CharacterGeneratedNormalBallProfile.Stem+".materials.bin");
+        var materials=CharacterSourceGxMaterials.Read(CharacterSourceProofIO.ReadFile(path,RetroCharacterMaterialArchive.MaxArchiveBytes),
+            proof.ModelSha,CharacterGeneratedNormalBallProfile.MaterialId);
+        ValidateAtGeneration(asset,proof.ModelSha,_sourceGeneration);
+        lock(_sourceProofLock)
+        {
+            if (_sourceMaterials.TryGetValue(asset,out var old))
+            {
+                if(old.Path!=path || old.Materials.Archive.Sha256!=materials.Archive.Sha256)
+                    throw new InvalidDataException("Captured normal ball materials changed.");
+                return;
+            }
+            _sourceMaterials.Add(asset,new(path,materials));_sourceGeneration++;
+        }
     }
 
     // A qualified generated cannon is a whole-triangle cut of this exact body,

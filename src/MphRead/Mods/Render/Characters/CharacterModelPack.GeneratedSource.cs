@@ -16,6 +16,9 @@ internal sealed partial class CharacterModelPack
     private static string ValidateGeneratedSourceProvenance(JsonElement receipt, CharacterModelManifestEntry entry,
         CharacterModelAsset asset, PrivateCharacterAppearance appearance, string sourceCharacter, string? verifiedModelSha)
     {
+        if (asset.Part == CharacterModelPart.AlternateForm)
+            return CharacterGeneratedNormalBallProfile.Validate(receipt,entry,asset,appearance,sourceCharacter,
+                verifiedModelSha ?? CharacterSourceProofIO.HashFile(asset.ModelPath,MaximumModelBytes));
         bool final = sourceCharacter == "darksamus-overcharged-echoes";
         string modelPin = final ? GeneratedFinalSourceGlbSha256 : GeneratedNormalSourceGlbSha256;
         string bankPin = final ? "15f102868334b98e271050493bbfdd996ca3d7121a6f4b04d54f6308b5d07b0d" : "42a042f58ef2ff6395607fce60c458e54c7b10ad90c13142fbc0d143019471f1";
