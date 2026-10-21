@@ -38,7 +38,7 @@ internal static class CustomReplayFileReopenChecks
         ReplayWorldCheckpoint Expected(JsonElement row)=>ReplayWorldCheckpoint.FromCustomBytes(Read(row.GetProperty("filename").GetString()!,ReplayWorldCheckpoint.MaximumBytes));
         var finalRow=rows.Single(row=>row.GetProperty("name").GetString()=="end");
         bool missingRefused=false;try{using var missing=Task.Run(()=>PreparedCustomReplayArchive.Prepare(archive,new WeaponPackageStore(Path.Combine(output,"missing-store")))).GetAwaiter().GetResult();}catch(Exception error)when(error is IOException or InvalidDataException){missingRefused=true;File.WriteAllText(Path.Combine(output,"missing-package-refusal.txt"),error.ToString());}Check(missingRefused,"missing exact historical package refuses cold file Scene preparation");
-        int ordinal=0;var results=new List<object>();
+        int ordinal=0,cadenceDraws=0,syntheticDrawChecks=0;var results=new List<object>();
         foreach(var row in rows.Reverse())
         {
             var foregroundGame=GameState.Current;var foregroundRandom=Rng.Current;uint foregroundRng1=Rng.Rng1,foregroundRng2=Rng.Rng2;bool foregroundActive=NetSession.Active;ushort foregroundMatch=NetSession.CurrentMatchId;ulong foregroundEpoch=NetSession.AuthorityEpoch;
@@ -50,9 +50,27 @@ internal static class CustomReplayFileReopenChecks
                 prepared.Dispose();Check(store.Uninstall(parsed.PackageHash)&&store.Prune()==0,"file Scene owns historical package after preparation disposal and uninstall");
                 using var expected=Expected(row);using var actual=ReplayWorldCheckpoint.CaptureCustom(scene);var differences=expected.CanonicalGraphDifferences(actual);File.WriteAllText(Path.Combine(output,name+"-differences.json"),JsonSerializer.Serialize(differences));Check(differences.Length==0,"file seek restores exact genuine world "+name);
                 Check(scene.Session.RecordingFrame==target&&scene.Scene.LocalWeaponPackage?.PackageHash==parsed.PackageHash,"file seek exact clock and package "+name);
-                // Keep reconstruction undrawn: native DrawnThirdPerson/Lod1 flags are simulation-consumed draw state.
-                while(!scene.Session.AtEnd){if(!scene.StepCustomArchiveInspection())break;}
+                void DrawCadence(int sample)
+                {
+                    int previousWatched=scene.Scene.Players.MainPlayerIndex;
+                    try
+                    {
+                    var watched=scene.Scene.Players.Items[0];Vector3 targetPoint=watched.Position+new Vector3(0,1,0);bool far=(sample&1)!=0;
+                    scene.Scene.Players.MainPlayerIndex=far?1:0;scene.Scene.SetReplicaCamera(targetPoint+(far?new Vector3(70,30,90):new Vector3(2.7f,1.5f,3.8f)),targetPoint,55);scene.Scene.OnResize();
+                    using var beforeDraw=ReplayWorldCheckpoint.CaptureCustom(scene);
+                    scene.Scene.OnDrawFrame();Check(scene.Scene.OnRenderFrame()&&GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"cadenced actual file Scene renders "+name);DesktopGraphicsSession.Present(window);scene.Scene.AfterRenderFrame();
+                    using var afterDraw=ReplayWorldCheckpoint.CaptureCustom(scene);var drawDifferences=beforeDraw.CanonicalGraphDifferences(afterDraw);File.WriteAllText(Path.Combine(output,name+"-draw-"+sample+"-differences.json"),JsonSerializer.Serialize(drawDifferences));Check(drawDifferences.Length==0,"strict graph unchanged by near/far watched draw "+name);cadenceDraws++;
+                    scene.Scene.ClearPresentationEffectTransforms();using var afterClear=ReplayWorldCheckpoint.CaptureCustom(scene);Check(beforeDraw.CanonicalGraphDifferences(afterClear).Length==0,"draw override cleanup preserves canonical suffix owner "+name);
+                    }
+                    finally{scene.Scene.Players.MainPlayerIndex=previousWatched;}
+                }
+                for(int draw=0;draw<3;draw++)DrawCadence(draw);
+                int suffixDrawSample=3;while(!scene.Session.AtEnd){if(!scene.StepCustomArchiveInspection())break;if((scene.Session.RecordingFrame-target)%17==0){DrawCadence(suffixDrawSample++);DrawCadence(suffixDrawSample++);}}
                 using var expectedFinal=Expected(finalRow);using var actualFinal=ReplayWorldCheckpoint.CaptureCustom(scene);var finalDifferences=expectedFinal.CanonicalGraphDifferences(actualFinal);File.WriteAllText(Path.Combine(output,name+"-end-differences.json"),JsonSerializer.Serialize(finalDifferences));Check(finalDifferences.Length==0&&scene.Session.RecordingFrame==Frame(finalRow),"file suffix reaches genuine final world "+name);byte[] endDecoder=scene.State.CaptureCheckpoint().Bytes.ToArray();Check(!scene.StepCustomArchiveInspection()&&scene.State.CaptureCheckpoint().Bytes.SequenceEqual(endDecoder),"file EOF step is inert "+name);results.Add(new{name,target,finalFrame=scene.Session.RecordingFrame});
+                // Synthetic adversarial presentation is isolated from genuine accepted facts and suffix owners.
+                using(var adversarialPrepared=Task.Run(()=>PreparedCustomReplayArchive.Prepare(archive,store,target)).GetAwaiter().GetResult())
+                using(var adversarialScene=PassiveReplayScene.OpenCustomArchiveInspection(adversarialPrepared,new Vector2i(640,480)))
+                    syntheticDrawChecks+=CustomReplayDrawFlagChecks.Run(adversarialScene,window,Path.Combine(output,name+"-synthetic"));
                 // A fresh picture owner may draw, but is never advanced or used for canonical suffix comparisons afterward.
                 using var picturePrepared=Task.Run(()=>PreparedCustomReplayArchive.Prepare(archive,store,target)).GetAwaiter().GetResult();
                 using var pictureScene=PassiveReplayScene.OpenCustomArchiveInspection(picturePrepared,new Vector2i(640,480));picturePrepared.Dispose();
@@ -61,6 +79,6 @@ internal static class CustomReplayFileReopenChecks
             Check(store.Prune()==1,"file Scene disposal releases isolated historical package");
             Check(ReferenceEquals(GameState.Current,foregroundGame)&&ReferenceEquals(Rng.Current,foregroundRandom)&&Rng.Rng1==foregroundRng1&&Rng.Rng2==foregroundRng2&&NetSession.Active==foregroundActive&&NetSession.CurrentMatchId==foregroundMatch&&NetSession.AuthorityEpoch==foregroundEpoch,"file inspection preserves foreground GameState RNG and session identity "+name);
         }
-        File.WriteAllText(Path.Combine(output,"file-reopen-results.json"),JsonSerializer.Serialize(new{checks,results,scope="Actual full native/custom format7 file, independent worker preparation, undrawn fresh Scene reopen/backward-forward seeks and genuine suffix world parity, with separate independent picture owners. Native draw flags are not masked; no draw-then-suffix invariance, fabricated contact or live authority claim."},new JsonSerializerOptions{WriteIndented=true}));return checks;
+        File.WriteAllText(Path.Combine(output,"file-reopen-results.json"),JsonSerializer.Serialize(new{checks,cadenceDraws,syntheticDrawChecks,results,scope="Actual full native/custom format7 file, independent worker preparation, fresh Scene reopen/backward-forward seeks, strict repeated near/far draw and genuine suffix world parity, with isolated labelled synthetic frozen/hidden/spectating draw fixtures. No graph masks, genuine freeze/contact or live authority claim."},new JsonSerializerOptions{WriteIndented=true}));return checks;
     }
 }

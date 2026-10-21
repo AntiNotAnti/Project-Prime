@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Diagnostics;
+using MphRead.Effects;
 using MphRead.Formats;
 using MphRead.Mods.Render;
 using MphRead.Mods.Render.Characters;
@@ -108,6 +109,32 @@ namespace MphRead.Entities
         }
 
         public void Draw()
+        {
+            if (!_scene.Services.IsReplica)
+            {
+                DrawCore();
+                return;
+            }
+            // Retail drawing selects a view-dependent LOD and remembers the
+            // visible ice skeleton for thaw effects. A private replay must keep
+            // its recorded simulation state independent of pictures and cameras.
+            // Consumers inside DrawCore still see this picture's selected LOD.
+            const PlayerFlags2 drawFlags = PlayerFlags2.Lod1 | PlayerFlags2.DrawnThirdPerson;
+            PlayerFlags2 canonicalFlags = Flags2 & drawFlags;
+            Model canonicalLower = _bipedModel1.Model, canonicalUpper = _bipedModel2.Model;
+            Span<Matrix4> canonicalIce = stackalloc Matrix4[_bipedIceTransforms.Length];
+            _bipedIceTransforms.AsSpan().CopyTo(canonicalIce);
+            try { DrawCore(); }
+            finally
+            {
+                Flags2 = (Flags2 & ~drawFlags) | canonicalFlags;
+                _bipedModel1.SetModel(canonicalLower);
+                _bipedModel2.SetModel(canonicalUpper);
+                canonicalIce.CopyTo(_bipedIceTransforms);
+            }
+        }
+
+        private void DrawCore()
         {
             // Player entities bypass GetDrawInfo() in Renderer; emit replay-only
             // transient impact particles from the guaranteed player draw path.
@@ -452,8 +479,8 @@ namespace MphRead.Entities
                                 && presentationOnlyMainEffect ? displayMuzzle : muzzlePos;
                             if (_chargeEffect != null)
                             {
-                                _chargeEffect.SetDrawEnabled(true);
-                                if (presentationOnlyMainEffect)
+                                ModSetPlayerEffectDrawEnabled(_chargeEffect, true);
+                                if (presentationOnlyMainEffect || _scene.Services.IsReplica)
                                     _scene.SetPresentationEffectTransform(_chargeEffect,
                                         GetTransformMatrix(_gunVec2, _gunVec1, effectDrawMuzzle), viewModel: false);
                                 else
@@ -461,8 +488,8 @@ namespace MphRead.Entities
                             }
                             if (_muzzleEffect != null)
                             {
-                                _muzzleEffect.SetDrawEnabled(true);
-                                if (presentationOnlyMainEffect)
+                                ModSetPlayerEffectDrawEnabled(_muzzleEffect, true);
+                                if (presentationOnlyMainEffect || _scene.Services.IsReplica)
                                     _scene.SetPresentationEffectTransform(_muzzleEffect,
                                         GetTransformMatrix(_gunVec2, _gunVec1, effectDrawMuzzle), viewModel: false);
                                 else
@@ -595,11 +622,11 @@ namespace MphRead.Entities
             {
                 if (_chargeEffect != null)
                 {
-                    _chargeEffect.SetDrawEnabled(false);
+                    ModSetPlayerEffectDrawEnabled(_chargeEffect, false);
                 }
                 if (_muzzleEffect != null)
                 {
-                    _muzzleEffect.SetDrawEnabled(false);
+                    ModSetPlayerEffectDrawEnabled(_muzzleEffect, false);
                 }
             }
             if (_scene.GameState.SinglePlayer && IsMainPlayer && _deathCountdown > 0 && _deathCountdown <= 119 / 30f
@@ -611,6 +638,12 @@ namespace MphRead.Entities
                 GetDrawItems(_octolithSimpleModel, _octolithSimpleModel.Model.Nodes[0], alpha: 1, recolor: 0);
             }
             DrawVolumes();
+        }
+
+        private void ModSetPlayerEffectDrawEnabled(EffectEntry entry, bool enabled)
+        {
+            if (_scene.Services.IsReplica) _scene.SetPresentationEffectDrawEnabled(entry, enabled);
+            else entry.SetDrawEnabled(enabled);
         }
 
         /// <summary>
