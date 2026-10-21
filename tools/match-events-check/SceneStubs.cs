@@ -5,8 +5,14 @@ namespace MphRead
     internal sealed class Scene
     {
         internal Services Services { get; } = new();
+        // This content-free adapter harness does not admit private weapon damage.
+        internal PrivateWeaponStub? PirateBlaster => null;
         internal State GameState { get; } = new();
         internal ulong FrameCount { get; set; }
+    }
+    internal sealed class PrivateWeaponStub
+    {
+        internal bool OwnsDamage(Entities.PlayerEntity victim, Entities.BeamProjectileEntity beam) => false;
     }
     internal sealed class Services { internal bool IsReplica { get; set; } }
     internal sealed class State { internal bool Multiplayer { get; set; } = true; internal bool Teams { get; set; } }
@@ -14,6 +20,7 @@ namespace MphRead
 }
 namespace MphRead.Entities
 {
+    internal sealed class BeamProjectileEntity { }
     internal sealed class PlayerEntity
     {
         internal int SlotIndex { get; set; }

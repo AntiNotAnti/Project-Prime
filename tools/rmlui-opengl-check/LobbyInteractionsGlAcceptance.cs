@@ -190,6 +190,8 @@ internal static class LobbyInteractionsGlAcceptance
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
             Check(controller.Tick().Bindings["rules_toggle17"].Text == "TRAVERSAL", "focused native Enter selects Traversal");
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
+            Check(controller.Tick().Bindings["rules_toggle17"].Text == "PARKOUR", "focused native Enter selects Parkour");
+            RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);
             Check(controller.Tick().Bindings["rules_toggle17"].Text == "CLASSIC", "focused native Enter selects Classic");
             RuleAction("rules_toggle17", RmlUiIntentKind.LobbyRulesToggle);
             RuleAction("rules_toggle16", RmlUiIntentKind.LobbyRulesToggle, keyboard: true);

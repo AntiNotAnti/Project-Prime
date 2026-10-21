@@ -53,6 +53,6 @@ The existing life-fenced owner-position multiplayer contract remains in effect;
 the authority does not independently resimulate remote trajectories.
 
 See [wallstrafe validation](parkour-wallstrafe-results.md) for completed Windows
-scene, multiplayer and replay results. Wallrun/kick Windows qualification is
-pending; source checks alone do not qualify the new controller. Short ledge
-scramble and optional grapple are subsequent ordered slices.
+scene, multiplayer and replay results. [Wallrun validation](parkour-wallrun-results.md) records the v3 checks and
+performance diagnostics. Short ledge scramble and optional grapple are subsequent
+ordered slices.

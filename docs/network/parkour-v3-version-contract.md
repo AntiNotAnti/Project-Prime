@@ -17,5 +17,6 @@ passive checkpoint schema is unchanged; it is not an active-controller save or
 resumable movement-budget format. An eventual active-controller save feature
 must persist remaining budget and controller clocks separately.
 
-Source tests are present; Windows runtime, online and replay qualification is
-pending the test connection. No runtime pass is claimed by this note.
+[Windows qualification](../movement/parkour-wallrun-results.md) records the
+committed producer, controller tests, clean/faulted multiplayer, retained/current
+replay checks and bounded performance diagnostics. CI status remains separate.
