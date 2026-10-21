@@ -84,9 +84,12 @@ public sealed partial class DedicatedServer
         public bool Publish(in CustomContactOutcome outcome)
         {
             var identity=outcome.Contact.Key.Action;
-            if (!identity.IsValid || server.CurrentCustomActionEntry(identity.Owner.Slot,scene)?.Combat is not { } combat) return false;
+            if (!identity.IsValid) return false;
+            var entry=server.CurrentCustomActionEntry(identity.Owner.Slot,scene);
+            if (entry?.Combat is not { } combat) return false;
             if(!combat.Outbox.Publish(outcome))return false;
-            server._customAudience?.PublishContact(outcome,NetSession.Clock);return true;
+            server._customAudience?.PublishContact(outcome,NetSession.Clock);
+            server.ObserveCustomReplayContact(entry.State.Wire.Bootstrap,outcome);return true;
         }
         public void AfterSourcePhase(CustomAuthorityCombatAdapter root) => server.ProcessCustomActions(scene,root);
         public void SourcePhaseSealed(CustomAuthorityCombatAdapter root)=>server.PumpCustomNativeIntents();
@@ -95,7 +98,11 @@ public sealed partial class DedicatedServer
         public bool TryPrepareAudience(in CustomWeaponAction action)
             =>server.CustomRoomReady(scene)&&server._customAudience?.Prepare(action,NetSession.Clock)==true;
         public bool HasPreparedAudience(in CustomWeaponAction action)=>server._customAudience?.HasPrepared(action)==true;
-        public bool PublishLaunch(in CustomReplicaLaunch launch)=>server._customAudience?.PublishLaunch(launch,NetSession.Clock)==true;
+        public bool PublishLaunch(in CustomReplicaLaunch launch)
+        {
+            if (server._customAudience?.PublishLaunch(launch,NetSession.Clock)!=true) return false;
+            server.ObserveCustomReplayLaunch(launch);return true;
+        }
         public void SourceObserved(CustomAuthorityCombatAdapter root,in CustomSourceInput input)
             => server.BindCustomControl(scene,root,input);
         public bool CanCollectPickup(CustomAuthorityCombatAdapter root,int index)=>server.CanCollectCustomPickup(scene,root,index);

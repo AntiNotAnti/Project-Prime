@@ -55,6 +55,7 @@ public sealed partial class DedicatedServer
         using var selected = store.AcquireInstalled(archiveHash);
         var manifest = new CustomWeaponPackageManifest(new[] { selected.Package });
         _weaponPackages = WeaponMatchPackageBinding.BindInstalled(store, manifest);
+        PrepareCustomReplayPackage(store, manifest);
         do { _weaponPackageConfiguration = BinaryPrimitives.ReadUInt64LittleEndian(RandomNumberGenerator.GetBytes(8)); }
         while (_weaponPackageConfiguration == 0);
         RiftlineM7Available = true;

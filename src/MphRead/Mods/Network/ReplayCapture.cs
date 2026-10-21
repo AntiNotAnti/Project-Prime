@@ -56,7 +56,9 @@ namespace MphRead.Mods.Network
             return true;
         }
 
-        internal static bool NeedsWorld => DemoRecorder.IsCustomRecording && CustomClientRecordingScope()
+        internal static bool NeedsWorld => ServerReplayRecorder.IsCustomRecording && CustomAuthorityRecordingScope()
+                && Recorder.CustomWeaponContext?.Bootstrap.OriginKind == ReplayCustomWeaponOriginKind.Authority
+            || DemoRecorder.IsCustomRecording && CustomClientRecordingScope()
             || !CustomReplayBoundary.IsBlocked() && ((!Headless.Active && (Mods.Launcher.LauncherPrefs.KillCamEnabled
             || Mods.Launcher.LauncherPrefs.FinalKillCamEnabled || DemoClip.Active))
             || DemoClip.IsSaving || DemoRecorder.IsRecording || ServerReplayRecorder.IsRecording);
@@ -89,10 +91,14 @@ namespace MphRead.Mods.Network
                 catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
                 { _worldCaptureFailed = true; Console.WriteLine("[replay] Authority world capture unavailable: " + ex.Message); }
             }
+            if (NetSession.IsAuthority) AuthorityRecordingOwner?.CaptureCustomReplayState(scene);
             WorldCapture.SetEnabled(NeedsWorld);
             WorldCapture.Advance(NetSession.NetFrame, scene.Size);
             DemoRecorder.Tick();
             ServerReplayRecorder.Tick();
+            if (ServerReplayRecorder.IsCustomRecording && WorldCapture.World is { } captured
+                && captured.Session.Metadata?.FormatVersion == 8)
+                AuthorityRecordingAfterTickForTests?.Invoke(captured);
         }
 
         internal static void ReleaseWorld()
