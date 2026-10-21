@@ -1,5 +1,9 @@
 # Dark Samus source ball trails
 
+Merged in [PR963](https://github.com/AntiNotAnti/Project-Prime/pull/963) at
+`734b7544e3679ac9d6e0e6a47aa80c156a04de9b`; the merge tree equals qualified
+head `850a96929c87863e13f0215cee200905b4bbc8e3`.
+
 Normal and Overcharged source balls now tint the existing native morph-ball
 trail blue, RGB90/200/255, in their admitted local offline draws. The native
 18-slot trail history, fade, texture, ribbon geometry and update timing remain
@@ -94,6 +98,9 @@ cannon frames; the axial trail remains obscured/not clearly distinguishable.
 They therefore do not prove visible trail color. Actual TrailStack packet
 values, geometry/history parity and successful native GPU rendering are the
 qualified trail evidence. No screenshot or source payload is committed.
+The final12-segment capture run passes589,291 checks, with both original traces
+unchanged and a maximum16 actual native segments per appearance. Its raw log
+SHA256 is `a2592a0ad0949e4f74c38854f625ae80fc694f68bf599a2b1065e7cdd8961dd2`.
 
 Owned Echoes RVZ SHA256 remains
 `ba8996256d005749dd6b7ff29ea30e5998451a3741ec87494a6217b01b703529`.

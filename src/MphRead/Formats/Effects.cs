@@ -1473,8 +1473,12 @@ namespace MphRead.Effects
             (SetVecsId, DrawId) = GetFuncIds(Owner.Flags, Owner.DrawType);
         }
 
-        public void AddRenderItem(Scene scene)
+        public void AddRenderItem(Scene scene, Vector3? presentationTint = null)
         {
+            // SecondHunt 41452f2 (MIT): retain the native sampled brightness
+            // and alpha while replacing hue. Only submitted packets change.
+            Vector3 color = presentationTint is Vector3 tint
+                ? tint * MathF.Max(Color.X, MathF.Max(Color.Y, Color.Z)) : Color;
             if (DrawNode)
             {
                 Model model = Owner.Model;
@@ -1512,7 +1516,8 @@ namespace MphRead.Effects
                         scene.UpdateMaterials(model, 0);
                     }
                     scene.AddRenderItem(material, scene.GetNextPolygonId(), 1, Vector3.Zero, LightInfo.Zero, texcoordMtx,
-                        transform, mesh.ListId, 0, Array.Empty<float>(), null, null, SelectionType.None, BillboardMode);
+                        transform, mesh.ListId, 0, Array.Empty<float>(), null, null, SelectionType.None, BillboardMode,
+                        diffuseOverride: presentationTint.HasValue ? color : null);
                 }
                 finally
                 {
@@ -1571,7 +1576,7 @@ namespace MphRead.Effects
                 {
                     transform = Matrix4.CreateTranslation(DrawPosition);
                 }
-                scene.AddRenderItem(RenderItemType.Particle, DrawAlpha, scene.GetNextPolygonId(), Color, xRepeat, yRepeat,
+                scene.AddRenderItem(RenderItemType.Particle, DrawAlpha, scene.GetNextPolygonId(), color, xRepeat, yRepeat,
                     scaleS, scaleT, transform, uvsAndVerts, bindingId, BillboardMode);
             }
         }

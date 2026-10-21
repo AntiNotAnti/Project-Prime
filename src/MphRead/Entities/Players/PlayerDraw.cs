@@ -30,6 +30,7 @@ namespace MphRead.Entities
 
         private static readonly bool HunterAnimationBlendEnabled =
             AnimationRollout.Enabled("PROJECT_PRIME_PLAYER_ANIMATION_BLEND");
+        private static readonly Vector3 SourceBallTint = new(90 / 255f, 200 / 255f, 1);
         // Draw-only rollback for the local third-person body. First-person
         // input and the 60 Hz authoritative gameplay pose remain immediate.
         private static readonly bool ThirdPersonBodyBlendEnabled =
@@ -277,6 +278,8 @@ namespace MphRead.Entities
                             if (altSample)
                                 ApplyHunterNodePose(_altModel, _modelTransform, altPresentation);
                             sourceBallDrawn = ModTryDrawSourceBall(_modelTransform,_curAlpha,brightSkin,outlineColor);
+                            if (sourceBallDrawn && _boostEffect is { EffectId: 136 } boost)
+                                _scene.SetPresentationEffectTint(boost, SourceBallTint);
                             if (!sourceBallDrawn
                                 && !TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
                                 _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
@@ -301,7 +304,7 @@ namespace MphRead.Entities
                     if (Hunter == Hunter.Samus
                         && !Flags2.TestFlag(PlayerFlags2.Cloaking))
                     {
-                        DrawMorphBallTrail(sourceBallDrawn ? new Vector3(90 / 255f, 200 / 255f, 1) : null);
+                        DrawMorphBallTrail(sourceBallDrawn ? SourceBallTint : null);
                     }
                     DrawCosmeticArmor(_altModel.Model, true);
                     Flags2 |= PlayerFlags2.DrawnThirdPerson;

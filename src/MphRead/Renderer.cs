@@ -4088,6 +4088,7 @@ namespace MphRead
                 return null;
             }
             EffectEntry entry = _inactiveEffects.Dequeue();
+            _presentationEffectTints.Remove(entry);
             entry.EffectId = 0;
             Debug.Assert(entry.Elements.Count == 0);
             return entry;
@@ -4095,6 +4096,7 @@ namespace MphRead
 
         public void UnlinkEffectEntry(EffectEntry entry)
         {
+            _presentationEffectTints.Remove(entry);
             for (int i = 0; i < entry.Elements.Count; i++)
             {
                 EffectElementEntry element = entry.Elements[i];
@@ -4375,7 +4377,20 @@ namespace MphRead
         }
 
         private readonly List<EffectEntry> _presentationOverrideEntries = new(4);
+        private readonly Dictionary<EffectEntry, Vector3> _presentationEffectTints = new(4);
         internal bool HasPendingEffectSimulation => _pendingEffectSteps > 0;
+        // Renewed by the owning player's admitted draw, never stored in the
+        // effect/particle simulation or shared material state.
+        internal void SetPresentationEffectTint(EffectEntry entry, Vector3 tint)
+        {
+            ArgumentNullException.ThrowIfNull(entry);
+            if (!float.IsFinite(tint.X) || !float.IsFinite(tint.Y) || !float.IsFinite(tint.Z)
+                || tint.X < 0 || tint.X > 1 || tint.Y < 0 || tint.Y > 1 || tint.Z < 0 || tint.Z > 1)
+                throw new ArgumentOutOfRangeException(nameof(tint));
+            _presentationEffectTints[entry] = tint;
+        }
+        internal Vector3? GetPresentationEffectTint(EffectEntry? entry)
+            => entry != null && _presentationEffectTints.TryGetValue(entry, out var tint) ? tint : null;
         internal void SetPresentationEffectTransform(EffectEntry entry, Matrix4 transform, bool viewModel = true)
         {
             if (!_presentationOverrideEntries.Contains(entry)) _presentationOverrideEntries.Add(entry);
@@ -4384,6 +4399,7 @@ namespace MphRead
         }
         internal void ClearPresentationEffectTransforms()
         {
+            _presentationEffectTints.Clear();
             foreach (var entry in _presentationOverrideEntries)
             {
                 entry.DrawTransformOverride = null;
@@ -4888,7 +4904,7 @@ namespace MphRead
             bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null,
             bool weightedSkinning = false, bool authoredTexture = false,
             RepeatMode authoredWrapS = RepeatMode.Repeat, RepeatMode authoredWrapT = RepeatMode.Repeat,
-            bool authoredDoubleSided = false, bool authoredTransparent = false)
+            bool authoredDoubleSided = false, bool authoredTransparent = false, Vector3? diffuseOverride = null)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4928,7 +4944,7 @@ namespace MphRead
             item.Wireframe = material.Wireframe != 0;
             item.Lighting = material.Lighting != 0;
             item.NoLines = false;
-            item.Diffuse = material.CurrentDiffuse;
+            item.Diffuse = diffuseOverride ?? material.CurrentDiffuse;
             item.Ambient = material.CurrentAmbient;
             item.Specular = material.CurrentSpecular;
             item.Emission = emission;
@@ -5485,7 +5501,7 @@ namespace MphRead
                                 }
                                 try
                                 {
-                                    particle.AddRenderItem(this);
+                                    particle.AddRenderItem(this, GetPresentationEffectTint(particle.Owner.EffectEntry));
                                 }
                                 finally
                                 {
