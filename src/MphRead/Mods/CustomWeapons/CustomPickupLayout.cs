@@ -24,6 +24,7 @@ internal sealed class CustomPickupLayout
     private readonly WeaponDefinition[] _definitions;
     internal WeaponDigest Digest { get; }
     internal WeaponDigest Map { get; }
+    internal MapContentIdentity MapIdentity { get; }
     internal WeaponDigest Manifest { get; }
     internal int Count => _placements.Length;
     internal ReadOnlySpan<CustomPickupPlacement> Placements => _placements;
@@ -39,7 +40,7 @@ internal sealed class CustomPickupLayout
         foreach (var row in manifest.Rows)
             if (!registry.TryResolve(row.RuntimeId,out var entry) || entry?.Identity != row.Identity)
                 throw new ArgumentException("Manifest and registry differ.",nameof(registry));
-        Map = HashMap(map); Manifest = manifest.Digest;
+        Map = HashMap(map); MapIdentity = map; Manifest = manifest.Digest;
         var list = new List<CustomPickupPlacement>();
         foreach (var placement in placements)
         {
