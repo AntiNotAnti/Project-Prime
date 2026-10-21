@@ -106,6 +106,8 @@ namespace MphRead.Mods.Render.Characters
                 "MP1IceTrooper" => "trooper-ice",
                 "MP1WaveTrooper" => "trooper-wave",
                 "MP1PlasmaTrooper" => "trooper-plasma",
+                "MP1AlphaDrone" when generatedSource => "trooper-drone-alpha",
+                "MP1GammaDrone" when generatedSource => "trooper-drone-gamma",
                 _ => ""
             };
             if (sourceCharacter.Length == 0) return false;
@@ -248,7 +250,7 @@ namespace MphRead.Mods.Render.Characters
         {
             if(!CharacterSourceRootWitness.QualifiedForCurrentProcess||_sourceRoot==null||_sourceManifestSha==null||_sourceRootWitness==null
                 ||asset.PoseSource!=CharacterPoseSource.SourceRigPreview||asset.PrivateAppearance is not { } appearance
-                ||!(asset.Part==CharacterModelPart.Biped || asset.Part==CharacterModelPart.ViewModel&&_sourceCannons.ContainsKey(asset) || HasSourceBall(asset))||asset.Lod!=0||asset.Skinning!=CharacterSkinningMode.Weighted4
+                ||!(asset.Part==CharacterModelPart.Biped || asset.Part==CharacterModelPart.ViewModel&&_sourceCannons.ContainsKey(asset) || HasSourceBall(asset) || HasSourceDrone(asset))||asset.Lod!=0||asset.Skinning!=CharacterSkinningMode.Weighted4
                 ||!_sourceProofs.TryGetValue(asset,out var proof))throw new InvalidDataException("No verified private source preview ownership.");
             _sourceRootWitness.RequireUnchanged(_sourceRoot);RejectLink(_sourceRoot,true);
             string manifest=ContainedPath(_sourceRoot,"characters.json");
@@ -367,11 +369,12 @@ namespace MphRead.Mods.Render.Characters
                 if (!Enum.IsDefined(entry.PoseSource)) throw new InvalidDataException("Unknown character pose source.");
                 bool sourcePreview = entry.PoseSource==CharacterPoseSource.SourceRigPreview;
                 bool ballPreview = CharacterGeneratedNormalBallProfile.IsEntry(entry)||CharacterGeneratedFinalBallProfile.IsEntry(entry);
+                bool dronePreview = CharacterGeneratedDroneProfile.FromSkin(entry.SkinSource)?.IsEntry(entry)==true;
                 bool graphPreview=entry.SourceGraphProof!=null||entry.SourceGraphProofSha256!=null||entry.SourceMotionManifest!=null;
                 if(graphPreview&&(!sourcePreview||entry.Part!=CharacterModelPart.Biped||entry.SourceGraphProof==null||entry.SourceGraphProofSha256==null||entry.SourceMotionManifest==null))
                     throw new InvalidDataException("Raw graph binding requires explicit source-only Biped proof/motion references; no graph evaluator.");
                 bool archivePreview=entry.SourceAnimationArchive!=null||entry.SourceAnimationArchiveSha256!=null;
-                if(archivePreview&&(!sourcePreview||!(entry.Part==CharacterModelPart.Biped||ballPreview||entry.Part==CharacterModelPart.ViewModel&&entry.SourceCannonReceipt!=null&&entry.SourceCannonSha256!=null)||entry.SourceAnimationArchive==null
+                if(archivePreview&&(!sourcePreview||!(entry.Part==CharacterModelPart.Biped||ballPreview||dronePreview||entry.Part==CharacterModelPart.ViewModel&&entry.SourceCannonReceipt!=null&&entry.SourceCannonSha256!=null)||entry.SourceAnimationArchive==null
                     ||entry.SourceAnimationArchiveSha256==null||graphPreview))
                     throw new InvalidDataException("Imported animation archive requires a complete exclusive source-rig Biped binding.");
                 bool cannonPreview=entry.SourceCannonReceipt!=null||entry.SourceCannonSha256!=null;
@@ -387,7 +390,7 @@ namespace MphRead.Mods.Render.Characters
                 {
                     if (!PrivateCharacterAppearance.TryCreate(hunter, entry.CharacterId, entry.SkinSource,
                             out var selected, out sourceCharacter, generatedSource: sourcePreview) || entry.Provenance == null
-                        || entry.ProvenanceSha256 == null || !(entry.Part==CharacterModelPart.Biped || ballPreview || cannonPreview&&entry.Part==CharacterModelPart.ViewModel)
+                        || entry.ProvenanceSha256 == null || !(entry.Part==CharacterModelPart.Biped || ballPreview || dronePreview || cannonPreview&&entry.Part==CharacterModelPart.ViewModel)
                         || entry.Lod != 0 || entry.Skinning != CharacterSkinningMode.Weighted4 || entry.MobileModel != null)
                         throw new InvalidDataException("Private appearance requires a supported catalog character/skin, matching native parent, provenance and one Weighted4 LOD0 biped.");
                     appearance = selected;
@@ -463,7 +466,8 @@ namespace MphRead.Mods.Render.Characters
             pack._sourceManifestSha=Convert.ToHexString(SHA256.HashData(manifestBytes)).ToLowerInvariant();
             foreach(var proof in proofs)pack._sourceProofs.Add(proof.Asset,(proof.Entry,proof.Source,proof.Sha));
             foreach(var proof in proofs.Where(p => p.Asset.Part == CharacterModelPart.Biped
-                && (p.Source == "darksamus-overcharged-echoes" || CharacterGeneratedTrooperProfile.Find(p.Source) != null)))
+                && (p.Source == "darksamus-overcharged-echoes" || CharacterGeneratedTrooperProfile.Find(p.Source) != null)
+                || pack.HasSourceDrone(p.Asset)))
                 pack.CaptureSourceMaterials(proof.Asset, proof.Source);
             return pack;
         }
@@ -493,6 +497,9 @@ namespace MphRead.Mods.Render.Characters
             if (Text("kind", "generated-retro-trooper-authoring-v1")
                 && CharacterGeneratedTrooperProfile.Find(sourceCharacter) is { } trooper)
                 return trooper.ValidateEntry(receipt, entry, asset, appearance, verifiedModelSha);
+            if (Text("kind", "generated-retro-drone-authoring-v1")
+                && CharacterGeneratedDroneProfile.Find(sourceCharacter) is { } drone)
+                return drone.ValidateEntry(receipt, entry, asset, appearance, verifiedModelSha);
             if (sourceCharacter == "darksamus-overcharged-echoes")
                 throw new InvalidDataException("Final accepts only its exact generated source profile.");
             if (!receipt.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.Number

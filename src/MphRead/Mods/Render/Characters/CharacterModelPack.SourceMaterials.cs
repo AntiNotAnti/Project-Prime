@@ -15,11 +15,11 @@ internal sealed partial class CharacterModelPack
     internal void CaptureSourceMaterials(CharacterModelAsset asset, string sourceCharacter)
     {
         if (_sourceRoot == null || !_sourceProofs.TryGetValue(asset, out var proof)
-            || asset.Part != CharacterModelPart.Biped || asset.PoseSource != CharacterPoseSource.SourceRigPreview
+            || !(asset.Part == CharacterModelPart.Biped || HasSourceDrone(asset)) || asset.PoseSource != CharacterPoseSource.SourceRigPreview
             || proof.SourceCharacter != sourceCharacter)
             throw new InvalidDataException("Exact generated body owner required for source materials.");
         ValidateAtGeneration(asset, proof.ModelSha, _sourceGeneration);
-        string path = ContainedPath(_sourceRoot, sourceCharacter + ".materials.bin");
+        string path = ContainedPath(_sourceRoot, (CharacterGeneratedDroneProfile.Find(sourceCharacter)?.Stem ?? sourceCharacter) + ".materials.bin");
         var materials = CharacterSourceGxMaterials.Read(CharacterSourceProofIO.ReadFile(path, RetroCharacterMaterialArchive.MaxArchiveBytes), proof.ModelSha, sourceCharacter);
         ValidateAtGeneration(asset, proof.ModelSha, _sourceGeneration);
         if (_sourceMaterials.TryGetValue(asset, out var previous))
@@ -43,7 +43,7 @@ internal sealed partial class CharacterModelPack
         string materialId = captured.Materials.Archive.Binding.CharacterId;
         string path = ContainedPath(_sourceRoot!, (materialId == CharacterGeneratedNormalBallProfile.MaterialId
             ? CharacterGeneratedNormalBallProfile.Stem : materialId == CharacterGeneratedFinalBallProfile.MaterialId
-                ? CharacterGeneratedFinalBallProfile.Stem : materialId) + ".materials.bin");
+                ? CharacterGeneratedFinalBallProfile.Stem : CharacterGeneratedDroneProfile.Find(materialId)?.Stem ?? materialId) + ".materials.bin");
         if (path != captured.Path || CharacterSourceProofIO.HashFile(path, RetroCharacterMaterialArchive.MaxArchiveBytes) != captured.Materials.Archive.Sha256)
             throw new InvalidDataException("Captured source material generation changed.");
     }

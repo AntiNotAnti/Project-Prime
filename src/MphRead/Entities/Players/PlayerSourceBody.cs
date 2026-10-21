@@ -19,7 +19,7 @@ public partial class PlayerEntity
         ModRetireSourceBody();
         _sourceBody = new(_scene, this, selection);
     }
-    internal void ModRetireSourceBody() { _sourceBody?.Dispose(); _sourceBody = null; }
+    internal void ModRetireSourceBody() { _sourceBody?.Dispose(); _sourceBody = null; ModRetireSourceDrone(); }
     internal void ModResetSourceBodyLife() { unchecked { _sourceBodyLife++; } }
 
     private bool SourcePresentationStateSupported => Health > 0 && RenderOptions.Shadows == ShadowQuality.Off
@@ -40,6 +40,7 @@ public partial class PlayerEntity
 
     internal void ModStepSourceBody()
     {
+        _sourceDrone?.Step(_scene.FrameCount,_sourceBodyLife,SourceDroneStateSupported);
         if (_sourceBody == null) return;
         _sourceBody.Step(_scene.FrameCount, _sourceBodyLife, Biped1Anim, _bipedModel1.AnimInfo.Frame[0],
             Biped2Anim, _bipedModel2.AnimInfo.Frame[0], _facingVector.Y, SourceBodyStateSupported,SourceBallStateSupported);

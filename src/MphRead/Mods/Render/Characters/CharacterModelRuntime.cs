@@ -313,10 +313,10 @@ namespace MphRead.Mods.Render.Characters
         internal readonly string? MaterialAnchorName;
         internal readonly CharacterModelPart Part;
         internal readonly object? StageOwner;
-        internal readonly CharacterSourceBodyOwner? BodyOwner;
+        internal readonly ICharacterSourcePresentationOwner? BodyOwner;
         internal object? PublishedContext;
         internal CharacterSourcePreviewInstance(string? materialAnchorName = null,CharacterModelPart part=CharacterModelPart.Biped,object? stageOwner=null,
-            CharacterSourceBodyOwner? bodyOwner=null)
+            ICharacterSourcePresentationOwner? bodyOwner=null)
             =>(MaterialAnchorName,Part,StageOwner,BodyOwner)=(materialAnchorName,part,stageOwner,bodyOwner);
     }
 
@@ -532,7 +532,8 @@ namespace MphRead.Mods.Render.Characters
                 ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel or CharacterModelPart.AlternateForm)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
                 ||!privatePack.TryResolvePrivate(hunter,appearance,part,0,out var asset)||asset.PoseSource!=CharacterPoseSource.SourceRigPreview
                 ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset)
-                ||part==CharacterModelPart.AlternateForm&&(!localBody||!privatePack.HasSourceBall(asset)))
+                ||part==CharacterModelPart.AlternateForm&&(!localBody||!(instance.BodyOwner is CharacterSourceBodyOwner&&privatePack.HasSourceBall(asset)
+                    ||instance.BodyOwner is CharacterSourceDroneOwner&&privatePack.HasSourceDrone(asset))))
             {if(instance!=null)ReleaseSourcePreview(scene,instance);return false;}
             var resources=_scenes.GetValue(scene,_=>new SceneResources());
             if(resources.TextureQuality!=RenderOptions.TextureQuality||resources.SamplingKey!=TextureSamplingPolicy.RuntimeKey)
@@ -807,7 +808,13 @@ namespace MphRead.Mods.Render.Characters
                     &&sourceMaterials.Programs.Count==6&&geometry.IndexCount==8170*3&&geometry.Joints.Count==2
                     &&geometry.Primitives.Select(p=>p.SourceMaterialOrdinal).SequenceEqual(Enumerable.Range(0,6))
                     &&geometry.Primitives.Select(p=>p.SourcePrimitiveOrdinal).SequenceEqual(Enumerable.Range(0,6));
-                if (attachment == null || !(generatedCannonCut || trooperCannonCut || finalCannonCut || normalBall || finalBall || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
+                bool drone=asset.Part==CharacterModelPart.AlternateForm&&asset.Hunter==Hunter.Weavel
+                    &&CharacterGeneratedDroneProfile.FromSkin(asset.PrivateAppearance?.SkinSource) is { } droneProfile
+                    &&sourceLease.SourceAnimations?.IsDrone==true&&sourceLease.ModelSha256==droneProfile.ModelSha
+                    &&sourceMaterials.Archive.Binding.CharacterId==droneProfile.Id&&sourceMaterials.Archive.Sha256==droneProfile.MaterialSha
+                    &&sourceMaterials.Programs.Count==2&&geometry.IndexCount==1390*3&&geometry.Joints.Count==33
+                    &&geometry.Primitives.Select(p=>p.SourceMaterialOrdinal).SequenceEqual(new[]{0,1});
+                if (attachment == null || !(generatedCannonCut || trooperCannonCut || finalCannonCut || normalBall || finalBall || drone || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
                         && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() == sourceMaterials.Programs.Count)
                     || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count))
                     throw new InvalidDataException("Complete original body material ordinals required.");

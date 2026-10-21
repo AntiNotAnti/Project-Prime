@@ -93,6 +93,7 @@ namespace MphRead.Mods.Launcher
         public bool IsPlaytest { get; init; }
         public OfflineCharacterMode OfflineCharacter { get; init; }
         public LocalBodyAppearance LocalBody { get; init; }
+        public LocalDroneAppearance LocalDrone { get; init; }
 
         /// <summary>
         /// The hunter to play, already rolled if the player asked for a random

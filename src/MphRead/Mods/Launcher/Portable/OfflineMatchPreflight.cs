@@ -15,6 +15,7 @@ internal static class OfflineMatchPreflight
     {
         reason = "";
         if (!LocalBodyAppearanceRules.TryAdmit(plan, out reason)) return false;
+        if (!LocalDroneAppearanceRules.TryAdmit(plan, out reason)) return false;
         if (!OfflineCharacterGameplay.TryAdmit(plan, out reason)) return false;
         if (plan.MatchRules.RiftlineM7Available
             && plan.Kind is not (LaunchKind.Offline or LaunchKind.Online or LaunchKind.Host))

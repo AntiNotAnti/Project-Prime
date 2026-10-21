@@ -32,7 +32,8 @@ internal sealed class CharacterSourceAnimationArchive
     internal bool IsNormalBall => _stem == CharacterGeneratedNormalBallProfile.Stem;
     internal bool IsFinalBall => _stem == CharacterGeneratedFinalBallProfile.Stem;
     internal bool IsBall => IsNormalBall||IsFinalBall;
-    internal int ExpectedJointCount => IsBall ? 2 : RootBoneId == 0 ? 39 : 35;
+    internal bool IsDrone => _stem == "trooper-drone-alpha.drone" || _stem == "trooper-drone-gamma.drone";
+    internal int ExpectedJointCount => IsBall ? 2 : IsDrone ? 33 : RootBoneId == 0 ? 39 : 35;
     private CharacterSourceAnimationArchive(string root, string modelSha, string sha, RetroCharacterAnimationArchive.Snapshot data,
         RetroNativeSkeleton skeleton, Dictionary<string, (string, int)> inputs, string stem, uint rootBoneId, uint externalParentId)
         => (_root, _modelSha, Sha256, Data, Skeleton, _inputs, _stem, RootBoneId, ExternalParentId)
@@ -41,6 +42,7 @@ internal sealed class CharacterSourceAnimationArchive
     {
         if (CharacterGeneratedNormalBallProfile.IsEntry(entry)) return LoadNormalBall(root,entry,modelSha);
         if (CharacterGeneratedFinalBallProfile.IsEntry(entry)) return LoadNormalBall(root,entry,modelSha,final:true);
+        if (CharacterGeneratedDroneProfile.FromSkin(entry.SkinSource) is { } drone) return LoadDrone(root,entry,modelSha,drone);
         bool final = entry.SkinSource == "MP2DarkSamusFinal";
         var trooper = CharacterGeneratedTrooperProfile.FromSkin(entry.SkinSource);
         bool echoes = trooper == null;
@@ -84,6 +86,36 @@ internal sealed class CharacterSourceAnimationArchive
         var data = RetroCharacterAnimationArchive.Read(archive, new(source, description, graph), cinf, echoes);
         return new(root, modelSha, entry.SourceAnimationArchiveSha256!, data,
             new(new ReadOnlyDictionary<uint,RetroNativeBone>(skeleton.Bones.ToDictionary(p=>p.Key,p=>p.Value))), inputs, Stem, rootId, externalParent);
+    }
+    private static CharacterSourceAnimationArchive LoadDrone(string root, CharacterModelManifestEntry entry, string modelSha, CharacterGeneratedDroneProfile profile)
+    {
+        Require(profile.IsEntry(entry) && modelSha == profile.ModelSha, "Exact own drone animation owner required.");
+        var inputs = new Dictionary<string,(string Sha,int Limit)>(StringComparer.Ordinal);
+        byte[] Read(string suffix,string pin,int limit)
+        {
+            string file=profile.Stem+suffix; byte[] bytes=CharacterModelPack.ReadGraphInput(root,file,limit);
+            Require(RetroAnimationGraphProof.Sha(bytes)==pin,"Drone source input changed: "+file);
+            inputs.Add(file,(pin,limit));return bytes;
+        }
+        byte[] description=Read(".ancs-graph.json",profile.GraphSha,RetroAnimationGraphProof.MaximumProofBytes),
+            source=Read(".ancs.bin",CharacterGeneratedDroneProfile.AncsSha,RetroAnimationIndex.MaxAncsBytes),
+            cinf=Read(".cinf.bin",CharacterGeneratedDroneProfile.CinfSha,1024*1024),
+            archive=Read(".animations.bin",profile.AnimationSha,RetroCharacterAnimationArchive.MaximumBytes);
+        var graph=RetroAnimationGraphProof.Verify(description,source);
+        var skeleton=RetroCharacterSource.ReadSkeleton(cinf);
+        Require(graph.Format==1 && graph.SourceGameId=="GM8E01" && graph.SourceAncsId==0x5e058399
+            && graph.SourceAncsSha256==CharacterGeneratedDroneProfile.AncsSha && graph.SourceCharacterId==profile.Id
+            && graph.SourceSnapshotFile==profile.Stem+".ancs.bin" && graph.Cmdl==profile.Cmdl && graph.Cskr==profile.Cskr
+            && graph.Cinf==0xc3af0235 && graph.SourcePart=="drone" && !graph.NamedGraphSemanticsAccepted
+            && skeleton.Bones.Count==33 && Enumerable.Range(3,33).All(i=>skeleton.Bones.ContainsKey((uint)i))
+            && skeleton.Bones[3].Parent==2 && skeleton.Bones[3].Name=="root"
+            && skeleton.Bones[4].Parent==3 && skeleton.Bones[4].Name=="Skeleton_Root",
+            "Complete original drone graph and root3-parent2 hierarchy required.");
+        var data=RetroCharacterAnimationArchive.Read(archive,new(source,description,graph),cinf,echoes:false);
+        Require(data.Roots.Count==100 && data.Roots.Count(r=>r.StrictPlay)==88 && data.Roots.Count(r=>r.CharacterDeclared)==85,
+            "Complete drone bank inventory required.");
+        return new(root,modelSha,profile.AnimationSha,data,
+            new(new ReadOnlyDictionary<uint,RetroNativeBone>(skeleton.Bones.ToDictionary(p=>p.Key,p=>p.Value))),inputs,profile.Stem,3,2);
     }
     private static CharacterSourceAnimationArchive LoadNormalBall(string root,CharacterModelManifestEntry entry,string modelSha,bool final=false)
     {
