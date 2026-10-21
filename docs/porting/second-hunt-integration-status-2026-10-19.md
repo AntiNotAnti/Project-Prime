@@ -64,6 +64,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [925](https://github.com/AntiNotAnti/Project-Prime/pull/925) | Offline Trooper Arsenal private three-bolt Blaster, shared UA, native collision/damage/marks and reciprocal native-bot kill; combined desktop/dedicated/GL/menu checks; further Android testing skipped | `939765d825e0a7a8fd2ba19098e114a18cc9c560` |
 | [940](https://github.com/AntiNotAnti/Project-Prime/pull/940) | Opt-in normal/Overcharged source bodies in actual offline Samus matches, Hunters loadout draft, Windows physical source identity, full39-joint poses and explicit native fallbacks; real Windows gameplay parity and launcher/import lifecycle | `ff522877ec16e065ec7e0782928f5f2448ff5b70` |
 | [944](https://github.com/AntiNotAnti/Project-Prime/pull/944) | Normal imported first-person Power Beam cannon, exact body/cut material generation, native muzzle/effect alignment and authored ViewModel projection; fractional late-aim and Parkour-state native fallback checks | `67fc370548c7fec4b59327e37208bedd1f07fcac` |
+| [945](https://github.com/AntiNotAnti/Project-Prime/pull/945) | Complete raw Prime Rev2 Trooper material/TXTR authoring in existing transactions; exact actual v3 upgrade/cancellation and all forty prior files preserved | `648c847d6182d0e6ddc0fd9f1f2739e2209a8231` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -73,6 +74,7 @@ this ledger makes no green-CI or external-review claim.
 ## Recent merged slices
 
 The [Trooper material authoring slice](second-hunt-trooper-material-authoring-2026-10-20.md)
+merged in PR945 at `648c847d6182d0e6ddc0fd9f1f2739e2209a8231` and
 adds complete raw material/TXTR archives to all four Prime Rev 2 appearances
 through the existing transaction. The actual Windows migration probe passes
 182,729 assertions and preserves all forty preexisting component files exactly;

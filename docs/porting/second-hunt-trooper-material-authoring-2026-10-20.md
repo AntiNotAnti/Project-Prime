@@ -1,5 +1,9 @@
 # Prime Rev 2 Trooper material authoring
 
+Merged in [PR945](https://github.com/AntiNotAnti/Project-Prime/pull/945) at
+`648c847d6182d0e6ddc0fd9f1f2739e2209a8231`. The merged tree exactly matches
+qualified head `885d3dae40c9bd68fb65b674d6fbdf54ea0200d8`.
+
 Updating a verified Prime USA Rev 2 Trooper import now retains its complete
 original material set and every referenced TXTR alongside its existing rig,
 animation bank and geometry. All four appearances use bundle v4/body v3 with
