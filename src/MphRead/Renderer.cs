@@ -2662,6 +2662,9 @@ namespace MphRead
                     player.CameraInfo.ModCaptureDrawState();
                     player.ModCaptureFirstPersonDrawState();
                     player.ModCaptureTraversalVisual();
+                    if (this.GameState.MatchState == MatchState.InProgress && !this.GameState.MenuPause
+                        && !this.GameState.DialogPause && !_playingLandingMovie)
+                        player.ModStepSourceBody();
                 }
 
                 // Ages the predictions the authority has not answered yet and
@@ -2846,6 +2849,7 @@ namespace MphRead
             _decalItems.Clear();
             _nonDecalItems.Clear();
             _translucentItems.Clear();
+            _sourceBodyItems.Clear();
             NcxBeginDrawItems();
             _renderingViewModelItems = false;
             while (_usedRenderItems.Count > 0)
@@ -5248,6 +5252,12 @@ namespace MphRead
                 _previewItems.Add(item);
                 return;
             }
+            if (item.SourceGx?.BodyOwner != null)
+            {
+                _sourceBodyItems.Add(item);
+                if (pooled) _usedRenderItems.Enqueue(item);
+                return;
+            }
             if (item.RenderMode == RenderMode.Decal)
                 _decalItems.Add(item);
             else
@@ -5689,6 +5699,7 @@ namespace MphRead
             if (!_exiting)
             {
                 _exiting = true;
+                foreach (var player in Players.Items) player?.ModRetireSourceBody();
                 foreach (var player in Players.Items) player?.ModRetireCharacterGameplay();
                 // Keep known asynchronous/decoder owners explicit. No release
                 // is inferred merely because UnloadGl later clears its queues.
@@ -5905,7 +5916,7 @@ namespace MphRead
             Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
             bool drawGeometry = true, bool applyObjectState = true)
         {
-            if (item.SourceGx != null) { DrawSourceGxRenderItem(item); return; }
+            if (item.SourceGx != null) { if (drawGeometry) DrawSourceGxRenderItem(item); return; }
             int sourcePass = Mods.Render.OpenGlPassProfiler.CurrentPass;
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ItemSetup))
             using (Mods.Render.OpenGlDrawAttribution.Measure(item, sourcePass, geometry: false))

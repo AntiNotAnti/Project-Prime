@@ -405,7 +405,8 @@ namespace MphRead.Entities
                         // LOD1 falls through to the native LOD1 automatically.
                         using (Mods.Render.HeadHitPoseOverlay.Begin(_bipedModel2.Model, _scene.ModHeadHitPose(this)))
                         {
-                        if (!TryDrawModernCharacter(_bipedModel2,
+                        if (!ModTryDrawSourceBody(drawPosition, drawFacing, alpha, brightSkin, outlineColor, lod)
+                            && !TryDrawModernCharacter(_bipedModel2,
                             CharacterModelPart.Biped, alpha, lod: lod,
                             overrideColor: brightSkin, outlineColor: outlineColor))
                             GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha,

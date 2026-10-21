@@ -558,6 +558,7 @@ namespace MphRead.Entities
 
         public override void Initialize()
         {
+            ModRetireSourceBody();
             _modCharacterGameplayInitializationStarted = true;
             Vector3 prevPos = _position;
             Vector3 prevUp = _upVector;
