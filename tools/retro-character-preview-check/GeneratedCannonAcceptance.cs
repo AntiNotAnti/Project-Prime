@@ -55,6 +55,8 @@ internal static class GeneratedCannonAcceptance
         Console.WriteLine($"PASS: generated cannon source IDs, descendant cut and fixed frame ({_checks} checks)");
         int normalChecks = _checks; Trooper();
         Console.WriteLine($"PASS: Trooper full35 source cut, local palettes and fixed frame ({_checks - normalChecks} checks)");
+        int beforeFinal = _checks; FinalTrim();
+        Console.WriteLine($"PASS: Final rawUV whole-triangle trim ({_checks - beforeFinal} checks)");
     }
 
     private static void Frames()
@@ -149,6 +151,52 @@ internal static class GeneratedCannonAcceptance
         Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, new M[35], 23, 34, "R_gun_LCTR"), "full35 joints still require all36 local node matrices");
         var badParts = source.Primitives.ToArray(); badParts[0] = badParts[0] with { JointPalette = new[] { 35, 0, 1, 2 } };
         Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(source with { Primitives = badParts }, 23), "local palette cannot escape full35 joints");
+    }
+
+    private static void FinalTrim()
+    {
+        Check(CharacterSourceCannonRecipe.FinalTrimUv(.489f, .764f)
+            && !CharacterSourceCannonRecipe.FinalTrimUv(.489f, 1 - .764f), "Final selector uses original rawV, never the rendered copiedV flip");
+        foreach (var uv in new[] { new UV(.49099997f,.764f), new UV(.48700002f,.764f), new UV(.489f,.76599997f), new UV(.489f,.7620001f) })
+            Check(CharacterSourceCannonRecipe.FinalTrimUv(uv.X, uv.Y), "nearest interior floating sourceUV remains inside the strict trim box");
+        foreach (var uv in new[] { new UV(.49100003f,.764f), new UV(.48699996f,.764f), new UV(.489f,.76600003f), new UV(.489f,.76199996f), new UV(float.NaN,.764f), new UV(.489f,float.PositiveInfinity) })
+            Check(!CharacterSourceCannonRecipe.FinalTrimUv(uv.X, uv.Y), "nearest exterior/nonfinite sourceUV never satisfies the strict trim box");
+        var fixture = Fixture(); var donor = fixture.Primitives[0]; var parts = new List<CharacterWeightedPrimitive>();
+        CharacterWeightedPrimitive Part(int id, int material, int hitCorner = -1, UV? hit = null, bool outside = false)
+        {
+            var vertices = new[] { donor.Vertices[1], donor.Vertices[2], donor.Vertices[0] }.Select(v => v with { Texcoord = new UV(.1f,.2f) }).ToArray();
+            if (hitCorner >= 0) vertices[hitCorner] = vertices[hitCorner] with { Texcoord = hit ?? new UV(.489f,.764f) };
+            if (outside) vertices[0] = vertices[0] with { Weights = new W(1,0,0,0), PackedJoints = CharacterWeightedModelLoader.PackJoints(0,0,0,0) };
+            return donor with { SourcePrimitiveOrdinal = id % 3, SourceMaterialOrdinal = material,
+                SourceTriangleIds = new[] { id }, Vertices = vertices, Indices = new uint[] { 2,0,1 } };
+        }
+        for (int corner = 0; corner < 3; corner++) parts.Add(Part(1000 + corner, 5, corner));
+        parts.Add(Part(1003,5,0,new(.489f,1-.764f))); parts.Add(Part(1004,4,1)); parts.Add(Part(1005,3,2));
+        parts.Add(Part(1006,5,2,new(.49099997f,.764f))); parts.Add(Part(1007,5,0,new(.49100003f,.764f)));
+        parts.Add(Part(1008,5,1,new(.489f,.77f))); parts.Add(Part(1009,5,2,outside:true));
+        var source = fixture with { Primitives = parts }; string original = Fingerprint(source);
+        var complete = CharacterSourceCannonRecipe.SelectGeneratedCut(source);
+        var trimmed = CharacterSourceCannonRecipe.SelectGeneratedCut(source, finalTrim:true);
+        Check(complete.Selected.Sum(a => a.Length) == 9 && trimmed.Selected.Sum(a => a.Length) == 5,
+            "Final trim removes whole triangles on any matching corner only after the same complete elbow cut");
+        Check(trimmed.Selected[5].SequenceEqual(new[] { 1003,1007,1008 }) && trimmed.Selected[4].SequenceEqual(new[] { 1004 })
+            && trimmed.Selected[3].SequenceEqual(new[] { 1005 }) && !complete.Selected.SelectMany(a => a).Contains(1009),
+            "Final material5-only trim retains literal original IDs across batches; other material hits and flippedV remain intact");
+        foreach (var p in trimmed.Primitives)
+        {
+            var raw = parts.Single(q => q.SourceTriangleIds![0] == p.SourceTriangleIds![0]);
+            Check(p.Indices.SequenceEqual(new uint[] { 2,0,1 }) && ReferenceEquals(p.Vertices, raw.Vertices) && ReferenceEquals(p.JointPalette, raw.JointPalette)
+                && p.SourcePrimitiveOrdinal == raw.SourcePrimitiveOrdinal && p.SourceMaterialOrdinal == raw.SourceMaterialOrdinal,
+                "Trim preserves complete corner winding, attributes, positive influences, local palette and physical material identity");
+        }
+        var reordered = CharacterSourceCannonRecipe.SelectGeneratedCut(source with { Primitives = parts.AsEnumerable().Reverse().ToArray() }, finalTrim:true);
+        Check(trimmed.Selected.Zip(reordered.Selected).All(p => p.First.SequenceEqual(p.Second)), "Final globalID groups do not depend on physical batch ordering");
+        Check(Fingerprint(source) == original && CharacterSourceCannonRecipe.SelectGeneratedCut(source).Selected.Zip(complete.Selected).All(p => p.First.SequenceEqual(p.Second)),
+            "Final trim never mutates source inputs or changes the default untrimmed selector");
+        int firstId = trimmed.Primitives[0].SourceTriangleIds![0]; int firstIndex = parts.FindIndex(p => p.SourceTriangleIds![0] == firstId);
+        parts[firstIndex].SourceTriangleIds![0] = 99999; parts[firstIndex].Indices[0] = 1;
+        Check(trimmed.Primitives[0].SourceTriangleIds![0] == firstId && trimmed.Primitives[0].Indices[0] == 2,
+            "Trimmed IDs and index subsets detach from later caller mutation");
     }
 
     private static CharacterWeightedModelData Fixture(bool reordered = false, bool tipOutside = false, bool wrongElbow = false, bool cycle = false, bool trooper = false)
