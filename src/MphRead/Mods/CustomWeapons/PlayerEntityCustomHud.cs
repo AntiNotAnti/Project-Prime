@@ -34,8 +34,18 @@ public partial class PlayerEntity
         if(!profile||style.Number)DrawText2D(left+55*aspect,top+1,Align.Right,0,ammo,ink,
             alpha:Features.HudOpacity,scale:.65f*(profile?style.NumberScale:1));
         var feedback=_scene.CustomFeedback(this);
-        ReadOnlySpan<char> status=!hud.Ready?"M7 PENDING":feedback.Denied>0?"M7 REFUSED":feedback.Empty>0?"M7 EMPTY":hud.State.Phase==CustomWeaponPhase.Reloading?"M7 RELOADING"
+        scoped ReadOnlySpan<char> status=!hud.Ready?"M7 PENDING":feedback.Denied>0?"M7 REFUSED":feedback.Empty>0?"M7 EMPTY":hud.State.Phase==CustomWeaponPhase.Reloading?"M7 RELOADING"
             :hud.State.Magazine==0?"M7 EMPTY":hud.Optic==1?"M7 2.5X":hud.Optic==2?"M7 4X":"M7";
+        Span<char> packageStatus=stackalloc char[24];
+        if(_scene.LocalWeaponPackage is {} package)
+        {
+            status=!hud.Ready?"CUSTOM PENDING":feedback.Denied>0?"CUSTOM REFUSED":feedback.Empty>0||hud.State.Magazine==0?"CUSTOM EMPTY"
+                :hud.State.Phase==CustomWeaponPhase.Reloading?"CUSTOM LOAD":"CUSTOM";
+            if(hud.Ready&&feedback.Denied==0&&feedback.Empty==0&&hud.State.Magazine>0
+                &&hud.State.Phase!=CustomWeaponPhase.Reloading&&hud.Optic>0&&hud.Optic<=package.Definition.Mechanics.OpticMagnificationsMilli.Count
+                &&packageStatus.TryWrite(CultureInfo.InvariantCulture,$"CUSTOM {package.Definition.Mechanics.OpticMagnificationsMilli[hud.Optic-1]/1000f:0.#}X",out int statusLength))
+                status=packageStatus[..statusLength];
+        }
         if(!profile||style.Icon)
         {
             // Original flat vector silhouette; no native weapon sprite alias.
@@ -44,7 +54,7 @@ public partial class PlayerEntity
             _scene.DrawHudFlatBox(ix+5*aspect,iy+.5f,ix+9*aspect,iy+1,icon);
             _scene.DrawHudFlatBox(ix+1*aspect,iy-1,ix+4*aspect,iy-.2f,icon);
             _scene.DrawHudFlatBox(ix+1*aspect,iy+2,ix+2.5f*aspect,iy+3,icon);
-            DrawText2D(left+13*aspect,top+10,Align.Left,0,status,ink,alpha:Features.HudOpacity,scale:.4f);
+            DrawText2D(left+13*aspect,top+10,Align.Left,0,status,ink,alpha:Features.HudOpacity,scale:Math.Min(.4f,43f/Math.Max(1,status.Length*8)));
         }
         if((!profile||style.Gauge)&&hud.Ready)
         {

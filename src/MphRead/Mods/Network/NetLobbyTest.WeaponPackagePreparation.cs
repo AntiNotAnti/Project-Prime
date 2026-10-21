@@ -13,7 +13,8 @@ namespace MphRead.Mods.Network;
 public static partial class NetLobbyTest
 {
     // Real UDP production server dispatch and real local installed package leases.
-    // Preparation deliberately remains in Lobby: CW12c owns online execution.
+    // This control-plane fixture withholds native Loaded; the separate package
+    // execution fixture qualifies the live authority and ordinary world contact.
     private sealed class PackagePreparationProbe : IDisposable
     {
         readonly Client _client;readonly WeaponPackageStore _store;
@@ -33,7 +34,7 @@ public static partial class NetLobbyTest
                 Check(key.Slot==_client.Slot&&key.Match==_client.State!.Value.MatchId&&key.Epoch==_client.State.Value.AuthorityEpoch
                     &&key.Connection==packet.ConnectionId,"offer binds match epoch slot and real transport incarnation");
                 Offers++;if(Key==key)return;Binding?.Dispose();Binding=null;Key=key;
-                try{Binding=WeaponMatchPackageBinding.BindInstalled(_store,parsed!);}catch(Exception error)when(error is IOException or InvalidDataException){Rejected++;}
+                try{Binding=WeaponMatchPackageBinding.PrepareInstalled(_store,parsed!);}catch(Exception error)when(error is IOException or InvalidDataException){Rejected++;}
             }
             if(packet.Type==PacketType.WeaponPackageConfirmed)
             {
@@ -134,13 +135,16 @@ public static partial class NetLobbyTest
                 a.WithholdConfirmation=false;a.Send();a.Send();rig.Wait(()=>a.Confirmations>0,"duplicate exact readiness recovers application confirmation without rebind");
                 var oldKey=b.Key!.Value;b.Dispose();var installedSecond=ClientStore("second");using var resolved=new PackagePreparationProbe(second,installedSecond);
                 rig.Wait(()=>resolved.Key.HasValue&&resolved.Binding!=null,"explicit install and new local probe resolves repeated server offer");resolved.Send();rig.Wait(()=>rig.Server.IsWeaponPackagePrepared(second.Slot)&&resolved.Confirmations>0,"second installed peer independently confirms exactpackage binding");
-                var unsupported=rig.Expect(first,first.Command(LobbyCommandType.StartMatch),LobbyResultCode.MapUnavailable);
-                Check(unsupported.Reason.Contains("execution",StringComparison.OrdinalIgnoreCase)&&unsupported.Reason.Contains("not enabled",StringComparison.OrdinalIgnoreCase)&&first.State.Value.Phase==SessionPhase.Lobby,"allprepared remains explicitly blocked until online package runtime integration");
                 var spectator=rig.Add(12802,initialSpectator:true);using var s=new PackagePreparationProbe(spectator,ClientStore("spectator"));
                 rig.Wait(()=>s.Key.HasValue,"late spectator receives exact package requirement");Check(!rig.Server.IsWeaponPackagePrepared(spectator.Slot),"late spectator cannot inherit another peer readiness");s.Send();rig.Wait(()=>s.Confirmations>0,"late spectator independently verifies package before any load");
                 int oldSlot=second.Slot;second.Send(PacketType.Bye,Array.Empty<byte>());rig.Wait(()=>!rig.Server.IsWeaponPackagePrepared(oldSlot),"disconnect retires exactpackage preparation");rig.Clients.Remove(second);second.Dispose();
                 var replacement=rig.Add(12803);using var r=new PackagePreparationProbe(replacement,ClientStore("replacement"));rig.Wait(()=>r.Key.HasValue,"replacement occupant receives fresh package requirement");
                 Check(replacement.Slot==oldSlot&&r.Key!.Value.Generation!=oldKey.Generation,"reused physical slot receives fresh occupant generation");replacement.Send(PacketType.WeaponPackageReady,r.Bytes(oldKey));ObserveCustomReadiness(rig,100,"stale predecessor key crosses real reused-slot connection");Check(!rig.Server.IsWeaponPackagePrepared(oldSlot),"replacement cannot inherit stale generation or connection readiness");r.Send();rig.Wait(()=>r.Confirmations>0,"replacement independently prepares retained exact package");
+                rig.ReadyAll();rig.Expect(first,first.Command(LobbyCommandType.StartMatch),LobbyResultCode.Ok);
+                rig.Wait(()=>first.State.Value.Phase==SessionPhase.Starting,"allprepared package control-plane start enters ordinary native loading barrier");
+                ObserveCustomReadiness(rig,100,"withheld actual client scene-loaded acknowledgements keep package world unactivated");
+                Check(first.State.Value.Phase==SessionPhase.Starting,"package preparation alone cannot enter active match before native scene loading");
+
             }
             Check(serverStore.Prune()==1,"server shutdown releases final configured archive lease");
             PackagePreparationRuntimeClient(root,archive);

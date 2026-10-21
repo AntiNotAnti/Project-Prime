@@ -204,7 +204,7 @@ internal sealed class CustomClientCombat
     internal bool Submit(in CustomWeaponAction action,double now)
     {
         if (Invalidated || _mode==2 || !Time(now) || !action.IsValid || State is not {HasWeapon:true} state
-            || action.Weapon!=state.Weapon
+            || action.Weapon!=state.Weapon || action.Optic>_wire.Definition.Mechanics.OpticMagnificationsMilli.Count
             || !Recipient(action.Bootstrap,action.Manifest,action.Slot) || action.Owner!=state.State.Owner
             || action.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;
         for (int i=0;i<_pending.Length;i++)
@@ -231,7 +231,7 @@ internal sealed class CustomClientCombat
     internal bool Submit(in CustomControlRequest request,double now)
     {
         if (Invalidated || _mode==1 || !Time(now) || !request.IsValid || State is not {HasWeapon:true} state
-            || request.Weapon!=state.Weapon
+            || request.Weapon!=state.Weapon || request.Optic>_wire.Definition.Mechanics.OpticMagnificationsMilli.Count
             || !Recipient(request.Bootstrap,request.Manifest,request.Slot) || request.Owner!=state.State.Owner
             || request.Owner!=_submittedOwner || _submitted==uint.MaxValue) return false;
         foreach (var pending in _pending)

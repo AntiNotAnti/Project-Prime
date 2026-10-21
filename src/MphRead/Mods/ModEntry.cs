@@ -1139,6 +1139,20 @@ namespace MphRead.Mods
             {
                 return false;
             }
+            bool hasWeaponStore = HasFlag(args, "weaponstore"), hasWeaponArchive = HasFlag(args, "weaponarchive");
+            string? weaponStore = ValueAfter(args, "weaponstore"), weaponArchive = ValueAfter(args, "weaponarchive");
+            if ((hasWeaponStore || hasWeaponArchive)
+                && (!hasWeaponStore || !hasWeaponArchive
+                    || args.Count(value => value.TrimStart('-').Equals("weaponstore", StringComparison.OrdinalIgnoreCase)) != 1
+                    || args.Count(value => value.TrimStart('-').Equals("weaponarchive", StringComparison.OrdinalIgnoreCase)) != 1
+                    || string.IsNullOrWhiteSpace(weaponStore) || weaponStore.Length > 4096
+                    || weaponStore.StartsWith('-') || weaponStore.Any(char.IsControl)
+                    || !CustomWeapons.WeaponIdentity.IsDigest(weaponArchive)))
+            {
+                Console.Error.WriteLine("[server] Supply both -weaponstore <directory> and -weaponarchive <exact lowercase SHA-256>, once each.");
+                Environment.ExitCode = 2;
+                return true;
+            }
             int port = NetConfig.DefaultPort;
             string? portValue = ValueAfter(args, "port");
             if (portValue != null && Int32.TryParse(portValue, out int parsedPort))
@@ -1246,6 +1260,20 @@ namespace MphRead.Mods
                     RetentionDays: replayRetentionDays,
                     KeepLast: replayKeepLast)
             };
+            if (hasWeaponStore)
+            {
+                try { server.ConfigureWeaponPackage(weaponStore!, weaponArchive!); }
+                catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException
+                    or UnauthorizedAccessException or ArgumentException or InvalidOperationException
+                    or NotSupportedException or System.Security.SecurityException)
+                {
+                    // Store/parser errors can include private paths or creator text.
+                    // Keep the operator diagnostic fixed, bounded and ASCII-only.
+                    Console.Error.WriteLine("[server] The exact installed weapon package could not be configured. Verify the private store and archive hash.");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+            }
             server.SetSessionOptions(HasFlag(args, "requireready"),
                 !HasFlag(args, "nojoininprogress"));
             // Whether this server will also open *extra* matches, on ports of
@@ -1345,6 +1373,8 @@ namespace MphRead.Mods
             Console.WriteLine("      canonical replays: on; 25 GiB; 14 days; keep newest 100");
             Console.WriteLine("      override with -serverreplays on|off, -serverreplaystoragegb N,");
             Console.WriteLine("      -serverreplayretentiondays N and -serverreplaykeeplast N.");
+            Console.WriteLine("      optional: -weaponstore <directory> -weaponarchive <exact lowercase SHA-256>");
+            Console.WriteLine("      selects one installed weapon package and forces a persistent lobby.");
             Console.WriteLine();
             Console.WriteLine($"  {exe} -masterserver -port {NetMasterConfig.DefaultPort}");
             Console.WriteLine("      run a server directory of your own.");

@@ -67,7 +67,7 @@ public partial class Scene
         bool online=NetSession.Active,ready=online&&NetSession.CustomWeaponReplicaReady;
         if(OfflineWeapons==null&&!ready)
         {
-            ReleaseCustomRifleModel();
+            if(LocalWeaponPackage==null)ReleaseCustomRifleModel();
             if(_customHudStates==null)return;
         }
         if(OfflineWeapons!=null||ready){PrewarmCustomRifleModel();PrewarmCustomRifleAudio();}

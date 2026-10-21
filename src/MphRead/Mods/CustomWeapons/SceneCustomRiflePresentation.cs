@@ -29,7 +29,11 @@ public partial class Scene
         if(device==null||ReferenceEquals(device,_customRifleAudioFailedDevice))return;
         // Package waves were decoded at activation. A device change only rebuilds
         // callback voices, never reads package bytes or decodes on a game tick.
-        if(LocalWeaponPackage!=null&&_customRifleAudioWaves==null)return;
+        if(LocalWeaponPackage!=null&&_customRifleAudioWaves==null)
+        {
+            if(_weaponPackageResources==null)return;
+            _customRifleAudioWaves=_weaponPackageResources.AudioSamples;
+        }
         try{_customRifleAudio=CustomRifleAudio.Prewarm(_customRifleAudioWaves);}
         catch(Exception error) when(error is not OutOfMemoryException and not StackOverflowException)
         {_customRifleAudioFailedDevice=device;DebugLog.Line("custom-weapons","Original M7 audio unavailable; native fallback: "+error.GetType().Name);}

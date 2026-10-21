@@ -14,7 +14,36 @@ public partial class Scene
     // activates this foundation; gameplay admission is a later explicit gate.
     internal OfflineCustomWeaponRuntime? OfflineWeapons { get; private set; }
     private WeaponPackageLease? _localWeaponLease;
-    internal WeaponPackage? LocalWeaponPackage => _localWeaponLease?.Package;
+    private WeaponMatchPackageBinding? _onlineWeaponPackage;
+    private Mods.Network.MatchStartIdentity _onlineWeaponPackageStart;
+    private WeaponPackageResources? _weaponPackageResources;
+    internal WeaponPackage? LocalWeaponPackage => _localWeaponLease?.Package ?? _onlineWeaponPackage?.Package(0);
+    internal bool HasOnlineWeaponPackage(Mods.Network.MatchStartIdentity start, WeaponDigest manifest)
+        => !_exiting && _onlineWeaponPackageStart == start && _onlineWeaponPackage?.Manifest.Digest == manifest
+            && _weaponPackageResources != null;
+    internal void BindOnlineWeaponPackage(WeaponMatchPackageBinding prepared, Mods.Network.MatchStartIdentity start)
+    {
+        if (_exiting || !Mods.Network.NetSession.IsClient || Mods.Network.NetSession.IsAuthority
+            || Services.IsReplica || Mods.Network.DemoPlayback.IsActive || IsReplayLab || AimTrainer != null
+            || OfflineWeapons != null || CustomCombat != null || PirateBlaster != null || _localWeaponLease != null
+            || prepared.Count != 1 || start.StartGeneration == 0 || start.MatchId != Mods.Network.NetSession.CurrentMatchId
+            || start.AuthorityEpoch != Mods.Network.NetSession.AuthorityEpoch)
+            throw new InvalidOperationException("A prepared exact package requires its ordinary client scene and current match.");
+        if (_onlineWeaponPackageStart == start && _onlineWeaponPackage?.Manifest.Digest == prepared.Manifest.Digest) return;
+        var resources = prepared.Resources(0);
+        var owned = prepared.Retain(); // No I/O or decoding; scene independently keeps the OS lease.
+        try
+        {
+            ReleaseCustomWeaponPresentation();
+            ReleaseCustomWeaponInput();
+        }
+        catch { owned.Dispose(); throw; }
+        _onlineWeaponPackage?.Dispose();
+        _onlineWeaponPackage = owned; _onlineWeaponPackageStart = start;
+        _weaponPackageResources = resources;
+        ApplyCustomRiflePackageResources(resources);
+        PrewarmCustomRifleAudio();
+    }
     // Explicit local sandbox activation. The store operation alone never calls
     // this method. A scene must bind exact resources before its first fixed tick.
     internal OfflineCustomWeaponRuntime EnableOfflinePackageAvailability(WeaponPackageStore store, string packageHash, bool optIn)
@@ -71,11 +100,11 @@ public partial class Scene
         if (optIn) Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
         return CustomCombat = new(this,optIn,sourceAdmission);
     }
-    internal CustomAuthorityCombatAdapter EnableDeveloperEngineCustomCombat(bool optIn,ICustomSourceReadiness readiness,ICustomCombatDelivery? delivery=null,bool pickupOnly=false)
+    internal CustomAuthorityCombatAdapter EnableDeveloperEngineCustomCombat(bool optIn,ICustomSourceReadiness readiness,ICustomCombatDelivery? delivery=null,bool pickupOnly=false,WeaponDefinition? definition=null)
     {
         if (OfflineWeapons != null || CustomCombat != null || PirateBlaster != null) throw new InvalidOperationException("Custom combat already enabled.");
         if (optIn) Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
-        return CustomCombat = new(this,optIn,readiness,delivery,pickupOnly);
+        return CustomCombat = new(this,optIn,readiness,delivery,pickupOnly,definition);
     }
     internal WeaponRegistry? CustomWeapons { get; private set; }
     internal WeaponRegistry FreezeCustomWeaponRegistry(IEnumerable<WeaponDefinition> definitions)
@@ -94,5 +123,7 @@ public partial class Scene
         CustomWeapons?.Dispose();
         CustomWeapons = null;
         _localWeaponLease?.Dispose(); _localWeaponLease = null;
+        _onlineWeaponPackage?.Dispose(); _onlineWeaponPackage = null; _onlineWeaponPackageStart = default;
+        _weaponPackageResources = null;
     }
 }
