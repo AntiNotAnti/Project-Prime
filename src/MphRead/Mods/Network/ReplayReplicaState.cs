@@ -146,6 +146,8 @@ namespace MphRead.Mods.Network
         public void Accept(ReadOnlySpan<byte> packet, uint frame)
         {
             if (packet.IsEmpty) throw new InvalidDataException("Empty replay packet.");
+            if (packet[0] == ReplayCustomWeaponFact.Tag)
+                throw new InvalidDataException("Custom replay facts require a supported exact-package archive contract.");
             if (packet[0] == 253)
             {
                 RestoreCheckpoint(ReplayTimelineArchive.ReadConstruction(packet)); return;
