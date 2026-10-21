@@ -660,7 +660,13 @@ namespace MphRead.Mods.Network
                     using (var read = DemoReader.Open(upgradedPath, out var opened))
                         Require(read == null && opened == ReplayOpenResult.Corrupt,
                             "v6 container rejects v5 metadata without timed shot capability");
-                    byte[] future = File.ReadAllBytes(v5); future[4] = 7;
+                    byte[] invalidCustom = File.ReadAllBytes(v5); invalidCustom[4] = 7;
+                    string invalidCustomPath = Path.Combine(directory, $"world-invalid-v7-{policy}.ppdemo");
+                    File.WriteAllBytes(invalidCustomPath, invalidCustom);
+                    using (var read = DemoReader.Open(invalidCustomPath, out var opened))
+                        Require(read == null && opened == ReplayOpenResult.Corrupt,
+                            "v7 container rejects native metadata without its custom capability");
+                    byte[] future = File.ReadAllBytes(v5); future[4] = 8;
                     string futurePath = Path.Combine(directory, $"world-future-{policy}.ppdemo");
                     File.WriteAllBytes(futurePath, future);
                     using (var read = DemoReader.Open(futurePath, out var opened))

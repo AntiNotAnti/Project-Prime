@@ -78,6 +78,15 @@ namespace MphRead.Mods.Network
         private MovementModel? ResolveMovementModel()
         {
             if (!ReplayIdentityCompatibility.Supports(ProtocolVersion)) return null;
+            if (FormatVersion == 7)
+            {
+                try
+                {
+                    var state = ReplayFormatV3.ValidateCustomArchiveMetadata(this);
+                    return state?.Match is { } match ? MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits) : null;
+                }
+                catch (Exception error) when (error is IOException or InvalidDataException or ArgumentException) { return null; }
+            }
             MovementModel? result = null;
             ushort? matchId = null;
             ulong? epoch = null;
@@ -175,7 +184,8 @@ namespace MphRead.Mods.Network
         public string RoomKey { get; init; } = "";
         public ulong MapHash { get; init; }
         // Protocol-bound bootstrap persists the complete custom identity and download source.
-        public MapContentIdentity? CustomMapIdentity => ReplayMapIdentity.CustomSession(this)?.Match.MapIdentity.Content(RoomKey);
+        public MapContentIdentity? CustomMapIdentity => CustomWeapons is { Map.IsCustom: true } descriptor
+            ? descriptor.Map : ReplayMapIdentity.CustomSession(this)?.Match.MapIdentity.Content(RoomKey);
         public GameMode Mode { get; init; }
         public uint DurationFrames { get; set; }
         public ReplayIntegrity Integrity { get; set; }
@@ -192,6 +202,9 @@ namespace MphRead.Mods.Network
         // Format6 authority producer schema. Individual missing facts remain
         // unavailable; this is not a claim of complete native visual fidelity.
         public bool TimedShotCertificates { get; init; }
+        // Format7 only. Detached metadata consistency is not package provenance;
+        // a Scene must separately acquire the exact historical package resources.
+        public ReplayCustomWeaponDescriptor? CustomWeapons { get; init; }
         public IReadOnlyList<ReplayEvent> Events { get; set; } = Array.Empty<ReplayEvent>();
         public ushort HashSchema { get; set; }
         public string HashBuildId { get; set; } = "";

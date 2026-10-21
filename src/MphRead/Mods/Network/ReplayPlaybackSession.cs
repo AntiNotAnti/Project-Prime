@@ -216,6 +216,12 @@ namespace MphRead.Mods.Network
                 _reader = null;
                 return false;
             }
+            if (_reader.Metadata?.CustomWeapons != null)
+            {
+                LastResult = ReplayOpenResult.UnsupportedFormat;
+                LastError = "Custom archive inspection is available; Scene playback requires the custom world and exact historical resource contract.";
+                _reader.Dispose(); _reader = null; return false;
+            }
             if (!detached && _reader.Metadata is { } packageMetadata) ReplayMapIdentity.PrepareExactPackage(packageMetadata);
             bool pathChanged = CurrentPath != path;
             if (pathChanged) Transport.ClearSelection();

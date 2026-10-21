@@ -69,7 +69,23 @@ internal static class CustomReplayCheckpointReopenChecks
                 Check(inspectionLinear.CustomWeapons!.CaptureCheckpointBytes().AsSpan().SequenceEqual(finalBytes)&&inspectionRestored!.CustomWeapons!.CaptureCheckpointBytes().AsSpan().SequenceEqual(finalBytes),"cold replica embedded CWRS exact parity");
                 Check(inspectionLinear.Rng1==inspectionRng1&&inspectionLinear.Rng2==inspectionRng2&&inspectionRestored!.Rng1==inspectionRng1&&inspectionRestored.Rng2==inspectionRng2,"cold inspection RNG unchanged");
             }
-            Directory.CreateDirectory(output);File.WriteAllText(Path.Combine(output,"checkpoint-reopen-results.json"),JsonSerializer.Serialize(new{checks,count,customReplicaInspection=inspectionLinear!=null,finalSlots,historicalOptic4,final.Sequence,final.World,final.RecordingFrame,checkpointSha256=Convert.ToHexString(SHA256.HashData(finalBytes)),scope="Separate cold process, exact historical package binding and detached byte checkpoint/fact suffix parity. No Scene, live session, Demo archive or archive seek."},new JsonSerializerOptions{WriteIndented=true}));
+            string archivePath=Path.Combine(glOutput,"actual-custom"+DemoFile.Extension);bool archiveReopened=false;
+            if(File.Exists(archivePath))
+            {
+                using var reader=DemoReader.Open(archivePath)??throw new InvalidDataException("Cold custom archive did not open.");
+                var metadata=reader.Metadata??throw new InvalidDataException("Cold archive has no metadata.");
+                Check(metadata.FormatVersion==7&&metadata.CustomWeapons!=null,"cold explicit format7 archive metadata");
+                using var archiveBinding=metadata.CustomWeapons!.Bootstrap.PrepareHistorical(new WeaponPackageStore(Path.Combine(glOutput,"server-store")));
+                var archiveDefinition=archiveBinding.Definition(new WeaponRuntimeId(10));
+                Check(metadata.CustomWeapons.Bind(archiveDefinition).Digest==context.Digest,"cold archive exact historical package binding");
+                Check(metadata.CustomWeapons.MetadataDefinition is { } recordedDefinition&&StringComparer.Ordinal.Equals(recordedDefinition.Name,archiveDefinition.Name)&&recordedDefinition.Mechanics.ToCanonicalBytes().AsSpan().SequenceEqual(archiveDefinition.Mechanics.ToCanonicalBytes()),"cold archive metadata name and canonical mechanics match verified historical package");
+                Check(metadata.CustomWeapons.CopyBytes().AsSpan().SequenceEqual(Read("inspection-descriptor.bin",ReplayCustomWeaponDescriptor.MaximumBytes)),"cold archive descriptor matches actual inspection capture");
+                var archiveState=ReplayFormatV3.ValidateCustomArchiveMetadata(metadata)!;
+                while(reader.ReadNext() is { } record)
+                {if(record.Data[0]==255)continue;archiveState.Accept(record.Data,checked(record.Frame+metadata.OriginRecordingFrame));}
+                Check(reader.LastResult==ReplayOpenResult.Success&&archiveState.CaptureCheckpoint().Bytes.SequenceEqual(inspectionBytes!),"cold closed format7 actual suffix reproduces final canonical replica15");archiveReopened=true;
+            }
+            Directory.CreateDirectory(output);File.WriteAllText(Path.Combine(output,"checkpoint-reopen-results.json"),JsonSerializer.Serialize(new{checks,count,archiveReopened,customReplicaInspection=inspectionLinear!=null,finalSlots,historicalOptic4,final.Sequence,final.World,final.RecordingFrame,checkpointSha256=Convert.ToHexString(SHA256.HashData(finalBytes)),scope="Separate cold process, exact historical package binding, detached byte checkpoint/fact suffix parity and optional retained format7 archive close/reopen reconstruction. No whole Scene, live session, Demo playback or archive seek."},new JsonSerializerOptions{WriteIndented=true}));
             Console.WriteLine($"PASS {checks} cold detached custom checkpoint reopen checks");return 0;
         }
         catch(Exception error){Console.Error.WriteLine("CUSTOM CHECKPOINT REOPEN FAIL "+error);return 1;}
