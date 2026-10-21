@@ -202,7 +202,7 @@ internal static class ParkourWallstrafeSceneTests
                     bool east = hit.Plane.X < -.99f && MathF.Abs(hit.Plane.Z) < .001f && p.Position.X > 47;
                     bool west = hit.Plane.X > .99f && MathF.Abs(hit.Plane.Z) < .001f && p.Position.X < -47;
                     bool front = hit.Plane.Z < -.99f && MathF.Abs(hit.Plane.X) < .001f && p.Position.Z > 39;
-                    boundaryFace |= east || west; eastFace |= east; frontFace |= front;
+                    boundaryFace |= east || west || front; eastFace |= east; frontFace |= front;
                 }
                 Check(!applied || boundaryFace, "every applied impulse has current static boundary face and plane-distance witness");
                 ticks[i] = new(i, frame, p.Position.X, p.Position.Y, p.Position.Z, p.Speed.X, p.Speed.Y, p.Speed.Z,
