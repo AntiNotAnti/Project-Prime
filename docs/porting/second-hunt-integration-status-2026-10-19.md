@@ -1,7 +1,7 @@
 # Second Hunt integration status
 
 This ledger follows the user's request to implement the 2026-10-19 plan on
-Project Prime, test on Windows with Mac fallback, and merge completed local
+Project Prime, test on Windows, and merge completed local
 slices without waiting for review or CI. The plan is the implementation
 specification; its quoted suggested prompt is not a separate authority.
 The full plan is **not complete**. Remaining engineering is distinguished
@@ -9,12 +9,14 @@ from device, source, deployment and performance acceptance below.
 
 Work is isolated from the original checkout's unrelated changes in the
 attached `second-hunt-integration` and `character-runtime-integration` worktrees.
-Character/import work uses `character-runtime-integration`; explicit native-fallback
+The current Windows body slice uses the attached `imported-body-runtime` worktree;
+earlier character/import work uses `character-runtime-integration`. Explicit native-fallback
 Trooper mechanics use the attached `trooper-wall-cling` worktree. No protected game payloads,
 private screenshots, live backend credentials or user saves are committed.
 The original seven Hunter values, dedicated combat/world authority,
 owner-reported movement and historical replay readers remain the contracts.
-Protocol numbers in frozen evidence documents describe those exact builds.
+The user subsequently requested this Windows machine for testing going forward;
+further Android testing remains deferred. Protocol numbers in frozen evidence documents describe those exact builds.
 Pause-map verification uses protocol 64 and body/ball verification uses 65;
 the current observed source-access baseline includes main through PR863 /
 protocol 73 at frozen `d098819dc`, with Android-only follow-up `78aa831ee`.
@@ -100,9 +102,12 @@ The [body source-program viewer](second-hunt-character-source-program-preview-20
 connects all seven normal and nine Overcharged programs to the existing Scene,
 with private generated-profile admission, separate material time, complete
 source texture upload, rollback/state restoration and Final cannon refusal.
-It remains a macOS private viewer; playable actors, Android source drawing,
-Imported Trooper actors, remaining abilities and selection/network/replay are
-unfinished. Normal clock
+That frozen evidence qualifies a macOS private viewer. The later
+[offline body runtime](second-hunt-offline-body-runtime-2026-10-20.md) adds normal
+and Overcharged source bodies to actual local Samus matches, selected through
+Hunters and verified on Windows x64, with complete native fallback for unsupported
+presentation. Imported Trooper actors, Android source drawing, source first-person
+cannon/ball and character selection/network/replay integration remain unfinished. Normal clock
 transport is proved, but visible normal material animation is not established
 in the owned views. Exact source/test identities and retained setup failures
 are in that evidence document.
@@ -125,7 +130,7 @@ damage/kill unqualified in that earlier freeze. The subsequent explicit
 private three-bolt Blaster/shared UA, native damage and240-step marks. Its exact
 desktop Scene/GL/menu and dedicated checks pass, including reciprocal actual native-bot damage
 and a Blaster kill with untouched native AI. Imported Trooper actors/cannons,
-Overcharged runtime cosmetics, online/replay and full character integration
+online/replay and full character integration
 remain unfinished. Android package checks had finished before the user requested
 skipping further Android testing. Later main PR921/923 integration received desktop-only requalification; its Android dependency/runtime acceptance remains unqualified.
 
@@ -138,7 +143,7 @@ skipping further Android testing. Later main PR921/923 integration received desk
 | SH-02 | Direct weapon-wheel selection opt-in, shared sprite geometry, canonical weapon checks and input ownership | Device-found defects if any | Actual selectable/highlighted Android game and no combat/menu/replay regression |
 | SH-03 | Immutable local generations; bounded receipts/hashes; atomic publication and retained old assets; cancellation, leases, batch partial-success reporting; existing Check/Update selected/all/Remove flow; complete Dark Samus body/ball generations with component versions/status and repair reuse; Echoes full original ANIM banks, raw CINF and deterministic source GLBs/provenance share one transaction; Rev2 Trooper recipe3/body2 requires full142-leaf ANIM/CINF/graph/source-GLB authoring under the explicit35-bone/root3/parent2 contract; normal recipe6/body5 retains a fixed cannon recipe and Body/Cannon diagnostic viewer, while Final recipe6/body5 adds its own strict generated body manifest and private source-program viewer; both bodies now require complete raw material/TXTR archives (16 programs,20 unique textures) in the same transaction; bounded Android selected-document access, captured app-writable root and view/Activity/provider ownership with actual emulator import/recovery (see [access evidence](second-hunt-android-source-access-2026-10-20.md)) | Skin/gun/material inventory and remaining source parts; coalesced waiter semantics | Physical/cloud/SD and revoked/low-space storage cases, broader Activity/process-death/crash acceptance, cross-platform component parity, Android runtime preview and full game/Studio import interaction (further Android testing currently skipped by user) |
 | SH-04 | Six local collision previews and private/source identity fences; actual source geometry audit; bounded TXTR decoder and six private texture banks verified against all390 owned entries; immutable material snapshots and shared upload infrastructure; bounded material parser and paired source-coordinate transport through final emission/cache/model ownership; all six owned arena UV streams verified | Complete-arena import recipe; full-precision dual-UV shared-renderer translation, TEV/base-lightmap semantics and complete material tiers; per-arena turret/kinetic/world mechanics; bots and authoritative multiplayer feasibility | All six actual local playtests/physics; supported GPU/Android fidelity; explicit server-content gate before online support; bank infrastructure does not qualify complete arenas |
-| SH-05 | Existing per-seat private visual/source-rig owners preserved; six source authoring appearances including distinct Overcharged body and related body/ball bundles; full Echoes and Rev2 Trooper ANIM/CINF authoring imports, deterministic source geometry, and normal/Overcharged animated bodies with complete16-program source-material preview plus normal fixed source-cannon diagnostic preview; complete raw normal/Overcharged body material/TXTR authoring (16 programs,20 unique textures) with actual Android upgrade/repeat/removal (see [body scope](second-hunt-generated-character-preview-2026-10-20.md) and [cannon scope](second-hunt-generated-cannon-preview-2026-10-20.md)) | Remaining source GX parts and supported-platform rendering beyond the qualified private macOS normal/Overcharged body viewer; complete first-person firing/muzzle presentation and playable animation state/transition parts; qualified Overcharged runtime cosmetic; Complete imported Blaster/affinity and drone presentation/geometry beyond qualified private offline native-fallback Arsenal/primary/laser/native-bot practice; wall-cling online/replay and imported presentation beyond the explicit native-Weavel offline practice modes; capability/selection/replay/authority integration | Mixed-seat actual media/GPU, complete transitions and combat/replay/respawn; no playable-extra-character claim yet |
+| SH-05 | Existing per-seat private visual/source-rig owners preserved; six source authoring appearances including distinct Overcharged body and related body/ball bundles; full Echoes and Rev2 Trooper ANIM/CINF authoring imports, deterministic source geometry, and normal/Overcharged animated bodies with complete16-program source-material preview plus normal fixed source-cannon diagnostic preview; opt-in Hunters selection and real offline Samus body runtime with full39-joint source poses/materials, Windows physical identity and complete native fallback; complete raw normal/Overcharged body material/TXTR authoring (16 programs,20 unique textures) with actual Android upgrade/repeat/removal (see [body scope](second-hunt-generated-character-preview-2026-10-20.md) and [cannon scope](second-hunt-generated-cannon-preview-2026-10-20.md)) | Remaining source GX parts and broader supported-platform rendering beyond the Windows offline body slice; source first-person firing/cannon and ball presentation, native muzzle alignment and remaining supported animation transitions; Complete imported Blaster/affinity and drone presentation/geometry beyond qualified private offline native-fallback Arsenal/primary/laser/native-bot practice; wall-cling online/replay and imported presentation beyond the explicit native-Weavel offline practice modes; capability/selection/replay/authority integration | Mixed-seat actual media/GPU, complete transitions and combat/replay/respawn; no playable-extra-character claim yet |
 | SH-06 | Fenced create-lobby handoff, cancellation/retry, preference acceptance and serialized local start ownership | Directory-owned grouped search, mode/region/content query, pre-allocation ballot, telemetry and dedicated handoff | Real deployment/HMAC/account/server-child/load/reconnect; existing leader-admitted party reservations are not grouped search |
 | SH-07 | Reproducible binary/hardware/settings/map/workload provenance, strict paired comparator and actual GL functional capture | Controlled experiments and any justified opt-in runtime improvement | Achieved pacing, variance, latency and error tolerances; current draw-CPU evidence is not FPS improvement |
 | SH-08 | Existing campaign travel/endings/movie lifetime retained; optional merged native room detail; bounded original credits/results source and animation durations; pure 30 Hz ending timeline; bounded model/animation admission and exact-byte CPU decoding; detached native backgrounds/font metrics and bounded glyph layout/color and private CPU widget sampling; aggregate asset admission, immutable captured-result binding and bounded CPU frame composition; optional bounded native canvas geometry/texture transport, sampler policy and GPU/lease retirement; optional AMHE1/English desktop original credits/results activation with bounded cancelable source load, stacked-screen canvas, 30 Hz clock, source OK/application cancellation and existing audio owner; optional cumulative 60 Hz campaign time records and captured result facts | Original cockpit/ship presentation; Android original ending-page owner; widescreen/crossfade fidelity and any remaining original credits/results behavior; any unimplemented map behavior | Full story/travel/save paths, physical touch/controller, upper-door/connector marker travel and platform captures |

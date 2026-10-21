@@ -34,6 +34,8 @@ try
         return CharacterGeneratedPreviewOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-body-runtime")
         return CharacterBodyRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-body-launch")
+        return CharacterBodyLaunchOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-animations")
         return CharacterAnimationRuntimeOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-world-companions")
