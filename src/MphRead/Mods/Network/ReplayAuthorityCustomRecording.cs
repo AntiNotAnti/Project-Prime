@@ -47,7 +47,8 @@ public sealed partial class DedicatedServer
         }
     }
     internal bool HasCustomReplayRecordingScope => !_authorityReplayCaptureFailed && _authorityReplayPackages != null
-        && ReplayPolicy.Normalize().Enabled && _phase == SessionPhase.InMatch && _bots.Count == 0 && _peers.Count > 0
+        && ReplayPolicy.Normalize().Enabled && _phase == SessionPhase.InMatch
+        && (_bots.Count == 0 || CustomAuthorityCombatAdapter.AuthorityBotsEnabled) && (_peers.Count > 0 || _bots.Count > 0)
         && CurrentDefinition.PackagedWeaponAvailable && _weaponPackages != null
         && _authorityReplayPackages.Manifest.Digest == _weaponPackages.Manifest.Digest
         && _sim?.EvidenceScene is { CustomCombat.Pickups: not null } scene

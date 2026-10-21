@@ -293,7 +293,7 @@ namespace MphRead.Mods.Network
                     { reason = "The operator's exact package selection cannot be changed by a lobby command."; return LobbyResultCode.InvalidConfiguration; }
                     var valid = LobbyRules.ValidateDefinition(proposed, out reason);
                     if (valid != LobbyResultCode.Ok) return valid;
-                    if (proposed.RiftlineM7Available && _bots.Count > 0)
+                    if (proposed.RiftlineM7Available && _bots.Count > 0&&!CustomWeapons.CustomAuthorityCombatAdapter.AuthorityBotsEnabled)
                     { reason = "Remove bots before enabling Riftline M7 availability."; return LobbyResultCode.InvalidConfiguration; }
                     string? room = ResolveRoomKey(proposed.RoomKey);
                     if (room == null) { reason = "The server does not have that map."; return LobbyResultCode.MapUnavailable; }

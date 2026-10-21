@@ -7,7 +7,7 @@ namespace MphRead.Mods.CustomWeapons;
 
 internal sealed partial class CustomAuthorityCombatAdapter
 {
-    private readonly record struct AcceptedInput(PlayerEntity Player,CustomSourceInput Input,Vector3 PlacedBody,bool StableBiped,bool AcceptedPose);
+    private readonly record struct AcceptedInput(PlayerEntity Player,CustomSourceInput Input,Vector3 PlacedBody,bool StableBiped,bool AcceptedPose,bool AuthorityBot = false);
     private readonly AcceptedInput?[] _acceptedInputs = new AcceptedInput?[8];
     private bool _inputPhase;
     private uint _inputWorld;
@@ -57,7 +57,7 @@ internal sealed partial class CustomAuthorityCombatAdapter
                         // A packet or action cannot grant a loadout. The exact
                         // accepted post-ready carrier must reach actual engine
                         // placement/controls before selecting a source boundary.
-                        if (_sourceBoundary != null)
+                        if (_sourceBoundary != null && !token.AuthorityBot)
                         {
                             if (_current[owner.Slot]?.Owner != owner
                                 && (!hasFacts || !token.StableBiped || token.Player.Position != token.PlacedBody)) continue;
@@ -67,7 +67,7 @@ internal sealed partial class CustomAuthorityCombatAdapter
                                 && !BindLife(token.Player,token.Input.Frame,facts.CanUseWeapon)) continue;
                         }
                         if (_current[owner.Slot] is not { Journal: not null } life || life.Owner != owner) continue;
-                        if(_sourceBoundary!=null&&(!_sourceBoundary.TryGet(owner,out var pickupContext)
+                        if(!token.AuthorityBot&&_sourceBoundary!=null&&(!_sourceBoundary.TryGet(owner,out var pickupContext)
                             ||!CapturePickupInput(life,token.Input,pickupContext)))continue;
                         CustomObservationResult result;
                         bool canUse = false;
@@ -94,7 +94,11 @@ internal sealed partial class CustomAuthorityCombatAdapter
                         // A fresh denied/unavailable observation is terminal for
                         // the active primary control too; never wait for thaw or
                         // a later favorable pose. Duplicate carriers are inert.
-                        if (result!=CustomObservationResult.Duplicate) _delivery?.SourceObserved(this,token.Input);
+                        if (result!=CustomObservationResult.Duplicate)
+                        {
+                            if (token.AuthorityBot) ProcessAuthorityBot(token.Player,life,token.Input);
+                            else _delivery?.SourceObserved(this,token.Input);
+                        }
                     }
             if (capture && IsEligible && _inputWorld==Now)
             {

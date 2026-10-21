@@ -55,7 +55,7 @@ namespace MphRead.Mods.Network
         {
             var result = ValidateDefinition(match, out reason);
             if (result != LobbyResultCode.Ok) return result;
-            if (match.RiftlineM7Available)
+            if (match.RiftlineM7Available&&!CustomWeapons.CustomAuthorityCombatAdapter.AuthorityBotsEnabled)
                 for (int slot = 0; slot < roster.Count; slot++)
                     if (roster.IsBot(slot))
                     { reason = "Online Riftline M7 matches require human players without bots."; return LobbyResultCode.InvalidConfiguration; }

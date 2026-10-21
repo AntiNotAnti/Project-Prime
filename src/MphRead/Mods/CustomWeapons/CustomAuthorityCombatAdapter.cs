@@ -27,6 +27,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         internal required CustomEngineSourceHistory Sources;
         internal CustomSourceActionJournal? Journal;
         internal CustomPickupKnowledgeFence? Knowledge;
+        internal AuthorityBotSource? Bot;
         internal uint? RetiredAt;
     }
     private readonly record struct Death(WeaponOwnerContext Owner,uint World,uint Observed);
@@ -229,7 +230,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
     {
         source = default;
         if (!IsEligible || _delivery?.MayExecute(action)==false) return CustomSourceDecision.Rejected;
-        var decision = _sourceAdmission.Inspect(action,out source);
+        var decision = Find(action.Owner)?.Bot != null ? InspectAuthorityBot(action,out source) : _sourceAdmission.Inspect(action,out source);
         if (decision == CustomSourceDecision.Verified && action.Kind == CustomWeaponActionKind.Fire
             && !TradeAllowed(action.Owner,source.TargetWorldFrame)) return CustomSourceDecision.Rejected;
         return decision;
@@ -250,7 +251,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             || _delivery!=null && !_delivery.HasPreparedAudience(launch.Source.Action)
             || Find(owner) is not { } life || !ReferenceEquals(_current[owner.Slot],life)
             || _slots[owner.Slot] is not { } slot || !CurrentOwner(slot.Player,out var current) || current != owner
-            || _sourceAdmission.Inspect(launch.Source.Action,out var checkedSource) != CustomSourceDecision.Verified
+            || ((ICustomSourceAdmission)this).Inspect(launch.Source.Action,out var checkedSource) != CustomSourceDecision.Verified
             || checkedSource != launch.Source
             || !life.Payments.TryBeginLaunch(launch,Now,out var lease,out var source)) return CustomEmissionDisposition.NoSpawn;
         using (lease)

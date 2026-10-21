@@ -504,6 +504,9 @@ namespace MphRead.Mods.Network
             NetOperatorEvidence.BeginRun();
             try
             {
+                if (_autonomousWeaponBots && !_controlPlaneOnlyForTests
+                    && !BeginLobbyMatch(CurrentDefinition,clock.Elapsed.TotalSeconds,out string botStartError))
+                    throw new InvalidOperationException("Cannot start authority weapon bots: "+botStartError);
                 while (_running && !cancel.IsCancellationRequested)
                 {
                     double now = clock.Elapsed.TotalSeconds;
@@ -560,7 +563,7 @@ namespace MphRead.Mods.Network
                     // instead of starting its own, and what keeps the rotation
                     // advancing even while players come and go.
                     float limit = CurrentDefinition.TimeLimitSeconds;
-                    if (_phase == SessionPhase.InMatch && _matchEndedAt < 0 && limit > 0 && _peers.Count > 0
+                    if (_phase == SessionPhase.InMatch && _matchEndedAt < 0 && limit > 0 && (_peers.Count > 0 || _autonomousWeaponBots)
                         && now - _matchStarted >= limit)
                     {
                         EndMatch(now, "time limit");
@@ -2326,7 +2329,7 @@ namespace MphRead.Mods.Network
                     SendRefusal(packet.Sender, RefusedPacket.ReasonFull);
                     return;
                 }
-                if (_peers.Count == 0 && SessionPolicy == ServerSessionPolicy.Continuous)
+                if (_peers.Count == 0 && !_autonomousWeaponBots && SessionPolicy == ServerSessionPolicy.Continuous)
                 {
                     AbandonCareerMatch();
                     // An empty Continuous server keeps only its control plane
@@ -2718,7 +2721,7 @@ namespace MphRead.Mods.Network
             {
                 Announce(reason, peer.Name);
             }
-            if (_peers.Count == 0 && SessionPolicy == ServerSessionPolicy.Continuous
+            if (_peers.Count == 0 && !_autonomousWeaponBots && SessionPolicy == ServerSessionPolicy.Continuous
                 && _sim != null)
             {
                 Log("last player left continuous server; suspending empty world");

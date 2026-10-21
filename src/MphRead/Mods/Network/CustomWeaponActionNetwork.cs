@@ -45,7 +45,8 @@ public sealed partial class DedicatedServer
             && entry.State.Wire.Bootstrap==action.Bootstrap && entry.State.Wire.Manifest.Digest==action.Manifest ? entry:null;
     private bool CustomRoomReady(Scene scene)
     {
-        if (_phase!=SessionPhase.InMatch || _bots.Count!=0 || _peers.Count==0) return false;
+        if (_phase!=SessionPhase.InMatch || _bots.Count!=0&&!CustomAuthorityCombatAdapter.AuthorityBotsEnabled
+            || _peers.Count==0&&(_bots.Count==0||!CustomAuthorityCombatAdapter.AuthorityBotsEnabled)) return false;
         foreach (var peer in _peers)
         {
             if(CurrentCustomRecipientEntry(peer,scene) is not {Replica.IsReady:true} recipient||!PickupRecipientReady(recipient)
@@ -66,18 +67,23 @@ public sealed partial class DedicatedServer
     {
         public bool HasActionReservation(in CustomWeaponAction action)
             => (server.CustomRoomReady(scene) || server.PublicCustomWeaponMatch)
-                && server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasActionReservation(action)==true;
+                && (scene.CustomCombat?.HasAuthorityBotReservation(action)==true
+                    ||server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasActionReservation(action)==true);
         public bool TryKnowledge(in CustomWeaponAction action,out CustomResourceKnowledge knowledge)
         {
             knowledge=default;
+            if(scene.CustomCombat?.HasAuthorityBotReservation(action)==true)return true;
             return server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.TryKnowledge(action,out knowledge)==true;
         }
         public bool MayExecute(in CustomWeaponAction action) => server.CustomRoomReady(scene);
         public bool HasContactReservation(in CustomWeaponAction action)
-            => server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasContactReservation(action)==true;
+            =>scene.CustomCombat?.HasAuthorityBotContactReservation(action)==true
+                ||server.CurrentCustomResultEntry(action,scene)?.Combat?.Outbox.HasContactReservation(action)==true;
         public bool Publish(in CustomActionReceipt receipt)=>Publish(receipt,default);
         public bool Publish(in CustomActionReceipt receipt,CustomResourceKnowledge knowledge)
         {
+            if(knowledge.IsEmpty&&scene.CustomCombat?.CompleteAuthorityBotReceipt(receipt)==true)
+            {server._customAudience?.FinalizeReceipt(receipt);return true;}
             return server.CurrentCustomResultEntry(receipt.Action,scene)?.Combat is {} combat
                 &&server.PublishCustomReceipt(combat,receipt,knowledge);
         }
@@ -85,6 +91,11 @@ public sealed partial class DedicatedServer
         {
             var identity=outcome.Contact.Key.Action;
             if (!identity.IsValid) return false;
+            if(scene.CustomCombat?.TryAuthorityBotBootstrap(identity.Owner,out var source)==true)
+            {
+                server._customAudience?.PublishContact(outcome,NetSession.Clock);
+                server.ObserveCustomReplayContact(source,outcome);scene.CustomCombat.ReleaseAuthorityBotContact(identity);return true;
+            }
             var entry=server.CurrentCustomActionEntry(identity.Owner.Slot,scene);
             if (entry?.Combat is not { } combat) return false;
             if(!combat.Outbox.Publish(outcome))return false;
