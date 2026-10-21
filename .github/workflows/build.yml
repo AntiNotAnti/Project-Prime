@@ -769,6 +769,8 @@ jobs:
         run: dotnet run --project tools/lobby-waitlist-check -c Release
       - name: custom map vote output and immutable manifest regressions
         run: dotnet run --project tools/nettest -c Release -- --map-vote-ready
+      - name: spectators never earn career losses and role changes close play segments
+        run: dotnet run --project tools/nettest -c Release --no-build -- --career-spectator
       - name: canonical animation frame-prediction and sample-isolation regressions
         run: dotnet run --project tools/nettest -c Release -- --animation-sampling
       - name: authored firing vectors reject pathological magnitudes without a protocol change

@@ -1987,8 +1987,8 @@ namespace MphRead.Mods.Network
         /// it that was still showing: the disruption is applied inside
         /// <c>TakeDamage</c> from the beam that landed the hit, so on every
         /// machine but the authority's the victim was hit by a charged Volt
-        /// Driver and nothing happened at all -- no aim disruption and, above
-        /// all, none of the screen distortion the weapon is *known* by. The
+        /// Driver and nothing happened at all -- none of the screen
+        /// distortion the weapon is *known* by. The
         /// shooter watched their charge land and the target play on, and the
         /// target had no idea what had hit them. Reported as "the Volt
         /// Driver's charged shot is missing the screen-distortion effect".

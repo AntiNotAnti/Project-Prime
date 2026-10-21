@@ -587,7 +587,7 @@ namespace MphRead.Mods.Network
                 || _phase is not (SessionPhase.Starting or SessionPhase.InMatch)) return;
             if (!PackagePeerReady(peer)) return;
             if (CurrentDefinition.MapIdentity.IsCustom && (peer.PreparedMap != CurrentDefinition.MapIdentity || peer.MapAvailability != MapAvailabilityState.Ready)) return;
-            peer.Spectating = spectating;
+            CareerSetSpectating(peer, spectating);
             if (Simulating) NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
             peer.LastSeen = now; peer.SceneLoaded = true;
             if (_phase == SessionPhase.Starting) _start.MarkLoaded(peer.SlotIndex, identity);
