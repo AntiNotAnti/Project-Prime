@@ -10,6 +10,7 @@ if (args.Length == 4 && args[0] == "--weapon-package-contact-history-gl") return
 if (args.Length == 4 && args[0] == "--weapon-package-contact-gl") return WeaponPackageContactGlChecks.Source(args[1],args[2],args[3]);
 if (args.Length == 2 && args[0] == "--weapon-package-contact-target") return WeaponPackageContactGlChecks.Target(args[1]);
 if (args.Length == 3 && args[0] == "--custom-replay-file-reopen") return CustomReplayFileReopenChecks.Run(args[1],args[2]);
+if (args.Length == 2 && args[0] == "--custom-replay-post-world") return CustomReplayPostWorldChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--custom-replay-authority-origin") return CustomReplayAuthorityOriginChecks.Run(args[1]);
 if (args.Length == 3 && args[0] == "--custom-replay-theatre-ui") return CustomReplayTheatreUiChecks.Run(args[1],args[2]);
 if (args.Length == 3 && args[0] == "--custom-replay-theatre") return CustomReplayTheatreChecks.Run(args[1],args[2]);

@@ -15,16 +15,16 @@ internal static partial class ReplayFormatV3
     // substitute for a verified historical package lease at Scene creation.
     internal static ReplayReplicaState? ValidateCustomArchiveMetadata(ReplayMetadata metadata)
     {
-        if (metadata.FormatVersion != 7)
+        if (metadata.FormatVersion is not (7 or 8))
         {
-            if (metadata.CustomWeapons != null) throw new InvalidDataException("Custom metadata requires archive format7.");
+            if (metadata.CustomWeapons != null) throw new InvalidDataException("Custom metadata requires archive format7/8.");
             return null;
         }
         if (metadata.ProtocolVersion is not (83 or 84 or 85) || metadata.CustomWeapons is not { MetadataDefinition: not null } descriptor
             || metadata.WorldCheckpoint.Length > Replay.ReplayWorldCheckpoint.MaximumBytes || metadata.Bootstrap.Packets.Count != 1
             || metadata.Bootstrap.Packets[0] is not { Length: > 1 } packet || packet.Length > MaxCustomConstruction || packet[0] != 253
             || (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames > uint.MaxValue)
-            throw new InvalidDataException("Format7 requires an exact custom descriptor and custom construction; an optional world must be explicit version12/13.");
+            throw new InvalidDataException("Format7/8 requires an exact custom descriptor and custom construction; an optional world must be explicit version12/13.");
         var checkpoint = ReplayTimelineArchive.ReadConstruction(packet, custom: true);
         if (ReplayReplicaState.InspectCustomCheckpointLayout(checkpoint).Protocol != metadata.ProtocolVersion)
             throw new InvalidDataException("Custom construction protocol differs from its archive.");
@@ -71,5 +71,25 @@ internal static partial class ReplayFormatV3
         if (context == null || !ReplayCustomWeaponFact.TryRead(packet, context, out _))
             throw new InvalidDataException("Invalid or undeclared custom weapon archive record.");
     }
-    internal static int MaximumRecordBytes(bool custom) => custom ? ReplayCustomWeaponFact.MaximumBytes : NetConfig.MaxSnapshotSize;
+    internal static int MaximumRecordBytes(bool custom, byte version = 7)
+        => custom ? version == 8 ? ReplayPostWorldRecord.MaximumBytes : ReplayCustomWeaponFact.MaximumBytes : NetConfig.MaxSnapshotSize;
+
+    internal static void ValidateArchiveRecord(ReadOnlySpan<byte> packet, ReplayCustomWeaponContext? context,
+        byte version, bool timed)
+    {
+        if (packet.IsEmpty) throw new InvalidDataException("Empty replay archive record.");
+        if (packet[0] == ReplayPostWorldRecord.Tag)
+        {
+            if (version != 8 || context == null)
+                throw new InvalidDataException("Post-world facts require the format8 custom archive contract.");
+            packet = ReplayPostWorldRecord.ValidateAndGetPayload(packet, context);
+        }
+        ValidateCustomArchiveRecord(packet, context);
+        if (packet[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag)
+        {
+            if (!timed || (packet[0] == ReplayTimedShotScope.Tag
+                ? !ReplayTimedShotScope.TryRead(packet, out _) : !ReplayTimedShotFact.TryRead(packet, out _)))
+                throw new InvalidDataException("Invalid or undeclared timed shot archive record.");
+        }
+    }
 }

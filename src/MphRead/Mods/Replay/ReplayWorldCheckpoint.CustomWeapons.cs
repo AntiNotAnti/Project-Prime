@@ -52,7 +52,7 @@ internal sealed partial class ReplayWorldCheckpoint
     }
     internal void ValidateCustomArchive(ReplayMetadata metadata, ReplayReplicaCheckpoint? current = null)
     {
-        if (!HasCustomWeaponContract || metadata.FormatVersion != 7 || CustomWeaponDescriptor == null || metadata.CustomWeapons == null
+        if (!HasCustomWeaponContract || metadata.FormatVersion is not (7 or 8) || CustomWeaponDescriptor == null || metadata.CustomWeapons == null
             || metadata.Bootstrap.Packets.Count != 1
             || !CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(metadata.CustomWeapons.CopyBytes())
             || HasTimedShotContract != metadata.TimedShotCertificates
