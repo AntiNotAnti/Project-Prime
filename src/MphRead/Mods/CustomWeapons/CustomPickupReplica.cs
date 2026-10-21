@@ -148,4 +148,6 @@ internal sealed class CustomPickupReplicaReceiver
     }
     internal bool TryState(int index,out CustomPickupItemState item)
     {item=default;if(!IsReady||(uint)index>=_states.Length||_states[index] is not {} state)return false;item=state.Item;return true;}
+    internal bool TryAcceptedState(int index,out CustomPickupReplicaState state)
+    {state=default;if(Closed||(uint)index>=_states.Length||_states[index] is not {} value)return false;state=value;return true;}
 }

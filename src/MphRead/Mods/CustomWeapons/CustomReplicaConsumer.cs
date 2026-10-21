@@ -20,6 +20,7 @@ internal sealed class CustomReplicaConsumer
     internal int PendingFacts=>_count;
     internal ulong DeliveredEvents=>_receiver.DeliveredEvents;
     internal ulong StateRevision=>_receiver.StateRevision;
+    internal CustomReplicaEvent? LatestAcceptedEvent=>_receiver.LastEvent;
     internal CustomReplicaConsumer(CustomReadinessWire wire,double now)=>_receiver=new(wire,now);
     internal bool Receive(PacketType type,ReadOnlySpan<byte> bytes,double now,out CustomReplicaAck ack)
     {
