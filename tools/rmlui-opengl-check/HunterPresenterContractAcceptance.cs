@@ -45,6 +45,25 @@ internal static class HunterPresenterContractAcceptance
                 host.Update();
                 Check(host.IsAlive(presenter.PreviewDocument), "real presenter opens shipped picker for " + hunter);
                 ulong sequence = 1;
+                if (hunter == Hunter.Samus && LocalBodyAppearanceRules.Available)
+                {
+                    Check(host.FocusDocument(presenter.PreviewDocument, "hunter_body1"), "local body choice accepts native focus");
+                    host.Update(); host.DiscardIntents();
+                    Check(host.TryGetElementBounds(presenter.PreviewDocument, "hunter_body1", out float bx, out float by,
+                        out float bw, out float bh) && bw > 0 && bh > 0, "local body choice has native hit geometry");
+                    host.Input.PointerButton(0, bx + bw / 2, by + bh / 2, true);
+                    host.Input.PointerButton(0, bx + bw / 2, by + bh / 2, false);
+                    host.Update();
+                    Check(host.TryTakeIntent(out var body) && body.Kind == RmlUiIntentKind.HunterBodySelect
+                        && body.Argument == 1 && presenter.Handle(body), "native body click reaches the existing Hunters draft owner");
+                    sequence = body.Sequence + 1;
+                    Check(!presenter.CanNavigateAway && choice.Writes == 0, "body selection is an unsaved local draft");
+                    Check(presenter.Handle(new(RmlUiIntentKind.HunterBodySelect, 2, presenter.PreviewDocument, sequence++)),
+                        "Overcharged is a separate finite body choice");
+                    Check(presenter.Handle(new(RmlUiIntentKind.HunterResetPreview, 0, presenter.PreviewDocument, sequence++))
+                        && presenter.CanNavigateAway && choice.Writes == 0, "discard restores native body without a profile write");
+                    host.Update(); refreshes += 3;
+                }
                 foreach (int category in Enumerable.Range(0, 5))
                 {
                     Check(presenter.Handle(new(RmlUiIntentKind.HunterCosmeticCategory, category, presenter.PreviewDocument, sequence++)), "category publication " + category);

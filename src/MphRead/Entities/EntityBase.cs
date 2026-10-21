@@ -291,6 +291,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModResetDrawState()
         {
+            if (this is PlayerEntity sourceBodyPlayer) sourceBodyPlayer.ModResetSourceBodyLife();
             if (this is PlayerEntity radarPlayer) radarPlayer.ModResetRadarHistory();
             _drawPrevious = _drawCurrent = _transform;
             _drawStateValid = true;

@@ -16,7 +16,7 @@
   <ItemGroup>
     <Compile Include="../campaign-credits-check/CreditsFrameFixtures.cs;../campaign-credits-check/CreditsRenderFixture.cs" />
     <Compile Remove="CanvasProgram.cs" Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'" />
-    <Compile Include="CanvasProgram.cs;CanvasGlAcceptance.cs;CanvasDrawListAcceptance.cs;CreditsPresentationGlAcceptance.cs;EndingGlAcceptance.cs;NativeSemanticReadback.cs;CampaignGlFixture.cs;CharacterSourceGlAcceptance.cs;OfflineCharacterGlAcceptance.cs" Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
+    <Compile Include="CanvasProgram.cs;CanvasGlAcceptance.cs;CanvasDrawListAcceptance.cs;CreditsPresentationGlAcceptance.cs;EndingGlAcceptance.cs;NativeSemanticReadback.cs;CampaignGlFixture.cs;CharacterSourceGlAcceptance.cs;OfflineCharacterGlAcceptance.cs;HunterPresenterContractAcceptance.cs" Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
     <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawList.cs;../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawListReader.cs;../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiGlesPlan.cs"
              Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
     <ProjectReference Include="../../src/MphRead/MphRead.csproj"

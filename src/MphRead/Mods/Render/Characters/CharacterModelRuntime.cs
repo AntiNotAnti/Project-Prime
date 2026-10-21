@@ -100,6 +100,33 @@ namespace MphRead.Mods.Render.Characters
         internal Matrix4 DiagnosticPreviewFit { get; }
         internal CharacterSourceRig? SourceRig => _sourceGeometry?.SourceRig;
         internal CharacterSourceCannonRecipe? SourceCannon => _sourceGeometry?.SourceCannon;
+        internal Matrix4 FitSourceBodyToFeet(IReadOnlyList<Matrix4> readyPose, float nativeHeight)
+        {
+            if (_sourceGeometry?.SourceRig is not { } rig || SourceCannon != null
+                || !float.IsFinite(nativeHeight) || nativeHeight <= 0)
+                throw new InvalidDataException("Complete body rig and native biped height required.");
+            var skin = rig.Evaluate(readyPose, _sourceGeometry.Joints);
+            float minimum = float.PositiveInfinity, maximum = float.NegativeInfinity;
+            foreach (var primitive in _sourceGeometry.Primitives)
+                foreach (var vertex in primitive.Vertices)
+                {
+                    var position = new Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z);
+                    Vector3 posed = Vector3.Zero;
+                    for (int slot = 0; slot < 4; slot++)
+                    {
+                        float weight = vertex.Weights[slot];
+                        if (weight > 0) posed += Vector3.TransformPosition(position,
+                            skin[primitive.JointPalette![vertex.PackedJoints >> (slot * 5) & 31]]) * weight;
+                    }
+                    minimum = MathF.Min(minimum, posed.Y); maximum = MathF.Max(maximum, posed.Y);
+                }
+            float sourceHeight = maximum - minimum;
+            if (!float.IsFinite(sourceHeight) || sourceHeight < .0001f)
+                throw new InvalidDataException("Source ready pose has invalid standing bounds.");
+            // Root X/Z remain the authored actor origin. Only feet and height
+            // are fitted, once at load; launcher camera/zoom never participate.
+            return Matrix4.CreateTranslation(0, -minimum, 0) * Matrix4.CreateScale(nativeHeight / sourceHeight);
+        }
         internal void UpdateSourcePreviewPalette(IReadOnlyList<Matrix4>? localPose = null)
         {
             if (_sourceGeometry?.SourceRig is not { } rig) throw new InvalidOperationException("Model is not a source preview.");
@@ -255,9 +282,11 @@ namespace MphRead.Mods.Render.Characters
         internal readonly string? MaterialAnchorName;
         internal readonly CharacterModelPart Part;
         internal readonly object? StageOwner;
+        internal readonly CharacterSourceBodyOwner? BodyOwner;
         internal object? PublishedContext;
-        internal CharacterSourcePreviewInstance(string? materialAnchorName = null,CharacterModelPart part=CharacterModelPart.Biped,object? stageOwner=null)
-            =>(MaterialAnchorName,Part,StageOwner)=(materialAnchorName,part,stageOwner);
+        internal CharacterSourcePreviewInstance(string? materialAnchorName = null,CharacterModelPart part=CharacterModelPart.Biped,object? stageOwner=null,
+            CharacterSourceBodyOwner? bodyOwner=null)
+            =>(MaterialAnchorName,Part,StageOwner,BodyOwner)=(materialAnchorName,part,stageOwner,bodyOwner);
     }
 
     internal static partial class CharacterModelRuntime
@@ -464,10 +493,11 @@ namespace MphRead.Mods.Render.Characters
             if(!CharacterSourceRootWitness.QualifiedForCurrentProcess)
             {if(instance!=null)ReleaseSourcePreview(scene,instance);DebugLog.Line("render",CharacterSourceRootWitness.UnsupportedPlatformMessage);return false;}
             bool diagnosticStage = false;
+            bool localBody = instance?.BodyOwner?.Owns(scene, nativeModel, privatePack, appearance, instance) == true;
 #if !ANDROID && !MPHREAD_SERVER
             diagnosticStage = instance?.StageOwner is { } stageOwner && LauncherHunter.OwnsSourcePreview(scene,stageOwner);
 #endif
-            if(instance==null||Headless.Active||(!RenderOptions.CharacterModelReplacements&&!diagnosticStage)||!allowSourcePreview
+            if(instance==null||Headless.Active||(!RenderOptions.CharacterModelReplacements&&!diagnosticStage&&!localBody)||!allowSourcePreview
                 ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
                 ||!privatePack.TryResolvePrivate(hunter,appearance,part,0,out var asset)||asset.PoseSource!=CharacterPoseSource.SourceRigPreview
                 ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset))
@@ -537,6 +567,28 @@ namespace MphRead.Mods.Render.Characters
             }
             catch(Exception e)when(e is IOException or InvalidDataException or InvalidOperationException or ArgumentException
                 or NotSupportedException or JsonException or FormatException or OverflowException or KeyNotFoundException){clip=null!;return false;}
+        }
+
+        // Captured actors may only reuse published residents. A retired Scene,
+        // import generation or quality context cannot cause IO/reload in Draw.
+        internal static bool IsSourceBodyCurrent(Scene scene, CharacterSourcePreviewInstance instance,
+            CharacterWeightedRenderModel model)
+        {
+            if (!_scenes.TryGetValue(scene, out var resources)
+                || !ReferenceEquals(instance.PublishedContext, resources)
+                || resources.TextureQuality != RenderOptions.TextureQuality
+                || resources.SamplingKey != TextureSamplingPolicy.RuntimeKey) return false;
+            foreach (var entry in resources.SourceModels.Where(e => ReferenceEquals(e.Key.Instance, instance)
+                && ReferenceEquals(e.Value.Model, model)).Select(e => e.Value))
+            {
+                try
+                {
+                    entry.Attachment?.RequireCurrent(scene, resources, entry.Lease, model.Asset, entry.NativeModel, model.SourceRig);
+                    return entry.Attachment != null;
+                }
+                catch (InvalidDataException) { return false; }
+            }
+            return false;
         }
         internal static bool IsSourceClipCurrent(Scene scene,CharacterSourcePreviewInstance instance,
             CharacterWeightedRenderModel model,CharacterSourceClip clip)

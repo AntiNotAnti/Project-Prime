@@ -2634,6 +2634,7 @@ namespace MphRead.Entities
 
         public override void Destroy()
         {
+            ModRetireSourceBody();
             ModRetireCharacterGameplay();
             RetirePauseMapDetail();
             _soundSource.StopAllSfx();

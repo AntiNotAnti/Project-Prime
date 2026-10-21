@@ -462,6 +462,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.Characters.CharacterModelAssetCheck.Run();
                 return true;
             }
+            if (HasFlag(args, "sourcebodycheck"))
+            {
+                Environment.ExitCode = Render.Characters.CharacterSourceBodyCheck.Run();
+                return true;
+            }
             if (HasFlag(args, "hudmetrics")) Render.Hud.HudDrawMetrics.Enable();
             if (HasFlag(args, "graphicscheck"))
             {

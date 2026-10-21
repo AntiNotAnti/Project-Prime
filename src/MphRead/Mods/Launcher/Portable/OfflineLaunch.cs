@@ -53,6 +53,8 @@ namespace MphRead.Mods.Launcher
             {
                 Kind = LaunchKind.Offline,
                 OfflineCharacter = character,
+                LocalBody = LocalBodyAppearanceRules.Available && hunter == Hunter.Samus && character == OfflineCharacterMode.Native
+                    ? LocalBodyAppearanceRules.Canonical(LauncherPrefs.LocalBody) : LocalBodyAppearance.Native,
                 IsPlaytest = character != OfflineCharacterMode.Native,
                 Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
                 MatchRules = new Network.MatchDefinition
@@ -96,6 +98,8 @@ namespace MphRead.Mods.Launcher
             }
             if (!OfflineCharacterGameplay.TryAdmit(plan, out string characterReason))
                 throw new ArgumentException(characterReason);
+            if (!LocalBodyAppearanceRules.TryAdmit(plan, out string bodyReason))
+                throw new ArgumentException(bodyReason);
             return plan;
         }
 
