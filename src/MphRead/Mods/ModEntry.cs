@@ -1139,20 +1139,7 @@ namespace MphRead.Mods
             {
                 return false;
             }
-            bool hasWeaponStore = HasFlag(args, "weaponstore"), hasWeaponArchive = HasFlag(args, "weaponarchive");
-            string? weaponStore = ValueAfter(args, "weaponstore"), weaponArchive = ValueAfter(args, "weaponarchive");
-            if ((hasWeaponStore || hasWeaponArchive)
-                && (!hasWeaponStore || !hasWeaponArchive
-                    || args.Count(value => value.TrimStart('-').Equals("weaponstore", StringComparison.OrdinalIgnoreCase)) != 1
-                    || args.Count(value => value.TrimStart('-').Equals("weaponarchive", StringComparison.OrdinalIgnoreCase)) != 1
-                    || string.IsNullOrWhiteSpace(weaponStore) || weaponStore.Length > 4096
-                    || weaponStore.StartsWith('-') || weaponStore.Any(char.IsControl)
-                    || !CustomWeapons.WeaponIdentity.IsDigest(weaponArchive)))
-            {
-                Console.Error.WriteLine("[server] Supply both -weaponstore <directory> and -weaponarchive <exact lowercase SHA-256>, once each.");
-                Environment.ExitCode = 2;
-                return true;
-            }
+            if (!TryReadLocalWeaponPackage(args, "server", out var weaponPackage)) return true;
             int port = NetConfig.DefaultPort;
             string? portValue = ValueAfter(args, "port");
             if (portValue != null && Int32.TryParse(portValue, out int parsedPort))
@@ -1260,9 +1247,9 @@ namespace MphRead.Mods
                     RetentionDays: replayRetentionDays,
                     KeepLast: replayKeepLast)
             };
-            if (hasWeaponStore)
+            if (weaponPackage != null)
             {
-                try { server.ConfigureWeaponPackage(weaponStore!, weaponArchive!); }
+                try { server.ConfigureWeaponPackage(weaponPackage.StoreDirectory, weaponPackage.ArchiveHash); }
                 catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException
                     or UnauthorizedAccessException or ArgumentException or InvalidOperationException
                     or NotSupportedException or System.Security.SecurityException)
@@ -2143,6 +2130,7 @@ namespace MphRead.Mods
             string? hostLocal = ValueAfter(args, "hostlocal");
             if (hostLocal != null)
             {
+                if (!TryReadLocalWeaponPackage(args, "hostlocal", out var localWeaponPackage)) return true;
                 var localMaps = new List<(string RoomKey, GameMode Mode)>();
                 GameMode localMode = GameMode.Battle;
                 string? localModeValue = ValueAfter(args, "mode");
@@ -2174,7 +2162,7 @@ namespace MphRead.Mods
                     timeLimit: 7 * 60, pointGoal: 7,
                     masterHost: ValueAfter(args, "master") ?? NetMasterConfig.DefaultHost,
                     masterPort: ParseMasterPort(args),
-                    listed: !HasFlag(args, "nomaster"));
+                    listed: !HasFlag(args, "nomaster"), weaponPackage: localWeaponPackage);
                 if (localPort < 0)
                 {
                     Console.WriteLine($"[hostlocal] {LocalServer.LastError}");
@@ -2869,6 +2857,27 @@ namespace MphRead.Mods
                 }
             }
             return -1;
+        }
+
+        private static bool TryReadLocalWeaponPackage(string[] args, string command,
+            out LocalWeaponPackageSelection? selection)
+        {
+            selection = null;
+            bool store = HasFlag(args, "weaponstore"), archive = HasFlag(args, "weaponarchive");
+            if (!store && !archive) return true;
+            string? directory = ValueAfter(args, "weaponstore"), hash = ValueAfter(args, "weaponarchive");
+            if (store && archive
+                && args.Count(value => value.TrimStart('-').Equals("weaponstore", StringComparison.OrdinalIgnoreCase)) == 1
+                && args.Count(value => value.TrimStart('-').Equals("weaponarchive", StringComparison.OrdinalIgnoreCase)) == 1
+                && !string.IsNullOrWhiteSpace(directory) && !directory.StartsWith('-'))
+            {
+                try { selection = new(directory, hash!); return true; }
+                catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException or ArgumentException
+                    or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException) { }
+            }
+            Console.Error.WriteLine($"[{command}] Supply both -weaponstore <directory> and -weaponarchive <exact lowercase SHA-256>, once each.");
+            Environment.ExitCode = 2;
+            return false;
         }
 
         private static string? ValueAfter(string[] args, string name)

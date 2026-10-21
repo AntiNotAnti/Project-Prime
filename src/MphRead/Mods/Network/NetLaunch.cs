@@ -29,9 +29,11 @@ namespace MphRead.Mods.Network
         public static bool Connect(string address, int port, string playerName, Hunter hunter,
             int timeoutMs = 8000, int color = -1, Guid ownerToken = default, CancellationToken cancellationToken = default,
             LobbyQueueClient? queuedAdmission = null, bool spectate = false, NetClientJoinOwnership? ownership = null,
-            Func<Func<bool>,bool>? initializeFence = null)
+            Func<Func<bool>,bool>? initializeFence = null, LocalWeaponPackageSelection? weaponPackage = null)
         {
             if (cancellationToken.IsCancellationRequested) { LastJoinError = "Join cancelled."; return false; }
+            if (queuedAdmission != null && weaponPackage != null)
+            { LastJoinError = "Explicit local package selection cannot replace queued admission."; return false; }
             string requestedName = PlayerNameCodec.Clamp(playerName);
             Hunter requestedHunter = Launcher.Hunters.Resolve(hunter);
             int requestedColor = PlayerColors.Clamp(color < 0 ? Launcher.LauncherPrefs.LastColor : color);
@@ -53,7 +55,7 @@ namespace MphRead.Mods.Network
                 // the server decides how many it admits, and every client has to
                 // be able to hold that many slots for it to matter.
                 PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
-                if (queuedAdmission == null) NetSession.StartClient(address, port, ownerToken, spectate);
+                if (queuedAdmission == null) NetSession.StartClient(address, port, ownerToken, spectate, weaponPackage);
                 else
                 {
                     NetSession.StartQueuedClient(queuedAdmission);
@@ -114,6 +116,12 @@ namespace MphRead.Mods.Network
                             && slot < NetSession.SlotOccupied.Length
                             && NetSession.SlotOccupied[slot])
                         {
+                            if (weaponPackage != null && !session.Match.PackagedWeaponAvailable)
+                            {
+                                LastJoinError = "The server does not offer the explicitly selected local weapon package.";
+                                if (ownership == null) NetSession.Stop(); else ownership.TryStopCurrent();
+                                return false;
+                            }
                             Hunter expectedHunter = HunterRules.Sanitize(
                                 requestedHunter, session.Match.LowTier);
                             if (NetSession.SlotHunter[slot] == expectedHunter
@@ -140,9 +148,10 @@ namespace MphRead.Mods.Network
         }
 
         public static bool Join(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000, int color = -1)
+            int timeoutMs = 8000, int color = -1, Guid ownerToken = default,
+            LocalWeaponPackageSelection? weaponPackage = null)
         {
-            if (!Connect(address, port, playerName, hunter, timeoutMs, color)) return false;
+            if (!Connect(address, port, playerName, hunter, timeoutMs, color, ownerToken, weaponPackage: weaponPackage)) return false;
             _terminalLobby = NetSession.PersistentLobby;
             if (!NetSession.ShouldLoadMatch)
                 Console.WriteLine("Connected to lobby. Waiting for the lobby owner to start... Commands: ready, start, leave.");
