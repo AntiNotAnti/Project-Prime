@@ -1,0 +1,528 @@
+{
+  "status": "PASS_FULL_03_AND_TARGETED_04",
+  "producer": {
+    "baseSha": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+    "integrationBaseSha": "242be3d578528848823c8b5fff8713529425f399",
+    "archiveSha256": "aea2c04a6b7d23a292744db20d05c1bcccd24f1e9b7dc49e9989d59696ee1d43",
+    "sourceManifestSha256": "64115edf716acc9bed08c16eeb40e21e5d9b4e007b2d557c6b8ee0649fcda62e",
+    "fullSourceManifestSha256": "6a6bd7f5b77f036130153ee43983ec4988e38b730d5169854e2d53ce1d39fa4d",
+    "overlaySha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85",
+    "overlayFiles": 0,
+    "fullSourceFiles": 6678,
+    "exactCommittedProducer": true,
+    "buildsRun": 0,
+    "gameRuntimeRun": 0,
+    "gitArchiveCoreAutocrlf": false
+  },
+  "builds": {
+    "normalClient": "PASS",
+    "nettest": "PASS",
+    "dedicatedServer": "PASS",
+    "warning": "Existing CS0649 CustomReadinessProbe.DiscardPickupAcks"
+  },
+  "binarySha256": {
+    "build-artifacts\\bin\\MphRead\\release\\ProjectPrime.dll": "d19ff5a21bd3ebbb97605a5ae326620f583223c8e314ba3d5371a73836ad1401",
+    "build-artifacts\\bin\\nettest\\release\\nettest.dll": "c718f7664f1ed79b22546368641c400eae052e34d25ceb6865d41f2bbca930e2",
+    "server-artifacts\\bin\\MphRead\\release\\ProjectPrime.dll": "3f821d129cc64f85dc4bb909c6baf5bb9f2be070c15119acd2d47b3a925b64b8"
+  },
+  "pureGates": [
+    {
+      "exit": 0,
+      "gate": "parkour-wall-animation-wire"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-animation-wire"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-grapple-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-grapple-wire"
+    },
+    {
+      "exit": 0,
+      "gate": "compact-intents"
+    },
+    {
+      "exit": 0,
+      "gate": "player-form-protocol"
+    },
+    {
+      "exit": 0,
+      "gate": "pickup-replay"
+    },
+    {
+      "exit": 0,
+      "gate": "traversal-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "quake3-advanced-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-input-packets"
+    },
+    {
+      "exit": 0,
+      "gate": "crouch-input-check"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-mantle-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-compatibility"
+    },
+    {
+      "exit": 0,
+      "gate": "lifecycle"
+    },
+    {
+      "exit": 0,
+      "gate": "architecture"
+    },
+    {
+      "exit": 0,
+      "gate": "protocol17"
+    },
+    {
+      "exit": 0,
+      "gate": "protocol58-replay"
+    },
+    {
+      "exit": 0,
+      "gate": "quake3-replay-compatibility"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-replay-metadata"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-replay-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "traversal-stance-network"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-stance-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-wallstrafe-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-wallrun-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-offline-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "quake3-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "enhanced-retirement"
+    },
+    {
+      "exit": 0,
+      "gate": "movement-validation-shadow"
+    },
+    {
+      "exit": 0,
+      "gate": "timed-shot-replay"
+    },
+    {
+      "exit": 0,
+      "gate": "grant-replay"
+    },
+    {
+      "exit": 0,
+      "gate": "player-names-chat"
+    },
+    {
+      "exit": 0,
+      "gate": "continuous-targets"
+    },
+    {
+      "exit": 0,
+      "gate": "pickup-protocol"
+    },
+    {
+      "exit": 0,
+      "gate": "advanced-rules"
+    }
+  ],
+  "replayWorkflow": {
+    "workflowSha256": "73224ba83ce2dcda3bdb8cf57ceb1e2a68c7a9eb07a8b094c529075d2eae779a",
+    "gates": [
+      {
+        "gate": "protocol58-replay",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 1.227
+      },
+      {
+        "gate": "momentum-replay-rules",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.126
+      },
+      {
+        "gate": "momentum-replay-metadata",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.189
+      },
+      {
+        "gate": "architecture",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.265
+      },
+      {
+        "gate": "timed-shot-replay",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.32
+      },
+      {
+        "gate": "pickup-replay",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.294
+      },
+      {
+        "gate": "grant-replay",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.134
+      },
+      {
+        "gate": "compact-intents",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.278
+      },
+      {
+        "gate": "protocol17",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.101
+      },
+      {
+        "gate": "player-names-chat",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.125
+      },
+      {
+        "gate": "continuous-targets",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.188
+      },
+      {
+        "gate": "pickup-protocol",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.069
+      },
+      {
+        "gate": "enhanced-retirement",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 0.216
+      },
+      {
+        "gate": "lobby",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 98.701
+      },
+      {
+        "gate": "advanced-rules",
+        "exit": 0,
+        "status": "PASS",
+        "elapsedSeconds": 2.371
+      }
+    ],
+    "lobbyAssertions": 7748
+  },
+  "udp": {
+    "clean": {
+      "status": "PASS",
+      "producer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+      "protocol": 85,
+      "replacementCompatibilityFixture": false,
+      "scope": "New current producer CPU UDP qualification; no GL/device/timing claim",
+      "processResults": {
+        "owner0": 0,
+        "owner1": 0,
+        "server": 0
+      },
+      "movementShadow": {
+        "enabled": true,
+        "hardRejections": 0,
+        "wouldRefuse": 0
+      },
+      "archiveSha256": "bb1bc9a1ae50cd2eabdca4b0dbb817b8409ea5a919614567f8493d93d33778dd",
+      "replay": {
+        "checks": 189379,
+        "frames": 2399,
+        "digest": "850AE6B2BB341B1C45646CD21FAD3609182A979F4DFDDA8C8B271FE25ED55E10",
+        "checkpoints": 12,
+        "seeks": 97
+      },
+      "sourceBinaryLeaseUnchanged": true,
+      "ownedProcessesRemaining": 0,
+      "ownerAssertions": [
+        39174,
+        39639
+      ]
+    },
+    "impaired": {
+      "status": "PASS",
+      "producer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+      "protocol": 85,
+      "replacementCompatibilityFixture": false,
+      "scope": "New current producer CPU UDP qualification; no GL/device/timing claim",
+      "processResults": {
+        "owner0": 0,
+        "owner1": 0,
+        "server": 0
+      },
+      "movementShadow": {
+        "enabled": true,
+        "hardRejections": 0,
+        "wouldRefuse": 0
+      },
+      "archiveSha256": "33a482452d59f3581eb5b37abdca6aaf8660425d21f4ebfb498760ed7b719c8f",
+      "replay": {
+        "checks": 191445,
+        "frames": 2406,
+        "digest": "710F3005012FD750BD563E922CC50F8B51FFEE92C6A1CD0A5B456F53BAE955C1",
+        "checkpoints": 13,
+        "seeks": 103
+      },
+      "sourceBinaryLeaseUnchanged": true,
+      "ownedProcessesRemaining": 0,
+      "ownerAssertions": [
+        41329,
+        41754
+      ]
+    },
+    "scope": "Generic current85/Parkourv5 CPU UDP compatibility; dedicated wall trajectory evidence is native/authority/render only."
+  },
+  "commands": {
+    "clientAndPure": "dotnet build tools/nettest/nettest.csproj -c Release --artifacts-path BUILD -m:1 -nr:false -p:UseSharedCompilation=false; dotnet BUILD/bin/nettest/release/nettest.dll --GATE (35 named gates)",
+    "dedicatedServer": "dotnet build src/MphRead/MphRead.csproj -c Release --artifacts-path SERVER -p:MphReadServer=true -m:1 -nr:false -p:UseSharedCompilation=false",
+    "wallNative": "dotnet nettest.dll --parkour-wall-animation-scene PRIVATE_USER_DATA RESULT.json",
+    "workflows": "All 15 nettest flags from the frozen replay-compatibility.yml, sequentially before runtime baselines",
+    "udp": "Two bounded 40-second CPU owners, one authority-owned native bot; actual clean/impaired sessions and world replay/seek"
+  },
+  "helperSha256": {
+    "qualify.py": "ec87909647134e7a635d0d8800bb739c0ef222a4a827f52014ad0ed9440d5c0d",
+    "run-wall-animation-build-pure.ps1": "ed198442b7096402f2186e317714e22d58ef1a4a00e04f9b94298d9dd21b0136",
+    "run-wall-animation03-replay-workflow.py": "c75e8f086d366e66d9caaa9d85a910a00f7816b23c0dc8b74491f8683be19370",
+    "run_wall_animation03_udp.py": "452fde9fec828760fa13a24aff1c3779638568070968a4475915d41a72cd5022"
+  },
+  "limits": [
+    "Generic UDP cohorts qualify current compatibility, not dedicated wall trajectories over UDP.",
+    "No first-person raster, replacement skeleton, theatre/export raster, device, achieved-refresh, Linux asset runtime or performance acceptance.",
+    "Earlier original protocol77\u201379 recordings were externally lost; replacement compatibility fixtures do not recover continuity.",
+    "Windows runtime only; no Mac build, runtime or UI operation."
+  ],
+  "excludedAttempts": {
+    "01": "Client build PASS; nettest compilation failed missing synthetic input namespace.",
+    "02": "35 pure gates PASS; workflow failed stale84 lobby expectation. Native diagnostics found test-only raw fixed-point-normal and no-wall-path fixture errors.",
+    "01GLoverlay": "Diagnostic only; proven normalization repair; excluded from immutable final03 qualification."
+  },
+  "renderReceipt": "parkour-wall-animation-render.json",
+  "nativeReceipt": "parkour-wall-animation-native.json",
+  "compatibilityReceipt": "parkour-wall-animation-compatibility.json",
+  "historicalReceipt": "parkour-wall-animation-history.json",
+  "supplementalReceipt": "parkour-wall-animation-supplemental.json",
+  "ciReceipt": "parkour-wall-animation-ci.json",
+  "freezeReceiptCounterScope": "Counters inside producer were recorded before building at immutable archive creation; completed qualification is reported separately.",
+  "ciRepairRefresh": {
+    "producer": {
+      "baseSha": "8c4c35d9c37eee3db29ee232fa738ac8d397e124",
+      "integrationBaseSha": "242be3d578528848823c8b5fff8713529425f399",
+      "archiveSha256": "858a1ec02ec1775f335b1455adbfb9a4afa04f3c291c151cacc01a5a50fe995e",
+      "sourceManifestSha256": "c58891b275160e3297a812bb91c23b92ede291838c233a288eac2159045b4e9a",
+      "fullSourceManifestSha256": "4292d4597d063fc0d252a61adef93c60ee43c199fe7b52e7233d1f8fa081532d",
+      "overlaySha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85",
+      "overlayFiles": 0,
+      "fullSourceFiles": 6678,
+      "exactCommittedProducer": true,
+      "buildsRun": 0,
+      "gameRuntimeRun": 0,
+      "gitArchiveCoreAutocrlf": false
+    },
+    "normalClient": "PASS",
+    "nettest": "PASS",
+    "focusedGates": [
+      {
+        "gate": "parkour-wall-animation-wire",
+        "exit": 0
+      },
+      {
+        "gate": "parkour-animation-wire",
+        "exit": 0
+      },
+      {
+        "gate": "parkour-grapple-rules",
+        "exit": 0
+      },
+      {
+        "gate": "parkour-grapple-wire",
+        "exit": 0
+      },
+      {
+        "gate": "compact-intents",
+        "exit": 0
+      },
+      {
+        "gate": "player-form-protocol",
+        "exit": 0
+      },
+      {
+        "gate": "pickup-replay",
+        "exit": 0
+      },
+      {
+        "gate": "traversal-rules",
+        "exit": 0
+      },
+      {
+        "gate": "quake3-advanced-rules",
+        "exit": 0
+      },
+      {
+        "gate": "momentum-input-packets",
+        "exit": 0
+      },
+      {
+        "gate": "crouch-input-check",
+        "exit": 0
+      },
+      {
+        "gate": "parkour-mantle-rules",
+        "exit": 0
+      },
+      {
+        "gate": "parkour-compatibility",
+        "exit": 0
+      },
+      {
+        "gate": "lifecycle",
+        "exit": 0
+      },
+      {
+        "gate": "architecture",
+        "exit": 0
+      },
+      {
+        "gate": "protocol17",
+        "exit": 0
+      },
+      {
+        "gate": "protocol58-replay",
+        "exit": 0
+      },
+      {
+        "gate": "quake3-replay-compatibility",
+        "exit": 0
+      },
+      {
+        "gate": "momentum-replay-metadata",
+        "exit": 0
+      },
+      {
+        "gate": "momentum-replay-rules",
+        "exit": 0
+      },
+      {
+        "gate": "traversal-stance-network",
+        "exit": 0
+      },
+      {
+        "gate": "parkour-stance-rules",
+        "exit": 0
+      },
+      {
+        "gate": "parkour-wallstrafe-rules",
+        "exit": 0
+      },
+      {
+        "gate": "parkour-wallrun-rules",
+        "exit": 0
+      },
+      {
+        "gate": "momentum-rules",
+        "exit": 0
+      },
+      {
+        "gate": "momentum-offline-rules",
+        "exit": 0
+      },
+      {
+        "gate": "quake3-rules",
+        "exit": 0
+      },
+      {
+        "gate": "enhanced-retirement",
+        "exit": 0
+      },
+      {
+        "gate": "movement-validation-shadow",
+        "exit": 0
+      },
+      {
+        "gate": "timed-shot-replay",
+        "exit": 0
+      },
+      {
+        "gate": "grant-replay",
+        "exit": 0
+      },
+      {
+        "gate": "player-names-chat",
+        "exit": 0
+      },
+      {
+        "gate": "continuous-targets",
+        "exit": 0
+      },
+      {
+        "gate": "pickup-protocol",
+        "exit": 0
+      },
+      {
+        "gate": "advanced-rules",
+        "exit": 0
+      }
+    ],
+    "targetedReceipt": "parkour-wall-animation-ci-repair.json",
+    "binarySha256": {
+      "build-artifacts\\bin\\MphRead\\release\\ProjectPrime.dll": "19cf92ecab684fc468d6c936fad1d16b00add07b6be8d3c93ee6a8bfc0b8357d",
+      "build-artifacts\\bin\\nettest\\release\\nettest.dll": "99fadc82865caf47660fb8e8bcc6686910573d4202d5a27e83078f379233e1c4"
+    },
+    "scope": "Only three existing current-protocol test files changed. Other6675 source files byte-identical to full03; no repeated GPU/native/UDP/history claim."
+  }
+}

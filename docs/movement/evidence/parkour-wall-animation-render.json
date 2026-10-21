@@ -1,0 +1,167 @@
+{
+  "producer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+  "sourceFiles": 6678,
+  "overlayFiles": 0,
+  "archiveSha256": "aea2c04a6b7d23a292744db20d05c1bcccd24f1e9b7dc49e9989d59696ee1d43",
+  "fullSourceManifestSha256": "6a6bd7f5b77f036130153ee43983ec4988e38b730d5169854e2d53ce1d39fa4d",
+  "normalClientSha256": "d19ff5a21bd3ebbb97605a5ae326620f583223c8e314ba3d5371a73836ad1401",
+  "copiedClientSha256": "d19ff5a21bd3ebbb97605a5ae326620f583223c8e314ba3d5371a73836ad1401",
+  "toolDllSha256": "7b883586c73f0f4d71f270173ae36a8c25bbf3bbc1d740a5828ec14208cbf434",
+  "buildExit": 0,
+  "runExit": 0,
+  "status": "PASS",
+  "normalArtifactsUnchanged": true,
+  "assetsUnchanged": true,
+  "privateAssetFencePass": true,
+  "sourceFence": "PASS6678",
+  "schema": 1,
+  "baseCommit": "242be3d578528848823c8b5fff8713529425f399",
+  "scope": "Windows hidden unfocused real native external-body OpenGL Scene. Seven Hunters, east/west wallstrafe, wallrun, wallkick and airborne tucked wallstrafe; real W/side/fresh Space/Ctrl with initial lane placement only. No controller, velocity, position or cursor injections after initial placement.",
+  "driver": {
+    "vendor": "NVIDIA Corporation",
+    "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+    "version": "4.6.0 NVIDIA 617.42",
+    "hidden": true,
+    "focused": false
+  },
+  "assertions": 183556,
+  "scenarios": 56,
+  "processes": [
+    {
+      "selector": "walls",
+      "exitCode": 0,
+      "assertions": 142675,
+      "scenarios": 42
+    },
+    {
+      "selector": "walltuck",
+      "exitCode": 0,
+      "assertions": 40881,
+      "scenarios": 14
+    }
+  ],
+  "positiveFrames": 3976,
+  "pngFiles": 15904,
+  "frameManifests": 56,
+  "groups": {
+    "wallstrafe": {
+      "scenarios": 14,
+      "positiveFrames": 1372,
+      "visibleTargetPoseFrames": 518,
+      "activeTargetTicks": 1050,
+      "minimumTargetChangedPixels": 2054
+    },
+    "wallrun": {
+      "scenarios": 14,
+      "positiveFrames": 1162,
+      "visibleTargetPoseFrames": 322,
+      "activeTargetTicks": 630,
+      "minimumTargetChangedPixels": 7359
+    },
+    "wallkick": {
+      "scenarios": 14,
+      "positiveFrames": 560,
+      "visibleTargetPoseFrames": 84,
+      "activeTargetTicks": 168,
+      "minimumTargetChangedPixels": 8129
+    },
+    "walltuck": {
+      "scenarios": 14,
+      "positiveFrames": 882,
+      "visibleTargetPoseFrames": 140,
+      "activeTargetTicks": 280,
+      "minimumTargetChangedPixels": 3113
+    }
+  },
+  "positiveRepeatRgbExact": true,
+  "canonicalStateUnchanged": true,
+  "normalArtifactFileCount": 803,
+  "renderArtifactFileCount": 352,
+  "sourceExtraFiles": 0,
+  "privateGeneratedAssetFiles": 8,
+  "buildWarnings": 0,
+  "buildErrors": 0,
+  "runtimeArguments": [
+    "-parkouranimationcheck -hunter all -scenario walls -wall-side both -size 800x600 -shots <fresh-walls-directory> -output <fresh-walls-report.json>",
+    "-parkouranimationcheck -hunter all -scenario walltuck -wall-side both -size 800x600 -shots <fresh-tuck-directory> -output <fresh-tuck-report.json>"
+  ],
+  "manualReview": {
+    "sevenHunterContactSheetSamples": 28,
+    "additionalSamusMirroredRawSamples": 6,
+    "decodedSamusGifFramesReviewed": [
+      22,
+      70
+    ],
+    "finding": "Distinct admitted native wall lean, brace, running/kick leg poses and retained air-tuck silhouettes. Trace grounded wallstrafe torso/head is wall-occluded in both positive and native-pose counterfactual; those samples qualify visible pixel changes, not an entirely unoccluded body."
+  },
+  "previews": {
+    "directory": "previews-readable",
+    "contactSheet": {
+      "file": "wall-animations-seven-hunters.png",
+      "sha256": "eaeaf2eb9a2b18b415d3e18cd95ac457b427a78438966f84ff71aaf5308ca3f1"
+    },
+    "gifs": [
+      {
+        "hunter": "Samus",
+        "file": "samus-wall-animations.gif",
+        "sha256": "76e299eee83e6ebd9c83c1404bc0c32048bc643c660796164b79023717432e39",
+        "frames": 98
+      },
+      {
+        "hunter": "Kanden",
+        "file": "kanden-wall-animations.gif",
+        "sha256": "bd121931e833aabab646cc90498cf110f5c86f715a4eb37bf44651eb427ec846",
+        "frames": 98
+      },
+      {
+        "hunter": "Spire",
+        "file": "spire-wall-animations.gif",
+        "sha256": "57e228b97d07e16dad22c1e3daf986da234c25641a5b0bdad31e5f7e2082752c",
+        "frames": 98
+      },
+      {
+        "hunter": "Noxus",
+        "file": "noxus-wall-animations.gif",
+        "sha256": "736c9a900ba0952324bd1355cf8a42d9fe938c5f956db5a3e229f879d6c75fe3",
+        "frames": 98
+      },
+      {
+        "hunter": "Trace",
+        "file": "trace-wall-animations.gif",
+        "sha256": "e07a1ce9e7598e3f6858f8ecfeae5e10131228dca52402145e444b9b0094da92",
+        "frames": 98
+      },
+      {
+        "hunter": "Sylux",
+        "file": "sylux-wall-animations.gif",
+        "sha256": "bbe698497d48c6f7ecd2a7cf5077374e7998cb3f0bc6ff593aca916167b1df87",
+        "frames": 98
+      },
+      {
+        "hunter": "Weavel",
+        "file": "weavel-wall-animations.gif",
+        "sha256": "0b374e329b3e3f8722fac1a1e31ec7e88dae05786cd33d11e037443de3e7bcbc",
+        "frames": 98
+      }
+    ],
+    "manifestSha256": "943312e4eafb392d1f34dab2104b70ff7d9bbe12792f87400cf657a2bfb45b74",
+    "transformations": "Verified source PNGs, body-centered crops, resize and labels; GIF quantized to128 colors. Every second fixed tick plus establishing frame. Shorter clips hold their final retired frame; 30fps preview is not a frame-pacing measurement."
+  },
+  "limits": [
+    "External-body raster only; owner first-person gun cue raster not checked here.",
+    "Wall GPU matrix only; current mantle/grapple GPU matrix was not rerun in this producer.",
+    "No Mac, physical-device input, OS-focus/UI automation, frame pacing or performance acceptance.",
+    "Trace grounded wallstrafe retains native wall occlusion visible in its same-state native control."
+  ],
+  "priorAttempts": [
+    "Frozen wall-animation01 normal client compiled; nettest failed missing test namespace.",
+    "Initial wall-animation01 diagnostic failed exact raw-vs-unit plane comparison. Measurement proved raw -4095/4096 normal, native normalized unit, zero contact gap; finite near-unit normalization fixed test only.",
+    "Four Samus east diagnostic courses then passed13128 assertions with explicit harness-only scratch overlay.",
+    "wall-animation02 prepared helper was not run."
+  ],
+  "logs": {
+    "build.log": "f0d85d947e0b34f16382949b22737798daf886399a421a0a1734326085f2c7c6",
+    "walls-run.log": "2ba190e24360920cff6503de278750372542b7fe7c6b8930887872c710c5b1dc",
+    "walltuck-run.log": "3ebabd68e33fdadba058bfa476ee4ed887b6ec92bc8fa8b871a616e1d216f4c5"
+  }
+}

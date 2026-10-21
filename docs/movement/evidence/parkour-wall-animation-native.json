@@ -1,0 +1,141 @@
+{
+  "status": "PASS",
+  "producerCommit": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+  "integrationBaseCommit": "242be3d578528848823c8b5fff8713529425f399",
+  "sourceFiles": 6678,
+  "sourceOverlayFiles": 0,
+  "archiveSha256": "aea2c04a6b7d23a292744db20d05c1bcccd24f1e9b7dc49e9989d59696ee1d43",
+  "fullSourceManifestSha256": "6a6bd7f5b77f036130153ee43983ec4988e38b730d5169854e2d53ce1d39fa4d",
+  "scope": "Frozen Windows CPU/native scene qualification with actual keyboard, native collision, scoped draw-only body/owner probes and independent private asset mirror. Excludes GL, UDP, physical-device and performance qualification.",
+  "startedUtc": "2026-10-21T15:56:11.9302652Z",
+  "completedUtc": "2026-10-21T15:56:49.0907463Z",
+  "gateCount": 11,
+  "assertions": 903799,
+  "gates": [
+    {
+      "gate": "wall-animation-scene",
+      "status": "PASS",
+      "assertions": 258242
+    },
+    {
+      "gate": "animation-scene",
+      "status": "PASS",
+      "assertions": 85517
+    },
+    {
+      "gate": "grapple-authority",
+      "status": "PASS",
+      "assertions": 1529
+    },
+    {
+      "gate": "grapple",
+      "status": "PASS",
+      "assertions": 1988
+    },
+    {
+      "gate": "mantle",
+      "status": "PASS",
+      "assertions": 9215
+    },
+    {
+      "gate": "native-gold",
+      "status": "PASS",
+      "assertions": 0
+    },
+    {
+      "gate": "traversal",
+      "status": "PASS",
+      "assertions": 82331
+    },
+    {
+      "gate": "ground-slope",
+      "status": "PASS",
+      "assertions": 413037
+    },
+    {
+      "gate": "wallrun",
+      "status": "PASS",
+      "assertions": 6149
+    },
+    {
+      "gate": "wallstrafe",
+      "status": "PASS",
+      "assertions": 11820
+    },
+    {
+      "gate": "tuck",
+      "status": "PASS",
+      "assertions": 33971
+    }
+  ],
+  "wallAnimation": {
+    "assertions": 258242,
+    "hunters": 7,
+    "actions": [
+      "ground wallstrafe",
+      "airborne wallstrafe",
+      "wallrun",
+      "fresh wallkick",
+      "tucked airborne wallstrafe"
+    ],
+    "mirroredWallSides": 2,
+    "actualPositiveTrajectories": 70,
+    "bodyLodCombinations": 140,
+    "ownerHunterActionCombinations": 35,
+    "nativeWeaponBranchPreserved": true,
+    "nativeTuckedLegMatricesPreserved": true,
+    "nativePhysicsAndAnimationCursorsPreserved": true,
+    "paletteRestorationExact": true,
+    "freshKickCompletedPictures": 12,
+    "historicalProfilesExcluded": 4,
+    "warmedZeroAllocationProbes": 4,
+    "loopsPerAllocationProbe": 20000
+  },
+  "mantleGrappleAnimation": {
+    "assertions": 85517,
+    "ownerHunterActionCombinations": 14,
+    "bodyLodCombinations": 28,
+    "historicalProfilesExcluded": 4,
+    "warmedZeroAllocationProbes": 4,
+    "loopsPerAllocationProbe": 20000
+  },
+  "authority": {
+    "assertions": 1529,
+    "originalGrappleAssertions": 262,
+    "mantleVisualAssertions": 512,
+    "wallVisualAssertions": 755,
+    "currentMantlePhaseCodes": 15
+  },
+  "classicGolden": {
+    "nativeTrajectories": 56,
+    "tolerance": 1e-05,
+    "recorded": false
+  },
+  "fences": {
+    "committedSourceUnchanged": true,
+    "allNormalBuildArtifactsUnchanged": true,
+    "normalArtifactFiles": 803,
+    "originalExtractedAssetsUnchanged": true,
+    "privateAssetBaselineFiles": 3671,
+    "privateAssetBaselineUnchanged": true,
+    "unexpectedPrivateGeneratedOutputs": 0,
+    "privateGeneratedCourseFiles": 8
+  },
+  "binarySha256": {
+    "nettest": "c718f7664f1ed79b22546368641c400eae052e34d25ceb6865d41f2bbca930e2",
+    "ProjectPrime": "d19ff5a21bd3ebbb97605a5ae326620f583223c8e314ba3d5371a73836ad1401"
+  },
+  "helperSha256": {
+    "gateRunner": "fc6f7e9d50720f69d415aceec4cfdd1d7eb9f58cbbb019ac4e0c7c074d435cb0",
+    "stagedPrivateAssetRunner": "f560e8da13b12a272c7c0fcb6c3aa5098167112c5dbb7345e98c5281f3580e81"
+  },
+  "evidenceSha256": {
+    "native-summary.json": "53a795c7c097978260140f3bfb0016e906aa9055729e35ca4a69e11423a1907d",
+    "wall-animation-scene.json": "2e2a4febe072aec99cbc8879d4c1ccb7326aa7985b34f4df19f85daf78ba15f8",
+    "animation-scene.json": "f0a26e1d7482bae04659a0a24d23ed64ba5a6977485c31c3f7623921858be4fd",
+    "grapple-authority.json": "c10db33440e812cb7ac73b82c4fe37a6b19692f3580151f10a5d422e1a9c234a",
+    "native-gold.log": "1259019dc3a7d238edca001031f85775ff902018637ca4da4f34cc72cb2595f3",
+    "binaries-before.json": "5baf397d52ef614655fb9fb0858fb260ca2d7e366a7505a142aeee8afe60816f",
+    "binaries-after.json": "5baf397d52ef614655fb9fb0858fb260ca2d7e366a7505a142aeee8afe60816f"
+  }
+}
