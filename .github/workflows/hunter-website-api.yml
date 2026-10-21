@@ -54,8 +54,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - name: Compile desktop Hunter License UI and authenticated client
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=false
