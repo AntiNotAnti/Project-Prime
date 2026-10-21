@@ -203,7 +203,9 @@ internal static class OfflineCharacterGameplayTests
                 practice with { MatchRules = practice.MatchRules with { LowTier = true } },
                 practice with { MatchRules = practice.MatchRules with { RiftlineM7Available = true } },
                 practice with { MatchRules = practice.MatchRules with { MovementModel = MovementModel.Momentum } },
-                practice with { MatchRules = practice.MatchRules with { MovementModel = MovementModel.Quake3 } }
+                practice with { MatchRules = practice.MatchRules with { MovementModel = MovementModel.Quake3 } },
+            practice with { MatchRules = practice.MatchRules with { MovementModel = MovementModel.Traversal } },
+            practice with { MatchRules = practice.MatchRules with { MovementModel = MovementModel.Parkour } }
             };
             foreach (var bad in refusedPlans.Concat(refusedPlans.Select(p => p.OfflineCharacter == OfflineCharacterMode.TrooperWallClingPractice
                 ? p with { OfflineCharacter = OfflineCharacterMode.TrooperScoutDronePractice } : p)))
@@ -217,6 +219,7 @@ internal static class OfflineCharacterGameplayTests
                 new MenuSettings { MovementModel = "Native", BalancedMode = "on" },
                 new MenuSettings { MovementModel = "Native", LowTier = "on" },
                 new MenuSettings { MovementModel = "Momentum" }, new MenuSettings { MovementModel = "Quake3" },
+                new MenuSettings { MovementModel = "Traversal" }, new MenuSettings { MovementModel = "Parkour" },
                 new MenuSettings { MovementModel = "Native", RiftlineM7Available = true } })
                 foreach (var mechanics in new[] { OfflineCharacterMode.TrooperWallClingPractice, OfflineCharacterMode.TrooperScoutDronePractice,
                     OfflineCharacterMode.TrooperScoutDroneCombatPractice, OfflineCharacterMode.TrooperArsenalPractice })
@@ -321,7 +324,9 @@ internal static class OfflineCharacterGameplayTests
             combat with { MatchRules = combat.MatchRules with { LowTier = true } },
             combat with { MatchRules = combat.MatchRules with { RiftlineM7Available = true } },
             combat with { MatchRules = combat.MatchRules with { MovementModel = MovementModel.Momentum } },
-            combat with { MatchRules = combat.MatchRules with { MovementModel = MovementModel.Quake3 } }
+            combat with { MatchRules = combat.MatchRules with { MovementModel = MovementModel.Quake3 } },
+            combat with { MatchRules = combat.MatchRules with { MovementModel = MovementModel.Traversal } },
+            combat with { MatchRules = combat.MatchRules with { MovementModel = MovementModel.Parkour } }
         };
         foreach (var bad in invalidPlans.Concat(new[] { LaunchKind.None, LaunchKind.Online, LaunchKind.Host,
             LaunchKind.Adventure, LaunchKind.Demo, LaunchKind.AimTrainer }.Select(kind => combat with { Kind = kind })))
