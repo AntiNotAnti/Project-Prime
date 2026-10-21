@@ -192,6 +192,9 @@ internal static class WeaponPackageOnlineGlChecks
                     int leftCount=left.CopyFlights(leftFlights),rightCount=right.CopyFlights(rightFlights);
                     return leftCount==rightCount&&leftFlights.AsSpan(0,leftCount).SequenceEqual(rightFlights.AsSpan(0,rightCount));
                 }
+                var descriptorBytes=new ReplayCustomWeaponDescriptor(context).CopyBytes();
+                File.WriteAllBytes(Path.Combine(output,"descriptor.bin"),descriptorBytes);
+                File.WriteAllBytes(Path.Combine(output,"final-checkpoint.bin"),linear.CaptureCheckpointBytes());
                 int forwardRestores=0,backwardRestores=0;long suffixFactsApplied=0;
                 // Rebuild one prefix at a time instead of retaining every large state
                 // snapshot. Test memory stays bounded independently of fact count.
@@ -203,22 +206,30 @@ internal static class WeaponPackageOnlineGlChecks
                     var point=prefix.CaptureRestorePoint();
                     var freshContext=new ReplayCustomWeaponContext(context.Bootstrap,context.Definition,context.Layout);
                     var restored=point.Restore(freshContext);
+                    Check(ReplayCustomWeaponDescriptor.TryRead(descriptorBytes,out var decodedDescriptor),"persisted descriptor decodes");
+                    var durableContext=decodedDescriptor!.Bind(context.Definition);
+                    byte[] checkpoint=prefix.CaptureCheckpointBytes();
+                    if(!backwards&&index==completePoints[0])File.WriteAllBytes(Path.Combine(output,"first-complete-checkpoint.bin"),checkpoint);
+                    var durable=ReplayCustomWeaponState.RestoreCheckpointBytes(checkpoint,durableContext);
+                    Check(SameState(prefix,durable),"byte checkpoint independently reproduces actual prefix");
                     Check(ReferenceEquals(restored.Context,freshContext)&&SameState(prefix,restored),
                         "typed custom restore independently reproduces captured slots pickups and sorted flights");
                     for(int n=index+1;n<parsedFacts.Count;n++)
-                    {restored.Accept(parsedFacts[n].Fact,parsedFacts[n].Frame);suffixFactsApplied++;}
+                    {restored.Accept(parsedFacts[n].Fact,parsedFacts[n].Frame);durable.Accept(parsedFacts[n].Fact,parsedFacts[n].Frame);suffixFactsApplied++;}
                     restored.Advance(linear.World,linear.RecordingFrame);
+                    durable.Advance(linear.World,linear.RecordingFrame);
+                    Check(SameState(linear,durable)&&linear.CaptureCheckpointBytes().AsSpan().SequenceEqual(durable.CaptureCheckpointBytes()),"byte checkpoint actual suffix matches final canonical state");
                     Check(SameState(linear,restored),backwards
                         ?"backward typed restore plus actual suffix matches final linear custom state"
                         :"forward typed restore plus actual suffix matches final linear custom state");
                     if(backwards)backwardRestores++;else forwardRestores++;
                 }
                 File.WriteAllText(Path.Combine(output,"accepted-facts-results.json"),JsonSerializer.Serialize(new{count=acceptedFacts.Count,capturedBytes,
-                    package.PackageHash,context=context.Digest.ToString(),counts=counts.ToDictionary(pair=>pair.Key.ToString(),pair=>pair.Value),facts=receipt,
+                    package.PackageHash,context=context.Digest.ToString(),checkpointSha256=Convert.ToHexString(SHA256.HashData(linear.CaptureCheckpointBytes())),counts=counts.ToDictionary(pair=>pair.Key.ToString(),pair=>pair.Value),facts=receipt,
                     observations=new{recordedEmpty,recordedPickup,recordedSpent,recordedReloading,recordedReloaded,recordedOptic4},
                     passiveRestore=new{completePoints=completePoints.Count,forwardRestores,backwardRestores,suffixFactsApplied,
                         finalSequence=linear.Sequence,finalWorld=linear.World,finalRecordingFrame=linear.RecordingFrame},
-                    scope="Copied accepted ordinary-client custom facts and typed passive-state restores in both directions, with actual suffix replay and exact slot/pickup/sorted-flight equality. No actual contact capture expected from this single-client wall shot. Test-only length-prefixed file, not a Demo archive, file checkpoint, record-close-reopen playback, or archive seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
+                    scope="Copied accepted ordinary-client facts, persisted CWRD/CWRS passive state and typed/byte restores in both directions with actual suffix and canonical state equality. No actual contact capture expected from this single-client wall shot. The fact dump remains a test-only length-prefixed file; no Demo archive, whole Scene checkpoint, passive playback or archive seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
             }
             Check(clientStore.Prune()==0,"ordinary live session and scene retain archive uninstalled before match transition");NetSession.Stop();Check(clientStore.Prune()==0&&scene.LocalWeaponPackage?.PackageHash==package.PackageHash,"session Stop preserves independently retained ordinary scene package owner");scene.DoCleanup();scene=null;Check(clientStore.Prune()==1,"ordinary scene cleanup releases final retained client archive");
             File.WriteAllText(Path.Combine(output,"online-package-gl-results.json"),JsonSerializer.Serialize(new{checks,renderer,version,sawCwmDuringStarting,package.PackageHash,contentId=package.Project.ContentId,seconds=watch.Elapsed.TotalSeconds,pictures,scope="Actual separate dedicated process and ordinary NetSession client/native GL; genuine package preparation, native world admission, W world pickup,scope4,fire,reload. Authored approach placement is declared; no synthetic snapshots, grant or client authority."},new JsonSerializerOptions{WriteIndented=true}));Console.WriteLine($"PASS {checks} ordinary online package client GL checks");return 0;

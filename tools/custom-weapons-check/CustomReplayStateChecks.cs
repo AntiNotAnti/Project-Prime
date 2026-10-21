@@ -10,7 +10,7 @@ using OpenTK.Mathematics;
 // Detached supplied facts only: no Scene, grants, damage or playback admission.
 internal static class CustomReplayStateChecks
 {
-    private sealed class Fixture:IDisposable
+    internal sealed class Fixture:IDisposable
     {
         internal readonly WeaponPackage Package=WeaponPackage.Parse(WeaponPackageReference.BuildRiftlineM7());
         internal readonly WeaponRegistry Registry;

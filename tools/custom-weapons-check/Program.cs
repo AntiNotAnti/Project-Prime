@@ -4,6 +4,8 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length is 1 or 2 && args[0] == "--custom-replay-checkpoint") return CustomReplayCheckpointChecks.Run(args.Length==2?args[1]:null);
+if (args.Length == 3 && args[0] == "--custom-replay-checkpoint-reopen") return CustomReplayCheckpointReopenChecks.Run(args[1],args[2]);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-state") return CustomReplayStateChecks.Run(args.Length==2?args[1]:null);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-facts") return CustomReplayFactChecks.Run(args.Length==2?args[1]:null);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-bootstrap") return CustomReplayBootstrapChecks.Run(args.Length==2?args[1]:null);

@@ -21,7 +21,7 @@ internal sealed class ReplayCustomWeaponRestorePoint
 
 // Passive values only: no Scene, NetSession, RNG, input, collision, admission,
 // inventory funding, sound, damage or presentation device is reachable here.
-internal sealed class ReplayCustomWeaponState
+internal sealed partial class ReplayCustomWeaponState
 {
     internal const int FlightCapacity = 256, ActionCapacity = 1024, SeenCapacity = 1024;
     private struct FlightAnchor
