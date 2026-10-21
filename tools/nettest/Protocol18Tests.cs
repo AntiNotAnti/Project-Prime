@@ -1,9 +1,24 @@
 using System;
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
 using MphRead.Mods.Network;
 namespace MphRead.NetTest;
 internal static class Protocol18Tests
 {
+    // Keep the measuring loop out of tiered on-stack replacement. The unchanged
+    // reference binary fails the old loop under default tiering and passes with
+    // tiering disabled; this observes warmed production calls with a hot helper.
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    private static long MeasureDecode(NetReplicationReceiver receiver, byte[] fast, int fastLength,
+        byte[] decoded, out int length)
+    {
+        length = 0;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 10000; i++)
+            length = receiver.Assemble(fast.AsSpan(0, fastLength), decoded, 65535, ulong.MaxValue);
+        return GC.GetAllocatedBytesForCurrentThread() - before;
+    }
+
     public static int Run()
     {
         try
@@ -37,9 +52,12 @@ internal static class Protocol18Tests
             var decoded = new byte[NetConfig.MaxSnapshotSize]; int length = receiver.Assemble(lanes.Fast.AsSpan(0, lanes.FastLength), decoded, 65535, ulong.MaxValue);
             NetArchitectureTests.Check(canonical.AsSpan().SequenceEqual(decoded.AsSpan(0, length)), "all status/damage/lifecycle/world/score bytes preserved");
             for (int i = 0; i < 100; i++) receiver.Assemble(lanes.Fast.AsSpan(0, lanes.FastLength), decoded, 65535, ulong.MaxValue);
-            long before = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 10000; i++) receiver.Assemble(lanes.Fast.AsSpan(0, lanes.FastLength), decoded, 65535, ulong.MaxValue);
-            NetArchitectureTests.Check(GC.GetAllocatedBytesForCurrentThread() == before, "warmed fast decode allocation-free");
+            long warmupBytes = MeasureDecode(receiver, lanes.Fast, lanes.FastLength, decoded, out _);
+            Console.WriteLine($"[protocol18] fixed measurement helper warmup: {warmupBytes} bytes");
+            long allocated = MeasureDecode(receiver, lanes.Fast, lanes.FastLength, decoded, out int measuredLength);
+            NetArchitectureTests.Check(measuredLength == length && canonical.AsSpan().SequenceEqual(decoded.AsSpan(0, measuredLength)),
+                "measured fast decode preserves the full canonical snapshot");
+            NetArchitectureTests.Check(allocated == 0, $"warmed fast decode allocation-free (actual {allocated} bytes)");
             Console.WriteLine($"PASS: protocol 18 lane round-trip, revision fencing, 0 decode allocations, {SnapshotFast.MaximumEncodedSize}B worst-case fast datagram"); return 0;
         }
         catch (Exception e) { Console.Error.WriteLine(e); return 1; }

@@ -17,6 +17,7 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
 
 if (args.Contains("--shader-source-ledger-selftest") || args.Contains("-resource-shader-ledger-selftest")) return ShaderSourceLedger.SelfTest();
+if (args.Contains("--pose-input-isolation-selftest")) return DisplayPoseInputIsolation.SelfTest();
 if (args.Contains("--minimal-gl-selftest")) return MinimalGlControl.SelfTest();
 if (args.Contains("--minimal-gl") || args.Contains("--minimal-gl-describe")) return MinimalGlControl.Run(args);
 if (args.Contains("-resource-retention-selftest")) return AudioRetentionProbe.SelfTest();

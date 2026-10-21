@@ -139,6 +139,16 @@ class DisplayPoseAnalysisTests(unittest.TestCase):
         self.assertTrue(report["comparisons"][0]["exactCanonicalAndInputMatch"])
         self.assertEqual(report["panelScanoutAcceptance"], "NOT_CLAIMED")
 
+    def test_connected_physical_controller_requires_scoped_polling_isolation(self):
+        isolation = {"connectedBefore": True, "scopedDisconnected": True,
+                     "fixedAndPresentationPollingBlocked": True, "physicalDeviceAcceptance": "NOT_CLAIMED"}
+        self.results[1]["physicalControllerIsolation"] = isolation
+        self.assertEqual(self.report()["errors"], [])
+        for field in ("scopedDisconnected", "fixedAndPresentationPollingBlocked"):
+            isolation[field] = False
+            self.assertTrue(any("controller isolation" in error for error in self.report()["errors"]))
+            isolation[field] = True
+
     def test_particle_gate_rejects_old_and_vacuous_draw_reports(self):
         def report():
             return analyze(self.results, rates=(60, 144), hunters=("Samus",), require_particle_sampling=True)

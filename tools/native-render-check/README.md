@@ -124,8 +124,8 @@ do not change replay hash schemas, stored recordings or scheduling. The analyzer
 can require them explicitly with `--require-supplemental`; `--require-jitter`
 requires a jitter144 result per requested Hunter. Reports identify the actual
 Windows or Mac platform, and cross-schedule comparisons reject mixed platforms.
-The fixture rejects a connected physical controller and restores its temporary
-gamepad-focus override on completion or failure. Native OS focus and physical
+The fixture scopes a disconnected view over connected controllers and blocks
+physical polling, then restores cached input and focus state on completion or failure. Native OS focus and physical
 mouse/controller behavior remain separate acceptance work.
 
 `--require-particle-sampling` additionally requires both particle and beam
@@ -667,7 +667,15 @@ the profiler's raw capture timestamps the actual swap-return boundary separately
 Pose readback mode observes OS focus separately from its synthetic keyboard/mouse
 owner. Native focus callbacks do not latch that synthetic device off; ordinary
 native timing, resource and lifecycle modes retain the production focus path.
-OS focus and physical input acceptance remain NOT_CLAIMED. Required charge fire
+OS focus and physical input acceptance remain NOT_CLAIMED. A pose-only scoped
+disconnected gamepad view blocks fixed and render-time polling plus hotplug
+callbacks, while retaining registered physical devices and preferences. The
+fixture restores cached input/edge/action/context state on exit, including
+exceptions. Reports retain whether a physical controller was connected before
+isolation and whether fixed/presentation input was isolated. Run the bounded
+content-free `--pose-input-isolation-selftest` to exercise a connected input
+negative control, isolated polls, nested scopes and exception cleanup.
+Required charge fire
 and release are checked at consumption, so missing input fails before pixel
 qualification; PowerBeam/tick420 and all positive pixel/canonical gates remain.
 

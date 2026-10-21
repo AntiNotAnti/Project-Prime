@@ -34,13 +34,20 @@ sealed partial class CheckWindow
     private int? _poseSelectedFieldOfView;
     private double PoseElapsed => DisplayPosePlan.Elapsed(_poseScheduleId, _cap, _poseOutput);
     private bool _poseInputIsolationInitialized, _posePriorGamepadFocused;
+    private DisplayPoseInputIsolation? _poseGamepadIsolation;
+    private bool _posePhysicalControllerConnectedBefore, _poseControllerIsolationVerified;
     private string? _posePreviousSupplemental;
     internal void RestoreDisplayPoseInputIsolation()
     {
         if (!_poseInputIsolationInitialized) return;
-        GamepadContexts.Focused = _posePriorGamepadFocused;
-        RenderOptions.FieldOfView = _posePriorFieldOfView;
-        _poseInputIsolationInitialized = false;
+        try { _poseGamepadIsolation?.Dispose(); }
+        finally
+        {
+            _poseGamepadIsolation = null;
+            GamepadContexts.Focused = _posePriorGamepadFocused;
+            RenderOptions.FieldOfView = _posePriorFieldOfView;
+            _poseInputIsolationInitialized = false;
+        }
     }
     private readonly string _poseFocusControl;
     private bool _poseFocusInjected, _poseInjectingFocus;
@@ -186,6 +193,8 @@ sealed partial class CheckWindow
         if (_poseRequestedFov.HasValue) RenderOptions.FieldOfView = _poseRequestedFov.Value;
         _poseSelectedFieldOfView = RenderOptions.FieldOfView;
         _poseInputIsolationInitialized = true;
+        _poseGamepadIsolation = new DisplayPoseInputIsolation();
+        _posePhysicalControllerConnectedBefore = _poseGamepadIsolation.PriorConnected;
     }
     private object PoseFovObservation()
     {
@@ -202,7 +211,8 @@ sealed partial class CheckWindow
     {
         PoseRequire(_wall.Elapsed.TotalSeconds < 240, "bounded capture wall timeout");
         PoseRequire(!Scene.FrameAdvance && !NetSession.Active, "normal offline clock ownership changed");
-        PoseRequire(!GamepadManager.ActiveState.Connected, "physical controller would contaminate frozen input");
+        PoseRequire(_poseGamepadIsolation?.Isolated == true, "physical controller polling is not isolated from frozen input");
+        _poseControllerIsolationVerified = true;
         // Only the diagnostic's synthetic device is admitted. Native focus is
         // observed separately; these captures do not qualify OS focus behavior.
         GamepadContexts.Focused = true;
@@ -568,7 +578,10 @@ sealed partial class CheckWindow
         framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y }, renderSize = new[] { Scene.RenderSize.X, Scene.RenderSize.Y },
         responsiveCamera = Features.ResponsiveAimCamera, fixedWeapon = Features.FixedWeapon,
         requestedFieldOfView = _poseRequestedFov, selectedFieldOfView = _poseSelectedFieldOfView,
-        syntheticInput = true, physicalControllerRejected = true, osFocusAcceptance = "NOT_CLAIMED",
+        syntheticInput = true, physicalControllerRejected = false,
+        physicalControllerIsolation = new { connectedBefore = _posePhysicalControllerConnectedBefore,
+            scopedDisconnected = _poseControllerIsolationVerified, fixedAndPresentationPollingBlocked = _poseControllerIsolationVerified,
+            physicalDeviceAcceptance = "NOT_CLAIMED" }, osFocusAcceptance = "NOT_CLAIMED",
         focusControl = new { mode = _poseFocusControl, injectionTick = 245,
             injected = _poseFocusInjected, qualificationEligible = _poseFocusControl != "legacy",
             events = _poseFocusEvents },

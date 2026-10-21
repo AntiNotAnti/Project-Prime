@@ -46,13 +46,37 @@ namespace MphRead.Mods.Input
         private static long _revision;
         private static GamepadSnapshot _snapshot = new(null, default, 0);
         private static GamepadSnapshot? _presentationSnapshot;
-        public static GamepadSnapshot Snapshot { get { lock (Gate) return _snapshot; } }
+        private static int _diagnosticIsolationDepth;
+        private static readonly GamepadSnapshot DiagnosticDisconnected = new(null, default, long.MinValue);
+        internal static bool DiagnosticInputIsolated { get { lock (Gate) return _diagnosticIsolationDepth > 0; } }
+        // Explicit diagnostic scope only. Registered devices, calibration and
+        // preferences stay untouched; ordinary readers/polling are unchanged.
+        internal static IDisposable PushDiagnosticInputIsolation()
+        {
+            var scope = new DiagnosticInputIsolation();
+            lock (Gate) _diagnosticIsolationDepth++;
+            return scope;
+        }
+        private sealed class DiagnosticInputIsolation : IDisposable
+        {
+            private bool _disposed;
+            public void Dispose()
+            {
+                lock (Gate)
+                {
+                    if (_disposed) return;
+                    _disposed = true;
+                    _diagnosticIsolationDepth--;
+                }
+            }
+        }
+        public static GamepadSnapshot Snapshot { get { lock (Gate) return _diagnosticIsolationDepth > 0 ? DiagnosticDisconnected : _snapshot; } }
         internal static GamepadSnapshot? PresentationSnapshot
         {
-            get { lock (Gate) return _presentationSnapshot; }
+            get { lock (Gate) return _diagnosticIsolationDepth > 0 ? null : _presentationSnapshot; }
         }
         public static GamepadState ActiveState => Snapshot.State;
-        public static GamepadDeviceSnapshot? ActiveDevice { get { lock (Gate) return _active?.Snapshot; } }
+        public static GamepadDeviceSnapshot? ActiveDevice { get { lock (Gate) return _diagnosticIsolationDepth > 0 ? null : _active?.Snapshot; } }
         public static string? SelectedDeviceId { get { lock (Gate) return _selected; } }
         public static string? LastInputDevice { get; private set; }
         public static IReadOnlyList<GamepadDeviceSnapshot> Devices { get { lock (Gate) return Known.ConvertAll(d => d.Snapshot).ToArray(); } }
@@ -301,7 +325,11 @@ namespace MphRead.Mods.Input
         }
         public static void ClearAll()
         {
-            lock (Gate) foreach (var device in Known) ClearDevice(device.DeviceId);
+            lock (Gate)
+            {
+                if (_diagnosticIsolationDepth > 0) return;
+                foreach (var device in Known) ClearDevice(device.DeviceId);
+            }
         }
     }
 }

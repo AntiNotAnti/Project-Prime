@@ -101,6 +101,14 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
         require(result.get("performanceAcceptance") == "NOT_CLAIMED_READBACK_FIXTURE"
                 and result.get("panelScanoutAcceptance") == "NOT_CLAIMED", "invalid timing/panel acceptance claim")
         focus = result.get("focusControl")
+        isolation = result.get("physicalControllerIsolation")
+        if isolation is not None:
+            isolation = isolation if isinstance(isolation, dict) else {}
+            require(type(isolation.get("connectedBefore")) is bool
+                    and isolation.get("scopedDisconnected") is True
+                    and isolation.get("fixedAndPresentationPollingBlocked") is True
+                    and isolation.get("physicalDeviceAcceptance") == "NOT_CLAIMED",
+                    "physical controller isolation did not block fixed/presentation polling")
         if focus is not None or require_supplemental:
             focus = focus if isinstance(focus, dict) else {}
             focus_mode = focus.get("mode")
