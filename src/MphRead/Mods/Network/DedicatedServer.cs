@@ -656,7 +656,7 @@ namespace MphRead.Mods.Network
                     {
                         lastHostMapPump = now;
                         _hostMapRequests.Pump(now,
-                            (request, sender, time, packages) => Hosts.Start(request, sender, time, packages),
+                            (request, sender, time, packages) => Hosts.StartPrepared(request, sender, time, packages),
                             SendHostReply);
                     }
 
@@ -2261,9 +2261,9 @@ namespace MphRead.Mods.Network
                 }
                 else
                 {
-                    if (request.RequiresMapPreparation)
+                    if (request.RequiresPreparation)
                     {
-                        _hostMapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
+                        _hostMapRequests.Enqueue(request, packet.Sender, now, SendHostReply, Hosts.WeaponStoreDirectory);
                         return;
                     }
                     reply = Hosts.Start(request, packet.Sender, now);

@@ -333,6 +333,27 @@ namespace MphRead.Mods.Network
             }
         }
 
+        // Remote allocators already validated on a bounded worker. Retain that
+        // proof in memory instead of parsing an archive on their packet loop.
+        internal static int StartPrepared(PreparedLocalWeaponPackage prepared, string serverName,
+            IReadOnlyList<(string RoomKey, GameMode Mode)> rotation, int maxPlayers,
+            float timeLimit, int pointGoal, string masterHost, int masterPort, bool listed,
+            int port, Guid ownerToken, MatchFormat format, bool requireReady,
+            bool allowJoinInProgress, NetworkMapIdentity requiredMap, HostedMapPreparation hostedMaps)
+        {
+            lock (StartLifecycleGate)
+            {
+                using var retained = prepared.Retain();
+                if (rotation.Count is < 1 or > HostRequestPacket.MaxRotation
+                    || rotation.Any(entry => entry.Mode != GameMode.Battle))
+                { LastError = "packaged hosting requires a bounded Battle rotation"; return -1; }
+                return StartCore(serverName, rotation, maxPlayers, timeLimit, pointGoal, masterHost, masterPort,
+                    listed, lobby: true, requestedPort: port, ownerToken: ownerToken, format: format,
+                    requireReady: requireReady, allowJoinInProgress: allowJoinInProgress, waitUntilReady: false,
+                    requiredMap: requiredMap, hostedMaps: hostedMaps, weaponPackage: prepared.Selection);
+            }
+        }
+
         private static int StartCore(string serverName,
             IReadOnlyList<(string RoomKey, GameMode Mode)> rotation,
             int maxPlayers, float timeLimit, int pointGoal,

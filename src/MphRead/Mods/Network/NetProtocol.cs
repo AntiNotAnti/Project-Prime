@@ -246,6 +246,11 @@ namespace MphRead.Mods.Network
 
         public bool RequiresMapPreparation
             => MapIdentity.IsCustom || (Rotation?.Any(entry => entry.IsCustom) ?? false);
+        // Protocol83 carries only an exact archive hash. Operator/local paths
+        // never cross this boundary; zero bytes mean native-only allocation.
+        public string? WeaponArchiveHash;
+        public bool RequiresWeaponPreparation => !String.IsNullOrEmpty(WeaponArchiveHash);
+        public bool RequiresPreparation => RequiresMapPreparation || RequiresWeaponPreparation;
 
         /// <summary>How many bytes this request takes, tail included.</summary>
         public ServerSessionPolicy Policy;
@@ -256,7 +261,7 @@ namespace MphRead.Mods.Network
         public ulong HostCookie;
         public HostRequestPacket() { RoomKey = ""; ServerName = ""; }
         public int Length => Size + 1 + Math.Min(Rotation?.Count ?? 0, MaxRotation)
-            * RotationEntrySize + 4 + NetworkMapIdentity.Size + 16;
+            * RotationEntrySize + 4 + NetworkMapIdentity.Size + 16 + 32;
 
         public void Write(Span<byte> dest)
         {
@@ -286,13 +291,17 @@ namespace MphRead.Mods.Network
             int proof = tail + 4 + NetworkMapIdentity.Size;
             BinaryPrimitives.WriteUInt64LittleEndian(dest[proof..], HostNonce);
             BinaryPrimitives.WriteUInt64LittleEndian(dest[(proof + 8)..], HostCookie);
+            Span<byte> weapon = dest.Slice(proof + 16, 32);
+            weapon.Clear();
+            if (RequiresWeaponPreparation)
+                CustomWeapons.WeaponDigest.FromHex(WeaponArchiveHash!).Write(weapon);
         }
 
         public static HostRequestPacket Read(ReadOnlySpan<byte> src)
         {
             if (src.Length < Size + 5 || src[Size] > MaxRotation) return default;
             int tail = Size + 1 + src[Size] * RotationEntrySize;
-            if (src.Length != tail + 4 + NetworkMapIdentity.Size + 16 || src[tail] > 1 || src[tail + 1] > 1
+            if (src.Length != tail + 4 + NetworkMapIdentity.Size + 16 + 32 || src[tail] > 1 || src[tail + 1] > 1
                 || src[tail + 2] > 1 || src[tail + 3] > (byte)MatchFormat.TwoVsTwoVsTwoVsTwo
                 || !NetworkMapIdentity.TryRead(src.Slice(tail + 4, NetworkMapIdentity.Size), out var mapIdentity)) return default;
             return new HostRequestPacket
@@ -310,7 +319,9 @@ namespace MphRead.Mods.Network
                 HostNonce = BinaryPrimitives.ReadUInt64LittleEndian(
                     src[(tail + 4 + NetworkMapIdentity.Size)..]),
                 HostCookie = BinaryPrimitives.ReadUInt64LittleEndian(
-                    src[(tail + 12 + NetworkMapIdentity.Size)..])
+                    src[(tail + 12 + NetworkMapIdentity.Size)..]),
+                WeaponArchiveHash = CustomWeapons.WeaponDigest.Read(src[(tail + 20 + NetworkMapIdentity.Size)..]) is { IsValid: true } weapon
+                    ? weapon.ToString() : ""
             };
         }
 
@@ -476,7 +487,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82 or 83)
                 status = Read(src);
             else
             {
@@ -2656,7 +2667,8 @@ namespace MphRead.Mods.Network
         // Protocol80 selects Parkour v4 mantle; packet widths and historical stance boundaries remain unchanged.
         // Protocol81 adds exact package preparation at99/100/101; native layouts and Parkour-v4 attribution remain unchanged.
         // Protocol82 selects Parkour v5 and accepted grapple state; historical profiles remain frozen.
-        public const int ProtocolVersion = 82;
+        // Protocol83 appends the exact archive hash to HostRequest; native gameplay/replay widths remain unchanged.
+        public const int ProtocolVersion = 83;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
