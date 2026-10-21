@@ -9,6 +9,13 @@ catalog metadata. See [MAP-STUDIO.md](MAP-STUDIO.md) for cache and cancellation
 ownership. The raw collision diagnostic `-mapcheck` intentionally inspects shapes
 without the publishing compiler's validation gate.
 
+Community downloads hash each response while streaming it to private staging;
+resumed prefixes are hashed through the exclusive append handle first. Completed
+partial files still require a full digest. This avoids a healthy transfer's
+post-write reread without weakening exact package/MapId/content checks. See
+`docs/performance/map-pipeline-optimization.md` for the reproducible transfer-stage
+measurements and outstanding gameplay/device acceptance.
+
 ## What ships: one file
 
 **A map is handed out as a `.ppmap` bundle** -- the recipe, the level and the

@@ -50,6 +50,10 @@ for implementation contracts.
 
 ## Where things are
 
+Custom-map pipeline ownership, residual bottlenecks and reproducible conversion /
+transfer measurements are tracked in `docs/performance/map-pipeline-optimization.md`.
+Component timings do not establish live loading or cross-platform acceptance.
+
 | Path | What |
 |---|---|
 | Repository root | the checked-out source. New project code is concentrated under `src/MphRead/Mods/`; do not assume a particular clone path |

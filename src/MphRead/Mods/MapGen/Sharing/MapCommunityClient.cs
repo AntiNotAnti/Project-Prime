@@ -6,6 +6,7 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -1147,7 +1148,7 @@ public sealed class MapCommunityClient : IDisposable
         }
     }
 
-    private async Task<long> DownloadPackageAsync(string resource, string temporary, long? expectedBytes,
+    private async Task<(long Bytes, string Hash)> DownloadPackageAsync(string resource, string temporary, long? expectedBytes,
         CancellationToken token, Action<long, long>? progress = null)
     {
         const int maximumRetries = 4;
@@ -1165,8 +1166,15 @@ public sealed class MapCommunityClient : IDisposable
             }
             if (expected >= 0 && offset == expected)
             {
+                // A completed partial may belong to an earlier process. Verify
+                // its bytes rather than trusting only its recorded length.
+                await using var complete = new FileStream(temporary, FileMode.Open,
+                    FileAccess.Read, FileShare.None, 65536,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan);
+                string digest = Convert.ToHexString(await SHA256.HashDataAsync(complete, token)
+                    .ConfigureAwait(false)).ToLowerInvariant();
                 progress?.Invoke(offset, expected);
-                return expected;
+                return (expected, digest);
             }
 
             try
@@ -1229,29 +1237,46 @@ public sealed class MapCommunityClient : IDisposable
                 expected = total;
 
                 long maximum = expected - offset;
+                using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
                 await using (var output = new FileStream(temporary,
-                    offset == 0 ? FileMode.Create : FileMode.OpenOrCreate, FileAccess.Write, FileShare.None,
+                    offset == 0 ? FileMode.Create : FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None,
                     65536, FileOptions.Asynchronous | FileOptions.SequentialScan))
                 {
+                    byte[] buffer = new byte[65536];
                     if (offset > 0)
                     {
                         if (output.Length != offset) throw new InvalidDataException("Partial map download changed unexpectedly.");
-                        output.Position = offset;
+                        // Prefix bytes survived a previous request/process and
+                        // have not yet earned trust. Hash them under the same
+                        // exclusive handle used to append this response.
+                        int prefixRead;
+                        while ((prefixRead = await output.ReadAsync(buffer, token).ConfigureAwait(false)) != 0)
+                            hash.AppendData(buffer.AsSpan(0, prefixRead));
                     }
                     progress?.Invoke(offset, expected);
-                    await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false), output,
-                        maximum, token, received => progress?.Invoke(offset + received, expected)).ConfigureAwait(false);
+                    await using var input = await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false);
+                    long received = 0;
+                    int read;
+                    while ((read = await input.ReadAsync(buffer, token).ConfigureAwait(false)) != 0)
+                    {
+                        received += read;
+                        if (received > maximum) throw new InvalidDataException("Transfer exceeds the allowed size.");
+                        await output.WriteAsync(buffer.AsMemory(0, read), token).ConfigureAwait(false);
+                        hash.AppendData(buffer.AsSpan(0, read));
+                        progress?.Invoke(offset + received, expected);
+                    }
                     await output.FlushAsync(token).ConfigureAwait(false);
+                    long completed = output.Length;
+                    if (completed == expected)
+                    {
+                        token.ThrowIfCancellationRequested();
+                        string digest = Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+                        progress?.Invoke(completed, expected);
+                        return (expected, digest);
+                    }
+                    if (completed > expected) throw new InvalidDataException("Downloaded package exceeds its declared size.");
+                    throw new EndOfStreamException($"Map download ended at {completed:N0} of {expected:N0} bytes.");
                 }
-
-                long completed = new FileInfo(temporary).Length;
-                if (completed == expected)
-                {
-                    progress?.Invoke(completed, expected);
-                    return expected;
-                }
-                if (completed > expected) throw new InvalidDataException("Downloaded package exceeds its declared size.");
-                throw new EndOfStreamException($"Map download ended at {completed:N0} of {expected:N0} bytes.");
             }
             catch (Exception ex) when (!token.IsCancellationRequested && failures < maximumRetries
                 && (ex is HttpRequestException || ex is TaskCanceledException
@@ -1270,10 +1295,10 @@ public sealed class MapCommunityClient : IDisposable
         string actualHash = "";
         for (int attempt = 0; attempt < maximumIntegrityAttempts; attempt++)
         {
-            long bytes = await DownloadPackageAsync(resource, temporary, expectedBytes, token, progress).ConfigureAwait(false);
+            var transfer = await DownloadPackageAsync(resource, temporary, expectedBytes, token, progress).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
-            actualHash = MapBuildFingerprint.HashFile(temporary);
-            if (actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase)) return bytes;
+            actualHash = transfer.Hash;
+            if (actualHash.Equals(expectedHash, StringComparison.OrdinalIgnoreCase)) return transfer.Bytes;
 
             // A same-length stale/corrupt response previously reached ZIP parsing and
             // surfaced as a misleading project.json error. Discard it and retry once
