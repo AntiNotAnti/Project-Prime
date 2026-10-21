@@ -254,7 +254,9 @@ internal static class ParkourAnimationSceneTests
         Check(actual.GunFacing == native.GunFacing && actual.GunUp == native.GunUp,
             "owner cannon cue preserves native rendered weapon aim orientation");
         Matrix4 camera = Matrix4.Invert(view);
-        Vector3 expected = camera.Row0.Xyz * pose.GunOffset.X + camera.Row1.Xyz * pose.GunOffset.Y
+        // Native presentation uses Cross(up, forward) for its right axis;
+        // OpenTK LookAt's inverse first row uses the opposite handedness.
+        Vector3 expected = -camera.Row0.Xyz * pose.GunOffset.X + camera.Row1.Xyz * pose.GunOffset.Y
             - camera.Row2.Xyz * pose.GunOffset.Z;
         Vector3 measured = actual.GunPosition - native.GunPosition;
         Near((measured - expected).Length, 0, "actual owner cannon receives the declared camera-local parkour offset", .00003f);

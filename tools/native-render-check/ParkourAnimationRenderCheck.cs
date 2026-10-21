@@ -350,6 +350,11 @@ internal static class ParkourAnimationRenderCheck
             Engine("MphRead.ConsoleSetup").GetMethod("Run", Static)!.Invoke(null, null);
             Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
             MphRead.Mods.MapGen.CustomRooms.MapDirectory = Path.Combine(shots, "generated-training-map");
+            Directory.CreateDirectory(MphRead.Mods.MapGen.CustomRooms.MapDirectory);
+            // Match nettest's authored course, copied from committed build content;
+            // map generation may create only private derived runtime outputs.
+            File.Copy(Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training", "map.json"),
+                Path.Combine(MphRead.Mods.MapGen.CustomRooms.MapDirectory, "map.json"));
             MphRead.Mods.MapGen.CustomRooms.UserMapDirectory = Path.Combine(shots, "empty-user-maps");
             MphRead.Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-animation-gl";
             MphRead.Mods.MapGen.CustomRooms.GenerateMissing(Room);
