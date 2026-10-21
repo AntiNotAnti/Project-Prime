@@ -83,5 +83,11 @@
     ],
     "scope": "Native pointer/keyboard + synthetic server authority; no live network/account"
   },
-  "quality_receipt": "Final idle-build rerun; 66 GL checks; per-quality GPU query measurements in quality-measurements.json"
+  "quality_receipt": "Final idle-build rerun; 66 GL checks; per-quality GPU query measurements in quality-measurements.json",
+  "implementation_commit": "899875d23b248e75d7fb6a52302cf3af7467ec6f",
+  "delivery_pull_requests": [
+    918,
+    920,
+    922
+  ]
 }
