@@ -114,11 +114,23 @@ internal static class AdventureSaveAsyncGlAcceptance
             double px = x + w / 2d, py = y + h / 2d;
             Check(px >= 0 && py >= 0 && px < width && py < height, "async save action center remains inside framebuffer " + id);
             host.Input.PointerMoved(px, py); Frame(); string hovered = host.HoveredElement();
-            bool label = id is "adventure_slot1" or "adventure_slot2" or "adventure_slot3" && hovered == id + "_label"
-                && host.TryGetElementBounds(target, hovered, out float lx, out float ly, out float lw, out float lh)
-                && lw > 0 && lh > 0 && lx >= x && ly >= y && lx + lw <= x + w && ly + lh <= y + h
+            bool slot = id is "adventure_slot1" or "adventure_slot2" or "adventure_slot3";
+            float lx = 0, ly = 0, lw = 0, lh = 0;
+            bool labelFound = slot && host.TryGetElementBounds(target, id + "_label",
+                out lx, out ly, out lw, out lh);
+            // Fractional RCSS boxes can round outward by less than a pixel.
+            // Long copied-save text must still wrap inside its clickable button.
+            const float edgeTolerance = 1;
+            bool labelContained = labelFound && lw > 0 && lh > 0
+                && lx >= x - edgeTolerance && ly >= y - edgeTolerance
+                && lx + lw <= x + w + edgeTolerance && ly + lh <= y + h + edgeTolerance;
+            if (slot)
+                Check(labelContained, "authored save-slot label fits its clickable button " + id);
+            bool labelHit = labelContained && hovered == id + "_label"
                 && px >= lx && px <= lx + lw && py >= ly && py <= ly + lh;
-            Check(hovered == id || label, "native hover matches action or contained authored label " + id);
+            if (hovered != id && !labelHit)
+                Console.WriteLine($"RML ADVENTURE ASYNC HOVER DIAGNOSTIC requested={id} hovered={hovered} action={host.HoveredAction()} focused={host.FocusedElement()} input={host.CurrentInputDocument} target={target} button=({x},{y},{w},{h}) labelFound={labelFound} label=({lx},{ly},{lw},{lh}) framebuffer={width}x{height}");
+            Check(hovered == id || labelHit, "native hover matches action or contained authored label " + id);
             host.Input.PointerButton(0, px, py, true); host.Input.PointerButton(0, px, py, false); host.Update();
             bool received = false;
             while (host.TryTakeIntent(out var intent))

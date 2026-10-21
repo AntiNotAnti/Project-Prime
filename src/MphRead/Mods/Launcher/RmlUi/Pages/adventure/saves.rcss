@@ -83,6 +83,17 @@
 .adventure_panel { padding:12dp; }
 .adventure_header { margin-bottom:12dp; }
 .adventure_header h1 { font-size:28dp; line-height:32dp; }
-.adventure_slot { min-height:48dp; padding:8dp 12dp; margin:8dp 0; }
+.adventure_slot { min-height:48dp; padding:8dp 12dp; margin:8dp 0; white-space:normal; }
+/* Copied saves have long area/energy labels. Keep the authored label's hit
+   box inside its clickable slot instead of letting intrinsic inline text
+   overflow at intermediate desktop widths (1280px GL acceptance). */
+.adventure_slot > span {
+    display:block;
+    box-sizing:border-box;
+    width:100%;
+    min-width:0;
+    white-space:normal;
+    word-break:break-word;
+}
 /* The confirmation itself scrolls; its description needs no nested viewport. */
 #adventure_confirmation_description { max-height:none; overflow-y:visible; }
