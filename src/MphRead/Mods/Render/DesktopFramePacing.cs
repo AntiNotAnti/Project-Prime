@@ -14,6 +14,16 @@ internal static class DesktopFramePacing
     internal const int DisplayRateCap = 0;
 
     /// <summary>
+    /// Only a real pacing source change requires a GLFW swap-interval / frame
+    /// deadline reconfiguration. Simulation catch-up, dropped ticks and camera
+    /// interpolation fences are not pacing source changes.
+    /// </summary>
+    internal static bool SourceChanged(bool invalidated, int cap, int appliedCap,
+        double refreshRate, double appliedRefreshRate)
+        => invalidated || cap != appliedCap
+            || Math.Abs(refreshRate - appliedRefreshRate) > NativeRefreshToleranceHz;
+
+    /// <summary>
     /// Only the explicit Display/VSync setting relies on the monitor clock.
     /// Every positive numeric cap needs its own software deadline, including
     /// a 240 FPS cap on a 240 Hz monitor: the driver's swap interval may be

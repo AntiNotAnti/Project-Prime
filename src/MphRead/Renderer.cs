@@ -9189,7 +9189,9 @@ localCenter *= _profileHudScale;
         private bool _displayVSyncFallback;
         private bool _appliedDisplayVSyncFallback;
         private bool _pacingSourceInvalidated = true;
-        private long _appliedPacingGeneration = -1;
+        // Distinct from FrameTiming.PresentationGeneration: dropped simulation
+        // steps fence camera interpolation, not GLFW pacing configuration.
+        private long _pacingSourceGeneration;
         private readonly Mods.Render.DesktopPacingMeasurement _pacingMeasurement = new();
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
@@ -9223,15 +9225,13 @@ localCenter *= _profileHudScale;
         {
             int cap = Mods.Render.FrameTiming.FrameRateCap;
             double refreshRate = MonitorRefreshRate(this);
-            bool sourceChanged = _pacingSourceInvalidated
-                || _appliedPacingGeneration != Mods.Render.FrameTiming.PresentationGeneration
-                || cap != _appliedFrameRateCap
-                || Math.Abs(refreshRate - _appliedMonitorRefreshRate)
-                    > Mods.Render.DesktopFramePacing.NativeRefreshToleranceHz;
+            bool sourceChanged = Mods.Render.DesktopFramePacing.SourceChanged(
+                _pacingSourceInvalidated, cap, _appliedFrameRateCap,
+                refreshRate, _appliedMonitorRefreshRate);
             _pacingSourceInvalidated = false;
-            _appliedPacingGeneration = Mods.Render.FrameTiming.PresentationGeneration;
+            if (sourceChanged) _pacingSourceGeneration++;
             _pacingMeasurement.Observe(elapsedSeconds,
-                Mods.Render.FrameTiming.PresentationGeneration, sourceChanged, IsFocused);
+                _pacingSourceGeneration, sourceChanged, IsFocused);
             if (sourceChanged)
             {
                 _displayVSyncFallback = false;
@@ -9748,6 +9748,8 @@ localCenter *= _profileHudScale;
             Mods.Render.OpenGlFrameProfiler.CancelFrame();
 #endif
             _pacingSourceInvalidated = true;
+            Mods.DebugLog.Line("frametiming",
+                $"window focus {(e.IsFocused ? "gained" : "lost")}; presentation pacing will be refreshed");
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeFocusChanged(e.IsFocused);
 #endif

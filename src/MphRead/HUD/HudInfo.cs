@@ -462,14 +462,16 @@ namespace MphRead.Hud
         }
 
         public static (int, IReadOnlyList<ushort>) CharMapToTexture(string path, int startX, int startY,
-            int tilesX, int tilesY, Scene scene, IReadOnlyList<ushort>? paletteOverride = null, int paletteId = -1)
+            int tilesX, int tilesY, Scene scene, IReadOnlyList<ushort>? paletteOverride = null, int paletteId = -1,
+            bool padMissingTiles = false)
         {
             var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(Paths.Combine(Paths.FileSystem, path)));
-            return CharMapToTexture(bytes, startX, startY, tilesX, tilesY, scene, paletteOverride, paletteId);
+            return CharMapToTexture(bytes, startX, startY, tilesX, tilesY, scene, paletteOverride, paletteId, padMissingTiles);
         }
 
         private static (int, IReadOnlyList<ushort>) CharMapToTexture(ReadOnlySpan<byte> bytes, int startX, int startY,
-            int tilesX, int tilesY, Scene scene, IReadOnlyList<ushort>? paletteOverride = null, int paletteId = -1)
+            int tilesX, int tilesY, Scene scene, IReadOnlyList<ushort>? paletteOverride = null, int paletteId = -1,
+            bool padMissingTiles = false)
         {
             UiPartHeader header = Read.ReadStruct<UiPartHeader>(bytes);
             Debug.Assert(header.Magic == 0);
@@ -597,9 +599,20 @@ namespace MphRead.Hud
                 for (int cx = 0; cx < tilesX; cx++)
                 {
                     int icx = cx + startX;
+                    // Some optional bottom-screen states are smaller than the
+                    // 256x192 display. Preserve display-aligned pixel spacing
+                    // by leaving missing tiles transparent, never stretching.
+                    // Other HUD decoding remains strict by default.
+                    if (padMissingTiles
+                        && ((uint)icx >= info.CharsX || (uint)icy >= info.CharsY))
+                        continue;
                     int idx = icy * (info.CharsX > 32 ? info.CharsX / 2 : info.CharsX)
                         + ((icx / 32) == 1 ? 0x400 + (icx - 32) : icx); // deal with the "split" addresses
+                    if (padMissingTiles && (uint)idx >= (uint)screenData.Count)
+                        continue;
                     ScreenData screen = screenData[idx];
+                    if (padMissingTiles && (uint)screen.CharacterId >= (uint)characters.Count)
+                        continue;
                     Debug.Assert(screen.PaletteId == 0);
                     List<ColorRgba> character = characters[screen.CharacterId];
                     int start = cy * tilesX * 8 * 8 + cx * 8;
