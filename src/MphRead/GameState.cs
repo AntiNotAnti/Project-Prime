@@ -65,8 +65,10 @@ namespace MphRead
         /// <c>Mods.Network.DedicatedServer.EndSequenceSeconds</c>, which has
         /// to cover this and MatchFinalCameraSeconds before it.
         /// </summary>
+        // Keep client and dedicated-server intermission in sync. The 6s
+        // scoreboard follows the native winner shot and an eligible killcam.
         public const float MatchFinalCameraSeconds = 5;
-        public const float MatchEndingSeconds = 10;
+        public const float MatchEndingSeconds = 6;
         public const float MatchKillcamSeconds = 5;
 
         // Value-only evidence of how an Adventure session exited. The ship
