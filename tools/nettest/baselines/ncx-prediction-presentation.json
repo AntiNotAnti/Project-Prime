@@ -1,0 +1,1573 @@
+{
+  "schema": 1,
+  "slice": "NCX-06",
+  "status": "COMPLETE_SCOPED_WITH_RETAINED_FAILURES",
+  "draftOnly": false,
+  "sourceCommit": "beac2cbc596e41d6a58596ce89ee52f0ea8f0bbe",
+  "engineSha256": "64a9b31fb4896f8ed77f4033e66c9ae1ed221ea6433ac090771aa162d1be811d",
+  "nettestSha256": "67da8f710ab05fe2b5c8f374f9a5ca3092c3cc09517a5e69b0e36e55a4f16402",
+  "sourceClosure": {
+    "sourceCommit": "beac2cbc596e41d6a58596ce89ee52f0ea8f0bbe",
+    "referenceCommit": "73f5ebf62b111de4321183296c51d11166e7e397",
+    "frozenBuilds": "PASS",
+    "completeRuntimeClosure": "PASS_ALL_THREE_FROZEN_PRODUCTION_RUNTIMES_AND_SEPARATELY_BOUND_TEST_COMPONENT",
+    "auditorSourceCommit": "63ee6152c24e983ecf848e9b8fe7c33a9a861234",
+    "engineComponentSha256": "64a9b31fb4896f8ed77f4033e66c9ae1ed221ea6433ac090771aa162d1be811d",
+    "finalCampaignSourceRuntimeClosure": "PASS_EXACT_BEAC_PRODUCTION_NATIVE_ORACLE_AND_DEPENDENCIES; EXACT_SIX63EE_TOOL_SOURCE_DELTAS_AND_THREE_TEST_RUNNER_FILE_DELTAS_REVIEWED",
+    "allowedToolSourceChanges": {
+      "count": 6,
+      "csharpFixtures": 4,
+      "offlinePythonAuditorAndTests": 2,
+      "productionAndNativeSourceUnchanged": true,
+      "sourceDeltaEvidence": {
+        "path": "artifacts/ncx/NCX-06-recovery/qualification-plans/component-source-delta63ee01.json",
+        "sha256": "959d6ecfae3cbf926935dc81a03f5846ae5808a6902386ce7858d1799cb6ef9b"
+      }
+    }
+  },
+  "integrationMain": "73f5ebf62b111de4321183296c51d11166e7e397",
+  "reconstructionBase": "10297d8cdde3d9944a634aea16e36c8c5001b7e8",
+  "protocol": 82,
+  "behavior": {
+    "simulationHz": 60,
+    "defaultFastMode": "off",
+    "newWireLayout": false,
+    "replayHashSchemasChanged": false,
+    "movementPolicyChanged": false,
+    "newFamilyPromotions": 0,
+    "predictionScope": "Bounded canonical-snapshot overlap projection; exact terminal result retains retirement/payment ownership",
+    "replayFixScope": "Preserve actual file/clip source protocol for accepted-form handling; resolve unknown current attacker launch life only from unique already accepted exact death facts before startup"
+  },
+  "environment": {
+    "os": "Windows 11 10.0.26200 x64",
+    "cpu": "AMD Ryzen 7 9850X3D 8-Core Processor",
+    "gpu": "NVIDIA GeForce RTX 5080",
+    "opengl": "4.6.0 NVIDIA 617.42",
+    "dotnetSdk": "10.0.401",
+    "dotnetRuntime": "10.0.12",
+    "sdkDownloadSha512": "24b670ad3d923bfcf47df6c3b034152398b42f6dbc388e10d783aee1cfb5e5817d399fc0ae2a12cfa822a55e61d34830ccb15c50ef6efee437ab874bb7c79430",
+    "nativeBridge": {
+      "manifest_version": 1,
+      "rmlui_version": "6.3",
+      "rmlui_revision": "ba95ffe8bfb6370efb2cdcca927eaad4710c5413",
+      "freetype_version": "2.13.3",
+      "freetype_revision": "42608f77f20749dd6ddc9e0536788eaad70ea4b5",
+      "target": "win-x64",
+      "library": "ProjectPrime.RmlUi.Native.dll",
+      "renderer": "gl2",
+      "source_fingerprint": "aa6bcd55a6b68f95944b170a4bb527fa6c7e602b9fd542ff5403df277f7a3293",
+      "sha256": "04f3919de38aa02d1095ba5bf7bca08f2858360db3556bb41eb6cfb562609651"
+    },
+    "nativeCompiler": {
+      "generator": "Visual Studio 18 2026",
+      "cmake": "4.3.1-msvc1",
+      "msvc": "19.51.36256.0",
+      "windowsSdk": "10.0.26100.0",
+      "buildKind": "Recompiled current changed projectprime_rmlui.cpp and relinked bridge with exact clean pinned existing static dependency builds; no donor binaries"
+    }
+  },
+  "qualification04History": {
+    "sourceCommit": "b7c1273697615fdfb933bb98b4c8dffbc41b2ed4",
+    "engineSha256": "25c450868a7e00527566590af613d11ca99ed772b858e13318e048d9de42d1f2",
+    "nettestSha256": "a70a49fe0da44db238cd98f46cb9f102609375115a75541dfc911d4d629ff2dc",
+    "freeze": {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/freeze.json",
+      "sha256": "6d0bc7965fbe3e2ee71c7b99da1d05771bcc4897f4da259e18e8009683b90281"
+    },
+    "headless": {
+      "status": "FAIL",
+      "declared": 201,
+      "completed": 201,
+      "passed": 200,
+      "failed": 1,
+      "routesPerMode": 67,
+      "modes": [
+        "off",
+        "shadow",
+        "paid"
+      ],
+      "failedRoute": "paid/dynamic-geometry",
+      "pureProjectionAssertionsPerMode": 98,
+      "integrationReconciliationAssertionsPerMode": 105
+    },
+    "python": {
+      "status": "PASS_WITH_SKIPS",
+      "testsRun": 768,
+      "skipped": 6,
+      "failures": 0,
+      "executedPassed": 762
+    },
+    "native": {
+      "matrix": "PASS",
+      "arms": 13,
+      "samusSchedules": [
+        60,
+        120,
+        144,
+        240,
+        360,
+        500,
+        "jitter144"
+      ],
+      "otherHunters": "Kanden,Trace,Sylux,Noxus,Spire,Weavel at500 only",
+      "controls": "PASS_BOUNDED_CONTROLS",
+      "independentReadbacks": "PASS_SAVED_READBACKS",
+      "decodedPngs": 904,
+      "isolatedPixelControls": 34,
+      "bodyControls": 204,
+      "depthReadbacks": 221,
+      "fovs": [
+        60,
+        78,
+        120
+      ],
+      "expectedLegacyRejection": 1,
+      "restoration": "Harness-reported only; no independent restored PNG",
+      "runtimeAndPrivateAssetsUnchanged": true
+    },
+    "cache": {
+      "status": "PASS_PRIVATE_CACHE_AND_FROZEN_RUNTIME",
+      "startups": 2,
+      "activeDefinitions": 6,
+      "physicalOutputManifestJoins": 30,
+      "wholePrivateSha256AndMtimeUnchanged": true,
+      "frozenRuntimeUnchanged": true,
+      "wholeCanonicalUnchanged": false,
+      "canonicalClassification": "Read-only separate audit:72 changed generated output/cache paths including44 non-hosted tracked-map paths; immutable core outside exact whitelist unchanged; no process attribution"
+    },
+    "oracle": {
+      "sameOs47ScenarioParity": "PASS",
+      "matchingScenarios": 47,
+      "rawGoldenStatus": "FAIL",
+      "rawGoldenPassingScenariosEach": 44,
+      "totalScenariosEach": 47,
+      "goldensRegenerated": false,
+      "rawGoldenFailures": [
+        {
+          "scenario": "movement.platform",
+          "tick": 274,
+          "field": "rng2",
+          "expected": "2383272552",
+          "actual": "2414296029"
+        },
+        {
+          "scenario": "weapon.missile.splash",
+          "tick": 201,
+          "field": "victim.position4096.z",
+          "expected": "53237",
+          "actual": "53238"
+        },
+        {
+          "scenario": "alt.spire",
+          "tick": 262,
+          "field": "position4096.y",
+          "expected": "2824",
+          "actual": "2825"
+        }
+      ],
+      "referenceSameFailures": true
+    },
+    "udp": [
+      {
+        "campaign": "udp-eight-extreme-paid",
+        "status": "PASS",
+        "processes": 9,
+        "allExitZero": true,
+        "boundedDrain": "PASS",
+        "claimReceipts": "PASS",
+        "timelineAudit": "INCOMPLETE",
+        "paidReceiptLatency": {
+          "status": "PASS",
+          "eligibleSamples": 367,
+          "p95AuthorityTicks": 0
+        }
+      },
+      {
+        "campaign": "udp-alt-morph-poor-off",
+        "status": "PASS",
+        "processes": 4,
+        "allExitZero": true,
+        "boundedDrain": "PASS",
+        "claimReceipts": "PASS",
+        "timelineAudit": "INCOMPLETE",
+        "paidReceiptLatency": {}
+      }
+    ],
+    "actualRecordedReplay": {
+      "status": "FAIL_RETAINED",
+      "referenceCandidateOutcomeParity": true,
+      "recordedKillcamKanden": "301-frame fidelity PASS; launch-life NOT_QUALIFIED",
+      "recordedKillcamWeavel": "Gameplay/presentation FAIL at659, including turret health",
+      "genericWeavelFrozenClip": "FAIL at1174; hidden warmup firstdiff1007; clip-only deathAlt216 created1008",
+      "genericLiveRoutes": "Both recording live routes FAIL on both source pins; not full replay compatibility PASS"
+    },
+    "retainedDiagnostic": {
+      "status": "CAUSAL_PRIVATE_EXPERIMENT_ONLY",
+      "cause": "Clip Metadata null bypassed protocol77+ suppression of unaccepted Morph input although actual source protocol79",
+      "onlyExperimentChange": "Truthful source protocol metadata supplied to private session; engine binary unchanged",
+      "warmupComparisons": 250,
+      "visibleComparisons": 25,
+      "allComparedGameplayPresentationAndActorsMatch": true,
+      "productionFixValidation": "Actual05 recorded-case tests pass; later final-timer source defect needs fresh06 qualification"
+    }
+  },
+  "retainedFailures": [
+    {
+      "status": "FAIL",
+      "name": "qualification04 paid/dynamic-geometry original default-tiering measurement",
+      "diagnostic": "Original frozen test fails3 default attempts, passes3 OSR-only-disabled attempts; optimized private measurement reports zero allocation. Test-only measurement fix retained; original raw failure retained; final06 headless suite passes."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification03 schema1-only paid/timeline raw audits",
+      "diagnostic": "Separate schema1/2 strict-parser supplemental paid315 samples/p95zero passes; original raw failure remains."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification03 CRLF shader native pilot",
+      "diagnostic": "LF checkout portability fix; failed pilot retained."
+    },
+    {
+      "status": "FAIL",
+      "name": "raw three-scenario native golden verification on both reference/candidate",
+      "diagnostic": "47 same-OS scenarios match each other;44/47 raw goldens pass. No golden regeneration."
+    },
+    {
+      "status": "FAIL_OR_NOT_QUALIFIED",
+      "name": "qualification04 actual recording replica/live/killcam routes",
+      "diagnostic": "Protocol/life boundary fixes receive scoped final06 recorded-case qualification; raw04 outcomes unchanged."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification05 original204route suite",
+      "diagnostic": "201PASS plus3 new purefixture setupFAIL; corrected module separately component-closed."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification05 correctedtestonly204route suite",
+      "diagnostic": "203PASS plus paidtransportstressFAIL. Same closed module isolated target passes992intents/128controls; no cause proof."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification05 generic killcam exactlife camera fixture",
+      "diagnostic": "Compared death-frame launchlife with EOF state; exactdeath decoder fix in06 now passes with exact death decoder."
+    },
+    {
+      "status": "INCOMPLETE",
+      "name": "qualification05 stopped native campaign",
+      "diagnostic": "Six qualified steadySamusarmsPASS; jitterrawreport unqualified; remaining sixHunterarms notrun. No13armPASS."
+    },
+    {
+      "status": "SOURCE_DEFECT",
+      "name": "qualification05 final winner-camera deadline",
+      "diagnostic": "Old30frame timer began before5second winnercamera; firsteligiblefinal would expire beforeattempt. Source corrected in06; identity adapter controls pass; no actual native final camera acceptance inferred."
+    },
+    {
+      "status": "INCOMPLETE",
+      "name": "qualification06 original form-audit",
+      "diagnostic": "Original raw audit retained. Separately pinned exact-terminal supplemental audit03 passes without runtime/gameplay/input changes."
+    },
+    {
+      "status": "INCOMPLETE",
+      "name": "qualification06 core shot-timeline audits",
+      "diagnostic": "Both bounded UDP campaigns pass; complete rendered agreement/legal-hit denominator remains unavailable."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification07 early generic protocol79 Battle current-live fixture",
+      "diagnostic": "Five of six early commands pass; original generic historical file attempt FAIL retained. No conversion bypass or production compatibility PASS inferred; fresh82 fixture pending."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification07 original headless195/207",
+      "diagnostic": "Four stale fixture failures in each mode,12 total. Planned test-only210-route correction remains pending; no raw result replacement."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification07 both original UDP campaigns",
+      "diagnostic": "All13 exit0/drain/receiptsPASS; raw8+3 slow-lane parser failures and eight-peer postdrain close expiry retained. No overall campaign/resiliencePASS."
+    },
+    {
+      "status": "FAIL",
+      "name": "qualification07 raw form audit",
+      "diagnostic": "Sole base campaign failed; metrics cannot promote status. Derived strict parser/form audit must close independently."
+    }
+  ],
+  "historicalMacEvidence": {
+    "status": "UNAVAILABLE",
+    "sourceRecovered": false,
+    "rawCapturesRecovered": false,
+    "historicalNineTraceAndTwentyRouteClaimsQualified": false
+  },
+  "limits": [
+    "Qualification07 accepts exactbeac/protocol82 and separately linked63ee tool scopes only; all raw failures and unqualified scopes remain excluded.",
+    "Requested schedules are elapsed-time inputs, not achieved FPS, panel scanout, physical-input latency or performance.",
+    "Current07 exactbeac native13 arms, bounded controls,904 saved readbacks and221 depth controls pass; Samus has cross-schedule coverage, six other hunters500 only. No physical input/OS-focus/performance acceptance.",
+    "No Qt launcher behavior acceptance, physical OS focus/device acceptance, NCX07 same-shot pixel threshold, Fruity superiority, Android/Linux/macOS release or broad resilience claim.",
+    "Timeline schema2 optional Pose/Provenance remains outside core auditor scope; future/untyped schemas rejected.",
+    "Raw assets, private user paths, shot/player/account identities, credentials and packet/video captures are excluded from the public baseline."
+  ],
+  "evidence": [
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/freeze.json",
+      "sha256": "6d0bc7965fbe3e2ee71c7b99da1d05771bcc4897f4da259e18e8009683b90281"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/headless-results.json",
+      "sha256": "b9b0217c97d548e0bb9111d63485293b1704a2242942507d286355fd58494c3a"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/python-nettest.log",
+      "sha256": "b3277e6bbf5e6783224ebd681d4809e74a6d605e0448f0bb6b12a79dc82d59ca"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/native-acceptance-summary.json",
+      "sha256": "ede5017d192ae11fd92572482a84a4963f43c6a4b028ffcac96891e55d3f996b"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/independent-readback-verification.json",
+      "sha256": "b1c406a5e3d1dd96d6814c70dd4671f81bdd89df9b87879d70595842bc7b757f"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/cache-runtime-closure01/closed-receipt.json",
+      "sha256": "62cea626759d289c0977464d752bcfb621a8b239d639dbdc71fcbf662db51c27"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/oracle-replay-comparison01/closed-summary.json",
+      "sha256": "2b366e96ceb97dc2fe4d69ce815ed1c84b4dc2590e64a19da40854f2fa95aa98"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/udp-eight-extreme-paid/summary.json",
+      "sha256": "6a4220cd1bc97944568c3cca9529ef67c7d90fdec01df3a507a654e84ad3dd5f"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/udp-alt-morph-poor-off/summary.json",
+      "sha256": "26e7cde56ccb2642fefeb8a2b03066208647fe038b201e969739cf5dd397b92b"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/udp-recording-followup01/closed-summary.json",
+      "sha256": "3c49f41a20a7602427923da9bc79eb55da046b1915e164851eb15bb8d1c6b627"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification04/recorded-killcam-paired-summary01.json",
+      "sha256": "5abac2c5f3139c452892e57a66ea50a0341dfc3d18eeb1f8d2c4dac967585f11"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/replay-clip-diagnostic01/diagnosis-closed.json",
+      "sha256": "8f824f2f280ae6d53942f34e95bfc7ee08f4bc06315a9775790fd1e36ac3ed8d"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/replay-clip-diagnostic01/run06-protocol-metadata-experiment/receipt.json",
+      "sha256": "af73c0d7630b0401c9a81e271dc918c86e514e15c410f2e712dd2fbf5f711bdc"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/dynamic-geometry03/receipt.json",
+      "sha256": "642d36a6952e2e01fed4107e96ccd2963ef87de7af5f5d25bfc148e06ec2bae2"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/bridge02/provenance.json",
+      "sha256": "e803b88cea9bd8c8b2d84517f1b2635c7c708250a430649566fa9a9aa475091a"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/sdk01/receipt.json",
+      "sha256": "62ec9a24abdc5feb9b61d580ea245eaea74b91d56fd8c7e9e7df47670ffa2aa7"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/freeze.json",
+      "sha256": "2a6d2ef2ed16019feeb44568eea2491eb1e8b30c1bc8a46d0c8f258d3f9c22eb"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/headless-results.json",
+      "sha256": "e6caa2e701b980a9e13e9bdf6eceef2e587e11d00e1abab46ad8e57d5d773946"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/python-nettest.log",
+      "sha256": "23e5c810e5201b19e368afb5794eef3f0663a318c1bcb95be4b10cf7bb8e4d32"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/nettest-fix01/headless-results.json",
+      "sha256": "1df2d10c761b44e27f0ff8089ce8872ffdb7de3e72c45715b322572dc40f391d"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/nettest-fix01/component-delta.json",
+      "sha256": "227729a8d74dde7e917ecd319d209fee74dc6375bca73116dc01c9f4e728a64d"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/nettest-fix01/transport-isolation01/receipt.json",
+      "sha256": "2ce551147b94b0002977f1fb5bb184558499ac3d73bf7b0a2c1a4a6dd8d50337"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/nettest-fix01/transport-isolation01/stdout.log",
+      "sha256": "dfa8e2e90accf695871878916db6817bd20459ef47b6fd433fa0d9371e645685"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/recorded-regression-component-summary01.json",
+      "sha256": "cea1669c9bfdb58b8cd4b9d2560ccfa2498182c6290b8eaee5a24c46b6ca565d"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/recorded-regression01/recording-00.json",
+      "sha256": "f76c433678b2febfcd69a278a98046e841bf798d4f5b2a257416e568848b1d6a"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/recorded-regression01/recording-01.json",
+      "sha256": "3df19ab4bc70ed37405ca19a22fce91e5ed63cedc90f38f2d2448f04af6589d5"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/native-controller.log",
+      "sha256": "fab3bceb770137f728c8e19cde613999ede23f90cf340c68c986bc742624af53"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/native-requested-stop.json",
+      "sha256": "37ba0cd86175866bfe984ab4ba2fcb3514ae8b60041c2d8a5a387c0208f019bf"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/native-serial-receipt.json",
+      "sha256": "487e22803adafe7e1d0ab820b739038c2ef6446220a87b5c3b961af08b0d650e"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification05/oracle-replay-comparison01/controller.json",
+      "sha256": "88626f5593545ba754fc634aa4be4364a34fed509fcfe78b4d2beb594def4771"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification-plans/final06-timer-source-review01.json",
+      "sha256": "150695f6f88e22554973a6b2e4dc094796b2f460e2a27d086feb3c28d24ad8b1"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/freeze.json",
+      "sha256": "5cc3e0437ad4a80b7e53cba1a978056ca25f6522536854bd1dda3531a10c90c4"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/headless-results.json",
+      "sha256": "27300bf4c3e1a1fb4c8fe48dd1a09bed711df35714e94cb29435fe6886fdc8f8"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/headless-runtime-control.json",
+      "sha256": "717e4667eac254f447c8ab0848661eb0584e0a5c1318fa3baf3d10124384fe04"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/python-nettest-auditor01.json",
+      "sha256": "660fd2a1eb56027fb692b2baa581b076d33bdf71734bd69a4eeb79e6ef7ea360"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/python-nettest-auditor01.log",
+      "sha256": "cec462b7fa171bd5bfaae2e47a563a313b543004ab1f8f9f9908ed525bfe7790"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/source-display-pose01/receipt.json",
+      "sha256": "ef9c5dabd18e1841d132d88f927dfd01e1bd586aaef0eab41b5f3e83840d5652"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/source-display-pose01/stdout.log",
+      "sha256": "1d2a13af26695a9b01a2e4cff94b70a64ba0cd29f3b755dbe2ab6bccb78063d7"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/cache-runtime-closure01/closed-receipt.json",
+      "sha256": "a9cab4ec08008368f8da6480e3e10cab90237acb5aa47ba9f670de5116d923c9"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/cache-canonical-classification01/summary.json",
+      "sha256": "5bf0227bd816046a7b6e342125dde96ffc861f79a0d5458bb62e7e37987403d7"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/cache-canonical-classification01/closed-receipt.json",
+      "sha256": "079d1d0182fb31e407951e408ec7dc6e2acbeadec7d01c2ecdc3ce9631ad3843"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/oracle-replay-scoped-gate.json",
+      "sha256": "cc8ff130ee71fde38e6322c83cb75f763eb920ff2350056a6b0e93c3ec088166"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/oracle-replay-comparison01/controller.json",
+      "sha256": "842ac1f99f56b91fa7e94eca36423c6a58a3559a99ed3be5f1019052508e5304"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/recorded-regression01/controller.json",
+      "sha256": "b697158d56915b5934c6d0dff423c59f25979549a5132504190ff2786b6b1f71"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/recorded-regression01/closed-output-manifest.json",
+      "sha256": "d7d4eda55d81a33dcc6337662d35d17e5366a0c91ec708f4b9ca905d613c2609"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/udp-eight-extreme-paid-controller06.json",
+      "sha256": "a3f820558064ca8296468db2a0211ae0af96a6257c9d4c9c829059b3255a3418"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/udp-eight-extreme-paid/summary.json",
+      "sha256": "fe856b105ac0595b10ca93e644b0210b281f73cb487822982d411c6c869d2c72"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/udp-alt-morph-poor-off-controller06.json",
+      "sha256": "146828f88cb45f6dbd8aa6b34077ff8db0bf9bc8b2133f85cd3e2d027fa34e3d"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/udp-alt-morph-poor-off/summary.json",
+      "sha256": "b38fe840a7c8ffb090d5ba09ed049838535e6d6a6277742513e977d10f39ebbc"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/udp-alt-morph-poor-off/form-audit.json",
+      "sha256": "a05e367133fffcb09204479e50511d2425b071f59b4115d5ff07940f08ac1646"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/udp-alt-morph-poor-off/form-audit-terminal-proof03.json",
+      "sha256": "6fe74de80ee03c86ea99f08efb5922dca94425642f9d9c20ccfa574056e62944"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/udp-alt-morph-poor-off/form-audit-terminal-proof03.provenance.json",
+      "sha256": "55c2ffc37434c4b2a7e727ebc1dd64ecc4d6101825377e3e0e3dec7721d87cbe"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/new-udp-killcam-eight01/controller.json",
+      "sha256": "5be0a5bd745166525d668d7de58a52ac6e66137a1f6f5afbc286dd83da790e31"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/new-udp-killcam-eight01/closed-output-manifest.json",
+      "sha256": "590c5e30df145a6db4e98fd6f99383bb162079223e463c65852689568f2a773e"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/new-udp-killcam-weavel01/controller.json",
+      "sha256": "fab050b92057cf7cdb75896916e6db0fd8ad02748e833dc2d1fb671618d4c663"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/new-udp-killcam-weavel01/closed-output-manifest.json",
+      "sha256": "2b430373655d64005964147c7f462942a5745873f0025b94659ddd8bce7201a0"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/native-acceptance-summary.json",
+      "sha256": "5485877493dfc19bd9e198d1963ca5dcca4e8137677b13a919c8dbe4b75f2adf"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification06/native-process-closure.json",
+      "sha256": "2c19ff75f71fa8dd2dd6c61749ffc6deaea6952f607a4ce0863aa2e60b96d0f1"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/freeze.json",
+      "sha256": "e6442ed2f2882d8c9ae5a15d791d6462f935916d660f9d99d79710dde427797e"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/python-nettest.json",
+      "sha256": "f9bf6a343c9f7b052b1f8b8a14e3249d6a938a99f7e784d25755f9be73f7acd2"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/python-nettest.log",
+      "sha256": "02ad2d17d4db5d0ee69422a7126840a3e1e0ff523c8a403a5b7e5a380c4d8e5b"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/source-display-pose01/receipt.json",
+      "sha256": "61dc9450676693ecc7999df721802992ed53ab38ac234f45d717be63307c97c4"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/source-display-pose01/stdout.log",
+      "sha256": "1d2a13af26695a9b01a2e4cff94b70a64ba0cd29f3b755dbe2ab6bccb78063d7"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/cache-runtime-closure01/closed-receipt.json",
+      "sha256": "b0f75b49a2338dd4d27dcd3b63f9ee78c4c3bc1cdeb74b7d62f973380b6b0b2e"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/cache-runtime-closure01/closed-output-manifest.json",
+      "sha256": "0a0682e3d7ae8e75a084d75b9060046fae1f7cdfdaf7436b453498365f83b356"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/recorded-regression01/controller.json",
+      "sha256": "d653577665305db807ae0a50592d5e4a07302fb9aaafb6932ce5a8989fc0f55c"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/recorded-regression01/closed-output-manifest.json",
+      "sha256": "df974bb13151b2752862dbb3f032ac10bb9d4704dc313c356eef2a7d60fe4ba1"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/generic79-harness-scope01.json",
+      "sha256": "8ade85f0f9a77b39b2f53adb46563c46d7b6b98faf4f0927099246ba5386b2b5"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/bridge03/provenance.json",
+      "sha256": "6293fe1f7fe53f131341e89f559ddd6bf773bcb2d4bcb3d6afc808c3e4f44c93"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/bridge03/reference-staging.json",
+      "sha256": "a2694b0cada630d21aabb5af3bc641e09677fada4c15273451983f807dfafaea"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/headless-results.json",
+      "sha256": "74ce68e9ed6569efc35a0c694cf20507c99613ed4ed433ee0dd1bb85190bfa61"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/headless-runtime-control.json",
+      "sha256": "8a73e1adfaeed0721b5e15617d5e8c54b0f58911f4c14b475e8b8496024fb6f8"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/oracle-replay-scoped-gate.json",
+      "sha256": "d353f48a1e9e87b4db22659729024dcf53f7bab7efa84be148c811fbd0f49be6"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/oracle-replay-comparison01/controller.json",
+      "sha256": "67064f1b775b064db44c9c276cde711e7ff94387966f9a853cacc908f8b905bb"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/native-matrix/summary.json",
+      "sha256": "787170a3dcd54f1a07d8a455707df791d4e2bbad0d497b4a6dbfeb333b29b8cb"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/native-controller.receipt.json",
+      "sha256": "ac67168e2c0dff787431c1f9b225357e0e864729a4de60cee6c0519c342bab88"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/udp-eight-extreme-paid/summary.json",
+      "sha256": "d2e393d78968615c60d5c2e92d94e61a33a183a5052f74403b9978b94e21a7dc"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/udp-alt-morph-poor-off/summary.json",
+      "sha256": "f9b210a534ad5e502f5766579c80086850f62518a40b9d78fba4b4dffaee50de"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/udp-alt-morph-poor-off/form-audit.json",
+      "sha256": "119af8bf1367ebe79a4ccbbc28aa504d2bf13839105f7433699cfa3164a6fe12"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification-plans/ncx09-close-readonly01/diagnosis.json",
+      "sha256": "13ae5a90338eafa09f4b7dd95e384c86e96029fd2672a7c33fcee5009502102d"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification-plans/ncx09-close-readonly01/closed-receipt.json",
+      "sha256": "6d518bbead59a06d7f8a08af2c282dd5add1931d286908e94a0eea8602216fdf"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/native-acceptance-summary.json",
+      "sha256": "5b755fa66c60b3abd3432f2a572bf0282b7f7575e66a53cc6f74a06b206fafb3"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/native-serial-receipt.json",
+      "sha256": "337cd286de9652720aacfbbc27346592cccce2df657b0fb5298b1b8f83073dea"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/native-process-closure.json",
+      "sha256": "0453ec1726bdcacf967dcc2cef91bf05bb22f014b712cce3cb36031ba6517fa1"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/independent-readback-verification.json",
+      "sha256": "5a910d2f95467ca56e976a37116b059c3d1bbc4900d8c716f7dc89b37554e728"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/current82-recording-closures01.json",
+      "sha256": "401d96c976f299b400ab438abce059fbf838f3d248f31128eadf3e41a74a34c8"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/new-udp-killcam-eight01/controller.json",
+      "sha256": "56c55ce81ce15cb678eeb1dda905d7033763809b8f4fa8fae910e5d72f487650"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/new-udp-killcam-eight01/diagnostic.json",
+      "sha256": "a9dc697b7758443f03c8817b20f16e313ebb52c5c4256a488ea656c17f58ae7c"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/new-udp-killcam-eight01/closed-output-manifest.json",
+      "sha256": "33844b26001211cd686fdb46a83671a022bf6e6799777b074223a78f56f396c8"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/new-udp-killcam-weavel01/controller.json",
+      "sha256": "8d1b8321d9d41683dc72924aaa41c628993a1a77115fbf28ed95883fef941668"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/new-udp-killcam-weavel01/diagnostic.json",
+      "sha256": "70357a31e0ec6d379431fec4304da4ed369973b04f24a2697691fb4278406b55"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/new-udp-killcam-weavel01/closed-output-manifest.json",
+      "sha256": "0f51dbf91bd2ede5a07d04719f3c0aeb81b28735535d088eb187695eac71e439"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/nettest-layout-fix01/freeze.json",
+      "sha256": "e44f6f56edc6b2737b393c346fe2d9aa8d21f2e854d09bea58d396605577f6d7"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/nettest-layout-fix01/headless-results.json",
+      "sha256": "c97a728cd88dbf2c2180867f89f8bcf6cf7defd6a0c0480fd2fdca099d751884"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/nettest-layout-fix01/headless-runtime-control.json",
+      "sha256": "6211e68eed454d9d2c3bc362b0392f7fbad423538c2cc5ff443663ac2caaed2d"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/nettest-layout-fix01/python-nettest.json",
+      "sha256": "7121b4d1a7b5c2e5c78ef07d025ae9c95369b74ad89b958ae37d13492074a1ee"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/nettest-layout-fix01/python-nettest.log",
+      "sha256": "dd93a669c19e4dcc48ecad55fafb85358e3a1cd70726f06686c37a4f9d2f890f"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07/nettest-layout-fix01/asset-closure-comparison01.json",
+      "sha256": "a7c014628cf4429ca12846100f86b3794e9d370b7549429778a9a05090ac32ef"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07-auditor-supplement01/supplement-summary.json",
+      "sha256": "2eb73cb146411f9663b4a97a00b45d4e7ce9084b3bec1d4eda96d8f4c9d74c3d"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07-auditor-supplement01/source-runtime-before.json",
+      "sha256": "7d9c47067737629892e36e09cad1bc9627ee78f3e1bb311ea7b5d2285dc7c7f9"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07-auditor-supplement01/source-runtime-after.json",
+      "sha256": "7d9c47067737629892e36e09cad1bc9627ee78f3e1bb311ea7b5d2285dc7c7f9"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07-auditor-supplement01/udp-eight-extreme-paid-input-pin.json",
+      "sha256": "3eaf0676163f3816b829bb88680bdffd97b49e87e4103f829e807e99483e201f"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07-auditor-supplement01/udp-alt-morph-poor-off-input-pin.json",
+      "sha256": "17b6acbda72bd8d666011dc07b8a46d177417e1ea64bc27cdff1a764461e1425"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07-auditor-supplement01/udp-eight-extreme-paid/summary.json",
+      "sha256": "dd782e0c4c86048a4040586d61bce83cc0a6ba99a5150c442f08fb9f78f5c19c"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07-auditor-supplement01/udp-alt-morph-poor-off/summary.json",
+      "sha256": "d6965f82ae489d3abe212d6165a74de56cd163a14a1f83222667f9294057c6c9"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification07-auditor-supplement01/udp-alt-morph-poor-off/form-audit-derived.json",
+      "sha256": "0e7a18d084220a0ea86cd98233fc9ab87bafed5624779bcb31feb54ec787a1f9"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification-plans/main-later-overlap-review01.json",
+      "sha256": "263f53dd396c78ec26296939decc3c7a0c61ca81efb7fd742cf4635a0671d8a2"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/evidence-index-final01/index-receipt.json",
+      "sha256": "1d420d77db8cb89f4b16e6ba3a9c08c7daec59a2206ba99d69dfdd0335b66367"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/evidence-index-final01/public-baseline-draft.json",
+      "sha256": "80dccc45a76199fbc672496ad65aaa8cd9197b2d250517594a8309c774d13468"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification-plans/index07-root-final-authorization01.json",
+      "sha256": "843c29c9cf82447faa481e253b2c40c55783ed5092bca4ca064d30bdaac301ef"
+    },
+    {
+      "path": "artifacts/ncx/NCX-06-recovery/qualification-plans/index07-scope.authorized-final01.json",
+      "sha256": "49ecf344afbf80c0adce5f19ffbcd02ed1f8670202dd965753b5776723270539"
+    }
+  ],
+  "qualification05History": {
+    "productionSourceCommit": "df1053926e644af4ba7f2c52b72acdee64f8ac84",
+    "engineSha256": "1ade696829645645c689edd93ccbcc70cddd5f9a3cb25f96705f53a016fac1d8",
+    "originalNettestSha256": "f28a54a38868472a94daf9bfbec0babb430705de9ec554fb77736b074c33ea59",
+    "originalHeadless": {
+      "status": "FAIL",
+      "completed": 204,
+      "passed": 201,
+      "failed": 3,
+      "failure": "New killcam-identity fixture loaded turret assets before assertions in off/shadow/paid; all201 preexistingroutes passed"
+    },
+    "testOnlyCorrection": {
+      "sourceCommit": "2b54fed8d167f5bcf02d9dcdf906533f822a7511",
+      "nettestSha256": "c72d25af0ff67cefada01d1277a41abbfc5c170bbd22d6eecae312f7f20abf72",
+      "productionAndDependenciesUnchanged": true,
+      "changedComponents": [
+        "nettest.dll",
+        "nettest.exe",
+        "nettest.pdb"
+      ],
+      "headless": {
+        "status": "FAIL",
+        "completed": 204,
+        "passed": 203,
+        "failed": 1,
+        "failure": "paid/transport-stress: realtime continues while reliable events retry"
+      },
+      "isolatedTransportRepeat": {
+        "status": "PASS",
+        "intents": 992,
+        "exactOnceControls": 128,
+        "causeOfPriorFailure": "NOT_ESTABLISHED",
+        "rawFailureRetained": true,
+        "qualification": "Targeted repeat only; no threshold change or broad resilience claim"
+      }
+    },
+    "python": {
+      "status": "PASS_WITH_SKIPS",
+      "testsRun": 768,
+      "executedPassed": 762,
+      "skipped": 6,
+      "failures": 0
+    },
+    "actualArchivedRecordingTests": {
+      "status": "PASS_SCOPED_RECORDINGS",
+      "sourceRecordings": "Two unchanged qualification04 real-UDP recordings; no fresh05UDP campaign inferred",
+      "cases": 2,
+      "strictFramesEach": 301,
+      "actualKillcamFidelity": "PASS",
+      "boundedLookaheadControl": "PASS",
+      "exactAcceptedSemanticLifeProof": "PASS_BOTH_CASES",
+      "rawArchiveMarkersRewritten": false,
+      "rawMarkerLifeKnown": false,
+      "victimRespawnAndForegroundRngControls": "PASS",
+      "overallOriginalController": "FAIL_RETAINED_FROM_PURE_FIXTURE_SETUP",
+      "rawLifeIdentifiers": "Excluded from public manifest"
+    },
+    "genericSyntheticKillcam": {
+      "status": "FAIL",
+      "failure": "Exact attacker life did not resolve",
+      "classification": "Fixture used historicaldeathlife against end-of-file decoder;06 test now captures exactdeath decoder. No generic05PASS."
+    },
+    "native": {
+      "status": "INCOMPLETE_STOPPED_FOR_NEW_SOURCE",
+      "requestedArms": 13,
+      "qualifiedPassingArms": 6,
+      "qualifiedHunters": [
+        "Samus"
+      ],
+      "qualifiedSteadySchedules": [
+        60,
+        144,
+        120,
+        240,
+        360,
+        500
+      ],
+      "jitterRawReport": "PASS_UNQUALIFIED_CONTROLLER_DID_NOT_AUDIT",
+      "otherHunters500": "NOT_RUN",
+      "runtimeAndPrivateAssetsUnchanged": true,
+      "controllerExitCode": 130,
+      "reason": "New source fix requires fresh06; six qualified arm results and rawjitter preserved. No final/native13armPASS."
+    },
+    "finalWinnerCameraSourceReview": {
+      "status": "SOURCE_DEFECT_FOUND",
+      "nativeWinnerCameraSeconds": 5,
+      "firstEligibleAttemptDelayTicksApproximate": 300,
+      "oldProofDeadline": "Incorrectly request+30, preceding firsteligibleattempt",
+      "new06Fix": "Timer begins firsteligiblemissingproof attempt; explicitpercall outcome; separateoldworldfallbacktimer",
+      "actualNativeFinalAcceptance05": "NOT_CLAIMED",
+      "fresh06Validation": "70 identity controls including actual five-second GameState eligibility adapter PASS; no actual native final camera acceptance claimed"
+    },
+    "oracle": "47 same-OS parity reported; rawgolden failures retained and genericcandidate killcamFAIL; no complete05replay qualification"
+  },
+  "currentSourceAcceptance": true,
+  "qualification06History": {
+    "status": "CLOSED_EXPLICIT_BOUNDED_PROTOCOL79_SCOPE_WITH_RETAINED_NONPASS",
+    "sourceCommit": "010a50bbe631d840d0f0074f685fee7f804816c2",
+    "builds": "PASS_FROZEN",
+    "frozenRuntimeClosure": "PASS_FOR_CLOSED_GATES_ONLY",
+    "headless": {
+      "status": "PASS",
+      "declaredRoutes": 207,
+      "completed": 207,
+      "passed": 207,
+      "failed": 0,
+      "routesPerMode": 69,
+      "pureRoutesPerMode": 51,
+      "assetRoutesPerMode": 18,
+      "modes": [
+        "off",
+        "shadow",
+        "paid"
+      ],
+      "pureProjectionAssertionsPerMode": 98,
+      "integrationReconciliationAssertionsPerMode": 105,
+      "displayPoseIntegrationAssertionsPerMode": 78,
+      "killcamIdentityAssertionsPerMode": 70
+    },
+    "python": {
+      "status": "PASS_WITH_SKIPS",
+      "testsRun": 776,
+      "executedPassed": 770,
+      "skipped": 6,
+      "failures": 0,
+      "sourceCommit": "9cdb3b17dfe6f959038db2e2bede116bd5ef5247"
+    },
+    "sourceOnlyDisplayPose": {
+      "status": "PASS",
+      "checks": 225176,
+      "scope": "Linked production value/clock source fixture; no full Draw, 3D, device or performance acceptance",
+      "runtimeAndSourcesUnchanged": true
+    },
+    "cachePair": {
+      "status": "PASS_PRIVATE_CACHE_AND_FROZEN_RUNTIME",
+      "actualStartups": 2,
+      "activeDefinitions": 6,
+      "physicalOutputManifestJoins": 30,
+      "wholePrivateSha256AndMtimeUnchanged": true,
+      "privateFileCount": 3631,
+      "privateByteIdentitySha256": "08ac624078de2b7532cb9f88ccebc11278669c400897f5ae2ea2df15ab394e0a",
+      "privateShaAndMtimeIdentitySha256": "07a89b7ca533cc983e593a2b71b48dbc8148e17124f62fa466ce13deed8eb5be",
+      "threeFrozenRuntimesUnchanged": true,
+      "wholeCanonicalUnchanged": false,
+      "rawCanonicalStatus": "UNEXPECTED_NON_HOSTED_DRIFT",
+      "exactGeneratedPathSupplement": {
+        "status": "PASS_EXACT_PATH_CLASSIFICATION_ONLY",
+        "changedSinceInitial": 96,
+        "sameNonHostedTrackedPathsAs04": 44,
+        "hostedPaths": 52,
+        "newHostedPathsBeyond04": 24,
+        "physicalManifestSetsVerified": 15,
+        "physicalBinaryHashesJoined": 75,
+        "otherCanonicalFilesUnchanged": 3543,
+        "originalArchivesUnchanged": 104,
+        "broadPrefixWhitelist": false,
+        "processAttribution": "NONE"
+      }
+    },
+    "sameOsOracleParity": {
+      "status": "PASS",
+      "referenceCommit": "66795c48790c774b17e5773e98fcd200b3642d32",
+      "matchingScenarios": 47,
+      "replayCommandsPassed": 18,
+      "runtimeAndAssetsUnchanged": true
+    },
+    "rawGoldenResults": {
+      "status": "FAIL_BOTH_BUILDS_IDENTICAL_3_DIVERGENCES",
+      "passedEach": 44,
+      "totalEach": 47,
+      "goldensRegenerated": false,
+      "differences": [
+        {
+          "scenario": "movement.platform",
+          "tick": 274,
+          "field": "rng2",
+          "expected": "2383272552",
+          "actual": "2414296029"
+        },
+        {
+          "scenario": "weapon.missile.splash",
+          "tick": 201,
+          "field": "victim.position4096.z",
+          "expected": "53237",
+          "actual": "53238"
+        },
+        {
+          "scenario": "alt.spire",
+          "tick": 262,
+          "field": "position4096.y",
+          "expected": "2824",
+          "actual": "2825"
+        }
+      ]
+    },
+    "udpCampaigns": [
+      {
+        "campaign": "udp-eight-extreme-paid",
+        "status": "PASS_BOUNDED_CAMPAIGN",
+        "processes": 9,
+        "allExitZero": true,
+        "boundedDrain": "PASS",
+        "claimReceipts": "PASS",
+        "timelineAudit": "INCOMPLETE",
+        "renderedProjectileAgreement": "NOT_RUN",
+        "paidReceiptLatency": {
+          "status": "PASS",
+          "eligibleSamples": 329,
+          "p95AuthorityTicks": 0
+        }
+      },
+      {
+        "campaign": "udp-alt-morph-poor-off",
+        "status": "PASS_BOUNDED_CAMPAIGN",
+        "processes": 4,
+        "allExitZero": true,
+        "boundedDrain": "PASS",
+        "claimReceipts": "PASS",
+        "timelineAudit": "INCOMPLETE",
+        "renderedProjectileAgreement": "NOT_RUN",
+        "turretOutcomeDenominators": {
+          "authorityEmissions": 51,
+          "authorityRefusals": 4,
+          "requiredPeerReceipts": 159,
+          "receivedPeerReceipts": 159,
+          "requiredPeerRefusalApplications": 10,
+          "appliedPeerRefusals": 10,
+          "cancelledFlights": 2
+        }
+      }
+    ],
+    "actualRecordedReplayAndKillcam": {
+      "status": "PASS_BOUNDED_CASES",
+      "earlyClosedCommands": 4,
+      "unchangedPriorUdpRecordings": 2,
+      "strictFramesEachPriorRecording": 301,
+      "genericBattleChecks": 2355,
+      "genericBattleCycles": 24,
+      "genericBattleComparedFrames": 314,
+      "pureIdentityChecks": 70,
+      "newQualification06UdpRecordings": 2,
+      "strictFramesEachNewRecording": 301,
+      "actualHeaderFileExactClipAndLookaheadProtocols": 79,
+      "exactAcceptedSemanticLifeProof": "PASS",
+      "rawArchiveMarkersRewritten": false,
+      "runtimeAssetMapRecordingAndInputClosuresUnchanged": true,
+      "scope": "Existing passive source/clip playback and killcam routes; no GL replay or full replay compatibility claim"
+    },
+    "native13ArmMatrix": {
+      "status": "PASS_FROZEN_PROTOCOL79_SCOPE",
+      "passed": 13,
+      "requested": 13,
+      "notRun": 0,
+      "runtimeAndAssetsUnchanged": true
+    },
+    "independentReadbacks": {
+      "status": "PASS_SAVED_READBACKS",
+      "decodedPosePngs": 901,
+      "decodedVanillaProjectionPngs": 3,
+      "totalDecodedPngs": 904,
+      "isolatedPixelControls": 34,
+      "bodyControls": 204,
+      "depthReadbacks": 221,
+      "restoredPixels": "REPORT_ONLY_NO_RESTORED_PNG"
+    },
+    "focusAndFovControls": {
+      "status": "PASS_BOUNDED_CONTROLS",
+      "selectedFovs": [
+        60,
+        78,
+        120
+      ],
+      "authoredWeaponFov": 78,
+      "expectedLegacyRejections": 1,
+      "exactCanonicalCombatSourceInputRngMatch": true,
+      "physicalInput": "NOT_CLAIMED",
+      "osFocus": "NOT_CLAIMED"
+    },
+    "closedEvidenceIndex": "Separate closed component receipts; no blanket replay/release qualification",
+    "formAudit": {
+      "originalStatus": "INCOMPLETE",
+      "originalRawAuditRetained": true,
+      "supplement03Status": "PASS",
+      "supplementSha256": "6fe74de80ee03c86ea99f08efb5922dca94425642f9d9c20ccfa574056e62944",
+      "provenanceSha256": "55c2ffc37434c4b2a7e727ebc1dd64ecc4d6101825377e3e0e3dec7721d87cbe",
+      "auditorSourceCommit": "9cdb3b17dfe6f959038db2e2bede116bd5ef5247",
+      "helperSha256": "9bfec15c107f9e65fd8345b8a185887ddec3b7425f183269e78e0c1cd6f2ea4f",
+      "scope": "Exact retained 23-byte authority terminal plus prior complete full-key client receipt; strict typed complete budgets, unique proof, remote Weavel positive nonlethal body-only zero pending debit; phase/presence/anchor gates unchanged",
+      "productionGameplayChanged": false,
+      "sourceRuntimeRecordingAndRawAuditInputsUnchanged": true
+    },
+    "auditorSourceCommit": "9cdb3b17dfe6f959038db2e2bede116bd5ef5247",
+    "engineSha256": "c9c37275e96a39127c5f8ca76e02719f504c809aaba06895a4979c1ab6871f86",
+    "nettestSha256": "957b5e8c139cc94ebb88c8986ed5b623b281bfeecca00f7e89c1bba04301a28f"
+  },
+  "qualification07": {
+    "status": "CLOSED_EXPLICIT_BOUNDED_SCOPE_WITH_RETAINED_FAILURES",
+    "sourceCommit": "beac2cbc596e41d6a58596ce89ee52f0ea8f0bbe",
+    "protocol": 82,
+    "builds": "PASS_FROZEN",
+    "frozenRuntimeClosure": "PASS_ALL_THREE_FROZEN_PRODUCTION_RUNTIMES_AND_SEPARATELY_LINKED359_FILE_TEST_RUNTIME",
+    "headless": {
+      "status": "FAIL_RETAINED_CLOSED_ORIGINAL",
+      "declared": 207,
+      "completed": 207,
+      "passed": 195,
+      "modes": [
+        "off",
+        "shadow",
+        "paid"
+      ],
+      "plannedPureRoutesPerMode": 51,
+      "plannedAssetRoutesPerMode": 18,
+      "reportedFixtureFailureCategories": [
+        "Historical136-byte intent expectation versus current138",
+        "SlowEntry fixture missing19-byte grapple state",
+        "Eight full canonical intents exceed current UDP payload; fixture bypasses compact fast lanes",
+        "Checkpoint version12 expectation versus current14"
+      ],
+      "diagnosticStatus": "Original four stale-fixture categories diagnosed; original195/207FAIL unchanged, separately linked corrected210/210PASS qualified.",
+      "failed": 12,
+      "failedRoutesPerMode": [
+        "shot-inputs",
+        "continuous-snapshots",
+        "transport-stress",
+        "timed-shot-replay-scene"
+      ],
+      "testOnlySupplement": {
+        "status": "PASS",
+        "sourceCommit": "63ee6152c24e983ecf848e9b8fe7c33a9a861234",
+        "declared": 210,
+        "completed": 210,
+        "passed": 210,
+        "engineSha256": "64a9b31fb4896f8ed77f4033e66c9ae1ed221ea6433ac090771aa162d1be811d",
+        "nettestSha256": "67da8f710ab05fe2b5c8f374f9a5ca3092c3cc09517a5e69b0e36e55a4f16402",
+        "all359RuntimeFilesChecked": true,
+        "changedRuntimeFiles": [
+          "nettest.dll",
+          "nettest.exe",
+          "nettest.pdb"
+        ],
+        "productionAndDependenciesUnchanged": true,
+        "testOnlyCommit": "63ee6152c24e983ecf848e9b8fe7c33a9a861234",
+        "buildMode": "NoProjectReferences; original production/dependencies retained",
+        "pureRoutesPerMode": 52,
+        "assetRoutesPerMode": 18
+      }
+    },
+    "python": {
+      "status": "PASS_WITH_SKIPS",
+      "testsRun": 782,
+      "executedPassed": 776,
+      "skipped": 6,
+      "failures": 0,
+      "sourceCommit": "63ee6152c24e983ecf848e9b8fe7c33a9a861234",
+      "originalBeforeCorrection": {
+        "testsRun": 776,
+        "executedPassed": 770,
+        "skipped": 6
+      }
+    },
+    "sourceOnlyDisplayPose": {
+      "status": "PASS",
+      "checks": 225176,
+      "runtimeAndSourcesUnchanged": true,
+      "scope": "Linked production value/clock contracts only; no full Draw, 3D, device or performance acceptance"
+    },
+    "cachePair": {
+      "status": "PASS_PRIVATE_CACHE_AND_FROZEN_RUNTIME",
+      "activeMaps": 6,
+      "physicalOutputManifestJoins": 30,
+      "wholePrivateSha256AndMtimeUnchanged": true,
+      "privateByteIdentitySha256": "966ed293483b7f4b054b1ad7335b120c0b6ecf3392a6adf2ab0be4cdeb84c928",
+      "privateShaAndMtimeIdentitySha256": "beaa7e6066a7b3c3fd01500a3e0a7d54cee3988af749914773e085dbf8ac02d9",
+      "completeFrozenRuntimeBeforeWarmAfterWarmAndAfterStrictMatch": true,
+      "wholeCanonicalUnchanged": true,
+      "actualWarmStartups": 2,
+      "actualStrictStartups": 2,
+      "privateFiles": 3663,
+      "excludedDefinition": "MK_BLOCKFORT missing import/texture; not admitted by actual runtime"
+    },
+    "earlyRecordedRegression": {
+      "status": "FAIL_RETAINED",
+      "closedCommands": 6,
+      "passed": 5,
+      "failed": 1,
+      "identityChecks": 70,
+      "historicalRealRecordings": 4,
+      "strictFramesEach": 301,
+      "sourceArchiveProtocol": 79,
+      "actualFileExactClipLookaheadAndSemanticLifeProof": "PASS_BOUNDED_FOUR_CASES",
+      "genericHistoricalBattle": "FAIL_RAW79_SNAPSHOTS_BYPASS_CURRENT_LIVE_DECODER_CONVERSION",
+      "readOnlyClassification": "Existing current-live capture fixture consumes historical79 raw bytes directly; production archive conversion and strict real-archive diagnostics are distinct paths",
+      "freshProtocol82GenericFixture": "PASS_CURRENT82_ORACLE_REPLAY_SCOPE_SEPARATE_FROM_ORIGINAL_GENERIC79_FAIL",
+      "allOriginalAttemptRuntimeAssetAndInputClosuresUnchanged": true
+    },
+    "sameOsOracleParity": {
+      "status": "PASS_EXACT_CANONICAL_PARITY_SCOPED",
+      "referenceCommit": "73f5ebf62b111de4321183296c51d11166e7e397",
+      "matchingScenarios": 47,
+      "replayCommandsPassed": 18,
+      "genericCurrent82KillcamChecks": 2355,
+      "runtimeAndAssetsUnchanged": true
+    },
+    "rawGoldenResults": {
+      "status": "FAIL_BOTH_BUILDS_IDENTICAL_3_DIVERGENCES",
+      "passingEach": 44,
+      "totalEach": 47,
+      "differences": [
+        {
+          "scenario": "movement.platform",
+          "tick": 274,
+          "field": "rng2",
+          "expected": "2383272552",
+          "actual": "2414296029"
+        },
+        {
+          "scenario": "weapon.missile.splash",
+          "tick": 201,
+          "field": "victim.position4096.z",
+          "expected": "53237",
+          "actual": "53238"
+        },
+        {
+          "scenario": "alt.spire",
+          "tick": 262,
+          "field": "position4096.y",
+          "expected": "2824",
+          "actual": "2825"
+        }
+      ],
+      "goldensRegenerated": false,
+      "allRequestedCommandsPass": false,
+      "rawControllerExit": 1,
+      "rawControllerFailureRetained": true
+    },
+    "udpCampaigns": [
+      {
+        "campaign": "udp-eight-extreme-paid",
+        "rawCampaignStatus": "FAIL",
+        "processes": 9,
+        "allExitZero": true,
+        "allControllerTimedOutFalse": true,
+        "boundedDrain": "PASS",
+        "claimReceipts": "PASS",
+        "coreTimeline": "INCOMPLETE",
+        "renderedProjectileAgreement": "NOT_RUN",
+        "rawSlowLaneAuditFailureCount": 8,
+        "derivedParserSupplement": "FAIL_RETAINED_SOLE_POSTDRAIN_CLOSE_EXPIRY",
+        "postDrainGracefulClose": "FAIL_RETAINED_NCX09_OPEN",
+        "actualInGameTimeout": "NOT_OBSERVED",
+        "paidReceiptLatency": {
+          "status": "PASS",
+          "eligibleSamples": 247,
+          "p95AuthorityTicks": 0
+        }
+      },
+      {
+        "campaign": "udp-alt-morph-poor-off",
+        "rawCampaignStatus": "FAIL",
+        "processes": 4,
+        "allExitZero": true,
+        "allControllerTimedOutFalse": true,
+        "boundedDrain": "PASS",
+        "claimReceipts": "PASS",
+        "coreTimeline": "INCOMPLETE",
+        "renderedProjectileAgreement": "NOT_RUN",
+        "rawSlowLaneAuditFailureCount": 3,
+        "derivedParserSupplement": "PASS_SEPARATE_STRICT_OFFLINE_REAUDIT",
+        "turretOutcomeDenominators": {
+          "authorityEmissions": 49,
+          "authorityRefusals": 4,
+          "requiredPeerReceipts": 150,
+          "receivedPeerReceipts": 151,
+          "requiredPeerRefusalApplications": 11,
+          "appliedPeerRefusals": 11,
+          "cancelledFlights": 1
+        },
+        "formRawStatus": "FAIL_BASE_CAMPAIGN_FAILED",
+        "formDerivedSupplement": "PASS_SEPARATE_STRICT_OFFLINE_REAUDIT"
+      }
+    ],
+    "native13ArmMatrix": {
+      "status": "PASS_FROZEN_PROTOCOL82_SCOPE",
+      "passed": 13,
+      "requested": 13,
+      "notRun": 0,
+      "runtimeUnchanged": true,
+      "assetsUnchanged": true
+    },
+    "independentReadbacks": {
+      "status": "PASS_SAVED_READBACKS",
+      "decodedPosePngs": 901,
+      "decodedVanillaProjectionPngs": 3,
+      "totalDecodedPngs": 904,
+      "depthReadbacks": 221,
+      "isolatedPixelControls": 34,
+      "bodyControls": 204,
+      "restoredPixels": "REPORT_ONLY_NO_RESTORED_PNG"
+    },
+    "focusAndFovControls": {
+      "status": "PASS_BOUNDED_CONTROLS",
+      "selectedFovs": [
+        60,
+        78,
+        120
+      ],
+      "authoredWeaponFov": 78,
+      "expectedLegacyRejection": 1,
+      "exactCanonicalCombatSourceInputRngMatch": true,
+      "physicalInput": "NOT_CLAIMED",
+      "osFocus": "NOT_CLAIMED"
+    },
+    "finalEvidenceIndex": {
+      "status": "CLOSED_INDEX_WITH_EXPLICIT_BOUNDED_SCOPE",
+      "unresolvedRows": 0,
+      "gateCount": 16,
+      "rawArtifacts": 2419,
+      "rawStatusRows": 40067,
+      "retainedNonpassRows": 36959,
+      "cleanGitMetadataRows": 4,
+      "reviewedSemanticGroups": 203,
+      "explicitAuthoredInputCorrections": 5,
+      "indexReceiptSha256": "1d420d77db8cb89f4b16e6ba3a9c08c7daec59a2206ba99d69dfdd0335b66367",
+      "privateRawIndexSha256": "c48af297ca4d642c83c4ffbe13072e63e607ae07c14bea9a3fbf0bebb9349947",
+      "allRawStatusRowsSha256": "38838f251eebcc73b0bcb7c5d76241acbd6ad0cb2104b57c8b5d830b6c809005",
+      "sourceRuntimeClosureSha256": "74a70f322fd1209027594a74dfaf653948a759865dbb57cc76cabe2a87b471fa",
+      "indexerSha256": "733b3738078095925e25d04d582524da70f1bf46ae8e4f16541dac2937ab87bc"
+    },
+    "newCurrent82RecordingOnlyDiagnostics": {
+      "status": "PASS_BOUNDED_RECORDING_FIDELITY_ONLY",
+      "recordings": 2,
+      "strictFramesEach": 301,
+      "fileLinearExactClipLookaheadProtocols": 82,
+      "exactAcceptedSemanticLifeProof": "PASS_BOTH",
+      "closedFilesVerified": 8080,
+      "allRuntimeAssetMapArchiveSourceRecordingAndEvidenceClosuresUnchanged": true,
+      "rawSourceCampaignStatuses": [
+        "FAIL",
+        "FAIL"
+      ],
+      "rawSourceCampaignsReclassified": false
+    },
+    "weavelRawFormAudit": {
+      "status": "FAIL_RETAINED",
+      "failure": "base campaign failed",
+      "allThreeCompleteCycles": true,
+      "independentAnchorWitnesses": 746,
+      "derivedSupplement": "PASS_SEPARATE_PHYSICAL_INPUT_COPY_STRICT_AUDIT"
+    },
+    "nativeCompleteClosure": {
+      "status": "PASS",
+      "allFrozenSourceFilesUnchanged": 6532,
+      "allThreeRuntimesUnchanged": true,
+      "privateAssetsUnchanged": true
+    },
+    "headlessAssetEndComparison": {
+      "status": "PASS_END_COMPARISON_ONLY",
+      "files": 3663,
+      "byteAndSizeMatch": true,
+      "wholeBeforeAfterMtimeClaim": false
+    },
+    "offlineAuditorSupplement": {
+      "status": "PASS_OFFLINE_SUPPLEMENT",
+      "eightOriginalStatus": "FAIL",
+      "eightDerivedStatus": "FAIL",
+      "weavelOriginalStatus": "FAIL",
+      "weavelDerivedStatus": "PASS",
+      "weavelDerivedForm": "PASS",
+      "copiedFiles": 860,
+      "copiedBytes": 2142550656,
+      "runtimeAndSourceUnchanged": true
+    },
+    "weavelDerivedFormAudit": {
+      "status": "PASS",
+      "independentAnchorWitnesses": 746,
+      "predictionDebitJoins": 38,
+      "allThreeCompleteCycles": true,
+      "healthDisagreements": [],
+      "originalRawFormStatus": "FAIL_RETAINED"
+    }
+  },
+  "testAndOfflineAuditorSourceCommit": "63ee6152c24e983ecf848e9b8fe7c33a9a861234",
+  "originalFrozenNettestSha256": "7bb73769204b2499d7cf30f42e90185b06c68e7ff318a1422d31603767a04a57",
+  "testAssemblySourceCommit": "63ee6152c24e983ecf848e9b8fe7c33a9a861234",
+  "laterMain": {
+    "commit": "3aa42f32a3b450a76fd52a0d68a2a99bb5b1a81d",
+    "integratedIntoThisQualification": false,
+    "qualificationReferenceRemains": "73f5ebf62b111de4321183296c51d11166e7e397",
+    "reviewScope": "Read-only overlap review; no latest-main or whole-package runtime qualification"
+  },
+  "acceptanceScope": "Exactbeac/73f5/63ee bounded scopes approved by root; all unqualified scopes and raw outcomes retained. Later main excluded.",
+  "scopeAuthority": {
+    "scopeFileSha256": "49ecf344afbf80c0adce5f19ffbcd02ed1f8670202dd965753b5776723270539",
+    "manifestSha256": "fa6dcb3bf97a5437374010987eaa74e28fe57849fe6368ef20832e05e9fe7dcf",
+    "rootAuthorizationSha256": "843c29c9cf82447faa481e253b2c40c55783ed5092bca4ca064d30bdaac301ef",
+    "newOrUnmatchedRowsApproved": false,
+    "G035CommandClassification": "6rawgolden failures;1old05death-versusEOFfixture;1raw07generic79adapterfixture"
+  },
+  "evidenceIndex": {
+    "schema": 1,
+    "slice": "NCX-06",
+    "sourceCommit": "beac2cbc596e41d6a58596ce89ee52f0ea8f0bbe",
+    "referenceCommit": "73f5ebf62b111de4321183296c51d11166e7e397",
+    "protocol": 82,
+    "status": "CLOSED_INDEX_WITH_EXPLICIT_BOUNDED_SCOPE",
+    "components": [
+      {
+        "runtime": "runtime-client",
+        "component": "nettest.dll",
+        "sha256": "7bb73769204b2499d7cf30f42e90185b06c68e7ff318a1422d31603767a04a57"
+      },
+      {
+        "runtime": "runtime-client",
+        "component": "ProjectPrime.dll",
+        "sha256": "64a9b31fb4896f8ed77f4033e66c9ae1ed221ea6433ac090771aa162d1be811d"
+      },
+      {
+        "runtime": "runtime-client",
+        "component": "ProjectPrime.RmlUi.Native.dll",
+        "sha256": "04f3919de38aa02d1095ba5bf7bca08f2858360db3556bb41eb6cfb562609651"
+      },
+      {
+        "runtime": "runtime-native",
+        "component": "native-render-check.dll",
+        "sha256": "9b2c9a001622615c0bb6516021a04565be723fb1a608ef27451faae2d4bc0fb3"
+      },
+      {
+        "runtime": "runtime-native",
+        "component": "ProjectPrime.dll",
+        "sha256": "64a9b31fb4896f8ed77f4033e66c9ae1ed221ea6433ac090771aa162d1be811d"
+      },
+      {
+        "runtime": "runtime-native",
+        "component": "ProjectPrime.RmlUi.Native.dll",
+        "sha256": "04f3919de38aa02d1095ba5bf7bca08f2858360db3556bb41eb6cfb562609651"
+      },
+      {
+        "runtime": "runtime-oracle",
+        "component": "fidelity-oracle.dll",
+        "sha256": "1a531a1feb158334a8e003326cc239f56885efe8f96767a00ec59ef16d2bfedb"
+      },
+      {
+        "runtime": "runtime-oracle",
+        "component": "ProjectPrime.dll",
+        "sha256": "64a9b31fb4896f8ed77f4033e66c9ae1ed221ea6433ac090771aa162d1be811d"
+      },
+      {
+        "runtime": "runtime-oracle",
+        "component": "ProjectPrime.RmlUi.Native.dll",
+        "sha256": "04f3919de38aa02d1095ba5bf7bca08f2858360db3556bb41eb6cfb562609651"
+      }
+    ],
+    "gates": [
+      {
+        "name": "frozen-runtime-closure",
+        "status": "PASS",
+        "closed": true
+      },
+      {
+        "name": "frozen-source-closure",
+        "status": "PASS",
+        "closed": true
+      },
+      {
+        "name": "python-final",
+        "status": "PASS",
+        "rawStatus": "PASS_WITH_SKIPS",
+        "closed": true
+      },
+      {
+        "name": "headless-corrected",
+        "status": "PASS",
+        "rawStatus": "PASS",
+        "closed": true
+      },
+      {
+        "name": "source-only-pose",
+        "status": "PASS",
+        "rawStatus": "PASS",
+        "closed": true
+      },
+      {
+        "name": "headless-asset-end-comparison",
+        "status": "PASS",
+        "rawStatus": "PASS_END_COMPARISON_ONLY",
+        "closed": true
+      },
+      {
+        "name": "udp-eight-components-only",
+        "status": "PASS",
+        "rawStatus": "PASS_PROCESS_DRAIN_RECEIPT_COMPONENTS_ONLY",
+        "closed": true
+      },
+      {
+        "name": "udp-weavel-components-only",
+        "status": "PASS",
+        "rawStatus": "PASS_PROCESS_DRAIN_RECEIPT_COMPONENTS_ONLY",
+        "closed": true
+      },
+      {
+        "name": "current82-recording-only",
+        "status": "PASS",
+        "rawStatus": "PASS_BOUNDED_RECORDING_FIDELITY_ONLY",
+        "closed": true
+      },
+      {
+        "name": "cache",
+        "status": "PASS",
+        "rawStatus": "PASS_PRIVATE_CACHE_AND_FROZEN_RUNTIME",
+        "closed": true
+      },
+      {
+        "name": "oracle-parity-current-replay",
+        "status": "PASS",
+        "rawStatus": "SCOPED_PASS_WITH_RETAINED_BASELINE_GOLDEN_FAILURES",
+        "closed": true
+      },
+      {
+        "name": "native-complete",
+        "status": "PASS",
+        "rawStatus": "PASS_FROZEN_PROTOCOL82_SCOPE",
+        "closed": true
+      },
+      {
+        "name": "offline-supplement-input-integrity",
+        "status": "PASS",
+        "rawStatus": "PASS_OFFLINE_SUPPLEMENT",
+        "closed": true
+      },
+      {
+        "name": "weavel-derived-base",
+        "status": "PASS",
+        "rawStatus": "PASS",
+        "closed": true
+      },
+      {
+        "name": "weavel-derived-form",
+        "status": "PASS",
+        "rawStatus": "PASS",
+        "closed": true
+      },
+      {
+        "name": "corrected-nettest-unchanged-production-link",
+        "status": "PASS",
+        "closed": true
+      }
+    ],
+    "rawStatusCounts": {
+      "CLEAN_GIT_METADATA": 4,
+      "PASS_CLOSED_COMPONENTS_ONLY": 1,
+      "PASS_WITH_SKIPS": 2,
+      "PASS": 3018,
+      "PASS_PRIVATE_CACHE_AND_FROZEN_RUNTIME": 6,
+      "SCOPED_PASS_WITH_RETAINED_BASELINE_GOLDEN_FAILURES": 3,
+      "FAIL_BOTH_BUILDS_IDENTICAL_3_DIVERGENCES": 3,
+      "FAIL": 151,
+      "PASS_PROCESS_DRAIN_RECEIPT_COMPONENTS_ONLY": 4,
+      "PASS_FROZEN_PROTOCOL82_SCOPE": 2,
+      "PASS_BOUNDED_CONTROLS": 5,
+      "PASS_SAVED_READBACKS": 6,
+      "PASS_BOUNDED_RECORDING_FIDELITY_ONLY": 1,
+      "PASS_END_COMPARISON_ONLY": 1,
+      "PASS_OFFLINE_SUPPLEMENT": 2,
+      "PASS_PRIVATE_STARTUPS": 3,
+      "NOT_RUN": 283,
+      "INCOMPLETE": 2858,
+      "UNAVAILABLE": 5428,
+      "UNRECOGNIZED_RAW_STATUS": 28179,
+      "CLOSED_PASS": 2,
+      "PASS_NATIVE_READBACK_CONTROL": 8,
+      "PASS_EXPECTED_INELIGIBLE_CONTROL": 2,
+      "PASS_NATIVE_PROJECTION_PACKETS_ONLY": 2,
+      "PASS_BOUNDED_NATIVE_DRAW_QUALIFICATION": 30,
+      "NOT_RUN_EXISTING_CANONICAL_PROJECTIONS_ONLY": 31,
+      "NOT_RUN_EXISTING_PROJECTIONS_ONLY": 18,
+      "FAIL_OR_INCOMPLETE": 2,
+      "PASS_PRIVATE_STARTUPS_WITH_UNEXPECTED_CANONICAL_DRIFT": 2,
+      "UNEXPECTED_NON_HOSTED_DRIFT": 3,
+      "INCOMPLETE_USER_DIRECTED_STOP_AFTER_CURRENT_NATIVE_ARM": 1,
+      "PASS_EXACT_GENERATED_PATH_CLASSIFICATION_ADDITIONAL_HOSTED_SETS_RAW_DRIFT_RETAINED": 1,
+      "PENDING": 1,
+      "PASS_FROZEN_PROTOCOL79_SCOPE": 1,
+      "PASS_CLOSED_BRIDGE_BUILD_AND_MUTABLE_DEFAULT_STAGING": 1,
+      "PASS_REFERENCE_BUILD_READY": 1,
+      "FAIL_MISSING_EXISTING_ATTRIBUTION_FILES_RETAINED": 1
+    },
+    "rawStatusRows": 40067,
+    "sourceControlMetadataRows": 4,
+    "retainedNonpassRows": 36959,
+    "unacknowledgedNonpassRows": 0,
+    "qualifiedScopes": [
+      "Bounded fixed60 prediction retirement/projection checks in separately linked210-route63ee test component with exact unchangedbeac production/dependency closure",
+      "Actual782 Python discovery:776 executed passes and6 explicit skips; separate linked-source display-pose225176 value/clock checks",
+      "Private two-normal-warm/two-immutable-startup cache gate:6admittedmaps30physicaljoins and whole3663file SHA/mtime identity; three frozen runtime closures",
+      "Same-Windows pinned73f5 versusbeac47canonical-scenario parity and18current82 replay-command outcomes; raw goldens independently retained",
+      "Exactbeac native13-arm matrix and bounded focus/FOV/readbacks:901pose+3vanilla PNGs221depth34gun/charge204body controls; Samus cross-schedules and six other hunters500only",
+      "Four historical79 actual recordings and two current82 actual recordings,301strictframes each and exact accepted semantic-life/source-protocol checks; current82 generic killcam2355checks distinct from originalgeneric79FAIL",
+      "Two originalUDP campaigns process/drain/receipt components only:13exit0; eight-player247paid samplesp95authorityticks0; separate Weavel strict offline base/formPASS on immutable copied inputs"
+    ],
+    "unqualifiedScopes": [
+      "Both original07 UDP overall campaign statuses remainFAIL; eight-player strict derived audit remainsFAIL from post-drain close handshake, openNCX09",
+      "Original195/207 suite and generic79 current-live fixture are retainedFAIL; only separately linked corrections/current-format scope qualifies",
+      "Raw golden perfection:44/47each with3identical retained failures and originalcontrollerexit1/allRequestedfalse",
+      "Actual physical input/device/OS focus, restored-framebuffer pixels, achievedFPS/scanout/input-latency/performance/superiority",
+      "Whole replay compatibility, all hunters at all schedules, NCX07 rendered96/95 same-shot threshold, Qtlauncher and broadresilience",
+      "Whole historical canonical-source immutability; historical06drift retained",
+      "Recovered old Mac source/capture claims, crossplatformrelease and latestmain3aa42/whole-package runtime qualification"
+    ],
+    "privateRawIndexSha256": "c48af297ca4d642c83c4ffbe13072e63e607ae07c14bea9a3fbf0bebb9349947",
+    "privateAuthorityBindingsSha256": "a4ac848bb23d0ba88b5518ee06f46082bb6be801f5af6db0c719b31267a7a282",
+    "allRawStatusRowsSha256": "38838f251eebcc73b0bcb7c5d76241acbd6ad0cb2104b57c8b5d830b6c809005",
+    "manifestSha256": "fa6dcb3bf97a5437374010987eaa74e28fe57849fe6368ef20832e05e9fe7dcf",
+    "note": "Index closure is not a full replay, release, physical input, performance or superiority claim. Raw nonpasses remain unchanged."
+  },
+  "evidenceIndexReceiptSha256": "1d420d77db8cb89f4b16e6ba3a9c08c7daec59a2206ba99d69dfdd0335b66367",
+  "publicationScope": "Exact beac production, 73f5 reference and separately linked 63ee tools; later main changes are outside this frozen runtime qualification"
+}
