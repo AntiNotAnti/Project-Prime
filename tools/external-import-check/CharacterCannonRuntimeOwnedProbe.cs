@@ -30,16 +30,16 @@ internal static class CharacterCannonRuntimeOwnedProbe
         .GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
     private static readonly Action<MouseState, Vector2> MousePosition = typeof(MouseState)
         .GetProperty("Position", Hidden | BindingFlags.Public)!.SetMethod!.CreateDelegate<Action<MouseState, Vector2>>();
-    private static readonly Keys[] KeysUsed = [Keys.Enter, Keys.W, Keys.M, Keys.P, Keys.B];
+    private static readonly Keys[] KeysUsed = [Keys.Enter, Keys.W, Keys.M, Keys.P, Keys.B, Keys.LeftShift];
     private sealed record Stage(string Name, int Steps);
     private static readonly Stage[] Script = [new("idle",20),new("fire",20),new("release",25),new("charge",110),
         new("charge-release",40),new("turn",30),new("walk",30),new("missile",50),new("power",50),
         new("morph",100),new("unmorph",100),new("settle",100)];
     private sealed record Result(string Identity, string[] Trace, object[] Stages, int CannonFrames,
         int FallbackFrames, int RepeatedDraws, double MaximumTipError, double MaximumPaletteError, object[] FractionalSchedules, object? Ball = null,
-        string[]? TrailTrace = null, object? Trail = null);
+        string[]? TrailTrace = null, object? Trail = null, string[]? EffectTrace = null, object? Boost = null);
 
-    internal static int Run(string rvz, bool trooper = false, bool probeBall = false, bool probeTrail = false)
+    internal static int Run(string rvz, bool trooper = false, bool probeBall = false, bool probeTrail = false, bool probeBoost = false)
     {
         string temporary = Path.Combine(Path.GetTempPath(), "prime-cannon-runtime-" + Guid.NewGuid().ToString("N"));
         string cwd = Environment.CurrentDirectory;
@@ -64,12 +64,48 @@ internal static class CharacterCannonRuntimeOwnedProbe
         void Check(bool condition, string label)
         { if (!condition) { failed = label; throw new InvalidDataException(label); } checks++; }
         void Bound() { if (watch.Elapsed.TotalMinutes > 10) throw new TimeoutException("Cannon runtime probe exceeded ten minutes."); }
+        void CheckTintMap(Scene scene)
+        {
+            // Synthetic map checks do not emit effects or enter the gameplay trace.
+            // Restore the exact original native pool sequence, including identity.
+            var pool=(Queue<EffectEntry>)typeof(Scene).GetField("_inactiveEffects",Hidden)!.GetValue(scene)!;
+            var original=pool.ToArray();Check(original.Length>0&&original.Length<1024,"bounded native effect pool available for isolated map check");
+            var entry=original[0];int id=entry.EffectId;var foreign=new EffectEntry{EffectId=136};var furl=new EffectEntry{EffectId=30};
+            var valid=new Vector3(.25f,.5f,1);
+            try
+            {
+                scene.SetPresentationEffectTint(entry,valid);
+                Check(scene.GetPresentationEffectTint(entry)==valid&&scene.GetPresentationEffectTint(foreign)==null&&scene.GetPresentationEffectTint(furl)==null&&scene.GetPresentationEffectTint(null)==null,
+                    "transient tint uses exact entry reference and leaves foreign136/furl30/null untouched");
+                foreach(float invalid in new[]{float.NaN,float.PositiveInfinity,float.NegativeInfinity,-.001f,1.001f})
+                    for(int axis=0;axis<3;axis++)
+                    {
+                        var tint=valid;tint[axis]=invalid;bool refused=false;
+                        try{scene.SetPresentationEffectTint(entry,tint);}catch(ArgumentOutOfRangeException){refused=true;}
+                        Check(refused&&scene.GetPresentationEffectTint(entry)==valid,"invalid tint component refuses atomically and preserves previous valid map entry");
+                    }
+                scene.SetPresentationEffectTint(entry,Vector3.Zero);Check(scene.GetPresentationEffectTint(entry)==Vector3.Zero,"black tint is a valid present value distinct from absent");
+                scene.ClearPresentationEffectTransforms();Check(scene.GetPresentationEffectTint(entry)==null,"new-picture presentation clear removes tint");
+                Check(entry.Elements.Count==0,"pool entry has no emitted particles for isolated retirement check");
+                pool.Clear();scene.SetPresentationEffectTint(entry,valid);scene.UnlinkEffectEntry(entry);
+                Check(scene.GetPresentationEffectTint(entry)==null&&pool.Count==1,"unlink removes transient tint before pool return");
+                scene.SetPresentationEffectTint(entry,valid);
+                var reused=(EffectEntry)typeof(Scene).GetMethod("InitEffectEntry",Hidden)!.Invoke(scene,null)!;
+                Check(ReferenceEquals(entry,reused)&&scene.GetPresentationEffectTint(reused)==null&&pool.Count==0,"native pooled entry reuse clears stale presentation tint");
+            }
+            finally
+            {
+                scene.ClearPresentationEffectTransforms();entry.EffectId=id;pool.Clear();foreach(var item in original)pool.Enqueue(item);
+            }
+            Check(pool.SequenceEqual(original),"synthetic map fixture restores exact native effect pool capacity and reference order");
+        }
         try
         {
             Check(OperatingSystem.IsWindows() && RuntimeInformation.ProcessArchitecture == Architecture.X64
                 && !Headless.Active && !NetSession.Active && !DemoPlayback.IsActive && !ReplayCapture.LiveRecordingActive,
                 "fresh actual Windows x64 offline first-person process");
             Check(!probeTrail||probeBall&&!trooper,"source trail fixture uses both exact local Echoes ball selections");
+            Check(!probeBoost||probeBall&&!trooper,"source boost fixture uses both exact local Echoes ball selections");
             Check(!string.IsNullOrWhiteSpace(native) && Directory.Exists(native), "existing owned AMHE1 fixture required");
             native = Path.GetFullPath(native!); rvz = Path.GetFullPath(rvz);
             sourceBefore = HashFile(rvz); nativeBefore = Inventory(native);
@@ -127,6 +163,12 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         int trailMismatch=Enumerable.Range(0,result.TrailTrace.Length).FirstOrDefault(i=>result.TrailTrace[i]!=baseline.TrailTrace[i],-1);
                         Check(trailMismatch<0,result.Identity+" native18-slot alpha/index/active-matrix history parity; first mismatch="+trailMismatch);
                     }
+                    if(probeBoost)
+                    {
+                        Check(result.EffectTrace!.Length==baseline.EffectTrace!.Length,"boost canonical effect traces have matching native completed-step grains");
+                        int effectMismatch=Enumerable.Range(0,result.EffectTrace.Length).FirstOrDefault(i=>result.EffectTrace[i]!=baseline.EffectTrace[i],-1);
+                        Check(effectMismatch<0,result.Identity+" native boost/furl effect particles/material/lifecycle/RNG parity; first mismatch="+effectMismatch);
+                    }
                 }
             }
 
@@ -141,6 +183,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     scene=new(window.FramebufferSize,keyboard,mouse,_=>{},()=>{});
                     scene.Random.SetRng1(123456);scene.Random.SetRng2(654321);scene.AddPlayer(trooper?Hunter.Weavel:Hunter.Samus);
                     scene.AddRoom("MP3 PROVING GROUND",GameMode.Battle,playerCount:1,nodeLayerMask:0);scene.OnLoad();scene.OnResize();
+                    if(probeBoost)CheckTintMap(scene);
                     var inputMode=typeof(Scene).GetField("_inputMode",Hidden)!;inputMode.SetValue(scene,Enum.Parse(inputMode.FieldType,"All"));
                     scene.GameState.MatchTime=-1;scene.GameState.PointGoal=10000;scene.GameState.ThirdPersonCamera=false;
                     scene.GameState.SpawnProtection=false;scene.GameState.EnhancedHunters=false;scene.GameState.ShadowFreeze=false;
@@ -148,6 +191,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     foreach(var button in player.Controls.All){button.Type=ButtonType.Key;button.Key=Keys.Unknown;}
                     player.Controls.Shoot.Key=Keys.Enter;player.Controls.MoveUp.Key=Keys.W;
                     if(probeBall){player.Controls.AltAttack.Key=Keys.Enter;player.Controls.RollUp.Key=Keys.W;}
+                    if(probeBoost)player.Controls.Boost.Key=Keys.LeftShift;
                     player.Controls.Missile.Key=Keys.M;player.Controls.PowerBeam.Key=Keys.P;player.Controls.Morph.Key=Keys.B;
                     player.Controls.MouseAim=true;player.Controls.KeyboardAim=false;
                     Key(keyboard,Keys.Enter,true);
@@ -241,12 +285,17 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     double maxTip=0,maxPalette=0;bool fired=false,charged=false,morphed=false,missile=false;
                     var trace=new List<string>();var stages=new List<object>();var captured=new HashSet<string>();
                     var trailTrace=new List<string>();int trailPictures=0,blueTrailPictures=0,nativeTrailPictures=0,rollingTrailPictures=0,morphTrailGuards=0,maxTrailSegments=0;
+                    var effectTrace=new List<string>();int boostPictures=0,boostPackets=0,tintedBoostPackets=0,nativeBoostPackets=0,furlPictures=0,LastBoostPacketCount=0;bool boostGuards=false,boostInventory=false;
+                    var boostGlModes=new HashSet<bool>();
+                    int boostHold=player.Values.BoostChargeMax*2+2;
+                    if(probeBoost)Check(boostHold is >0 and <=240,"real native boost charge duration is bounded from the actor's own unchanged values");
+                    var activeScript=probeBoost?script.SelectMany(s=>s.Name=="ball-roll"?new[]{s,new Stage("ball-boost-charge",boostHold),new Stage("ball-boost-release",60)}:new[]{s}).ToArray():script;
                     var fractionalSchedules=new List<object>();
                     using var sourceLocks = selection == null ? null : new SourceFileLocks(imports);
                     Check(selection == null || sourceLocks!.Count >= ids.Length * 13,
                         "all imported component files remain exclusively locked through actual match steps and draws");
                     Picture(false);Rng.SetRng1(123456);Rng.SetRng2(654321);scene.Random.SetRng1(123456);scene.Random.SetRng2(654321);
-                    foreach(Stage stage in script)
+                    foreach(Stage stage in activeScript)
                     {
                         if(stage.Name=="ball-death-respawn")
                         {player.TakeDamage(10000,DamageFlags.Death|DamageFlags.IgnoreInvuln,null,null);died=player.Health==0;}
@@ -256,7 +305,8 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             Bound();foreach(Keys key in KeysUsed)Key(keyboard,key,false);
                             if(stage.Name=="fire"&&age<2||stage.Name=="charge"||stage.Name=="ball-bomb"&&age==0
                                 ||stage.Name=="ball-death-respawn"&&age%30==0)Key(keyboard,Keys.Enter,true);
-                            if(stage.Name is "walk" or "ball-roll" or "ball-after-life-roll")Key(keyboard,Keys.W,true);
+                            if(stage.Name is "walk" or "ball-roll" or "ball-after-life-roll" or "ball-boost-charge" or "ball-boost-release")Key(keyboard,Keys.W,true);
+                            if(stage.Name=="ball-boost-charge")Key(keyboard,Keys.LeftShift,true);
                             if(stage.Name=="missile"&&age==0)Key(keyboard,Keys.M,true);
                             if(stage.Name=="power"&&age==0)Key(keyboard,Keys.P,true);
                             if(stage.Name is "morph" or "unmorph" or "ball-after-life-morph"&&age==0)Key(keyboard,Keys.B,true);
@@ -275,6 +325,30 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                     DamageTimer=typeof(PlayerEntity).GetField("_timeSinceDamage",Hidden)!.GetValue(player)}));
                             trace.Add(State(scene,player)+(probeBall?":"+BombState(scene,player):""));animations.Add(player.GunAnimation.ToString());
                             if(probeTrail)trailTrace.Add(TrailHistory(player,activeOnly:true)+":"+Rng.Rng1+":"+Rng.Rng2);
+                            if(probeBoost)
+                            {
+                                effectTrace.Add(EffectState(scene,player));
+                                if(expectsBall&&!boostGuards&&stage.Name=="ball-boost-release"&&LastBoostPacketCount>0)
+                                {
+                                    string canonical=EffectState(scene,player);double clock=owner!.BallMaterialSeconds;
+                                    RenderOptions.Shadows=ShadowQuality.Low;
+                                    try{Picture(true,"boost-shadow-guard");Check(BallItems(scene).Count==0&&LastBoostPacketCount>0,"live native boost packets retain native RGB under source shadow fallback");}
+                                    finally{RenderOptions.Shadows=ShadowQuality.Off;}
+                                    RenderOptions.ShowCustomCosmetics=false;
+                                    try{Picture(true,"boost-cosmetics-guard");Check(BallItems(scene).Count==0&&LastBoostPacketCount>0,"live native boost packets retain native RGB with cosmetics off");}
+                                    finally{RenderOptions.ShowCustomCosmetics=true;}
+                                    var boostFlags=player.Flags2;var boostFlagsProperty=typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!;
+                                    boostFlagsProperty.SetValue(player,boostFlags|PlayerFlags2.Cloaking);
+                                    try{Picture(true,"boost-cloak-guard");Check(BallItems(scene).Count==0&&LastBoostPacketCount>0,"live native boost remains native under source cloak fallback");}
+                                    finally{boostFlagsProperty.SetValue(player,boostFlags);}
+                                    scene.GameState.PauseMenu();
+                                    try{Picture(true,"boost-pause");Check(EffectState(scene,player)==canonical&&owner.BallMaterialSeconds==clock,"paused live boost draw preserves native canonical particles and source clock");}
+                                    finally{scene.GameState.UnpauseMenu();}
+                                    Picture(true,"boost-guard-restored");
+                                    Check(BallItems(scene).Count>0&&LastBoostPacketCount>0&&owner.BallMaterialSeconds==clock&&EffectState(scene,player)==canonical,
+                                        "same live boost particles recolor after source guard restoration without native simulation or canonical mutation");boostGuards=true;
+                                }
+                            }
                             respawned|=died&&player.Health>0&&player.ModIsInPlay;
                             if(respawned&&BallItems(scene).Count>0)afterLifeBallFrames++;
                             if(probeBall)maxBombs=Math.Max(maxBombs,SceneBombs(scene).Count(b=>ReferenceEquals(b.Owner,player)));
@@ -296,6 +370,8 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     if(probeTrail)Check(rollingTrailPictures>0&&trailPictures>0&&morphTrailGuards>0
                         &&(expectsBall?blueTrailPictures>0:nativeTrailPictures>0),
                         "actual native W rolling emits real TrailStack packets, with selected source tint and guarded native morph presentation");
+                    if(probeBoost)Check(boostPictures>0&&boostPackets>0&&furlPictures>0&&(!expectsBall||tintedBoostPackets>0&&boostGuards),
+                        "genuine boost key charge/release earns effect136 and morph earns native furl30; admitted source boosts receive bounded packet-only tint");
                     var ballSchedules=new List<object>();
                     if(probeBall&&expectsBall)
                     {
@@ -507,6 +583,15 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                     "retired source context still earns genuine native-color trail through real native rolling input");
                                 Key(keyboard,Keys.W,false);
                             }
+                            if(probeBoost)
+                            {
+                                Key(keyboard,Keys.W,true);Key(keyboard,Keys.LeftShift,true);
+                                for(int n=0;n<boostHold;n++){scene.OnSimulationFrame();Picture(false,"boost-retired-charge");}
+                                Key(keyboard,Keys.LeftShift,false);LastBoostPacketCount=0;
+                                for(int n=0;n<60&&LastBoostPacketCount==0;n++){scene.OnSimulationFrame();Picture(true,"boost-retired-release");}
+                                Check(LastBoostPacketCount>0&&BallItems(scene).Count==0&&!owner.BallCurrent,"real boost after context retirement retains native tint without source resurrection");
+                                Key(keyboard,Keys.W,false);
+                            }
                         }
                     }
                     else Check(sourceFrames==0,"native first-person path retains native gun rendering");
@@ -516,12 +601,15 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             MaximumOwnedBombs=maxBombs,FractionalSchedules=ballSchedules}:null,
                         probeTrail?trailTrace.ToArray():null,probeTrail?new{TrailPictures=trailPictures,BlueTrailPictures=blueTrailPictures,NativeTrailPictures=nativeTrailPictures,
                             RollingTrailPictures=rollingTrailPictures,MorphGuardPictures=morphTrailGuards,MaximumSegments=maxTrailSegments,Slots=18,
-                            TraceGrain="one post-step record per original1415-step script; all18 alphas/ring index, matrices only for alpha>0, plus native global RNG; inactive matrix storage intentionally excluded across Scenes"}:null);
+                            TraceGrain="one post-step record per original1415-step script; all18 alphas/ring index, matrices only for alpha>0, plus native global RNG; inactive matrix storage intentionally excluded across Scenes"}:null,
+                        probeBoost?effectTrace.ToArray():null,probeBoost?new{BoostPictures=boostPictures,Packets=boostPackets,TintedPackets=tintedBoostPackets,NativePackets=nativeBoostPackets,FurlPictures=furlPictures,
+                            ChargeSteps=boostHold,GuardRestoration=boostGuards,ActualMeshGlColorModes=boostGlModes.Count,GlEvidence="actual136 owned mesh display-list current GL color under rasterizer discard; no pixel visibility claim",TraceGrain="expanded real input script only for boost flag; native boost/furl canonical elements, particles, materials and RNG after owed native effect processing; repeated draw never advances them"}:null);
 
                     void Picture(bool repeat,string? label=null)
                     {
                         string canonicalTrail=probeTrail?TrailHistory(player,activeOnly:false):"";uint rngBefore1=Rng.Rng1,rngBefore2=Rng.Rng2;
                         scene.OnDrawFrame();var items=SourceItems(scene);
+                        if(probeBoost)ObserveBoost(label,count:true);
                         if(probeTrail)
                         {
                             bool hasTrail=TrailItems(scene).Count>0;
@@ -669,7 +757,13 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             string ballRaw=sourceBall==null?"":RawPalette(sourceBall),bombState=probeBall?BombState(scene,player):"";double? ballClock=owner?.BallMaterialSeconds;
                             string trailPackets=probeTrail?TrailPacketHash(scene):"",trailState=probeTrail?TrailHistory(player,activeOnly:false):"";bool hadTrail=probeTrail&&TrailItems(scene).Count>0;
                             uint trailRng1=Rng.Rng1,trailRng2=Rng.Rng2;
+                            string effects=probeBoost?EffectState(scene,player):"";
                             scene.OnDrawFrame();Check(scene.OnRenderFrame(),"repeated actual first-person frame renders");
+                            if(probeBoost)
+                            {
+                                ObserveBoost(label,count:false);Check((PlayerEffect(player,"_boostEffect")==null&&PlayerEffect(player,"_furlEffect")==null)||EffectState(scene,player)==effects,
+                                    "repeated actual boost/furl drawing preserves canonical particles/materials/emitter lifetimes and both native RNG owners");
+                            }
                             if(probeTrail)
                             {
                                 ObserveTrail(label,count:false);
@@ -718,6 +812,67 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             Check(trail.Diffuse==expectedColor,"actual native TrailStack is source-blue exactly when this picture submitted its complete current source ball; otherwise native gold");
                         }
                     }
+
+                    void ObserveBoost(string? label,bool count)
+                    {
+                        LastBoostPacketCount=0;var effect=PlayerEffect(player,"_boostEffect");
+                        if(PlayerEffect(player,"_furlEffect") is{EffectId:30} furl){Check(scene.GetPresentationEffectTint(furl)==null,"native furl30 never receives source-ball boost tint");if(count)furlPictures++;}
+                        if(effect==null)return;Check(effect.EffectId==136,"real native boost field owns only samusDash136");
+                        if(count)boostPictures++;
+                        var particles=effect.Elements.Where(e=>e.Flags.TestFlag(EffElemFlags.DrawEnabled)).SelectMany(e=>e.Particles).Where(p=>p.ShouldDraw).ToArray();
+                        if(particles.Length==0)return;
+                        var bindings=particles.Where(p=>!p.DrawNode).Select(p=>p.Owner.TextureBindingIds[p.ParticleId]).ToHashSet();
+                        var lists=particles.Where(p=>p.DrawNode).Select(p=>p.Owner.Model.Meshes[p.Owner.Nodes[p.ParticleId].MeshId/2].ListId).ToHashSet();
+                        var packets=WorldItems(scene).Distinct().Where(item=>item.Type==RenderItemType.Particle&&bindings.Contains(item.TextureBindingId)
+                            ||item.Type==RenderItemType.Mesh&&lists.Contains(item.ListId)).ToArray();
+                        LastBoostPacketCount=packets.Length;if(packets.Length==0)return;
+                        if(!boostInventory)
+                        {
+                            boostInventory=true;
+                            Console.WriteLine(JsonSerializer.Serialize(new{Probe="native-boost136-packet-inventory",Identity=selection?.SelectedAppearance.SkinSource??"native",Stage=label,
+                                ParticleCount=particles.Length,BillboardParticles=particles.Count(p=>!p.DrawNode),MeshParticles=particles.Count(p=>p.DrawNode),PacketTypes=packets.Select(p=>p.Type.ToString()).Distinct(),
+                                Meshes=particles.Where(p=>p.DrawNode).Select(p=>{var mesh=p.Owner.Model.Meshes[p.Owner.Nodes[p.ParticleId].MeshId/2];var commands=p.Owner.Model.RenderInstructionLists[mesh.DlistId];var material=p.Owner.Model.Materials[p.MaterialId];
+                                    return new{mesh.ListId,mesh.DlistId,Material=material.Name,material.Lighting,ColorCommands=commands.Count(c=>c.Code==InstructionCode.COLOR),
+                                        DiffuseAmbientCommands=commands.Count(c=>c.Code==InstructionCode.DIF_AMB),DiffuseSetsColor=commands.Any(c=>c.Code==InstructionCode.DIF_AMB&&(c.Arguments[0]&(1u<<15))!=0)};}).Distinct().ToArray()}));
+                        }
+                        bool source=BallItems(scene).Count>0;var tint=new Vector3(90/255f,200/255f,1);
+                        Check(scene.GetPresentationEffectTint(effect)==(source?tint:(Vector3?)null),"current picture effect tint map follows only the owning submitted source ball");
+                        var sampled=particles.Select(p=>(ParticleDrawPose)typeof(EffectParticle).GetField("_drawPose",Hidden)!.GetValue(p)!).ToArray();
+                        var colors=sampled.Select(p=>p.Color).ToArray();var expected=colors.Select(c=>source?tint*MathF.Max(c.X,MathF.Max(c.Y,c.Z)):c).ToArray();
+                        if(count){boostPackets+=packets.Length;if(source)tintedBoostPackets+=packets.Length;else nativeBoostPackets+=packets.Length;}
+                        foreach(var packet in packets)
+                        {
+                            bool match=Enumerable.Range(0,expected.Length).Any(i=>(packet.Diffuse-expected[i]).Length<.000002f&&Math.Abs(packet.Alpha-sampled[i].Alpha)<.000002f);
+                            if(!match)Console.WriteLine(JsonSerializer.Serialize(new{Probe="source-ball-boost-color",Identity=selection?.SelectedAppearance.SkinSource??"native",Stage=label,
+                                SourceBallSubmitted=source,EffectId=effect.EffectId,ParticleCount=particles.Length,PacketCount=packets.Length,Type=packet.Type.ToString(),
+                                packet.TextureBindingId,packet.ListId,ActualRgb=new[]{packet.Diffuse.X,packet.Diffuse.Y,packet.Diffuse.Z},
+                                SampledRgb=colors.Select(c=>new[]{c.X,c.Y,c.Z}),ActualAlpha=packet.Alpha,ExpectedAlphas=sampled.Select(p=>p.Alpha),ExpectedRgb=expected.Select(c=>new[]{c.X,c.Y,c.Z})}));
+                            Check(match,"actual native effect136 packet uses blue hue at native brightness only when complete source ball was submitted; fallback retains native RGB");
+                            if(packet.Type==RenderItemType.Mesh&&boostGlModes.Add(source))CheckBoostGlColor(packet,source);
+                        }
+                    }
+
+                    void CheckBoostGlColor(RenderItem packet,bool source)
+                    {
+                        var meshParticle=PlayerEffect(player,"_boostEffect")!.Elements.SelectMany(e=>e.Particles).First(p=>p.DrawNode&&p.Owner.Model.Meshes[p.Owner.Nodes[p.ParticleId].MeshId/2].ListId==packet.ListId);
+                        var mesh=meshParticle.Owner.Model.Meshes[meshParticle.Owner.Nodes[meshParticle.ParticleId].MeshId/2];
+                        Check(!meshParticle.Owner.Model.RenderInstructionLists[mesh.DlistId].Any(c=>c.Code is InstructionCode.COLOR or InstructionCode.DIF_AMB),"actual boost list has no command that can replace packet current color");
+                        int priorProgram=GL.GetInteger(GetPName.CurrentProgram);var priorColor=new float[4];GL.GetFloat(GetPName.CurrentColor,priorColor);
+                        bool discard=GL.IsEnabled(EnableCap.RasterizerDiscard);GL.PushAttrib(AttribMask.AllAttribBits);
+                        float[] actual=new float[4];
+                        try
+                        {
+                            GL.Enable(EnableCap.RasterizerDiscard);GL.ColorMask(false,false,false,false);GL.DepthMask(false);
+                            GraphicsApi.UseProgram((int)typeof(Scene).GetField("_shaderProgramId",Hidden)!.GetValue(scene)!);
+                            typeof(Scene).GetMethod("RenderItem",Hidden,null,[typeof(RenderItem)],null)!.Invoke(scene,[packet]);
+                            GL.GetFloat(GetPName.CurrentColor,actual);
+                            Check((new Vector3(actual[0],actual[1],actual[2])-packet.Diffuse).Length<.000002f,"actual owned136 mesh list preserves independently verified sampled native/source packet color in GL");
+                        }
+                        finally{GraphicsApi.UseProgram(priorProgram);if(!discard)GL.Disable(EnableCap.RasterizerDiscard);GL.PopAttrib();}
+                        var restored=new float[4];GL.GetFloat(GetPName.CurrentColor,restored);
+                        Check(GL.GetInteger(GetPName.CurrentProgram)==priorProgram&&restored.SequenceEqual(priorColor)&&GL.IsEnabled(EnableCap.RasterizerDiscard)==discard,"bounded boost GL observation restores prior program/current color/rasterizer state");
+                        Console.WriteLine(JsonSerializer.Serialize(new{Probe="boost136-owned-list-current-gl-color",Identity=selection?.SelectedAppearance.SkinSource??"native",Source=source,packet.ListId,Rgb=actual.Take(3),Rasterized=false}));
+                    }
                 }
                 finally{if(scene!=null)Release(scene);}
             }
@@ -746,9 +901,11 @@ internal static class CharacterCannonRuntimeOwnedProbe
                 NativeSha256Before=nativeBefore,NativeSha256After=nativeAfter,TemporaryDerivedDataDeleted=cleaned,Captures=captures,
                 Runs=runs.Select(run=>new{run.Identity,Frames=run.Trace.Length,GameplayTraceSha256=Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.Trace))),
                     run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError,run.FractionalSchedules,run.Ball,
-                    TrailHistoryFrames=run.TrailTrace?.Length,TrailHistoryTraceSha256=run.TrailTrace==null?null:Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.TrailTrace))),run.Trail}),
-                Scope="Actual owned offline input/Scene/GX; fixed "+(trooper?"Weavel/four Trooper206tri/35joint/three-material":"Samus/normal392tri+Final793tri/39joint/own source materials+Final shell alpha")+" source cannon; "+(probeBall?"normal2220tri and Final8170tri two-joint source balls with independent material/heart policy,1415-step parity trace with native roll/bomb/injected death/native respawn plus separately counted ball pause/guards/fractional schedules/retirement;":"675-step parity trace;")+" native muzzle/effect/weapon authority plus separately counted source-cannon simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
+                    TrailHistoryFrames=run.TrailTrace?.Length,TrailHistoryTraceSha256=run.TrailTrace==null?null:Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.TrailTrace))),run.Trail,
+                    EffectTraceFrames=run.EffectTrace?.Length,EffectCanonicalTraceSha256=run.EffectTrace==null?null:Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.EffectTrace))),run.Boost}),
+                Scope="Actual owned offline input/Scene/GX; fixed "+(trooper?"Weavel/four Trooper206tri/35joint/three-material":"Samus/normal392tri+Final793tri/39joint/own source materials+Final shell alpha")+" source cannon; "+(probeBoost?"explicit boost-expanded script with genuine bound-key charge/release and separate canonical effect trace; legacy1415 flags unchanged;":probeBall?"normal2220tri and Final8170tri two-joint source balls with independent material/heart policy,1415-step parity trace with native roll/bomb/injected death/native respawn plus separately counted ball pause/guards/fractional schedules/retirement;":"675-step parity trace;")+" native muzzle/effect/weapon authority plus separately counted source-cannon simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
                 TrailScope=probeTrail?"actual native TrailStack packet tint only, completed-step active native history parity; no fabricated emitter or gameplay ticks; no other core/boost/furl effects":null,
+                BoostScope=probeBoost?"actual136 boost key charge/release, separate expanded gameplay/canonical-effect trace, packet-only blue hue at native brightness; native furl30 unchanged, no fabricated emitter":null,
                 Unqualified=new[]{"physical controls","Android/macOS","online/replay","source cannon skeletal animation","other weapons","achieved refresh rate","visual art completeness"}}));
         }
         return error==null?0:1;
@@ -758,6 +915,29 @@ internal static class CharacterCannonRuntimeOwnedProbe
     private static List<RenderItem> SourceItems(Scene scene)=>AllSourceItems(scene).Where(i=>i.ViewModel).ToList();
     private static List<RenderItem> BallItems(Scene scene)=>AllSourceItems(scene).Where(i=>i.SourceGx?.AlternateForm==true).ToList();
     private static List<RenderItem> TrailItems(Scene scene)=>WorldItems(scene).Where(i=>i.Type==RenderItemType.TrailStack).ToList();
+    private static EffectEntry? PlayerEffect(PlayerEntity player,string field)=>(EffectEntry?)typeof(PlayerEntity).GetField(field,Hidden)!.GetValue(player);
+    private static string EffectState(Scene scene,PlayerEntity player)
+    {
+        using var bytes=new MemoryStream();using var writer=new BinaryWriter(bytes);
+        writer.Write(scene.Random.Rng1);writer.Write(scene.Random.Rng2);writer.Write(Rng.Rng1);writer.Write(Rng.Rng2);
+        void Vector(Vector3 v){writer.Write(v.X);writer.Write(v.Y);writer.Write(v.Z);}
+        foreach(string name in new[]{"_boostEffect","_furlEffect"})
+        {
+            var entry=PlayerEffect(player,name);writer.Write(entry!=null);if(entry==null)continue;writer.Write(entry.EffectId);writer.Write(entry.IsFinished);writer.Write(entry.Elements.Count);
+            foreach(var element in entry.Elements)
+            {
+                writer.Write((uint)element.Flags);writer.Write(element.CreationTime);writer.Write(element.ExpirationTime);writer.Write(element.DrainTime);writer.Write(element.BufferTime);writer.Write(element.Lifespan);writer.Write(element.ParticleAmount);writer.Write(element.Expired);
+                for(int r=0;r<4;r++)for(int c=0;c<4;c++){writer.Write(element.OwnTransform[r,c]);writer.Write(element.Transform[r,c]);}
+                writer.Write(element.Particles.Count);foreach(var particle in element.Particles)
+                {
+                    writer.Write(particle.CreationTime);writer.Write(particle.ExpirationTime);writer.Write(particle.Lifespan);writer.Write(particle.ParticleId);writer.Write(particle.MaterialId);
+                    Vector(particle.Position);Vector(particle.Speed);writer.Write(particle.Red);writer.Write(particle.Green);writer.Write(particle.Blue);writer.Write(particle.Alpha);writer.Write(particle.Scale);writer.Write(particle.Rotation);
+                }
+                foreach(var material in element.Model.Materials){Vector(material.CurrentDiffuse);writer.Write(material.CurrentAlpha);writer.Write((int)material.RenderMode);}
+            }
+        }
+        return Sha(bytes.ToArray());
+    }
     private static string TrailHistory(PlayerEntity player,bool activeOnly)
     {
         var alphas=(float[,])typeof(PlayerEntity).GetField("_mbTrailAlphas",Hidden)!.GetValue(player)!;
