@@ -400,24 +400,47 @@ internal static class PirateBlasterSceneTests
                 syntheticSetup="one native Spawn after real floor, body-center LOS and standing capsule clearance queries"}));
             Check(found,"bounded actual floor/body-center LOS/standing-clearance search finds native bot placement");
             Vector3 facing=p.Position-position;facing.Y=0;facing.Normalize();
-            bot.Spawn(position,facing,Vector3.UnitY,p.NodeRef,respawn:true);
+            bot.Spawn(position,facing,Vector3.UnitY,p.NodeRef,respawn:false);
+            Console.WriteLine("PIRATE BLASTER NATIVE BOT SPAWN FACING "+JsonSerializer.Serialize(new{requested=Components(facing),actual=Components(bot.FacingVector),
+                towardHuman=Components((p.Position-bot.Position).Normalized()),dot=Vector3.Dot(bot.FacingVector,(p.Position-bot.Position).Normalized()),
+                human=Components(p.Position),bot=Components(bot.Position)}));
+            Check((bot.Position-position).Length<.0001f,"native non-respawn setup preserves queried standing coordinates without respawn Y offset");
+            Console.WriteLine("PIRATE BLASTER NATIVE BOT POST-SPAWN "+JsonSerializer.Serialize(new{human=NativePlayerView(p),bot=NativePlayerView(bot),ai=BotAiView(bot),los=NativeReciprocalLos(f,bot)}));
             Check(bot.IsBot&&bot.ModIsInPlay&&bot.Health>0&&bot.TeamIndex!=p.TeamIndex&&!bot.ModMatchSpawnProtectionActive,
                 "public native Spawn preserves live unmodified opposing bot AI");
             int nativeDealt=state.MatchDamageDealt[1],humanTaken=state.MatchDamageTaken[0],nativeHits=state.ShotsHit[1];
             int privateDealt=state.MatchDamageDealt[0],botTaken=state.MatchDamageTaken[1],humanKills=state.Kills[0],botDeaths=state.Deaths[1];
             ulong privateHits=r.Hits;bool nativeBeamSeen=false;int receiveSteps=0,returnSteps=0;
+            var trace=new List<object>();var emissions=new List<object>();var priorLive=new Dictionary<BeamProjectileEntity,float>();
             void ObserveNativeBeam()
             {
+                var now=new Dictionary<BeamProjectileEntity,float>();
                 foreach(var beam in bot.EquipInfo.Beams)
-                    if(ReferenceEquals(beam.Owner,bot)&&beam.ModCustomShot==null&&beam.Lifespan>0&&Contains(f.Scene,beam))nativeBeamSeen=true;
+                {
+                    if(!ReferenceEquals(beam.Owner,bot)||beam.ModCustomShot!=null||beam.Lifespan<=0||!Contains(f.Scene,beam))continue;
+                    nativeBeamSeen=true;now[beam]=beam.Age;
+                    if(emissions.Count<12&&(!priorLive.TryGetValue(beam,out float age)||beam.Age<age))
+                    {
+                        var sample=NativeEmissionView(f,bot,beam,receiveSteps);emissions.Add(sample);
+                        Console.WriteLine("PIRATE BLASTER NATIVE EMISSION "+JsonSerializer.Serialize(sample));
+                    }
+                }
+                priorLive=now;
             }
             bool PaidNativeBeam()=>nativeBeamSeen&&state.ShotsHit[1]>nativeHits
                 &&state.MatchDamageDealt[1]>nativeDealt&&state.MatchDamageTaken[0]>humanTaken;
             for(;receiveSteps<900&&!PaidNativeBeam()&&p.Health>0&&bot.Health>0;receiveSteps++)
-            {f.Step(alive:false);ObserveNativeBeam();}
+            {
+                f.Step(alive:false);ObserveNativeBeam();
+                if(receiveSteps%60==0)
+                {
+                    var sample=new{phase="receive",step=receiveSteps,frame=f.Scene.FrameCount,human=NativePlayerView(p),bot=NativePlayerView(bot),ai=BotAiView(bot),los=NativeReciprocalLos(f,bot),
+                        nativeShots=state.ShotsFired[1],nativeHits=state.ShotsHit[1],nativeDamage=state.MatchDamageDealt[1],humanTaken=state.MatchDamageTaken[0]};
+                    trace.Add(sample);Console.WriteLine("PIRATE BLASTER NATIVE RECEIVE "+JsonSerializer.Serialize(sample));
+                }
+            }
             bool receivedNativeBeamDamage=PaidNativeBeam();
-            var trace=new List<object>();
-            if(receivedNativeBeamDamage&&p.Health>0&&bot.Health>0)
+            if(p.Health>0&&bot.Health>0)
             {
                 var tracker=new NativeMouseTracker(f);
                 for(;returnSteps<600&&p.Health>0&&bot.Health>0&&(p.ModPirateUa>0||r.Snapshot.Tails);returnSteps++)
@@ -431,11 +454,12 @@ internal static class PirateBlasterSceneTests
                 &&state.MatchDamageDealt[0]>privateDealt&&state.MatchDamageTaken[1]>botTaken;
             bool botKill=state.Kills[0]==humanKills+1&&state.Deaths[1]==botDeaths+1;
             var result=new {checks=_checks,room,scope="separate actual reciprocal native AI combat; real admitted bot; one synthetic native Spawn placement; human keyboard/raw-mouse controls",
-                receiveBound=900,returnBound=600,receiveSteps,returnSteps,nativeBeamSeen,receivedNativeBeamDamage,paidPrivateDamage,botKill,
+                receiveBound=900,returnBound=600,receiveSteps,returnSteps,nativeBeamSeen,receivedNativeBeamDamage,
+                nativeDamageBeforeReturn=receivedNativeBeamDamage,nativeDamageAnyPhase=PaidNativeBeam(),paidPrivateDamage,botKill,
                 nativeBeamHits=state.ShotsHit[1]-nativeHits,nativeDamage=state.MatchDamageDealt[1]-nativeDealt,humanDamageTaken=state.MatchDamageTaken[0]-humanTaken,
                 privateDamage=state.MatchDamageDealt[0]-privateDealt,botDamageTaken=state.MatchDamageTaken[1]-botTaken,
                 privateShots=r.Shots,privateHits=r.Hits-privateHits,humanHp=p.Health,botHp=bot.Health,
-                kills=state.Kills[0]-humanKills,deaths=state.Deaths[1]-botDeaths,impact=ImpactView(r.LastImpact),trace,
+                kills=state.Kills[0]-humanKills,deaths=state.Deaths[1]-botDeaths,impact=ImpactView(r.LastImpact),trace,emissions,
                 botAiOverridden=false,botControlsOverridden=false,healthWritten=false,privateCountersWritten=false,
                 syntheticPlacement=true,subsequentPositionPinned=false};
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);File.WriteAllText(output,JsonSerializer.Serialize(result,new JsonSerializerOptions{WriteIndented=true}));
@@ -485,6 +509,75 @@ internal static class PirateBlasterSceneTests
             float y=Math.Clamp(MathF.Round((Pitch(desired)-Pitch(current))/_pitchPerPixel),-16,16);
             Move(x,y);
         }
+    }
+
+    private static float[] Components(Vector3 value)=>new[]{value.X,value.Y,value.Z};
+    private static object BotAiView(PlayerEntity bot)
+    {
+        object? Read(string name)=>bot.AiData.GetType().GetField(name,Hidden)?.GetValue(bot.AiData);
+        int? Slot(string name)=>(Read(name)as PlayerEntity)?.SlotIndex;
+        string? Scalar(string name)=>Read(name)?.ToString();
+        return new{nativeTarget=Slot("_targetPlayer"),tacticalTarget=Slot("_tacticalTarget"),reactionTarget=Slot("_botReactionTarget"),
+            flags1=bot.AiData.Flags1,flags2=bot.AiData.Flags2.ToString(),flags3=bot.AiData.Flags3.ToString(),flags4=bot.AiData.Flags4.ToString(),
+            forceDisable=Scalar("_forceDisable"),state=Scalar("_state"),mode=Scalar("_mode"),shotDelay=Scalar("_shotDelay"),
+            tacticalWeapon=Scalar("_tacticalWeapon"),decisionTimer=Scalar("_tacticalDecisionTimer"),
+            reactionFrames=Scalar("_botReactionFrames"),suppressedFire=Scalar("_botSuppressFireThisTick")};
+    }
+    private static object NativePlayerView(PlayerEntity player)
+    {
+        ushort Read(string name)=>(ushort)typeof(PlayerEntity).GetField(name,Hidden)!.GetValue(player)!;
+        return new{slot=player.SlotIndex,hp=player.Health,position=Components(player.Position),speed=Components(player.Speed),
+            facing=Components(player.FacingVector),camera=Components(player.CameraInfo.Position),aim=Components((Vector3)typeof(PlayerEntity).GetField("_gunVec1",Hidden)!.GetValue(player)!),
+            weapon=player.CurrentWeapon.ToString(),inPlay=player.ModIsInPlay,alt=player.IsAltForm,morphing=player.IsMorphing,unmorphing=player.IsUnmorphing,
+            flags1=player.Flags1.ToString(),flags2=player.Flags2.ToString(),load=player.LoadFlags.ToString(),team=player.TeamIndex,
+            player.TimeSinceShot,player.RespawnTimer,spawnInvulnerability=Read("_spawnInvulnTimer"),damageInvulnerability=Read("_damageInvulnTimer"),
+            freezeTimer=Read("_frozenTimer"),matchSpawnProtection=player.ModMatchSpawnProtectionActive};
+    }
+    private static object NativeEmissionView(Fixture f,PlayerEntity bot,BeamProjectileEntity beam,int phaseStep)
+    {
+        var p=f.Player;var body=NetHistoricalTrace.CurrentBody(p);
+        Vector3 center=body.Type==HistoricalBodyType.BipedCylinder?body.Position.AddY((body.Bottom+body.Top)/2):body.Position;
+        Vector3 toward=center-beam.SpawnPosition;var world=new CollisionResult();
+        bool worldBlocked=CollisionDetection.CheckBetweenPoints(beam.SpawnPosition,center,TestFlags.Beams,f.Scene,ref world);
+        Vector3 rayEnd=beam.SpawnPosition+beam.Direction*40;
+        bool rayHit=NetHistoricalTrace.Intersect(body,beam.SpawnPosition,rayEnd,.1f,out var ray);
+        var rayWall=new CollisionResult();bool rayWorldBlocked=CollisionDetection.CheckBetweenPoints(beam.SpawnPosition,rayEnd,TestFlags.Beams,f.Scene,ref rayWall);
+        bool segmentHit=NetHistoricalTrace.Intersect(body,beam.BackPosition,beam.Position,.1f,out var segment);
+        int beamIndex=(int)beam.Beam;
+        return new{phaseStep,frame=f.Scene.FrameCount,beam=beam.Beam.ToString(),beamKind=beam.BeamKind.ToString(),beam.Damage,beam.HeadshotDamage,
+            beam.Age,beam.Lifespan,beam.MaxDistance,beam.Homing,beam.Initialized,sceneMember=Contains(f.Scene,beam),flags=beam.Flags.ToString(),position=Components(beam.Position),
+            spawn=Components(beam.SpawnPosition),back=Components(beam.BackPosition),direction=Components(beam.Direction),velocity=Components(beam.Velocity),
+            directionDotHuman=toward.LengthSquared>.00001f?Vector3.Dot(beam.Direction,toward.Normalized()):0,
+            humanBody=new{body.Slot,position=Components(body.Position),body.Bottom,body.Top,body.Radius,type=body.Type.ToString()},
+            probeRadius=.1f,worldBlocked,worldHit=worldBlocked?Components(world.Position):null,rayHit,rayFraction=rayHit?ray.Distance:-1,
+            segmentHit,segmentFraction=segmentHit?segment.Distance:-1,rayWorldBlocked,
+            firstWorldFraction=rayWorldBlocked?(rayWall.Position-beam.SpawnPosition).Length/40:-1,
+            effectiveness=beamIndex is >=0 and <9?p.BeamEffectiveness[beamIndex].ToString():"not-native-index",
+            human=NativePlayerView(p),bot=NativePlayerView(bot),ai=BotAiView(bot),los=NativeReciprocalLos(f,bot),
+            cameraBlocksInput=f.Scene.CameraSequences.Current?.BlockInput??false,suppression=f.Scene.Services.SuppressDamage,privateDefinition=beam.ModCustomDefinition!=null,
+            nativeShots=f.Scene.GameState.ShotsFired[1],nativeHits=f.Scene.GameState.ShotsHit[1]};
+    }
+
+    private static object NativeReciprocalLos(Fixture f,PlayerEntity bot)
+    {
+        Vector3 Field(PlayerEntity p,string field)=>(Vector3)typeof(PlayerEntity).GetField(field,Hidden)!.GetValue(p)!;
+        var human=f.Player;var botBody=NetHistoricalTrace.CurrentBody(bot);var humanBody=NetHistoricalTrace.CurrentBody(human);
+        Vector3 Center(HistoricalBody body)=>body.Type==HistoricalBodyType.BipedCylinder?body.Position.AddY((body.Bottom+body.Top)/2):body.Position;
+        bool Blocked(Vector3 start,Vector3 end,TestFlags flags)
+        {var result=new CollisionResult();return CollisionDetection.CheckBetweenPoints(start,end,flags,f.Scene,ref result);}
+        Vector3 botMuzzle=Field(bot,"_muzzlePos"),botAim=Field(bot,"_aimPosition"),humanMuzzle=Field(human,"_muzzlePos");
+        Vector3 botCamera=bot.CameraInfo.Position==Vector3.Zero?bot.Position.AddY(bot.IsAltForm ? .5f : 1f):bot.CameraInfo.Position;
+        float humanHeight=human.IsAltForm?Math.Max(.35f,Fixed.ToFloat(human.Values.AltColYPos)):1;
+        Vector3 humanCamera=human.CameraInfo.Position==Vector3.Zero?human.Position.AddY(humanHeight):human.CameraInfo.Position;
+        return new{botMuzzle=Components(botMuzzle),botAim=Components(botAim),humanMuzzle=Components(humanMuzzle),
+            botBodyCenter=Components(Center(botBody)),humanBodyCenter=Components(Center(humanBody)),
+            botMuzzleToHumanBody=Blocked(botMuzzle,Center(humanBody),TestFlags.Beams),
+            humanMuzzleToBotBody=Blocked(humanMuzzle,Center(botBody),TestFlags.Beams),
+            botMuzzleToActualAim=Blocked(botMuzzle,botAim,TestFlags.Beams),
+            botCameraToHumanCamera=Blocked(botCamera,humanCamera,TestFlags.None),
+            botCameraToHuman06=Blocked(botCamera,human.Position.AddY(humanHeight*.6f),TestFlags.None),
+            botCameraToHuman03=Blocked(botCamera,human.Position.AddY(Math.Min(.3f,humanHeight*.3f)),TestFlags.None),
+            valuesMeanWorldBlocked=true};
     }
 
 }
