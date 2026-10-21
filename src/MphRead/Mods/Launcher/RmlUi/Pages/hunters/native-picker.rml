@@ -34,7 +34,7 @@
                 </div>
                 <div id="hunter_local_body" style="display:none">
                     <div class="section-title">LOCAL OFFLINE SAMUS BODY</div>
-                    <div class="hint">Requires your local Echoes import. Native gun, ball and unsupported states remain visible. Online uses your native loadout.</div>
+                    <div class="hint">Requires your local Echoes import. Preview, gun and ball stay native. Jumps, morphing, status effects and dynamic shadows use native presentation. Online uses your native loadout.</div>
                     <div class="hunter-suits">
                         <button id="hunter_body0" data-action="hunter:body-select:0">NATIVE</button>
                         <button id="hunter_body1" data-action="hunter:body-select:1">DARK SAMUS</button>

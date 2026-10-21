@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **76** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **79** (`NetConfig.ProtocolVersion`).
 - Protocol76 selects Quake3 profile v4 and Traversal profile v5. Qualified static
   walkable ground uses surface-speed acceleration and contact redirection;
   earned Traversal slides receive one bounded slope-gravity force per fixed tick.
@@ -100,7 +100,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Never restore IntentBundle, observer bundling, snapshot keyframes/deltas,
   baseline reconstruction or damage sidecars from reverted PR #28.
 - The protocol-16 byte-equivalence and protocol-17 migration notes describe the
-  historical Netcode P0 train; current internal refactors preserve protocol 75
+  historical Netcode P0 train; current internal refactors preserve current source
   packet identities and layouts unless independently justified and versioned.
 - Spawn placements are lifecycle operations, not movement reconciliation.
   Same-life snapshots never correct the local owner collision body or velocity;
@@ -256,7 +256,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 - Protocol 31 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
   SessionState carries the modifier word after its protocol-28 payload; status
-  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion` (currently 75).
+  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion`.
 - Protocols 24–30 recorded session packets convert their combined flags at the
   replay boundary. Decoder checkpoints use the recorded protocol's packet size.
 - Octolith Auto Reset is authoritative and only valid in Capture/Bounty/Relic. The

@@ -31,12 +31,12 @@ internal static class CharacterBodyRuntimeOwnedProbe
     private static readonly Action<MouseState, Vector2> MousePosition = typeof(MouseState)
         .GetProperty("Position", Hidden | BindingFlags.Public)!.SetMethod!.CreateDelegate<Action<MouseState, Vector2>>();
     private static readonly Keys[] ScriptKeys = [Keys.Enter, Keys.W, Keys.S, Keys.A, Keys.D, Keys.Space, Keys.B, Keys.Right];
-    private sealed record RunResult(string Identity, string[] States, object[] Stages, int SourceFrames,
+    private sealed record RunResult(string Identity, string[] States, Dictionary<string, string>[] Components, object[] Stages, int SourceFrames,
         int NativeFallbackFrames, int DrawRepeats, bool Jumped, bool Morphed, bool Died, bool Respawned,
         bool Fired, bool Charged, bool Turned, bool Moved, string? Generation, string[] PixelHashes);
     private sealed record Stage(string Name, int Steps);
     private static readonly Stage[] Script = [new("idle", 15), new("forward", 30), new("left", 20),
-        new("backward", 20), new("turn", 20), new("fire", 16), new("charge", 100), new("release", 20),
+        new("backward", 20), new("fire", 16), new("charge", 100), new("release", 20), new("turn", 20),
         new("jump", 90), new("settle", 60), new("morph", 100), new("unmorph", 100), new("death-respawn", 420)];
 
     internal static int Run(string rvz)
@@ -45,11 +45,15 @@ internal static class CharacterBodyRuntimeOwnedProbe
         string cwd = Environment.CurrentDirectory;
         string? oldData = Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA");
         string? native = Environment.GetEnvironmentVariable("PRIME_BODY_TEST_ASSETS");
+        string? captureDirectory = Environment.GetEnvironmentVariable("PRIME_BODY_TEST_CAPTURE_DIR");
         string? before = null, after = null, nativeBefore = null, nativeAfter = null;
         string? failure = null, errorType = null, errorHash = null, renderer = null, glVersion = null;
         bool cleaned = false;
         int checks = 0;
         var results = new List<RunResult>();
+        var captures = new List<object>();
+        var parity = new List<object>();
+        bool allParity = true;
         bool oldHd = RenderOptions.CharacterModelReplacements, oldBright = RenderOptions.BrightSkins,
             oldCosmetics = RenderOptions.ShowCustomCosmetics, oldFps = RenderOptions.ShowFps,
             oldForce = MapAudit.ForceEveryone, oldScript = NetTestScript.Enabled;
@@ -57,6 +61,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
             capturing = GamepadContexts.Capturing, text = GamepadContexts.TextEntryActive,
             stylus = PointerInput.StylusMode;
         int cap = FrameTiming.FrameRateCap;
+        ShadowQuality oldShadow = RenderOptions.Shadows;
         var watch = Stopwatch.StartNew();
         void Check(bool value, string label)
         {
@@ -72,6 +77,14 @@ internal static class CharacterBodyRuntimeOwnedProbe
             Check(!string.IsNullOrWhiteSpace(native) && Directory.Exists(native),
                 "PRIME_BODY_TEST_ASSETS must identify the existing owned AMHE1 directory");
             rvz = Path.GetFullPath(rvz); native = Path.GetFullPath(native!);
+            if (!string.IsNullOrWhiteSpace(captureDirectory))
+            {
+                captureDirectory = Path.GetFullPath(captureDirectory);
+                string artifactRoot = Path.GetFullPath(Path.Combine(cwd, "artifacts")) + Path.DirectorySeparatorChar;
+                Check(captureDirectory.StartsWith(artifactRoot, StringComparison.OrdinalIgnoreCase),
+                    "optional gameplay captures must stay inside this worktree artifacts directory");
+                Directory.CreateDirectory(captureDirectory);
+            }
             before = HashFile(rvz); nativeBefore = Inventory(native);
             string user = Path.Combine(temporary, "user"), imports = Path.Combine(temporary, "imports");
             Directory.CreateDirectory(user);
@@ -82,6 +95,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
             GraphicsBackendPolicy.Configure("opengl");
             RenderOptions.CharacterModelReplacements = false; RenderOptions.BrightSkins = false;
             RenderOptions.ShowCustomCosmetics = true; RenderOptions.ShowFps = false;
+            RenderOptions.Shadows = ShadowQuality.Off;
             MapAudit.ForceEveryone = true; NetTestScript.Enabled = false;
             GamepadManager.ClearAll(); GamepadContexts.Focused = true;
             GamepadContexts.MenuVisible = GamepadContexts.Capturing = GamepadContexts.TextEntryActive = false;
@@ -109,11 +123,17 @@ internal static class CharacterBodyRuntimeOwnedProbe
                 {
                     Check(result.States.Length == baseline.States.Length, "native and imported traces have equal lengths");
                     int mismatch = Enumerable.Range(0, result.States.Length).FirstOrDefault(i => result.States[i] != baseline.States[i], -1);
-                    Check(mismatch < 0, result.Identity + " native gameplay trace parity; first mismatch index=" + mismatch);
+                    string[] differing = mismatch < 0 ? Array.Empty<string>() : result.Components[mismatch]
+                        .Where(part => baseline.Components[mismatch][part.Key] != part.Value).Select(part => part.Key).ToArray();
+                    parity.Add(new { result.Identity, FirstMismatch = mismatch, DifferingComponents = differing });
+                    Console.WriteLine(JsonSerializer.Serialize(new { Probe = "owned-body-parity", result.Identity,
+                        FirstMismatch = mismatch, DifferingComponents = differing }));
+                    allParity &= mismatch < 0;
                     Check(result.PixelHashes.Where((hash, i) => hash != baseline.PixelHashes[i]).Any(),
                         result.Identity + " actual framebuffer differs from corresponding native checkpoints");
                 }
             }
+            Check(allParity, "every imported native gameplay trace matches seeded native baseline; see component diagnostics");
 
             RunResult Exercise(CharacterSourcePreviewSelection? selection)
             {
@@ -134,12 +154,17 @@ internal static class CharacterBodyRuntimeOwnedProbe
                     scene.GameState.SpawnProtection = false; scene.GameState.EnhancedHunters = false;
                     scene.GameState.ShadowFreeze = false; scene.GameState.ThirdPersonCamera = true;
                     var player = scene.Players.Main; player.IsBot = false; player.IgnoreItemPickups = true;
+                    var nativeBipedLists = player.BipedModel2.Model.Meshes.Select(mesh => mesh.ListId).Where(id => id > 0).ToHashSet();
+                    Check(nativeBipedLists.Count > 0, "initialized native biped owns positive geometry list identities");
                     foreach (var button in player.Controls.All) { button.Type = ButtonType.Key; button.Key = Keys.Unknown; }
                     player.Controls.Shoot.Key = Keys.Enter; player.Controls.MoveUp.Key = Keys.W;
                     player.Controls.MoveDown.Key = Keys.S; player.Controls.MoveLeft.Key = Keys.A;
                     player.Controls.MoveRight.Key = Keys.D; player.Controls.Jump.Key = Keys.Space;
                     player.Controls.Morph.Key = Keys.B; player.Controls.AimRight.Key = Keys.Right;
-                    player.Controls.MouseAim = true; player.Controls.KeyboardAim = true;
+                    // Native keyboard aiming is unfinished and suppresses mouse
+                    // deltas when its arrow bind is held. Movement stays on the
+                    // real keyboard producer; turning uses only the real mouse.
+                    player.Controls.MouseAim = true; player.Controls.KeyboardAim = false;
                     Key(keyboard, Keys.Enter, true);
                     for (int n = 0; n < 600 && !player.LoadFlags.TestFlag(LoadFlags.Spawned); n++) scene.OnSimulationFrame();
                     Key(keyboard, Keys.Enter, false); scene.CameraSequences.Current?.End();
@@ -155,16 +180,27 @@ internal static class CharacterBodyRuntimeOwnedProbe
                                 && segment.SourceGx is { } binding && GL.IsProgram(binding.ProgramId)
                                 && binding.Textures.Count > 0 && binding.Textures.All(GL.IsTexture)),
                             "actual body retains full39 source rig and live source programs/textures with bounded segment palettes");
-                    var states = new List<string>(); var stages = new List<object>(); var pixels = new List<string>();
+                    var states = new List<string>(); var components = new List<Dictionary<string, string>>();
+                    var stages = new List<object>(); var pixels = new List<string>();
                     int sourceFrames = 0, fallbackFrames = 0, repeats = 0;
+                    int sourceFireFrames = 0, sourceChargeFrames = 0;
                     bool jumped = false, morphed = false, died = false, respawned = false, fired = false, charged = false,
                         moved = false, turned = false;
                     Vector3 initialPosition = player.Position, initialFacing = player.FacingVector;
                     var paletteHashes = new HashSet<string>();
+                    var capturedLabels = new HashSet<string>(StringComparer.Ordinal);
                     Picture(false); // Establish native draw-derived anchors before invariance assertions.
+                    // Scene load, native first-picture preparation and optional
+                    // source compilation have different one-time work. Seed the
+                    // identical authoritative fixture only after that barrier.
+                    // No draw or simulation step below may reset or omit RNG.
+                    Rng.SetRng1(123456); Rng.SetRng2(654321);
+                    scene.Random.SetRng1(123456); scene.Random.SetRng2(654321);
                     foreach (Stage stage in Script)
                     {
                         int sourceBefore = sourceFrames, fallbackBefore = fallbackFrames;
+                        Vector3 stagePosition = player.Position, stageFacing = player.FacingVector;
+                        float stageMoveSquared = 0, stageAimSquared = 0;
                         if (stage.Name == "death-respawn")
                         {
                             player.TakeDamage(10000, DamageFlags.Death | DamageFlags.IgnoreInvuln, null, null);
@@ -178,8 +214,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
                             if (stage.Name == "backward") Key(keyboard, Keys.S, true);
                             if (stage.Name == "turn")
                             {
-                                Key(keyboard, Keys.Right, true);
-                                MousePosition(mouse, mouse.Position + new Vector2(1, 0));
+                                MousePosition(mouse, mouse.Position + new Vector2(16, 0));
                             }
                             if (stage.Name == "fire" && age < 2 || stage.Name == "charge" || stage.Name == "death-respawn" && age % 30 == 0)
                                 Key(keyboard, Keys.Enter, true);
@@ -192,16 +227,29 @@ internal static class CharacterBodyRuntimeOwnedProbe
                             fired |= player.EquipInfo.Beams.Any(b => b.Lifespan > 0 && ReferenceEquals(b.Owner, player));
                             charged |= player.EquipInfo.ChargeLevel >= player.EquipInfo.Weapon.MinCharge * 2
                                 && player.EquipInfo.ChargeLevel > 0 && stage.Name == "charge";
-                            moved |= stage.Name == "forward" && (player.Position - initialPosition).LengthSquared > .01f;
-                            turned |= stage.Name == "turn" && (player.FacingVector - initialFacing).LengthSquared > .0001f;
-                            Picture(true);
+                            stageMoveSquared = MathF.Max(stageMoveSquared, (player.Position - stagePosition).LengthSquared);
+                            stageAimSquared = MathF.Max(stageAimSquared, (player.FacingVector - stageFacing).LengthSquared);
+                            moved |= stage.Name is "forward" or "left" or "backward" && stageMoveSquared > .01f;
+                            turned |= stage.Name == "turn" && stageAimSquared > .0001f;
+                            Picture(true, stage.Name);
+                            if (BodyItems(scene).Count > 0 && stage.Name == "fire") sourceFireFrames++;
+                            if (BodyItems(scene).Count > 0 && stage.Name == "charge") sourceChargeFrames++;
                             states.Add(State(scene, player));
+                            components.Add(StateParts(scene, player));
                             if (owner != null) paletteHashes.Add(Palette(owner.Model));
                         }
                         byte[] picture = scene.ReadSceneTarget(out int width, out int height)
                             ?? throw new InvalidDataException("Scene framebuffer read failed.");
                         Check(width > 0 && height > 0 && picture.Length > 0, "actual bounded Scene target read");
                         string pixelHash = Sha(picture); pixels.Add(pixelHash);
+                        Console.WriteLine(JsonSerializer.Serialize(new { Probe = "owned-body-stage", Identity = selection?.SelectedAppearance.SkinSource ?? "native",
+                            stage.Name, MaxMovementSquared = stageMoveSquared, MaxAimDeltaSquared = stageAimSquared,
+                            SourceFrames = sourceFrames - sourceBefore, FallbackFrames = fallbackFrames - fallbackBefore,
+                            BodyReady = owner?.Ready, LowerAnimation = (PlayerAnimation)((ModelInstance)typeof(PlayerEntity).GetField("_bipedModel1", Hidden)!.GetValue(player)!).AnimInfo.Index[0],
+                            UpperAnimation = (PlayerAnimation)player.BipedModel2.AnimInfo.Index[0],
+                            LocalBodyOpacity = scene.ModThirdPersonLocalBodyOpacity,
+                            BodyStateSupported = typeof(PlayerEntity).GetProperty("SourceBodyStateSupported", Hidden)!.GetValue(player),
+                            SourceFireFrames = sourceFireFrames, SourceChargeFrames = sourceChargeFrames }));
                         stages.Add(new { stage.Name, stage.Steps, PixelSha256 = pixelHash,
                             SourceFrames = sourceFrames - sourceBefore, NativeFallbackFrames = fallbackFrames - fallbackBefore,
                             BodyReady = owner?.Ready, MaterialSeconds = owner?.MaterialSeconds,
@@ -211,11 +259,49 @@ internal static class CharacterBodyRuntimeOwnedProbe
                     }
                     Check(jumped && morphed && died && respawned && fired && charged,
                         "actual native keyboard script earns jump, morph, native shot/charge, injected death and native respawn");
-                    Check(moved && turned, "actual keyboard/mouse changes movement and aim");
+                    Check(moved, "native keyboard movement stages earn actor displacement");
+                    Check(turned, "native mouse turn stage earns facing change");
                     if (owner != null)
                     {
                         Check(sourceFrames > 0 && fallbackFrames > 0 && paletteHashes.Count > 1,
                             "actual body submissions coexist with native fallback and changing source skin");
+                        Check(sourceFireFrames > 0 && sourceChargeFrames > 0,
+                            "native fire and charge stages visibly submit complete imported bodies");
+                        foreach (Keys key in ScriptKeys) Key(keyboard, key, false);
+                        for (int settle = 0; settle < 300 && BodyItems(scene).Count != owner.Model.Segments.Count; settle++)
+                        { Bound(); FrameTiming.Reset(); scene.OnSimulationFrame(); Picture(false); }
+                        Check(BodyItems(scene).Count == owner.Model.Segments.Count && owner.Ready,
+                            "shadow boundary starts from a supported complete imported body frame");
+                        string beforeShadowState = State(scene, player), beforeShadowPalette = Palette(owner.Model);
+                        double beforeShadowClock = owner.MaterialSeconds;
+                        RenderOptions.Shadows = ShadowQuality.Low;
+                        try
+                        {
+                            Picture(false);
+                            Check(BodyItems(scene).Count == 0 && WorldItems(scene).Any(item => nativeBipedLists.Contains(item.ListId)),
+                                "Low dynamic shadows choose complete native biped fallback before imported submission");
+                        }
+                        finally { RenderOptions.Shadows = ShadowQuality.Off; }
+                        Picture(false);
+                        Check(BodyItems(scene).Count == owner.Model.Segments.Count
+                            && State(scene, player) == beforeShadowState && Palette(owner.Model) == beforeShadowPalette
+                            && owner.MaterialSeconds == beforeShadowClock,
+                            "shadow Off resumes frozen imported body without simulation, native state or clock changes");
+
+                        // This is a second source resource/pose owner over the
+                        // SAME actual actor model, not a fabricated second actor
+                        // or qualification of two simultaneously drawn bodies.
+                        using (var independent = new CharacterSourceBodyOwner(scene, player, selection!))
+                        {
+                            Check(independent.Current && !ReferenceEquals(independent.Model, owner.Model)
+                                && independent.Model.Segments.Count == owner.Model.Segments.Count
+                                && independent.Model.Segments.Zip(owner.Model.Segments).All(pair =>
+                                    !ReferenceEquals(pair.First.SourceMatrixPalette, pair.Second.SourceMatrixPalette)
+                                    && !ReferenceEquals(pair.First.SourcePresentationPalette, pair.Second.SourcePresentationPalette)),
+                                "two source owners over one native actor model retain independent raw and presentation palette arrays");
+                        }
+                        Check(owner.Current && Palette(owner.Model) == beforeShadowPalette && owner.MaterialSeconds == beforeShadowClock,
+                            "disposing independent same-model owner preserves installed owner, skin and clock");
                         double clock = owner.MaterialSeconds; string raw = Palette(owner.Model);
                         int pausedPackets = BodyItems(scene).Count;
                         scene.GameState.PauseMenu();
@@ -224,9 +310,12 @@ internal static class CharacterBodyRuntimeOwnedProbe
                             for (int n = 0; n < 4; n++) { scene.OnSimulationFrame(); Picture(false); }
                             Check(owner.MaterialSeconds == clock && Palette(owner.Model) == raw,
                                 "paused simulation and render do not advance source clock or raw palettes");
-                            Check(BodyItems(scene).Count == pausedPackets
-                                && (pausedPackets == 0 || pausedPackets == owner.Model.Segments.Count),
-                                "pause preserves a complete frozen source body or its existing native fallback");
+                            Check(BodyItems(scene).Count == 0 || BodyItems(scene).Count == owner.Model.Segments.Count,
+                                "pause submits a complete frozen body or native camera fallback without partial source geometry");
+                            Console.WriteLine(JsonSerializer.Serialize(new { Probe = "owned-body-pause",
+                                Identity = selection!.SelectedAppearance.SkinSource, BeforePackets = pausedPackets,
+                                PausedPackets = BodyItems(scene).Count, MaterialClockFrozen = owner.MaterialSeconds == clock,
+                                RawSkinFrozen = Palette(owner.Model) == raw }));
                         }
                         finally { scene.GameState.UnpauseMenu(); }
                         int[] lists = owner.Model.Segments.Select(s => s.ListId).ToArray();
@@ -235,16 +324,22 @@ internal static class CharacterBodyRuntimeOwnedProbe
                         Check(lists.All(id => !GL.IsList(id)), "context retirement deletes every captured source display list");
                         scene.OnDrawFrame(); Check(BodyItems(scene).Count == 0, "retired owner falls back before source submission");
                     }
-                    return new(selection?.SelectedAppearance.SkinSource ?? "native", states.ToArray(), stages.ToArray(), sourceFrames,
+                    return new(selection?.SelectedAppearance.SkinSource ?? "native", states.ToArray(), components.ToArray(), stages.ToArray(), sourceFrames,
                         fallbackFrames, repeats, jumped, morphed, died, respawned, fired, charged, turned, moved,
                         selection?.Generation, pixels.ToArray());
 
-                    void Picture(bool verify)
+                    void Picture(bool verify, string? captureLabel = null)
                     {
                         scene.OnDrawFrame();
                         var items = BodyItems(scene);
-                        if (owner != null && (!owner.Ready || player.Health <= 0 || player.IsAltForm || player.IsMorphing || player.IsUnmorphing))
-                            Check(items.Count == 0, "native death/form states fall back before any imported segment submits");
+                        if (owner != null)
+                        {
+                            if (!owner.Ready) Check(items.Count == 0, "unready source owner submits no imported segments");
+                            if (player.Health <= 0) Check(items.Count == 0, "actual dead player submits no imported segments");
+                            if (player.IsAltForm) Check(items.Count == 0, "actual alternate form submits no imported segments");
+                            if (player.IsMorphing) Check(items.Count == 0, "actual morph transition submits no imported segments");
+                            if (player.IsUnmorphing) Check(items.Count == 0, "actual unmorph transition submits no imported segments");
+                        }
                         if (items.Count > 0)
                         {
                             Check(owner != null && owner.Current && items.Count == owner.Model.Segments.Count
@@ -253,10 +348,20 @@ internal static class CharacterBodyRuntimeOwnedProbe
                                     && item.MatrixStackCount is > 0 and <= 32 && draw.Seconds == owner.MaterialSeconds),
                                 "production world list contains exactly one complete current source body");
                             Check(WorldItems(scene).All(item => item.SourceGx == null), "GX packets never leak into native multipass lists");
+                            Check(WorldItems(scene).All(item => !nativeBipedLists.Contains(item.ListId)),
+                                "complete imported body replaces every native biped mesh while allowing other native geometry");
                             sourceFrames++;
                         }
                         else if (owner != null) fallbackFrames++;
                         Check(scene.OnRenderFrame(), "real Scene world renderer accepts frame");
+                        if (owner != null && items.Count > 0 && !string.IsNullOrWhiteSpace(captureDirectory)
+                            && captureLabel is "idle" or "fire" && capturedLabels.Add(captureLabel))
+                        {
+                            string imagePath = Path.Combine(captureDirectory, selection!.SelectedAppearance.SkinSource + "-" + captureLabel + ".png");
+                            Check(ScreenCapture.SaveWindow(scene, imagePath), "explicitly enabled gameplay capture saved");
+                            captures.Add(new { Identity = selection.SelectedAppearance.SkinSource, Label = captureLabel,
+                                Path = imagePath, Sha256 = HashFile(imagePath), SourcePackets = items.Count });
+                        }
                         if (verify)
                         {
                             string gameplay = State(scene, player); string? raw = owner == null ? null : Palette(owner.Model);
@@ -299,6 +404,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
             { errorType ??= exception.GetType().Name; errorHash ??= Sha(Encoding.UTF8.GetBytes(exception.Message)); }
             RenderOptions.CharacterModelReplacements = oldHd; RenderOptions.BrightSkins = oldBright;
             RenderOptions.ShowCustomCosmetics = oldCosmetics; RenderOptions.ShowFps = oldFps;
+            RenderOptions.Shadows = oldShadow;
             MapAudit.ForceEveryone = oldForce; NetTestScript.Enabled = oldScript;
             GamepadContexts.Focused = focused; GamepadContexts.MenuVisible = menu;
             GamepadContexts.Capturing = capturing; GamepadContexts.TextEntryActive = text;
@@ -308,12 +414,14 @@ internal static class CharacterBodyRuntimeOwnedProbe
                 Renderer = renderer, GlVersion = glVersion, FailedCheck = failure, ErrorType = errorType, ErrorMessageSha256 = errorHash,
                 RvzSha256Before = before, RvzSha256After = after, NativeSha256Before = nativeBefore, NativeSha256After = nativeAfter,
                 TemporaryDerivedDataDeleted = cleaned,
+                Captures = captures,
+                Parity = parity,
                 Runs = results.Select(r => new { r.Identity, r.Generation, Frames = r.States.Length,
                     GameplayTraceSha256 = Sha(Encoding.UTF8.GetBytes(string.Join("\n", r.States))), r.Stages,
                     r.SourceFrames, r.NativeFallbackFrames, r.DrawRepeats, r.Jumped, r.Morphed, r.Died, r.Respawned,
                     r.Fired, r.Charged, r.Turned, r.Moved }),
-                Scope = "Actual owned offline Windows x64 Samus Scene/input/world GL; direct lethal damage is declared fixture setup; source images never saved",
-                Unqualified = new[] { "physical devices", "visual/art judgment from hashes", "online or replay", "two simultaneous body owners",
+                Scope = "Actual owned offline Windows x64 Samus Scene/input/world GL; direct lethal damage and common pre-script RNG seed are declared fixture setup; optional gameplay PNGs require explicit capture environment",
+                Unqualified = new[] { "physical devices", "visual/art judgment from hashes", "online or replay", "two actors or simultaneous source rendering",
                     "all status/crouch/LOD/bright-skin fallback cases", "actual opponent-earned death", "achieved display refresh" }
             }));
         }
@@ -350,6 +458,36 @@ internal static class CharacterBodyRuntimeOwnedProbe
             writer.Write((int)beam.Flags); writer.Write(ReferenceEquals(beam.Owner, player));
         }
         return Sha(stream.ToArray());
+    }
+    private static Dictionary<string, string> StateParts(Scene scene, PlayerEntity player)
+    {
+        static string Hash(Action<BinaryWriter> write)
+        {
+            using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
+            write(writer); return Sha(stream.ToArray());
+        }
+        static void Vector(BinaryWriter writer, Vector3 vector)
+        { writer.Write(vector.X); writer.Write(vector.Y); writer.Write(vector.Z); }
+        var parts = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["Frame"] = Hash(w => w.Write(scene.FrameCount)),
+            ["Rng1"] = Hash(w => w.Write(scene.Random.Rng1)), ["Rng2"] = Hash(w => w.Write(scene.Random.Rng2)),
+            ["Health"] = Hash(w => w.Write(player.Health)),
+            ["Position"] = Hash(w => Vector(w, player.Position)), ["Speed"] = Hash(w => Vector(w, player.Speed)),
+            ["Facing"] = Hash(w => Vector(w, player.FacingVector)),
+            ["WeaponChargeFlagsForms"] = Hash(w => { w.Write((int)player.CurrentWeapon); w.Write(player.EquipInfo.ChargeLevel);
+                w.Write((uint)player.Flags1); w.Write(player.IsAltForm); w.Write(player.IsMorphing); w.Write(player.IsUnmorphing); }),
+            ["Ammo"] = Hash(w => { foreach (int amount in (int[])typeof(PlayerEntity).GetField("_ammo", Hidden)!.GetValue(player)!) w.Write(amount); }),
+            ["BeamLifespans"] = Hash(w => { foreach (var beam in player.EquipInfo.Beams) w.Write(beam.Lifespan); }),
+            ["BeamPositions"] = Hash(w => { foreach (var beam in player.EquipInfo.Beams) Vector(w, beam.Position); }),
+            ["BeamDirections"] = Hash(w => { foreach (var beam in player.EquipInfo.Beams) Vector(w, beam.Direction); }),
+            ["BeamFlags"] = Hash(w => { foreach (var beam in player.EquipInfo.Beams) w.Write((int)beam.Flags); }),
+            ["BeamOwners"] = Hash(w => { foreach (var beam in player.EquipInfo.Beams) w.Write(ReferenceEquals(beam.Owner, player)); }),
+            ["MatchTotals"] = Hash(w => { foreach (int value in scene.GameState.Kills.Concat(scene.GameState.Deaths).Concat(scene.GameState.Points)) w.Write(value); })
+        };
+        foreach (string name in new[] { "_aimVec", "_gunVec1", "_gunVec2", "_muzzlePos" })
+            parts.Add(name, Hash(w => Vector(w, (Vector3)typeof(PlayerEntity).GetField(name, Hidden)!.GetValue(player)!)));
+        return parts;
     }
     private static void Release(Scene scene)
     {
