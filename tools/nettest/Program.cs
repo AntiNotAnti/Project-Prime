@@ -126,8 +126,10 @@ namespace MphRead.NetTest
                     + "  --ground-slope-rules               Test surface speed, qualified clipping and bounded slope force.\n"
                     + "  --ground-slope-scene <assets> [json] Test earned ramps, slopes, slides and native controls.\n"
                     + "  --parkour-tuck-scene <assets> [json] Test native input, tuck clearance and landing.\n"
+                    + "  --parkour-wallstrafe-scene <assets> [json] Test actual static-wall input and bounded gain.\n"
+                    + "  --parkour-wallstrafe-rules        Test bounded wall-tangent acceleration.\n"
                     + "  --parkour-stance-rules             Test Parkour tuck eligibility and shape.\n"
-                    + "  --parkour-compatibility            Test Parkour v1 rules and archive protocol boundaries.\n"
+                    + "  --parkour-compatibility            Test Parkour rules and archive protocol boundaries.\n"
                     + "  --traversal-rules                  Test five-mode selection, stronger air control and ramp math.\n"
                     + "  --quake3-rules                     Test five-mode authoritative rules and protocol60 admission.\n"
                     + "  --quake3-replay-compatibility      Test historical replay widths and movement identity.\n"
@@ -550,6 +552,18 @@ namespace MphRead.NetTest
                 return TraversalStanceNetworkTests.RunScene(output);
             }
             if (args.Length > 0 && args[0] == "--traversal-stance-rules") return TraversalStanceTests.Run();
+            if (args.Length > 1 && args[0] == "--parkour-wallstrafe-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-wallstrafe";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourWallstrafeSceneTests.Run(output);
+            }
             if (args.Length > 1 && args[0] == "--parkour-tuck-scene")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
@@ -599,6 +613,7 @@ namespace MphRead.NetTest
                 Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
                 return GroundSlopeSceneTests.Run(output);
             }
+            if (args.Length > 0 && args[0] == "--parkour-wallstrafe-rules") return ParkourWallstrafeTests.Run();
             if (args.Length > 0 && args[0] == "--parkour-stance-rules") return ParkourStanceTests.Run();
             if (args.Length > 0 && args[0] == "--parkour-compatibility") return ParkourCompatibilityTests.Run();
             if (args.Length > 0 && args[0] == "--traversal-rules") return TraversalRulesTests.Run();

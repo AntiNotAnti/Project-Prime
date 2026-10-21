@@ -1,0 +1,40 @@
+# Parkour movement
+
+Classic remains the default. Choose **Movement: Parkour** in normal practice
+Match Rules or multiplayer host Match Rules to enable the separate profile.
+Campaign and the other movement models keep their existing rules. Parkour
+requires native Hunter tuning; Balanced/Enhanced and alternate character
+variants keep their existing exclusions. A host freezes the choice at match start.
+
+Parkour inherits Traversal v5 planar tuning, ramp handling, crouch/power sliding,
+tagged training-map surfing, held landing hops and native explosive-jump rules.
+Native alternate forms and abilities retain their ownership.
+
+**Airborne tuck:** jump, then hold Ctrl. Your feet pull into the short capsule
+without an added jump impulse or airborne-origin translation. Release Ctrl to
+stand when the taller hull fits. A physical landing returns the same world hull
+to ordinary crouch. See [tuck validation](parkour-airborne-tuck-results.md).
+
+**Wallstrafe:** approach a safe static vertical wall while holding Forward and
+Left/Right strafe. Aim so the combined movement pushes into the wall and along
+it. A straight head-on push gives no bonus. Each actual contact tick can add
+0.5 world units/second along the wall, up to 1.5 times ordinary Parkour ground
+speed; incoming overspeed is preserved. The boost leaves native vertical
+velocity untouched. It works on foot or airborne, including an eligible tuck.
+Grounded crouching, slides, ramps, ceilings, corners, movers and damaging faces
+refuse the bonus. Leaving the wall ends it immediately; there is no grace boost.
+
+Use a long flat training-wall lane to compare the same Forward+strafe input
+with Traversal. Parkour should build more tangent speed while touching the wall.
+Try the mirrored wall, then release strafe, turn away, push head-on and reach a
+corner: each should stop the bonus. Keep the movement HUD visible to compare
+speed without relying solely on camera motion.
+
+Current live peers use protocol 78 / Parkour v2. Protocol 77 recordings retain
+Parkour v1, and earlier protocols cannot acquire Parkour. Passive replay worlds
+consume accepted positions and shapes rather than rerunning current wall forces.
+The existing life-fenced owner-position multiplayer contract remains in effect;
+the authority does not independently resimulate remote trajectories.
+
+Wallrun/kick, short ledge scramble and optional grapple are subsequent ordered
+slices. Validation for wallstrafe will be linked here after the Windows gates.

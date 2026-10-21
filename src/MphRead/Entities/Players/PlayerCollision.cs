@@ -1233,6 +1233,7 @@ namespace MphRead.Entities
             if (v2 > 0)
             {
                 ModMovementShadowNoteContact(result.Plane.Xyz, v2);
+                ModObserveParkourContact(result);
                 if (result.Plane.Y < 0.1f && result.Plane.Y > -0.1f)
                 {
                     if (Cheats.WalkThroughWalls && !IsAltForm)

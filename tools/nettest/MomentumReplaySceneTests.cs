@@ -287,13 +287,13 @@ internal static class MomentumReplaySceneTests
         {
             MovementModel.Native => 0,
             MovementModel.Momentum => 1,
-            MovementModel.Parkour => 1,
+            MovementModel.Parkour => replay.Session.Metadata!.ProtocolVersion >= 78 ? 2 : 1,
             MovementModel.Quake3 => replay.Session.Metadata!.ProtocolVersion >= 76 ? 4 : replay.Session.Metadata.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 62 ? 2 : 1,
             MovementModel.Traversal => replay.Session.Metadata!.ProtocolVersion >= 76 ? 5 : replay.Session.Metadata.ProtocolVersion >= 74 ? 4 : replay.Session.Metadata.ProtocolVersion >= 71 ? 3 : replay.Session.Metadata.ProtocolVersion >= 69 ? 2 : 1,
             _ => throw new InvalidDataException("Unknown expected replay movement model.")
         };
         if (expected == MovementModel.Parkour)
-            Require(replay.Session.Metadata!.ProtocolVersion >= 77, operation + ": Parkour requires explicit protocol77 profile1");
+            Require(replay.Session.Metadata!.ProtocolVersion >= 77, operation + ": Parkour requires explicit protocol77 or newer profile attribution");
         if (expected == MovementModel.Traversal)
             Require(replay.Session.Metadata!.ProtocolVersion >= 68, operation + ": Traversal requires an explicitly recorded supporting protocol");
         Require(replay.Session.Metadata!.RecordedMovementProfileVersion == recordedProfile,
