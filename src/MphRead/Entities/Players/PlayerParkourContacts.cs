@@ -27,6 +27,8 @@ public partial class PlayerEntity
     {
         if (_scene.GameState.MovementModel != MovementModel.Parkour) return;
         _modParkourContactFrame = _scene.FrameCount;
+        _modParkourSafeSupport = false;
+        _modParkourIncomingContactSpeed = Speed;
         _modParkourWallNormal = default;
         _modParkourWallContact = _modParkourWallCorner = _modParkourWallNear = false;
     }

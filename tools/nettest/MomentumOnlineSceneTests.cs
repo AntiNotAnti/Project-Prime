@@ -328,7 +328,7 @@ internal static class MomentumOnlineSceneTests
                     var result = expected switch
                     {
                         MovementModel.Traversal => TraversalMovementProfileV5.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
-                        MovementModel.Parkour => ParkourMovementProfileV2.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
+                        MovementModel.Parkour => ParkourMovementProfileV3.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
                         MovementModel.Quake3 => Quake3MovementProfileV3.Step(incoming, sample.Input),
                         MovementModel.Momentum => MomentumProfileV1.Step(incoming, sample.Input),
                         _ => throw new InvalidOperationException("Classic must not reach the horizontal solver.")
