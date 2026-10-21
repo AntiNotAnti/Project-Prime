@@ -639,10 +639,11 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                 Check(Distance(ReadMatrix(actual,0),projection)<.00002,"actual source sphere uses world camera projection");
                             }
                             if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "ball-roll" or "ball-bomb"
-                                &&(!probeTrail||TrailItems(scene).Count>0)&&captured.Add(label))
+                                &&(!probeTrail||TrailItems(scene).Any(trail=>label!="ball-roll"||trail.ItemCount>=5))&&captured.Add(label))
                             {
                                 string path=Path.Combine(capturesRoot,selection!.SelectedAppearance.SkinSource+"-"+label+".png");
-                                Check(ScreenCapture.SaveWindow(scene,path),"optional actual source ball frame saved");captures.Add(new{Path=path,Sha256=HashFile(path),SourcePackets=BallItems(scene).Count});
+                                Check(ScreenCapture.SaveWindow(scene,path),"optional actual source ball frame saved");captures.Add(new{Path=path,Sha256=HashFile(path),SourcePackets=BallItems(scene).Count,
+                                    TrailSegments=TrailItems(scene).Select(trail=>trail.ItemCount).ToArray()});
                             }
                         }
                         if(items.Count>0)
