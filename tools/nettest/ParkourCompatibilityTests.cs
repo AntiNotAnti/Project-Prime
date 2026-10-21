@@ -22,11 +22,11 @@ internal static class ParkourCompatibilityTests
             catch (InvalidDataException) { rejected = true; }
             Check(rejected, $"Protocol{protocol} must reject Parkour bit19.");
         }
-        Check(NetConfig.ProtocolVersion == 80, "Current Parkour v4 requires protocol80.");
+        Check(NetConfig.ProtocolVersion == 81, "Current protocol81 preserves Parkour v4.");
         Check((byte)MovementModel.Parkour == 4 && (uint)MatchModifierFlags.ParkourMovement == 524288u,
             "Parkour model4 and bit19 are stable.");
-        Check(MovementModelRules.KnownModifierMask == 1048575u,
-            "Live known modifier mask includes bit19 only.");
+        Check(MovementModelRules.KnownModifierMask == 2097151u,
+            "Live known modifier mask includes the package availability bit20.");
         Check(MovementModelRules.ValidRules(MatchModifierFlags.ParkourMovement)
             && MovementModelRules.FromRules(MatchModifierFlags.ParkourMovement) == MovementModel.Parkour,
             "Parkour is an explicit movement selection.");
@@ -34,7 +34,7 @@ internal static class ParkourCompatibilityTests
             MatchModifierFlags.Quake3Movement, MatchModifierFlags.TraversalMovement })
             Check(!MovementModelRules.ValidRules(other | MatchModifierFlags.ParkourMovement),
                 "Movement model flags remain mutually exclusive.");
-        Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 20)),
+        Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 21)),
             "Future unknown modifier remains unsupported.");
         Check(MovementModelRules.ProfileVersion(MovementModel.Parkour) == 4
             && new ReplayMetadata { ProtocolVersion = 78, IndexedMovementModel = MovementModel.Parkour }

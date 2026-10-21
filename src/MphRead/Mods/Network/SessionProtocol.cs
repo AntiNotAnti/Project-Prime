@@ -63,7 +63,8 @@ namespace MphRead.Mods.Network
         // Native archives may retain retired Enhanced rules. Custom manifests
         // and action reconstruction are not supported until CW-12.
         public static bool TryReadArchived(ReadOnlySpan<byte> src, out SessionStatePacket state)
-            => TryRead(src, out state, allowRetiredEnhanced: true) && !state.Match.RiftlineM7Available;
+            => TryRead(src, out state, allowRetiredEnhanced: true)
+                && !state.Match.RiftlineM7Available && !state.Match.PackagedWeaponAvailable;
 
         public static bool TryRead(ReadOnlySpan<byte> src, out SessionStatePacket state,
             bool validateDefinition = true, bool allowRetiredEnhanced = false)
@@ -123,6 +124,7 @@ namespace MphRead.Mods.Network
                     NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist),
                     BalancedMode = modifiers.HasFlag(MatchModifierFlags.BalancedMode),
                     RiftlineM7Available = modifiers.HasFlag(MatchModifierFlags.RiftlineM7Available),
+                    PackagedWeaponAvailable = modifiers.HasFlag(MatchModifierFlags.PackagedWeaponAvailable),
                     ThirdPersonCamera = modifiers.HasFlag(MatchModifierFlags.ThirdPersonCamera),
                     MovementModel = Movement.MovementModelRules.FromRules(modifiers)
                 }.NormalizeLegacy()

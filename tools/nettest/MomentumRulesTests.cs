@@ -51,7 +51,7 @@ internal static class MomentumRulesTests
     private static void ParseAndRules()
     {
         Check((byte)MovementModel.Native == 0 && (byte)MovementModel.Momentum == 1, "stable movement enum values");
-        Check((uint)MatchModifierFlags.MomentumMovement == 32768 && NetConfig.ProtocolVersion == 80, "current protocol preserves v1 bit15 contract");
+        Check((uint)MatchModifierFlags.MomentumMovement == 32768 && NetConfig.ProtocolVersion == 81, "current protocol preserves v1 bit15 contract");
         foreach (string? text in new string?[] { null, "", "Native", "native", "NATIVE", "Classic", "classic" })
             Check(MovementModelRules.TryParse(text, out var model) && model == MovementModel.Native, "native/default parse " + text);
         foreach (string text in new[] { "Momentum", "momentum", "MOMENTUM" })
@@ -139,7 +139,7 @@ internal static class MomentumRulesTests
         Check(SessionStatePacket.TryRead(bytes, out var all, validateDefinition: false)
             && (uint)all.Match.Rules == 65535 && all.Match.MovementModel == MovementModel.Momentum && all.Match.ThirdPersonCamera,
             "all sixteen defined modifier bits structurally survive uint decoding");
-        foreach (uint unknown in new[] { 1u << 20, 1u << 31, 65535u | (1u << 20) })
+        foreach (uint unknown in new[] { 1u << 21, 1u << 31, 65535u | (1u << 21) })
         {
             BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(SessionStatePacket.Protocol28Size), unknown);
             Check(!SessionStatePacket.TryRead(bytes, out _, validateDefinition: false), "unknown modifier bits rejected before definition validation");
@@ -155,8 +155,8 @@ internal static class MomentumRulesTests
             Configuration = State(Definition(MovementModel.Momentum) with { ThirdPersonCamera = true }) };
         byte[] commandBytes = new byte[LobbyCommandPacket.Size]; command.Write(commandBytes);
         Check(LobbyCommandPacket.TryRead(commandBytes, out var parsed) && parsed.Configuration.Match == command.Configuration.Match, "UpdateMatch command codec carries both high rule bits");
-        BinaryPrimitives.WriteUInt32LittleEndian(commandBytes.AsSpan(14 + SessionStatePacket.Protocol28Size), 1u << 20);
-        Check(!LobbyCommandPacket.TryRead(commandBytes, out _), "command codec rejects unknown modifier bit19");
+        BinaryPrimitives.WriteUInt32LittleEndian(commandBytes.AsSpan(14 + SessionStatePacket.Protocol28Size), 1u << 21);
+        Check(!LobbyCommandPacket.TryRead(commandBytes, out _), "command codec rejects unknown modifier bit21");
     }
 
     private static object? Invoke(object target, string name, params object?[] args)

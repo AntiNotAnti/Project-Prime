@@ -88,7 +88,7 @@ namespace MphRead.Mods.Network
                 || metadata.FormatVersion == 3 && (metadata.WorldCheckpoint.Length != 0 || metadata.OriginRecordingFrame != 0 || metadata.LeadInFrames != 0)
                 || metadata.FormatVersion < 6 && (metadata.FormatVersion == 5) != metadata.IndexedFireContinuation.HasValue
                 || (metadata.FormatVersion == 6) != metadata.TimedShotCertificates
-                || metadata.TimedShotCertificates && metadata.ProtocolVersion is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80))
+                || metadata.TimedShotCertificates && metadata.ProtocolVersion is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81))
                 throw new InvalidDataException("Invalid replay metadata version.");
             using var buffer = new MemoryStream();
             using var writer = new BinaryWriter(buffer, Encoding.UTF8, true);
@@ -217,7 +217,7 @@ namespace MphRead.Mods.Network
             bool timedShots = false;
             if (version == 6)
             {
-                if (protocol is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80) || bytes.Length - reader.BaseStream.Position != 6
+                if (protocol is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81) || bytes.Length - reader.BaseStream.Position != 6
                     || reader.ReadUInt32() != TimedShotCapabilityMagic || reader.ReadByte() != 1)
                     throw new InvalidDataException("Invalid timed shot recording capability.");
                 byte policy = reader.ReadByte();
@@ -264,7 +264,7 @@ namespace MphRead.Mods.Network
                     && SessionStatePacket.TryReadArchived(payload, out _),
                 PacketType.MatchState => payload.Length == MatchStatePacket.Size
                     && ((MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(payload[103..])
-                        & MatchModifierFlags.RiftlineM7Available) == 0,
+                        & (MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable)) == 0,
                 PacketType.BombState => BombStatePage.TryRead(payload, out _),
                 PacketType.TimedGrantBootstrap => ReplayGrantBootstrap.TryRead(payload, out _, out _),
                 PacketType.TimedGrant => TimedGrantFact.TryRead(payload, out _),
