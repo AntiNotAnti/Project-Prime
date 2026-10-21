@@ -246,6 +246,7 @@ namespace MphRead.Entities
                 }
                 else if (drawAltForm)
                 {
+                    bool sourceBallDrawn = false;
                     Matrix4 canonicalAlt = _modelTransform;
                     canonicalAlt.Row3.Xyz = Position;
                     _modelTransform = ModGetAlternateFormDrawPose(drawPosition, out bool specializedAltSample);
@@ -275,7 +276,8 @@ namespace MphRead.Entities
                         {
                             if (altSample)
                                 ApplyHunterNodePose(_altModel, _modelTransform, altPresentation);
-                            if (!ModTryDrawSourceBall(_modelTransform,_curAlpha,brightSkin,outlineColor)
+                            sourceBallDrawn = ModTryDrawSourceBall(_modelTransform,_curAlpha,brightSkin,outlineColor);
+                            if (!sourceBallDrawn
                                 && !TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
                                 _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
                                 GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
@@ -299,7 +301,7 @@ namespace MphRead.Entities
                     if (Hunter == Hunter.Samus
                         && !Flags2.TestFlag(PlayerFlags2.Cloaking))
                     {
-                        DrawMorphBallTrail();
+                        DrawMorphBallTrail(sourceBallDrawn ? new Vector3(90 / 255f, 200 / 255f, 1) : null);
                     }
                     DrawCosmeticArmor(_altModel.Model, true);
                     Flags2 |= PlayerFlags2.DrawnThirdPerson;
@@ -1066,7 +1068,7 @@ namespace MphRead.Entities
             }
         }
 
-        private void DrawMorphBallTrail()
+        private void DrawMorphBallTrail(Vector3? sourceTint = null)
         {
             Debug.Assert(_trailModel != null);
             Material material = _trailModel.Model.Materials[0];
@@ -1119,7 +1121,7 @@ namespace MphRead.Entities
             }
             if (count > 0)
             {
-                var color = new Vector3(1, 27 / 31f, 11 / 31f);
+                var color = sourceTint ?? new Vector3(1, 27 / 31f, 11 / 31f);
                 _scene.AddRenderItem(RenderItemType.TrailStack, _scene.GetNextPolygonId(), color, material.XRepeat, material.YRepeat,
                     material.ScaleS, material.ScaleT, _mbTrailSegments, matrixStack, uvsAndVerts, count, _trailBindingId1);
             }
