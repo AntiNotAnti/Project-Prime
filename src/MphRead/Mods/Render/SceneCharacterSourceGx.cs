@@ -109,7 +109,11 @@ namespace MphRead
                     string key = vertexSource + fragmentSource;
                     if (!_sourceGxPrograms.TryGetValue(key, out var gpu))
                     {
-                        if (_sourceGxPrograms.Count >= 16) throw new InvalidOperationException("Source body program budget exceeded.");
+                        // Six closed body profiles contain at most28 programs
+                        // (Echoes7+9, Prime4*3). Shared Scene switches may retain
+                        // every shader until context retirement; cache identity
+                        // still includes the complete generated shader source.
+                        if (_sourceGxPrograms.Count >= 28) throw new InvalidOperationException("Source body program budget exceeded.");
                         int vertex = 0, fragment = 0, program = 0;
                         try
                         {
