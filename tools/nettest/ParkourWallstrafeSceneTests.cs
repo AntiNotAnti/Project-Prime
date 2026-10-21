@@ -115,11 +115,11 @@ internal static class ParkourWallstrafeSceneTests
             });
             Case("departure-corner-and-airborne-tuck", () =>
             {
-                Capture departure = CaptureScene("leave-wall", MovementModel.Parkour, new(42, .5f, 20),
+                Capture departure = CaptureScene("leave-wall", MovementModel.Parkour, new(46, .5f, 20),
                     new(3, 0, 1), 1, 160, i => i < 90 ? new() : new(Forward: false));
                 Capture corner = CaptureScene("east-front-corner", MovementModel.Parkour, new(42, .5f, 34),
                     new(3, 0, 1), 1, 220, _ => new());
-                Capture tuck = CaptureScene("jump-then-tuck-at-wall", MovementModel.Parkour, new(42, .5f, 20),
+                Capture tuck = CaptureScene("jump-then-tuck-at-wall", MovementModel.Parkour, new(46, .5f, 20),
                     new(3, 0, 1), 1, 150, i => new(Jump: i == 70, Crouch: i >= 72 && i < 92));
                 rows.Add(new { departure, corner, tuck });
                 Check(departure.Ticks.Take(90).Any(t => t.Applied), "departure starts from earned wall gain");
@@ -166,6 +166,7 @@ internal static class ParkourWallstrafeSceneTests
         {
             PlayerEntity p = scene.Players.Main!; p.Controls.Crouch.Key = Keys.LeftControl;
             p.Reposition(seed, facing.Normalized(), NodeRef.None); p.PrevPosition = seed;
+            p.ModSetSpawnFacing(facing.Normalized());
             for (int i = 0; i < 12; i++) scene.OnSimulationFrame();
             Check(p.Flags1.TestFlag(PlayerFlags1.Standing), "initial labeled lane settles on native physical support");
             var ticks = new Tick[length];
