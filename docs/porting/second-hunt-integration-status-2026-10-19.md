@@ -84,6 +84,15 @@ this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
 
+The [Scout Drone laser runtime slice](second-hunt-scout-drone-laser-2026-10-21.md)
+adds the pinned source laser body pose across native windup/sweep/recovery while
+retaining the native cached beam and all gameplay. Windows364571 runtime checks
+pass with unchanged1418-step/420-step traces and a new3083-step trace across all
+four patterns, native cooldown, cloak recovery and near-wall collision. All26
+captured views were inspected and individually deleted; no beam/fit change was
+needed for the selected views. Source movement/hit and broader character work
+remain unfinished.
+
 The [Scout Drone burst runtime slice](second-hunt-scout-drone-burst-2026-10-21.md)
 adds source unfold/fire/fold driven by native counters, Snap entries and held
 Ready return fades to the same solo Alpha/Gamma owners. Windows qualification
