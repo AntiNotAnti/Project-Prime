@@ -822,7 +822,7 @@ namespace MphRead.Mods.Network
             new MatchStatePacket { RoomKey = "MP1 SANCTORUS", Mode = (byte)GameMode.InstaGib,
                 MatchId = 1, AuthorityEpoch = 1 }.Write(old.AsSpan(1));
             oldDecoder.Accept(old, 0);
-            byte[] historicalCheckpoint = oldDecoder.CaptureCheckpoint().Bytes.ToArray();
+            byte[] historicalCheckpoint = ReplayCheckpointCheckFixture.Protocol80(oldDecoder.CaptureCheckpoint().Bytes, Check);
             // Build actual protocol-27 bytes; changing only the version label would
             // leave protocol-29 player extensions in the historical fixture.
             var historicalBytes = historicalCheckpoint.ToList();
@@ -843,18 +843,17 @@ namespace MphRead.Mods.Network
             const int matchStart = 46;
             int rosterStart = matchStart + MatchStatePacket.Size + 1;
             int firstPlayer = rosterStart + RosterPacket.Size;
-            // The captured checkpoint declares the native-touch tail.
-            // Always locate each source slot at the CURRENT stride before
-            // stripping fields for historical protocol 27.
-            int stride = 7 + PlayerState.Size + 1 + IntentPacket.TouchCanonicalSize + 4;
+            // The projected v12/protocol80 checkpoint has actual173-byte
+            // player rows and1296-byte native-touch intents, not v14 rows.
+            int stride = 7 + PlayerState.Protocol80Size + 1 + IntentPacket.Protocol80TouchSize + 4;
             for (int slot = PlayerEntity.SlotCapacity - 1; slot >= 0; slot--)
             {
-                int intentStart = firstPlayer + slot * stride + 8 + PlayerState.Size;
+                int intentStart = firstPlayer + slot * stride + 8 + PlayerState.Protocol80Size;
                 // Protocol 27 predates authored fire-event blocks entirely.
                 historicalBytes.RemoveRange(intentStart + IntentPacket.LegacyFullSize,
-                    IntentPacket.TouchCanonicalSize - IntentPacket.LegacyFullSize);
+                    IntentPacket.Protocol80TouchSize - IntentPacket.LegacyFullSize);
                 historicalBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.LegacySize,
-                    PlayerState.Size - PlayerState.LegacySize);
+                    PlayerState.Protocol80Size - PlayerState.LegacySize);
             }
             // Protocol 33 added one handicap byte to every fixed roster entry.
             // A protocol-27 checkpoint genuinely predates those bytes, so remove

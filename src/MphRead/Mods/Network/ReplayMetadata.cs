@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
         public int? RecordedMovementProfileVersion => RecordedMovementModel is { } model
             ? model == MovementModel.Quake3 ? ProtocolVersion >= 76 ? 4 : ProtocolVersion >= 71 ? 3 : ProtocolVersion >= 62 ? 2 : 1
                 : model == MovementModel.Traversal ? ProtocolVersion >= 76 ? 5 : ProtocolVersion >= 74 ? 4 : ProtocolVersion >= 71 ? 3 : ProtocolVersion >= 69 ? 2 : 1
-                : model == MovementModel.Parkour ? ProtocolVersion >= 80 ? 4 : ProtocolVersion >= 79 ? 3 : ProtocolVersion >= 78 ? 2 : ProtocolVersion >= 77 ? 1 : (int?)null
+                : model == MovementModel.Parkour ? ProtocolVersion >= 82 ? 5 : ProtocolVersion >= 80 ? 4 : ProtocolVersion >= 79 ? 3 : ProtocolVersion >= 78 ? 2 : ProtocolVersion >= 77 ? 1 : (int?)null
                 : MovementModelRules.ProfileVersion(model)
             : null;
 

@@ -244,6 +244,7 @@ namespace MphRead.Mods.Launcher.Gui
                 "Shoot" or "AltAttack" => PadAction.Shoot, "Jump" or "Boost" => PadAction.Jump,
                 "Zoom" => PadAction.Zoom, "Morph" => PadAction.Morph, "Scan" => PadAction.Scan,
                 "Crouch" => PadAction.Crouch,
+                "Grapple" => PadAction.Grapple,
                 "ScanVisor" => PadAction.ScanVisor, "WeaponMenu" => PadAction.WeaponWheel,
                 "Pause" => PadAction.Scoreboard, "NextWeapon" => PadAction.NextWeapon,
                 "PrevWeapon" => PadAction.PrevWeapon, "Missile" => PadAction.Missile,

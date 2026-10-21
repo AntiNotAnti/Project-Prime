@@ -61,7 +61,7 @@ public partial class PlayerEntity
 
     private void ModApplyParkourWallstrafe()
     {
-        if (!ModParkourActive || _modMantling || _modParkourContactFrame != _scene.FrameCount
+        if (!ModParkourActive || ModGrappleOwnsMovement || _modMantling || _modParkourContactFrame != _scene.FrameCount
             || _modWallstrafeAttempt == _scene.FrameCount) return;
         _modWallstrafeAttempt = _scene.FrameCount;
         if (!_modParkourWallContact || _modParkourWallCorner

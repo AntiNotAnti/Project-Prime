@@ -67,7 +67,9 @@ namespace MphRead.Droid
         OmegaCannon,
         CustomWeapon,
         CustomReload,
-        CustomOptic
+        CustomOptic,
+        // Match TouchControl.Grapple; append only for saved instance actions.
+        Grapple = 24
     }
 
     internal sealed class TouchButton
@@ -184,7 +186,8 @@ namespace MphRead.Droid
             // Custom actions remain opt-in layout choices, independent of the native wheel.
             new TouchButton(TouchAction.CustomWeapon, "CUSTOM") { Visible = false },
             new TouchButton(TouchAction.CustomReload, "RELOAD") { Visible = false },
-            new TouchButton(TouchAction.CustomOptic, "OPTIC") { Visible = false }
+            new TouchButton(TouchAction.CustomOptic, "OPTIC") { Visible = false },
+            new TouchButton(TouchAction.Grapple, "GRAPPLE") { Visible = false }
         };
 
         public TouchControls() { _buttonSnapshot = _buttons.ToArray(); }
@@ -763,6 +766,7 @@ namespace MphRead.Droid
                 TouchAction.CustomWeapon => TouchControl.CustomWeapon,
                 TouchAction.CustomReload => TouchControl.CustomReload,
                 TouchAction.CustomOptic => TouchControl.CustomOptic,
+                TouchAction.Grapple => TouchControl.Grapple,
                 _ => TouchControl.Chat
             };
         }

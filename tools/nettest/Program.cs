@@ -129,6 +129,9 @@ namespace MphRead.NetTest
                     + "  --ground-slope-rules               Test surface speed, qualified clipping and bounded slope force.\n"
                     + "  --ground-slope-scene <assets> [json] Test earned ramps, slopes, slides and native controls.\n"
                     + "  --parkour-tuck-scene <assets> [json] Test native input, tuck clearance and landing.\n"
+                    + "  --parkour-grapple-rules            Test radial force invariants and fixed bounds.\n"
+                    + "  --parkour-grapple-wire             Test accepted state, input and historical widths.\n"
+                    + "  --parkour-grapple-scene <assets> [json] Test native anchors, release and ability priority.\n"
                     + "  --parkour-wallstrafe-scene <assets> [json] Test actual static-wall input and bounded gain.\n"
                     + "  --parkour-wallstrafe-rules        Test bounded wall-tangent acceleration.\n"
                     + "  --parkour-wallrun-scene <assets> [json] Test earned wallrun, kick and landing budget.\n"
@@ -576,6 +579,32 @@ namespace MphRead.NetTest
                 return TraversalStanceNetworkTests.RunScene(output);
             }
             if (args.Length > 0 && args[0] == "--traversal-stance-rules") return TraversalStanceTests.Run();
+            if (args.Length > 0 && args[0] == "--parkour-grapple-rules") return ParkourGrappleTests.Run();
+            if (args.Length > 0 && args[0] == "--parkour-grapple-wire") return ParkourGrappleWireTests.Run();
+            if (args.Length > 1 && args[0] == "--parkour-grapple-authority")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-grapple-authority";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourGrappleAuthoritySceneTests.Run(output);
+            }
+            if (args.Length > 1 && args[0] == "--parkour-grapple-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-grapple";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourGrappleSceneTests.Run(output);
+            }
             if (args.Length > 0 && args[0] == "--parkour-mantle-rules") return ParkourMantleTests.Run();
             if (args.Length > 1 && args[0] == "--parkour-mantle-scene")
             {

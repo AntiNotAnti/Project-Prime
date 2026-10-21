@@ -22,7 +22,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 10;
+    private const ushort Version = 11;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -32,6 +32,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     internal bool HasAuthorityFormHistory { get; }
     internal bool HasTurretOutcomeContract { get; }
     internal bool HasNativeTouchContract => (_appendices & ReplayWorldCheckpointAppendices.NativeTouch) != 0;
+    internal bool HasGrappleContract => (_appendices & ReplayWorldCheckpointAppendices.Grapple) != 0;
     internal bool HasTimedPickupContract => (_appendices & ReplayWorldCheckpointAppendices.Pickups) != 0;
     internal bool HasTimedShotContract => (_decoderFeatures & ReplayReplicaCheckpointFeatures.TimedShots) != 0;
     internal bool RequiresNativeTouchContract => (_decoderFeatures & ReplayReplicaCheckpointFeatures.NativeTouch) != 0;
@@ -40,8 +41,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     private readonly string _sourceContract;
     private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null,
         bool indexedFirePresentation = false, bool hasPresentationContract = true, bool hasAuthorityFormHistory = true, bool hasTurretOutcomeContract = true,
-        ReplayWorldCheckpointAppendices appendices = ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups,
-        ReplayReplicaCheckpointFeatures decoderFeatures = ReplayReplicaCheckpointLayout.CurrentFeatures)
+        ReplayWorldCheckpointAppendices appendices = ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups | ReplayWorldCheckpointAppendices.Grapple,
+        ReplayReplicaCheckpointFeatures decoderFeatures = ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple)
     {
         _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract;
         IndexedFirePresentation = indexedFirePresentation; HasPresentationContract = hasPresentationContract;
@@ -229,7 +230,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         using var stream = new ReplayCheckpointWriter();
         using var writer = new BinaryWriter(stream);
         writer.Write(Magic); writer.Write(Version);
-        writer.Write((byte)(ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups));
+        writer.Write((byte)(ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups | ReplayWorldCheckpointAppendices.Grapple));
         writer.Write(Contract);
         writer.Write(replay.Scene.Room!.Meta.Name); writer.Write((int)replay.Scene.GameState.Mode); writer.Write(replay.MapHash);
         uint frame = recordingFrame ?? replay.Session.CurrentFrame;
@@ -271,6 +272,20 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             long pickups = ReplayCheckpointWriter.BeginComponent(writer);
             WritePickupItems(writer, graph, replay.State);
             ReplayCheckpointWriter.EndComponent(writer, pickups);
+            long grapple = ReplayCheckpointWriter.BeginComponent(writer);
+            Span<byte> grappleRow = stackalloc byte[23];
+            for (int slot = 0; slot < 8; slot++)
+            {
+                grappleRow.Clear();
+                if (replay.State.TryGetPlayer(slot, out var accepted) && accepted.SlotGeneration != 0 && accepted.LifeId != 0)
+                {
+                    System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(grappleRow, accepted.SlotGeneration);
+                    System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(grappleRow[2..], accepted.LifeId);
+                    replay.Scene.Players.Items[slot].ModGrappleState.TryWrite(grappleRow[4..], out _);
+                }
+                writer.Write(grappleRow);
+            }
+            ReplayCheckpointWriter.EndComponent(writer, grapple);
             // Posed discrete firing (protocol 43+) changes world reconstruction.
             // A live canonical world has no indexed cursor; its capsule remains
             // a valid recording baseline, but cannot accelerate indexed seeks.
@@ -278,7 +293,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             writer.Write(indexedFirePresentation);
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
             return new(stream.Detach(), frame, indexedFirePresentation: indexedFirePresentation,
-                decoderFeatures: ReplayReplicaCheckpointLayout.CurrentFeatures
+                decoderFeatures: ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple
                     | (replay.State.TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None));
         }
         finally { graph.Clear(); }
@@ -409,6 +424,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         byte[]? forms = version >= 7 ? ReadBytes(reader, 4096) : null;
         byte[]? nativeTouch = HasNativeTouchContract ? ReadBytes(reader, 4096) : null;
         byte[]? pickups = HasTimedPickupContract ? ReadBytes(reader, 65536) : null;
+        byte[]? grapple = HasGrappleContract ? ReadBytes(reader, 184) : null;
+        if (grapple != null) ValidateGrappleAppendix(grapple, decoded);
         bool indexedFirePresentation = version >= 6 && reader.ReadBoolean();
         if (indexedFirePresentation != IndexedFirePresentation) throw new InvalidDataException("Replay presentation contract marker differs.");
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
@@ -535,6 +552,18 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         if (pickups != null) ReadPickupItems(pickups, objects, replay.State);
         else foreach (var item in objects.OfType<ItemInstanceEntity>())
         { item.ModPickupSpawn = null; item.ModPickupHidden = false; }
+        for (int slot = 0; slot < replay.Scene.Players.Items.Count; slot++)
+        {
+            PlayerGrappleState state = default; ushort generation = 0, life = 0;
+            if (grapple != null)
+            {
+                var row = grapple.AsSpan(slot * 23, 23);
+                generation = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(row);
+                life = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(row[2..]);
+                PlayerGrappleState.TryRead(row[4..], out state);
+            }
+            replay.Scene.Players.Items[slot].ModRestoreGrapplePresentation(state, generation, life);
+        }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
     }
 
