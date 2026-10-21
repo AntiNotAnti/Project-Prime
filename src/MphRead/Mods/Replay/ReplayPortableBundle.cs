@@ -37,6 +37,7 @@ internal static class ReplayPortableBundle
             return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
         }
         string replayHash=Copy("replay.ppdemo",source);
+        if(ReplayOwnerTrack.Load(source,cancellation)!=null)Copy("replay.ppdemo.ownerpose",source+ReplayOwnerTrack.Extension);
         if(annotations!=null)Entry("replay.ppdemo"+ReplayAnnotations.Extension,annotations);
         reel.SourceReplay="replay.ppdemo";if(reel.Segments.Count>0)Entry("replay.ppdemo"+ReplayReels.Extension,JsonSerializer.SerializeToUtf8Bytes(reel));
         bool included=false;
@@ -70,6 +71,8 @@ internal static class ReplayPortableBundle
         if(version is not (1 or 2)||data.GetProperty("Replay").GetString()!="replay.ppdemo")throw new InvalidDataException("Unsupported portable replay manifest.");
         string replay=Path.Combine(directory,"replay.ppdemo");
         using(var input=File.OpenRead(replay))if(!StringComparer.OrdinalIgnoreCase.Equals(data.GetProperty("ReplayHash").GetString(),Convert.ToHexString(SHA256.HashData(input))))throw new InvalidDataException("Portable replay content hash differs from the manifest.");
+        if(File.Exists(replay+ReplayOwnerTrack.Extension)&&ReplayOwnerTrack.Load(replay,cancellation)==null)
+            throw new InvalidDataException("Portable owner presentation does not match the exact recording.");
         using var reader=DemoReader.Open(replay,out var result)??throw new InvalidDataException("Cannot read portable replay: "+result);
         using var parsed=new ReplayPlaybackSession(new PassiveReplaySessionHost());
         uint duration;

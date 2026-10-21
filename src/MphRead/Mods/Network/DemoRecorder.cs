@@ -84,7 +84,7 @@ internal static class DemoRecorder
                 _postWorldCustom = metadata.FormatVersion == 8;
                 _writer = new ReplayWritePump(CurrentPath!, metadata, _origin); _pending = false; _lastWriter = _writer;
                 if (!IsCustomRecording) _writer.EndFrame(0);
-                if (!IsCustomRecording) Replay.ReplayOwnerCapture.Begin();
+                Replay.ReplayOwnerCapture.Begin();
             }
             if (_writer != null)
             {
@@ -126,7 +126,7 @@ internal static class DemoRecorder
             {
                 writer.Complete();
                 Finishing.Add((writer, CurrentPath!));
-                if (!IsCustomRecording) Replay.ReplayOwnerCapture.Finish(CurrentPath!, writer.Completion, () => writer.Error == null);
+                Replay.ReplayOwnerCapture.Finish(CurrentPath!, writer.Completion, () => writer.Error == null);
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { Fail(ex); }

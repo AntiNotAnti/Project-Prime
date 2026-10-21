@@ -17,7 +17,8 @@ public partial class PlayerEntity
     internal bool ModCustomScopeSelected=>_customScopeSelected;
     internal bool ModCustomScopeActive=>_customScopeSelected&&_customScopeOptic!=0;
     private float CustomNormalFov=>Fixed.ToFloat(Values.NormalFov)*2;
-    internal float ModCustomScopeBlend=>_customScopeTransition
+    internal float? ModCapturedCustomScopeBlend=>_customScopeSelected||_customScopeTransition?ModCustomScopeBlend:null;
+    internal float ModCustomScopeBlend=>_scene.Services.IsReplica?_scene.ReplayCustomScopeBlend(this):_customScopeTransition
         ?Math.Clamp((CustomNormalFov-CameraInfo.Fov)/MathF.Max(.001f,CustomNormalFov-_customScopeLensFov),0,1):0;
     internal float ModCustomScopeSensitivity
         =>1+((InputSettings.CustomScope25Sensitivity

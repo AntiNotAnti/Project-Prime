@@ -109,7 +109,7 @@ internal static class ReplayExportAudio
                     var options=new TheatreStudioToolOptions(TheatreStudioTool.AudioMix,"",settings.GameGain,settings.CombatGain,settings.ReplayGain,settings.MusicGain,
                         settings.GameEvents,settings.CombatFeedback,segment.StartFrame,segment.EndFrame,AudioCues:settings.Cues,MusicFile:settings.MusicFile);
                     double musicOffset=(prior==0?0:StudioOfflineAudio.SampleCount(prior,job.Fps))/48000d;
-                    ReplayStudioAudioMix.Write(wave,options,input.Events,input.Players,token,frames,job.Fps,musicOffset);
+                    ReplayStudioAudioMix.Write(wave,options,input.Events,input.Players,token,frames,job.Fps,musicOffset,replaySource:job.Replay);
                     using(var pcm=new FileStream(wave,FileMode.Open,FileAccess.Read,FileShare.Read))
                     {
                         // Write() above produces canonical 44-byte PCM16 stereo headers.
