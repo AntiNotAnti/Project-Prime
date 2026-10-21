@@ -8,3 +8,8 @@ docs/audits/engineering-consolidation/collision-query-baseline.txt text eol=lf
 
 # Keep the exact artwork allowlist LF-terminated for Windows Bash checks.
 tools/asset-guard-allow.txt text eol=lf
+
+# Original weapon exports embed exact source bytes on every platform.
+src/MphRead/Assets/Weapons/RiftlineM7/*.json text eol=lf
+src/MphRead/Assets/Weapons/RiftlineM7/*.txt text eol=lf
+src/MphRead/Assets/Weapons/RiftlineM7/*.md text eol=lf
