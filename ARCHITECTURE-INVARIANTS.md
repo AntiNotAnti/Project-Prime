@@ -156,6 +156,9 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Custom match starts require every participant to report the exact package ready. Availability reports carry the authority, match, map generation, and monotonic sequence; stale reports cannot satisfy the barrier.
 - HTTP downloads and detached builds use private staging. Publication runs on the session owner after live scenes and prewarm workers release their room leases. Cancellation cannot publish partial packages.
 - Published package bytes and versions are immutable. Runtime packages contain normalized geometry and assets, never local model source paths or a requirement to parse external models.
+- Download verification may hash bytes during the private streamed write. A
+  resumed prefix or completed partial still requires a full SHA-256; exact
+  MapId/content/package identity remains mandatory before installation and Ready.
 - Replay bootstrap preserves the exact custom package identity and historical download source. Remote host requests carry the exact immutable package hash for every custom rotation entry. Bounded background workers resolve and fetch all missing archives from the operator-configured Community service before the isolated child is spawned; retries are deduplicated, and downloads never install into the parent process's active map library. Each custom hosted child owns a private package library and generated-runtime namespace.
 
 ## Timing and rendering

@@ -60,6 +60,32 @@ Before changing download verification, 20 primed 32 MiB transfers measured
 64.9242 ms P50, 87.679 ms P95 and 89.5752 ms P99. All 29 contract assertions
 passed. Raw samples are retained with the final performance evidence.
 
+## Streamed download verification
+
+`MapCommunityClient` computes SHA-256 incrementally while writing a healthy
+response, using the existing 64 KiB transfer bound. It hashes a persisted prefix
+through the exclusive append handle before accepting a resumed response. A
+complete existing file is still fully hashed with cancellable asynchronous I/O.
+Strict package/MapId/content verification at installation remains unchanged.
+Corrupt results are discarded with the same two-attempt integrity limit.
+
+| Windows 32 MiB transfer stage, 20 primed samples | Baseline P50 / P95 (ms) | Streamed P50 / P95 (ms) |
+|---|---|---|
+| Initial run | 64.9242 / 87.6790 | 32.5084 / 34.0646 |
+| Repeat using preserved baseline and optimized assemblies | 70.2221 / 100.9367 | 32.2090 / 38.1336 |
+
+All four runs passed 29 assertions and produced identical SHA-256 bytes. The
+second pair used the same compiled harness with the preserved pre-change
+production assembly and the optimized assembly, restoring the optimized DLL
+after the baseline run. Runs were sequential, not randomized; OS scheduling,
+CPU power and warm filesystem effects remain limitations. Raw per-run samples,
+process CPU and peak working set are in `map-pipeline-evidence/`. No memory,
+remote-bandwidth or full-map-loading improvement is inferred from this result.
+
+`community-transfer-check` additionally passed 61 checks, including actual
+cross-process ownership, deduplication, crash recovery, pause/cancel, resumed
+HTTP Range and corrupt archive repair.
+
 ## Acceptance still required
 
 The broad plan's 30% cold-load / 50% warm-load objectives remain unproven until
