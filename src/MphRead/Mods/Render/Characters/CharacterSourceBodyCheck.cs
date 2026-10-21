@@ -45,7 +45,12 @@ internal static class CharacterSourceBodyCheck
 
     private static void CheckIdentityAndPolicy()
     {
-        Check(LocalBodyAppearanceRules.Available == CharacterSourceRootWitness.QualifiedForCurrentProcess,
+        Check(LocalBodyAppearanceRules.Available ==
+#if MPHREAD_SERVER || ANDROID
+            false,
+#else
+            CharacterSourceRootWitness.QualifiedForCurrentProcess,
+#endif
             "appearance availability retains the qualified physical-proof platform fence");
         Check(new LauncherHunterChoice(Hunter.Samus, 2).Body == LocalBodyAppearance.Native
             && default(LaunchPlan).LocalBody == LocalBodyAppearance.Native,

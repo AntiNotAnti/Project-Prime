@@ -9,7 +9,12 @@ public enum LocalBodyAppearance { Native, DarkSamusEchoes, DarkSamusOvercharged 
 
 public static class LocalBodyAppearanceRules
 {
-    public static bool Available => CharacterSourceRootWitness.QualifiedForCurrentProcess;
+    public static bool Available =>
+#if MPHREAD_SERVER || ANDROID
+        false;
+#else
+        CharacterSourceRootWitness.QualifiedForCurrentProcess;
+#endif
     public static LocalBodyAppearance Canonical(LocalBodyAppearance value)
         => value is >= LocalBodyAppearance.Native and <= LocalBodyAppearance.DarkSamusOvercharged
             ? value : LocalBodyAppearance.Native;
