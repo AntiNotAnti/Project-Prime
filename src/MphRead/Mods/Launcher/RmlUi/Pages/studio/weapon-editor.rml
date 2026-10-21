@@ -1,0 +1,30 @@
+<rml><head><title>Weapon Studio</title>
+<link type="text/template" href="../../components/app-shell.rml"/>
+<link type="text/rcss" href="../../components/controls.rcss"/>
+<link type="text/rcss" href="weapon-editor.rcss"/>
+</head><body template="prime-shell"><div id="weapon_editor">
+<div class="weapon_heading"><h1>WEAPON STUDIO</h1><button id="weapon_close" data-action="studio:weapon-close">CLOSE WORKSPACE</button></div>
+<p>JSON editor MVP. Starts from original bundled assets with a fresh content identity. Apply validates all edited fields before changing the package.</p>
+<div class="weapon_scroll">
+<label for="weapon_project_path">WORKSPACE OR PACKAGE PATH // absolute .ppweaponproject or .ppweapon</label>
+<input id="weapon_project_path" type="text" maxlength="4096" value=""/>
+<div class="weapon_buttons"><button id="weapon_new" data-action="studio:weapon-new">NEW ORIGINAL DRAFT</button><button id="weapon_open" data-action="studio:weapon-open">OPEN PATH</button><button id="weapon_save" data-action="studio:weapon-save">SAVE WORKSPACE</button></div>
+<p>Save to a .ppweaponproject path. Existing files are protected against stale edits; use a new filename for Save As.</p>
+<div class="weapon_columns"><div class="weapon_column"><label for="weapon_name">WEAPON NAME</label><input id="weapon_name" type="text" maxlength="80" value=""/></div><div class="weapon_column"><label for="weapon_author">AUTHOR</label><input id="weapon_author" type="text" maxlength="120" value=""/></div></div>
+<div class="weapon_columns"><div class="weapon_column"><label for="weapon_mechanics">STRICT MECHANICS JSON</label><textarea id="weapon_mechanics" maxlength="16384"/></div><div class="weapon_column"><label for="weapon_model">ORIGINAL RIGID-BOX MODEL JSON</label><textarea id="weapon_model" maxlength="16384"/></div></div>
+<div class="weapon_buttons"><button id="weapon_apply" data-action="studio:weapon-apply">APPLY AND VALIDATE</button><button id="weapon_info_refresh" data-action="studio:weapon-info">REFRESH CPU MODEL / AUDIO INFO</button></div>
+<p>Precision profile: body damage 0–2000, head damage 0–3000, magazine 1–32, reserve 0–512. Cooldown 6–3600 ticks, reload 1–3600 ticks (60 ticks per second). Choose 1–4 ascending optics from 1000 to 8000 (1×–8×). Splash and piercing must remain false. Apply reports invalid fields and preserves the last valid package.</p>
+<img id="weapon_model_preview"/><p>STATIC MODEL // cyan dot marks the muzzle. Apply edits to refresh; at most 32 pictures per workspace window.</p><p id="weapon_preview_info"/>
+<p>Supported model: original prime-rigid-boxes-v1, two LODs. Audio: four validated mono PCM16 22050 Hz cues. Static CPU model preview only; GLB, textures, audio converters and in-editor animated/audio playback are not implemented. The exact game pickup test is the visual and firing preview.</p>
+<h2>LICENSE AND EXPORT</h2>
+<button id="weapon_license" role="checkbox" data-action="studio:weapon-license">[ ] I own or have permission to distribute every included asset</button>
+<label for="weapon_attestor">CREATOR MAKING THE LICENSE DECLARATION</label><input id="weapon_attestor" type="text" maxlength="120" value=""/>
+<p>The declaration applies to the exact package revision and is cleared by package edits. Existing license text and declared SPDX license remain part of the package.</p>
+<label for="weapon_export_path">NEW PACKAGE EXPORT PATH // absolute .ppweapon</label><input id="weapon_export_path" type="text" maxlength="4096" value=""/>
+<button id="weapon_export" data-action="studio:weapon-export">ATTEST AND EXPORT NEW PACKAGE</button>
+<h2>LOCAL INSTALL AND PICKUP TEST</h2>
+<label for="weapon_store_path">LOCAL WEAPON STORE DIRECTORY</label><input id="weapon_store_path" type="text" maxlength="4096" value=""/>
+<label for="weapon_test_room">AUTHORED STOCK PICKUP ROOM</label><input id="weapon_test_room" type="text" maxlength="128" value="MP3 PROVING GROUND"/>
+<div class="weapon_buttons"><button id="weapon_install" data-action="studio:weapon-install">INSTALL EXACT REVISION</button><button id="weapon_test_play" data-action="studio:weapon-play">INSTALL AND PLAY PICKUP TEST</button><button id="weapon_test_stop" data-action="studio:weapon-stop">STOP OWNED TEST</button></div>
+<p>Installation grants no inventory. The separate offline game starts empty; collect the authored world weapon to fire, reload and use its optics. The owned test closes after at most 120 seconds and is stopped when this workspace closes.</p>
+</div><p id="weapon_status" role="status"/></div></body></rml>

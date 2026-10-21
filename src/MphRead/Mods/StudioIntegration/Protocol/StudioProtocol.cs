@@ -30,7 +30,7 @@ public static class StudioProtocol
     };
 }
 
-public enum StudioOpenKind { Home = 0, Map = 1, Replay = 2, Clip = 3, ReplayLibrary = 4 }
+public enum StudioOpenKind { Home = 0, Map = 1, Replay = 2, Clip = 3, ReplayLibrary = 4, Weapon = 5 }
 
 public sealed record StudioOpenRequest(Guid RequestId, StudioOpenKind Kind, string? Path = null,
     bool Recover = false, bool SafeMode = false)
@@ -39,6 +39,11 @@ public sealed record StudioOpenRequest(Guid RequestId, StudioOpenKind Kind, stri
     {
         if (RequestId == Guid.Empty) return "The Studio request ID is missing.";
         if (!Enum.IsDefined(Kind)) return "The Studio workspace kind is invalid.";
+        if (Kind == StudioOpenKind.Weapon)
+        {
+            if (Recover || SafeMode) return "Weapon workspaces do not support replay recovery or safe-mode flags.";
+            if (Path == null) return null; // Explicit New weapon workspace.
+        }
         if (Kind == StudioOpenKind.Map) return "Map editing is coming soon in Project Prime Studio.";
         if (Kind == StudioOpenKind.ReplayLibrary)
             return Path == null && !Recover && !SafeMode ? null
@@ -50,10 +55,40 @@ public sealed record StudioOpenRequest(Guid RequestId, StudioOpenKind Kind, stri
             return "A bounded absolute document path is required.";
         string extension = System.IO.Path.GetExtension(Path);
         if (!(Kind == StudioOpenKind.Replay && extension.Equals(".ppdemo", StringComparison.OrdinalIgnoreCase))
-            && !(Kind == StudioOpenKind.Clip && extension.Equals(".ppclip", StringComparison.OrdinalIgnoreCase)))
+            && !(Kind == StudioOpenKind.Clip && extension.Equals(".ppclip", StringComparison.OrdinalIgnoreCase))
+            && !(Kind == StudioOpenKind.Weapon && (extension.Equals(".ppweaponproject", StringComparison.OrdinalIgnoreCase)
+                || extension.Equals(".ppweapon", StringComparison.OrdinalIgnoreCase))))
             return "The Studio document extension does not match its workspace.";
         if (Path.Any(char.IsControl)) return "The Studio document path contains invalid characters.";
+        if (Kind == StudioOpenKind.Weapon && !SafeWeaponPath(Path)) return "The weapon document path is unsafe.";
         return null;
+    }
+    private static bool SafeWeaponPath(string input)
+    {
+        try
+        {
+            foreach (string part in input.Split('/', '\\'))
+                if (part is not ("." or "..") && (part.EndsWith(' ') || part.EndsWith('.'))) return false;
+            string full = System.IO.Path.GetFullPath(input);
+            if (full.StartsWith(@"\\", StringComparison.Ordinal)) return false;
+            string root = System.IO.Path.GetPathRoot(full)!;
+            foreach (string part in full[root.Length..].Split(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar))
+            {
+                string stem = part.Split('.')[0].ToLowerInvariant();
+                if (part.Contains(':') || stem is "con" or "prn" or "aux" or "nul"
+                    || stem.Length == 4 && (stem.StartsWith("com", StringComparison.Ordinal) || stem.StartsWith("lpt", StringComparison.Ordinal))
+                        && stem[3] is >= '0' and <= '9') return false;
+            }
+            for (string? current = full; current != null; current = System.IO.Path.GetDirectoryName(current))
+            {
+                try { if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0) return false; }
+                catch (FileNotFoundException) { }
+                catch (DirectoryNotFoundException) { }
+            }
+            return true;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException)
+        { return false; }
     }
 }
 

@@ -45,7 +45,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void PumpPrimeStudioApplication(RenderWindow window)
     {
         if (!Shell.StudioWindow || Shell.NativeStartupPending || window.HasScene || _controller == null || _controller.Busy
-            || _quickSettings is { CanNavigateAway: false }
+            || _weaponStudio is { CanNavigateAway: false } || _quickSettings is { CanNavigateAway: false }
             || _fullSettings is { CanNavigateAway: false } || _hudEditor != null) return;
         if (PumpNativeStudioProjectOpen(window)) return;
         // Requests wait while an editor owns playback. They never replace a
@@ -53,6 +53,11 @@ internal static partial class RmlUiOpenGlSmoke
         Shell.StudioApplication?.Pump(request =>
         {
             if (request.Kind == StudioOpenKind.Home) OpenPrimeStudioDestination();
+            else if (request.Kind == StudioOpenKind.Weapon)
+            {
+                CloseNativeStudio(); CloseNativeQuickSettings(); CloseNativeNews();
+                OpenNativeWeaponStudio(request.Path);
+            }
             else if (request.Kind == StudioOpenKind.ReplayLibrary)
             {
                 CloseNativeStudio(); CloseNativeQuickSettings(); CloseNativeNews();
@@ -76,7 +81,7 @@ internal static partial class RmlUiOpenGlSmoke
             _applicationHeader = pages.Page;
             host.SetBool(pages.Page, "class:@document:native-page-enter", true);
         }
-        RmlUiHeaderTab active = _studio != null ? RmlUiHeaderTab.Studio
+        RmlUiHeaderTab active = _studio != null || _weaponStudio != null ? RmlUiHeaderTab.Studio
             : _hunterChoice != null || _license is { IsOverlay: false } ? RmlUiHeaderTab.Hunters
             : _community != null ? RmlUiHeaderTab.Community
             : _quickSettings != null || _fullSettings != null || _hudEditor != null || _social != null || _party != null ? RmlUiHeaderTab.None
