@@ -13,7 +13,7 @@ internal static class NetCombatPayments
     internal const uint Retention = 1024;
     private struct Entry
     {
-        public bool Live, Paid;
+        public bool Live, Paid, RescuedClaim;
         public ShotPaymentKey Key;
         public uint Frame;
         public byte Weapon;
@@ -47,6 +47,37 @@ internal static class NetCombatPayments
     {
         int at = Find(key);
         if (at >= 0 && Entries[key.Shot.ShooterSlot, at].Paid && Entries[key.Shot.ShooterSlot, at].Weapon == weapon)
+        { outcome = Entries[key.Shot.ShooterSlot, at].Outcome; return true; }
+        outcome = default; return false;
+    }
+    // An individual native beam cannot hit one body directly AND explode against
+    // that same body as a separate splash: CheckSplashDamage excludes colWith.
+    // A client rescue can choose the opposite outcome from the authoritative
+    // collision on a different rewind timeline. Only that cross-timeline pair
+    // is exclusive. Two independent native contacts and different child
+    // components/victims are deliberately not collapsed.
+    private static int FindAlternative(in ShotPaymentKey key, bool incomingClaim)
+    {
+        if (!Valid(key)) return -1;
+        for (int i = 0; i < CapacityPerShooter; i++)
+        {
+            ref readonly var entry = ref Entries[key.Shot.ShooterSlot, i];
+            if (Expired(entry) || !entry.Paid || (!incomingClaim && !entry.RescuedClaim)
+                || entry.Key.Shot != key.Shot || entry.Key.Victim != key.Victim
+                || entry.Key.Generation != key.Generation || entry.Key.Life != key.Life
+                || entry.Key.Component != key.Component || entry.Key.Phase != key.Phase
+                || (entry.Key.Kind & 4) != (key.Kind & 4)) continue;
+            int existingKind = entry.Key.Kind & 3, newKind = key.Kind & 3;
+            if ((existingKind == 1 && newKind == 2) || (existingKind == 2 && newKind == 1))
+                return i;
+        }
+        return -1;
+    }
+    internal static bool TryGetClaimOutcome(in ShotPaymentKey key, byte weapon, out CombatAckEntry outcome)
+    {
+        if (TryGet(key, weapon, out outcome)) return true;
+        int at = FindAlternative(key, incomingClaim: true);
+        if (at >= 0 && Entries[key.Shot.ShooterSlot, at].Weapon == weapon)
         { outcome = Entries[key.Shot.ShooterSlot, at].Outcome; return true; }
         outcome = default; return false;
     }
@@ -98,11 +129,11 @@ internal static class NetCombatPayments
                 Entries[_slot, _at] = default;
         }
     }
-    internal static Reservation Begin(in ShotPaymentKey key, byte weapon)
+    internal static Reservation Begin(in ShotPaymentKey key, byte weapon, bool fromClaim = false)
     {
         if (!Valid(key)) return new(true);
         NetCampaignEvidence.TimelinePayment("payment-attempt", key, weapon);
-        if (Find(key) >= 0)
+        if (Find(key) >= 0 || FindAlternative(key, fromClaim) >= 0)
         {
             NetCampaignEvidence.TimelinePayment("payment-refused", key, weapon, result: 1);
             Suppressed++; LifetimeSuppressed++; return new(false);
@@ -111,7 +142,7 @@ internal static class NetCombatPayments
             if (Expired(Entries[key.Shot.ShooterSlot, i]))
             {
                 Entries[key.Shot.ShooterSlot, i] = new Entry { Live = true, Key = key,
-                    Weapon = weapon, Frame = NetSession.NetFrame };
+                    Weapon = weapon, Frame = NetSession.NetFrame, RescuedClaim = fromClaim };
                 return new(true, key.Shot.ShooterSlot, i, key);
             }
         NetCampaignEvidence.TimelinePayment("payment-refused", key, weapon, result: 2);
