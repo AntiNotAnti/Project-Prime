@@ -11,6 +11,17 @@ internal static class HunterPresenterContractAcceptance
 {
     internal static int Run(string assetRoot)
     {
+        int viewportWidth = 1280, viewportHeight = 720;
+        string? requestedSize = Environment.GetEnvironmentVariable("PRIME_HUNTER_CONTRACT_SIZE");
+        if (!string.IsNullOrWhiteSpace(requestedSize))
+        {
+            string[] dimensions = requestedSize.Split('x');
+            if (dimensions.Length != 2
+                || !int.TryParse(dimensions[0], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out viewportWidth)
+                || !int.TryParse(dimensions[1], System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out viewportHeight)
+                || viewportWidth is < 320 or > 4096 || viewportHeight is < 320 or > 4096)
+                throw new ArgumentException("PRIME_HUNTER_CONTRACT_SIZE must be WIDTHxHEIGHT with each dimension from 320 through 4096.");
+        }
         assetRoot = Path.GetFullPath(assetRoot);
         if (!File.Exists(Path.Combine(assetRoot, "pages", "hunters", "native-picker.rml")))
             throw new ArgumentException("Pass the published RmlUi asset directory.");
@@ -21,7 +32,8 @@ internal static class HunterPresenterContractAcceptance
         try
         {
             using var host = new RmlUiHost();
-            Check(host.Initialize(1280, 720, 1, assetRoot, RmlUiRenderBackend.DrawList), "actual native CPU backend initialized");
+            Check(host.Initialize(viewportWidth, viewportHeight, 1, assetRoot, RmlUiRenderBackend.DrawList),
+                $"actual native CPU backend initialized at {viewportWidth}x{viewportHeight}");
             using var pages = new RmlUiPageManager(host);
             int refreshes = 0;
             foreach (Hunter hunter in LauncherHunterChoiceController.Playable)
@@ -83,8 +95,8 @@ internal static class HunterPresenterContractAcceptance
                 }
                 Check(choice.Writes == 0 && cosmetics.Writes == 0, "publication does not save identity or contact an account");
             }
-            if (LocalBodyAppearanceRules.Available) BodyPersistence(host, pages, isolated);
-            Console.WriteLine($"HUNTER PRESENTER CONTRACT PASS all 7 Hunters; {refreshes} category/beam/color/suit publications; actual native strict binding targets and isolated Trooper Apply/Discard/reopen persistence; no GL window, game files, account or real player writes.");
+            if (LocalBodyAppearanceRules.Available) BodyPersistence(host, pages, isolated, viewportWidth, viewportHeight);
+            Console.WriteLine($"HUNTER PRESENTER CONTRACT PASS viewport {viewportWidth}x{viewportHeight}; all 7 Hunters; {refreshes} category/beam/color/suit publications; actual native strict binding targets and isolated Weavel body Apply/Discard/reopen persistence; no GL window, game files, account or real player writes.");
             return 0;
         }
         finally
@@ -105,7 +117,7 @@ internal static class HunterPresenterContractAcceptance
         Console.WriteLine("HUNTER PRESENTER CONTRACT PASS " + label);
     }
 
-    private static void BodyPersistence(RmlUiHost host, RmlUiPageManager pages, string isolated)
+    private static void BodyPersistence(RmlUiHost host, RmlUiPageManager pages, string isolated, int viewportWidth, int viewportHeight)
     {
         string oldDirectory = LauncherPrefs.Directory;
         var oldChoice = new LauncherHunterChoice(LauncherPrefs.LastHunter, LauncherPrefs.LastColor, LauncherPrefs.LocalBody);
@@ -118,7 +130,7 @@ internal static class HunterPresenterContractAcceptance
             LauncherPrefs.LastColor = 0; LauncherPrefs.LocalBody = LocalBodyAppearance.Native;
             Check(LauncherPrefs.TrySave(), "fixture creates only its isolated launcher preference file");
             foreach (var body in new[] { LocalBodyAppearance.TrooperPower, LocalBodyAppearance.TrooperIce,
-                LocalBodyAppearance.TrooperWave, LocalBodyAppearance.TrooperPlasma })
+                LocalBodyAppearance.TrooperWave, LocalBodyAppearance.TrooperPlasma, LocalBodyAppearance.Native })
             {
                 int writes = store.Writes; byte[] saved = File.ReadAllBytes(path);
                 using (var presenter = new NativeHunterPagePresenter(pages, store, cosmetics, host))
@@ -126,7 +138,7 @@ internal static class HunterPresenterContractAcceptance
                     presenter.Open(); host.Update();
                     Click(presenter, "hunter_body" + (int)body, RmlUiIntentKind.HunterBodySelect, (int)body);
                     Check(Draft(presenter).Body == body && !presenter.CanNavigateAway && store.Writes == writes
-                        && File.ReadAllBytes(path).AsSpan().SequenceEqual(saved), "native Trooper click stages without persistence: " + body);
+                        && File.ReadAllBytes(path).AsSpan().SequenceEqual(saved), "native Weavel body click stages without persistence: " + body);
                     Click(presenter, "hunter_apply", RmlUiIntentKind.HunterApply, 0);
                     Check(store.Writes == writes + 1 && store.Capture() == new LauncherHunterChoice(Hunter.Weavel, 0, body)
                         && presenter.CanNavigateAway && cosmetics.Writes == 0
@@ -144,7 +156,8 @@ internal static class HunterPresenterContractAcceptance
                     reopened.Open(); host.Update();
                     Check(Draft(reopened) == store.Capture() && reopened.CanNavigateAway && store.Writes == writes + 1,
                         "reopened native presenter captures the persisted body: " + body);
-                    var other = body == LocalBodyAppearance.TrooperPlasma ? LocalBodyAppearance.TrooperPower : (LocalBodyAppearance)((int)body + 1);
+                    var other = body is LocalBodyAppearance.TrooperPlasma or LocalBodyAppearance.Native
+                        ? LocalBodyAppearance.TrooperPower : (LocalBodyAppearance)((int)body + 1);
                     byte[] applied = File.ReadAllBytes(path);
                     Click(reopened, "hunter_body" + (int)other, RmlUiIntentKind.HunterBodySelect, (int)other);
                     Check(!reopened.CanNavigateAway && Draft(reopened).Body == other, "another Trooper remains an unsaved draft after reopen");
@@ -155,7 +168,7 @@ internal static class HunterPresenterContractAcceptance
                         "Weavel cannot focus either Samus-only imported body button");
                 }
             }
-            Check(store.Writes == 4 && cosmetics.Writes == 0, "four explicit Trooper Applies make four local identity writes and no cosmetic/account request");
+            Check(store.Writes == 5 && cosmetics.Writes == 0, "four Trooper and one Native Apply make five local identity writes and no cosmetic/account request");
         }
         finally
         {
@@ -171,6 +184,10 @@ internal static class HunterPresenterContractAcceptance
             for (int n = 0; n < 8; n++) { Thread.Sleep(15); host.Update(); }
             Check(host.TryGetElementBounds(document, id, out float x, out float y, out float width, out float height)
                 && width > 0 && height > 0, "actual persisted-loadout control has native hit bounds: " + id);
+            Check(float.IsFinite(x) && float.IsFinite(y) && float.IsFinite(width) && float.IsFinite(height)
+                && x + width / 2 >= 0 && x + width / 2 < viewportWidth
+                && y + height / 2 >= 0 && y + height / 2 < viewportHeight,
+                "native focus/scroll exposes the control hit center inside the requested viewport: " + id);
             host.DiscardIntents();
             host.Input.PointerMoved(x + width/2, y + height/2);
             host.Input.PointerButton(0, x + width/2, y + height/2, true);
