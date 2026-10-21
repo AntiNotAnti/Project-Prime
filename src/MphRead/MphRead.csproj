@@ -355,8 +355,12 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+  <ItemGroup>
     <EmbeddedResource Include="Assets/Weapons/RiftlineM7/model-v1.json" LogicalName="Weapons/RiftlineM7/model-v1.json" />
+    <EmbeddedResource Include="Assets/Weapons/RiftlineM7/LICENSE.txt" LogicalName="Weapons/RiftlineM7/LICENSE.txt" />
+    <EmbeddedResource Include="Assets/Weapons/RiftlineM7/README.md" LogicalName="Weapons/RiftlineM7/README.md" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <EmbeddedResource Include="Assets/Cosmetics/**/*.png">
       <LogicalName>Cosmetics/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>

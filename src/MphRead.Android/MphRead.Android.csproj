@@ -245,6 +245,8 @@
 
   <ItemGroup>
     <EmbeddedResource Include="../MphRead/Assets/Weapons/RiftlineM7/model-v1.json" LogicalName="Weapons/RiftlineM7/model-v1.json" />
+    <EmbeddedResource Include="../MphRead/Assets/Weapons/RiftlineM7/LICENSE.txt" LogicalName="Weapons/RiftlineM7/LICENSE.txt" />
+    <EmbeddedResource Include="../MphRead/Assets/Weapons/RiftlineM7/README.md" LogicalName="Weapons/RiftlineM7/README.md" />
     <EmbeddedResource Include="../MphRead/Assets/Cosmetics/**/*.png">
       <LogicalName>Cosmetics/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
