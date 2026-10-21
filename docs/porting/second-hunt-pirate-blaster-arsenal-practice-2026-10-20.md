@@ -238,3 +238,12 @@ selection/authority/protocol/replay/career integration and Android runtime
 acceptance remain. Overcharged runtime cosmetics and complete arena/material
 rendering remain separate engineering work. Android testing is now skipped at
 the user’s request. No CI or external-review pass is claimed.
+
+## Verified merge
+
+[PR925](https://github.com/AntiNotAnti/Project-Prime/pull/925) is verified MERGED
+at `939765d825e0a7a8fd2ba19098e114a18cc9c560` (2026-10-21T00:29:11Z).
+The merged feature/acceptance source matches the recorded branch. Concurrent
+main PR924 adds local weapon package infrastructure, project/package references
+and its tests; those added paths are outside the earlier frozen whole-binary
+proof. No CI or review wait/pass is claimed, following the user's instruction.
