@@ -18,7 +18,10 @@ public partial class Scene
     internal ReadOnlySpan<float> CustomRifleWave(int cue)
         =>_customRifleAudioWaves!=null&&(uint)cue<4?_customRifleAudioWaves[cue]:ReadOnlySpan<float>.Empty;
     internal CustomRiflePose CustomRiflePose(PlayerEntity player)
-        =>_customRifleTracks!=null&&(uint)player.SlotIndex<8&&_customRifleTracks[player.SlotIndex] is {} track
+        => Services.IsReplica ? TryReplayCustomPresentation(out var replay, out var custom) && CustomWeaponHud(player) is { Ready: true, Visible: true }
+            ? custom.RiflePose(player.SlotIndex, replay.Session.RecordingFrame,
+                FrameTiming.Active&&FrameTiming.HighRefreshPresentation?(float)FrameTiming.PresentationAlpha:0) : default
+        :_customRifleTracks!=null&&(uint)player.SlotIndex<8&&_customRifleTracks[player.SlotIndex] is {} track
             ?track.Sample(FrameTiming.Active&&FrameTiming.HighRefreshPresentation?(float)FrameTiming.PresentationAlpha:0):default;
     private void PrewarmCustomRifleAudio()
     {
@@ -101,6 +104,7 @@ public partial class Scene
     }
     private void DrawCustomRifleWorldEffects()
     {
+        if (Services.IsReplica) { DrawReplayCustomWorldEffects(); return; }
         if(Headless.Active||Services.IsReplica||DemoPlayback.IsActive)return;
         float alpha=FrameTiming.Active&&FrameTiming.HighRefreshPresentation?(float)FrameTiming.PresentationAlpha:0;
         if(!NetSession.Active&&OfflineWeapons?.LastImpact is {} hit)

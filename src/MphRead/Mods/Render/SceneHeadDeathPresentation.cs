@@ -95,8 +95,9 @@ public partial class Scene
         var cause=new HeadHitFact(context,id,recordingWorld??fact.ResolveTick,head?normalized.Direction:default);
         OfferHeadDeath(player,slot,cause,head);
     }
-    private void AcceptCustomHeadDeath(PlayerEntity player,WorldBootstrapIdentity bootstrap,in CustomContactOutcome hit,Vector3 direction)
+    private void AcceptCustomHeadDeath(PlayerEntity player,WorldBootstrapIdentity bootstrap,in CustomContactOutcome hit,Vector3 direction,uint? recordingWorld=null)
     {
+        if(recordingWorld.HasValue&&Services is not ReplaySceneServices)return;
         if(hit.Disposition!=CustomContactDisposition.Canonical||!hit.Contact.IsValid||!hit.Health.IsValid||!hit.Lethal
             ||HeadDeathOwner(player) is not {} slot)return;
         var victim=hit.Contact.Key.Victim;var owner=hit.Contact.Key.Action.Owner;var context=slot.Track.Victim;
@@ -105,7 +106,7 @@ public partial class Scene
         var id=new HeadHitEvent(HeadHitDomain.Custom,default,hit.Contact.Key,bootstrap,0,hit.Health.DamageEventId);
         if(!id.IsValid)return;
         bool head=HeadHitFact.TryCustomDeath(slot.Track.Victim,bootstrap,hit,direction,out var normalized);
-        OfferHeadDeath(player,slot,new(slot.Track.Victim,id,hit.AuthorityFrame,head?normalized.Direction:default),head);
+        OfferHeadDeath(player,slot,new(slot.Track.Victim,id,recordingWorld??hit.AuthorityFrame,head?normalized.Direction:default),head);
     }
     internal HeadDeathPose ModHeadDeathPose(PlayerEntity player,DeathPresentationDefinition definition)
     {

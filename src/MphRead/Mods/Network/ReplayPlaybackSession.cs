@@ -140,6 +140,17 @@ namespace MphRead.Mods.Network
                 Stop(); LastResult = ReplayOpenResult.Corrupt; LastError = "Custom inspection stopped: " + error.Message; throw;
             }
         }
+        internal void RestoreCustomInspection(ReplayReplicaCheckpoint checkpoint)
+        {
+            if (!IsActive || !_live || !_customInspection || _host is not PassiveReplaySessionHost passive)
+                throw new InvalidOperationException("Custom world restoration requires its explicit private inspection session.");
+            var validated = new ReplayReplicaState(); validated.RestoreCustomCheckpoint(checkpoint);
+            if (validated.CustomWeaponDescriptor == null || Metadata?.CustomWeapons is not { } descriptor
+                || !validated.CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes()))
+                throw new InvalidDataException("Custom world decoder differs from its prepared inspection scope.");
+            passive.State.RestoreCustomCheckpoint(checkpoint);
+            _frame = LastFrame = validated.RecordingFrame; _started = true;
+        }
 
         internal void Join(ReplayTimelineClip clip, ReplayReplicaCheckpoint construction)
         {
