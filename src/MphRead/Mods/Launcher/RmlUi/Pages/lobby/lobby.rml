@@ -6,7 +6,18 @@
     </head>
     <body template="prime-shell">
         <div id="lobby_stage">
-            <div id="lobby_countdown"><div id="lobby_countdown_number"/><div id="lobby_countdown_detail"/></div>
+            <div id="lobby_countdown" role="status" aria-live="polite">
+                <div id="lobby_countdown_card">
+                    <div class="chamber_corner chamber_corner_top" aria-hidden="true" />
+                    <div class="chamber_corner chamber_corner_bottom" aria-hidden="true" />
+                    <div class="eyebrow">ONLINE // MATCH DEPLOYMENT</div>
+                    <div id="lobby_countdown_map" />
+                    <div id="lobby_countdown_number" />
+                    <div class="lobby_countdown_rule" aria-hidden="true" />
+                    <div id="lobby_countdown_detail" />
+                    <div class="lobby_countdown_hint">SERVER-SYNCHRONIZED START</div>
+                </div>
+            </div>
             <div id="lobby_heading" class="enter_left">
                 <div class="eyebrow">MULTIPLAYER // LIVE LOBBY</div>
                 <div class="lobby_title" data-prime-text="{{lobby_name}}" id="text_lobby_name_1" />

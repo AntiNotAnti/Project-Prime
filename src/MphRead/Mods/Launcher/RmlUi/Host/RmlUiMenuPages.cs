@@ -266,6 +266,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "class:lobby_slot7:ready", "slot7_ready"),
             new(RmlUiBindingKind.Text, "lobby_time", "{{lobby_time}}"),
             new(RmlUiBindingKind.Text, "lobby_score", "{{lobby_score}}"),
+            new(RmlUiBindingKind.Text, "lobby_countdown_map", "{{lobby_map}}"),
             new(RmlUiBindingKind.Text, "lobby_countdown_number", "{{lobby_countdown_number}}"),
             new(RmlUiBindingKind.Text, "lobby_countdown_detail", "{{lobby_countdown_detail}}"),
             new(RmlUiBindingKind.Boolean, "visible:lobby_countdown", "lobby_starting"),

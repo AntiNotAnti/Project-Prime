@@ -61,7 +61,7 @@ internal static partial class RmlUiOpenGlSmoke
     /// </summary>
     internal static bool BeforeLauncherComposite(RenderWindow window)
     {
-        if (!Requested || _disabled || window.HasScene
+        if (!Requested || _disabled || (window.HasScene && !Shell.RmlUiMatchStartVisible)
             || window.FramebufferSize.X <= 0 || window.FramebufferSize.Y <= 0
             || !Shell.RmlUiCanPresent)
         {
@@ -87,6 +87,8 @@ internal static partial class RmlUiOpenGlSmoke
                 && NetSession.SlotSpectating[NetSession.LocalSlot]) activity = "spectating";
             _presence.Tick(activity, NetSession.ServerSession?.Match.RoomKey ?? "");
         }
+        if (Shell.RmlUiMatchStartVisible) { DrawNativeMatchStart(window); return; }
+        CloseNativeMatchStart();
         if (window.HasScene) { CloseNativeQuit(); CloseNativeVersions(); CloseNativeUpdate(); CloseNativeStartup(teardown: true); CloseNativeGameFiles(); CloseNativeCampaignEnding(); CloseNativeCampaignShip(); DrawGameplayOverlay(window); return; }
         if (_settingsReturnToPause) CloseFullSettings();
         if (GameplayOpen) CloseGameplayOverlays();
@@ -1044,6 +1046,7 @@ internal static partial class RmlUiOpenGlSmoke
     {
         RmlUiHost? host = _host;
         if (_disabled || !_shown || host is not { Active: true }) return false;
+        if (Shell.RmlUiMatchStartVisible) return true;
         if (_inputWindow is not { IsFocused:true }) return true;
         if (GameplayOpen && !GameplayLeaseCurrent)
         { CloseGameplayOverlays(); _shown = false; return false; }
@@ -1085,6 +1088,7 @@ internal static partial class RmlUiOpenGlSmoke
     internal static void Shutdown()
     {
         DisposeNativeInput();
+        CloseNativeMatchStart();
         CloseNativeQuit();
         CloseNativeVersions();
         CloseFullSettings();
