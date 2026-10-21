@@ -40,6 +40,9 @@ internal static class ReplayDetachedExportQueue
                 string source=frozen?.Manifest.Replay??manifest.Replay;
                 if(new FileInfo(source).LinkTarget!=null)throw new IOException("Choose an ordinary replay file.");
                 replay=new(source,FileMode.Open,FileAccess.Read,FileShare.Read);
+                using (var reader=DemoReader.Open(source,out _))
+                    if(reader?.Metadata?.CustomWeapons!=null)
+                        throw new InvalidOperationException("Custom replay export is not supported.");
                 string ownerPath = source + ReplayOwnerTrack.Extension;
                 bool expectedOwner = frozen?.InputHashes.ContainsKey(ownerPath) ?? File.Exists(ownerPath);
                 if (expectedOwner)

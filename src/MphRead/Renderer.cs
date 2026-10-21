@@ -2430,6 +2430,8 @@ namespace MphRead
                 textEntry: false, results: false);
             Mods.Input.GamepadInput.BeginFrame();
             Mods.Replay.ReplayInput.PollGamepad();
+            if (!Mods.Network.DemoPlayback.IsCustomPlayback)
+            {
             Mods.SpectatorMode.NoteScoreboard(_keyboardState.IsKeyDown(Keys.Tab)
                 || Mods.Input.GamepadInput.State.Down(Mods.Input.GamepadButtons.Back));
 
@@ -2437,6 +2439,7 @@ namespace MphRead
             if (camera.HasValue)
             {
                 SetFreeCamera(camera.Value);
+            }
             }
             if (!Mods.PauseMenu.Open)
             {
@@ -2794,6 +2797,7 @@ namespace MphRead
                 return;
             }
             using var preparationTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Preparation);
+            ApplyCustomTheatreCamera();
             using var customInspectionSubject = BeginCustomInspectionPicture();
             using var directorSubject = BeginDirectorPicturePreparation();
             RefreshTextureQuality();
@@ -7437,6 +7441,13 @@ localCenter *= _profileHudScale;
         /// </summary>
         public void SetFreeCamera(bool on)
         {
+            if (Mods.Network.DemoPlayback.IsCustomPlayback && Mods.Network.DemoPlayback.Owns(this))
+            {
+                _freeCam = on;
+                if (on) { ClearCustomInspectionFirstPerson(); _cameraMode = CameraMode.Roam; }
+                else SetCustomInspectionFirstPerson(Mods.Network.DemoPlayback.CustomSubjectSlot);
+                return;
+            }
             // A freshly restored replica starts in Roam with _freeCam false.
             // The flag alone cannot tell whether first-person was established.
             if (on == _freeCam && (on || _cameraMode == CameraMode.Player))

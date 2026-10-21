@@ -467,6 +467,9 @@ namespace MphRead.Mods.Replay
             }
 
             if (!File.Exists(source)) throw new FileNotFoundException("The source replay does not exist.", source);
+            using (var reader = DemoReader.Open(source, out _))
+                if (reader?.Metadata?.CustomWeapons != null)
+                    throw new InvalidOperationException("Custom replay virtual clips are not supported.");
             Directory.CreateDirectory(DemoLibrary.Directory);
             string title = string.IsNullOrWhiteSpace(name)
                 ? $"Clip {ReplayHud.Time(startFrame)}-{ReplayHud.Time(endFrame)}"

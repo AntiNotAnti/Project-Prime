@@ -26,6 +26,7 @@ namespace MphRead.Mods.Network
         private int _clipIndex;
         private bool _live;
         private bool _customInspection;
+        private bool _customArchiveRequest;
         internal bool IsCustomInspection => _customInspection;
         private ReplayMetadata? _liveMetadata;
         /// <summary>The frame of the recording about to be replayed.</summary>
@@ -34,24 +35,27 @@ namespace MphRead.Mods.Network
 
         public bool IsActive { get; private set; }
         public string? CurrentPath { get; private set; }
-        public IReadOnlyList<ReplayEvent> Events => _reader?.Metadata?.Events ?? Array.Empty<ReplayEvent>();
+        public IReadOnlyList<ReplayEvent> Events => _reader?.Metadata?.Events
+            ?? (_customArchiveRequest ? _liveMetadata?.Events : null) ?? Array.Empty<ReplayEvent>();
         internal ReplayMetadata? Metadata => _reader?.Metadata ?? _liveMetadata;
         // Canonical clip packets retain the source recording's presentation
         // contract even when the in-memory clip has no file metadata.
         internal int SourceProtocolVersion => _reader is { } reader ? reader.ProtocolVersion
             : _clip is { } clip ? clip.PresentationProtocolVersion : _liveMetadata?.ProtocolVersion ?? 0;
         private uint LeadInFrames => _reader?.Metadata?.LeadInFrames ?? 0;
-        public uint CurrentFrame => IsCustomArchiveInspection ? checked(_frame - _reader!.Metadata!.OriginRecordingFrame)
+        public uint CurrentFrame => _customArchiveRequest ? 0 : IsCustomArchiveInspection ? checked(_frame - _reader!.Metadata!.OriginRecordingFrame)
             : _frame >= LeadInFrames ? _frame - LeadInFrames : 0;
         internal uint RecordingFrame => _customInspection ? _frame : checked(_frame + (_reader?.Metadata?.OriginRecordingFrame ?? 0));
         internal double RecordingPresentationFrame(double visibleFrame) => _clip != null
             ? visibleFrame
-            : visibleFrame + LeadInFrames + (_reader?.Metadata?.OriginRecordingFrame ?? 0);
+            : visibleFrame + LeadInFrames + (_reader?.Metadata?.OriginRecordingFrame
+                ?? (_customArchiveRequest ? _liveMetadata?.OriginRecordingFrame : null) ?? 0);
         internal IReadOnlyList<ReplayCheckpointIndex> DurableCheckpoints => _reader?.Checkpoints ?? Array.Empty<ReplayCheckpointIndex>();
         internal uint CheckpointVisibleFrame(ReplayCheckpointIndex index) => index.Frame >= LeadInFrames ? index.Frame - LeadInFrames : 0;
-        internal uint SourceFrame => IsCustomArchiveInspection ? CurrentFrame : _frame;
+        internal uint SourceFrame => _customArchiveRequest || IsCustomArchiveInspection ? CurrentFrame : _frame;
         internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true)
         {
+            if (_customArchiveRequest) throw new InvalidOperationException("Prepared custom requests cannot load playback checkpoints.");
             var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
             if (_reader.Metadata?.TimedShotCertificates == true && !checkpoint.HasTimedShotContract)
             { checkpoint.Dispose(); throw new InvalidDataException("Durable world lacks recorded timed shot facts; reconstructing from baseline."); }
@@ -92,8 +96,31 @@ namespace MphRead.Mods.Network
             Stop(); LastResult = ReplayOpenResult.Corrupt;
             LastError = "Custom presentation stopped: " + error;
         }
-        public bool AtEnd => IsActive && !_live && (IsCustomArchiveInspection ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LastFrame
+        public bool AtEnd => IsActive && !_customArchiveRequest && !_live && (IsCustomArchiveInspection ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LastFrame
             : _clip != null ? _started && _frame >= LastFrame : _pending == null);
+
+        internal void JoinCustomArchiveRequest(ReplayMetadata metadata, string path, uint duration)
+        {
+            if (_host is not PassiveReplaySessionHost passive)
+                throw new InvalidOperationException("Custom archive requests require a private passive host.");
+            ArgumentNullException.ThrowIfNull(metadata);
+            if (metadata.FormatVersion != 7 || metadata.LeadInFrames != 0 || metadata.WorldCheckpoint.Length == 0
+                || duration > ReplayFormatV3.MaxFrame || (ulong)metadata.OriginRecordingFrame + duration > uint.MaxValue
+                || ReplayFormatV3.ValidateCustomArchiveMetadata(metadata) == null)
+                throw new InvalidDataException("Custom archive request requires a validated complete-world format7 baseline.");
+            var baseline = ReplayTimelineArchive.ReadConstruction(metadata.Bootstrap.Packets[0], custom: true);
+            Stop(); _host.Start();
+            try
+            {
+                passive.State.RestoreCustomCheckpoint(baseline);
+                _liveMetadata = metadata; CurrentPath = path; LastFrame = duration;
+                _frame = metadata.OriginRecordingFrame;
+                _customInspection = _customArchiveRequest = true; _started = true; IsActive = true;
+                LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
+                Transport.Begin();
+            }
+            catch { Stop(); throw; }
+        }
 
         internal void JoinLive(ReplayReplicaCheckpoint construction, uint frame, ulong mapHash)
         {
@@ -634,7 +661,7 @@ namespace MphRead.Mods.Network
         public void Stop()
         {
             _clip = null; _clipIndex = 0;
-            _live = false; _customInspection = false; _liveMetadata = null;
+            _live = false; _customInspection = false; _customArchiveRequest = false; _liveMetadata = null;
             _host.Stop();
             Transport.Stop();
             CloseReader();
