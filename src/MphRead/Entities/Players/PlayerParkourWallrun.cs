@@ -34,6 +34,7 @@ public partial class PlayerEntity
         _modWallkickFrame = _modWallrunGravityFrame = ulong.MaxValue;
     }
     private bool ModWallrunBodyAllowed => ModParkourActive && !ModCrouched && !ModSliding
+        && !_modMantling && !_modMantlePending && !ModGrappleOwnsMovement
         && !Controls.Crouch.IsDown && !Flags1.TestFlag(PlayerFlags1.Standing);
 
     private bool ModWallrunInput(Vector3 normal)
@@ -150,7 +151,7 @@ public partial class PlayerEntity
         _modWallrunAppliedGravity = gravity;
         // Native messages own the persistent field and override tick. Observe
         // their flag before integration clears it; never scale scripted gravity.
-        if (nativeOverride) { ModCancelParkourWallrun(); return gravity; }
+        if (nativeOverride) { ModCancelParkourWallrun(); ModCancelParkourMantle(); ModCancelParkourGrapple(); return gravity; }
         if (!_modWallrunning) return gravity;
         if (_modWallrunTicks <= 0 || !ModWallrunBodyAllowed || !ModWallrunInput(_modWallrunNormal)
             || !ModProbeWallrun(_modWallrunNormal))

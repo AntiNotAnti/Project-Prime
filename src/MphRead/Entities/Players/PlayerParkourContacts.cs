@@ -20,6 +20,7 @@ public partial class PlayerEntity
     {
         _modParkourWallNormal = default;
         _modParkourWallContact = _modParkourWallCorner = _modParkourWallNear = false;
+        _modMantleSeed = _modMantleSeedBlocked = false;
         _modParkourContactFrame = _modWallstrafeAttempt = _modWallstrafeFrame = ulong.MaxValue;
     }
 
@@ -31,6 +32,7 @@ public partial class PlayerEntity
         _modParkourIncomingContactSpeed = Speed;
         _modParkourWallNormal = default;
         _modParkourWallContact = _modParkourWallCorner = _modParkourWallNear = false;
+        _modMantleSeed = _modMantleSeedBlocked = false;
     }
 
     // Observe native faces within collision skin; only positive penetration
@@ -39,6 +41,7 @@ public partial class PlayerEntity
     // the entire tick so a final tangent impulse cannot enter another plane.
     private void ModObserveParkourContact(in CollisionResult result, bool penetrating)
     {
+        ModObserveMantleContact(result, penetrating);
         if (!ModParkourActive) return;
         Vector3 normal = result.Plane.Xyz;
         if (result.EntityCollision != null || result.Field0 != 0 || result.Slipperiness != 0
@@ -58,7 +61,7 @@ public partial class PlayerEntity
 
     private void ModApplyParkourWallstrafe()
     {
-        if (!ModParkourActive || _modParkourContactFrame != _scene.FrameCount
+        if (!ModParkourActive || ModGrappleOwnsMovement || _modMantling || _modParkourContactFrame != _scene.FrameCount
             || _modWallstrafeAttempt == _scene.FrameCount) return;
         _modWallstrafeAttempt = _scene.FrameCount;
         if (!_modParkourWallContact || _modParkourWallCorner

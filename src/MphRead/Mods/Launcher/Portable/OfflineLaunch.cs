@@ -49,14 +49,15 @@ namespace MphRead.Mods.Launcher
                     : "Drone combat practice requires Weavel, a valid suit, zero to seven opponents and a valid difficulty.");
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
                 throw new ArgumentException("MovementModel must be Native, Momentum, Quake3, Traversal or Parkour.", nameof(settings));
+            Hunter resolvedHunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on");
             var plan = new LaunchPlan
             {
                 Kind = LaunchKind.Offline,
                 OfflineCharacter = character,
-                LocalBody = LocalBodyAppearanceRules.Available && hunter == Hunter.Samus && character == OfflineCharacterMode.Native
-                    ? LocalBodyAppearanceRules.Canonical(LauncherPrefs.LocalBody) : LocalBodyAppearance.Native,
+                LocalBody = LocalBodyAppearanceRules.Available && character == OfflineCharacterMode.Native
+                    ? LocalBodyAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalBody, resolvedHunter) : LocalBodyAppearance.Native,
                 IsPlaytest = character != OfflineCharacterMode.Native,
-                Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
+                Hunter = resolvedHunter,
                 MatchRules = new Network.MatchDefinition
                 {
                     Mode = mode,

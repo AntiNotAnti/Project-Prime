@@ -1,5 +1,7 @@
 # Momentum acceptance matrix
 
+Current Parkour integration is recorded in the [2026-10-21 audit](parkour-integration-results.md): mantle [#942](https://github.com/AntiNotAnti/Project-Prime/pull/942) and grapple [#947](https://github.com/AntiNotAnti/Project-Prime/pull/947) are merged. Live identity is protocol82/Parkourv5; Classic remains default. The audit closes the authorized implementation sequence and retains the device, GL, Linux, refresh, performance and hosted-CI gaps below. Earlier rows remain historical source leases, not current universal acceptance.
+
 This audit maps implementation-plan sections 7 and 9 and PR-09 to retained
 results. **V1 implementation is delivered; final hosted CI and listed physical
 qualification remain unverified.** [Closeout](pr09-closeout.md) records the
@@ -92,3 +94,15 @@ special/replay suites cover many named boundaries; no report establishes every
 possible simultaneous online event. That is a scoped evidence limitation, not
 an invented requirement to enumerate all combinations. PR-10 surf/slide/training
 features are explicitly optional future work and are not v1 release gates.
+
+## Parkour v4 mantle refresh
+
+[PR #942 mantle results](parkour-mantle-results.md) adds bounded static ledge mantle and separately attributed full/targeted Windows leases. Seven native scene gates and56 Classic golden trajectories pass. Original77-79 archives were lost externally; new replacement fixtures establish decoder compatibility only. Full live-menu/Android checks remain environment-blocked; physical-device/GL/Linux/refresh/performance gaps above remain open.
+
+## Parkour v5 and final integration refresh
+
+[PR #947 grapple results](parkour-grapple-results.md) and [selected evidence](evidence/parkour-grapple-selection.json) qualify protocol82/v5 with normal Windows builds,27 pure gates,9 native gates/558,773 assertions,56 unchanged Classic trajectories and actual clean/impaired authority/two-owner/native-bot sessions. Accepted ropes produce positive owner forces, replicate remotely and survive CPU world capture/restore/seek without passive queries or forces. This is not GL raster or physical-input acceptance.
+
+The latest-main refresh repeats native/pure checks and all15 local replay-workflow gates. Ten77–81 archives match300 semantic facts with explicit524-byte capsule growth; both current82 archives match37 facts each, including grapple state and unchanged sizes. Stable selected retry passes all374 field checks; a first batch rejected concurrent lobby-created runtime outputs and remains preserved. Lost original77–79 continuity remains unverified. Supplemental Android source-only735 passes; no APK/device acceptance follows.
+
+The [integration audit](parkour-integration-results.md) and [timestamped exact-head CI receipt](evidence/parkour-integration-ci.json) record repaired fixture failures, merge status and rollback. Final hosted green CI remains open wherever queued/running/failed; local passes do not imply remote success. Full live-menu remains blocked by Windows symbolic-link privilege; current Android workload/runtime, physical controller/focus/touch, rope GL/theatre/export, achieved refresh, current Linux asset runtime and deferred performance acceptance remain outstanding. All earlier named limitations remain visible above.

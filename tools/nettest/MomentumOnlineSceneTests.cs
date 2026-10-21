@@ -107,6 +107,7 @@ internal static class MomentumOnlineSceneTests
             player.Controls.MoveUp.Key = Keys.W; player.Controls.MoveDown.Key = Keys.S;
             player.Controls.MoveRight.Key = Keys.D; player.Controls.Jump.Key = Keys.Space; player.Controls.Shoot.Key = Keys.Enter;
             player.Controls.Morph.Key = Keys.Tab;
+            if (expected == MovementModel.Parkour) player.Controls.Grapple.Key = Keys.G;
             if (expected is MovementModel.Traversal or MovementModel.Parkour) player.Controls.Crouch.Key = Keys.LeftControl;
             player.Controls.MouseAim = false; player.Controls.KeyboardAim = true;
             var set = typeof(KeyboardState).GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
@@ -131,6 +132,7 @@ internal static class MomentumOnlineSceneTests
             int ownerCrouchHeldTicks = 0, ownerCrouchedTicks = 0, ownerStandingTicks = 0, ownerStanceChanges = 0;
             int ownerVisualWalkTicks = 0, ownerVisualSlideTicks = 0, ownerPhysicalSlideTicks = 0;
             int remoteVisualWalkTicks = 0, remoteVisualSlideTicks = 0;
+            int ownerGrappleAcceptedTicks = 0, ownerGrappleCanonicalSnapshots = 0, remoteGrappleCanonicalSnapshots = 0, remoteGrapplePresentedTicks = 0;
             int ownerTuckedTicks = 0, ownerTuckedIntentPackets = 0, ownerCanonicalTuckedSnapshots = 0;
             int remoteCanonicalTuckedSnapshots = 0, remoteTuckedPoseChecks = 0;
             bool traversalLowTravelScript = expected == MovementModel.Traversal && touch == null;
@@ -166,11 +168,13 @@ internal static class MomentumOnlineSceneTests
                             if (canonical.SlotIndex == localSlot)
                             {
                                 if (canonical.Crouched) ownerCanonicalCrouchedSnapshots++; else ownerCanonicalStandingSnapshots++;
+                                if (canonical.Grapple.Active) ownerGrappleCanonicalSnapshots++;
                                 if (canonical.Tucked) ownerCanonicalTuckedSnapshots++;
                             }
                             else if (canonical.SlotIndex < NetSession.SlotIsBot.Length && !NetSession.SlotIsBot[canonical.SlotIndex])
                             {
                                 if (canonical.Crouched) remoteCanonicalCrouchedSnapshots++; else remoteCanonicalStandingSnapshots++;
+                                if (canonical.Grapple.Active) remoteGrappleCanonicalSnapshots++;
                                 if (canonical.Tucked) remoteCanonicalTuckedSnapshots++;
                             }
                         }
@@ -252,6 +256,7 @@ internal static class MomentumOnlineSceneTests
                         : phase >= 160 && phase < 200);
                 if (expected == MovementModel.Parkour && touch == null)
                 {
+                    set(keyboard, Keys.G, phase < 28 || phase >= 210);
                     set(keyboard, Keys.Space, phase is >= 30 and < 192);
                     set(keyboard, Keys.LeftControl, phase is >= 48 and < 110);
                 }
@@ -268,7 +273,17 @@ internal static class MomentumOnlineSceneTests
                     && !player.Flags1.TestFlag(PlayerFlags1.StandingPrevious);
                 uint ownerNetFrameBefore = NetSession.NetFrame;
                 object? ownerGatesBefore = acceptanceOptions != null ? MomentumBypassEvidence(scene, player) : null;
+                int grappleForcesBefore = player.ModGrappleForceCount;
                 scene.OnSimulationFrame(); CheckConnection();
+                if (expected == MovementModel.Parkour)
+                {
+                    Require(player.ModGrappleSelectionCount == 0, "online human owner never selects a speculative grapple anchor");
+                    Require(player.ModGrappleForceCount - grappleForcesBefore is >= 0 and <= 1,
+                        "online grapple force applies at most once per fixed tick");
+                    if (!player.Controls.Grapple.IsDown)
+                        Require(player.ModGrappleForceCount == grappleForcesBefore, "local release disables force immediately despite delayed authority state");
+                    if (player.ModGrappleState.Active) ownerGrappleAcceptedTicks++;
+                }
                 if (expected is MovementModel.Traversal or MovementModel.Parkour)
                 {
                     if (player.Controls.Crouch.IsDown) ownerCrouchHeldTicks++;
@@ -328,7 +343,7 @@ internal static class MomentumOnlineSceneTests
                     var result = expected switch
                     {
                         MovementModel.Traversal => TraversalMovementProfileV5.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
-                        MovementModel.Parkour => ParkourMovementProfileV3.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
+                        MovementModel.Parkour => ParkourMovementProfileV5.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
                         MovementModel.Quake3 => Quake3MovementProfileV3.Step(incoming, sample.Input),
                         MovementModel.Momentum => MomentumProfileV1.Step(incoming, sample.Input),
                         _ => throw new InvalidOperationException("Classic must not reach the horizontal solver.")
@@ -429,6 +444,12 @@ internal static class MomentumOnlineSceneTests
                     }
                     if (expected is MovementModel.Traversal or MovementModel.Parkour)
                         ObserveLowTravel(remote, ref remoteVisualWalkTicks, ref remoteVisualSlideTicks);
+                    if (expected == MovementModel.Parkour)
+                    {
+                        Require(remote.ModGrappleSelectionCount == 0 && remote.ModGrappleForceCount == 0 && remote.ModGrappleGeometryQueryCount == 0,
+                            "remote accepted rope is presentation only, with zero anchor selection and forces");
+                        if (remote.ModGrappleState.Active) remoteGrapplePresentedTicks++;
+                    }
                     remoteSlots.Add(slot);
                     if (previousRemote.TryGetValue(slot, out Vector3 prior) && (remote.Position - prior).Length > .001f) remoteMoving++;
                     previousRemote[slot] = remote.Position;
@@ -452,6 +473,10 @@ internal static class MomentumOnlineSceneTests
             if (acceptanceOptions != null && expected is MovementModel.Quake3 or MovementModel.Traversal or MovementModel.Parkour)
                 Require(acceptedHeldHops > 0, "live selected contact-hop model earns held hops from actual new ground contacts");
             Require(remoteSlots.Count > 0 && remoteMoving > 0, "actual other UDP human including late join is observed moving");
+            if (expected == MovementModel.Parkour)
+                Require(ownerGrappleAcceptedTicks > 0 && player.ModGrappleForceCount > 0
+                    && ownerGrappleCanonicalSnapshots > 0 && remoteGrappleCanonicalSnapshots > 0 && remoteGrapplePresentedTicks > 0,
+                    "actual dedicated authority accepts owner requests; matching owner forces and remote/canonical accepted ropes are positive");
             if (expected == MovementModel.Parkour)
                 Require(ownerTuckedTicks > 0 && ownerTuckedIntentPackets > 0 && ownerCanonicalTuckedSnapshots > 0
                     && remoteCanonicalTuckedSnapshots > 0 && remoteTuckedPoseChecks > 0,
@@ -503,6 +528,7 @@ internal static class MomentumOnlineSceneTests
                 ownerCrouchHeldTicks, ownerCrouchedTicks, ownerStandingTicks, ownerStanceChanges,
                 requireLowTravelActivation, ownerVisualWalkTicks, ownerVisualSlideTicks, ownerPhysicalSlideTicks,
                 remoteVisualWalkTicks, remoteVisualSlideTicks,
+                ownerGrappleAcceptedTicks, ownerGrappleForceApplications = player.ModGrappleForceCount, ownerGrappleCanonicalSnapshots, remoteGrappleCanonicalSnapshots, remoteGrapplePresentedTicks,
                 ownerTuckedTicks, ownerTuckedIntentPackets, ownerCanonicalTuckedSnapshots, remoteCanonicalTuckedSnapshots, remoteTuckedPoseChecks,
                 ownerHeldIntentPackets, ownerCrouchedIntentPackets, remoteHeldIntentPackets,
                 ownerCanonicalCrouchedSnapshots, ownerCanonicalStandingSnapshots,

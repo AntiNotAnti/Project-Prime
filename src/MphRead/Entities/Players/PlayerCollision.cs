@@ -952,6 +952,7 @@ namespace MphRead.Entities
                         doorResult.Plane.W = doorResult.Plane.X * (lockPos.X + 0.4f * doorResult.Plane.X)
                             + doorResult.Plane.Y * (lockPos.Y + 0.4f * doorResult.Plane.Y)
                             + doorResult.Plane.Z * (lockPos.Z + 0.4f * doorResult.Plane.Z);
+                        ModBlockParkourMantleActorContact();
                         HandleCollision(doorResult);
                         AltAttackHitDoor(door);
                     }
@@ -982,6 +983,7 @@ namespace MphRead.Entities
                         {
                             ffResult.Plane *= -1;
                         }
+                        ModBlockParkourMantleActorContact();
                         HandleCollision(ffResult);
                     }
                 }

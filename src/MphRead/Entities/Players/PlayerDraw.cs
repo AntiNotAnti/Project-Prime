@@ -122,6 +122,7 @@ namespace MphRead.Entities
             ModGetDrawActorPose(out Vector3 drawPosition, out Vector3 drawFacing);
             if (networkPresented)
                 drawPosition = Mods.Network.NetPlayerBridge.InFormFor(this, presentedPosition, presentedAlt);
+            ModDrawGrapple(drawPosition);
             bool drawAltForm = IsAltForm;
             bool drawAlive = _health > 0;
             // This is the newly enabled consumer. Preserve preexisting live
@@ -541,7 +542,8 @@ namespace MphRead.Entities
                         {
                             if (gunSample)
                                 ApplyHunterNodePose(_gunModel, transform, gunPresentation);
-                            if (!TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
+                            if (!ModTryDrawSourceCannon(transform)
+                                && !TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
                                 GetDrawItems(_gunModel, _gunModel.Model.Nodes[0], _curAlpha);
                         }
                         finally

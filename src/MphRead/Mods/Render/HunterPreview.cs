@@ -174,8 +174,8 @@ namespace MphRead.Mods.Render
             { if (_sourceStageOwner != null || _sourceStageAttemptOwner != null) ClearSourceRigPreview(); return true; }
             if (!double.IsFinite(request.MaterialSeconds) || request.MaterialSeconds < 0
                 || !double.IsFinite(request.Seconds) || request.Seconds < 0 || _model == null
-                || !PrivateCharacterAppearance.TryCreate(Hunter.Samus, request.Appearance.CharacterId, request.Appearance.SkinSource, out _, out _, generatedSource: true)
-                || _hunter != Hunter.Samus || request.Part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)
+                || !PrivateCharacterAppearance.TryCreate(_hunter, request.Appearance.CharacterId, request.Appearance.SkinSource, out _, out _, generatedSource: true)
+                || _hunter != request.NativeHunter || request.Part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)
                 || Mode != (request.Part == CharacterModelPart.Biped ? Mods.Cosmetics.SkinContext.Biped : Mods.Cosmetics.SkinContext.ViewModel)
                 || request.Part == CharacterModelPart.ViewModel && (request.ClipOrdinal != 32 || request.Seconds != 0)) return false;
             if (!ReferenceEquals(_sourceStageOwner, request.Owner) || !ReferenceEquals(_sourceStagePack, request.Pack) || _sourceStagePart != request.Part || _sourceStageAppearance != request.Appearance)
@@ -200,19 +200,30 @@ namespace MphRead.Mods.Render
                     : TrySetSourceCannonPreview(request.Pack, request.Appearance, anchor, request.Owner);
                 if (!attached) return false;
                 _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack; _sourceStageAttemptPart = request.Part; _sourceStageAttemptAppearance = request.Appearance;
-                if (!TryGetSourceRigPreview(out var source)) return false;
+                if (!TryGetSourceRigPreview(out var source)) return RefuseSourceStage(request);
                 _sourceStageOwner = request.Owner; _sourceStagePack = request.Pack; _sourceStagePart = request.Part; _sourceStageAppearance = request.Appearance;
                 _sourceStageRestFit = source.DiagnosticPreviewFit;
             }
             _sourceMaterialSeconds = request.MaterialSeconds;
             if (request.Part == CharacterModelPart.ViewModel)
             { _sourceStageFit = _sourceStageRestFit; return true; }
-            if (SelectedSourceRigClip?.Ordinal != request.ClipOrdinal && !TrySelectSourceRigClip(request.ClipOrdinal)) return false;
-            if (!TrySetSourceRigTime(request.Seconds)) return false;
+            if (SelectedSourceRigClip?.Ordinal != request.ClipOrdinal && !TrySelectSourceRigClip(request.ClipOrdinal)) return RefuseSourceStage(request);
+            if (!TrySetSourceRigTime(request.Seconds)) return RefuseSourceStage(request);
             // The diagnostic camera follows the source root. Raw source keys,
             // sampled skin palettes and gameplay transforms remain untouched.
             _sourceStageFit = Matrix4.CreateTranslation(-_sourceRigPreview!.DiagnosticRootDisplacement) * _sourceStageRestFit;
             return true;
+        }
+
+        private bool RefuseSourceStage(CharacterSourceStageRequest request)
+        {
+            // Clip/time rejection must retire a partially attached owner just
+            // like model admission failure. Retain its failed-attempt stamp so
+            // the same request cannot rehash/recompile every subsequent draw.
+            ClearSourceRigPreview();
+            _sourceStageAttemptOwner = request.Owner; _sourceStageAttemptPack = request.Pack;
+            _sourceStageAttemptPart = request.Part; _sourceStageAttemptAppearance = request.Appearance;
+            return false;
         }
 
         internal void ClearSourceRigPreview()

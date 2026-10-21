@@ -211,17 +211,17 @@ internal static class NativeCharacterPreviewAcceptance
                 "Settings with game-file access disabled cannot route preview action245");
             controller.RequestCharacterSourcePreview();Check(!restricted.TryTakeCharacterSourcePreview(out _),"game-file restriction fences even a direct pending controller request");
         }
-        // Actual worker paths need no commercial data: both supported Echoes
-        // generations are absent, and Trooper has no supported body source program.
-        const string unsupportedProfile = "Body source programs currently support normal and Overcharged Echoes";
+        // Actual worker paths need no commercial data: the supported Echoes
+        // and Prime Rev 2 Trooper source bundles are absent from this fixture.
+        const string missingBundle = "Update the selected source bundle";
         foreach(string id in new[]{"darksamus-echoes","darksamus-overcharged-echoes","trooper-power"})
         {
             using var preview=new NativeCharacterSourcePreviewPage(host,pages,id,asModal:false);preview.Open();
             Task task=(Task)Get(preview,"_load")!;Await(task);preview.Tick();
             string status=(string)Get(preview,"_status")!;
             Check(preview.Request==null&&Get(preview,"_selection")==null
-                &&status.Contains(id=="trooper-power"?unsupportedProfile:"Update the selected source bundle",StringComparison.Ordinal),
-                "missing/unsupported source returns bounded error with no render request: "+id);
+                &&status.Contains(missingBundle,StringComparison.Ordinal),
+                "missing source bundle returns bounded error with no render request: "+id);
             Check(preview.Handle(new(RmlUiIntentKind.HunterCancel,0,preview.Document,1))&&preview.Closed,"Back remains usable after source load refusal: "+id);
         }
         using(var covered=new NativeCharacterSourcePreviewPage(host,pages,"trooper-power",asModal:false))
@@ -232,7 +232,7 @@ internal static class NativeCharacterPreviewAcceptance
             Check(ReferenceEquals(Get(covered,"_load"),completed)&&(string)Get(covered,"_status")! ==prior
                 &&covered.Request==null&&native.Publications==publications,"covered source page defers completed worker adoption and native publication");
             pages.CloseModal();covered.Tick();
-            Check(Get(covered,"_load")==null&&((string)Get(covered,"_status")!).Contains(unsupportedProfile,StringComparison.Ordinal),
+            Check(Get(covered,"_load")==null&&((string)Get(covered,"_status")!).Contains(missingBundle,StringComparison.Ordinal),
                 "restored source page adopts only its own completed worker result");
         }
         foreach(string retirement in new[]{"back","dispose","dead-document"})

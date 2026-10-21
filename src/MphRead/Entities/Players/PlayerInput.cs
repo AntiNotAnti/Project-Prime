@@ -19,6 +19,8 @@ namespace MphRead.Entities
         private void ProcessInput()
         {
             RepairSpatialState();
+            ModSampleGrappleControl();
+            ModMaintainParkourGrapple();
             var replication = _scene.Services.PlayerReplication;
             if (replication.Active && !IsBot)
             {
@@ -847,8 +849,10 @@ namespace MphRead.Entities
                         // itodo: button aim (see free cam code for FPS-independent stuff)
                     }
                 }
+                ModPrepareParkourGrapple();
                 ModPrepareParkourWallrun();
-                bool jumping = WallClingInput() || _modWallkickPending;
+                ModPrepareParkourMantle();
+                bool jumping = WallClingInput() || _modWallkickPending || _modMantlePending || _modMantling;
                 if (!Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck) && !WallClingHeld)
                 {
                     // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
@@ -962,7 +966,7 @@ namespace MphRead.Entities
                     }
                     // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
                     // unimpl-controls: the aim input disable flag is also checked by the game
-                    if (!_modWallkickPending && _jumpPadControlLockMin == 0 && (Controls.Jump.IsPressed || ModQuake3HeldJumpRequested)
+                    if (!_modWallkickPending && !_modMantlePending && !_modMantling && _jumpPadControlLockMin == 0 && (Controls.Jump.IsPressed || ModQuake3HeldJumpRequested)
                         && !Flags1.TestFlag(PlayerFlags1.UsedJump))
                     {
                         // unimpl-controls: double tap jump is hard coded as an alternate condition to the jump input
@@ -2676,6 +2680,10 @@ namespace MphRead.Entities
             Vector3 beforeTriggers = momentumAllowed ? Position : default;
             ModProcessQ3Triggers();
             if (momentumAllowed && Position != beforeTriggers) momentumAllowed = false;
+            // Capture native ownership before one-tick flags/timers are cleared
+            // below. A mantle must not reclaim a just-triggered native impulse.
+            if ((_modMantling || _modMantlePending) && !ModMantleBodyAllowed) ModCancelParkourMantle();
+            if (ModGrappleControllerOwns && _modGrapple.Active && !ModGrappleBodyAllowed) ModCancelParkourGrapple();
             Vector3 q3IncomingSpeed = Speed;
             if (_accelerationTimer > 0)
             {
@@ -2932,6 +2940,8 @@ namespace MphRead.Entities
                     ModMovementShadowNoteGravity(appliedGravity);
                     Speed = Speed.AddY(appliedGravity / 2); // todo: FPS stuff
                 }
+                ModApplyParkourMantle(momentumAllowed);
+                ModApplyParkourGrapple(momentumAllowed, nativeJumpAccepted);
                 Vector3 position = Position + Speed / 2; // todo: FPS stuff
                 if (AttachedEnemy?.EnemyType == EnemyType.Quadtroid)
                 {
@@ -3065,6 +3075,7 @@ namespace MphRead.Entities
                 }
             }
             ModCompleteTuckContact();
+            ModCompleteParkourMantle();
             ModCompleteParkourWallrun(nativeJumpAccepted);
             WallClingAfterCollision();
             bool burning = false;
@@ -3549,6 +3560,7 @@ namespace MphRead.Entities
         public Keybind Zoom { get; }
         public Keybind Jump { get; }
         public Keybind Crouch { get; }
+        public Keybind Grapple { get; } = new Keybind(Keys.G);
         public Keybind Morph { get; }
         public Keybind Boost { get; }
         public Keybind AltAttack { get; }
@@ -3641,7 +3653,7 @@ namespace MphRead.Entities
                 moveLeft, moveRight, moveUp, moveDown, rollLeft, rollRight, rollUp, rollDown, aimLeft, aimRight, aimUp, aimDown,
                 shoot, zoom, jump, morph, boost, altAttack, scanVisor, scan, nextWeapon, prevWeapon, weaponMenu, powerBeam,
                 missile, voltDriver, battlehammer, imperialist, judicator, magmaul, shockCoil, omegaCannon, affinitySlot,
-                pause, hudOverlay, Crouch, CustomWeapon, CustomReload, CustomOptic
+                pause, hudOverlay, Crouch, CustomWeapon, CustomReload, CustomOptic, Grapple
             };
         }
 

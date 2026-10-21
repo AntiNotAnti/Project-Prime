@@ -1,0 +1,266 @@
+{
+  "status": "PASS",
+  "producer": "1c8f9806abe6060cff38ede79502e6a425303a67",
+  "integrationBaseSha": "385e5ddb049110a7cb3337220467d1986a64f9b8",
+  "protocol": 80,
+  "parkourProfileVersion": 4,
+  "fullSourceFiles": 6476,
+  "zeroOverlay": true,
+  "scope": "Full Windows CPU/native-scene/UDP qualification; targeted latest-main refresh is separately attributed below.",
+  "sourceArchiveSha256": "e2c8a570c0263fb61f9d3ad1963cbaf60de13e938f9313004667b69470f887da",
+  "sourceManifestSha256": "a4e24492eac2f86db7dc3ec08e03cef1bf3c0806234b9842acc4885269ae0475",
+  "nettestDllSha256": "d4e820837ab06a8e0386f4c1b9031a5a39e700c0dc522623e38836083d8f1b87",
+  "cohorts": [
+    {
+      "cohort": "clean",
+      "selectedAttempt": "01",
+      "producer": "1c8f9806abe6060cff38ede79502e6a425303a67",
+      "ownerChecks": [
+        31799,
+        32388
+      ],
+      "appliedImpairment": [
+        {
+          "RoundTripMs": 0,
+          "JitterMs": 0,
+          "LossPercent": 0,
+          "ReorderRate": 0,
+          "DuplicateRate": 0,
+          "Seed": 190
+        },
+        {
+          "RoundTripMs": 0,
+          "JitterMs": 0,
+          "LossPercent": 0,
+          "ReorderRate": 0,
+          "DuplicateRate": 0,
+          "Seed": 191
+        }
+      ],
+      "replay": {
+        "checks": 124151,
+        "frames": 2381,
+        "digest": "43F0D7770EABC8E04D77C58C90A37532CE0C170C8ED63429040BA9E163183F39",
+        "checkpoints": 10,
+        "seeks": 114
+      },
+      "archiveSha256": "8f3bda4a686331a0f14f4f71d324fbc11511d2283968a10d3ce9f2a9abd4192e",
+      "movementShadow": {
+        "enabled": true,
+        "hardRejections": 0,
+        "wouldRefuse": 0
+      }
+    },
+    {
+      "cohort": "impaired",
+      "selectedAttempt": "02",
+      "producer": "1c8f9806abe6060cff38ede79502e6a425303a67",
+      "ownerChecks": [
+        31119,
+        32073
+      ],
+      "appliedImpairment": [
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 2,
+          "ReorderRate": 0.02,
+          "DuplicateRate": 0.01,
+          "Seed": 190
+        },
+        {
+          "RoundTripMs": 200,
+          "JitterMs": 20,
+          "LossPercent": 2,
+          "ReorderRate": 0.02,
+          "DuplicateRate": 0.01,
+          "Seed": 191
+        }
+      ],
+      "replay": {
+        "checks": 124112,
+        "frames": 2391,
+        "digest": "128947E3DFD24E0155E80FC9B4727E7FB666B514B5AF7B181A473323C22C7CCB",
+        "checkpoints": 10,
+        "seeks": 104
+      },
+      "archiveSha256": "432f495df266ecc672770b95e58d37802ba49d126cfbdc1d104b423f709813fe",
+      "movementShadow": {
+        "enabled": true,
+        "hardRejections": 0,
+        "wouldRefuse": 0
+      }
+    }
+  ],
+  "targetedIntegration": {
+    "status": "PASS",
+    "scope": "Targeted accepted-fact replay compatibility refresh after latest-main integration; no producer05 UDP cohort claim",
+    "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+    "integrationBaseSha": "66795c48790c774b17e5773e98fcd200b3642d32",
+    "fullSourceFiles": 6490,
+    "zeroOverlay": true,
+    "newUdpCohortsRun": false,
+    "comparisons": [
+      {
+        "protocol": 77,
+        "profile": 1,
+        "cohort": "clean",
+        "fixtureProducer": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+        "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+        "replacementCompatibilityFixture": true,
+        "fixtureScope": "New historical replacement fixture",
+        "archiveSha256": "7d61b494e76648487d73eef63c4f9b25cc8d69ce3a0bbd492d83af87db23896b",
+        "equalReplayFactFields": 32,
+        "gameplayPresentationDigest": "902172FD53DA3737317AF8925800F36459B36B4850DD17FBA5B4D788AA35FBF5",
+        "frames": 2365,
+        "checks": 125730,
+        "checkpointCount": 10,
+        "seekCount": 115,
+        "comparisonJsonSha256": "9886fd8dd32c71ae18a9dc8e731cf329ea195d517bbe29674324f0b89f4e66de",
+        "sourceBinaryEndpointFencesPassed": true
+      },
+      {
+        "protocol": 77,
+        "profile": 1,
+        "cohort": "impaired",
+        "fixtureProducer": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+        "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+        "replacementCompatibilityFixture": true,
+        "fixtureScope": "New historical replacement fixture",
+        "archiveSha256": "7e15129f0b45254d661ce3ef173d4942f50d2f63c20eb60eabb3acd7f67ec63d",
+        "equalReplayFactFields": 32,
+        "gameplayPresentationDigest": "E5B6117B04EC113D33480EB2E850D01B19F34A6D62C81E7BC12E7A6C86341CEC",
+        "frames": 2390,
+        "checks": 123967,
+        "checkpointCount": 10,
+        "seekCount": 103,
+        "comparisonJsonSha256": "a574412a1fa273a0157bdd88aa10bb21ba559f3666849b049a32545d9b1e5e7d",
+        "sourceBinaryEndpointFencesPassed": true
+      },
+      {
+        "protocol": 78,
+        "profile": 2,
+        "cohort": "clean",
+        "fixtureProducer": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+        "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+        "replacementCompatibilityFixture": true,
+        "fixtureScope": "New historical replacement fixture",
+        "archiveSha256": "cc91a5e9686dab6e40fb2c6b98c494ee2172f31917306fc1cad0d1167a3ddb86",
+        "equalReplayFactFields": 32,
+        "gameplayPresentationDigest": "F75994C261CA7AC057970E897590D57DC473E4447290A62DEA5F6DAA86E57989",
+        "frames": 2399,
+        "checks": 124118,
+        "checkpointCount": 10,
+        "seekCount": 84,
+        "comparisonJsonSha256": "6d28bfffc31768eda9692b4047ec7ac98083d3a994d4a8a7cc2a661d601ba999",
+        "sourceBinaryEndpointFencesPassed": true
+      },
+      {
+        "protocol": 78,
+        "profile": 2,
+        "cohort": "impaired",
+        "fixtureProducer": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+        "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+        "replacementCompatibilityFixture": true,
+        "fixtureScope": "New historical replacement fixture",
+        "archiveSha256": "be15b99215b0fb2b2a0768973018d917c04652bbde66056d9cbc8cbaa06ec968",
+        "equalReplayFactFields": 32,
+        "gameplayPresentationDigest": "45D0607347FEAF4D3C038B32C7E27B99DDC70D2D85D0C19DBAFE04B77FBC7477",
+        "frames": 2388,
+        "checks": 125373,
+        "checkpointCount": 10,
+        "seekCount": 108,
+        "comparisonJsonSha256": "0550988a6770f7119cc1b775aece9114869494736181a764fea6ecaa9b010868",
+        "sourceBinaryEndpointFencesPassed": true
+      },
+      {
+        "protocol": 79,
+        "profile": 3,
+        "cohort": "clean",
+        "fixtureProducer": "7fabec4daf5f252831566ad66c24c13279c54018",
+        "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+        "replacementCompatibilityFixture": true,
+        "fixtureScope": "New historical replacement fixture",
+        "archiveSha256": "4f571e9f8dec1a31538c194b84d86dafdd316d59346bfccc8d622bd4e88f7d3d",
+        "equalReplayFactFields": 32,
+        "gameplayPresentationDigest": "ED63BCE8B62E1DCBD93657D92BE5ABBB0ECCAC89A92695B97423719D17967200",
+        "frames": 2374,
+        "checks": 124671,
+        "checkpointCount": 10,
+        "seekCount": 102,
+        "comparisonJsonSha256": "ec2186f9030e126eff951c4be061bfe36f3b5838c7eb16700885b9d2e214afae",
+        "sourceBinaryEndpointFencesPassed": true
+      },
+      {
+        "protocol": 79,
+        "profile": 3,
+        "cohort": "impaired",
+        "fixtureProducer": "7fabec4daf5f252831566ad66c24c13279c54018",
+        "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+        "replacementCompatibilityFixture": true,
+        "fixtureScope": "New historical replacement fixture",
+        "archiveSha256": "1ff909e7ea562c10089d2be1d9956d523e27038d2e97d2d8b1e8cb8704ee81b9",
+        "equalReplayFactFields": 32,
+        "gameplayPresentationDigest": "30B8992141A9D6760724CBC9309EA15827DF7B7FFFB304F804838E7B507C1E45",
+        "frames": 2406,
+        "checks": 125846,
+        "checkpointCount": 11,
+        "seekCount": 91,
+        "comparisonJsonSha256": "9b4f73e952fdc16681c0e10fd18bba7584795392d4a14a9c052398b398f559f5",
+        "sourceBinaryEndpointFencesPassed": true
+      },
+      {
+        "protocol": 80,
+        "profile": 4,
+        "cohort": "clean",
+        "fixtureProducer": "1c8f9806abe6060cff38ede79502e6a425303a67",
+        "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+        "replacementCompatibilityFixture": false,
+        "fixtureScope": "Actual protocol80 full cohort archive from producer04; preserved byte-identical",
+        "archiveSha256": "8f3bda4a686331a0f14f4f71d324fbc11511d2283968a10d3ce9f2a9abd4192e",
+        "equalReplayFactFields": 32,
+        "gameplayPresentationDigest": "43F0D7770EABC8E04D77C58C90A37532CE0C170C8ED63429040BA9E163183F39",
+        "frames": 2381,
+        "checks": 124151,
+        "checkpointCount": 10,
+        "seekCount": 114,
+        "comparisonJsonSha256": "a51e192b9d037517532e81f2f6cb4ed0e9cd630e76a9daed3a03ff58c2e46468",
+        "sourceBinaryEndpointFencesPassed": true
+      },
+      {
+        "protocol": 80,
+        "profile": 4,
+        "cohort": "impaired",
+        "fixtureProducer": "1c8f9806abe6060cff38ede79502e6a425303a67",
+        "consumerProducer": "994902416c2a8f4a9b86dfcd4ce7caa3f1ce27fa",
+        "replacementCompatibilityFixture": false,
+        "fixtureScope": "Actual protocol80 full cohort archive from producer04; preserved byte-identical",
+        "archiveSha256": "432f495df266ecc672770b95e58d37802ba49d126cfbdc1d104b423f709813fe",
+        "equalReplayFactFields": 32,
+        "gameplayPresentationDigest": "128947E3DFD24E0155E80FC9B4727E7FB666B514B5AF7B181A473323C22C7CCB",
+        "frames": 2391,
+        "checks": 124112,
+        "checkpointCount": 10,
+        "seekCount": 104,
+        "comparisonJsonSha256": "d00f2dd3a17bdb21353a401dbfd77ae054263f8773bcffd065cf44ab72f5fa79",
+        "sourceBinaryEndpointFencesPassed": true
+      }
+    ],
+    "nettestDllSha256": "4803d39f03923959a40370560a4cbdfae523a808603bb289a1681b4be06416bb"
+  },
+  "sceneAssertions": {
+    "mantle": 9215,
+    "traversal": 82331,
+    "slope": 413037,
+    "wallrun": 6149,
+    "wallstrafe": 11820,
+    "tuck": 33971,
+    "classicGoldenTrajectories": 56
+  },
+  "limitations": [
+    "Original six historical archives were externally lost; six new exact historical-producer recordings replace them for decoder compatibility only. Original archive continuity is unverified.",
+    "Registry generation temporarily changed one frozen source file from LF to CRLF. The source fence rejected impaired attempt01; exact blob restored and attempt02 selected. Both attempts and restoration bytes/receipt retained. No binaries rebuilt during incident.",
+    "Full live-menu tool blocked by Windows symbolic-link privilege. Earlier checks passed; complete tool not passed.",
+    "Android build blocked by missing android workload (NETSDK1147). No physical device, GL runtime, measured refresh, Linux asset runtime or new performance acceptance."
+  ]
+}

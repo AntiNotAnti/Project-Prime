@@ -25,8 +25,10 @@ internal static class CharacterSourceBodyCheck
             if (_failures != 0) return Finish();
             CheckIdentityAndPolicy();
             CheckRuntimeFences();
+            CheckRandomLaunchPlans();
             CheckDrafts();
             CheckPosePolicy();
+            CheckCannonPolicy();
             CheckRetainedBarrier();
         }
         catch (Exception exception)
@@ -55,20 +57,41 @@ internal static class CharacterSourceBodyCheck
         Check(new LauncherHunterChoice(Hunter.Samus, 2).Body == LocalBodyAppearance.Native
             && default(LaunchPlan).LocalBody == LocalBodyAppearance.Native,
             "existing two-argument choices and default launch plans remain native");
+        Check((int)LocalBodyAppearance.Native == 0 && (int)LocalBodyAppearance.DarkSamusEchoes == 1
+            && (int)LocalBodyAppearance.DarkSamusOvercharged == 2 && (int)LocalBodyAppearance.TrooperPower == 3
+            && (int)LocalBodyAppearance.TrooperIce == 4 && (int)LocalBodyAppearance.TrooperWave == 5
+            && (int)LocalBodyAppearance.TrooperPlasma == 6, "appended Trooper choices preserve every existing serialized identity");
         foreach (LocalBodyAppearance body in Enum.GetValues<LocalBodyAppearance>())
+        {
             Check(LocalBodyAppearanceRules.Canonical(body) == body, "known appearance canonicalizes: " + body);
-        foreach (int invalid in new[] { -1, 3, int.MinValue, int.MaxValue })
+            foreach (Hunter hunter in LauncherHunterChoiceController.Playable)
+            {
+                bool matches = body == LocalBodyAppearance.Native || hunter == NativeHunter(body);
+                Check(LocalBodyAppearanceRules.MatchesHunter(body, hunter) == matches
+                    && LocalBodyAppearanceRules.CanonicalForHunter(body, hunter) == (matches ? body : LocalBodyAppearance.Native),
+                    "body/native Hunter compatibility and canonicalization agree: " + body + "/" + hunter);
+            }
+        }
+        foreach (int invalid in new[] { -1, 7, int.MinValue, int.MaxValue })
         {
             var body = (LocalBodyAppearance)invalid;
             Check(LocalBodyAppearanceRules.Canonical(body) == LocalBodyAppearance.Native
                 && LocalBodyAppearanceRules.BundleId(body) == null,
                 "unknown appearance has no imported bundle authority: " + invalid);
+            foreach (Hunter hunter in LauncherHunterChoiceController.Playable)
+                Check(!LocalBodyAppearanceRules.MatchesHunter(body, hunter)
+                    && LocalBodyAppearanceRules.CanonicalForHunter(body, hunter) == LocalBodyAppearance.Native,
+                    "invalid body cannot acquire a native Hunter match: " + invalid + "/" + hunter);
             Refused(Plan(body), "unknown launch identity is refused: " + invalid);
         }
         Check(LocalBodyAppearanceRules.BundleId(LocalBodyAppearance.Native) == null
             && LocalBodyAppearanceRules.BundleId(LocalBodyAppearance.DarkSamusEchoes) == "darksamus-echoes"
-            && LocalBodyAppearanceRules.BundleId(LocalBodyAppearance.DarkSamusOvercharged) == "darksamus-overcharged-echoes",
-            "normal and Overcharged bind distinct canonical body bundles");
+            && LocalBodyAppearanceRules.BundleId(LocalBodyAppearance.DarkSamusOvercharged) == "darksamus-overcharged-echoes"
+            && LocalBodyAppearanceRules.BundleId(LocalBodyAppearance.TrooperPower) == "trooper-power"
+            && LocalBodyAppearanceRules.BundleId(LocalBodyAppearance.TrooperIce) == "trooper-ice"
+            && LocalBodyAppearanceRules.BundleId(LocalBodyAppearance.TrooperWave) == "trooper-wave"
+            && LocalBodyAppearanceRules.BundleId(LocalBodyAppearance.TrooperPlasma) == "trooper-plasma",
+            "all six imported appearances bind distinct canonical source bundles");
 
         foreach (LaunchKind kind in Enum.GetValues<LaunchKind>())
         foreach (Hunter hunter in LauncherHunterChoiceController.Playable)
@@ -89,7 +112,7 @@ internal static class CharacterSourceBodyCheck
                 if (kind != LaunchKind.Offline)
                     Refused(baseline with { Kind = kind }, "imported body cannot enter " + kind);
             foreach (Hunter hunter in LauncherHunterChoiceController.Playable)
-                if (hunter != Hunter.Samus)
+                if (hunter != NativeHunter(body))
                     Refused(baseline with { Hunter = hunter }, "imported body cannot replace " + hunter);
             Refused(baseline with { Mode = GameMode.SinglePlayer }, "campaign mode is refused");
             foreach (OfflineCharacterMode mode in Enum.GetValues<OfflineCharacterMode>())
@@ -101,11 +124,15 @@ internal static class CharacterSourceBodyCheck
     }
 
     private static readonly LocalBodyAppearance[] ImportedBodies =
-        { LocalBodyAppearance.DarkSamusEchoes, LocalBodyAppearance.DarkSamusOvercharged };
+        { LocalBodyAppearance.DarkSamusEchoes, LocalBodyAppearance.DarkSamusOvercharged,
+            LocalBodyAppearance.TrooperPower, LocalBodyAppearance.TrooperIce, LocalBodyAppearance.TrooperWave, LocalBodyAppearance.TrooperPlasma };
+
+    private static Hunter NativeHunter(LocalBodyAppearance body) => body is >= LocalBodyAppearance.TrooperPower and <= LocalBodyAppearance.TrooperPlasma
+        ? Hunter.Weavel : Hunter.Samus;
 
     private static LaunchPlan Plan(LocalBodyAppearance body) => new()
     {
-        Kind = LaunchKind.Offline, Hunter = Hunter.Samus, Mode = GameMode.Battle,
+        Kind = LaunchKind.Offline, Hunter = NativeHunter(body), Mode = GameMode.Battle,
         OfflineCharacter = OfflineCharacterMode.Native, LocalBody = body,
         MatchRules = new() { Mode = GameMode.Battle }
     };
@@ -157,16 +184,46 @@ internal static class CharacterSourceBodyCheck
             && reason.Length == 0, label + " preserves native admission");
     }
 
+    private static void CheckRandomLaunchPlans()
+    {
+        var savedBody = LauncherPrefs.LocalBody;
+        uint rng1 = Rng.Rng1, rng2 = Rng.Rng2;
+        try
+        {
+            foreach (LocalBodyAppearance body in ImportedBodies)
+            {
+                LauncherPrefs.LocalBody = body;
+                for (int draw = 0; draw < 256; draw++)
+                {
+                    bool lowTier = draw % 2 == 0;
+                    var settings = new MenuSettings { LowTier = lowTier ? "on" : "off", MovementModel = "Native" };
+                    var plan = OfflineLaunch.Preview(settings, "MP3 PROVING GROUND", GameMode.Battle, Hunter.Random, 0, 0, 0);
+                    LocalBodyAppearance expected = LocalBodyAppearanceRules.Available && plan.Hunter == NativeHunter(body)
+                        ? body : LocalBodyAppearance.Native;
+                    Check(plan.LocalBody == expected && LocalBodyAppearanceRules.MatchesHunter(plan.LocalBody, plan.Hunter)
+                        && Multiplayer.HunterRules.Allowed(plan.Hunter, lowTier)
+                        && plan.OfflineCharacter == OfflineCharacterMode.Native && !plan.IsPlaytest,
+                        "Random Preview binds appearance to the same resolved native Hunter: " + body + "/" + draw);
+                }
+            }
+            Check(Rng.Rng1 == rng1 && Rng.Rng2 == rng2, "Random menu-plan resolution does not consume native gameplay RNG");
+        }
+        finally { LauncherPrefs.LocalBody = savedBody; }
+    }
+
     private static void CheckDrafts()
     {
         foreach (LocalBodyAppearance body in ImportedBodies)
         {
-            var store = new MemoryStore(new(Hunter.Samus, 1));
+            Hunter native = NativeHunter(body);
+            var store = new MemoryStore(new(native, 1));
             using var draft = new LauncherHunterChoiceController(store);
             var untouched = draft.Current();
-            Check(!draft.SelectBody(-1) && !draft.SelectBody(3) && !draft.SelectBody(int.MaxValue)
+            Check(!draft.SelectBody(-1) && !draft.SelectBody(7) && !draft.SelectBody(int.MaxValue)
                 && draft.Current() == untouched && store.Writes == 0,
                 "invalid body choices cannot mutate draft, status, revision or profile");
+            Check(!draft.SelectBody((int)(native == Hunter.Samus ? LocalBodyAppearance.TrooperPower : LocalBodyAppearance.DarkSamusEchoes))
+                && draft.Current() == untouched && store.Writes == 0, "a known but mismatched body cannot alter this native Hunter draft");
             bool selected = draft.SelectBody((int)body);
             Check(selected == LocalBodyAppearanceRules.Available && store.Writes == 0
                 && (selected ? draft.Current().Choice.Body == body && draft.Current().Dirty
@@ -185,6 +242,9 @@ internal static class CharacterSourceBodyCheck
             draft.Discard();
             Check(draft.Current().Choice == store.Value && !draft.Current().Dirty,
                 "discard restores the complete saved identity");
+            using var reopened = new LauncherHunterChoiceController(store);
+            Check(reopened.Current().Choice == store.Value && !reopened.Current().Dirty,
+                "reopening captures the exact saved native Hunter/body pair: " + body);
         }
 
         // Seed persisted bodies without bypassing SelectBody's platform fence.
@@ -204,10 +264,27 @@ internal static class CharacterSourceBodyCheck
                 "suit persistence retains the saved body identity");
             draft.SelectHunter(Array.IndexOf(LauncherHunterChoiceController.Playable, Hunter.Weavel));
             Check(draft.Current().Choice.Body == LocalBodyAppearance.Native && !draft.SelectBody(1) && !draft.SelectBody(2),
-                "changing hunter clears body and refuses imported non-Samus selections");
+                "changing to Weavel clears the Echoes body and refuses both Samus appearances");
             draft.SelectHunter(Array.IndexOf(LauncherHunterChoiceController.Playable, Hunter.Samus));
             Check(draft.Current().Choice.Body == LocalBodyAppearance.Native,
                 "returning to Samus does not resurrect another hunter's body draft");
+        }
+
+        foreach (var body in ImportedBodies.Where(b => NativeHunter(b) == Hunter.Weavel))
+        {
+            var saved = new MemoryStore(new(Hunter.Weavel, 2, body));
+            using var draft = new LauncherHunterChoiceController(saved);
+            Check(draft.Current().Choice == saved.Value && !draft.Current().Dirty, "reopening retains saved Trooper identity: " + body);
+            draft.SelectBody(0); draft.Discard();
+            Check(draft.Current().Choice.Body == body && saved.Writes == 0, "Discard restores the saved Trooper without writing: " + body);
+            draft.SelectSuit(3);
+            Check(draft.Apply() && saved.Value == new LauncherHunterChoice(Hunter.Weavel, 3, body), "suit-only Apply retains exact Trooper identity: " + body);
+            draft.SelectHunter(Array.IndexOf(LauncherHunterChoiceController.Playable, Hunter.Samus));
+            var native = draft.Current();
+            Check(native.Choice.Body == LocalBodyAppearance.Native && !draft.SelectBody((int)body) && draft.Current() == native,
+                "switching Trooper draft to Samus clears it and refuses cross-Hunter reselection: " + body);
+            draft.SelectHunter(Array.IndexOf(LauncherHunterChoiceController.Playable, Hunter.Weavel));
+            Check(draft.Current().Choice.Body == LocalBodyAppearance.Native, "returning to Weavel does not resurrect a cleared Trooper draft: " + body);
         }
 
         var concurrent = new MemoryStore(new(Hunter.Samus, 0, LocalBodyAppearance.DarkSamusEchoes));
@@ -297,6 +374,16 @@ internal static class CharacterSourceBodyCheck
                 && !CharacterSourceBodyPose.Supports(invalid, PlayerAnimation.Idle)
                 && !CharacterSourceBodyPose.Supports(PlayerAnimation.Idle, invalid),
                 "unknown animation state never inherits imported pose authority");
+    }
+
+    private static void CheckCannonPolicy()
+    {
+        foreach (GunAnimation animation in Enum.GetValues<GunAnimation>())
+            Check(PlayerEntity.SourceCannonAnimationSupported(animation)
+                == (animation is GunAnimation.Idle or GunAnimation.Shot or GunAnimation.Charging
+                    or GunAnimation.FullCharge or GunAnimation.ChargeShot),
+                "fixed normal source cannon preserves native switch/raise/missile animations: " + animation);
+        Check(!PlayerEntity.SourceCannonAnimationSupported((GunAnimation)255), "unknown gun animation selects native presentation");
     }
 
     private static void CheckRetainedBarrier()

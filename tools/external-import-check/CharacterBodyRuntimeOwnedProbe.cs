@@ -39,7 +39,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
         new("backward", 20), new("fire", 16), new("charge", 100), new("release", 20), new("turn", 20),
         new("jump", 90), new("settle", 60), new("morph", 100), new("unmorph", 100), new("death-respawn", 420)];
 
-    internal static int Run(string rvz)
+    internal static int Run(string rvz, bool trooper = false)
     {
         string temporary = Path.Combine(Path.GetTempPath(), "prime-body-runtime-" + Guid.NewGuid().ToString("N"));
         string cwd = Environment.CurrentDirectory;
@@ -101,11 +101,12 @@ internal static class CharacterBodyRuntimeOwnedProbe
             GamepadContexts.MenuVisible = GamepadContexts.Capturing = GamepadContexts.TextEntryActive = false;
             PointerInput.StylusMode = false; PointerInput.Reset(); PointerDevice.Reset();
             Scene.LauncherPreview = false; Scene.PreviewWanted = false;
-            RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz, imports,
-                selectedIds: ["darksamus-echoes", "darksamus-overcharged-echoes"]);
-            var normal = CharacterSourcePreviewSelection.Load("darksamus-echoes", CancellationToken.None, imports);
-            var final = CharacterSourcePreviewSelection.Load("darksamus-overcharged-echoes", CancellationToken.None, imports);
-            Check(normal.SelectedAppearance != final.SelectedAppearance, "normal and Overcharged resolve different appearance authority");
+            string[] ids = trooper ? ["trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma"]
+                : ["darksamus-echoes", "darksamus-overcharged-echoes"];
+            RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz, imports, selectedIds: ids);
+            var selections = ids.Select(id => CharacterSourcePreviewSelection.Load(id, CancellationToken.None, imports)).ToArray();
+            Check(selections.Select(s => s.SelectedAppearance).Distinct().Count() == ids.Length,
+                "all selected source bodies resolve independent appearance authority");
             var settings = DesktopGlContext.Settings(background: true);
             settings.ClientSize = new(480, 360); settings.StartVisible = true; settings.StartFocused = false;
             settings.Title = "Project Prime owned offline imported-body runtime probe";
@@ -113,7 +114,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
             using var graphics = new DesktopGraphicsSession(window);
             GLFW.SwapInterval(0);
             renderer = GL.GetString(StringName.Renderer); glVersion = GL.GetString(StringName.Version);
-            foreach (var selection in new CharacterSourcePreviewSelection?[] { null, normal, final })
+            foreach (var selection in new CharacterSourcePreviewSelection?[] { null }.Concat(selections))
             {
                 Bound();
                 RunResult result = Exercise(selection);
@@ -145,7 +146,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
                 {
                     scene = new(window.FramebufferSize, keyboard, mouse, _ => { }, () => { });
                     scene.Random.SetRng1(123456); scene.Random.SetRng2(654321);
-                    scene.AddPlayer(Hunter.Samus);
+                    scene.AddPlayer(trooper ? Hunter.Weavel : Hunter.Samus);
                     scene.AddRoom("MP3 PROVING GROUND", GameMode.Battle, playerCount: 1, nodeLayerMask: 0);
                     scene.OnLoad(); scene.OnResize();
                     var inputMode = typeof(Scene).GetField("_inputMode", Hidden)!;
@@ -170,16 +171,19 @@ internal static class CharacterBodyRuntimeOwnedProbe
                     Key(keyboard, Keys.Enter, false); scene.CameraSequences.Current?.End();
                     for (int n = 0; n < 240; n++) scene.OnSimulationFrame();
                     scene.CameraSequences.Current?.End();
-                    Check(player.Health > 0 && player.ModIsInPlay && !player.IsAltForm, "real native shoot-to-spawn reaches living Samus");
+                    Check(player.Health > 0 && player.ModIsInPlay && !player.IsAltForm, "real native shoot-to-spawn reaches living matching Hunter");
                     if (selection != null) player.ModBindSourceBody(selection);
                     CharacterSourceBodyOwner? owner = player.ModSourceBody;
                     Check(selection == null ? owner == null : owner is { Current: true }, "load barrier installs exactly requested body owner");
                     if (owner != null)
-                        Check(owner.Model.Joints.Count == 39 && owner.Model.Segments.Count > 0
+                        Check(owner.Model.Joints.Count == (trooper ? 35 : 39) && owner.Model.IndexCount == (trooper ? 1970 * 3 : owner.Model.IndexCount)
+                            && owner.Model.Segments.Count > 0
                             && owner.Model.Segments.All(segment => segment.SourceJointPalette is { Count: > 0 and <= 32 }
                                 && segment.SourceGx is { } binding && GL.IsProgram(binding.ProgramId)
                                 && binding.Textures.Count > 0 && binding.Textures.All(GL.IsTexture)),
-                            "actual body retains full39 source rig and live source programs/textures with bounded segment palettes");
+                            "actual body retains complete source rig/geometry and live source programs/textures with bounded segment palettes");
+                    if (trooper && owner != null) Check(owner.CannonModel == null && !selection!.RuntimeCannon,
+                        "all Trooper bodies retain native first-person gun authority");
                     var states = new List<string>(); var components = new List<Dictionary<string, string>>();
                     var stages = new List<object>(); var pixels = new List<string>();
                     int sourceFrames = 0, fallbackFrames = 0, repeats = 0;
@@ -190,6 +194,8 @@ internal static class CharacterBodyRuntimeOwnedProbe
                     var paletteHashes = new HashSet<string>();
                     var capturedLabels = new HashSet<string>(StringComparer.Ordinal);
                     Picture(false); // Establish native draw-derived anchors before invariance assertions.
+                    int clipReads = CharacterSourceClip.CapturedFileReads;
+                    using var sourceFiles = new SourceFileLocks(imports);
                     // Scene load, native first-picture preparation and optional
                     // source compilation have different one-time work. Seed the
                     // identical authoritative fixture only after that barrier.
@@ -261,6 +267,9 @@ internal static class CharacterBodyRuntimeOwnedProbe
                         "actual native keyboard script earns jump, morph, native shot/charge, injected death and native respawn");
                     Check(moved, "native keyboard movement stages earn actor displacement");
                     Check(turned, "native mouse turn stage earns facing change");
+                    Check(CharacterSourceClip.CapturedFileReads == clipReads && sourceFiles.Count > 0,
+                        "actual complete native input/simulation/repeated-world-draw script succeeds with every source component exclusively locked and no clip reads");
+                    sourceFiles.Dispose();
                     if (owner != null)
                     {
                         Check(sourceFrames > 0 && fallbackFrames > 0 && paletteHashes.Count > 1,
@@ -288,6 +297,30 @@ internal static class CharacterBodyRuntimeOwnedProbe
                             && owner.MaterialSeconds == beforeShadowClock,
                             "shadow Off resumes frozen imported body without simulation, native state or clock changes");
 
+                        // Injected accepted-presentation-state fixture only:
+                        // this does not exercise or qualify the grapple controller.
+                        PlayerGrappleState savedGrapple = player.ModGrappleState;
+                        var grappleField = typeof(PlayerEntity).GetField("_modGrapple", Hidden)!;
+                        var injectedGrapple = new PlayerGrappleState(true, 1, player.Position + new Vector3(0, 2, 4), 4);
+                        Check(injectedGrapple.IsValid, "injected accepted grapple presentation state is declared valid");
+                        string beforeGrappleState = State(scene, player), beforeGrapplePalette = Palette(owner.Model);
+                        double beforeGrappleClock = owner.MaterialSeconds;
+                        try
+                        {
+                            grappleField.SetValue(player, injectedGrapple);
+                            Picture(false);
+                            Check(player.ModGrappleState == injectedGrapple && BodyItems(scene).Count == 0
+                                && WorldItems(scene).Any(item => nativeBipedLists.Contains(item.ListId)),
+                                "injected accepted grapple presentation state selects complete native biped fallback before imported submission");
+                        }
+                        finally { grappleField.SetValue(player, savedGrapple); }
+                        Picture(false);
+                        Check(player.ModGrappleState == savedGrapple && owner.Current && owner.Ready
+                            && BodyItems(scene).Count == owner.Model.Segments.Count
+                            && State(scene, player) == beforeGrappleState && Palette(owner.Model) == beforeGrapplePalette
+                            && owner.MaterialSeconds == beforeGrappleClock,
+                            "restoring injected grapple presentation state resumes complete imported body with unchanged native state, palette and clock");
+
                         // This is a second source resource/pose owner over the
                         // SAME actual actor model, not a fabricated second actor
                         // or qualification of two simultaneously drawn bodies.
@@ -302,6 +335,52 @@ internal static class CharacterBodyRuntimeOwnedProbe
                         }
                         Check(owner.Current && Palette(owner.Model) == beforeShadowPalette && owner.MaterialSeconds == beforeShadowClock,
                             "disposing independent same-model owner preserves installed owner, skin and clock");
+                        if (trooper)
+                        {
+                            foreach (int rate in new[] { 90, 120, 240, 540 })
+                            {
+                                FrameTiming.FrameRateCap = rate > FrameTiming.MaxCap ? FrameTiming.Unlimited : rate;
+                                FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
+                                int totalSteps = 0, zeroSteps = 0, fractional = 0, changed = 0;
+                                ulong startFrame = scene.FrameCount;
+                                double startClock = owner.MaterialSeconds;
+                                for (int picture = 0; picture < rate; picture++)
+                                {
+                                    int steps = FrameTiming.Advance(1d / rate); totalSteps += steps;
+                                    if (steps == 0) zeroSteps++;
+                                    string beforeSkin = Palette(owner.Model); double tick = owner.MaterialSeconds;
+                                    for (int step = 0; step < steps; step++) scene.OnSimulationFrame();
+                                    string afterSkin = Palette(owner.Model);
+                                    if (afterSkin != beforeSkin) changed++;
+                                    Check(owner.Ready && Math.Abs(owner.MaterialSeconds - tick - steps / 60d) < 1e-9,
+                                        "supported fractional schedule advances source clock once per completed native step");
+                                    if (steps == 0) Check(afterSkin == beforeSkin, "zero-step picture preserves source skin");
+                                    if (FrameTiming.PresentationAlpha is > 0.000001 and < 0.999999) fractional++;
+                                    Picture(true);
+                                    Check(Palette(owner.Model) == afterSkin, "fractional and repeated draws preserve raw source skin");
+                                }
+                                Console.WriteLine(JsonSerializer.Serialize(new { Probe = "trooper-fractional-schedule", Rate = rate,
+                                    Pictures = rate, CompletedSteps = totalSteps, ZeroSteps = zeroSteps, Fractional = fractional, ChangedSkins = changed,
+                                    NativeSteps = scene.FrameCount - startFrame, MaterialAdvance = owner.MaterialSeconds - startClock }));
+                                // The supported ready source clip can be static. Changing
+                                // palettes are required by the real movement script above.
+                                Check(scene.FrameCount - startFrame == (ulong)totalSteps && zeroSteps > 0 && fractional > 0
+                                    && Math.Abs(owner.MaterialSeconds - startClock - totalSteps / 60d) < 1e-9,
+                                    "90/120/240/540 simulated picture schedules retain 60 Hz source authority");
+                            }
+                            FrameTiming.FrameRateCap = cap; FrameTiming.Reset();
+                            scene.GameState.ThirdPersonCamera = false;
+                            try
+                            {
+                                var nativeGun = player.ModSourceNativeGun.Meshes.Select(m => m.ListId).Where(id => id > 0).ToHashSet();
+                                for (int n = 0; n < 8; n++) { scene.OnSimulationFrame(); Picture(true); }
+                                Check(owner.CannonModel == null && BodyItems(scene).All(item => item.SourceGx?.ViewModel != true),
+                                    "actual Trooper first-person phase submits no imported gun packets");
+                                Check(WorldItems(scene).Any(item => item.ViewModel && nativeGun.Contains(item.ListId)),
+                                    "actual Trooper first-person phase draws initialized native gun geometry");
+                            }
+                            finally { scene.GameState.ThirdPersonCamera = true; }
+                        }
                         double clock = owner.MaterialSeconds; string raw = Palette(owner.Model);
                         int pausedPackets = BodyItems(scene).Count;
                         scene.GameState.PauseMenu();
@@ -420,7 +499,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
                     GameplayTraceSha256 = Sha(Encoding.UTF8.GetBytes(string.Join("\n", r.States))), r.Stages,
                     r.SourceFrames, r.NativeFallbackFrames, r.DrawRepeats, r.Jumped, r.Morphed, r.Died, r.Respawned,
                     r.Fired, r.Charged, r.Turned, r.Moved }),
-                Scope = "Actual owned offline Windows x64 Samus Scene/input/world GL; direct lethal damage and common pre-script RNG seed are declared fixture setup; optional gameplay PNGs require explicit capture environment",
+                Scope = "Actual owned offline Windows x64 " + (trooper ? "Weavel/four Troopers" : "Samus/two Echoes") + " Scene/input/world GL; direct lethal damage and common pre-script RNG seed are declared fixture setup; optional gameplay PNGs require explicit capture environment",
                 Unqualified = new[] { "physical devices", "visual/art judgment from hashes", "online or replay", "two actors or simultaneous source rendering",
                     "all status/crouch/LOD/bright-skin fallback cases", "actual opponent-earned death", "achieved display refresh" }
             }));
@@ -429,6 +508,21 @@ internal static class CharacterBodyRuntimeOwnedProbe
     }
 
     private static List<RenderItem> BodyItems(Scene scene) => (List<RenderItem>)typeof(Scene).GetField("_sourceBodyItems", Hidden)!.GetValue(scene)!;
+    private sealed class SourceFileLocks : IDisposable
+    {
+        private readonly List<FileStream> _files = new();
+        internal int Count => _files.Count;
+        internal SourceFileLocks(string root)
+        {
+            try
+            {
+                foreach (string path in Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories))
+                    _files.Add(new(path, FileMode.Open, FileAccess.Read, FileShare.None));
+            }
+            catch { Dispose(); throw; }
+        }
+        public void Dispose() { foreach (var file in _files) file.Dispose(); _files.Clear(); }
+    }
     private static IEnumerable<RenderItem> WorldItems(Scene scene) => new[] { "_nonDecalItems", "_translucentItems", "_decalItems" }
         .SelectMany(name => (List<RenderItem>)typeof(Scene).GetField(name, Hidden)!.GetValue(scene)!);
     private static string Palette(CharacterWeightedRenderModel model)

@@ -918,6 +918,8 @@ namespace MphRead.Mods.Network
             }
             switch (packet.Type)
             {
+                case PacketType.WeaponPackageOffer or PacketType.WeaponPackageConfirmed when Role == NetRole.Client && !_playback:
+                    HandleWeaponPackagePreparation(packet); break;
                 case PacketType.CustomWeaponManifest when Role == NetRole.Client && !_playback:
                 case PacketType.CustomWeaponReadyConfirmed when Role == NetRole.Client && !_playback:
                     HandleCustomReadiness(packet,time); break;
@@ -1684,13 +1686,17 @@ namespace MphRead.Mods.Network
                 || Movement.MovementModelRules.UsesMomentumSolver(Movement.MovementModelRules.FromRules(controlRules))
                     && (controlRules & (MatchModifierFlags.BalancedMode | MatchModifierFlags.EnhancedHunters)) != 0)
             { LastError = "Unsupported or conflicting movement rules."; return; }
+            if ((controlRules & MatchModifierFlags.PackagedWeaponAvailable) != 0
+                && (controlRules & MatchModifierFlags.RiftlineM7Available) == 0)
+            { LastError = "Package availability requires custom world pickups."; return; }
             if ((controlRules & MatchModifierFlags.RiftlineM7Available) != 0
                 && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit((GameMode)state.Mode, controlRules, online: true, bots: 0, out string customReason))
             { LastError = customReason; return; }
             if (ServerSession is { Phase: not SessionPhase.Lobby } session
                 && session.MatchId == state.MatchId && session.AuthorityEpoch == state.AuthorityEpoch
                 && (Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits) != session.Match.MovementModel
-                    || ((controlRules & MatchModifierFlags.RiftlineM7Available) != 0) != session.Match.RiftlineM7Available))
+                    || ((controlRules & MatchModifierFlags.RiftlineM7Available) != 0) != session.Match.RiftlineM7Available
+                    || ((controlRules & MatchModifierFlags.PackagedWeaponAvailable) != 0) != session.Match.PackagedWeaponAvailable))
                 return;
             if (!_playback && state.EnhancedHunters)
             {
@@ -1707,7 +1713,8 @@ namespace MphRead.Mods.Network
                 && frozenControl.MatchId == state.MatchId && frozenControl.AuthorityEpoch == state.AuthorityEpoch
                 && (Movement.MovementModelRules.FromRules((MatchModifierFlags)frozenControl.RuleBits)
                     != Movement.MovementModelRules.FromRules((MatchModifierFlags)state.RuleBits)
-                    || (((MatchModifierFlags)frozenControl.RuleBits ^ controlRules) & MatchModifierFlags.RiftlineM7Available) != 0))
+                    || (((MatchModifierFlags)frozenControl.RuleBits ^ controlRules)
+                        & (MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable)) != 0))
                 return;
             if (previous.HasValue)
             {
@@ -1913,6 +1920,7 @@ namespace MphRead.Mods.Network
                     int slot = payload[SnapshotHeader.Size + i * PlayerState.Size];
                     if (slot >= RemoteStates.Length || (occupied & (1 << slot)) != 0) return;
                     occupied |= 1 << slot;
+                    if (!PlayerGrappleState.TryRead(payload.Slice(SnapshotHeader.Size + i * PlayerState.Size + PlayerState.Protocol80Size, PlayerGrappleState.Size), out _)) return;
                     decoded[i] = PlayerState.Read(payload[(SnapshotHeader.Size + i * PlayerState.Size)..]);
                 }
             }
@@ -2146,6 +2154,7 @@ namespace MphRead.Mods.Network
                 {
                     Enhanced = new Mods.EnhancedHunters.EnhancedHunterNetState { TargetSlot = byte.MaxValue },
                     Form = player.ModCaptureForm(),
+                    Grapple = player.ModGrappleState,
                     SlotIndex = (byte)i,
                     SlotGeneration = NetPlayerLifecycle.Generation(i),
                     LifeId = NetPlayerLifecycle.Get(i),

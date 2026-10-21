@@ -6,7 +6,15 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **79** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **82** (`NetConfig.ProtocolVersion`).
+- Protocol82 adds accepted Parkour v5 grapple state to slow/canonical lanes and a request nonce to intents. The fast prefix stays138 bytes. Humans remain owner-reported; passive replicas never run the grapple controller. See `docs/network/parkour-v5-version-contract.md`.
+- Protocol81 adds the operator-selected package availability bit20 and bounded
+  package offer/Ready/confirmation messages99–101. They pin CWPK v1 exact
+  archive/content/dependency metadata to match, configuration, slot generation
+  and connection before loading. CWM1 and native packet bodies retain their
+  existing bytes. CW-12b deliberately refuses package gameplay until authority
+  and presentation integration is qualified. Native archives remain readable;
+  custom/package replay continues to refuse rather than substitute definitions.
 - Protocol76 selects Quake3 profile v4 and Traversal profile v5. Qualified static
   walkable ground uses surface-speed acceleration and contact redirection;
   earned Traversal slides receive one bounded slope-gravity force per fixed tick.
@@ -314,3 +322,14 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Preserve room-then-entity reverse traversal, face order, strict distance tie-breaks
   and collision floating-point evaluation order. This refactor does not change
   simulation timing, protocol layouts or replay schemas.
+
+## Parkour static ledges
+
+- Protocol80 selects Parkour v4; 77/78/79 recordings retain v1/v2/v3 attribution.
+  Classic remains default; model4/bit19 and packet widths remain unchanged.
+- Fresh Forward+Jump mantle admission requires current safe native static face
+  contact, continuous full standing-body route clearance and an entire supported
+  landing footprint. At most 24 velocity-driven native collision steps assist it;
+  no position/previous-position snap or native jump/ability ownership migration.
+- Owner humans/native authority bots run the controller. Remote puppets/passive
+  replay consume accepted state. The passive checkpoint is not an active save.

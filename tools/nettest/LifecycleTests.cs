@@ -70,7 +70,7 @@ namespace MphRead.NetTest
         private static void Wire()
         {
             Check(NetUnlagged.PressAgeEnabled, "recovered trigger pulls include their age by default");
-            Check(PlayerState.Protocol48Size == 145 && PlayerState.Size == 173 && PlayerFormState.Size == 28, "canonical player state appends lifecycle-fenced form to unchanged protocol48 fields");
+            Check(PlayerState.Protocol48Size == 145 && PlayerState.Size == 192 && PlayerFormState.Size == 28, "canonical player state appends lifecycle-fenced form to unchanged protocol48 fields");
             Check(Protocol17Tests.SplitSnapshotBudgets(), "canonical state uses bounded internal storage and split live/bootstrap datagrams");
             byte[] buffer = new byte[NetConfig.MaxPacketSize];
             var state = State(ushort.MaxValue, 99, 65400);
@@ -866,12 +866,12 @@ namespace MphRead.NetTest
             var player = Player(1, 50);
             var note = typeof(PlayerReplicationBridge).GetMethod("NoteReportedVelocity",
                 BindingFlags.Instance | BindingFlags.NonPublic)!;
-            note.Invoke(bridge, new object[] { player, Vector3.Zero, uint.MaxValue });
-            note.Invoke(bridge, new object[] { player, new Vector3(.4f, 0, 0), 1u });
+            note.Invoke(bridge, new object[] { player, Vector3.Zero, uint.MaxValue, (byte)0 });
+            note.Invoke(bridge, new object[] { player, new Vector3(.4f, 0, 0), 1u, (byte)0 });
             Check(Math.Abs(player.Speed.X - .2f) < .00001f,
                 "reported velocity uses modular two-frame delta across skipped frame zero");
-            note.Invoke(bridge, new object[] { player, new Vector3(100, 0, 0), uint.MaxValue });
-            note.Invoke(bridge, new object[] { player, new Vector3(.6f, 0, 0), 2u });
+            note.Invoke(bridge, new object[] { player, new Vector3(100, 0, 0), uint.MaxValue, (byte)0 });
+            note.Invoke(bridge, new object[] { player, new Vector3(.6f, 0, 0), 2u, (byte)0 });
             Check(Math.Abs(player.Speed.X - .2f) < .00001f,
                 "reordered pre-wrap report cannot corrupt next authoritative velocity");
         }

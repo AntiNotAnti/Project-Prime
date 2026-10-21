@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using MphRead.Mods.Input;
 
 namespace MphRead.Mods.Network;
@@ -24,7 +25,7 @@ public static class CompactIntentCodec
         if (!intent.ShotInputs.Valid(intent.ShotInputCount))
             throw new ArgumentException("Invalid shot input history.", nameof(intent));
         return HeaderSize + (IncludeTouch(intent) ? NativeTouchReport.WireSize : 0)
-            + intent.FireEventCount * FireEvent.Size;
+            + intent.FireEventCount * FireEvent.Size + 2;
     }
 
     public static int Write(in IntentPacket intent, Span<byte> destination)
@@ -44,20 +45,21 @@ public static class CompactIntentCodec
         if (hasTouch) intent.NativeTouch.Write(destination.Slice(TouchOffset, NativeTouchReport.WireSize));
         for (int i = 0; i < intent.FireEventCount; i++)
             intent.FireEvents[i].Write(destination.Slice(eventStart + i * FireEvent.Size, FireEvent.Size));
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[(size - 2)..], intent.GrappleRequestNonce);
         return size;
     }
 
     public static bool TryRead(ReadOnlySpan<byte> payload, out IntentPacket intent)
     {
         intent = default;
-        if (payload.Length < HeaderSize) return false;
+        if (payload.Length < HeaderSize + 2) return false;
         byte count = payload[IntentPacket.LegacyFullSize];
         bool hasTouch = (payload[ShotInputOffset] & TouchPresent) != 0;
         bool touchMode = (payload[ShotInputOffset] & TouchMode) != 0;
         int eventStart = HeaderSize + (hasTouch ? NativeTouchReport.WireSize : 0);
         if (count > NetFireEvents.LiveCapacity || hasTouch && !touchMode
             || hasTouch && count == NetFireEvents.LiveCapacity
-            || payload.Length != eventStart + count * FireEvent.Size) return false;
+            || payload.Length != eventStart + count * FireEvent.Size + 2) return false;
         IntentPacket decoded = IntentPacket.Read(payload[..IntentPacket.LegacyFullSize]);
         if (hasTouch)
         {
@@ -70,6 +72,7 @@ public static class CompactIntentCodec
             // Preserve ClassicTouch ownership, not the previous roll impulse.
             decoded.NativeTouch = new NativeTouchReport(true, false, false, 0, 0, 0, false, true);
         }
+        decoded.GrappleRequestNonce = BinaryPrimitives.ReadUInt16LittleEndian(payload[^2..]);
         decoded.HasFireEvents = true;
         decoded.FireEventCount = count;
         decoded.ShotInputCount = (byte)(payload[ShotInputOffset] & ~(TouchPresent | TouchMode));

@@ -18,7 +18,10 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
     private readonly CharacterSourcePreviewSelection _selection;
     private readonly CharacterSourcePreviewInstance _instance;
     private readonly CharacterWeightedRenderModel _model;
-    private readonly CharacterSourceBodyPose _pose;
+    private readonly ICharacterSourceBodyPose _pose;
+    private readonly Model? _nativeCannon;
+    private readonly CharacterSourcePreviewInstance? _cannonInstance;
+    private readonly CharacterWeightedRenderModel? _cannonModel;
     internal Matrix4 FeetFit { get; }
     private readonly int _slot;
     private readonly long _sceneGeneration;
@@ -30,12 +33,14 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
     internal double MaterialSeconds => _ticks / 60d;
     internal string Generation => _selection.Generation;
     internal CharacterWeightedRenderModel Model => _model;
+    internal CharacterWeightedRenderModel? CannonModel => _cannonModel;
 
     internal CharacterSourceBodyOwner(Scene scene, PlayerEntity player, CharacterSourcePreviewSelection selection)
     {
-        if (!player.Initialized || player.Hunter != Hunter.Samus || player.IsBot || scene.Exiting
-            || scene.SideScene || scene.IsReplayLab || scene.Services.IsReplica || scene.GameState.SinglePlayer)
-            throw new InvalidOperationException("An initialized local offline Samus actor is required for an imported body.");
+        if (!player.Initialized || player.Hunter != selection.NativeHunter || player.IsBot || scene.Exiting
+            || scene.SideScene || scene.IsReplayLab || scene.Services.IsReplica || scene.GameState.SinglePlayer
+            || player.ModCharacterGameplay.Variant != Multiplayer.CharacterGameplayVariant.Native)
+            throw new InvalidOperationException("An initialized matching local offline actor is required for an imported body.");
         (_scene, _player, _native, _selection) = (scene, player, player.BipedModel2.Model, selection);
         _slot = player.SlotIndex;
         _sceneGeneration = scene.LifetimeGeneration;
@@ -49,7 +54,8 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
                 _native, selection.Pack, selection.SelectedAppearance, _instance, true, out _model))
                 throw new InvalidDataException("The selected imported body could not bind to the current Scene.");
             var clips = new Dictionary<string, CharacterSourceClip>(StringComparer.Ordinal);
-            foreach (string name in CharacterSourceBodyPose.RequiredClips)
+            foreach (string name in selection.NativeHunter == Hunter.Weavel
+                ? CharacterSourceTrooperPose.RequiredClips : CharacterSourceBodyPose.RequiredClips)
             {
                 var choices = selection.Clips.Where(c => c.Name == name).ToArray();
                 if (choices.Length != 1 || !CharacterModelRuntime.TryLoadSourceClip(scene, _instance, _model,
@@ -59,27 +65,56 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
             if (_model.Segments.Count == 0 || _model.Segments.Any(s => s.SourceGx == null
                 || s.SourceJointPalette is not { Count: > 0 and <= 32 } || s.SourcePresentationPalette == null))
                 throw new InvalidDataException("Complete source body programs and palettes are required.");
-            _pose = new(_model.SourceRig!, clips);
+            _pose = selection.NativeHunter == Hunter.Weavel
+                ? new CharacterSourceTrooperPose(_model.SourceRig!, clips) : new CharacterSourceBodyPose(_model.SourceRig!, clips);
             FeetFit = _model.FitSourceBodyToFeet(_pose.Sample(PlayerAnimation.Idle, 0, PlayerAnimation.Idle, 0, 0),
                 Fixed.ToFloat(player.Values.MaxPickupHeight - player.Values.MinPickupHeight));
             _pose.Reset();
+            if (selection.RuntimeCannon)
+            {
+                _nativeCannon = player.ModSourceNativeGun;
+                // Native flash/glow anchors may have zero alpha. The source
+                // program owns appearance; use one stable opaque UV anchor.
+                string cannonAnchor = _nativeCannon.Materials.GroupBy(m => m.Name, StringComparer.Ordinal)
+                    .Where(g => g.Count() == 1).Select(g => g.Single())
+                    .First(m => m.PolygonMode == PolygonMode.Modulate && m.RenderMode == RenderMode.Normal
+                        && CharacterModelRuntime.CanUseAuthoredTexcoords(m.TexgenMode, true)).Name;
+                _cannonInstance = new(cannonAnchor, CharacterModelPart.ViewModel, bodyOwner: this);
+                if (!CharacterModelRuntime.TryGetSourcePreview(scene, player.Hunter, CharacterModelPart.ViewModel,
+                    _nativeCannon, selection.Pack, selection.SelectedAppearance, _cannonInstance, true, out _cannonModel)
+                    || _cannonModel.SourceCannon?.IsGenerated != true || _cannonModel.IndexCount != 392 * 3
+                    || _cannonModel.Segments.Count == 0 || _cannonModel.Segments.Any(s => s.SourceGx == null
+                        || s.SourceJointPalette is not { Count: > 0 and <= 32 } || s.SourcePresentationPalette == null))
+                    throw new InvalidDataException("The selected normal source cannon could not bind completely.");
+            }
         }
-        catch { CharacterModelRuntime.ReleaseSourcePreview(scene, _instance); throw; }
+        catch
+        {
+            if (_cannonInstance != null) CharacterModelRuntime.ReleaseSourcePreview(scene, _cannonInstance);
+            CharacterModelRuntime.ReleaseSourcePreview(scene, _instance); throw;
+        }
     }
 
     internal bool Owns(Scene scene, Model native, CharacterModelPack pack, PrivateCharacterAppearance appearance,
         CharacterSourcePreviewInstance instance)
         => !_disposed && !_scene.Exiting && !_scene.SideScene && !_scene.IsReplayLab
-            && _scene.LifetimeGeneration == _sceneGeneration && ReferenceEquals(scene, _scene) && ReferenceEquals(native, _native)
+            && _scene.LifetimeGeneration == _sceneGeneration && ReferenceEquals(scene, _scene)
             && ReferenceEquals(pack, _selection.Pack) && appearance == _selection.SelectedAppearance
-            && ReferenceEquals(instance, _instance) && ReferenceEquals(_player.BipedModel2.Model, native)
+            && ReferenceEquals(_player.BipedModel2.Model, _native)
+            && (ReferenceEquals(instance, _instance) && ReferenceEquals(native, _native)
+                || _cannonInstance != null && ReferenceEquals(instance, _cannonInstance)
+                    && ReferenceEquals(native, _nativeCannon) && ReferenceEquals(_player.ModSourceNativeGun, _nativeCannon))
             && !_player.IsBot && _player.SlotIndex == _slot && (uint)_slot < _scene.Players.Items.Count
             && ReferenceEquals(_scene.Players.Items[_slot], _player)
-            && _player.Hunter == Hunter.Samus && !_scene.Services.IsReplica && !_scene.GameState.SinglePlayer
+            && _player.Hunter == _selection.NativeHunter && !_scene.Services.IsReplica && !_scene.GameState.SinglePlayer
+            && _player.ModCharacterGameplay.Variant == Multiplayer.CharacterGameplayVariant.Native
             && !Network.NetSession.Active && !Network.DemoPlayback.IsActive && !Network.ReplayCapture.LiveRecordingActive;
 
     internal bool Current => Owns(_scene, _native, _selection.Pack, _selection.SelectedAppearance, _instance)
         && CharacterModelRuntime.IsSourceBodyCurrent(_scene, _instance, _model);
+    internal bool CannonCurrent => Current && _cannonInstance != null && _cannonModel != null
+        && Owns(_scene, _nativeCannon!, _selection.Pack, _selection.SelectedAppearance, _cannonInstance)
+        && CharacterModelRuntime.IsSourceBodyCurrent(_scene, _cannonInstance, _cannonModel);
 
     internal void Step(ulong step, long life, PlayerAnimation lower, int lowerFrame,
         PlayerAnimation upper, int upperFrame, float aimY, bool supported)
@@ -88,7 +123,7 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
         _step = step;
         if (!Current) { Ready = false; return; }
         if (_life != life) { _life = life; _ticks = 0; _pose.Reset(); }
-        Ready = supported && CharacterSourceBodyPose.Supports(lower, upper);
+        Ready = supported && _pose.Supports(lower, upper);
         if (!Ready) { _pose.Reset(); return; }
         var pose = _pose.Sample(lower, lowerFrame, upper, upperFrame, aimY);
         _model.UpdateSourcePreviewPalette(pose);
@@ -102,10 +137,25 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
         return true;
     }
 
+    internal bool PrepareCannon(Matrix4 gun, float muzzleOffset, out Matrix4 presentation)
+    {
+        presentation = Matrix4.Identity;
+        if (!Ready || !CannonCurrent || !float.IsFinite(muzzleOffset)) return false;
+        // BodyArmCannon sizing from SecondHunt 41452f2d (MIT, NoneGiven 2020).
+        // The fixed recipe places its locator at zero and barrel along +Z.
+        // Keep that tip on the native late-latched effect point; no recoil
+        // translation, diagnostic fit or gameplay muzzle mutation is applied.
+        presentation = Matrix4.CreateScale(FeetFit.ExtractScale().X * .7f)
+            * Matrix4.CreateTranslation(0, 0, muzzleOffset) * gun;
+        _cannonModel!.PrepareSourcePreviewPresentation(presentation); // ToCannon exactly once, inside this owner.
+        return true;
+    }
+
     public void Dispose()
     {
         if (_disposed) return;
         _disposed = true; Ready = false;
+        if (_cannonInstance != null) CharacterModelRuntime.ReleaseSourcePreview(_scene, _cannonInstance);
         CharacterModelRuntime.ReleaseSourcePreview(_scene, _instance);
     }
 }
@@ -115,7 +165,7 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
 // NoneGiven; permission/warranty notice retained in the repository LICENSE).
 // State/pose adapter over the existing full-key decoder. Source root translation
 // is removed from presentation only. Native state, aim and muzzle are never set.
-internal sealed class CharacterSourceBodyPose
+internal sealed class CharacterSourceBodyPose : ICharacterSourceBodyPose
 {
     internal static readonly string[] RequiredClips =
     ["B_ready_dark_samus", "B_glideForward_dark_samus", "B_glideBackwards_dark_samus",
@@ -179,6 +229,10 @@ internal sealed class CharacterSourceBodyPose
     };
     internal static bool Supports(PlayerAnimation lower, PlayerAnimation upper)
         => LowerClip(lower) != null && (UpperClip(upper) != null || LowerClip(upper) != null);
+    bool ICharacterSourceBodyPose.Supports(PlayerAnimation lower, PlayerAnimation upper) => Supports(lower, upper);
+    void ICharacterSourceBodyPose.Reset() => Reset();
+    Matrix4[] ICharacterSourceBodyPose.Sample(PlayerAnimation lower, int lowerFrame, PlayerAnimation upper, int upperFrame, float aimY)
+        => Sample(lower, lowerFrame, upper, upperFrame, aimY);
     internal void Reset() { _last = _from = null; _lowerFrame = _upperFrame = -1; _lowerTicks = _upperTicks = _fade = 0; }
     internal Matrix4[] Sample(PlayerAnimation lower, int lowerFrame, PlayerAnimation upper, int upperFrame, float aimY)
     {

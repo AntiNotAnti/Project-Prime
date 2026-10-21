@@ -12,8 +12,8 @@ internal sealed partial class CharacterModelPack
     private readonly Dictionary<CharacterModelAsset, CharacterSourceAnimationArchive> _sourceAnimations = new(ReferenceEqualityComparer.Instance);
 }
 
-// Optional temporal input to the existing private source-rig owner. The exact
-// two exact generated Echoes bodies own separate immutable profiles. This
+// Optional temporal input to the existing private source-rig owner. Exact
+// generated Echoes and Prime bodies own separate immutable profiles. This
 // grants no ball, selection, actor, retargeting or network authority.
 internal sealed class CharacterSourceAnimationArchive
 {
@@ -27,18 +27,26 @@ internal sealed class CharacterSourceAnimationArchive
     internal string Sha256 { get; }
     internal RetroCharacterAnimationArchive.Snapshot Data { get; }
     internal RetroNativeSkeleton Skeleton { get; }
+    internal uint RootBoneId { get; }
+    internal uint ExternalParentId { get; }
     private CharacterSourceAnimationArchive(string root, string modelSha, string sha, RetroCharacterAnimationArchive.Snapshot data,
-        RetroNativeSkeleton skeleton, Dictionary<string, (string, int)> inputs, string stem)
-        => (_root, _modelSha, Sha256, Data, Skeleton, _inputs, _stem) = (root, modelSha, sha, data, skeleton, inputs, stem);
+        RetroNativeSkeleton skeleton, Dictionary<string, (string, int)> inputs, string stem, uint rootBoneId, uint externalParentId)
+        => (_root, _modelSha, Sha256, Data, Skeleton, _inputs, _stem, RootBoneId, ExternalParentId)
+            = (root, modelSha, sha, data, skeleton, inputs, stem, rootBoneId, externalParentId);
     internal static CharacterSourceAnimationArchive Load(string root, CharacterModelManifestEntry entry, string modelSha)
     {
         bool final = entry.SkinSource == "MP2DarkSamusFinal";
-        string Stem = final ? "darksamus-overcharged-echoes" : "darksamus-echoes";
-        string archivePin = final ? "15f102868334b98e271050493bbfdd996ca3d7121a6f4b04d54f6308b5d07b0d" : QualifiedArchiveSha256;
-        Require((entry.Part == CharacterModelPart.Biped || CharacterSourceCannonRecipe.IsGeneratedEntry(entry, modelSha)) && entry.PoseSource == CharacterPoseSource.SourceRigPreview
+        var trooper = CharacterGeneratedTrooperProfile.FromSkin(entry.SkinSource);
+        bool echoes = trooper == null;
+        string Stem = trooper?.Id ?? (final ? "darksamus-overcharged-echoes" : "darksamus-echoes");
+        string archivePin = trooper?.AnimationSha ?? (final ? "15f102868334b98e271050493bbfdd996ca3d7121a6f4b04d54f6308b5d07b0d" : QualifiedArchiveSha256);
+        Require((entry.Part == CharacterModelPart.Biped || echoes && CharacterSourceCannonRecipe.IsGeneratedEntry(entry, modelSha)) && entry.PoseSource == CharacterPoseSource.SourceRigPreview
             && entry.SourceAnimationArchive == Stem + ".animations.bin" && entry.SourceAnimationArchiveSha256 == archivePin
-            && modelSha.Length == 64 && entry.CharacterId == "darksamus" && entry.SkinSource == (final ? "MP2DarkSamusFinal" : "MP2DarkSamus")
-            && (!final || entry.Part == CharacterModelPart.Biped && modelSha == CharacterModelPack.GeneratedFinalSourceGlbSha256), "Only an exact verified generated body accepts imported animation resources.");
+            && modelSha.Length == 64 && (trooper != null
+                ? entry.Hunter == "Weavel" && entry.CharacterId == "trooper" && modelSha == trooper.ModelSha
+                : entry.CharacterId == "darksamus" && entry.SkinSource == (final ? "MP2DarkSamusFinal" : "MP2DarkSamus")
+                    && (!final || entry.Part == CharacterModelPart.Biped && modelSha == CharacterModelPack.GeneratedFinalSourceGlbSha256)),
+            "Only an exact verified generated body accepts imported animation resources.");
         var inputs = new Dictionary<string, (string, int)>(StringComparer.Ordinal);
         byte[] Read(string file, int maximum)
         {
@@ -50,15 +58,24 @@ internal sealed class CharacterSourceAnimationArchive
             cinf = Read(Stem + ".cinf.bin", 1024 * 1024),
             archive = Read(entry.SourceAnimationArchive!, RetroCharacterAnimationArchive.MaximumBytes);
         var graph = RetroAnimationGraphProof.Verify(description, source);
-        CharacterSourceGraphProof.RequireQualifiedSource(graph, Stem);
+        if (trooper == null) CharacterSourceGraphProof.RequireQualifiedSource(graph, Stem);
+        else Require(RetroAnimationGraphProof.Sha(description) == trooper.GraphSha && graph.Format == 1
+            && graph.SourceGameId == "GM8E01" && graph.SourceAncsId == 0x8169653a
+            && graph.SourceAncsSha256 == CharacterGeneratedTrooperProfile.AncsSha
+            && graph.SourceCharacterId == Stem && graph.SourceCharacterName == trooper.NativeName
+            && graph.Cmdl == trooper.Cmdl && graph.Cskr == trooper.Cskr && graph.Cinf == 0x0c9669bc
+            && graph.SourceSnapshotFile == Stem + ".ancs.bin" && !graph.NamedGraphSemanticsAccepted,
+            "Exact retained Prime source graph required; no named graph evaluation.");
         Require(RetroAnimationGraphProof.Sha(archive) == entry.SourceAnimationArchiveSha256, "Imported animation bank changed.");
         var skeleton = RetroCharacterSource.ReadSkeleton(cinf);
-        Require(RetroAnimationGraphProof.Sha(cinf) == QualifiedCinfSha256 && graph.Cinf == 0x4abc8a50 && skeleton.Bones.Count == 39
-            && skeleton.Bones.TryGetValue(0, out var rootBone) && rootBone.Parent == 97 && rootBone.Name == "root",
+        uint rootId = echoes ? 0u : 3u, externalParent = echoes ? 97u : 2u;
+        Require(RetroAnimationGraphProof.Sha(cinf) == (echoes ? QualifiedCinfSha256 : CharacterGeneratedTrooperProfile.CinfSha)
+            && graph.Cinf == (echoes ? 0x4abc8a50u : 0x0c9669bcu) && skeleton.Bones.Count == (echoes ? 39 : 35)
+            && skeleton.Bones.TryGetValue(rootId, out var rootBone) && rootBone.Parent == externalParent && rootBone.Name == "root",
             "Imported animation bank requires the complete original source skeleton.");
-        var data = RetroCharacterAnimationArchive.Read(archive, new(source, description, graph), cinf, echoes: true);
+        var data = RetroCharacterAnimationArchive.Read(archive, new(source, description, graph), cinf, echoes);
         return new(root, modelSha, entry.SourceAnimationArchiveSha256!, data,
-            new(new ReadOnlyDictionary<uint,RetroNativeBone>(skeleton.Bones.ToDictionary(p=>p.Key,p=>p.Value))), inputs, Stem);
+            new(new ReadOnlyDictionary<uint,RetroNativeBone>(skeleton.Bones.ToDictionary(p=>p.Key,p=>p.Value))), inputs, Stem, rootId, externalParent);
     }
     internal void Revalidate(string root, CharacterModelManifestEntry entry, string modelSha)
     {

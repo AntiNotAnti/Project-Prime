@@ -10,6 +10,45 @@ namespace MphRead.NetTest;
 
 internal static class ReplicaCheckpointCompatibilityTests
 {
+    // Emit the published protocol80 actor widths from a current checkpoint.
+    // Literal frozen widths keep this oracle independent of future writers.
+    internal static byte[] Protocol80Rows(byte[] current)
+    {
+        if (current[4] != 14 || current[6] != 82 || PlayerState.Size != 192
+            || IntentPacket.TouchCanonicalSize != 1298)
+            throw new InvalidOperationException("Unexpected current checkpoint fixture contract.");
+        using var input = new MemoryStream(current, writable: false);
+        using var reader = new BinaryReader(input);
+        input.Position = 8 + 5 * sizeof(uint) + 2 * sizeof(long);
+        reader.ReadByte();
+        if (reader.ReadBoolean()) reader.ReadUInt32();
+        if (reader.ReadBoolean()) input.Position += MatchStatePacket.Size;
+        if (reader.ReadBoolean()) input.Position += SessionStatePacket.Size;
+        input.Position += RosterPacket.Size;
+        int at = checked((int)input.Position);
+        using var output = new MemoryStream();
+        output.Write(current.AsSpan(0, at));
+        for (int slot = 0; slot < 8; slot++)
+        {
+            output.Write(current.AsSpan(at, 7 + 173)); at += 7 + 173;
+            if (current.AsSpan(at, 19).IndexOfAnyExcept((byte)0) >= 0)
+                throw new InvalidOperationException("Historical fixture cannot discard grapple state.");
+            at += 19;
+            output.WriteByte(current[at++]); // hasIntent
+            if ((BinaryPrimitives.ReadUInt32LittleEndian(current.AsSpan(at + 4)) & (1u << 29)) != 0
+                || BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(at + 1296)) != 0)
+                throw new InvalidOperationException("Historical fixture cannot discard grapple request.");
+            output.Write(current.AsSpan(at, 1296)); at += 1298;
+            output.Write(current.AsSpan(at, 4)); at += 4;
+        }
+        output.Write(current.AsSpan(at));
+        byte[] result = output.ToArray();
+        bool timed = (result[7] & (byte)ReplayReplicaCheckpointFeatures.TimedShots) != 0;
+        BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(4), timed ? (ushort)13 : (ushort)12);
+        result[6] = 80; result[7] &= unchecked((byte)~(byte)ReplayReplicaCheckpointFeatures.Grapple);
+        return result;
+    }
+
     // Source layouts frozen from main16b1d89b and stagedA2a4f4371a:
     // seven-byte header, eight fixed actor rows, then the original tail.
     // Main v10 has nine touch bytes per row and no pickup appendix. Staged
@@ -37,7 +76,7 @@ internal static class ReplicaCheckpointCompatibilityTests
     internal static byte[] HistoricalFixture(ReplayReplicaCheckpoint checkpoint,
         bool touch, bool pickups, ushort version = 10, byte protocol = 53, bool grants = false)
     {
-        byte[] current = HistoricalMatchWidth(checkpoint.Bytes.ToArray(), protocol);
+        byte[] current = HistoricalMatchWidth(Protocol80Rows(checkpoint.Bytes.ToArray()), protocol);
         using var input = new MemoryStream(current, writable: false);
         using var reader = new BinaryReader(input);
         input.Position = 8 + 5 * sizeof(uint) + 2 * sizeof(long);
@@ -52,7 +91,7 @@ internal static class ReplicaCheckpointCompatibilityTests
         int at = rowStart;
         for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
         {
-            int core = 7 + PlayerState.Size + 1 + IntentPacket.FullSize;
+            const int core = 7 + 173 + 1 + 1287;
             output.Write(current.AsSpan(at, core)); at += core;
             if (touch) output.Write(current.AsSpan(at, NativeTouchReport.WireSize));
             at += NativeTouchReport.WireSize;
@@ -145,11 +184,11 @@ internal static class ReplicaCheckpointCompatibilityTests
             && restored.PickupVerdicts[claim.Key] == verdict,
             "actual staged A2 v10/protocol53 layout restores populated claim/verdict/item tail without invented touch");
         var checkpoint = state.CaptureCheckpoint();
-        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 12 && checkpoint.Bytes[7] == 7,
-            "current v12 explicitly declares native touch, pickup and grant features");
+        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 14 && checkpoint.Bytes[6] == 82 && checkpoint.Bytes[7] == 23,
+            "current v14/protocol82 explicitly declares native touch, pickup, grant and grapple features");
         restored.RestoreCheckpoint(checkpoint);
         check(restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
-            "v12 roundtrip preserves both nonzero touch and complete pickup state");
+            "v14 roundtrip preserves both nonzero touch and complete pickup state");
         byte[] before = restored.CaptureCheckpoint().Bytes.ToArray();
         void Reject(byte[] bad, string label)
         {
@@ -164,7 +203,7 @@ internal static class ReplicaCheckpointCompatibilityTests
         Reject(badBoolean, "invalid historical boolean cannot disguise the other source layout");
         var badFlags = checkpoint.Bytes.ToArray(); badFlags[7] |= 0x80;
         Reject(badFlags, "unknown explicit feature bits are refused transactionally");
-        var a2Tagged = checkpoint.Bytes.ToArray();
+        var a2Tagged = Protocol80Rows(checkpoint.Bytes.ToArray());
         // This fixture has no grant coverage, so exact empty state can be removed.
         using var emptyGrant = new MemoryStream(); using var emptyGrantWriter = new BinaryWriter(emptyGrant);
         state.TimedGrants.Write(emptyGrantWriter); emptyGrantWriter.Flush();
@@ -176,7 +215,7 @@ internal static class ReplicaCheckpointCompatibilityTests
             "accepted A2 v12/55 flags3 restores touch and pickups without fabricated grant coverage");
         restored.RestoreCheckpoint(checkpoint);
         var badContract = checkpoint.Bytes.ToArray(); badContract[7] = 3;
-        Reject(badContract, "A3 protocol56 cannot masquerade as the A2 feature contract");
+        Reject(badContract, "protocol82/v14 cannot masquerade as the A2 feature contract");
         var legacyWrong = staged.ToArray(); legacyWrong[4] = 11; legacyWrong[6] = 53;
         Reject(legacyWrong, "staged v11 requires its exact historical protocol54 source contract");
         bool ambiguous = false;

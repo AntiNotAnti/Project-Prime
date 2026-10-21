@@ -72,7 +72,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 79, "protocol 79 preserves the queue/bot wire contract");
+            Check(NetConfig.ProtocolVersion == 82, "protocol 82 preserves the queue/bot wire contract");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -618,7 +618,7 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 79 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 82 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45
                 && (byte)PacketType.HostChallenge == 65 && (byte)PacketType.HostChallengeReply == 66,
@@ -1125,7 +1125,7 @@ namespace MphRead.Mods.Network
             private readonly Thread _thread;
             private Exception? _error;
             private readonly bool _simulate;
-            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false, string? room = null, MapRotation? rotation = null, int maxPlayers = 8, double waitlistOfferSeconds = 15, double waitlistResumeSeconds = 10, bool allowJoinInProgress = true,bool customReadiness = false,bool customCombat = false,bool publicAvailability = false)
+            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false, string? room = null, MapRotation? rotation = null, int maxPlayers = 8, double waitlistOfferSeconds = 15, double waitlistResumeSeconds = 10, bool allowJoinInProgress = true,bool customReadiness = false,bool customCombat = false,bool publicAvailability = false,string? weaponStore = null,string? weaponArchive = null)
             {
                 _simulate = simulate;
                 Server = new DedicatedServer(0, maxPlayers, rotation ?? MapRotation.SingleMatch(room ?? Rooms()[0], GameMode.Battle, 0, 0))
@@ -1134,6 +1134,7 @@ namespace MphRead.Mods.Network
                 Server.DeveloperCustomWeaponReadiness = customReadiness;
                 Server.DeveloperCustomWeaponCombat = customCombat;
                 Server.RiftlineM7Available = publicAvailability;
+                if(weaponStore != null || weaponArchive != null) Server.ConfigureWeaponPackage(weaponStore ?? throw new ArgumentException("Package store required."),weaponArchive ?? throw new ArgumentException("Package archive required."));
                 typeof(DedicatedServer).GetField("_controlPlaneOnlyForTests",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                     .SetValue(Server, !simulate);

@@ -10,7 +10,10 @@ namespace MphRead.Mods.Render.Characters;
 
 internal sealed record CharacterSourcePreviewClipChoice(int Ordinal, string Name, double Duration);
 internal sealed record CharacterSourceStageRequest(object Owner, CharacterModelPack Pack,
-    PrivateCharacterAppearance Appearance, int ClipOrdinal, double Seconds, CharacterModelPart Part = CharacterModelPart.Biped, double MaterialSeconds = 0);
+    PrivateCharacterAppearance Appearance, int ClipOrdinal, double Seconds, CharacterModelPart Part = CharacterModelPart.Biped, double MaterialSeconds = 0)
+{
+    internal Hunter NativeHunter => ExternalCharacterCatalog.Find(Appearance.CharacterId)?.BaseHunter ?? (Hunter)255;
+}
 
 // CPU-only capture at one explicit Preview boundary. A retained generation is
 // never switched underneath a playing clip; reopening rechecks discovery.
@@ -21,18 +24,29 @@ internal sealed class CharacterSourcePreviewSelection
     internal IReadOnlyList<CharacterSourcePreviewClipChoice> Clips { get; }
     internal PrivateCharacterAppearance SelectedAppearance { get; }
     internal bool HasCannon { get; }
+    internal bool RuntimeCannon { get; }
+    internal Hunter NativeHunter => SelectedAppearance.CharacterId == "trooper" ? Hunter.Weavel : Hunter.Samus;
     internal static readonly PrivateCharacterAppearance Appearance = new("darksamus", "MP2DarkSamus");
-    private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon)
-        => (Pack, Generation, Clips, SelectedAppearance, HasCannon) = (pack, generation, Array.AsReadOnly(clips), appearance, hasCannon);
+    private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon, bool runtimeCannon)
+        => (Pack, Generation, Clips, SelectedAppearance, HasCannon, RuntimeCannon) = (pack, generation, Array.AsReadOnly(clips), appearance, hasCannon, runtimeCannon);
 
     internal static CharacterSourcePreviewSelection Load(string id, CancellationToken cancellation, string? root = null)
+        => LoadCore(id, cancellation, root, runtimeCannon: false);
+    internal static CharacterSourcePreviewSelection LoadForLocalBody(string id, CancellationToken cancellation, string? root = null)
+        => LoadCore(id, cancellation, root, runtimeCannon: true);
+    private static CharacterSourcePreviewSelection LoadCore(string id, CancellationToken cancellation, string? root, bool runtimeCannon)
     {
         bool final = id == "darksamus-overcharged-echoes";
-        if (!final && id != "darksamus-echoes") throw new NotSupportedException("Body source programs currently support normal and Overcharged Echoes. Other bundles remain available for authoring.");
-        var appearance = final ? new PrivateCharacterAppearance("darksamus", "MP2DarkSamusFinal") : Appearance;
+        var trooper = CharacterGeneratedTrooperProfile.Find(id);
+        if (!final && id != "darksamus-echoes" && trooper == null)
+            throw new NotSupportedException("Unknown source body appearance.");
+        var appearance = trooper != null ? new PrivateCharacterAppearance("trooper", trooper.Skin)
+            : final ? new PrivateCharacterAppearance("darksamus", "MP2DarkSamusFinal") : Appearance;
+        Hunter hunter = trooper != null ? Hunter.Weavel : Hunter.Samus;
         cancellation.ThrowIfCancellationRequested();
         string importRoot = root ?? RetroCharacterPreviewExporter.DefaultRoot;
-        var state = LocalImportBundle.Inspect(importRoot, id, RetroCharacterPreviewExporter.BundleSpec(id));
+        var state = LocalImportBundle.Inspect(importRoot, id, RetroCharacterPreviewExporter.BundleSpec(id,
+            trooper != null ? ExternalSourceEdition.PrimeUsaRevision2 : ExternalSourceEdition.OriginalRecipe));
         if (state.State != ImportBundleState.Ready || state.Receipt == null)
             throw new InvalidDataException("Update the selected source bundle before previewing: " + state.State + ". " + state.Message);
         string manifest = state.Files.Single(f => Path.GetFileName(f) == "characters.json");
@@ -42,17 +56,24 @@ internal sealed class CharacterSourcePreviewSelection
         foreach (string file in state.Files) LocalImportBundle.CheckPath(file, importRoot);
         cancellation.ThrowIfCancellationRequested();
         var pack = CharacterModelPack.Load(folder);
-        if (!pack.TryResolvePrivate(Hunter.Samus, appearance, CharacterModelPart.Biped, 0, out var asset))
+        if (!pack.TryResolvePrivate(hunter, appearance, CharacterModelPart.Biped, 0, out var asset))
             throw new InvalidDataException("Generated source preview asset is unavailable.");
         pack.CaptureSourceMaterials(asset, id);
+        if (runtimeCannon && !final && trooper == null)
+        {
+            if (!pack.TryResolvePrivate(Hunter.Samus, appearance, CharacterModelPart.ViewModel, 0, out var cannonAsset))
+                throw new InvalidDataException("The generated normal source cannon is unavailable.");
+            pack.CaptureGeneratedNormalCannonMaterials(asset, cannonAsset);
+        }
         if (!pack.TryCreateSourcePreviewLease(asset, out var lease) || lease.SourceAnimations == null)
             throw new InvalidDataException("Generated source preview owner is unavailable.");
         // This product viewer admits the generated importer profile only.
         // Legacy manual/private packs retain their separate acceptance route.
         using (var proof = JsonDocument.Parse(lease.ReadProvenanceSnapshot()))
             if (!proof.RootElement.TryGetProperty("format", out var format) || format.ValueKind != JsonValueKind.Number
-                || !format.TryGetInt32(out int version) || version != 2
-                || !String.Equals(lease.ModelSha256, final ? CharacterModelPack.GeneratedFinalSourceGlbSha256 : CharacterModelPack.GeneratedNormalSourceGlbSha256, StringComparison.OrdinalIgnoreCase))
+                || !format.TryGetInt32(out int version) || version != (trooper != null ? 1 : 2)
+                || !String.Equals(lease.ModelSha256, trooper?.ModelSha ?? (final ? CharacterModelPack.GeneratedFinalSourceGlbSha256
+                    : CharacterModelPack.GeneratedNormalSourceGlbSha256), StringComparison.OrdinalIgnoreCase))
                 throw new InvalidDataException("Animated import preview requires the qualified generated source geometry profile.");
         var geometry = CharacterWeightedModelLoader.LoadSourcePreview(asset, lease);
         var clips = new List<CharacterSourcePreviewClipChoice>();
@@ -69,7 +90,7 @@ internal sealed class CharacterSourcePreviewSelection
         }
         // Normal keeps its separate fixed diagnostic cannon. Final has no
         // cannon capability and never borrows normal's cut or source binding.
-        if (!final)
+        if (!final && trooper == null)
         {
             if (!pack.TryResolvePrivate(Hunter.Samus, appearance, CharacterModelPart.ViewModel, 0, out var cannon)
                 || !pack.TryCreateSourcePreviewLease(cannon, out var cannonLease) || cannonLease.SourceCannon?.IsGenerated != true)
@@ -79,6 +100,7 @@ internal sealed class CharacterSourcePreviewSelection
         }
         if (clips.Count == 0) throw new InvalidDataException("No qualified strict source clips are available.");
         lease.Require(asset); cancellation.ThrowIfCancellationRequested();
-        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, !final);
+        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, !final && trooper == null,
+            runtimeCannon && !final && trooper == null);
     }
 }
