@@ -270,7 +270,7 @@ namespace MphRead.Mods.Network
         }
 
         public static void StartClient(string address, int port = NetConfig.DefaultPort, Guid ownerToken = default,
-            bool spectate = false)
+            bool spectate = false, LocalWeaponPackageSelection? weaponPackage = null)
         {
             lock (ClientLifecycleGate)
             {
@@ -291,6 +291,7 @@ namespace MphRead.Mods.Network
                     // reported nothing wrong.
                     _hostEndPoint = new IPEndPoint(ResolveIPv4(address), port);
                     Role = NetRole.Client;
+                    _localClientWeaponPackage = weaponPackage;
                     LocalSlot = -1; // assigned by the host's Welcome
                     NetFrame = 0;
                     LastError = null;
@@ -303,6 +304,7 @@ namespace MphRead.Mods.Network
                 }
                 catch (Exception ex)
                 {
+                    _localClientWeaponPackage = null;
                     LastError = ex.Message;
                     Console.WriteLine($"[net] join failed: {ex.Message}");
                     Role = NetRole.Offline;

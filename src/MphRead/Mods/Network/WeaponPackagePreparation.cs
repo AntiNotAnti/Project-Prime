@@ -121,14 +121,16 @@ public static partial class NetSession
         internal double NextAck;
     }
     private static WeaponPackagePreparation? _weaponPreparation;
+    private static LocalWeaponPackageSelection? _localClientWeaponPackage;
     // A retired synchronous parser cannot be interrupted midway. Keep its task
     // as a fence across Stop/reconnect so another parser cannot overlap it.
     private static Task<WeaponMatchPackageBinding>? _weaponPackageWorker;
     public static string WeaponPackagePreparationMessage => _weaponPreparation?.Error
         ?? (ServerSession?.Match.PackagedWeaponAvailable == true && !RequiredWeaponPackagesReady
             ? "Waiting for the exact installed weapon package to be verified." : "");
-    internal static string WeaponPackageStoreDirectory => Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE")
-        is { Length: > 0 } path ? path : Path.Combine(Platform.AppPaths.UserDataDirectory, "weapons");
+    internal static string WeaponPackageStoreDirectory => _localClientWeaponPackage?.StoreDirectory
+        ?? (Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE")
+            is { Length: > 0 } path ? path : Path.Combine(Platform.AppPaths.UserDataDirectory, "weapons"));
     public static bool RequiredWeaponPackagesReady => Role != NetRole.Client
         || ServerSession is not { Match.PackagedWeaponAvailable: true }
         || !_playback && _weaponPreparation is { Confirmed: true, Binding: not null, Error: null } state && CurrentPackageKey(state.Key);
@@ -184,6 +186,13 @@ public static partial class NetSession
         // Operator package selection is immutable for this match/incarnation.
         // Ignore contradictory offers instead of spawning unbounded workers.
         if (_weaponPreparation is { } pinned && CurrentPackageKey(pinned.Key)) return;
+        if (_localClientWeaponPackage is {} selected
+            && manifest.Rows[0].Archive != WeaponDigest.FromHex(selected.ArchiveHash))
+        {
+            ResetWeaponPackagePreparation();
+            _weaponPreparation = new(key) { Error = "The server offered a different package than the explicit local selection." };
+            return;
+        }
         // Starting advances match ID after the lobby barrier. Carry independent
         // ownership of already verified/prewarmed bytes into the new key; an
         // uninstall after preparation cannot break that frozen start attempt.
@@ -197,8 +206,9 @@ public static partial class NetSession
         if (carried != null) { _weaponPreparation = new(key) { Binding = carried }; return; }
         if (_weaponPackageWorker is { IsCompleted: false }) return;
         var state = new WeaponPackagePreparation(key); _weaponPreparation = state;
+        string storeDirectory = WeaponPackageStoreDirectory; // Freeze this connection's path before queueing work.
         state.Work = Task.Run(() => WeaponMatchPackageBinding.PrepareInstalled(
-            new WeaponPackageStore(WeaponPackageStoreDirectory), manifest, state.Cancel.Token), state.Cancel.Token);
+            new WeaponPackageStore(storeDirectory), manifest, state.Cancel.Token), state.Cancel.Token);
         _weaponPackageWorker = state.Work;
     }
 

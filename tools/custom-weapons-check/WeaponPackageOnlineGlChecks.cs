@@ -27,7 +27,7 @@ internal static class WeaponPackageOnlineGlChecks
 {
     const BindingFlags Hidden=BindingFlags.Instance|BindingFlags.NonPublic;
     static readonly Action<KeyboardState,Keys,bool> Key=typeof(KeyboardState).GetMethod("SetKeyState",Hidden|BindingFlags.Public)!.CreateDelegate<Action<KeyboardState,Keys,bool>>();
-    internal static int Run(string data,string output,string serverDll)
+    internal static int Run(string data,string output,string serverDll,bool localHost=false)
     {
         string cwd=Directory.GetCurrentDirectory();string? oldStore=Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE");
         bool force=MapAudit.ForceEveryone,script=NetTestScript.Enabled,scope=InputSettings.CustomScopeHold;
@@ -53,14 +53,29 @@ internal static class WeaponPackageOnlineGlChecks
             var start=new ProcessStartInfo(dotnet){UseShellExecute=false,CreateNoWindow=true,RedirectStandardOutput=true,RedirectStandardError=true,WorkingDirectory=data};start.ArgumentList.Add(serverDll);
             foreach(string arg in new[]{"-server","-port",port.ToString(),"-players","2","-lobby","-nomaster","-noserverreplays","-rotation",rotation,"-weaponstore",serverStorePath,"-weaponarchive",package.PackageHash})start.ArgumentList.Add(arg);
             start.Environment["PROJECT_PRIME_USER_DATA"]=data;start.Environment["DOTNET_PROCESSOR_COUNT"]="2";
-            server=new Process{StartInfo=start};void Log(object sender,DataReceivedEventArgs line){if(line.Data!=null)lock(logGate){if(logs.Length<512*1024)logs.AppendLine(line.Data);}}
-            server.OutputDataReceived+=Log;server.ErrorDataReceived+=Log;server.Start();server.BeginOutputReadLine();server.BeginErrorReadLine();
-            void Bound(){if(watch.Elapsed.TotalSeconds>180)throw new TimeoutException("Online package GL exceeded180seconds.");if(server.HasExited)throw new InvalidOperationException("Dedicated process exited: "+server.ExitCode+" "+logs);}
+            Guid ownerToken=default;
+            if(localHost)
+            {
+                Check(LocalServer.Available() is {} available&&Path.GetFullPath(available.WorkingDirectory)==Path.GetDirectoryName(serverDll),"local allocator resolves explicitly staged matching dedicated build");
+                int hosted=LocalServer.Start("Exact package local GL",new[]{("MP3 PROVING GROUND",GameMode.Battle)},2,0,10000,
+                    "127.0.0.1",1,false,requestedPort:port,weaponPackage:new(serverStorePath,package.PackageHash));
+                Check(hosted==port,"actual LocalServer allocator starts exact installed package child");
+                ownerToken=LocalServer.OwnerToken;server=LocalServer.DetachRunning();
+                Check(ownerToken!=Guid.Empty&&server!=null,"package allocator generates owner token and transfers exact child handle");
+            }
+            else
+            {
+                server=new Process{StartInfo=start};void Log(object sender,DataReceivedEventArgs line){if(line.Data!=null)lock(logGate){if(logs.Length<512*1024)logs.AppendLine(line.Data);}}
+                server.OutputDataReceived+=Log;server.ErrorDataReceived+=Log;server.Start();server.BeginOutputReadLine();server.BeginErrorReadLine();
+            }
+            var activeServer=server??throw new InvalidOperationException("The dedicated child handle was not transferred.");
+            void Bound(){if(watch.Elapsed.TotalSeconds>180)throw new TimeoutException("Online package GL exceeded180seconds.");if(activeServer.HasExited)throw new InvalidOperationException("Dedicated process exited: "+activeServer.ExitCode+" "+logs);}
             void Step(int count=1){for(int i=0;i<count;i++){Bound();if(scene==null)NetSession.Pump();else scene.OnSimulationFrame();sawCwmDuringStarting|=NetSession.IsStarting&&NetSession.CustomWeaponReadinessConfirmed;if(observeShotPose&&scene!=null){var pose=scene.CustomRiflePose(scene.Players.Main);sawShotPose|=pose.Kick>0||pose.Bolt>0||pose.Flash>0;}nextStep=Math.Max(nextStep+1000d/60,watch.Elapsed.TotalMilliseconds);int wait=(int)(nextStep-watch.Elapsed.TotalMilliseconds);if(wait>0)Thread.Sleep(wait);}}
             void Until(Func<bool> condition,string label,int seconds=20){var deadline=watch.Elapsed.TotalSeconds+seconds;while(!condition()){if(watch.Elapsed.TotalSeconds>deadline)throw new TimeoutException(label+"; "+NetSession.LastError+"; "+NetSession.WeaponPackagePreparationMessage+"; receipt="+NetSession.LastCustomWeaponReceipt?.Receipt+"; denial="+NetSession.LastCustomControlDenied+"; state="+NetSession.CustomWeaponPresentationState+"; localFrame="+NetSession.NetFrame);Step();}Check(true,label);}
-            Until(()=>{lock(logGate)return logs.ToString().Contains("listening on UDP",StringComparison.Ordinal);},"actual separate dedicated process listens with exact configured package");
+            if(!localHost)Until(()=>{lock(logGate)return logs.ToString().Contains("listening on UDP",StringComparison.Ordinal);},"actual separate dedicated process listens with exact configured package");
             Environment.SetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE",clientStorePath);
-            Check(NetLaunch.Connect("127.0.0.1",port,"CreatorPackageGL",Hunter.Samus),"ordinary NetLaunch client joins actual package lobby");
+            Check(NetLaunch.Connect("127.0.0.1",port,"CreatorPackageGL",Hunter.Samus,ownerToken:ownerToken,
+                weaponPackage:localHost?new(clientStorePath,package.PackageHash):null),"ordinary NetLaunch client joins actual package lobby");
             Until(()=>NetSession.RequiredWeaponPackagesReady&&NetSession.LocalIsLobbyOwner,"actual asynchronous package preparation and authority confirmation finish in lobby");
             Check(clientStore.Uninstall(package.PackageHash)&&clientStore.Prune()==0,"prepared lobby client retains exact archive after marker uninstall before match transition");
             Check(NetSession.SendLobbyCommand(LobbyCommandType.SetReady,ready:true),"ordinary client sends lobby ready");Until(()=>!NetSession.LobbyCommandPending&&NetSession.SlotLobbyReady[NetSession.LocalSlot],"ordinary lobby ready settles");

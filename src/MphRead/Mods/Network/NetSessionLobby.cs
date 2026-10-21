@@ -457,6 +457,7 @@ namespace MphRead.Mods.Network
             CustomReplayBoundary.ResetMatch();
             ResetMapPreparation(); _lastMapReport = 0;
             ResetWeaponPackagePreparation();
+            _localClientWeaponPackage = null;
             _appliedBootstrap = _receivingBootstrap = null;
             _bootstrapMask = 0;
             _laneReceiver.Reset(0, 0);
