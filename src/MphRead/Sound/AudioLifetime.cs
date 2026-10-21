@@ -11,6 +11,7 @@ internal static class AudioLifetime
     internal static Action? StopMusic { get; set; }
     internal static Action? RequestMusicShutdown { get; set; }
     private static int _shutdownRequested;
+    private static int _shutdownPerformed;
 
     /// <summary>
     /// Cancel work that can be cancelled as soon as the user commits to exit.
@@ -27,6 +28,9 @@ internal static class AudioLifetime
 
     internal static void Shutdown()
     {
+        // Process exit can arrive through more than one teardown route.
+        // Join native cleanup only once and avoid duplicate exception reports.
+        if (Interlocked.Exchange(ref _shutdownPerformed, 1) != 0) return;
         BeginShutdown();
         try
         {
