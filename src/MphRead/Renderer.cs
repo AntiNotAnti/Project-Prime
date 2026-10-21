@@ -2869,7 +2869,8 @@ namespace MphRead
             // draw the previous frame's particles a second time, at the
             // positions they had then, until the 200-entry table filled up and
             // started dropping the new ones.
-            _singleParticleCount = 0;
+            if (Services.IsReplica) _replayDrawSingleParticleCount = 0;
+            else _singleParticleCount = 0;
             if ((!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this)) && (ProcessFrame || CameraMode != CameraMode.Player || Services.IsReplica))
             {
                 ModReplayCamera();
@@ -3996,6 +3997,10 @@ namespace MphRead
         private readonly Queue<EffectParticle> _inactiveParticles = new Queue<EffectParticle>(_effectParticleMax);
         private int _singleParticleCount = 0;
         private readonly List<SingleParticle> _singleParticles = new List<SingleParticle>(_singleParticleMax);
+        // Singles are submitted per picture. A private replay keeps that
+        // bounded scratch separate from its restored canonical pool values.
+        private List<SingleParticle>? _replayDrawSingleParticles;
+        private int _replayDrawSingleParticleCount;
         private readonly Queue<BeamEffectEntity> _inactiveBeamEffects = new Queue<BeamEffectEntity>(_beamEffectMax);
         private readonly List<BeamEffectEntity> _activeBeamEffects = new List<BeamEffectEntity>(_beamEffectMax);
         private readonly Queue<BombEntity> _inactiveBombs = new Queue<BombEntity>(_bombMax);
@@ -4018,6 +4023,11 @@ namespace MphRead
             for (int i = 0; i < _singleParticleMax; i++)
             {
                 _singleParticles.Add(new SingleParticle());
+            }
+            if (Services.IsReplica)
+            {
+                _replayDrawSingleParticles = new List<SingleParticle>(_singleParticleMax);
+                for (int i = 0; i < _singleParticleMax; i++) _replayDrawSingleParticles.Add(new SingleParticle());
             }
             for (int i = 0; i < _beamEffectMax; i++)
             {
@@ -4064,9 +4074,12 @@ namespace MphRead
         public void AddSingleParticle(SingleType type, Vector3 position, Vector3 color, float alpha, float scale, bool cosmeticTint = false)
         {
             // note: skipping the room size limit check; singles get cleared every frame anyway
-            if (_singleParticleCount < _singleParticleMax)
+            int count = Services.IsReplica ? _replayDrawSingleParticleCount : _singleParticleCount;
+            if (count < _singleParticleMax)
             {
-                SingleParticle entry = _singleParticles[_singleParticleCount++];
+                SingleParticle entry;
+                if (Services.IsReplica) entry = _replayDrawSingleParticles![_replayDrawSingleParticleCount++];
+                else entry = _singleParticles[_singleParticleCount++];
                 entry.CosmeticTint = cosmeticTint;
                 entry.ParticleDefinition = Read.GetSingleParticle(type);
                 entry.Position = position;
@@ -4074,9 +4087,10 @@ namespace MphRead
                 entry.Alpha = alpha;
                 entry.Scale = scale;
                 NcxTagSingle(entry);
-                if (!_texPalMap.ContainsKey(OwnModel(entry.ParticleDefinition.Model).Id))
+                Model singleModel = OwnSingleParticleDrawModel(entry.ParticleDefinition.Model);
+                if (!_texPalMap.ContainsKey(singleModel.Id))
                 {
-                    InitTextures(OwnModel(entry.ParticleDefinition.Model));
+                    InitTextures(singleModel);
                 }
             }
         }
@@ -5527,14 +5541,16 @@ namespace MphRead
                     }
                 }
             }
-            for (int i = 0; i < _singleParticleCount; i++)
+            int singleDrawCount = Services.IsReplica ? _replayDrawSingleParticleCount : _singleParticleCount;
+            var singleDrawPool = Services.IsReplica ? _replayDrawSingleParticles! : _singleParticles;
+            for (int i = 0; i < singleDrawCount; i++)
             {
-                SingleParticle single = _singleParticles[i];
+                SingleParticle single = singleDrawPool[i];
                 single.Process();
             }
-            for (int i = 0; i < _singleParticleCount; i++)
+            for (int i = 0; i < singleDrawCount; i++)
             {
-                SingleParticle single = _singleParticles[i];
+                SingleParticle single = singleDrawPool[i];
                 if (single.ShouldDraw)
                 {
                     using var ncxOwner = NcxSingleItems(single);

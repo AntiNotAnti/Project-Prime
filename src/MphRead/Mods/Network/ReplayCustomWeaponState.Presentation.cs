@@ -55,7 +55,11 @@ internal sealed partial class ReplayCustomWeaponState
             if (!action.Used || action.Contact is not { } fact || action.ContactFrame < firstFrame || action.ContactFrame > lastFrame
                 || !fact.TryContact(Context, out var bootstrap, out var outcome)) continue;
             var direction = action.BaselineLaunch?.Direction ?? Vector3.Zero;
-            if (action.Launch is { } launchFact && launchFact.TryLaunch(Context, out var launch)) direction = launch.Direction;
+            // A later accepted launch cannot retroactively orient an earlier
+            // contact. Complete-frame playback may use a same-frame launch;
+            // construction flights were already known at the restore origin.
+            if (action.LaunchFrame <= action.ContactFrame
+                && action.Launch is { } launchFact && launchFact.TryLaunch(Context, out var launch)) direction = launch.Direction;
             contacts[count++] = new(bootstrap, outcome, direction, action.ContactFrame);
         }
         for (int i = 1; i < count; i++)

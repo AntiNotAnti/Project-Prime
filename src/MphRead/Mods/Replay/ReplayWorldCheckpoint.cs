@@ -634,6 +634,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             replay.Scene.Players.Items[slot].ModRestoreWallVisual(recorded.WallVisualCue);
         }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
+        ((ReplaySceneServices)replay.Scene.Services).RebindCompletedPresentationLives();
         if (custom)
         {
             replay.Scene.RebuildReplayCustomPresentation();
