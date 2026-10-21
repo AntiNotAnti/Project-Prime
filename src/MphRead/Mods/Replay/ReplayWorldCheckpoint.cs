@@ -93,8 +93,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     internal ReplayMetadata ClipMetadata(uint leadIn, IReadOnlyList<ReplayPlayerInfo> players, ReplayType type = ReplayType.Clip,
         byte customFormatVersion = 7)
     {
-        if (customFormatVersion is not (7 or 8) || customFormatVersion == 8 && (!HasCustomWeaponContract || leadIn != 0))
-            throw new InvalidDataException("Post-world metadata requires an exact custom baseline without a lead-in.");
+        if (customFormatVersion is not (7 or 8) || customFormatVersion == 8 && !HasCustomWeaponContract)
+            throw new InvalidDataException("Post-world metadata requires an exact custom baseline.");
         using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
         ReadWorldHeader(reader); reader.ReadString();
         string room = reader.ReadString(); var mode = (GameMode)reader.ReadInt32(); ulong map = reader.ReadUInt64();

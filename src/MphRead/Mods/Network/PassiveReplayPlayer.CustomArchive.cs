@@ -53,7 +53,8 @@ internal sealed partial class PassiveReplayPlayer
     {
         if (Environment.CurrentManagedThreadId != _customThread)
             throw new InvalidOperationException("Custom archive stepping and replacement require their Scene thread.");
-        try { return UpdateCustomCore(maximumSteps, maximumMilliseconds); }
+        try { return _customClip != null ? UpdateCustomClip(maximumSteps, maximumMilliseconds)
+            : UpdateCustomCore(maximumSteps, maximumMilliseconds); }
         catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
         {
             LastCheckpointError = error.Message; _customGoal = null; _customNeedsPreparation = false;

@@ -167,7 +167,8 @@ internal sealed class KillcamController : IDisposable
             _player.Update();
             if (!_player.Ready) { State = KillcamState.Preparing; return; }
             if (_startup.IsRunning) { _startup.Stop(); StartupMilliseconds = _startup.Elapsed.TotalMilliseconds; }
-            if (_audio == 0) _audio = ReplayAudioOwner.Acquire(_player.Current.Scene, live);
+            if (_audio == 0 && _player.Current.State.CustomWeapons == null)
+                _audio = ReplayAudioOwner.Acquire(_player.Current.Scene, live);
             State = _player.Current.Session.AtEnd ? KillcamState.AwaitCompletion : KillcamState.Replay;
             if (State == KillcamState.AwaitCompletion && Kind == KillCamKind.Personal && ++_hold >= 15)
             { Stop(KillcamEndReason.Completed); return; }
@@ -282,6 +283,11 @@ internal sealed class KillcamController : IDisposable
         Vector3 right = Vector3.Cross(facing, Vector3.UnitY);
         if (right.LengthSquared < .0001f) right = Vector3.UnitX;
         var mode = (KillcamCameraMode)Math.Clamp(Launcher.LauncherPrefs.KillCamCamera, 0, 2);
+        if (world.State.CustomWeapons != null)
+        {
+            if (mode == KillcamCameraMode.FirstPerson && scene.SetCustomInspectionFirstPerson(slot)) return;
+            scene.ClearCustomInspectionFirstPerson();
+        }
         if (mode == KillcamCameraMode.FirstPerson && !actor.IsAltForm && actor.CameraInfo.Facing.LengthSquared > .0001f)
         {
             var eye = actor.CameraInfo.ModGetDrawPosition(scene.ReplayRenderAlpha)

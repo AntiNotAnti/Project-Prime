@@ -20,6 +20,8 @@ internal static class DemoClip
     private static Task? _writing;
     static DemoClip() { ReplayCapture.Recorder.Resetting += Freeze; }
     public static bool IsSaving => _pendingPath != null;
+    internal static bool IsCustomSaving => IsSaving && (_clip?.CustomArchiveFormat is 7 or 8
+        || ReplayCapture.Recorder.Timeline.CustomArchiveFormat is 7 or 8);
     public static string? LastError { get; private set; }
     public static string? LastSavedPath { get; private set; }
     public static bool Active => Seconds > 0 && NetSession.Active && !DemoPlayback.IsActive;
@@ -28,7 +30,8 @@ internal static class DemoClip
         ? Math.Min(Seconds, (last - first) / 60.0) : 0;
     public static string? Save()
     {
-        if (!ReplayCapture.CanStartLiveRecording(out var error)) { LastError = error; return null; }
+        if (!ReplayCapture.CanStartLiveRecording(out var error) && !ReplayCapture.CustomClientRollingScope())
+        { LastError = error; return null; }
         if (IsSaving) return _pendingPath;
         var timeline = ReplayCapture.Recorder.Timeline;
         if (!Active || timeline.FirstRecordingFrame is not uint first || timeline.LastRecordingFrame is not uint last) return null;

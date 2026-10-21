@@ -85,7 +85,9 @@ namespace MphRead.Mods.Network
             if (clip.RestorePoint.Kind != ReplayRestoreKind.ReplicaCheckpoint)
                 throw new InvalidDataException("A network baseline cannot restore a historical world.");
             var record = clip.RestorePoint.Records.Single(r => r.Kind == ReplayFactKind.World);
-            var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(record.Payload);
+            var checkpoint = clip.CustomArchiveFormat is 7 or 8
+                ? Replay.ReplayWorldCheckpoint.FromCustomBytes(record.Payload)
+                : Replay.ReplayWorldCheckpoint.FromBytes(record.Payload);
             if (checkpoint.Frame != clip.RestorePoint.RecordingFrame)
             { checkpoint.Dispose(); throw new InvalidDataException("Checkpoint frame differs from the clip index."); }
             return checkpoint;
@@ -149,6 +151,24 @@ namespace MphRead.Mods.Network
             if (prepared.FormatVersion is not (7 or 8))
                 throw new InvalidDataException("Ordinary custom archive Scene admission requires format7 or format8.");
             return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
+        }
+        internal static PassiveReplayScene OpenCustomClip(ReplayTimelineClip clip, PreparedReplayWeaponPackage resources, Vector2i size)
+        {
+            using var checkpoint = Checkpoint(clip);
+            var scene = RestorePostWorldInspection(checkpoint, resources, size);
+            try
+            {
+                scene.Session.AttachCustomClip(clip);
+                scene.Scene.ReplayPoses = new(scene, clip, checkpoint.IndexedFirePresentation);
+                return scene;
+            }
+            catch { scene.Dispose(); throw; }
+        }
+        internal bool StepCustomClip()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!Session.AdvanceCustomClip()) return false;
+            PrepareCustomPresentation(); Scene.StepReplica(); HasStepped = true; return true;
         }
         internal static PassiveReplayScene OpenPostWorldArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
         {
