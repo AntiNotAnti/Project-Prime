@@ -132,7 +132,7 @@ cp "$fixture/licenses/RmlUi-LICENSE.txt" "$app/Contents/Resources/licenses/RmlUi
 codesign --verify --deep --strict "$app"
 # The manifest is part of the app's resource seal and may not be modified
 # without invalidating its signature. Keep validating this after extraction.
-printf '\\n' >> "$app/Contents/Resources/PRIME-RMLUI.json"
+printf '\n' >> "$app/Contents/Resources/PRIME-RMLUI.json"
 expect_failure codesign --verify --deep --strict "$app"
 cp "$fixture/PRIME-RMLUI.json" "$app/Contents/Resources/PRIME-RMLUI.json"
 codesign --verify --deep --strict "$app"
