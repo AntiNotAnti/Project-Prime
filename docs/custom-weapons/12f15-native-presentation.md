@@ -1,6 +1,9 @@
 # CW-12f15 — native presentation in explicit custom archive inspection
 
-Base: `b406d1a129cf7c09345ac5c7f02ac5efc4889fad`.
+Historical v2 base: `b406d1a129cf7c09345ac5c7f02ac5efc4889fad`.
+Current integrated source is `f514e4f04b618e5393502dcdf5ca956979ee74e9`,
+with protocol85 retained after main integration. Integrated local qualification
+and historical84 evidence are recorded in the [evidence ledger](evidence/CW-12f15.md).
 
 The explicit custom file factory owns the existing pose/fire cursor and optional
 owner-presentation worker alongside its Scene and session reader. Its private
@@ -8,8 +11,9 @@ lookahead decoder restores the admitted custom checkpoint, then uses the same
 native pose rewind while retaining the exact custom admission descriptor.
 Lookahead consumes native match, roster, snapshots and intents. It does not feed
 custom combat, semantic markers or world packets into that presentation decoder.
-Protocol83 presentation fields use the explicit historical normalizer; ordinary
-native archive conversion and admission remain unchanged.
+Historical protocol83/84 presentation fields use explicit historical
+normalization where required; protocol85 is current. Retained historical schemas
+and native archive conversion/admission remain unchanged.
 
 The saved world's `IndexedFirePresentation` selects the cursor's firing policy.
 Opening an unindexed producer never changes it to indexed firing. Newly captured
