@@ -8,6 +8,8 @@ DECLARE
     result jsonb;
     test_match uuid;
     tx_count integer;
+    guest_tx_count integer;
+    guest_index integer;
 BEGIN
     if not (select enabled from prime.rating_rollout_controls where key = 'all_completed_pvp') then
         raise exception 'Temporary RP rollout is not enabled';
@@ -21,8 +23,10 @@ BEGIN
         raise exception 'Career ingest is missing temporary policy';
     end if;
 
-    -- Use an existing previously unrated verified FFA report as an immutable
-    -- read-only fixture. Clone only its match_id, never update the original.
+    -- Use a previously unrated PvP report containing a guest (anonymous
+    -- Supabase account without a verified email). A guest has a durable,
+    -- authenticated Hunter ID even though it is not a linked/secured account.
+    -- Clone only the match ID; never alter the historical result.
     select m."ServerId" as server_id, m."TrustClass" as trust_class,
            convert_from(m."OriginalReport", 'UTF8')::jsonb as payload
     into sample
@@ -37,11 +41,16 @@ BEGIN
           where coalesce((p->>'started_match')::boolean, false)
             and nullif(p->>'player_id', '') is null
       )
+      and exists (
+          select 1 from jsonb_array_elements(convert_from(m."OriginalReport", 'UTF8')::jsonb -> 'participants') p
+          join auth.users a on a.id = nullif(p->>'player_id', '')::uuid
+          where coalesce((p->>'started_match')::boolean, false)
+            and a.is_anonymous
+      )
     order by m."EndedAt" desc limit 1;
 
     if not found then
-        raise notice 'No eligible historical PvP fixture: policy and ACL checks passed, transaction path skipped';
-        return;
+        raise exception 'No existing guest PvP fixture; cannot validate anonymous RP credit';
     end if;
 
     test_match := gen_random_uuid();
@@ -50,7 +59,14 @@ BEGIN
         report, sample.server_id, sample.trust_class, repeat('E',64), report::text);
     select count(*) into tx_count from prime.rating_transactions where "MatchId" = test_match;
     if result->>'rating_status' <> 'applied' or tx_count < 2 then
-        raise exception 'Temporary RP path did not award verified PvP: %, % transactions', result, tx_count;
+        raise exception 'Temporary RP path did not award PvP: %, % transactions', result, tx_count;
+    end if;
+
+    select count(*) into guest_tx_count from prime.rating_transactions rt
+      join auth.users u on u.id = rt."PlayerId"
+     where rt."MatchId" = test_match and u.is_anonymous;
+    if guest_tx_count < 1 then
+        raise exception 'Unverified-email/guest Hunter License earned no RP transaction';
     end if;
 
     update prime.rating_rollout_controls set enabled = false
@@ -62,6 +78,32 @@ BEGIN
     select count(*) into tx_count from prime.rating_transactions where "MatchId" = test_match;
     if result->>'rating_status' <> 'ineligible' or tx_count <> 0 then
         raise exception 'Disabling toggle did not restore original gating: %, % transactions', result, tx_count;
+    end if;
+
+    -- A genuinely unsynced participant has no authenticated player ID.
+    -- Never mint RP against a mutable nickname or client-asserted UUID.
+    update prime.rating_rollout_controls set enabled = true
+     where key = 'all_completed_pvp';
+    select (entry.ordinality - 1)::integer into guest_index
+      from jsonb_array_elements(sample.payload->'participants')
+        with ordinality as entry(value, ordinality)
+      join auth.users u on u.id = nullif(entry.value->>'player_id', '')::uuid
+     where coalesce((entry.value->>'started_match')::boolean, false)
+       and u.is_anonymous
+     order by entry.ordinality limit 1;
+    if guest_index is null then
+        raise exception 'Anonymous guest participant not found';
+    end if;
+    test_match := gen_random_uuid();
+    report := jsonb_set(
+      jsonb_set(sample.payload, '{match_id}', to_jsonb(test_match::text)),
+      array['participants', guest_index::text, 'player_id'], 'null'::jsonb);
+    result := public.ingest_project_prime_career_match(
+      report, sample.server_id, sample.trust_class, repeat('G',64), report::text);
+    select count(*) into tx_count from prime.rating_transactions
+     where "MatchId" = test_match;
+    if result->>'rating_status' <> 'ineligible' or tx_count <> 0 then
+        raise exception 'Unattributed participant bypassed identity guard: %, % transactions', result, tx_count;
     end if;
 END;
 $check$;
