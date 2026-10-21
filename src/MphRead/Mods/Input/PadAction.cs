@@ -74,7 +74,9 @@ namespace MphRead.Mods.Input
         // Gameplay-only opt-in controls. Keep every saved native/replay ID.
         CustomWeapon,
         CustomReload,
-        CustomOptic
+        CustomOptic,
+        /// <summary>Optional dedicated grapple; append only for saved action IDs.</summary>
+        Grapple = 37
     }
 
 }

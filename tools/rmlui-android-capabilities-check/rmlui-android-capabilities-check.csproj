@@ -13,5 +13,6 @@
     <Compile Include="../../src/MphRead.Android/RmlUiAndroidLauncherAdmission.cs" Link="RmlUiAndroidLauncherAdmission.cs" />
     <Compile Include="../../src/MphRead.Android/RmlUiAndroidLocalHunterPage.cs" Link="RmlUiAndroidLocalHunterPage.cs" />
     <Compile Include="../../src/MphRead/Mods/Launcher/Portable/LauncherHunterChoiceController.cs" Link="LauncherHunterChoiceController.cs" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/LocalBodyAppearance.cs" Link="LocalBodyAppearance.cs" />
   </ItemGroup>
 </Project>

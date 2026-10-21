@@ -85,8 +85,8 @@ internal static class TraversalRulesTests
                 "Classic excludes the horizontal adapter");
             Check(MovementModelRules.FromRules(MovementModelRules.Modifier(model)) == model,
                 "each explicit modifier maps back to its mode");
-            Check(MovementModelRules.ProfileVersion(model) == new[] { 0, 1, 4, 5, 4 }[index],
-                "current Classic, Momentum, Quake3, Traversal and Parkour profile versions remain explicit");
+            Check(MovementModelRules.ProfileVersion(model) == new[] { 0, 1, 4, 5, 5 }[index],
+                "live profiles retain Classic0/Momentum1/Quake3v4/Traversalv5/Parkourv5 identities");
             Check(MovementModelRules.DisplayName(model).Length > 0
                 && MovementModelRules.DisplayName(model) != "Unsupported", "all modes have presentation labels");
             var match = Definition(model);

@@ -6,7 +6,8 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **81** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **82** (`NetConfig.ProtocolVersion`).
+- Protocol82 adds accepted Parkour v5 grapple state to slow/canonical lanes and a request nonce to intents. The fast prefix stays138 bytes. Humans remain owner-reported; passive replicas never run the grapple controller. See `docs/network/parkour-v5-version-contract.md`.
 - Protocol81 adds the operator-selected package availability bit20 and bounded
   package offer/Ready/confirmation messages99–101. They pin CWPK v1 exact
   archive/content/dependency metadata to match, configuration, slot generation

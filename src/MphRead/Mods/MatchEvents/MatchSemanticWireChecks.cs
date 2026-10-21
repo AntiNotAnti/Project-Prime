@@ -218,7 +218,7 @@ internal static class MatchSemanticWireChecks
         byte[] HistoricalEmpty(ushort schema, byte protocol, int intentSize, int omittedTail,
             int playerSize = PlayerState.Protocol48Size)
         {
-            var source = empty.CaptureCheckpoint().Bytes.ToArray();
+            var source = ReplayCheckpointCheckFixture.Protocol80(empty.CaptureCheckpoint().Bytes, require);
             // Empty decoder: fixed header, present match, absent configuration,
             // fixed roster, then eight lifecycle/player/intent blocks.
             int firstPlayer = 47 + MatchStatePacket.Size + 1 + RosterPacket.Size;
@@ -236,14 +236,14 @@ internal static class MatchSemanticWireChecks
             for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
             {
                 historical.Write(source.AsSpan(at, 7 + playerSize));
-                at += 7 + PlayerState.Size;
+                at += 7 + PlayerState.Protocol80Size;
                 historical.Write(source.AsSpan(at, 1)); at++;
                 historical.Write(source.AsSpan(at, intentSize));
                 // Source checkpoint explicitly declares the native touch
                 // tail in every canonical intent. Historical schemas wrote
                 // fewer bytes, but the source cursor still skips the full
                 // current stride to keep later slots and semantic facts aligned.
-                at += IntentPacket.TouchCanonicalSize;
+                at += IntentPacket.Protocol80TouchSize;
                 historical.Write(source.AsSpan(at, 4)); at += 4;
             }
             historical.Write(source.AsSpan(at, source.Length - at - omittedTail));
@@ -254,19 +254,19 @@ internal static class MatchSemanticWireChecks
         // v9 predates pickup identities. v8 has the bomb appendix but neither
         // v9 outcome count. v7 also
         // predates the bomb count. Retain their exact historical extents.
-        byte[] schemaTen = HistoricalEmpty(10, 53, IntentPacket.FullSize, grantTrailerBytes, PlayerState.Size);
+        byte[] schemaTen = HistoricalEmpty(10, 53, IntentPacket.FullSize, grantTrailerBytes, PlayerState.Protocol80Size);
         var oldTen = new ReplayReplicaState(); oldTen.RestoreCheckpoint(new(schemaTen));
         require(!oldTen.TimedGrants.HasCoverage, "schema 10 absence does not invent grant presentation coverage");
-        byte[] schemaNine = HistoricalEmpty(9, 52, IntentPacket.FullSize, pickupTrailerBytes, PlayerState.Size);
+        byte[] schemaNine = HistoricalEmpty(9, 52, IntentPacket.FullSize, pickupTrailerBytes, PlayerState.Protocol80Size);
         var oldNine = new ReplayReplicaState(); oldNine.RestoreCheckpoint(new(schemaNine));
         require(oldNine.Match?.MatchId == 1 && oldNine.PickupClaims.Count == 0
             && oldNine.PickupVerdicts.Count == 0 && oldNine.PickupItems.Count == 0,
             "schema 9 checkpoints remain readable without pickup identity appendix");
-        byte[] schemaEight = HistoricalEmpty(8, 51, IntentPacket.FullSize, 8 + pickupTrailerBytes, PlayerState.Size);
+        byte[] schemaEight = HistoricalEmpty(8, 51, IntentPacket.FullSize, 8 + pickupTrailerBytes, PlayerState.Protocol80Size);
         var oldEight = new ReplayReplicaState(); oldEight.RestoreCheckpoint(new(schemaEight));
         require(oldEight.Match?.MatchId == 1 && oldEight.PendingTurretOutcomeCount == 0,
             "schema 8 checkpoints remain readable without turret outcome appendix");
-        byte[] schemaSeven = HistoricalEmpty(7, 49, IntentPacket.FullSize, 12 + pickupTrailerBytes, PlayerState.Size);
+        byte[] schemaSeven = HistoricalEmpty(7, 49, IntentPacket.FullSize, 12 + pickupTrailerBytes, PlayerState.Protocol80Size);
         var oldSeven = new ReplayReplicaState(); oldSeven.RestoreCheckpoint(new(schemaSeven));
         require(oldSeven.Match?.MatchId == 1 && oldSeven.PendingTurretOutcomeCount == 0,
             "schema 7 checkpoints remain readable without bomb or turret outcome appendices");

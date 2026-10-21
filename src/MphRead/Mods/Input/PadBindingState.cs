@@ -44,7 +44,8 @@ namespace MphRead.Mods.Input
             /* Crouch */ GamepadButtons.None,
             /* CustomWeapon */ GamepadButtons.None,
             /* CustomReload */ GamepadButtons.None,
-            /* CustomOptic */ GamepadButtons.None
+            /* CustomOptic */ GamepadButtons.None,
+            /* Grapple */ GamepadButtons.None
         };
 
         public string Preset { get; internal set; } = "Default";
@@ -70,7 +71,7 @@ namespace MphRead.Mods.Input
             PadAction.WeaponWheel,
             PadAction.VoltDriver, PadAction.Battlehammer, PadAction.Imperialist, PadAction.Judicator,
             PadAction.Magmaul, PadAction.ShockCoil, PadAction.OmegaCannon, PadAction.AffinitySlot, PadAction.LastWeapon,
-            PadAction.CustomWeapon, PadAction.CustomReload, PadAction.CustomOptic
+            PadAction.CustomWeapon, PadAction.CustomReload, PadAction.CustomOptic, PadAction.Grapple
         };
 
         private static readonly PadAction[] ReplayActionOrder = new[]
@@ -327,6 +328,7 @@ namespace MphRead.Mods.Input
                 PadAction.Menu => "Menu",
                 PadAction.SaveClip => "Save clip",
                 PadAction.Crouch => "Crouch / slide",
+                PadAction.Grapple => "Grapple",
                 PadAction.CustomWeapon => "Custom weapon",
                 PadAction.CustomReload => "Reload custom weapon",
                 PadAction.CustomOptic => "Cycle custom optic",

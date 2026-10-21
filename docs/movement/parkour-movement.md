@@ -58,7 +58,7 @@ obstruction or stop progressing to cancel. Active wallrun/kick, tuck and slide
 exclude a mantle. Training lanes at z=17 include a broad ledge plus blocked,
 height, width and thin-rail controls.
 
-Current live peers use protocol 80 / Parkour v4. Protocol 79 recordings retain
+Current live peers use protocol 82 / Parkour v5. Protocols 80 and 81 retain v4; protocol 79 recordings retain
 Parkour v3, protocol 78 retains v2 and protocol 77 retains v1. Earlier protocols cannot
 acquire Parkour. Passive replay worlds
 consume accepted positions and shapes rather than rerunning current wall forces.
@@ -68,7 +68,11 @@ the authority does not independently resimulate remote trajectories.
 See [wallstrafe validation](parkour-wallstrafe-results.md) for completed Windows
 scene, multiplayer and replay results. [Wallrun validation](parkour-wallrun-results.md) records the v3 checks and
 performance diagnostics. The [v4 version contract](../network/parkour-v4-version-contract.md)
-describes mantle admission and historical boundaries. Optional grapple follows
-as a separate slice.
+describes mantle admission and historical boundaries. The [v5 version contract](../network/parkour-v5-version-contract.md)
+adds the dedicated static grapple while preserving earlier profiles.
 
 Mantle qualification and limits: [Parkour v4 results](parkour-mantle-results.md).
+
+## Dedicated grapple (v5)
+
+Hold Grapple (keyboard G; gamepad unbound; optional touch hidden) to request a static anchor within2-24 units. Release to let go. Online movement waits for authority acceptance of that press; a rejected hold needs a release/repress. A rope lasts at most3 seconds, preserves native gravity/collision and ends for native Jump, morph, crouch, teleport, obstruction or ability ownership. It adds bounded inward velocity assistance and removes outward radial motion when taut, without snapping position. Rope length is fixed for the hold; there is no reeling input. See the [v5 version contract](../network/parkour-v5-version-contract.md).

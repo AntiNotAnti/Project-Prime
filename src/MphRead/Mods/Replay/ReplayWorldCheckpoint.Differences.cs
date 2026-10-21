@@ -61,7 +61,7 @@ internal sealed partial class ReplayWorldCheckpoint
             }
             if(nodeStream.Position!=data.Length)throw new InvalidDataException("Graph field path decoder differs from captured schema.");
         }
-        string[] sections={"Assets","Cosmetics","BombWorld","Traversal","AuthorityForms","NativeTouch","PickupBindings"};
+        string[] sections={"Assets","Cosmetics","BombWorld","Traversal","AuthorityForms","NativeTouch","PickupBindings","Grapple"};
         foreach(string section in sections)parts[section]=ReadBytes(reader,MaximumBytes);
         parts["IndexedFirePresentation"]=new[]{reader.ReadByte()};
         if(input.Position!=input.Length)throw new InvalidDataException("Unexpected graph comparison tail.");
