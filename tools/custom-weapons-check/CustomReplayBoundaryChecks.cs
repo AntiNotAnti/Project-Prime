@@ -86,6 +86,12 @@ internal static class CustomReplayBoundaryChecks
             check(!context.PersonalEnabled&&!context.FinalEnabled,"both killcam policies are disabled for custom client scene");
             KillCam.BeginFinal(123);
             check(!KillCam.FinalPresentationPending&&KillCam.Presentation(native)==null,"custom scene cannot queue or present final killcam");
+            KillCam.AfterSimulation(native);
+            check(!(bool)typeof(KillCam).GetField("_releaseFire",Hidden)!.GetValue(null)!,
+                "unsupported custom history cleanup does not arm a gameplay fire-release fence");
+            for(int frame=0;frame<10;frame++){KillCam.AfterSimulation(native);_=KillCam.Presentation(native);}
+            check(!(bool)typeof(KillCam).GetField("_releaseFire",Hidden)!.GetValue(null)!,
+                "repeated custom simulation and render cleanup cannot swallow every physical Shoot edge");
             typeof(NetSession).GetMethod("ResetCustomReplica",Hidden)!.Invoke(null,null);
             check(CustomReplayBoundary.IsBlocked()&&!ReplayCapture.CanStartLiveRecording(out _),
                 "readiness/consumer loss cannot reopen native recording in same custom room");

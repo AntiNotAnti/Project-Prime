@@ -191,6 +191,12 @@ internal static class NetworkContractChecks
             new(1.25f, -2.5f, 3.75f), new Vector3(0, 0, -1));
         var ready = new CustomWeaponReady(bootstrap, manifest.Digest, 3, 1, 1, CustomWeaponReady.PrecisionCapability);
         byte[] actionBytes = new byte[CustomWeaponAction.Size], readyBytes = new byte[CustomWeaponReady.Size];
+        foreach(byte optic in new byte[]{0,1,2,3,4})
+        {
+            var selected=action with{Optic=optic};selected.Write(actionBytes);
+            check(CustomWeaponAction.TryRead(actionBytes,out var readOptic)&&readOptic==selected,"action codec preserves reviewed0..4 optic boundary "+optic);
+        }
+        check(!(action with{Optic=5}).IsValid,"action codec rejects optic5 beyond reviewed package capability");
         action.Write(actionBytes); ready.Write(readyBytes);
         check(actionBytes.AsSpan().SequenceEqual(Convert.FromHexString(ActionHex)), "independent custom action byte vector");
         check(readyBytes.AsSpan().SequenceEqual(Convert.FromHexString(ReadyHex)), "independent custom readiness byte vector");
@@ -276,7 +282,7 @@ internal static class NetworkContractChecks
             Mutation(badActions, actionBytes, b => BinaryPrimitives.WriteUInt16LittleEndian(b.AsSpan(68), id));
         Mutation(badActions, actionBytes, b => Array.Clear(b, 70, 4));
         foreach (byte kind in new byte[] { 0, 6, 255 }) Mutation(badActions, actionBytes, b => b[83] = kind);
-        Mutation(badActions, actionBytes, b => b[84] = 3);
+        Mutation(badActions, actionBytes, b => b[84] = 5);
         foreach (float value in new[] { float.NaN, float.PositiveInfinity, float.NegativeInfinity, 1_000_001f })
             Mutation(badActions, actionBytes, b => BinaryPrimitives.WriteSingleLittleEndian(b.AsSpan(85), value));
         Mutation(badActions, actionBytes, b => Array.Clear(b, 97, 12));

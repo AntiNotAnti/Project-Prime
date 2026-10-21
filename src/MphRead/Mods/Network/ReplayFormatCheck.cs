@@ -415,6 +415,8 @@ namespace MphRead.Mods.Network
                 p38Intent[p38Event + 14] = (byte)BeamType.Imperialist;
                 ReadOnlySpan<byte> p38Converted = ReplayIdentityCompatibility.Convert(p38Intent, 38);
                 IntentPacket p38Read = IntentPacket.Read(p38Converted[2..]);
+                // Protocol82 normalizes historical intents to the current
+                // canonical width, including empty touch/grapple state.
                 Require(p38Converted.Length == 2 + IntentPacket.TouchCanonicalSize
                     && p38Read.HasFireEvents && p38Read.FireEventCount == 1
                     && p38Read.FireEvents[0].ShotId == 77

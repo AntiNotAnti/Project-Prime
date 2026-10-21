@@ -16,6 +16,14 @@ internal static class StockRiftlinePickups
             throw new InvalidOperationException("Riftline M7 pickups require an authored stock multiplayer map layout.");
         return new[] { new CustomPickupPlacement(1,new(10),point.X,point.Y,point.Z,0,RespawnTicks,16) };
     }
+    internal static CustomPickupPlacement[] ForRoom(string roomKey, WeaponDefinition definition)
+    {
+        ArgumentNullException.ThrowIfNull(definition);
+        var placements = ForRoom(roomKey);
+        for (int i = 0; i < placements.Length; i++)
+            placements[i] = placements[i] with { ReserveRefill = Math.Min(placements[i].ReserveRefill, definition.Mechanics.MaximumReserve) };
+        return placements;
+    }
     internal static bool TryPosition(string roomKey,out Vector3i position)
     {
         Vector3i? point=roomKey?.ToUpperInvariant() switch

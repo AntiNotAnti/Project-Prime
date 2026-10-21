@@ -67,10 +67,7 @@ internal sealed partial class OfflineCustomWeaponRuntime : IDisposable
         _definition = definition ?? RiftlineM7.Create();
         var manifest = new CustomWeaponManifest(new[] { _definition }); Manifest = manifest.Digest;
         // Validate the authored layout before publishing the scene registry.
-        var placements = publicAvailability ? StockRiftlinePickups.ForRoom(scene.Room?.Meta.Name ?? "") : null;
-        if (placements != null && definition != null)
-            for (int i = 0; i < placements.Length; i++)
-                placements[i] = placements[i] with { ReserveRefill = Math.Min(placements[i].ReserveRefill, _definition.Mechanics.MaximumReserve) };
+        var placements = publicAvailability ? StockRiftlinePickups.ForRoom(scene.Room?.Meta.Name ?? "",_definition) : null;
         if (publicAvailability)
             foreach (var map in Mods.MapGen.CustomRooms.Definitions)
                 if (string.Equals(map.Name,scene.Room?.Meta.Name,StringComparison.OrdinalIgnoreCase))

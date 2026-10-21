@@ -15,7 +15,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomPickupFundin
         if(!_pickupOnly||Pickups!=null||!IsEligible||Array.Exists(_lives,value=>value!=null)
             ||start.MatchId!=_match||start.AuthorityEpoch!=_epoch||start.StartGeneration==0)
             throw new InvalidOperationException("Pickup world must be frozen before owner binding.");
-        var layout=new CustomPickupLayout(map,Manifest,_registry,StockRiftlinePickups.ForRoom(map.RoomKey));
+        var layout=new CustomPickupLayout(map,Manifest,_registry,StockRiftlinePickups.ForRoom(map.RoomKey,Definition));
         Pickups=new(layout,new(start,Manifest.Digest,layout.Digest),Now);
     }
     private bool CapturePickupInput(Life life,in CustomSourceInput input,in CustomSourceReadyContext context)

@@ -87,6 +87,26 @@ internal static class WeaponPackageManifestChecks
             Reject(()=>WeaponMatchPackageBinding.BindInstalled(partialStore,pair).Dispose(),"partial installed binding refuses missing second package");
             Reject(()=>WeaponMatchPackageBinding.BindHistorical(partialStore,pair).Dispose(),"partial historical binding refuses missing second package");
             partialStore.Uninstall(all[0].PackageHash);Check(partialStore.Prune()==1,"partial binding failure releases first acquired lease");
+            var retainedStore=new WeaponPackageStore(Path.Combine(sandbox,"retained"));retainedStore.Install(package.CopyArchive());
+            var prepared=WeaponMatchPackageBinding.PrepareInstalled(retainedStore,manifest);var preparedResources=prepared.Resources(0);
+            Check(preparedResources.ArchiveHash==package.PackageHash,"PrepareInstalled produces resources for exact retained archive");
+            for(int cue=0;cue<4;cue++)Check(preparedResources.Wave(cue).SequenceEqual(WeaponPackage.DecodeWave(package.CopyResource(package.Project.AudioPaths[cue]))),"PrepareInstalled decodes exact immutable PCM "+cue);
+            Check(retainedStore.Uninstall(package.PackageHash),"prepared marker can be explicitly uninstalled");
+            WeaponMatchPackageBinding child;
+            using(var gate=new FileStream(Path.Combine(sandbox,"retained",".store.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None))
+            {
+                var fast=Stopwatch.StartNew();child=prepared.Retain();
+                Check(fast.Elapsed<TimeSpan.FromSeconds(1)&&ReferenceEquals(prepared.Resources(0).Model,child.Resources(0).Model),"binding Retain shares decoded immutable model without store gate IO or reparse after uninstall");
+            }
+            prepared.Dispose();Check(retainedStore.Prune()==0&&child.Package(0).PackageHash==package.PackageHash,"independent retained binding keeps actual OS lease after original dispose");
+            for(int cue=0;cue<4;cue++)Check(child.Resources(0).Wave(cue).SequenceEqual(WeaponPackage.DecodeWave(package.CopyResource(package.Project.AudioPaths[cue]))),"retained child keeps exact PCM after original owner dispose "+cue);
+            child.Dispose();Check(retainedStore.Prune()==1,"last prepared owner releases actual OS archive lease");Reject(()=>child.Retain().Dispose(),"disposed binding cannot create new retained owner");
+            retainedStore.Install(package.CopyArchive());var originalLease=retainedStore.AcquireInstalled(package.PackageHash);retainedStore.Uninstall(package.PackageHash);WeaponPackageLease childLease;
+            using(var gate=new FileStream(Path.Combine(sandbox,"retained",".store.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None))childLease=originalLease.Retain();
+            originalLease.Dispose();Check(retainedStore.Prune()==0&&ReferenceEquals(childLease.Package,originalLease.Package),"lease Retain preserves exact parsed package and OS ownership with no marker/gate lookup");childLease.Dispose();Check(retainedStore.Prune()==1,"last direct retained lease releases immutable archive");Reject(()=>originalLease.Retain().Dispose(),"disposed direct lease cannot retain");
+            var failedPrepareStore=new WeaponPackageStore(Path.Combine(sandbox,"failed-prepare"));failedPrepareStore.Install(all[0].CopyArchive());
+            Reject(()=>WeaponMatchPackageBinding.PrepareInstalled(failedPrepareStore,pair).Dispose(),"partial PrepareInstalled missing revision refuses");failedPrepareStore.Uninstall(all[0].PackageHash);Check(failedPrepareStore.Prune()==1,"partial resource preparation releases every acquired archive lease");
+            retainedStore.Install(package.CopyArchive());using(var cancellation=new CancellationTokenSource()){cancellation.Cancel();Reject(()=>WeaponMatchPackageBinding.PrepareInstalled(retainedStore,manifest,cancellation.Token).Dispose(),"cancelled PrepareInstalled refuses before retaining resources");}retainedStore.Uninstall(package.PackageHash);Check(retainedStore.Prune()==1,"cancelled preparation leaves no retained archive lease");
             var cancelledStore=new WeaponPackageStore(Path.Combine(sandbox,"cancelled"));cancelledStore.Install(package.CopyArchive());
             using(var cancellation=new CancellationTokenSource()){cancellation.Cancel();Reject(()=>WeaponMatchPackageBinding.BindInstalled(cancelledStore,manifest,cancellation.Token).Dispose(),"pre-cancelled installed binding refuses");Reject(()=>WeaponMatchPackageBinding.BindHistorical(cancelledStore,manifest,cancellation.Token).Dispose(),"pre-cancelled historical binding refuses");}
             using(var locked=new FileStream(Path.Combine(sandbox,"cancelled",".store.lock"),FileMode.Open,FileAccess.ReadWrite,FileShare.None))

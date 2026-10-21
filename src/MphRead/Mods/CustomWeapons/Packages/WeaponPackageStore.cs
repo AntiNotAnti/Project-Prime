@@ -23,10 +23,36 @@ public sealed record WeaponPackageStoreEntry(string PackageHash, string ContentH
 /// <summary>Retains immutable validated bytes and an OS shared lease until its owner releases it.</summary>
 public sealed class WeaponPackageLease : IDisposable
 {
-    private FileStream? _stream;
+    private sealed class Ownership(FileStream stream)
+    {
+        internal readonly object Gate = new();
+        internal FileStream? Stream = stream;
+        internal int References = 1;
+    }
+    private Ownership? _ownership;
     public WeaponPackage Package { get; }
-    internal WeaponPackageLease(FileStream stream, WeaponPackage package) { _stream = stream; Package = package; }
-    public void Dispose() => Interlocked.Exchange(ref _stream, null)?.Dispose();
+    internal WeaponPackageLease(FileStream stream, WeaponPackage package) { _ownership = new(stream); Package = package; }
+    private WeaponPackageLease(Ownership ownership, WeaponPackage package) { _ownership = ownership; Package = package; }
+    // Independent scene/session ownership of an already-open shared OS handle.
+    // No filesystem access, marker lookup, archive parse or resource decoding.
+    internal WeaponPackageLease Retain()
+    {
+        var ownership = Volatile.Read(ref _ownership) ?? throw new ObjectDisposedException(nameof(WeaponPackageLease));
+        lock (ownership.Gate)
+        {
+            if (!ReferenceEquals(Volatile.Read(ref _ownership), ownership) || ownership.Stream == null)
+                throw new ObjectDisposedException(nameof(WeaponPackageLease));
+            ownership.References = checked(ownership.References + 1);
+            return new(ownership, Package);
+        }
+    }
+    public void Dispose()
+    {
+        var ownership = Interlocked.Exchange(ref _ownership, null);
+        if (ownership == null) return;
+        lock (ownership.Gate)
+            if (--ownership.References == 0) { ownership.Stream?.Dispose(); ownership.Stream = null; }
+    }
 }
 
 /// <summary>

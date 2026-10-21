@@ -74,7 +74,7 @@ internal static class CustomPublicInputClientSceneChecks
             for(int i=0;i<240;i++)Scene.OnSimulationFrame();
             var rigType=typeof(NetLobbyTest).GetNestedType("Rig",BindingFlags.NonPublic)!;
             var ctor=rigType.GetConstructors(Hidden|BindingFlags.Public).Single();
-            object?[] args={ServerSessionPolicy.Lobby,Guid.Empty,false,"MP3 PROVING GROUND",null,8,15d,10d,true,true,false,false};
+            object?[] args={ServerSessionPolicy.Lobby,Guid.Empty,false,"MP3 PROVING GROUND",null,8,15d,10d,true,true,false,false,null,null};
             Rig=ctor.Invoke(args);Server=(DedicatedServer)rigType.GetField("Server")!.GetValue(Rig)!;
             _wait=rigType.GetMethod("Wait")!;Wire=new(Server.BoundPort);
             Check(NetLaunch.Connect("127.0.0.1",Wire.Port,"PublicInputFixture",Hunter.Samus),"real NetSession client joins through transparent actual UDP proxy");

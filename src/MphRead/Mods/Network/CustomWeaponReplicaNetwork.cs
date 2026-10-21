@@ -44,6 +44,10 @@ public sealed partial class DedicatedServer
             {Remove(entry.Peer,"custom replica acknowledgement timed out or stream retired");continue;}
             if(!mailbox.HasBaseline&&captured)
             {
+                // World admission can finish while the start countdown still
+                // holds simulation at frame0. Its bootstrap names frame1;
+                // publish only after that real authority frame exists.
+                if(unchecked((int)(capture.World-entry.State.Wire.Bootstrap.AuthorityFrame))<0)continue;
                 if(!_customAudience.BeginBaseline(slot,mailbox,capture,_customReplicaSlots,_customReplicaFlights,now))
                 {mailbox.Close();continue;}
             }
