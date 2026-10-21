@@ -6,6 +6,8 @@ internal static class CanvasProgram
 {
     private static int Main(string[] args)
     {
+        if (args.Length == 2 && args[1] == "--hunter-presenter-contract")
+            return HunterPresenterContractAcceptance.Run(Path.GetFullPath(args[0]));
         if (args.Length == 3 && args[1] == "--offline-character")
         {
             string[] size = args[2].Split('x');

@@ -309,7 +309,7 @@ internal static class MapSourceGeometryTests
         Expect<InvalidDataException>(() => spec.Load(runtimeRoot, generated.Model), "component length budget precedes runtime file allocation");
         long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Check(allocated < 1024*1024, "oversized sparse runtime component does not allocate its64MiB declared length"); Restore();
-        string alias = Path.Combine(root, "runtime-ancestor-link"); Directory.CreateSymbolicLink(alias, runtimeRoot);
+        string alias = Path.Combine(root, "runtime-ancestor-link"); SourceBankMaterialSnapshotTests.CreateDirectoryAlias(alias, runtimeRoot);
         try { Expect<InvalidDataException>(() => spec.Load(alias, generated.Model), "runtime read rejects linked ancestor above selected source root"); }
         finally { Directory.Delete(alias); }
         var snapshot = spec.Load(runtimeRoot, generated.Model);

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -169,7 +170,7 @@ internal static class SourceBankMaterialSnapshotTests
     {
         string real = Path.Combine(root, "real");
         var definition = Definition(Path.Combine(real, "nested")); Write(definition, Good());
-        string link = Path.Combine(root, "ancestor-link"); Directory.CreateSymbolicLink(link, real);
+        string link = Path.Combine(root, "ancestor-link"); CreateDirectoryAlias(link, real);
         try
         {
             definition.BaseDirectory = Path.Combine(link, "nested");
@@ -180,13 +181,37 @@ internal static class SourceBankMaterialSnapshotTests
         finally { Directory.Delete(link); }
         definition.BaseDirectory = Path.Combine(real, "nested");
         string bankPath = Path.Combine(definition.BaseDirectory!, "textures", "source.bin");
-        string actual = bankPath + ".real"; File.Move(bankPath, actual); File.CreateSymbolicLink(bankPath, actual);
+        string actual = bankPath + ".real"; File.Move(bankPath, actual);
+        try { File.CreateSymbolicLink(bankPath, actual); }
+        catch (IOException exception) when (OperatingSystem.IsWindows() && (exception.HResult & 0xFFFF) == 1314)
+        {
+            File.Move(actual, bankPath);
+            Console.WriteLine("SOURCE BANK MATERIAL SCOPE: file-symlink negative case unavailable: Windows privilege 1314; actual directory-junction ancestry checks still ran.");
+            return;
+        }
         try
         {
             Expect<InvalidDataException>(() => Read(Image(definition)), "read rejects linked bank component");
             CheckAssetPaths(definition, "linked bank component");
         }
         finally { File.Delete(bankPath); }
+    }
+
+    internal static void CreateDirectoryAlias(string link, string target)
+    {
+        if (!OperatingSystem.IsWindows()) { Directory.CreateSymbolicLink(link, target); return; }
+        // Generated paths in this fixture's temporary root. Junctions exercise
+        // actual reparse ancestry without administrator/Developer Mode rights.
+        var start = new ProcessStartInfo("cmd.exe")
+        {
+            UseShellExecute = false, CreateNoWindow = true,
+            RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        foreach (string argument in new[] { "/d", "/c", "mklink", "/J", link, target }) start.ArgumentList.Add(argument);
+        using var process = Process.Start(start) ?? throw new IOException("Junction fixture process did not start.");
+        if (!process.WaitForExit(10000))
+        { process.Kill(entireProcessTree: true); process.WaitForExit(); throw new IOException("Junction fixture timed out."); }
+        if (process.ExitCode != 0) throw new IOException("Junction fixture creation failed: " + process.StandardError.ReadToEnd());
     }
 
     private static void CheckAssetPaths(MapDefinition definition, string label)

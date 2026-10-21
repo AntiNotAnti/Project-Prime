@@ -130,6 +130,16 @@ public sealed class WeaponPackageStore
         return ReadLease(packageHash); // Open under gate, retain after gate is released.
     }
 
+    public WeaponPackageLease AcquireInstalled(string packageHash)
+    {
+        Hash(packageHash);
+        using var gate = Enter(false, default);
+        if (gate == null) throw new FileNotFoundException("Weapon package is not installed.");
+        var lease = ReadLease(packageHash);
+        try { VerifyMarker(MarkerPath(packageHash), lease.Package); return lease; }
+        catch { lease.Dispose(); throw; }
+    }
+
     public bool Uninstall(string packageHash)
     {
         Hash(packageHash);

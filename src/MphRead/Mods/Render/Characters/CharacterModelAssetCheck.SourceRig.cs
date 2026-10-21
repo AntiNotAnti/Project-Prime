@@ -20,6 +20,7 @@ internal static partial class CharacterModelAssetCheck
  internal static string SourceRigFixtureMaterialName="BodyMat";
  internal static void RunSourceRigChecks()
  {
+ RunSourceRootChecks();
 if(!CharacterSourceRootWitness.QualifiedForCurrentProcess)
  {
   Console.WriteLine("[charactermodelcheck] source-rig checks skipped: "+CharacterSourceRootWitness.UnsupportedPlatformMessage);

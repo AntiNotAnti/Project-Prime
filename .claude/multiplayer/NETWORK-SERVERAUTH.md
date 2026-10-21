@@ -68,7 +68,7 @@ positions set when the attack begins or the render transforms. The
 | `DedicatedServer` | always owns gameplay authority; an idle lobby delays constructing `ServerSim` until Start Match but never delegates authority |
 
 The current wire protocol is defined only by `NetConfig.ProtocolVersion`
-(currently 17). Current servers never send `PacketType.Authority` to a player and current
+(currently 80). Current servers never send `PacketType.Authority` to a player and current
 clients do not act on it. Value 12 stays reserved solely to preserve packet
 numbering across the protocol.
 `HandleIntent` feeds `NetSession.AcceptSlotIntent` one hop earlier than a

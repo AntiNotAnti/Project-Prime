@@ -66,6 +66,7 @@ namespace MphRead.Mods.Launcher
         }
         /// <summary>Hunter last chosen, possibly <see cref="Hunter.Random"/>.</summary>
         public static Hunter LastHunter { get; set; } = Hunter.Samus;
+        public static LocalBodyAppearance LocalBody { get; set; }
 
         /// <summary>
         /// Which of the hunter's four suits this player wears, 0-3.
@@ -386,6 +387,10 @@ namespace MphRead.Mods.Launcher
                                 LastColor = Network.PlayerColors.Clamp(color);
                             }
                             break;
+                        case "local_body":
+                            LocalBody = Enum.TryParse(value, out LocalBodyAppearance body)
+                                ? LocalBodyAppearanceRules.Canonical(body) : LocalBodyAppearance.Native;
+                            break;
                         case "bots":
                             if (Int32.TryParse(value, NumberStyles.Integer,
                                 CultureInfo.InvariantCulture, out int bots))
@@ -678,6 +683,7 @@ namespace MphRead.Mods.Launcher
                     $"last_role={LastRole.ToString(CultureInfo.InvariantCulture)}",
                     $"player_name={PlayerName}",
                     $"hunter={LastHunter}",
+                    $"local_body={LocalBodyAppearanceRules.Canonical(LocalBody)}",
                     $"color={LastColor.ToString(CultureInfo.InvariantCulture)}",
                     $"bots={Bots.ToString(CultureInfo.InvariantCulture)}",
                     $"aim_trainer={System.Text.Json.JsonSerializer.Serialize(Training)}",

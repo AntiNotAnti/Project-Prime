@@ -95,6 +95,8 @@ namespace MphRead.Mods.Launcher
             }
             if (plan.Kind == LaunchKind.AimTrainer && NetSession.Active)
             { LastError = "Disconnect before starting training."; return false; }
+            if (!LocalBodyAppearanceRules.TryAdmit(plan, out string bodyReason))
+            { LastError = bodyReason; return false; }
             Chat.ChatBox.Clear();
             if (plan.Kind == LaunchKind.Online)
             {
@@ -181,6 +183,18 @@ namespace MphRead.Mods.Launcher
             if (!OfflineMatchPreflight.TryAdmit(plan, out string offlineReason))
             { LastError = offlineReason; Console.WriteLine($"[launcher] {offlineReason}"); return false; }
             NetSession.ReportMatchLoadProgress(MatchLoadStage.WorldBuild);
+            Render.Characters.CharacterSourcePreviewSelection? localBody = null;
+            if (LocalBodyAppearanceRules.BundleId(plan.LocalBody) is { } bodyId)
+            {
+                try
+                {
+                    localBody = System.Threading.Tasks.Task.Run(() =>
+                        Render.Characters.CharacterSourcePreviewSelection.Load(bodyId, System.Threading.CancellationToken.None))
+                        .GetAwaiter().GetResult();
+                }
+                catch (Exception ex) when (ex is not (OutOfMemoryException or AccessViolationException))
+                { LastError = "Update the selected local body import before launching: " + ex.Message; return false; }
+            }
             EnsureScene(window);
             // The server's rotation decides the mode as well as the map; a
             // client that kept its own menu choice would score a different
@@ -239,6 +253,12 @@ namespace MphRead.Mods.Launcher
             if (plan.Kind == LaunchKind.AimTrainer)
                 Training.AimTrainerSession.Attach(window.Scene, plan);
             window.LoadScene();
+            if (localBody != null)
+            {
+                try { window.Scene.Players.Main.ModBindSourceBody(localBody); }
+                catch (Exception ex) when (ex is not (OutOfMemoryException or AccessViolationException))
+                { LastError = ex.Message; window.EndScene(); return false; }
+            }
             if (plan.Kind==LaunchKind.Offline && plan.MatchRules.RiftlineM7Available)
             {
                 try { window.Scene.EnableOfflineRifleAvailability(true); }
