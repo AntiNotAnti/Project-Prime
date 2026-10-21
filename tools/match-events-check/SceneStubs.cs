@@ -8,7 +8,13 @@ namespace MphRead
         // This content-free adapter harness does not admit private weapon damage.
         internal PrivateWeaponStub? PirateBlaster => null;
         internal State GameState { get; } = new();
+        internal Mods.MatchEvents.SceneMatchEvents MatchEvents { get; } = new();
+        internal PlayerCollection Players { get; } = new();
         internal ulong FrameCount { get; set; }
+    }
+    internal sealed class PlayerCollection
+    {
+        internal System.Collections.Generic.List<Entities.PlayerEntity> Items { get; } = new();
     }
     internal sealed class PrivateWeaponStub
     {
@@ -23,6 +29,7 @@ namespace MphRead.Entities
     internal sealed class BeamProjectileEntity { }
     internal sealed class PlayerEntity
     {
+        internal Scene? OwningScene { get; set; }
         internal int SlotIndex { get; set; }
         internal int TeamIndex { get; set; }
         internal int Health { get; set; } = 100;
