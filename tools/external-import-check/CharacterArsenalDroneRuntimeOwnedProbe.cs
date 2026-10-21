@@ -240,15 +240,18 @@ internal static class CharacterArsenalDroneRuntimeOwnedProbe
             {
                 FrameTiming.Reset(); FrameTiming.FrameRateCap = rate <= FrameTiming.MaxCap ? rate : FrameTiming.Unlimited;
                 int steps = 0, zero = 0, fractional = 0; long totalBefore = FrameTiming.TotalSteps;
+                long dropsBefore = FrameTiming.DroppedSteps, stallsBefore = FrameTiming.Stalls;
                 for (int n = 0; n < rate; n++) { int completed = FrameTiming.Advance(1d / rate); steps += completed; if (completed == 0) zero++;
                     if (FrameTiming.PresentationAlpha > 0 && FrameTiming.PresentationAlpha < 1) fractional++;
                     for (int k = 0; k < completed; k++) Step("fractional", draw: false, record: false, reset: false); Picture("fractional-" + rate); }
                 // Independent IEEE-double accumulation of 540*(1/540) leaves
                 // the endpoint one rounding quantum below the sixtieth step.
                 var expected = rate switch { 90 => (60, 30), 120 => (60, 60), 240 => (60, 180), 540 => (59, 481), _ => throw new InvalidDataException() };
-                check(steps == expected.Item1 && zero == expected.Item2 && FrameTiming.TotalSteps - totalBefore == steps && fractional > 0,
+                check(steps == expected.Item1 && zero == expected.Item2 && FrameTiming.TotalSteps - totalBefore == steps && fractional > 0
+                    && FrameTiming.DroppedSteps == dropsBefore && FrameTiming.Stalls == stallsBefore,
                     "simulated schedule has exact independently calculated completed/zero steps and fractional pictures");
-                stages.Add(new { Rate = rate, Pictures = rate, CompletedSteps = steps, ZeroStepPictures = zero, FractionalPictures = fractional });
+                stages.Add(new { Rate = rate, Pictures = rate, CompletedSteps = steps, ZeroStepPictures = zero, FractionalPictures = fractional,
+                    DroppedSteps = FrameTiming.DroppedSteps - dropsBefore, Stalls = FrameTiming.Stalls - stallsBefore });
             }
             FrameTiming.Reset(); FrameTiming.FrameRateCap = 60;
             var sourcePackets = Items(scene).Select(i => i.SourceGx).ToArray(); int[] lists = owner.Model.Segments.Select(s => s.ListId)
