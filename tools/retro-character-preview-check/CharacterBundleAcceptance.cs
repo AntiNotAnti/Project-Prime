@@ -173,9 +173,8 @@ internal static class CharacterBundleAcceptance
                 string description=RetroCharacterPreviewExporter.DescribeInspection(id,incomplete);
                 Check(description.Contains("body v"+(id==FinalId?6:5)+": Ready",StringComparison.Ordinal)
                     &&description.Contains("ball v3: Incomplete (geometry v1 Incomplete)",StringComparison.Ordinal)
-                    &&description.Contains("Source authoring bundle",StringComparison.Ordinal)
-                    &&description.Contains("source-program body preview with preview lighting",StringComparison.Ordinal)
-                    &&description.Contains("First-person and playable animation/morph remain unqualified.",StringComparison.Ordinal),
+                    &&description.Contains("Choose an updated imported body in Hunters for local offline matches.",StringComparison.Ordinal)
+                    &&description.Contains("Unsupported states and online matches use native presentation.",StringComparison.Ordinal),
                     "owned inspection identifies failed ball geometry version without hiding usable body authoring parts "+id);
                 var repairedFiles=RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id});
                 var repaired=LocalImportBundle.Inspect(root,id,spec);
