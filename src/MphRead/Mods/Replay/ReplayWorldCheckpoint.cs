@@ -96,6 +96,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             TimedShotCertificates = HasTimedShotContract, Type = ReplayType.Clip, RoomKey = room, Mode = mode,
             MapHash = map, OriginRecordingFrame = origin, LeadInFrames = leadIn,
             WorldCheckpoint = Bytes.ToArray(), Players = players, CustomWeapons = CustomWeaponDescriptor,
+            IndexedFireContinuation = HasCustomWeaponContract ? IndexedFirePresentation : null,
             Bootstrap = HasCustomWeaponContract ? new() { Packets = new[] { ReplayTimelineArchive.Construction(DecoderState()) } } : new() };
     }
     internal ReplayReplicaCheckpoint ConstructionState()

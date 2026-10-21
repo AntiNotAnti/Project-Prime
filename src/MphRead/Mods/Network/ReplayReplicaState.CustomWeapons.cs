@@ -82,6 +82,17 @@ internal sealed partial class ReplayReplicaState
         });
         CommitCheckpoint(restored);
     }
+    internal void RewindCustomPresentation()
+    {
+        var descriptor = CustomWeaponDescriptor
+            ?? throw new InvalidOperationException("Custom presentation rewind requires its admitted descriptor.");
+        // Keep the same native pose/lookahead reset as historical cursors,
+        // retaining only the already validated custom match admission. This
+        // private decoder never consumes custom combat or emits checkpoints.
+        Rewind();
+        CustomWeaponDescriptor = descriptor;
+        CustomWeapons = new(descriptor.InspectContext());
+    }
     internal static ReplayReplicaCheckpointLayout InspectCustomCheckpointLayout(ReplayReplicaCheckpoint checkpoint)
         => ReplayReplicaCheckpointLayout.DecodeUnique(checkpoint.Bytes, layout =>
         {

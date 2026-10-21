@@ -47,6 +47,7 @@ internal sealed class ReplayPoseStream : IDisposable
     // reliable lifetime ahead without feeding those future packets into the
     // simulation decoder.
     internal const uint ShotFactLookaheadFrames = 960;
+    internal const int MaximumCustomShotFacts = 8192;
     private const int MaximumPoseSamples = NetUnlagged.HistoryFrames + 32;
     private const int MaximumIntentSamples = 96;
     private const int MaximumClockSamples = 512;
@@ -108,9 +109,17 @@ internal sealed class ReplayPoseStream : IDisposable
     private uint? _advanced, _firePrepared, _impactPrepared;
     private bool _initialized, _failed, _supportsFireEvents, _supportsShotFacts, _supportsAcceptedFire;
     private readonly bool? _indexedFirePresentation;
+    private readonly bool _customInspection;
     internal bool IndexedFirePresentation => _indexedFirePresentation != false;
     internal string? LastError { get; private set; }
     internal ReplayPoseStream(PassiveReplayScene world, string path, bool? indexedFirePresentation = null) : this(world) { _path = path; _indexedFirePresentation = indexedFirePresentation; }
+    internal ReplayPoseStream(PassiveReplayScene world, PreparedCustomReplayArchive prepared, bool indexedFirePresentation) : this(world)
+    {
+        if (!world.Session.IsCustomInspection || world.State.CustomWeaponDescriptor is not { } descriptor
+            || !descriptor.CopyBytes().AsSpan().SequenceEqual(prepared.Resources.Descriptor.CopyBytes()))
+            throw new InvalidDataException("Custom presentation requires its exact admitted historical archive.");
+        _path = prepared.Path; _customInspection = true; _indexedFirePresentation = indexedFirePresentation;
+    }
     internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip, bool? indexedFirePresentation = null) : this(world)
     {
         _clip = clip; _indexedFirePresentation = indexedFirePresentation;
@@ -1009,7 +1018,12 @@ internal sealed class ReplayPoseStream : IDisposable
         if (!_initialized)
         {
             _initialized = true;
-            _decoder.RestoreCheckpoint(_world.State.CaptureCheckpoint()); _decoder.Rewind();
+            if (_customInspection)
+            {
+                _decoder.RestoreCustomCheckpoint(_world.State.CaptureCheckpoint());
+                _decoder.RewindCustomPresentation();
+            }
+            else { _decoder.RestoreCheckpoint(_world.State.CaptureCheckpoint()); _decoder.Rewind(); }
             uint from = frame > PresentationHistoryFrames ? frame - PresentationHistoryFrames : 0;
             if (_path != null)
             {
@@ -1068,6 +1082,9 @@ internal sealed class ReplayPoseStream : IDisposable
             && (ulong)oldestTurret.Carrier + ShotFactLookaheadFrames + PresentationHistoryFrames < frame)
         { _turretOutcomeOrder.Dequeue(); _seenTurretOutcomes.Remove(oldestTurret.Key); }
         AdvanceShotFactLookahead(frame, origin);
+        if (_customInspection && (_reader?.LastResult != ReplayOpenResult.Success
+            || _shotReader is { LastResult: not ReplayOpenResult.Success }))
+            throw new InvalidDataException("Custom presentation archive reader failed integrity validation.");
         ScheduleShotFacts(frame);
         ScheduleTurretOutcomes(frame);
 
@@ -1114,10 +1131,15 @@ internal sealed class ReplayPoseStream : IDisposable
     {
         try
         {
-            ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion);
+            // Custom Match/Session rules were explicitly admitted before this
+            // cursor existed. Normalize only historical native pose fields;
+            // Accept below ignores custom/world/semantic facts entirely.
+            ReadOnlySpan<byte> converted = _customInspection
+                ? ReplayIdentityCompatibility.NormalizeLegacyParkourPose(packet, _reader!.ProtocolVersion)
+                : ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion);
             if (!converted.IsEmpty) Accept(frame, converted);
         }
-        catch (InvalidDataException ex) when (ReplayIdentityCompatibility.BestEffort(_reader!.ProtocolVersion))
+        catch (InvalidDataException ex) when (!_customInspection && ReplayIdentityCompatibility.BestEffort(_reader!.ProtocolVersion))
         {
             LastError = $"Legacy presentation record skipped at {frame}: {ex.Message}";
         }
@@ -1241,6 +1263,9 @@ internal sealed class ReplayPoseStream : IDisposable
             }
             else break;
 
+            if (_customInspection && !packet.IsEmpty && packet[0] == (byte)PacketType.ReplayShotFact
+                && !ReplayShotFactPacket.TryRead(packet[1..], out _))
+                throw new InvalidDataException("Malformed custom archive native shot fact.");
             if (!packet.IsEmpty && packet[0] == (byte)PacketType.ReplayShotFact
                 && ReplayShotFactPacket.TryRead(packet[1..], out var fact))
             {
@@ -1248,6 +1273,12 @@ internal sealed class ReplayPoseStream : IDisposable
                     fact.ShooterSlot, fact.ShooterGeneration, fact.ShooterLifeId,
                     fact.VictimSlot, fact.VictimGeneration, fact.VictimLifeId,
                     fact.DamageEventId);
+                // Never evict an old identity to make a delayed duplicate look
+                // new. Explicit custom inspection instead has a lifetime cap;
+                // its pending/resolved native fact collections share this bound.
+                if (_customInspection && _seenShotFacts.Count >= MaximumCustomShotFacts
+                    && !_seenShotFacts.Contains(identity))
+                    throw new InvalidDataException("Custom presentation exceeds its retained native shot identity budget.");
                 if (_seenShotFacts.Add(identity))
                     _pendingShotFacts.Add(new(at, fact));
             }
