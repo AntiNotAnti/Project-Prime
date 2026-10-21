@@ -87,6 +87,10 @@ namespace MphRead.Mods.Network
             using DemoReader? reader = DemoReader.Open(source, out var result);
             if (reader == null) return result;
             if (!ReplayIdentityCompatibility.Supports(reader.ProtocolVersion)) return ReplayOpenResult.ProtocolMismatch;
+            // Range extraction needs to preserve post-world facts at its chosen
+            // origin and end. Keep format7 extraction until that phase-aware
+            // consumer is implemented; never silently downgrade format8 to7.
+            if (reader.FormatVersion == 8) return ReplayOpenResult.UnsupportedFormat;
             ReplayMetadata metadata = reader.Metadata ?? new ReplayMetadata();
             if (reader.FormatVersion <= 2)
             {

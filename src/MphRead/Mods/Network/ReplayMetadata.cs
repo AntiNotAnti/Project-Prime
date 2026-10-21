@@ -78,7 +78,7 @@ namespace MphRead.Mods.Network
         private MovementModel? ResolveMovementModel()
         {
             if (!ReplayIdentityCompatibility.Supports(ProtocolVersion)) return null;
-            if (FormatVersion == 7)
+            if (FormatVersion is 7 or 8)
             {
                 try
                 {
@@ -202,7 +202,7 @@ namespace MphRead.Mods.Network
         // Format6 authority producer schema. Individual missing facts remain
         // unavailable; this is not a claim of complete native visual fidelity.
         public bool TimedShotCertificates { get; init; }
-        // Format7 only. Detached metadata consistency is not package provenance;
+        // Format7/8 only. Detached metadata consistency is not package provenance;
         // a Scene must separately acquire the exact historical package resources.
         public ReplayCustomWeaponDescriptor? CustomWeapons { get; init; }
         public IReadOnlyList<ReplayEvent> Events { get; set; } = Array.Empty<ReplayEvent>();
