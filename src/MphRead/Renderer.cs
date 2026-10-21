@@ -2794,6 +2794,7 @@ namespace MphRead
                 return;
             }
             using var preparationTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Preparation);
+            using var customInspectionSubject = BeginCustomInspectionPicture();
             using var directorSubject = BeginDirectorPicturePreparation();
             RefreshTextureQuality();
             BeginRenderDiagnostics();
@@ -2871,7 +2872,12 @@ namespace MphRead
             // started dropping the new ones.
             if (Services.IsReplica) _replayDrawSingleParticleCount = 0;
             else _singleParticleCount = 0;
-            if ((!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this)) && (ProcessFrame || CameraMode != CameraMode.Player || Services.IsReplica))
+            if (_customInspectionFirstPersonSlot >= 0)
+            {
+                TransformCamera();
+                UpdateCameraPosition();
+            }
+            else if ((!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this)) && (ProcessFrame || CameraMode != CameraMode.Player || Services.IsReplica))
             {
                 ModReplayCamera();
                 // Controller hardware is polled by the simulation input step only.
@@ -3576,6 +3582,7 @@ namespace MphRead
             }
             // Collection now includes preview and outline geometry, so one
             // program choice can safely persist through every pass this frame.
+            using var customInspectionSubject = BeginCustomInspectionPicture();
             using var directorSubject = BeginDirectorPictureRender();
             SelectWorldShaderVariant(allowPlain: true);
             BeginWorldPass();
@@ -3602,7 +3609,12 @@ namespace MphRead
         private bool RenderFrameContent()
         {
             CountFrame();
-            bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
+            // Explicit custom inspection owns camera/viewmodel pictures, not
+            // a foreground retail HUD. Constructing that HUD would add models
+            // and mutable HUD state to the restored canonical world. A caller
+            // may supply ReplayPresentationHud as a separate presentation owner.
+            bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud
+                && !(Services is Mods.Network.ReplaySceneServices { Session.IsCustomInspection: true });
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             drawGameHud &= Mods.Replay.ReplayVideoExporter.Active || NativeStudioPreviewGameHud;
 #endif

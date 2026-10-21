@@ -9,6 +9,8 @@ if (args.Length == 4 && args[0] == "--weapon-package-contact-gl") return WeaponP
 if (args.Length == 2 && args[0] == "--weapon-package-contact-target") return WeaponPackageContactGlChecks.Target(args[1]);
 if (args.Length == 3 && args[0] == "--custom-replay-file-reopen") return CustomReplayFileReopenChecks.Run(args[1],args[2]);
 if (args.Length == 3 && args[0] == "--custom-replay-contact-bundle") return CustomReplayContactBundleChecks.Run(args[1],args[2]);
+if (args.Length == 3 && args[0] == "--custom-replay-first-person-single-owner") return CustomReplayFirstPersonChecks.Run(args[1],args[2],singleOwner:true);
+if (args.Length == 3 && args[0] == "--custom-replay-first-person") return CustomReplayFirstPersonChecks.Run(args[1],args[2]);
 if (args.Length == 3 && args[0] == "--custom-replay-indexed-native-evidence") return CustomReplayIndexedNativeEvidenceChecks.Run(args[1],args[2]);
 if (args.Length == 3 && args[0] == "--custom-replay-indexed-fire") return CustomReplayIndexedFireChecks.Run(args[1],args[2]);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-visuals") return CustomReplayVisualChecks.Run(args.Length==2?args[1]:null);
