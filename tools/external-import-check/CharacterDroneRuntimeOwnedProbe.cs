@@ -24,7 +24,7 @@ using MphRead.Mods.Launcher.RmlUi.Host;
 // The tests-first admission check intentionally runs before any owned media I/O.
 internal static class CharacterDroneRuntimeOwnedProbe
 {
-    internal static int Run(string source)
+    internal static int Run(string source,bool probeBurst=false)
     {
         int checks=0;string? failed=null,error=null;var milestones=new Milestones();object? runtime=null;
         string core=typeof(Scene).Assembly.Location,tool=typeof(CharacterDroneRuntimeOwnedProbe).Assembly.Location;
@@ -33,6 +33,18 @@ internal static class CharacterDroneRuntimeOwnedProbe
         {if(!condition){failed=why;throw new InvalidDataException(why);}checks++;}
         try
         {
+            if(probeBurst)
+            {
+                var pose=typeof(Scene).Assembly.GetType("MphRead.Mods.Render.Characters.CharacterSourceDronePose");
+                Check(pose!=null,"source drone burst pose contract exists before any owned-source/native-asset IO");
+                var flags=BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+                var required=pose!.GetProperty("RequiredOrdinals",flags)?.GetValue(null)??pose.GetField("RequiredOrdinals",flags)?.GetValue(null);
+                Check(required is IEnumerable<int> ordinals&&ordinals.SequenceEqual(new[]{13,75,73,74}),"burst pose captures only Ready/unfold/fire/fold closed source ordinals");
+                Check(typeof(CharacterSourceDroneOwner).GetProperty("Pose",Hidden)?.PropertyType==pose
+                    &&pose.GetProperty("CurrentLocalPose",Hidden|BindingFlags.Public)!=null
+                    &&pose.GetMethod("Sample",Hidden|BindingFlags.Public,null,[typeof(int),typeof(int)],null)!=null,
+                    "complete captured burst pose and native-state/frame sampling belong to separate source drone owner");
+            }
             var appearance=typeof(LaunchPlan).Assembly.GetType("MphRead.Mods.Launcher.LocalDroneAppearance");
             Check(appearance is{IsEnum:true}&&appearance.IsPublic,
                 "independent LocalDroneAppearance runtime contract exists before owned-source or native-asset I/O");
@@ -56,17 +68,17 @@ internal static class CharacterDroneRuntimeOwnedProbe
         {
             try{Check(HashFile(core)==coreBefore&&HashFile(tool)==toolBefore,"test-first runtime contract check preserves core/tool bytes");}
             catch(Exception ex){error??=ex.GetType().Name;}
-            Console.WriteLine(JsonSerializer.Serialize(new{Pass=error==null,Checks=checks,FailedCheck=failed,ErrorType=error,
+            Console.WriteLine(JsonSerializer.Serialize(new{Pass=error==null,Checks=checks,FailedCheck=failed,ErrorType=error,BurstProbe=probeBurst,
                 CoreSha256=coreBefore,ToolSha256=toolBefore,SourceIoAttempted=milestones.SourceIo,SourceSha256Before=milestones.SourceBefore,SourceSha256After=milestones.SourceAfter,
                 NativeSha256Before=milestones.NativeBefore,NativeSha256After=milestones.NativeAfter,TemporaryDerivedDataDeleted=milestones.Cleaned,
                 Runtime=runtime,NativeAssetIoAttempted=milestones.NativeIo,GraphicsContextActivated=milestones.Context,RenderingActivated=milestones.Rendering,GameplayActivated=milestones.Gameplay,
-                Scope="actual MatchStart/LoadScene/keyboard native vs Alpha/Gamma fixed trace, complete own33rig/1390tri/twoGX Ready-only presentation and full native burst/laser fallback; separate guard/fractional/lifecycle fixtures; native death and accepted presentation status injections labeled",
+                Scope=!milestones.SourceIo?"tests-first source-drone runtime contract only, before owned media/native assets/context/gameplay IO":"actual MatchStart/LoadScene/keyboard native vs Alpha/Gamma fixed trace, complete own33rig/1390tri/twoGX source presentation and native laser fallback; separate guard/fractional/lifecycle fixtures; native death and accepted presentation status injections labeled",
                 Unqualified=new[]{"physical controls","native menu clicks","Android/macOS","online/replay","source burst/laser clips","opponent combat balance","achieved refresh rate","visual art completeness"}}));
         }
         return error==null?0:1;
     }
     private const BindingFlags Hidden=BindingFlags.Instance|BindingFlags.NonPublic;
-    private sealed class Milestones{internal bool SourceIo,NativeIo,Context,Rendering,Gameplay,Cleaned;internal string? SourceBefore,SourceAfter,NativeBefore,NativeAfter;}
+    private sealed class Milestones{internal bool SourceIo,NativeIo,Context,Rendering,Gameplay;internal bool Cleaned=true;internal string? SourceBefore,SourceAfter,NativeBefore,NativeAfter;}
     private static readonly Action<KeyboardState,Keys,bool> Key=typeof(KeyboardState).GetMethod("SetKeyState",Hidden|BindingFlags.Public)!.CreateDelegate<Action<KeyboardState,Keys,bool>>();
     private static object Smoke(string source,Action<bool,string> check,Milestones milestones)
     {
@@ -75,7 +87,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
         var drone=LauncherPrefs.LocalDrone;var body=LauncherPrefs.LocalBody;byte slot=Menu.SaveSlot;
         bool hd=RenderOptions.CharacterModelReplacements,bright=RenderOptions.BrightSkins,cosmetics=RenderOptions.ShowCustomCosmetics,force=MapAudit.ForceEveryone;
         var shadows=RenderOptions.Shadows;bool focus=GamepadContexts.Focused,menu=GamepadContexts.MenuVisible;
-        milestones.SourceIo=true;string before=HashFile(source),nativeBefore="";milestones.SourceBefore=before;RenderWindow? window=null;var cases=new List<object>();var traces=new List<string[]>();var captures=new List<object>();string? captureRoot=Environment.GetEnvironmentVariable("PRIME_DRONE_TEST_CAPTURE_DIR");
+        milestones.Cleaned=false;milestones.SourceIo=true;string before=HashFile(source),nativeBefore="";milestones.SourceBefore=before;RenderWindow? window=null;var cases=new List<object>();var traces=new List<string[]>();var captures=new List<object>();string? captureRoot=Environment.GetEnvironmentVariable("PRIME_DRONE_TEST_CAPTURE_DIR");
         try
         {
             check(OperatingSystem.IsWindows()&&!Headless.Active&&!NetSession.Active&&!DemoPlayback.IsActive&&!ReplayCapture.LiveRecordingActive,"actual offline Windows GPU process");
