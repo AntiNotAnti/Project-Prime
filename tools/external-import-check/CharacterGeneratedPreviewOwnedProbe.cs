@@ -23,7 +23,9 @@ internal static class CharacterGeneratedPreviewOwnedProbe
     private sealed record ClockSample(int SubmittedPackets, bool SubmittedSecondsMatch, double? MinimumSubmittedSeconds,
         double? MaximumSubmittedSeconds, int ProgramZeroAliases, int ProgramZeroLastSubmittedMaterial, int ActivePrimaryRows, string GpuPrimaryRowsSha256,
         string CpuIdentityPrimaryRowsSha256, bool ProgramZeroAllMode2, bool GpuRowsMatchCpuIdentity,
-        bool AnyNonzeroScrollRates, int TextureUniqueRgbaCount);
+        bool AnyNonzeroScrollRates, int TextureUniqueRgbaCount, int ReportedPrimaryArraySize, string ReportedPrimaryType,
+        int[] RequiredPrimaryRows, int[] ActivePrimaryRowIndices, int[] GpuPrimaryRowFloatBits, int[] CpuPrimaryRowFloatBits,
+        string ProgramZeroVertexShaderSha256);
     private sealed record Frame(string Pixels, string Palette, int[] Lists, int[] Textures, int[] Programs, int Segments, int Joints, bool Visible, CharacterWeightedRenderModel Model, ClockSample? Clock);
 
     internal static int Run(string rvz)
@@ -352,8 +354,11 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                             Check(clockA.Clock?.SubmittedSecondsMatch==true&&clockB.Clock?.SubmittedSecondsMatch==true&&clockAgain.Clock?.SubmittedSecondsMatch==true,
                                 label+" every actual submitted source packet carries the requested independent material seconds.");
                             Check(new[]{clockA.Clock!,clockB.Clock!,clockAgain.Clock!}.All(c=>c.ProgramZeroAllMode2
-                                    &&c.ActivePrimaryRows==(label=="normal"?9:6)&&c.GpuRowsMatchCpuIdentity),
-                                label+" every actual program-zero primary row matches the exact CPU mode2 time calculation bit for bit.");
+                                    &&c.ActivePrimaryRows is >0 and <=9&&c.ActivePrimaryRows%3==0
+                                    &&c.ReportedPrimaryArraySize==c.ActivePrimaryRows&&c.ReportedPrimaryType==ActiveUniformType.FloatVec4.ToString()
+                                    &&c.RequiredPrimaryRows.Length>0&&c.RequiredPrimaryRows.All(c.ActivePrimaryRowIndices.Contains)
+                                    &&c.GpuRowsMatchCpuIdentity),
+                                label+" GL-reported primary extent covers every needed texgen and all reported rows match CPU mode2 time bit for bit.");
                             Check(clockA.Clock!.GpuPrimaryRowsSha256!=clockB.Clock!.GpuPrimaryRowsSha256
                                 &&clockA.Clock.GpuPrimaryRowsSha256==clockAgain.Clock!.GpuPrimaryRowsSha256,
                                 label+" material clock changes actual GPU primary uniforms and returns exact A/B/A independently of pose.");
@@ -545,11 +550,19 @@ internal static class CharacterGeneratedPreviewOwnedProbe
         var items=(IEnumerable<RenderItem>)Get(scene,"_previewItems")!;
         var packets=items.Select(i=>i.SourceGx).Where(g=>g!=null).Select(g=>g!).ToArray();
         var primary=zero.Program.Matrices(seconds,System.Numerics.Matrix4x4.Identity).Primary;
-        var gpuRows=new List<float>();var cpuRows=new List<float>();int active=0;
+        var gpuRows=new List<float>();var cpuRows=new List<float>();var activeIndices=new List<int>();int active=0;
+        GL.GetProgram(zero.ProgramId,GetProgramParameterName.ActiveUniforms,out int uniformCount);
+        int reportedSize=0;string reportedType="absent";
+        for(int i=0;i<uniformCount;i++)
+        {
+            string name=GL.GetActiveUniform(zero.ProgramId,i,out int size,out ActiveUniformType type);
+            if(name is "gx_primary" or "gx_primary[0]"){reportedSize=size;reportedType=type.ToString();}
+        }
+        int[] requiredRows=zero.Program.Generators.Where(g=>g.Primary>=0).SelectMany(g=>Enumerable.Range(g.Primary*3,3)).Distinct().Order().ToArray();
         for(int i=0;i<9;i++)
         {
             int location=GL.GetUniformLocation(zero.ProgramId,"gx_primary["+i+"]");if(location<0)continue;
-            var actual=new float[4];GL.GetUniform(zero.ProgramId,location,actual);gpuRows.AddRange(actual);active++;
+            var actual=new float[4];GL.GetUniform(zero.ProgramId,location,actual);gpuRows.AddRange(actual);active++;activeIndices.Add(i);
             var m=primary[i/3];
             cpuRows.AddRange((i%3) switch{0=>new[]{m.M11,m.M21,m.M31,m.M41},1=>new[]{m.M12,m.M22,m.M32,m.M42},_=>new[]{m.M13,m.M23,m.M33,m.M43}});
         }
@@ -565,7 +578,9 @@ internal static class CharacterGeneratedPreviewOwnedProbe
             programs.Count(p=>model.Segments.Any(s=>ReferenceEquals(s.SourceGx!.Program,p)&&s.SourceGx.ProgramId==zero.ProgramId)),
             lastOrdinal,active,Digest(gpuRows),Digest(cpuRows),zero.Program.Animations.All(a=>a.Mode==2),
             gpuRows.Select(BitConverter.SingleToInt32Bits).SequenceEqual(cpuRows.Select(BitConverter.SingleToInt32Bits)),
-            programs.SelectMany(p=>p.Animations).Any(a=>a.Mode==2&&(a.RateS!=0||a.RateT!=0)),uniqueRgba);
+            programs.SelectMany(p=>p.Animations).Any(a=>a.Mode==2&&(a.RateS!=0||a.RateT!=0)),uniqueRgba,
+            reportedSize,reportedType,requiredRows,activeIndices.ToArray(),gpuRows.Select(BitConverter.SingleToInt32Bits).ToArray(),
+            cpuRows.Select(BitConverter.SingleToInt32Bits).ToArray(),Sha(Encoding.UTF8.GetBytes(zero.Program.Vertex120)));
     }
     private static Scene CurrentScene() => SideScene.GetValue(null) as Scene ?? throw new InvalidDataException("Launcher did not create its side Scene.");
     private static HunterPreviewEntity Preview(Scene scene) => Get(scene, "_preview") as HunterPreviewEntity ?? throw new InvalidDataException("Launcher did not create its owned preview.");
