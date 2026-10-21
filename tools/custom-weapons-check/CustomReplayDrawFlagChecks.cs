@@ -60,7 +60,7 @@ internal static class CustomReplayDrawFlagChecks
                 using var afterClear=ReplayWorldCheckpoint.CaptureCustom(replay);Check(before.CanonicalGraphDifferences(afterClear).Length==0,"presentation override cleanup preserves strict canonical graph");results.Add(new{mode,seeded,draw,nativeLod1});
             }
         }
-        File.WriteAllText(Path.Combine(output,"synthetic-draw-results.json"),JsonSerializer.Serialize(new{checks,results,scope="Synthetic frozen remote biped, hidden/spectating early returns and persistent native charge/muzzle presentation fixtures. No genuine accepted freeze or native live draw behavior qualification."},new JsonSerializerOptions{WriteIndented=true}));return checks;
+        File.WriteAllText(Path.Combine(output,"synthetic-draw-results.json"),JsonSerializer.Serialize(new{checks,recordingFrame=replay.Session.RecordingFrame,results,scope="Synthetic frozen remote biped, hidden/spectating early returns and persistent native charge/muzzle presentation fixtures. No genuine accepted freeze or native live draw behavior qualification."},new JsonSerializerOptions{WriteIndented=true}));return checks;
         }
         finally{Features.MaxPlayerDetail=previousDetail;}
     }
