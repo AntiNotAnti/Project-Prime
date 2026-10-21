@@ -1,7 +1,8 @@
 # CW-12e — remote package hosting contract
 
-This describes the current source contract; validation is pending. It makes no
-test-pass, launcher UI or complete CW-12 acceptance claim.
+This describes the locally qualified allocator contract. See
+[CW-12e evidence](evidence/CW-12e.md) for exact source, hashes and observations.
+Full CW-12 and launcher UI acceptance remain open.
 
 Protocol83 appends32 raw SHA-256 bytes to `HostRequest`. All-zero bytes mean no
 package selection. A request carries an archive hash only, never the operator's
@@ -64,5 +65,5 @@ it does not implement custom bots, custom replay/bootstrap/seek or the
 Studio/Community UI workflows in CW-13 through CW-15. Native replay continues
 refusing package/custom gameplay. Android testing is deferred by user scope;
 CI is unobserved. Worker bounds and ownership rules are source properties,
-not performance measurements. Integration, cancellation, port/process cleanup
-and ordinary client gameplay require separate observed qualification.
+not performance measurements. Local integration, cancellation, port/process
+cleanup and ordinary client gameplay observations are recorded in the evidence.
