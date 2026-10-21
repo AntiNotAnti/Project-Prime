@@ -66,7 +66,8 @@ internal sealed partial class SettingsView
             {
                 var selected = sources[choice.Index];
                 string[] ids = sameSource ? sources.Where(s => s.Game == selected.Game).Select(s => s.Id).ToArray() : [selected.Id];
-                var operation = SourceCharacterImportWork.Start(RetroCharacterPreviewExporter.DefaultRoot, ids, ticket.Token);
+                var operation = SourceCharacterImportWork.Start(RetroCharacterPreviewExporter.DefaultRoot, ids, ticket.Token,
+                    sameSourceGroup: sameSource);
                 _sourceImport = operation;
                 var result = await operation.Completion;
                 if (_sourceWork.Current(ticket)) status.Text = result.Message;

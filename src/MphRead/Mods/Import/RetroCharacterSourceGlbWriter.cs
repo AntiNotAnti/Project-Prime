@@ -23,14 +23,17 @@ public static class RetroCharacterSourceGlbWriter
     public const int MaximumMaterials = 256;
 
     public static byte[] Write(Cmdl model, RetroNativeSkeleton skeleton, CancellationToken cancellation = default)
-        => Capture(model, skeleton, primeTrooper: false, cancellation);
+        => Capture(model, skeleton, primeBones: 0, cancellation);
 
     // This is a source authoring contract, not a runtime capability. Prime's
     // external parent2 is not a missing joint to synthesize or remap to97.
     public static byte[] WritePrimeTrooper(Cmdl model, RetroNativeSkeleton skeleton, CancellationToken cancellation = default)
-        => Capture(model, skeleton, primeTrooper: true, cancellation);
+        => Capture(model, skeleton, primeBones: 35, cancellation);
 
-    private static byte[] Capture(Cmdl model, RetroNativeSkeleton skeleton, bool primeTrooper, CancellationToken cancellation)
+    public static byte[] WritePrimeDrone(Cmdl model, RetroNativeSkeleton skeleton, CancellationToken cancellation = default)
+        => Capture(model, skeleton, primeBones: 33, cancellation);
+
+    private static byte[] Capture(Cmdl model, RetroNativeSkeleton skeleton, int primeBones, CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(skeleton);
@@ -71,10 +74,10 @@ public static class RetroCharacterSourceGlbWriter
         if (skeleton.Bones.Any(p => p.Value == null || p.Key != p.Value.Id))
             throw new InvalidDataException("Source skeleton keys must match their nonnull bone identities.");
         var capturedRig = new RetroNativeSkeleton(skeleton.Bones.ToDictionary(p => p.Key, p => p.Value with { }));
-        return WriteCaptured(captured, capturedRig, primeTrooper, cancellation);
+        return WriteCaptured(captured, capturedRig, primeBones, cancellation);
     }
 
-    private static byte[] WriteCaptured(Cmdl model, RetroNativeSkeleton skeleton, bool primeTrooper, CancellationToken cancellation)
+    private static byte[] WriteCaptured(Cmdl model, RetroNativeSkeleton skeleton, int primeBones, CancellationToken cancellation)
     {
         ArgumentNullException.ThrowIfNull(model);
         ArgumentNullException.ThrowIfNull(skeleton);
@@ -91,10 +94,10 @@ public static class RetroCharacterSourceGlbWriter
         var jointIndex = bones.Select((b, i) => (b.Id, i)).ToDictionary(p => p.Id, p => p.i);
         var roots = bones.Where(b => !jointIndex.ContainsKey(b.Parent)).ToArray();
         if (bones.Any(b => !skeleton.Bones.TryGetValue(b.Id, out var value) || value != b)
-            || roots.Length != 1 || roots[0].Parent != (primeTrooper ? 2u : 97u)
-            || primeTrooper && (model.Version != 2 || bones.Length != 35 || roots[0].Id != 3))
-            throw new InvalidDataException(primeTrooper
-                ? "Prime Trooper source GLB requires CMDL2,35 bones and the exact root3/parent2 contract."
+            || roots.Length != 1 || roots[0].Parent != (primeBones != 0 ? 2u : 97u)
+            || primeBones != 0 && (model.Version != 2 || bones.Length != primeBones || roots[0].Id != 3))
+            throw new InvalidDataException(primeBones != 0
+                ? "Prime source GLB requires CMDL2, the exact profile bone count and root3/parent2 contract."
                 : "Source GLB requires the explicit single root97 skeleton contract.");
         foreach (var b in bones)
         {
@@ -229,10 +232,10 @@ public static class RetroCharacterSourceGlbWriter
             ["materials"] = materials, ["images"] = images, ["textures"] = textures, ["samplers"] = new JsonArray(new JsonObject { ["wrapS"] = 33071, ["wrapT"] = 33071 }),
             ["meshes"] = new JsonArray(new JsonObject { ["primitives"] = primitives }),
             ["extras"] = new JsonObject { ["sourceGlbWriterVersion"] = Version, ["sourceBasis"] = "(-x,z,y)", ["materialPolicy"] = MaterialPolicy } };
-        if (primeTrooper)
+        if (primeBones != 0)
         {
             var extras = document["extras"]!.AsObject();
-            extras["sourceRootContract"] = "prime-trooper-root3-parent2-v1";
+            extras["sourceRootContract"] = primeBones == 33 ? "prime-drone-root3-parent2-v1" : "prime-trooper-root3-parent2-v1";
             extras["sourceRootBoneId"] = 3;
             extras["sourceExternalParentId"] = 2;
         }

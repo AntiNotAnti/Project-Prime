@@ -23,7 +23,7 @@ public static partial class RetroCharacterPreviewExporter
 
     public static IReadOnlyList<AuthoringPartStatus> InspectParts(string id, ImportBundleInspection inspection)
     {
-        ExternalSourceEdition edition = Source(id).Game == ExternalGameKind.MetroidPrime
+        ExternalSourceEdition edition = IsDrone(Source(id)) || Source(id).Game == ExternalGameKind.MetroidPrime
             && inspection.Receipt?.SourceFingerprint == BundleSpec(id, ExternalSourceEdition.PrimeUsaRevision2).SourceFingerprint
             ? ExternalSourceEdition.PrimeUsaRevision2 : ExternalSourceEdition.OriginalRecipe;
         return Array.AsReadOnly(PartsFor(id, edition).Select(part =>
@@ -45,7 +45,9 @@ public static partial class RetroCharacterPreviewExporter
             part.Id + " v" + part.Version + ": " + part.State
             + (part.State == ImportBundleState.Ready || inspection.ComponentStates == null ? "" : " (" + string.Join(", ", part.Components
                 .Where(c => c.State != ImportBundleState.Ready).Select(c => c.Role + " v" + c.Version + " " + c.State)) + ")")));
-        string scope = ". Choose an updated imported body in Hunters for local offline matches. Unsupported states and online matches use native presentation.";
+        string scope = IsDrone(Source(id))
+            ? ". Drone source authoring bundle; practice selection and runtime drawing remain unqualified."
+            : ". Choose an updated imported body in Hunters for local offline matches. Unsupported states and online matches use native presentation.";
         return id + ": " + inspection.State + ". " + parts + ". " + inspection.Message + scope;
     }
 
@@ -54,11 +56,16 @@ public static partial class RetroCharacterPreviewExporter
 
     /// <summary>Logical parts share their existing appearance/card identity.</summary>
     public static IReadOnlyList<SourcePart> PartsFor(string id)
-        => PartsFor(id, ExternalSourceEdition.OriginalRecipe);
+        => PartsFor(id, IsDrone(Source(id)) ? ExternalSourceEdition.PrimeUsaRevision2 : ExternalSourceEdition.OriginalRecipe);
 
     public static IReadOnlyList<SourcePart> PartsFor(string id, ExternalSourceEdition edition)
     {
         SourceCharacter source = Source(id);
+        if (IsDrone(source))
+        {
+            _ = RequiredSourceArchives(id, edition);
+            return Array.AsReadOnly(new[] { new SourcePart("drone", source.Ancs, source.NativeName, 1) });
+        }
         _ = ExternalSourceRequirements.For(source.Game, edition);
         var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? source.Id == "darksamus-overcharged-echoes" ? 6 : 5 : FullPrime(source, edition) ? 5 : 1);
         return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 4 } } : new[] { body });
@@ -68,7 +75,7 @@ public static partial class RetroCharacterPreviewExporter
     {
         if (!PartsFor(id).Any(p => p.Id == part))
             throw new InvalidDataException("Unknown or unsupported source character part.");
-        return part == "body" ? id : id + ".ball";
+        return part == "body" ? id : id + "." + part;
     }
 
     private static bool FullPrime(SourceCharacter source, ExternalSourceEdition edition)
@@ -124,8 +131,10 @@ public static partial class RetroCharacterPreviewExporter
             new AuthoringComponent("source-materials",1,stem+".materials.bin"),
             new AuthoringComponent("generated-composite-geometry",1,stem+".composite.glb"),
             new AuthoringComponent("generated-composite-provenance",1,stem+".composite.json") } : Array.Empty<AuthoringComponent>())
-        .Concat((Source(id).Game == ExternalGameKind.Echoes || prime) && part == "body"
+        .Concat((Source(id).Game == ExternalGameKind.Echoes || prime) && (part == "body" || part == "drone")
             ? new[] { new AuthoringComponent("source-materials", 1, stem + ".materials.bin") }
+            : Array.Empty<AuthoringComponent>())
+        .Concat(IsDrone(Source(id)) ? new[] { new AuthoringComponent("source-preview-manifest", 1, "characters.json") }
             : Array.Empty<AuthoringComponent>())
         .Concat(prime && part == "body"
             ? new[] { new AuthoringComponent("source-preview-manifest", 2, "characters.json"),
@@ -142,14 +151,19 @@ public static partial class RetroCharacterPreviewExporter
 
     /// <summary>Receipt describes complete authoring parts, never gameplay readiness.</summary>
     public static ImportBundleSpec BundleSpec(string sourceCharacterId)
-        => BundleSpec(sourceCharacterId, ExternalSourceEdition.OriginalRecipe);
+        => BundleSpec(sourceCharacterId, IsDrone(Source(sourceCharacterId))
+            ? ExternalSourceEdition.PrimeUsaRevision2 : ExternalSourceEdition.OriginalRecipe);
 
     public static ImportBundleSpec BundleSpec(string sourceCharacterId, ExternalSourceEdition edition)
     {
         SourceCharacter spec = Source(sourceCharacterId);
-        string source = string.Join("\n", ExternalSourceRequirements.For(spec.Game, edition)
+        string source = string.Join("\n", RequiredSourceArchives(sourceCharacterId, edition)
             .OrderBy(a => a.Path, StringComparer.Ordinal).Select(a => a.Path + ":" + a.ExpectedSha1));
         string fingerprint = Convert.ToHexStringLower(SHA1.HashData(Encoding.UTF8.GetBytes(source)));
+        if (IsDrone(spec))
+            return new(spec.Id, 1, HashRecipe("prime-usa-rev2-drone-source-v1:" + spec.Id + ":" + fingerprint
+                + ":full33-root3-parent2-v1:original-geometry-uv-weights-v1:full-strict-anim-bank-graph-v1:raw-gx-materials-v1:alternate-manifest-v1"),
+                fingerprint, RequiredPartComponents(spec.Id, "drone", edition).Select(c => c.File).ToArray());
         if (spec.AlternateForm == null)
         {
             // Preserve the original four Prime body recipes byte-for-byte.
@@ -267,9 +281,10 @@ public static partial class RetroCharacterPreviewExporter
                 File.WriteAllBytes(Path.Combine(staging, animationName), archive); Stage(animationName);
                 string geometryName = stem + ".source.glb", provenanceName = stem + ".source.json";
                 byte[] geometry = echoes ? RetroCharacterSourceGlbWriter.Write(model, skeleton, cancellation)
+                    : IsDrone(spec) ? RetroCharacterSourceGlbWriter.WritePrimeDrone(model, skeleton, cancellation)
                     : RetroCharacterSourceGlbWriter.WritePrimeTrooper(model, skeleton, cancellation);
                 File.WriteAllBytes(Path.Combine(staging, geometryName), geometry); Stage(geometryName);
-                if (part.Id == "body" || spec.Id == "darksamus-echoes" && part.Id == "ball")
+                if (part.Id is "body" or "drone" || spec.Id == "darksamus-echoes" && part.Id == "ball")
                 {
                     string materialName = stem + ".materials.bin";
                     var binding = new RetroCharacterMaterialArchive.Source(part.Id == "ball" ? "darksamus-echoes-ball" : spec.Id, refs.Cmdl, refs.Cskr, refs.Cinf,
@@ -282,7 +297,9 @@ public static partial class RetroCharacterPreviewExporter
                     _ = RetroCharacterMaterialArchive.Read(materials, cancellation);
                     File.WriteAllBytes(Path.Combine(staging, materialName), materials); Stage(materialName);
                 }
-                byte[] provenance = echoes ? GeneratedSourceProvenance(spec, part, refs, gameId, cmdlBytes, cskrBytes, cinfBytes,
+                byte[] provenance = IsDrone(spec) ? DroneAuthoringProvenance(spec, refs, gameId, cmdlBytes, cskrBytes, cinfBytes,
+                    ancsBytes, graph.Descriptor, archive, geometry, model, skeleton)
+                    : echoes ? GeneratedSourceProvenance(spec, part, refs, gameId, cmdlBytes, cskrBytes, cinfBytes,
                     ancsBytes, archive, geometry, model, skeleton) : PrimeAuthoringProvenance(spec, refs, gameId, cmdlBytes, cskrBytes,
                     cinfBytes, ancsBytes, graph.Descriptor, archive, geometry, model, skeleton);
                 File.WriteAllBytes(Path.Combine(staging, provenanceName), provenance); Stage(provenanceName);
@@ -290,7 +307,14 @@ public static partial class RetroCharacterPreviewExporter
                 {
                     foreach (string name in WriteFinalBallComposite(staging,resource,model,skeleton,cmdlBytes,cskrBytes,cancellation)) Stage(name);
                 }
-                if (!echoes)
+                if (IsDrone(spec))
+                {
+                    string temporary = spec.Id + ".characters.json";
+                    File.WriteAllBytes(Path.Combine(staging, temporary), DroneManifest(spec, geometryName, provenanceName,
+                        animationName, provenance, archive));
+                    Stage(temporary, "characters.json");
+                }
+                if (!echoes && !IsDrone(spec))
                 {
                     string skin = spec.Id switch
                     {
