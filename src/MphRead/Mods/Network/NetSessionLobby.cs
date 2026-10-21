@@ -52,14 +52,17 @@ namespace MphRead.Mods.Network
             get
             {
                 foreach (var pending in _pendingLobby.Values)
-                    if (!PendingCustomMapSelection(pending.Packet)) return true;
+                    if (!pending.PreparingMap) return true;
                 return false;
             }
         }
 
-        private static bool PendingCustomMapSelection(LobbyCommandPacket command)
+        private static bool NewCustomMapSelection(LobbyCommandPacket command, SessionStatePacket current)
             => command.Type == LobbyCommandType.UpdateMatch
-                && command.Configuration.Match.MapIdentity.IsCustom;
+                && command.Configuration.Match.MapIdentity.IsCustom
+                && (command.Configuration.Match.MapIdentity != current.Match.MapIdentity
+                    || !String.Equals(command.Configuration.Match.RoomKey, current.Match.RoomKey,
+                        StringComparison.Ordinal));
 
         private static bool CanInterruptMapSelection(LobbyCommandType type)
             => type is LobbyCommandType.AddBot or LobbyCommandType.RemoveBot
@@ -87,6 +90,7 @@ namespace MphRead.Mods.Network
         private sealed class PendingLobbyCommand
         {
             public LobbyCommandPacket Packet;
+            public bool PreparingMap;
             public double SentAt;
             public int Attempts;
         }
@@ -145,9 +149,13 @@ namespace MphRead.Mods.Network
                 Type = type, TargetSlot = targetSlot, TeamIndex = team, Ready = ready,
                 Hunter = hunter, Color = color, BotLevel = botLevel, DamageReduction = damageReduction,
                 Configuration = configuration ?? ServerSession.Value };
-            var pending = new PendingLobbyCommand { Packet = command, SentAt = Clock, Attempts = 0 };
+            var pending = new PendingLobbyCommand
+            {
+                Packet = command, PreparingMap = NewCustomMapSelection(command, ServerSession.Value),
+                SentAt = Clock, Attempts = 0
+            };
             _pendingLobby.Add(id, pending);
-            LobbyMessage = type == LobbyCommandType.UpdateMatch && command.Configuration.Match.MapIdentity.IsCustom
+            LobbyMessage = pending.PreparingMap
                 ? "Waiting for server to prepare the Community map…" : "Waiting for server...";
             SendLobbyPacket(command);
             return true;
@@ -168,8 +176,7 @@ namespace MphRead.Mods.Network
             {
                 var pending = pair.Value;
                 if (now - pending.SentAt < Math.Min(1, 0.25 * (pending.Attempts + 1))) continue;
-                int maximumAttempts = pending.Packet.Type == LobbyCommandType.UpdateMatch
-                    && pending.Packet.Configuration.Match.MapIdentity.IsCustom ? 180 : 4;
+                int maximumAttempts = pending.PreparingMap ? 180 : 4;
                 if (pending.Attempts >= maximumAttempts)
                 {
                     LobbyMessage = "The server did not acknowledge the command. Check the current lobby and try again.";
