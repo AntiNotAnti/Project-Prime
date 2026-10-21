@@ -22,7 +22,7 @@ internal static class ParkourCompatibilityTests
             catch (InvalidDataException) { rejected = true; }
             Check(rejected, $"Protocol{protocol} must reject Parkour bit19.");
         }
-        Check(NetConfig.ProtocolVersion == 79, "Current Parkour v3 requires protocol79.");
+        Check(NetConfig.ProtocolVersion == 80, "Current Parkour v4 requires protocol80.");
         Check((byte)MovementModel.Parkour == 4 && (uint)MatchModifierFlags.ParkourMovement == 524288u,
             "Parkour model4 and bit19 are stable.");
         Check(MovementModelRules.KnownModifierMask == 1048575u,
@@ -36,11 +36,13 @@ internal static class ParkourCompatibilityTests
                 "Movement model flags remain mutually exclusive.");
         Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 20)),
             "Future unknown modifier remains unsupported.");
-        Check(MovementModelRules.ProfileVersion(MovementModel.Parkour) == 3
+        Check(MovementModelRules.ProfileVersion(MovementModel.Parkour) == 4
             && new ReplayMetadata { ProtocolVersion = 78, IndexedMovementModel = MovementModel.Parkour }
                 .RecordedMovementProfileVersion == 2, "Protocol78 selects Parkour v2 while protocol77 stays v1.");
         Check(new ReplayMetadata { ProtocolVersion = 79, IndexedMovementModel = MovementModel.Parkour }
-            .RecordedMovementProfileVersion == 3, "Protocol79 records Parkour v3 explicitly.");
+            .RecordedMovementProfileVersion == 3, "Protocol79 retains Parkour v3 explicitly.");
+        Check(new ReplayMetadata { ProtocolVersion = 80, IndexedMovementModel = MovementModel.Parkour }
+            .RecordedMovementProfileVersion == 4, "Protocol80 records Parkour v4 explicitly.");
         var metadata = new ReplayMetadata { ProtocolVersion = 77, IndexedMovementModel = MovementModel.Parkour };
         Check(metadata.RecordedMovementModel == MovementModel.Parkour
             && metadata.RecordedMovementProfileVersion == 1, "Protocol77 records Parkour v1 explicitly.");
@@ -67,7 +69,7 @@ internal static class ParkourCompatibilityTests
         new SnapshotHeader { PlayerCount = 1 }.Write(snapshot.AsSpan(1));
         new PlayerState { SlotIndex = 0, Health = 99, Crouched = false }
             .Write(snapshot.AsSpan(1 + SnapshotHeader.Size));
-        foreach (int protocol in new[] { 68, 69, 76, 77, 78, 79 })
+        foreach (int protocol in new[] { 68, 69, 76, 77, 78, 79, 80 })
         {
             var converted = ReplayIdentityCompatibility.Convert(snapshot, protocol);
             Check(converted.SequenceEqual(snapshot)
@@ -120,6 +122,22 @@ internal static class ParkourCompatibilityTests
                 var expected = protocol < 69 ? 0 : IntentButtons.Crouch | IntentButtons.CrouchedState;
                 Check(old.Buttons == expected, "Historical intent clears tuck/counter and preserves protocol69 crouch.");
             }
+        }
+        Check(ParkourMovementProfileV1.ProfileVersion == 1
+            && ParkourMovementProfileV2.ProfileVersion == 2
+            && ParkourMovementProfileV3.ProfileVersion == 3
+            && ParkourMovementProfileV4.ProfileVersion == 4,
+            "Every immutable Parkour profile retains its recorded identity.");
+        foreach (bool grounded in new[] { false, true })
+        foreach (bool crouched in new[] { false, true })
+        foreach (bool sliding in new[] { false, true })
+        foreach (Vector3 velocity in new[] { Vector3.Zero, new Vector3(12, -4, 17) })
+        {
+            var input = new MomentumInput(new Vector2(.6f, .8f), Vector3.UnitZ, Vector3.UnitX,
+                ParkourMovementProfileV4.GroundSpeed, grounded, 1f / 60);
+            Check(ParkourMovementProfileV4.Step(velocity, input, crouched, sliding)
+                == ParkourMovementProfileV3.Step(velocity, input, crouched, sliding),
+                "Mantle profile retains exact v3 horizontal policy across stance/contact states.");
         }
         var displacement = new Vector3(2, ParkourStance.TuckRise + 3, 4);
         var oneLanding = ParkourStance.PhysicalTravel(displacement, 5, 6, out bool validOne);

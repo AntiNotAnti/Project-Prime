@@ -45,8 +45,21 @@ wallrun budget. Holding the original Jump press never kicks automatically.
 Native jump/SpaceJump flags remain owned by their existing controller. Native
 pads, teleports and external acceleration retain priority over a pending kick.
 
-Current live peers use protocol 79 / Parkour v3. Protocol 78 recordings retain
-Parkour v2 and protocol 77 recordings retain Parkour v1. Earlier protocols cannot
+**Short ledge scramble:** walk into a safe static ledge, hold Forward and press
+Jump freshly. An upright native biped can mantle a broad, standing-clear top
+within 1.25 units of total rise and 2.5 units of horizontal origin travel.
+Assistance uses native velocity and collision for at most 24 fixed ticks;
+it never snaps the body. The entire lift/across/settle route must fit the standing
+body, and one safe flat face must support the full landing footprint. Narrow,
+roof-blocked, excessive, moving and hazardous ledges refuse admission. Closed
+doors and active forcefields near the route also refuse, leaving
+native Jump available. Release Forward, enter a form/ability, encounter an
+obstruction or stop progressing to cancel. Active wallrun/kick, tuck and slide
+exclude a mantle. Training lanes at z=17 include a broad ledge plus blocked,
+height, width and thin-rail controls.
+
+Current live peers use protocol 80 / Parkour v4. Protocol 79 recordings retain
+Parkour v3, protocol 78 retains v2 and protocol 77 retains v1. Earlier protocols cannot
 acquire Parkour. Passive replay worlds
 consume accepted positions and shapes rather than rerunning current wall forces.
 The existing life-fenced owner-position multiplayer contract remains in effect;
@@ -54,5 +67,8 @@ the authority does not independently resimulate remote trajectories.
 
 See [wallstrafe validation](parkour-wallstrafe-results.md) for completed Windows
 scene, multiplayer and replay results. [Wallrun validation](parkour-wallrun-results.md) records the v3 checks and
-performance diagnostics. Short ledge scramble and optional grapple are subsequent
-ordered slices.
+performance diagnostics. The [v4 version contract](../network/parkour-v4-version-contract.md)
+describes mantle admission and historical boundaries. Optional grapple follows
+as a separate slice.
+
+Mantle qualification and limits: [Parkour v4 results](parkour-mantle-results.md).

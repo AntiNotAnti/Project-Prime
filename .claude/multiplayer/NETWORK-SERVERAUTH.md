@@ -68,7 +68,7 @@ positions set when the attack begins or the render transforms. The
 | `DedicatedServer` | always owns gameplay authority; an idle lobby delays constructing `ServerSim` until Start Match but never delegates authority |
 
 The current wire protocol is defined only by `NetConfig.ProtocolVersion`
-(currently 17). Current servers never send `PacketType.Authority` to a player and current
+(currently 80). Current servers never send `PacketType.Authority` to a player and current
 clients do not act on it. Value 12 stays reserved solely to preserve packet
 numbering across the protocol.
 `HandleIntent` feeds `NetSession.AcceptSlotIntent` one hop earlier than a
@@ -301,3 +301,12 @@ participants are ready and the 1.5-second countdown expires. Missing participant
 are removed at 15 seconds. Late joins have individual readiness. Owner-reported
 position remains the collision position; no movement commands or reconciliation
 were introduced. Same-life owner snapshot corrections were removed separately.
+
+## Parkour v4
+
+Protocol80 adds the selected Parkour static-ledge mantle semantics without new
+wire fields. Human trajectories remain owner-reported; authority bots use native
+input/integration. Admission proves standing-body route clearance and static
+footprint support before taking a fresh Forward+Jump request. Passive replay
+restores accepted positions rather than rerunning the controller. Historical
+77/78/79 retain v1/v2/v3. See `docs/network/parkour-v4-version-contract.md`.

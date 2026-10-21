@@ -17,7 +17,7 @@ public static class MovementModelRules
         MovementModel.Momentum => MomentumProfileV1.MomentumProfileVersion,
         MovementModel.Quake3 => Quake3MovementProfileV4.ProfileVersion,
         MovementModel.Traversal => TraversalMovementProfileV5.ProfileVersion,
-        MovementModel.Parkour => ParkourMovementProfileV3.ProfileVersion,
+        MovementModel.Parkour => ParkourMovementProfileV4.ProfileVersion,
         _ => throw new ArgumentOutOfRangeException(nameof(model))
     };
     public static MovementModel Next(MovementModel model) => model switch

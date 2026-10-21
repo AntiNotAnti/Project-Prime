@@ -326,7 +326,7 @@ internal static class MomentumServerPerformanceBenchmark
                         MovementModel.Momentum => MomentumProfileV1.Step(incoming, sample.Input),
                         MovementModel.Quake3 => Quake3MovementProfileV4.Step(incoming, sample.Input),
                         MovementModel.Traversal => TraversalMovementProfileV5.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
-                        MovementModel.Parkour => ParkourMovementProfileV3.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
+                        MovementModel.Parkour => ParkourMovementProfileV4.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
                         _ => throw new InvalidOperationException("Classic cannot produce a momentum solver sample.")
                     };
                     Require(MathF.Abs(expected.Velocity.X / 30 - sample.NativeVelocityAfter.X) <= .00001f
