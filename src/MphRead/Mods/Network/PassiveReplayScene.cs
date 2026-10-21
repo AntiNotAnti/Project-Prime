@@ -124,6 +124,19 @@ namespace MphRead.Mods.Network
             try { checkpoint.RestoreCustom(scene); return scene; }
             catch { scene.Dispose(); throw; }
         }
+        internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size)
+        {
+            using var world = prepared.CopyWorld();
+            var scene = RestoreCustomInspection(world, prepared.Resources, size);
+            try
+            {
+                scene.Session.AttachCustomArchive(prepared);
+                while (scene.Session.RecordingFrame < prepared.TargetFrame)
+                    if (!scene.StepCustomArchiveInspection()) throw new InvalidDataException("Custom archive ended before its requested seek frame.");
+                return scene;
+            }
+            catch { scene.Dispose(); throw; }
+        }
         private PassiveReplayScene(ReplayPlaybackSession session, Vector2i size, PreparedReplayWeaponPackage? prepared = null)
         {
             Session = session;
@@ -184,6 +197,12 @@ namespace MphRead.Mods.Network
             ObjectDisposedException.ThrowIf(_disposed, this);
             Session.AdvanceCustomInspection(frame, records);
             Scene.StepReplica(); HasStepped = true;
+        }
+        internal bool StepCustomArchiveInspection()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!Session.AdvanceCustomArchiveInspection()) return false;
+            Scene.StepReplica(); HasStepped = true; return true;
         }
         public void Dispose()
         {
