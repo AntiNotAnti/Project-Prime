@@ -2,7 +2,8 @@
 
 This document describes the current source implementation. It is not a
 validation receipt, release qualification, or declaration that CW-12 is complete.
-The live package path uses protocol81. Native packet layouts, native weapon IDs,
+The integrated live path uses protocol82; package metadata was introduced in81.
+Native packet layouts, native weapon IDs,
 the existing CWM1 encoding and historical Parkour profile attribution remain
 unchanged. CWPK continues to pin archive, content, dependency and mechanics
 identities separately.

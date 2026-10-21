@@ -8,8 +8,8 @@ namespace MphRead.Mods.CustomWeapons;
 internal sealed record CustomPeerReadyEvidence(WorldBootstrapIdentity Bootstrap,WeaponDigest Manifest,
     byte Slot,ulong ConnectionId,uint OpenedWorld);
 
-/// <summary>One reviewed built-in definition in this first live handshake. Unknown
-/// packages are never downloaded or interpreted. Exact cached wire comparison
+/// <summary>One frozen built-in or prepared package definition. Unknown
+/// packages are never downloaded by this handshake. Exact cached wire comparison
 /// verifies every row/field without duplicate page allocation.</summary>
 internal sealed class CustomReadinessWire
 {

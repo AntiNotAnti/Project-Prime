@@ -108,7 +108,7 @@ public static partial class NetLobbyTest
         internal readonly PackagePreparationProbe? FirstPackage,SecondPackage;
         internal readonly WeaponDefinition Definition;
         internal WeaponMechanics Mechanics=>Definition.Mechanics;
-        private readonly bool _acquireFirst;
+        private readonly bool _acquireFirst,_packageFixture;
         private readonly ServerSim _sim;
         private readonly Scene _scene;
         private readonly FieldInfo _sinkField;
@@ -125,7 +125,7 @@ public static partial class NetLobbyTest
         internal ActionTransportFixture(bool protect=false,bool completeRoom=true,bool impaired=false,int maxPlayers=2,Guid ownerToken=default,bool tokenOwnerSecond=false,bool publicAvailability=false,WeaponPackage? package=null,string? serverStore=null,string? firstStore=null,string? secondStore=null,bool acquireFirst=true)
         {
             ResetActionLag();
-            Definition=package?.Definition??RiftlineM7.Create();_acquireFirst=acquireFirst;publicAvailability|=package!=null;
+            Definition=package?.Definition??RiftlineM7.Create();_acquireFirst=acquireFirst;_packageFixture=package!=null;publicAvailability|=package!=null;
             if(tokenOwnerSecond&&ownerToken==Guid.Empty)throw new ArgumentException("Second-slot token owner fixture requires an actual owner token.");
             Rig=new(token:ownerToken,simulate:true,room:"MP3 PROVING GROUND",maxPlayers:maxPlayers,customReadiness:!publicAvailability,customCombat:!publicAvailability,publicAvailability:publicAvailability,weaponStore:serverStore,weaponArchive:package?.PackageHash);
             try
@@ -192,7 +192,9 @@ public static partial class NetLobbyTest
                         PlayerState native=default; NetDamage.Write(client.Slot,ref native);
                         bool history=false;
                         for (int i=0;i<PlayerState.DamageHistory;i++) history|=native.EventAt(i).EventId!=0;
-                        return new(owner,player.Position,Fixed.ToFloat(player.Values.MaxPickupHeight)-.15f,player.Health,
+                        // Package acceptance uses a generous head-region ray,
+                        // avoiding the front capsule's body/head threshold.
+                        return new(owner,player.Position,Fixed.ToFloat(player.Values.MaxPickupHeight)-(package==null?.15f:.05f),player.Health,
                             NetDamage.Sequence(client.Slot),history,state,resource,input,source,observation,
                             _scene.GameState.Kills[client.Slot],_scene.GameState.Deaths[client.Slot]);
                     }
@@ -236,7 +238,7 @@ public static partial class NetLobbyTest
             {
                 foreach (var direction in new[] { Vector3.UnitZ,Vector3.UnitX,-Vector3.UnitX,-Vector3.UnitZ })
                 {
-                    Vector3 start=origin+Vector3.UnitY*height,end=start+direction*3,muzzle=start+Vector3.UnitY*.4f;
+                    Vector3 start=origin+Vector3.UnitY*height,end=start+direction*(_packageFixture?8:3),muzzle=start+Vector3.UnitY*.4f;
                     if (BeamProjectileEntity.TryBeamObstacle(muzzle,end+Vector3.UnitY*.2f,_scene,out _,out _)
                         || BeamProjectileEntity.TryBeamObstacle(muzzle,end+Vector3.UnitY*(Fixed.ToFloat(second.Values.MaxPickupHeight)-.15f),_scene,out _,out _)) continue;
                     first.ModPlaceAt(start); second.ModPlaceAt(end); clear=true; break;

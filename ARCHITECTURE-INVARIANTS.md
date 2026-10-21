@@ -12,8 +12,10 @@ This file is the short, machine-oriented source of truth for architectural assum
   package offer/Ready/confirmation messages99–101. They pin CWPK v1 exact
   archive/content/dependency metadata to match, configuration, slot generation
   and connection before loading. CWM1 and native packet bodies retain their
-  existing bytes. CW-12b deliberately refuses package gameplay until authority
-  and presentation integration is qualified. Native archives remain readable;
+  existing bytes. CW-12c binds the selected definition to authoritative combat
+  and exact prewarmed resources to ordinary client scenes before loaded ACKs.
+  Availability never grants inventory; authored world contact owns acquisition.
+  Native archives remain readable;
   custom/package replay continues to refuse rather than substitute definitions.
 - Protocol76 selects Quake3 profile v4 and Traversal profile v5. Qualified static
   walkable ground uses surface-speed acceleration and contact redirection;
