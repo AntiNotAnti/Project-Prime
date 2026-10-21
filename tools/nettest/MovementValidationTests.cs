@@ -73,8 +73,8 @@ internal static class MovementValidationTests
             "model/profile context establishes a fresh source-time baseline");
         NetMovementValidationShadow.Observe(momentum with { Frame = 2, Position = new(10000, 0, 0) });
         var report = NetMovementValidationShadow.Capture();
-        Check(report.Schema == 3 && report.HardRejections == 0 && report.Hunters.Length == 56,
-            "versioned bounded report groups four models without enforcement");
+        Check(report.Schema == 3 && report.HardRejections == 0 && report.Hunters.Length == 70,
+            "versioned bounded report groups five models without enforcement");
         Check(report.Hunters[0].MovementModel == MovementModel.Native && report.Hunters[0].ProfileVersion == 0
             && report.Hunters[0].WouldRefuse == 1
             && report.Hunters[14].MovementModel == MovementModel.Momentum && report.Hunters[14].ProfileVersion == 1
@@ -119,10 +119,20 @@ internal static class MovementValidationTests
         NetMovementValidationShadow.Observe(traversal);
         NetMovementValidationShadow.Observe(traversal with { Frame = 2, Position = new(1000, 0, 0) });
         var traversalReport = NetMovementValidationShadow.Capture();
-        Check(traversalReport.Hunters.Length == 56 && traversalReport.Hunters[42].MovementModel == MovementModel.Traversal
+        Check(traversalReport.Hunters.Length == 70 && traversalReport.Hunters[42].MovementModel == MovementModel.Traversal
             && traversalReport.Hunters[42].ProfileVersion == 5 && traversalReport.Hunters[42].Evaluated == 1
             && traversalReport.Hunters[42].WouldRefuse == 0 && traversalReport.HardRejections == 0,
             "Traversal retains its own bounded observational counters and uncapped horizontal measurement");
+        NetMovementValidationShadow.Reset();
+        var parkour = Sample(1) with { MovementModel = MovementModel.Parkour,
+            ProfileVersion = MovementModelRules.ProfileVersion(MovementModel.Parkour) };
+        NetMovementValidationShadow.Observe(parkour);
+        NetMovementValidationShadow.Observe(parkour with { Frame = 2, Position = new(1000, 0, 0) });
+        var parkourReport = NetMovementValidationShadow.Capture();
+        Check(parkourReport.Hunters.Length == 70 && parkourReport.Hunters[56].MovementModel == MovementModel.Parkour
+            && parkourReport.Hunters[56].ProfileVersion == 1 && parkourReport.Hunters[56].Evaluated == 1
+            && parkourReport.Hunters[56].WouldRefuse == 0 && parkourReport.HardRejections == 0,
+            "Parkour has bounded independent counters without indexing beyond prior models");
     }
 
     private static void OrderingAndGaps()

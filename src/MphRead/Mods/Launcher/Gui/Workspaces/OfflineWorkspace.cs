@@ -462,10 +462,10 @@ namespace MphRead.Mods.Launcher.Gui
             var affinity = new ToggleRow("Affinity weapons", _settings.AffinityWeapons == "on");
             var freeze = new ToggleRow("Shadow freeze", _settings.ShadowFreeze == "on");
             bool validMovement = Movement.MovementModelRules.TryParse(_settings.MovementModel, out var savedMovement);
-            var movement = new ChoiceRow("Movement", validMovement ? new[] { "Classic", "Momentum", "Quake III", "Traversal" }
-                : new[] { "Classic", "Momentum", "Quake III", "Traversal", "Choose movement" },
-                validMovement ? (int)savedMovement : 4);
-            ToolTip.SetTip(movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum. Quake III adds strafe-jump speed building; Traversal adds stronger air control, ramp jumps and Magmaul jumps; alt-form abilities stay native.");
+            var movement = new ChoiceRow("Movement", validMovement ? new[] { "Classic", "Momentum", "Quake III", "Traversal", "Parkour" }
+                : new[] { "Classic", "Momentum", "Quake III", "Traversal", "Parkour", "Choose movement" },
+                validMovement ? (int)savedMovement : 5);
+            ToolTip.SetTip(movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum. Quake III adds strafe-jump speed building; Traversal adds stronger air control, ramp jumps and Magmaul jumps. Parkour is an optional advanced movement model with airborne tuck; alt-form abilities stay native.");
             var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection == "on");
             var fiesta = new ToggleRow("Fiesta", _settings.Fiesta == "on");
             var instaGib = new ToggleRow("Insta-Gib", _settings.InstaGib == "on");
@@ -495,8 +495,8 @@ namespace MphRead.Mods.Launcher.Gui
                         riftlineM7, PrimeChrome.Text(riftlineHelp, 12, PrimeTheme.TextSecondaryBrush))), error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
-                    if (movement.Index is not (0 or 1 or 2 or 3))
-                    { error.Text = "Saved movement is unknown. Choose Classic, Momentum, Quake III, or Traversal before applying rules."; return; }
+                    if (movement.Index is not (0 or 1 or 2 or 3 or 4))
+                    { error.Text = "Saved movement is unknown. Choose Classic, Momentum, Quake III, Traversal, or Parkour before applying rules."; return; }
                     bool Duration(string value) => TimeSpan.TryParseExact(value, @"m\:ss", null, out _)
                         || TimeSpan.TryParseExact(value, @"mm\:ss", null, out _);
                     if (!int.TryParse(score.Value, out int points) || points < 0 || points > 999 || !Duration(time.Value) || !Duration(objective.Value))

@@ -49,7 +49,7 @@ public static class NetShotProof
         public ShotProofReason Pose, Source;
     }
     private struct Pose
-    { public ShotKey Life; public uint SourceFrame, WorldFrame; public Vector3 Body, Aim; public bool Live, ClockValid, Disrupted, Crouched; }
+    { public ShotKey Life; public uint SourceFrame, WorldFrame; public Vector3 Body, Aim; public bool Live, ClockValid, Disrupted, Crouched, Tucked; public float TuckRise; }
     private struct SourceClock
     { public bool Live; public ShotKey Stream; public uint Source, World; }
     private static readonly SourceClock[] _clocks=new SourceClock[8];
@@ -122,7 +122,7 @@ public static class NetShotProof
         _poses[player.SlotIndex,intent.Frame%128]=new Pose { Live=true,
             Life=ShotKey.For(player.SlotIndex,0), SourceFrame=intent.Frame,
             WorldFrame=NetSession.NetFrame,Body=player.Position,Aim=intent.Aim,
-            ClockValid=clockValid,Disrupted=player.ModDisrupted,Crouched=player.ModCrouched };
+            ClockValid=clockValid,Disrupted=player.ModDisrupted,Crouched=player.ModCrouched,Tucked=player.ModTucked,TuckRise=player.ModTuckRise };
     }
     internal static void Admit(PlayerEntity player, in ShotKey key, in FireEvent fire)
     {
@@ -171,7 +171,7 @@ public static class NetShotProof
         else if(pose.Live && pose.SourceFrame==fire.SourceFrame && SameLife(pose.Life,key))
         {
             // ACK is the opponents' read point, not the shooter's source clock.
-            Vector3 body=pose.Body+Vector3.UnitY*(pose.Crouched ? .15f : .5f);
+            Vector3 body=pose.Body+Vector3.UnitY*((pose.Crouched ? .15f : .5f) + (pose.Crouched && pose.Tucked ? pose.TuckRise : 0));
             poseReason=!pose.ClockValid ? ShotProofReason.SourceClock
                 : !Finite(pose.Aim) || pose.Aim.LengthSquared<.001f || pose.Disrupted
                     ? ShotProofReason.SourceAimUnavailable

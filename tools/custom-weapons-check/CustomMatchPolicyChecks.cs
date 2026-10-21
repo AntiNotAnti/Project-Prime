@@ -34,8 +34,8 @@ internal static class CustomMatchPolicyChecks
             &&!Native.RiftlineM7Available&&(Native.Rules&MatchModifierFlags.RiftlineM7Available)==0,
             "native/default match definitions never opt into M7 availability");
         check((uint)MatchModifierFlags.RiftlineM7Available==262144
-            &&MovementModelRules.KnownModifierMask==524287&&NetConfig.ProtocolVersion==76,
-            "protocol76 retains availability bit18 while preserving every earlier modifier ID");
+            &&MovementModelRules.KnownModifierMask==1048575&&NetConfig.ProtocolVersion==77,
+            "protocol77 retains availability bit18 while preserving every earlier modifier ID");
         var requested=Native with{RiftlineM7Available=true};
         check(requested.Rules==(Native.Rules|MatchModifierFlags.RiftlineM7Available)
             &&requested.ModifierSummary.Contains("Riftline M7",StringComparison.Ordinal),
@@ -51,6 +51,10 @@ internal static class CustomMatchPolicyChecks
             "older match-definition JSON without availability retains native default false");
         check(LobbyRules.ValidateDefinition(requested,out string reason)==LobbyResultCode.Ok,
             "direct Battle availability configuration is valid independently of engine readiness or grants");
+        var parkour=requested with{MovementModel=MovementModel.Parkour};
+        check(LobbyRules.ValidateDefinition(parkour,out _)==LobbyResultCode.Ok
+            &&MovementModelRules.FromRules(parkour.Rules)==MovementModel.Parkour,
+            "Parkour movement and explicit M7 availability coexist under native Hunter abilities");
         foreach(var invalid in new[]{requested with{Mode=GameMode.Survival},requested with{Mode=GameMode.BattleTeams},
             requested with{InstaGib=true},requested with{OneInTheChamber=true},requested with{NoImperialist=true},
             requested with{BalancedMode=true},requested with{EnhancedHunters=true}})
@@ -100,7 +104,7 @@ internal static class CustomMatchPolicyChecks
         var commandBytes=new byte[LobbyCommandPacket.Size];command.Write(commandBytes);
         check(LobbyCommandPacket.TryRead(commandBytes,out var parsed)&&parsed.Configuration.Match==requested,
             "protocol70 UpdateMatch carries availability for subsequent lobby/readiness admission");
-        foreach(int bit in Enumerable.Range(19,13))
+        foreach(int bit in Enumerable.Range(20,12))
         {
             byte[] invalid=Bytes(Native);
             BinaryPrimitives.WriteUInt32LittleEndian(invalid.AsSpan(SessionStatePacket.Protocol28Size),17u|(1u<<bit));
@@ -324,7 +328,7 @@ internal static class CustomMatchPolicyChecks
                     "shared custom policy retains each native-validated movement model: "+model+" online="+online);
             check(!CustomWeaponMatchPolicy.TryAdmit(GameMode.Battle,0,online,-1,out reason)&&reason.Length>0,
                 "negative bot counts fail closed: online="+online);
-            foreach(int bit in Enumerable.Range(19,13))
+            foreach(int bit in Enumerable.Range(20,12))
                 check(!CustomWeaponMatchPolicy.TryAdmit(GameMode.Battle,(MatchModifierFlags)(1u<<bit),online,0,out reason),
                     "shared policy refuses unknown modifier bit: "+bit+" online="+online);
             check(!CustomWeaponMatchPolicy.TryAdmit(GameMode.Battle,

@@ -3055,6 +3055,7 @@ namespace MphRead.Entities
                     _walkSfxIndex = 0;
                 }
             }
+            ModCompleteTuckContact();
             WallClingAfterCollision();
             bool burning = false;
             if (_health > 0 && (_burnTimer > 0 || Hunter != Hunter.Spire

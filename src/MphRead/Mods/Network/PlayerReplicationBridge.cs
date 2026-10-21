@@ -292,6 +292,9 @@ namespace MphRead.Mods.Network
             if (c.Jump.IsDown) buttons |= IntentButtons.Jump;
             if (c.Crouch.IsDown) buttons |= IntentButtons.Crouch;
             if (player.ModCrouched) buttons |= IntentButtons.CrouchedState;
+            if (player.ModTucked) buttons |= IntentButtons.TuckedState;
+            if (player.OwningScene.GameState.MovementModel == Mods.Movement.MovementModel.Parkour)
+                buttons |= (IntentButtons)((uint)player.ModTuckRebases << 25);
             if (c.Morph.IsDown) buttons |= IntentButtons.Morph;
             if (c.Boost.IsDown) buttons |= IntentButtons.Boost;
             if (c.AltAttack.IsDown) buttons |= IntentButtons.AltAttack;
@@ -429,7 +432,8 @@ namespace MphRead.Mods.Network
         /// </summary>
         private const IntentButtons PressedButtons = ~(IntentButtons.ZoomedState
             | IntentButtons.AltFormState | IntentButtons.InPlayState
-            | IntentButtons.SpectatingState | IntentButtons.ReadyState | IntentButtons.CrouchedState | IntentButtons.Crouch);
+            | IntentButtons.SpectatingState | IntentButtons.ReadyState | IntentButtons.CrouchedState | IntentButtons.Crouch
+            | IntentButtons.TuckedState | IntentButtons.TuckRebaseMask);
 
         /// <summary>Newest press frame already applied, per slot.</summary>
         private readonly uint[] _lastPressFrame = new uint[PlayerEntity.SlotCapacity];
@@ -542,6 +546,15 @@ namespace MphRead.Mods.Network
             Set(c.Jump, ((intent.Buttons & IntentButtons.Jump) == IntentButtons.Jump), ((missed & IntentButtons.Jump) == IntentButtons.Jump));
             Set(c.Crouch, (intent.Buttons & IntentButtons.Crouch) != 0, false);
             Set(c.Morph, ((intent.Buttons & IntentButtons.Morph) == IntentButtons.Morph), ((missed & IntentButtons.Morph) == IntentButtons.Morph));
+            // Modern passive worlds have a canonical accepted form. Replaying
+            // the owner's earlier request can start an unaccepted transition
+            // between snapshots and erase the recorded crouch/tuck body. The
+            // edge history was consumed above; only accepted form samples may
+            // start a transition here. Preserve older reconstruction contracts.
+            if (_host.IsReplica && _authorityForms[player.SlotIndex].Known
+                && player.OwningScene.Services is ReplaySceneServices replay
+                && replay.Session.Metadata?.ProtocolVersion >= 77)
+                Set(c.Morph, false, false);
             if (c.Morph.IsPressed)
             {
                 Log($"slot {player.SlotIndex} morph press received, now {player.ModFormState()}");
@@ -621,7 +634,8 @@ namespace MphRead.Mods.Network
             if (_host.IsAuthority)
             {
                 ApplyForm(player, ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
-                player.ModAdmitReportedCrouch(c.Crouch.IsDown, (intent.Buttons & IntentButtons.CrouchedState) != 0);
+                player.ModAdmitReportedCrouch(c.Crouch.IsDown, (intent.Buttons & IntentButtons.CrouchedState) != 0,
+                    (intent.Buttons & IntentButtons.TuckedState) != 0);
             }
             // And what this player's next shot is worth, from the one machine
             // that knows -- charge, ram, double damage, the Prime Hunter
@@ -892,7 +906,7 @@ namespace MphRead.Mods.Network
                 if (!state.HalfturretActive) player.OnHalfturretDied();
             }
             player.ModSetFrozen((state.Flags & PlayerState.FlagFrozen) != 0);
-            player.ModApplyReplicatedCrouch(state.Crouched, isLocal && !fresh);
+            player.ModApplyReplicatedCrouch(state.Crouched, isLocal && !fresh, state.Tucked);
             ApplyAfflictions(player, state);
             if (formWasNew && !waitingForForm && _authorityForms[slot].Known
                 && _authorityForms[slot].State.Frame == state.Form.Frame)
@@ -1176,7 +1190,8 @@ namespace MphRead.Mods.Network
             }
             Vector3 reported = InForm(player, intent.Position,
                 ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
-            NoteReportedVelocity(player, reported, intent.Frame);
+            NoteReportedVelocity(player, reported, intent.Frame,
+                (byte)(((uint)intent.Buttons & (uint)IntentButtons.TuckRebaseMask) >> 25));
             Vector3 delta = reported - player.Position;
             float distance = delta.Length;
             if (distance > SnapDistance)
@@ -1286,6 +1301,7 @@ namespace MphRead.Mods.Network
         private readonly Vector3[] _lastReportPosition = new Vector3[PlayerEntity.SlotCapacity];
         private readonly uint[] _lastReportFrame = new uint[PlayerEntity.SlotCapacity];
         private readonly bool[] _reportSeen = new bool[PlayerEntity.SlotCapacity];
+        private readonly byte[] _lastTuckRebase = new byte[PlayerEntity.SlotCapacity];
 
         /// <summary>
         /// How fast a puppet is travelling, worked out from the positions its
@@ -1303,7 +1319,7 @@ namespace MphRead.Mods.Network
         /// stays right when a packet goes missing and the next one covers
         /// four frames instead of two.
         /// </summary>
-        private void NoteReportedVelocity(PlayerEntity player, Vector3 reported, uint frame)
+        private void NoteReportedVelocity(PlayerEntity player, Vector3 reported, uint frame, byte tuckRebase)
         {
             int slot = player.SlotIndex;
             if (slot < 0 || slot >= _lastReportFrame.Length)
@@ -1317,8 +1333,11 @@ namespace MphRead.Mods.Network
                 // is as wrong as dividing by one.
                 uint elapsed = Math.Min(unchecked(frame - _lastReportFrame[slot]), 8);
                 Vector3 travelled = reported - _lastReportPosition[slot];
+                bool validPivot = true;
+                if (player.OwningScene.GameState.MovementModel == Mods.Movement.MovementModel.Parkour)
+                    travelled = Mods.Movement.ParkourStance.PhysicalTravel(travelled, _lastTuckRebase[slot], tuckRebase, out validPivot);
                 float step = travelled.Length;
-                if (!Sane(travelled) || step > SnapDistance)
+                if (!validPivot || !Sane(travelled) || step > SnapDistance)
                 {
                     // Not movement: a respawn, a teleporter, or a gap in the
                     // packets. Dividing a jump across the level by two frames
@@ -1350,6 +1369,7 @@ namespace MphRead.Mods.Network
                 _reportSeen[slot] = true;
                 _lastReportFrame[slot] = frame;
                 _lastReportPosition[slot] = reported;
+                _lastTuckRebase[slot] = tuckRebase;
             }
         }
 

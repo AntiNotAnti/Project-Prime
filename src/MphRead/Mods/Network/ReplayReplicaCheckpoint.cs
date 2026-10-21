@@ -135,12 +135,13 @@ internal sealed partial class ReplayReplicaState
                 {
                     var value = PlayerState.Read(Read(PlayerState.Size));
                     if (protocol < 69) value.Crouched = false;
+                    if (protocol < 77) value.Tucked = false;
                     return value;
                 }
                 byte[] upgraded = new byte[PlayerState.Size];
                 Read(protocol >= 29 ? PlayerState.Protocol48Size : PlayerState.LegacySize).CopyTo(upgraded, 0);
                 if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
-                var historical = PlayerState.Read(upgraded); historical.Crouched = false; return historical;
+                var historical = PlayerState.Read(upgraded); historical.Crouched = historical.Tucked = false; return historical;
             }
             bool Flag()
             {
@@ -198,6 +199,7 @@ internal sealed partial class ReplayReplicaState
                 restored._hasPlayer[i] = Flag(); restored._players[i] = ReadPlayer();
                 restored._hasIntent[i] = Flag(); restored._intents[i] = IntentPacket.Read(Read(layout.IntentBytes));
                 if (protocol < 69) restored._intents[i].Buttons &= ~(IntentButtons.Crouch | IntentButtons.CrouchedState);
+                if (protocol < 77) restored._intents[i].Buttons &= ~(IntentButtons.TuckedState | IntentButtons.TuckRebaseMask);
                 restored._intentReceivedFrame[i] = reader.ReadUInt32();
                 if (restored._lives[i].Generation != restored._roster[i].Generation
                     || restored._hasPlayer[i] && (!restored.MatchesLife(i, restored._players[i].SlotGeneration, restored._players[i].LifeId)

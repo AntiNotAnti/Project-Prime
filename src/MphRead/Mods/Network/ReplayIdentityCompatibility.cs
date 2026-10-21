@@ -21,7 +21,43 @@ internal static class ReplayIdentityCompatibility
         => protocol >= OldestReplayProtocol && protocol < NetConfig.ProtocolVersion;
 
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
-        => NormalizeLegacyStance(ConvertCore(packet, protocol), protocol);
+        => NormalizeLegacyTuck(NormalizeLegacyStance(ConvertCore(packet, protocol), protocol), protocol);
+
+    private static ReadOnlySpan<byte> NormalizeLegacyTuck(ReadOnlySpan<byte> packet, int protocol)
+    {
+        if (protocol >= 77 || packet.IsEmpty) return packet;
+        PacketType type = (PacketType)packet[0];
+        if (type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int at = (type == PacketType.Intent ? 1 : 2) + 4;
+            Require(packet.Length >= at + 4);
+            uint bits = BinaryPrimitives.ReadUInt32LittleEndian(packet[at..]);
+            if ((bits & (uint)(IntentButtons.TuckedState | IntentButtons.TuckRebaseMask)) == 0) return packet;
+            byte[] normalized = packet.ToArray();
+            BinaryPrimitives.WriteUInt32LittleEndian(normalized.AsSpan(at),
+                bits & ~(uint)(IntentButtons.TuckedState | IntentButtons.TuckRebaseMask));
+            return normalized;
+        }
+        if (type is PacketType.Snapshot or PacketType.SnapshotFast)
+        {
+            Require(packet.Length >= 1 + SnapshotHeader.Size);
+            var header = SnapshotHeader.Read(packet[1..]);
+            Require(header.PlayerCount <= 8);
+            bool fast = type == PacketType.SnapshotFast;
+            int stride = fast ? SnapshotFast.PlayerSize : PlayerState.Size;
+            int auxiliary = 54 + DamageEvent.Size * PlayerState.DamageHistory - (fast ? 7 : 0);
+            Require(packet.Length >= 1 + SnapshotHeader.Size + stride * header.PlayerCount);
+            bool found = false;
+            for (int i = 0; i < header.PlayerCount; i++)
+                found |= (packet[1 + SnapshotHeader.Size + stride * i + auxiliary] & 8) != 0;
+            if (!found) return packet;
+            byte[] normalized = packet.ToArray();
+            for (int i = 0; i < header.PlayerCount; i++)
+                normalized[1 + SnapshotHeader.Size + stride * i + auxiliary] &= 0xf7;
+            return normalized;
+        }
+        return packet;
+    }
 
     // Protocol71 selects newer live movement policy through metadata attribution;
     // protocol70 packets retain the same native bytes and original stance semantics.
@@ -285,6 +321,18 @@ internal static class ReplayIdentityCompatibility
         {
             Require(converted.Length == 1 + SessionStatePacket.Size);
             Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 131072u) == 0);
+        }
+        // Parkour's rule bit was reserved through protocol76. Older archives
+        // cannot select the protocol77 movement contract.
+        if (protocol < 77 && type == PacketType.MatchState)
+        {
+            Require(converted.Length == 1 + MatchStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & 524288u) == 0);
+        }
+        if (protocol < 77 && type == PacketType.SessionState)
+        {
+            Require(converted.Length == 1 + SessionStatePacket.Size);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 524288u) == 0);
         }
         // M7 availability was reserved through protocol 69. Its live activation
         // does not add custom replay support: refuse this rule in every archive

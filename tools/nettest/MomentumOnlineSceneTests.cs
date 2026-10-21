@@ -107,7 +107,7 @@ internal static class MomentumOnlineSceneTests
             player.Controls.MoveUp.Key = Keys.W; player.Controls.MoveDown.Key = Keys.S;
             player.Controls.MoveRight.Key = Keys.D; player.Controls.Jump.Key = Keys.Space; player.Controls.Shoot.Key = Keys.Enter;
             player.Controls.Morph.Key = Keys.Tab;
-            if (expected == MovementModel.Traversal) player.Controls.Crouch.Key = Keys.LeftControl;
+            if (expected is MovementModel.Traversal or MovementModel.Parkour) player.Controls.Crouch.Key = Keys.LeftControl;
             player.Controls.MouseAim = false; player.Controls.KeyboardAim = true;
             var set = typeof(KeyboardState).GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
             NetSession.MarkMatchLoaded();
@@ -131,12 +131,14 @@ internal static class MomentumOnlineSceneTests
             int ownerCrouchHeldTicks = 0, ownerCrouchedTicks = 0, ownerStandingTicks = 0, ownerStanceChanges = 0;
             int ownerVisualWalkTicks = 0, ownerVisualSlideTicks = 0, ownerPhysicalSlideTicks = 0;
             int remoteVisualWalkTicks = 0, remoteVisualSlideTicks = 0;
+            int ownerTuckedTicks = 0, ownerTuckedIntentPackets = 0, ownerCanonicalTuckedSnapshots = 0;
+            int remoteCanonicalTuckedSnapshots = 0, remoteTuckedPoseChecks = 0;
             bool traversalLowTravelScript = expected == MovementModel.Traversal && touch == null;
             int ownerHeldIntentPackets = 0, ownerCrouchedIntentPackets = 0, remoteHeldIntentPackets = 0;
             int ownerCanonicalCrouchedSnapshots = 0, ownerCanonicalStandingSnapshots = 0;
             int remoteCanonicalCrouchedSnapshots = 0, remoteCanonicalStandingSnapshots = 0, remoteCrouchedPoseChecks = 0;
             bool previousOwnerCrouched = player.ModCrouched;
-            if (expected == MovementModel.Traversal)
+            if (expected is MovementModel.Traversal or MovementModel.Parkour)
             {
                 stanceObserver = record =>
                 {
@@ -149,6 +151,7 @@ internal static class MomentumOnlineSceneTests
                         {
                             if ((accepted.Buttons & IntentButtons.Crouch) != 0) ownerHeldIntentPackets++;
                             if ((accepted.Buttons & IntentButtons.CrouchedState) != 0) ownerCrouchedIntentPackets++;
+                            if ((accepted.Buttons & IntentButtons.TuckedState) != 0) ownerTuckedIntentPackets++;
                         }
                         else if ((accepted.Buttons & IntentButtons.Crouch) != 0) remoteHeldIntentPackets++;
                     }
@@ -163,10 +166,12 @@ internal static class MomentumOnlineSceneTests
                             if (canonical.SlotIndex == localSlot)
                             {
                                 if (canonical.Crouched) ownerCanonicalCrouchedSnapshots++; else ownerCanonicalStandingSnapshots++;
+                                if (canonical.Tucked) ownerCanonicalTuckedSnapshots++;
                             }
                             else if (canonical.SlotIndex < NetSession.SlotIsBot.Length && !NetSession.SlotIsBot[canonical.SlotIndex])
                             {
                                 if (canonical.Crouched) remoteCanonicalCrouchedSnapshots++; else remoteCanonicalStandingSnapshots++;
+                                if (canonical.Tucked) remoteCanonicalTuckedSnapshots++;
                             }
                         }
                     }
@@ -232,7 +237,7 @@ internal static class MomentumOnlineSceneTests
                         set(keyboard, Keys.S, phase >= 96 && phase < 144);
                     }
                 }
-                bool heldHopModel = expected is MovementModel.Quake3 or MovementModel.Traversal;
+                bool heldHopModel = expected is MovementModel.Quake3 or MovementModel.Traversal or MovementModel.Parkour;
                 bool heldHopScript = heldHopModel && acceptanceOptions != null;
                 set(keyboard, Keys.Space, !dedicatedLowTravel
                     && (heldHopScript ? phase >= 30 && phase < 192 : tick % 90 == 30));
@@ -241,17 +246,22 @@ internal static class MomentumOnlineSceneTests
                 set(keyboard, Keys.Tab, replayPath != null && (traversalLowTravelScript
                     ? traversalCycle == 0 && phase is 160 or 220
                     : tick % 600 is 220 or 350));
-                if (expected == MovementModel.Traversal)
+                if (expected is MovementModel.Traversal or MovementModel.Parkour)
                     set(keyboard, Keys.LeftControl, dedicatedLowTravel
                         ? phase < 160 && (traversalCycle == 1 || phase >= 60)
                         : phase >= 160 && phase < 200);
+                if (expected == MovementModel.Parkour && touch == null)
+                {
+                    set(keyboard, Keys.Space, phase is >= 30 and < 192);
+                    set(keyboard, Keys.LeftControl, phase is >= 48 and < 110);
+                }
                 ushort padMinBefore = acceptanceOptions == null ? (ushort)0
                     : (ushort)typeof(PlayerEntity).GetField("_jumpPadControlLockMin", Hidden)!.GetValue(player)!;
                 object? jumpBypassBefore = acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected) && tick % 90 == 30
                     ? MomentumBypassEvidence(scene, player) : null;
                 long before = scene.DeveloperMomentumSteps; ulong frame = scene.FrameCount;
                 Vector3 ownerPositionBefore = player.Position, ownerSpeedBefore = player.Speed;
-                float expectedRampLift = expected == MovementModel.Traversal
+                float expectedRampLift = expected is MovementModel.Traversal or MovementModel.Parkour
                     ? ExpectedTraversalRampLift(scene, player) : 0;
                 float allowedJumpImpulse = Fixed.ToFloat(player.Values.JumpSpeed) + expectedRampLift;
                 bool newGroundContactBefore = player.Flags1.TestFlag(PlayerFlags1.Standing)
@@ -259,11 +269,12 @@ internal static class MomentumOnlineSceneTests
                 uint ownerNetFrameBefore = NetSession.NetFrame;
                 object? ownerGatesBefore = acceptanceOptions != null ? MomentumBypassEvidence(scene, player) : null;
                 scene.OnSimulationFrame(); CheckConnection();
-                if (expected == MovementModel.Traversal)
+                if (expected is MovementModel.Traversal or MovementModel.Parkour)
                 {
                     if (player.Controls.Crouch.IsDown) ownerCrouchHeldTicks++;
                     if (player.ModCrouched) ownerCrouchedTicks++;
                     else if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing) ownerStandingTicks++;
+                    if (player.ModTucked) ownerTuckedTicks++;
                     if (player.ModCrouched != previousOwnerCrouched) ownerStanceChanges++;
                     previousOwnerCrouched = player.ModCrouched;
                     if (player.ModSliding) ownerPhysicalSlideTicks++;
@@ -316,7 +327,8 @@ internal static class MomentumOnlineSceneTests
                         incoming = GroundSlopeMovement.Flatten(sample.NativeVelocityBefore) * 30;
                     var result = expected switch
                     {
-                        MovementModel.Traversal => TraversalMovementProfileV4.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
+                        MovementModel.Traversal => TraversalMovementProfileV5.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
+                        MovementModel.Parkour => ParkourMovementProfileV1.Step(incoming, sample.Input, sample.Crouched, sample.Sliding),
                         MovementModel.Quake3 => Quake3MovementProfileV3.Step(incoming, sample.Input),
                         MovementModel.Momentum => MomentumProfileV1.Step(incoming, sample.Input),
                         _ => throw new InvalidOperationException("Classic must not reach the horizontal solver.")
@@ -400,7 +412,7 @@ internal static class MomentumOnlineSceneTests
                         || remote.IsBot || NetSession.SlotIsBot[slot] || remote.Health == 0 || !remote.LoadFlags.TestFlag(LoadFlags.Active)) continue;
                     Require(NetHooks.IsPuppet(remote) && !scene.MomentumOwnsPlayer(remote), "actual remote human has no local movement ownership");
                     Require(Finite(remote.Position) && Finite(remote.Speed), "actual remote collision body remains finite");
-                    if (expected == MovementModel.Traversal && NetSession.RemoteStateValid[slot])
+                    if ((expected is MovementModel.Traversal or MovementModel.Parkour) && NetSession.RemoteStateValid[slot])
                     {
                         var canonical = NetSession.RemoteStates[slot];
                         if (canonical.SlotGeneration == NetPlayerLifecycle.Generation(slot)
@@ -411,9 +423,11 @@ internal static class MomentumOnlineSceneTests
                             Require(remote.ModCrouched == canonical.Crouched && remote.ModCollisionCrouched == canonical.Crouched,
                                 "actual remote biped collision stance equals received authority snapshot");
                             if (canonical.Crouched) remoteCrouchedPoseChecks++;
+                            Require(remote.ModTucked == canonical.Tucked, "remote tuck equals authority snapshot");
+                            if (canonical.Tucked) remoteTuckedPoseChecks++;
                         }
                     }
-                    if (expected == MovementModel.Traversal)
+                    if (expected is MovementModel.Traversal or MovementModel.Parkour)
                         ObserveLowTravel(remote, ref remoteVisualWalkTicks, ref remoteVisualSlideTicks);
                     remoteSlots.Add(slot);
                     if (previousRemote.TryGetValue(slot, out Vector3 prior) && (remote.Position - prior).Length > .001f) remoteMoving++;
@@ -435,10 +449,14 @@ internal static class MomentumOnlineSceneTests
             Require(impulses > 0 && airborneTicks > 0 && landings > 0, "actual native legal jump, airborne interval and collision landing");
             if (acceptanceOptions != null && MovementModelRules.UsesMomentumSolver(expected))
                 Require(acceptedMomentumJumps > 0, "extended match earns actual native accepted jump samples");
-            if (acceptanceOptions != null && expected is MovementModel.Quake3 or MovementModel.Traversal)
+            if (acceptanceOptions != null && expected is MovementModel.Quake3 or MovementModel.Traversal or MovementModel.Parkour)
                 Require(acceptedHeldHops > 0, "live selected contact-hop model earns held hops from actual new ground contacts");
             Require(remoteSlots.Count > 0 && remoteMoving > 0, "actual other UDP human including late join is observed moving");
-            if (expected == MovementModel.Traversal)
+            if (expected == MovementModel.Parkour)
+                Require(ownerTuckedTicks > 0 && ownerTuckedIntentPackets > 0 && ownerCanonicalTuckedSnapshots > 0
+                    && remoteCanonicalTuckedSnapshots > 0 && remoteTuckedPoseChecks > 0,
+                    "Parkour tuck crosses real owner input, accepted intents, authority snapshots and remote geometry");
+            if (expected is MovementModel.Traversal or MovementModel.Parkour)
                 Require(ownerCrouchHeldTicks > 0 && ownerCrouchedTicks > 0 && ownerStandingTicks > 0 && ownerStanceChanges >= 2
                     && ownerHeldIntentPackets > 0 && ownerCrouchedIntentPackets > 0 && remoteHeldIntentPackets > 0
                     && ownerCanonicalCrouchedSnapshots > 0 && ownerCanonicalStandingSnapshots > 0
@@ -485,12 +503,13 @@ internal static class MomentumOnlineSceneTests
                 ownerCrouchHeldTicks, ownerCrouchedTicks, ownerStandingTicks, ownerStanceChanges,
                 requireLowTravelActivation, ownerVisualWalkTicks, ownerVisualSlideTicks, ownerPhysicalSlideTicks,
                 remoteVisualWalkTicks, remoteVisualSlideTicks,
+                ownerTuckedTicks, ownerTuckedIntentPackets, ownerCanonicalTuckedSnapshots, remoteCanonicalTuckedSnapshots, remoteTuckedPoseChecks,
                 ownerHeldIntentPackets, ownerCrouchedIntentPackets, remoteHeldIntentPackets,
                 ownerCanonicalCrouchedSnapshots, ownerCanonicalStandingSnapshots,
                 remoteCanonicalCrouchedSnapshots, remoteCanonicalStandingSnapshots, remoteCrouchedPoseChecks,
                 crouchSchedule = traversalLowTravelScript
                     ? "720 fixed steps repeated: cycle 0 retains W/D/S and hop coverage, Ctrl 160..199; cycle 1 Ctrl 0..159 with W 30..159; cycle 2 W 0..159 with fresh Ctrl 60..159; no jumps in cycles1/2; recording form edges confined to cycle 0 phase160/220; production input only"
-                    : expected == MovementModel.Traversal ? "Ctrl held at ticks160..199 of each240-tick touch cycle; production input, no stance/shape/velocity writes" : null,
+                    : expected is MovementModel.Traversal or MovementModel.Parkour ? "Ctrl held at ticks160..199 of each240-tick touch cycle; production input, no stance/shape/velocity writes" : null,
                 inputSource = touchModel ? "linked production Android TouchControls + explicit GameView digital keyboard boundary" : "synthetic keyboard",
                 touchSamples, touchDirectionalSamples, touchDiagonalSamples, touchReleases,
                 touchSchedule = touchModel ? "240 fixed steps: 48 up, 48 up-right, 48 down, 48 up-left, 48 released; native keyboard jump every 90 steps at phase30" : null,

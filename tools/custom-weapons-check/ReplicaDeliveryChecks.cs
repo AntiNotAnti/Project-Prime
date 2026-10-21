@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using MphRead;
 using MphRead.Mods.CustomWeapons;
 using MphRead.Mods.Network;
+using MphRead.Mods.Movement;
 using OpenTK.Mathematics;
 
 // Pure recipient codecs/assembly/delivery. Values below are supplied fixtures,
@@ -110,8 +111,21 @@ internal static class ReplicaDeliveryChecks
             && CustomReplicaCodec.TryReadEvent(f.Wire,bytes,out var read) && read.Launch == expected
             && read.Launch.Source.Crouched && read.Launch.Source.MuzzleOrigin == expected.Origin,
             "replica launch roundtrips retained crouch in spare source bit3 at the unchanged171-byte width");
-        bytes[CustomReplicaCodec.EventPrefix+142] |= 16;
-        check(!CustomReplicaCodec.TryReadEvent(f.Wire,bytes,out _),"replica source bits above the declared stance/modifier nibble refuse");
+        var tucked = source with { Tucked = true };
+        tucked = tucked with { Action = tucked.Action with { Origin = tucked.MuzzleOrigin } };
+        var tuckedExpected = expected with { Source = tucked, Origin = tucked.MuzzleOrigin };
+        var tuckedBytes = Event(f,new(CustomReplicaKind.Launch,1,tuckedExpected.World,tuckedExpected,default));
+        check(tuckedBytes.Length == CustomReplicaCodec.EventPrefix + 171
+            && tuckedBytes[CustomReplicaCodec.EventPrefix+142] == 25
+            && CustomReplicaCodec.TryReadEvent(f.Wire,tuckedBytes,out var tuckedRead)
+            && tuckedRead.Launch == tuckedExpected && tuckedRead.Launch.Source.Tucked
+            && (tucked.MuzzleOrigin - source.MuzzleOrigin - Vector3.UnitY * ParkourStance.TuckRise).Length < .00001f,
+            "replica launch roundtrips tuck in bit4 and applies the shared stance offset");
+        var malformed = tuckedBytes.ToArray(); malformed[CustomReplicaCodec.EventPrefix+142] &= 0xf7;
+        check(!CustomReplicaCodec.TryReadEvent(f.Wire,malformed,out _),
+            "replica launch refuses tucked source without accepted crouch");
+        bytes[CustomReplicaCodec.EventPrefix+142] |= 32;
+        check(!CustomReplicaCodec.TryReadEvent(f.Wire,bytes,out _),"replica source bits above the declared stance/modifier mask refuse");
     }
     private static void UnknownEmission(Action<bool,string> check)
     {

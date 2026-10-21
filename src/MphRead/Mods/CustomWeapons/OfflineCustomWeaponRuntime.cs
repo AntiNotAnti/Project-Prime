@@ -249,7 +249,7 @@ internal sealed partial class OfflineCustomWeaponRuntime : IDisposable
         try
         {
             // A finite engine-owned muzzle, never an arbitrary creator/client point.
-            var origin = player.Position + Vector3.UnitY * TraversalStance.CustomMuzzleOffset(player.ModCrouched);
+            var origin = player.Position + Vector3.UnitY * (TraversalStance.CustomMuzzleOffset(player.ModCrouched) + (player.ModTucked ? ParkourStance.TuckRise : 0));
             var flags = BeamSpawnFlags.NoMuzzle;
             if (player.DoubleDamage) flags |= BeamSpawnFlags.DoubleDamage;
             else if (player.IsPrimeHunter) flags |= BeamSpawnFlags.PrimeHunter;

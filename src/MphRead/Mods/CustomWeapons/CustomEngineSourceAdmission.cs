@@ -67,7 +67,7 @@ internal sealed class CustomEngineSourceAdmission : ICustomSourceAdmission
         if (action.Kind != CustomWeaponActionKind.Fire)
         {
             certificate = new(action,sample.ObservedWorldFrame,sample.ObservedWorldFrame,0,
-                sample.Body,sample.Aim,sample.CanUseWeapon,false,false,sample.Crouched);
+                sample.Body,sample.Aim,sample.CanUseWeapon,false,false,sample.Crouched,sample.Tucked);
             return CustomSourceDecision.Verified;
         }
         uint now = NetSession.NetFrame;
@@ -102,7 +102,7 @@ internal sealed class CustomEngineSourceAdmission : ICustomSourceAdmission
         if (!NetDynamicGeometryHistory.TryTraceDistanceAtFrame(scene,start,muzzle,world,out float distance)
             || distance < .999f) return CustomSourceDecision.Rejected;
         certificate = new(action,sample.ObservedWorldFrame,action.AckFrame,action.AckSubFrame,
-            sample.Body,sample.Aim,true,sample.Modifiers.DoubleKnowledge == TimedGrantKnowledge.Granted,false,sample.Crouched);
+            sample.Body,sample.Aim,true,sample.Modifiers.DoubleKnowledge == TimedGrantKnowledge.Granted,false,sample.Crouched,sample.Tucked);
         return CustomSourceDecision.Verified;
     }
 }

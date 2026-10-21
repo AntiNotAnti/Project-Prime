@@ -1710,7 +1710,7 @@ namespace MphRead.Mods.Network
             }
             bool quake3SelfRocket = victimSlot == shooterSlot
                 && (claim.Beam == (byte)BeamType.Missile || claim.Beam == (byte)BeamType.Magmaul
-                    && matchRules.MovementModel == Movement.MovementModel.Traversal)
+                    && (matchRules.MovementModel is Movement.MovementModel.Traversal or Movement.MovementModel.Parkour))
                 && (claim.Flags & HitClaimPacket.FlagDirect) == 0
                 && PlayerEntity.Players[shooterSlot].OwningScene.Quake3TechniquesActive;
             if (!(quake3SelfRocket ? ValidQuake3RocketCandidate(claim.Direction)

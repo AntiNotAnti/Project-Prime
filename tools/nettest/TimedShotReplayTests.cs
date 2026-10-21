@@ -288,6 +288,59 @@ internal static class TimedShotReplayTests
             Check(refused, "old format cannot advertise timed certificates");
         }
     }
+    private static void LiveIntentSeed()
+    {
+        var recorder = new ReplayRecorder { ProducesWorldCheckpoints = true };
+        var match = SeedMatch(); match.RuleBits = (uint)MatchModifierFlags.ParkourMovement;
+        recorder.AcceptMatch(match, 97);
+        var roster = RosterPacket.Create();
+        roster.MatchId = 7; roster.AuthorityEpoch = 23; roster.Revision = 1; roster.Count = 1;
+        roster.Slots[0] = 0; roster.Generations[0] = 1; roster.Hunters[0] = (byte)Hunter.Samus;
+        roster.Names[0] = "SEED";
+        recorder.AcceptRoster(roster, 95);
+        byte[] snapshot = new byte[1 + SnapshotHeader.Size + PlayerState.Size
+            + NetMatchTimeSync.Size + NetHealthSync.HeaderSize];
+        snapshot[0] = (byte)PacketType.Snapshot;
+        new SnapshotHeader { MatchId = 7, AuthorityEpoch = 23, Frame = 1, PlayerCount = 1 }
+            .Write(snapshot.AsSpan(1));
+        new PlayerState { SlotIndex = 0, SlotGeneration = 1, LifeId = 1, Health = 99,
+            Flags = PlayerState.FlagActive | PlayerState.FlagSpawned, Facing = Vector3.UnitZ,
+            Crouched = true, Tucked = true }.Write(snapshot.AsSpan(1 + SnapshotHeader.Size));
+        BinaryPrimitives.WriteUInt16LittleEndian(snapshot.AsSpan(1 + SnapshotHeader.Size
+            + PlayerState.Size + NetMatchTimeSync.Size), 7);
+        recorder.AcceptSnapshot(snapshot, 95, 1);
+        recorder.AcceptIntent(0, new IntentPacket { MatchId = 7, AuthorityEpoch = 23,
+            SlotGeneration = 1, LifeId = 1, Frame = 97,
+            Buttons = IntentButtons.InPlayState | IntentButtons.Crouch | IntentButtons.CrouchedState | IntentButtons.TuckedState }, 97);
+        var records = new System.Collections.Generic.List<ReplayTimelineRecord>();
+        recorder.SeedWorld(record => { record.Retain(); records.Add(record); });
+        try
+        {
+            var broken = new ReplayReplicaState();
+            foreach (var record in records) if (!record.Payload.IsEmpty) broken.Accept(record.Payload, record.RecordingFrame);
+            Check(broken.RecordingFrame == 95 && broken.MatchRecordingFrame == 97
+                && broken.TryGetIntent(0, out var intent) && intent.Frame == 97,
+                "actual cached seed reproduces newer match/intent followed by older baseline");
+            bool refused = false;
+            try { new ReplayReplicaState().RestoreCheckpoint(broken.CaptureCheckpoint()); }
+            catch (InvalidDataException) { refused = true; }
+            Check(refused, "backward intent frontier remains rejected by the strict decoder");
+            var seeded = new ReplayReplicaState();
+            ReplayLiveWorld.SeedBootstrap(seeded, records, 98);
+            var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(seeded.CaptureCheckpoint());
+            Check(restored.RecordingFrame == 98 && restored.MatchRecordingFrame == 97
+                && restored.ServerTick == 1 && restored.IntentAge(0) == 1
+                && restored.TryGetIntent(0, out var copy) && copy.Frame == 97
+                && restored.TryGetPlayer(0, out var player) && player.Crouched && player.Tucked,
+                "live seed repairs only recording frontier, preserving accepted life, tucked shape and authority/source clocks");
+        }
+        finally
+        {
+            foreach (var record in records) record.Release();
+            recorder.Reset();
+        }
+    }
+
     private static MatchStatePacket SeedMatch() => new()
         { AuthorityEpoch = 23, MatchId = 7, RoomKey = "fixture-room", Mode = (byte)GameMode.Battle };
     private static void ConstructionSeeds()
@@ -302,6 +355,23 @@ internal static class TimedShotReplayTests
         try { new ReplayReplicaState().RestoreCheckpoint(broken.CaptureCheckpoint()); }
         catch (InvalidDataException) { refused = true; }
         Check(refused, "malformed recording frontier is rejected rather than weakening checkpoint validation");
+        var liveRecords = new System.Collections.Generic.List<ReplayTimelineRecord>();
+        recorder.SeedWorld(record => { record.Retain(); liveRecords.Add(record); });
+        try
+        {
+            var liveSeed = new ReplayReplicaState();
+            ReplayLiveWorld.SeedBootstrap(liveSeed, liveRecords, 999);
+            var liveCopy = new ReplayReplicaState(); liveCopy.RestoreCheckpoint(liveSeed.CaptureCheckpoint());
+            Check(liveCopy.RecordingFrame == 1000 && liveCopy.MatchRecordingFrame == 1000
+                && liveCopy.TimedShots.AuthorityFrame == 1000 && liveCopy.ServerTick == 0,
+                "live bootstrap commits complete cached frontier without advancing authority time");
+            ReplayLiveWorld.SeedBootstrap(liveSeed, Array.Empty<ReplayTimelineRecord>(), 1005);
+            liveCopy.RestoreCheckpoint(liveSeed.CaptureCheckpoint());
+            Check(liveCopy.RecordingFrame == 1005 && liveCopy.MatchRecordingFrame == 1000
+                && liveCopy.TimedShots.AuthorityFrame == 1000 && liveCopy.ServerTick == 0,
+                "quiet live bootstrap advances only recording time beyond older cached facts");
+        }
+        finally { foreach (var record in liveRecords) record.Release(); }
         var repaired = new ReplayReplicaState(); repaired.RestoreCheckpoint(recorder.CaptureTimedShotSeed(1000));
         Check(repaired.RecordingFrame == 1000 && repaired.MatchRecordingFrame == 1000
             && repaired.TimedShots.Enabled && repaired.TimedShots.AuthorityFrame == 1000,
@@ -375,7 +445,7 @@ internal static class TimedShotReplayTests
     internal static int Run()
     {
         _checks = 0;
-        try { Codec(); Retention(); Checkpoints(); ScopeRecords(); MetadataCodec(); ConstructionSeeds(); Console.WriteLine($"PASS: {_checks} pure timed-shot archival assertions. SCOPE: explicit storage fixtures; no native admission or visual fidelity claim."); return 0; }
+        try { Codec(); Retention(); Checkpoints(); ScopeRecords(); MetadataCodec(); ConstructionSeeds(); LiveIntentSeed(); Console.WriteLine($"PASS: {_checks} pure timed-shot archival assertions. SCOPE: explicit storage fixtures; no native admission or visual fidelity claim."); return 0; }
         catch (Exception error) { Console.Error.WriteLine(error); Console.Error.WriteLine("Completed checks: " + _checks); return 1; }
     }
 }

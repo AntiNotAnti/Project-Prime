@@ -1006,12 +1006,13 @@ namespace MphRead.Entities
         internal AltCollisionPose ModCaptureAltPose() => Hunter == Hunter.Kanden
             ? new(_kandenSegPos[1], _kandenSegPos[2], _kandenSegPos[3]) : default;
         internal HistoricalCollisionState ModCaptureCollisionState() => new(Position, PrevPosition,
-            _volume, _volumeUnxf, NodeRef, _modHistoricalCollisionForm, ModCaptureAltPose(), _modHistoricalCrouched);
+            _volume, _volumeUnxf, NodeRef, _modHistoricalCollisionForm, ModCaptureAltPose(), _modHistoricalCrouched, _modHistoricalTucked);
         internal void ModApplyHistoricalCollisionPose(in HistoricalPlayerPose pose)
         {
             Position = PrevPosition = pose.Position;
             _modHistoricalCollisionForm = pose.AltForm;
             _modHistoricalCrouched = !pose.AltForm && pose.Crouched;
+            _modHistoricalTucked = !pose.AltForm && pose.Crouched && pose.Tucked;
             _volumeUnxf = PlayerVolumes[(int)Hunter, pose.AltForm ? 2 : 0];
             _volume = CollisionVolume.Move(_volumeUnxf, Position);
             if (Hunter == Hunter.Kanden)
@@ -1027,6 +1028,7 @@ namespace MphRead.Entities
             _volume = state.Volume; _volumeUnxf = state.Untransformed; NodeRef = state.Node;
             _modHistoricalCollisionForm = state.Form;
             _modHistoricalCrouched = state.Crouched;
+            _modHistoricalTucked = state.Tucked;
             if (Hunter == Hunter.Kanden)
             {
                 _kandenSegPos[1] = state.Segments.Seg1;

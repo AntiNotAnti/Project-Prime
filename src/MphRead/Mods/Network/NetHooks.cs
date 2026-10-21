@@ -410,7 +410,8 @@ namespace MphRead.Mods.Network
                 NetTelemetry.ConsumedIntent(slot, NetSession.RemoteIntentAge(slot));
                 bool customControlled = player.OwningScene.PlayerReplication.TryApplyIntent(player, NetSession.RemoteIntents[slot]);
                 bool stanceMatches = player.ModCrouched
-                    == ((NetSession.RemoteIntents[slot].Buttons & IntentButtons.CrouchedState) != 0);
+                    == ((NetSession.RemoteIntents[slot].Buttons & IntentButtons.CrouchedState) != 0)
+                    && player.ModTucked == ((NetSession.RemoteIntents[slot].Buttons & IntentButtons.TuckedState) != 0);
                 customBiped = !player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing
                     && (NetSession.RemoteIntents[slot].Buttons & IntentButtons.AltFormState) == 0;
                 if (customPlaced && customControlled && stanceMatches)
