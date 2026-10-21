@@ -430,12 +430,13 @@ namespace MphRead.Mods.Network
             finally
             {
                 try { if (_transport != null) Shutdown((ushort)_transport.LocalPort); }
-                finally { _weaponPackages?.Dispose(); _weaponPackages = null; }
+                finally { ReleaseCustomReplayPackage(); _weaponPackages?.Dispose(); _weaponPackages = null; }
             }
         }
 
         private void RunCore(CancellationToken cancel)
         {
+            if (_authorityReplayPackages != null) ReplayCapture.AuthorityRecordingOwner = this;
             Telemetry.ProductionTelemetry.Configure(Telemetry.NetTelemetryConfig.Load());
             InitializeWaitlist();
             _transport = new NetTransport(_port);
@@ -883,6 +884,7 @@ namespace MphRead.Mods.Network
             _sim = null;
             Mods.RoomPrewarm.Clear();
             _weaponPackages?.Dispose(); _weaponPackages = null;
+            ReleaseCustomReplayPackage();
             NetHitClaims.CombatAckSink = null;
         }
 

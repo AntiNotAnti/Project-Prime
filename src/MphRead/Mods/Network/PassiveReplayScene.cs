@@ -157,6 +157,13 @@ namespace MphRead.Mods.Network
                 throw new InvalidDataException("Post-world Scene inspection requires an explicit format8 recipient archive.");
             return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
         }
+        internal static PassiveReplayScene OpenAuthorityPostWorldArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
+        {
+            if (prepared.FormatVersion != 8
+                || prepared.Resources.Descriptor.InspectContext().Bootstrap.OriginKind != ReplayCustomWeaponOriginKind.Authority)
+                throw new InvalidDataException("Authority post-world inspection requires its explicit format8 origin.");
+            return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
+        }
         private static PassiveReplayScene OpenPreparedCustomArchive(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget)
         {
             using var world = prepared.CopyWorld();

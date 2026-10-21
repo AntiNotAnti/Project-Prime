@@ -105,5 +105,8 @@ docs/implementation/rmlui-vfx-3-2026-10-20/lobby-holographic-ui.png
 
 # Licensed font atlases generated from the bundled TTFs; adjacent notices retained.
 src/MphRead/Assets/HudFonts/font[0-3][0-9].bin
+# Licensed Linux Libertine face exceeds the generic 2 MiB source-size limit;
+# font17-notice.txt and LibreOffice-bundled-font-licenses.txt retain its notices.
+src/MphRead/Assets/HudFonts/font17.ttf
 # User-supplied authored dual-screen presentation artwork/font, from v20.
 src/MphRead/Assets/DsHud/font.bin

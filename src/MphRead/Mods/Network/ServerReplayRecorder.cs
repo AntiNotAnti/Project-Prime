@@ -16,9 +16,11 @@ namespace MphRead.Mods.Network
         private static ReplayWritePump? _writer, _lastWriter;
         private static uint _origin;
         private static bool _pending;
+        private static bool _customAuthority;
         static ServerReplayRecorder()
         {
             ReplayCapture.Recorder.Accepted += Accept;
+            ReplayCapture.AuthorityPhaseAccepted += AcceptPhase;
             ReplayCapture.Recorder.CheckpointCaptured += checkpoint =>
             {
                 if (_writer == null || checkpoint.RecordingFrame <= _origin) return;
@@ -33,6 +35,9 @@ namespace MphRead.Mods.Network
             Paths.Export, "_demos", "server");
         public static bool Enabled => _policy.Enabled;
         public static bool IsRecording => _pending || _writer != null;
+        internal static bool IsCustomRecording => _customAuthority && IsRecording;
+        internal static System.Threading.Tasks.Task Completion => _lastWriter?.Completion ?? System.Threading.Tasks.Task.CompletedTask;
+        internal static string? LastRecordingPath { get; private set; }
         public static string? CurrentPath { get; private set; }
         private static string? _lastError;
         public static string? LastError => _lastError ?? _lastWriter?.Error?.Message;
@@ -55,9 +60,12 @@ namespace MphRead.Mods.Network
 
         public static bool Start(ReplayMetadata metadata)
         {
-            if (!ReplayCapture.CanStartLiveRecording(out var error)) { _lastError = error; return false; }
+            if (!ReplayCapture.CanStartServerRecording(out var error)) { _lastError = error; return false; }
             if (!_policy.Enabled) return false;
+            bool custom = CustomReplayBoundary.IsBlocked() && ReplayCapture.CustomAuthorityRecordingScope();
             Stop();
+            _customAuthority = custom;
+            if (custom) ReplayCapture.Recorder.RetireCustomWeaponFacts();
             _lastError = null; _lastWriter = null;
             try
             {
@@ -67,6 +75,7 @@ namespace MphRead.Mods.Network
                 string room = Sanitize(metadata.RoomKey.Length == 0 ? "match" : metadata.RoomKey);
                 CurrentPath = Path.Combine(ReplayDirectory,
                     $"{room}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss-fff}_{Guid.NewGuid():N}{DemoFile.Extension}");
+                LastRecordingPath = CurrentPath;
                 _pending = true;
                 Console.WriteLine($"[replay] canonical server recording: {CurrentPath}");
                 return true;
@@ -76,6 +85,7 @@ namespace MphRead.Mods.Network
             {
                 _lastError = ex.Message;
                 _writer = null;
+                _customAuthority = false;
                 CurrentPath = null;
                 Console.WriteLine($"[replay] canonical recording did not start: {ex.Message}");
                 return false;
@@ -86,6 +96,9 @@ namespace MphRead.Mods.Network
         {
             try
             {
+                if (IsCustomRecording && (!ReplayCapture.CustomAuthorityRecordingScope()
+                    || ReplayCapture.Recorder.CustomWeaponCaptureFailed || ReplayCapture.WorldCapture.LastError != null))
+                { InterruptCustomRecording("Authority custom recording lost its exact live capture scope."); return; }
                 if (_pending && ReplayCapture.WorldCapture.World is { } world)
                 {
                     _origin = world.Session.RecordingFrame;
@@ -101,21 +114,46 @@ namespace MphRead.Mods.Network
         }
         private static void Accept(ReplayTimelineRecord record)
         {
-            if (_writer == null) return;
+            if (_writer == null || _customAuthority) return;
             try { if (!_writer.Record(record)) Fail(_writer.Error!); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             { Fail(ex); }
         }
+        private static void AcceptPhase(ReplayCaptureRecord record)
+        {
+            if (_writer == null || !_customAuthority) return;
+            try { if (!_writer.Record(record)) Fail(_writer.Error ?? new IOException("Authority phase enqueue refused.")); }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException) { Fail(ex); }
+        }
+        internal static void InterruptCustomRecording(string error)
+        {
+            if (!_customAuthority) return;
+            Fail(new InvalidDataException(error));
+        }
         private static void Fail(Exception ex)
         {
-            _lastError = ex.Message; _writer?.Abort(); _writer = null; _pending = false; CurrentPath = null;
+            bool custom = _customAuthority;
+            _lastError = ex.Message; _writer?.Abort(ex); _writer = null; _pending = false; _customAuthority = false; CurrentPath = null;
+            if (custom)
+            {
+                ReplayCapture.AuthorityRecordingOwner?.FailCustomReplayRecording();
+                ReplayCapture.WorldCapture.RetireCustomRecording();
+                ReplayCapture.Recorder.RetireCustomWeaponFacts();
+            }
             Console.WriteLine($"[replay] canonical recording interrupted; recover its .part file: {ex.Message}");
         }
 
         public static void Stop(bool matchEnded = false)
         {
+            bool custom = _customAuthority;
+            _customAuthority = false;
             ReplayWritePump? writer = _writer;
             _writer = null; _pending = false;
+            if (custom)
+            {
+                ReplayCapture.WorldCapture.RetireCustomRecording();
+                ReplayCapture.Recorder.RetireCustomWeaponFacts();
+            }
             if (writer == null)
             {
                 CurrentPath = null;
