@@ -9,7 +9,7 @@ namespace MphRead.Entities;
 public partial class PlayerEntity
 {
     private Vector3 _modParkourWallNormal;
-    private bool _modParkourWallContact, _modParkourWallCorner;
+    private bool _modParkourWallContact, _modParkourWallCorner, _modParkourWallNear;
     private ulong _modWallstrafeFrame = ulong.MaxValue, _modWallstrafeAttempt = ulong.MaxValue;
     private ulong _modParkourContactFrame = ulong.MaxValue;
     internal bool ModParkourWallstrafeApplied(ulong frame) => _modWallstrafeFrame == frame;
@@ -19,7 +19,7 @@ public partial class PlayerEntity
     private void ModResetParkourContacts()
     {
         _modParkourWallNormal = default;
-        _modParkourWallContact = _modParkourWallCorner = false;
+        _modParkourWallContact = _modParkourWallCorner = _modParkourWallNear = false;
         _modParkourContactFrame = _modWallstrafeAttempt = _modWallstrafeFrame = ulong.MaxValue;
     }
 
@@ -28,13 +28,14 @@ public partial class PlayerEntity
         if (_scene.GameState.MovementModel != MovementModel.Parkour) return;
         _modParkourContactFrame = _scene.FrameCount;
         _modParkourWallNormal = default;
-        _modParkourWallContact = _modParkourWallCorner = false;
+        _modParkourWallContact = _modParkourWallCorner = _modParkourWallNear = false;
     }
 
-    // Called only by the native positive-penetration response. Floors do not
+    // Observe native faces within collision skin; only positive penetration
+    // may activate the impulse. A second resting face must veto it too. Floors do not
     // manufacture a wall; an edge, mover, ramp, ceiling or second wall vetoes
     // the entire tick so a final tangent impulse cannot enter another plane.
-    private void ModObserveParkourContact(in CollisionResult result)
+    private void ModObserveParkourContact(in CollisionResult result, bool penetrating)
     {
         if (!ModParkourActive) return;
         Vector3 normal = result.Plane.Xyz;
@@ -46,10 +47,11 @@ public partial class PlayerEntity
         if (MathF.Abs(normal.Y) > 1f / 4096)
         { _modParkourWallCorner = true; return; }
         normal.Y = 0; normal.Normalize();
-        if (_modParkourWallContact && normal != _modParkourWallNormal)
+        if (_modParkourWallNear && normal != _modParkourWallNormal)
         { _modParkourWallCorner = true; return; }
         _modParkourWallNormal = normal;
-        _modParkourWallContact = true;
+        _modParkourWallNear = true;
+        _modParkourWallContact |= penetrating;
     }
 
     private void ModApplyParkourWallstrafe()

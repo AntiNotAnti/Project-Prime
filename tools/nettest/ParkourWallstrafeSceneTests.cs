@@ -59,12 +59,12 @@ internal static class ParkourWallstrafeSceneTests
             }
             Case("real-wall-gain-and-mirror", () =>
             {
-                Capture east = CaptureScene("east-W-D", MovementModel.Parkour, new(42, .5f, 20),
-                    new(3, 0, 1), 1, 130, _ => new());
-                Capture west = CaptureScene("west-W-A", MovementModel.Parkour, new(-42, .5f, 20),
-                    new(-3, 0, 1), -1, 130, _ => new());
-                Capture legacy = CaptureScene("Traversal-east-control", MovementModel.Traversal, new(42, .5f, 20),
-                    new(3, 0, 1), 1, 130, _ => new());
+                Capture east = CaptureScene("east-W-D", MovementModel.Parkour, new(42, .5f, 10),
+                    new(3, 0, 1), 1, 150, _ => new());
+                Capture west = CaptureScene("west-W-A", MovementModel.Parkour, new(-42, .5f, 10),
+                    new(-3, 0, 1), -1, 150, _ => new());
+                Capture legacy = CaptureScene("Traversal-east-control", MovementModel.Traversal, new(42, .5f, 10),
+                    new(3, 0, 1), 1, 150, _ => new());
                 rows.Add(new { east, west, legacy });
                 Tick[] earned = east.Ticks.Where(t => t.Applied).ToArray();
                 Check(earned.Length >= 5, "normal keyboard motion earns repeated actual static wall impulses");
@@ -79,6 +79,8 @@ internal static class ParkourWallstrafeSceneTests
                     "real wall gain remains bounded by profile tangent cap");
                 Check(east.Ticks[^1].Z > legacy.Ticks[^1].Z + .1f,
                     "physically earned Parkour wall gain travels farther than same-input Traversal control");
+                Check(east.Ticks[^1].VelocityZ > legacy.Ticks[^1].VelocityZ + .01f,
+                    "same-input contact window earns a material tangent velocity gain");
                 Check(west.Ticks.Count(t => t.Applied) == earned.Length, "mirrored static wall earns same number of impulses");
                 for (int i = 0; i < east.Ticks.Length; i++)
                 {
