@@ -568,6 +568,8 @@ namespace MphRead.Entities
             _models.Clear();
             _bipedModelLods[0] = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
             _bipedModelLods[1] = _scene.GetModelInstance(Metadata.HunterModels[Hunter][1]);
+            Mods.Render.ParkourPoseOverlay.Prewarm(_bipedModelLods[0].Model);
+            Mods.Render.ParkourPoseOverlay.Prewarm(_bipedModelLods[1].Model);
             _bipedModel1 = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
             _bipedModel2 = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
             _altModel = _scene.GetModelInstance(Metadata.HunterModels[Hunter][2]);

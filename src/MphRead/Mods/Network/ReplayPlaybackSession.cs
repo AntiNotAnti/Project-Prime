@@ -115,7 +115,7 @@ namespace MphRead.Mods.Network
             var match = validated.Match ?? throw new InvalidDataException("Custom inspection has no recorded match.");
             Stop(); _host.Start(); passive.State.RestoreCustomCheckpoint(construction);
             _frame = validated.RecordingFrame; LastFrame = _frame; _live = _customInspection = true; _started = false; IsActive = true;
-            _liveMetadata = new ReplayMetadata { FormatVersion = 7, ProtocolVersion = 83, MapHash = mapHash, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+            _liveMetadata = new ReplayMetadata { FormatVersion = 7, ProtocolVersion = NetConfig.ProtocolVersion, MapHash = mapHash, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
                 OriginRecordingFrame = _frame, CustomWeapons = prepared.Descriptor, TimedShotCertificates = validated.TimedShots.Enabled,
                 Bootstrap = new() { Packets = new[] { ReplayTimelineArchive.Construction(construction) } } };
             LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
@@ -191,7 +191,13 @@ namespace MphRead.Mods.Network
                         throw new InvalidDataException("Custom file end markers must close their declared final frame.");
                     if ((record.Data[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag) && !_reader.Metadata!.TimedShotCertificates)
                         throw new InvalidDataException("Timed shot facts lack their recording capability.");
-                    if (record.Data[0] != 255) _host.Inject(record.Data, next);
+                    if (record.Data[0] != 255)
+                    {
+                        // This explicitly admitted custom archive retains its custom
+                        // rules/facts; only the old83 presentation bytes need upgrading.
+                        ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.NormalizeLegacyParkourPose(record.Data, _reader.ProtocolVersion);
+                        if (!converted.IsEmpty) _host.Inject(converted, next);
+                    }
                     _pending = _reader.ReadNext();
                 }
                 if (_reader.LastResult != ReplayOpenResult.Success) throw new InvalidDataException("Custom archive stopped: " + _reader.LastResult);

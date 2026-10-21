@@ -15,6 +15,7 @@ using MphRead.Mods.CustomWeapons;
 using MphRead.Mods.CustomWeapons.Packages;
 using MphRead.Mods.Input;
 using MphRead.Mods.Network;
+using MphRead.NetTest;
 using MphRead.Mods.Render;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
@@ -322,6 +323,7 @@ var fileBaseline=capturedWorlds.First(item=>item.Name=="before-pickup");
                     {
                         uint fileOrigin=fileSource.Session.RecordingFrame;string filePath=Path.Combine(output,"actual-full-custom"+DemoFile.Extension);
                         var fileMetadata=baselineWorld.ClipMetadata(0,Array.Empty<ReplayPlayerInfo>());
+                        Check(fileMetadata.ProtocolVersion==84&&baselineWorld.DecoderState().Bytes[4]==17,"new full custom file records current84/checkpoint17 while world12 appendix15 remains unchanged");
                         uint betweenFrame=checked(namedFileFrames.Single(item=>item.Name=="accepted-launch").Frame+5);
                         while(betweenFrame<fullInspection.RecordingFrame&&namedFileFrames.Any(item=>item.Frame==betweenFrame))betweenFrame++;
                         Check(betweenFrame>fileOrigin&&betweenFrame<fullInspection.RecordingFrame&&!namedFileFrames.Any(item=>item.Frame==betweenFrame),"genuine non-indexed between target fits accepted stream");
@@ -427,11 +429,15 @@ var fileBaseline=capturedWorlds.First(item=>item.Name=="before-pickup");
                     var replicaBytes=replicaPrefix.CaptureCheckpoint();
                     if(!backwards&&index==completePoints[0])
                     {
-                        string archivePath=Path.Combine(output,"actual-custom"+DemoFile.Extension);
+                      foreach(byte archiveProtocol in new byte[]{84,83})
+                      {
+                        string archivePath=Path.Combine(output,(archiveProtocol==84?"actual-custom":"actual-custom-retained83")+DemoFile.Extension);
                         var match=replicaPrefix.Match!.Value;uint origin=replicaPrefix.RecordingFrame;
-                        var metadata=new ReplayMetadata{FormatVersion=7,ProtocolVersion=83,CustomWeapons=inspectionDescriptor,
+                        var archiveCheckpoint=archiveProtocol==84?replicaBytes:new ReplayReplicaCheckpoint(Protocol83CheckpointFixtures.ToProtocol83(replicaBytes.Bytes));
+                        Check(archiveCheckpoint.Bytes[6]==archiveProtocol&&BinaryPrimitives.ReadUInt16LittleEndian(archiveCheckpoint.Bytes[4..])==(archiveProtocol==84?17:15),"actual suffix archive uses exact current17 or authentic retained83/15 construction rows");
+                        var metadata=new ReplayMetadata{FormatVersion=7,ProtocolVersion=archiveProtocol,CustomWeapons=inspectionDescriptor,
                             RoomKey=match.RoomKey,Mode=(GameMode)match.Mode,OriginRecordingFrame=origin,
-                            Bootstrap=new ReplayBootstrap{Packets=new[]{ReplayTimelineArchive.Construction(replicaPrefix)}}};
+                            Bootstrap=new ReplayBootstrap{Packets=new[]{ReplayTimelineArchive.Construction(archiveCheckpoint)}}};
                         using(var writer=new ReplayWriterV3(archivePath,metadata))
                         {
                             for(int n=index+1;n<parsedFacts.Count;n++)
@@ -442,14 +448,15 @@ var fileBaseline=capturedWorlds.First(item=>item.Name=="before-pickup");
                             writer.WriteRecord(checked(inspectionFinal.RecordingFrame-origin),new byte[]{255});
                         }
                         using var reader=DemoReader.Open(archivePath)??throw new InvalidDataException("Actual custom archive did not reopen.");
-                        Check(reader.Metadata is {FormatVersion:7,CustomWeapons:not null}&&reader.Metadata.CustomWeapons.CopyBytes().AsSpan().SequenceEqual(inspectionDescriptor.CopyBytes()),"closed format7 archive reopens exact descriptor");
+                        Check(reader.Metadata is {FormatVersion:7,CustomWeapons:not null}&&reader.Metadata.ProtocolVersion==archiveProtocol&&reader.Metadata.CustomWeapons.CopyBytes().AsSpan().SequenceEqual(inspectionDescriptor.CopyBytes()),"closed format7 archive reopens exact protocol and descriptor");
                         var reopened=ReplayFormatV3.ValidateCustomArchiveMetadata(reader.Metadata!)!;int archiveFacts=0;
                         while(reader.ReadNext() is { } record)
                         {if(record.Data[0]==255)continue;reopened.Accept(record.Data,checked(record.Frame+reader.Metadata!.OriginRecordingFrame));archiveFacts++;}
-                        Check(reader.LastResult==ReplayOpenResult.Success&&reopened.CaptureCheckpoint().Bytes.SequenceEqual(finalReplica.Bytes),"actual format7 archive close reopen and accepted suffix reproduce final replica15");
+                        Check(reader.LastResult==ReplayOpenResult.Success&&reopened.CaptureCheckpoint().Bytes.SequenceEqual(finalReplica.Bytes),"actual format7 archive close reopen and accepted suffix reproduce final replica17");
                         Console.WriteLine($"CUSTOM ARCHIVE {archivePath} SUFFIX FACTS {archiveFacts}");
+                      }
                     }
-                    Check(BinaryPrimitives.ReadUInt16LittleEndian(replicaBytes.Bytes[4..])==15,"explicit custom replica checkpoint version fifteen");
+                    Check(BinaryPrimitives.ReadUInt16LittleEndian(replicaBytes.Bytes[4..])==17,"explicit custom replica checkpoint version seventeen");
                     ReplayReplicaState.InspectCustomCheckpointLayout(replicaBytes);
                     var replicaRestored=new ReplayReplicaState();replicaRestored.RestoreCustomCheckpoint(replicaBytes);
                     Check(replicaRestored.CaptureCheckpoint().Bytes.SequenceEqual(replicaBytes.Bytes)&&replicaRestored.CustomWeapons!.CaptureCheckpointBytes().AsSpan().SequenceEqual(prefix.CaptureCheckpointBytes()),"explicit replica prefix canonical custom lane parity");
@@ -482,7 +489,7 @@ var fileBaseline=capturedWorlds.First(item=>item.Name=="before-pickup");
                     observations=new{recordedEmpty,recordedPickup,recordedSpent,recordedReloading,recordedReloaded,recordedOptic4},
                     passiveRestore=new{completePoints=completePoints.Count,forwardRestores,backwardRestores,suffixFactsApplied,
                         finalSequence=linear.Sequence,finalWorld=linear.World,finalRecordingFrame=linear.RecordingFrame},
-                    scope="Copied accepted ordinary-client custom lane and actual native roster/snapshot/configuration build an isolated inspection Scene with worker-prepared historical resources and independent leases. CWRD1/2, CWRS and explicit replica15 cold restores preserve canonical bytes and RNG across actual suffixes. No actual contact capture expected from this single-client wall shot. Retained detached format7 archive close/reopen reconstructs the actual custom suffix. No whole Scene checkpoint restore, custom presentation, Demo playback or archive seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
+                    scope="Copied accepted ordinary-client custom lane and actual native roster/snapshot/configuration build an isolated inspection Scene with worker-prepared historical resources and independent leases. CWRD1/2, CWRS and explicit replica17 cold restores preserve canonical bytes and RNG across actual suffixes. No actual contact capture expected from this single-client wall shot. Retained detached format7 archive close/reopen reconstructs the actual custom suffix. No whole Scene checkpoint restore, custom presentation, Demo playback or archive seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
             }
             Check(clientStore.Prune()==0,"ordinary live session and scene retain archive uninstalled before match transition");NetSession.Stop();Check(clientStore.Prune()==0&&scene.LocalWeaponPackage?.PackageHash==package.PackageHash,"session Stop preserves independently retained ordinary scene package owner");scene.DoCleanup();scene=null;Check(clientStore.Prune()==1,"ordinary scene cleanup releases final retained client archive");
             File.WriteAllText(Path.Combine(output,"online-package-gl-results.json"),JsonSerializer.Serialize(new{checks,renderer,version,sawCwmDuringStarting,package.PackageHash,contentId=package.Project.ContentId,seconds=watch.Elapsed.TotalSeconds,pictures,scope="Actual separate dedicated process and ordinary NetSession client/native GL; genuine package preparation, native world admission, W world pickup,scope4,fire,reload. Authored approach placement is declared; no synthetic snapshots, grant or client authority."},new JsonSerializerOptions{WriteIndented=true}));Console.WriteLine($"PASS {checks} ordinary online package client GL checks");return 0;

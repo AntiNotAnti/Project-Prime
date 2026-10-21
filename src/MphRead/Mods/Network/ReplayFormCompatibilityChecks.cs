@@ -147,10 +147,10 @@ internal static class ReplayCheckpointCheckFixture
         int matchAt = MatchOffset(current);
         int firstPlayer = matchAt + MatchStatePacket.Size + 1 + RosterPacket.Size;
         var layout = ReplayReplicaState.InspectCheckpointLayout(new(current));
-        if (layout.Version != 14 || layout.Protocol != 83 || layout.HeaderBytes != 8
+        if (layout.Version != 16 || layout.Protocol != 84 || layout.HeaderBytes != 8
             || !layout.Has(ReplayReplicaCheckpointFeatures.Grapple)
             || current[matchAt + MatchStatePacket.Size] != 0)
-            throw new InvalidOperationException("Historical check requires a v14/protocol83 match-only fixture.");
+            throw new InvalidOperationException("Historical check requires a v16/protocol84 match-only fixture.");
         using var stream = new MemoryStream();
         stream.Write(current[..firstPlayer]);
         int at = firstPlayer;
@@ -176,7 +176,7 @@ internal static class ReplayCheckpointCheckFixture
         BinaryPrimitives.WriteUInt16LittleEndian(historical.AsSpan(4),
             layout.Has(ReplayReplicaCheckpointFeatures.TimedShots) ? (ushort)13 : (ushort)12);
         historical[6] = 80;
-        historical[7] &= unchecked((byte)~(byte)ReplayReplicaCheckpointFeatures.Grapple);
+        historical[7] &= unchecked((byte)~(byte)(ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose));
         require(historical.Length == current.Length - RosterPacket.MaxSlots
             * (PlayerState.Size - PlayerState.Protocol80Size + IntentPacket.TouchCanonicalSize - IntentPacket.Protocol80TouchSize),
             "protocol80 fixture removes exactly19 accepted-state bytes and2 nonce bytes per slot plus v14 capability");

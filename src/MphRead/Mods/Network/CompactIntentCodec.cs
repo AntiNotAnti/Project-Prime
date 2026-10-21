@@ -20,12 +20,13 @@ public static class CompactIntentCodec
 
     public static int Size(in IntentPacket intent)
     {
+        if (intent.MantleVisualPhase > 15) throw new ArgumentException("Invalid mantle visual phase.", nameof(intent));
         if (intent.FireEventCount > NetFireEvents.LiveCapacity)
             throw new ArgumentOutOfRangeException(nameof(intent), "Too many fire events.");
         if (!intent.ShotInputs.Valid(intent.ShotInputCount))
             throw new ArgumentException("Invalid shot input history.", nameof(intent));
         return HeaderSize + (IncludeTouch(intent) ? NativeTouchReport.WireSize : 0)
-            + intent.FireEventCount * FireEvent.Size + 2;
+            + intent.FireEventCount * FireEvent.Size + 3;
     }
 
     public static int Write(in IntentPacket intent, Span<byte> destination)
@@ -45,21 +46,22 @@ public static class CompactIntentCodec
         if (hasTouch) intent.NativeTouch.Write(destination.Slice(TouchOffset, NativeTouchReport.WireSize));
         for (int i = 0; i < intent.FireEventCount; i++)
             intent.FireEvents[i].Write(destination.Slice(eventStart + i * FireEvent.Size, FireEvent.Size));
-        BinaryPrimitives.WriteUInt16LittleEndian(destination[(size - 2)..], intent.GrappleRequestNonce);
+        BinaryPrimitives.WriteUInt16LittleEndian(destination[(size - 3)..], intent.GrappleRequestNonce);
+        destination[size - 1] = intent.MantleVisualPhase;
         return size;
     }
 
     public static bool TryRead(ReadOnlySpan<byte> payload, out IntentPacket intent)
     {
         intent = default;
-        if (payload.Length < HeaderSize + 2) return false;
+        if (payload.Length < HeaderSize + 3) return false;
         byte count = payload[IntentPacket.LegacyFullSize];
         bool hasTouch = (payload[ShotInputOffset] & TouchPresent) != 0;
         bool touchMode = (payload[ShotInputOffset] & TouchMode) != 0;
         int eventStart = HeaderSize + (hasTouch ? NativeTouchReport.WireSize : 0);
         if (count > NetFireEvents.LiveCapacity || hasTouch && !touchMode
             || hasTouch && count == NetFireEvents.LiveCapacity
-            || payload.Length != eventStart + count * FireEvent.Size + 2) return false;
+            || payload.Length != eventStart + count * FireEvent.Size + 3 || payload[^1] > 15) return false;
         IntentPacket decoded = IntentPacket.Read(payload[..IntentPacket.LegacyFullSize]);
         if (hasTouch)
         {
@@ -72,7 +74,8 @@ public static class CompactIntentCodec
             // Preserve ClassicTouch ownership, not the previous roll impulse.
             decoded.NativeTouch = new NativeTouchReport(true, false, false, 0, 0, 0, false, true);
         }
-        decoded.GrappleRequestNonce = BinaryPrimitives.ReadUInt16LittleEndian(payload[^2..]);
+        decoded.GrappleRequestNonce = BinaryPrimitives.ReadUInt16LittleEndian(payload[^3..]);
+        decoded.MantleVisualPhase = payload[^1];
         decoded.HasFireEvents = true;
         decoded.FireEventCount = count;
         decoded.ShotInputCount = (byte)(payload[ShotInputOffset] & ~(TouchPresent | TouchMode));

@@ -6,7 +6,8 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **83** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **84** (`NetConfig.ProtocolVersion`).
+- Protocol84 adds a one-byte mantle visual hint to intents and accepted phase in the existing snapshot auxiliary nibble; native player widths stay fixed. Native16/custom17 checkpoint rows add that byte while published14/15 remain1298. Gameplay stays Parkour v5; rendering restores all native pose matrices. See `docs/network/parkour-animation-version-contract.md`.
 - Protocol83 appends an optional exact weapon archive hash to hosting requests.
   The allocator resolves it only against an operator-approved local store.
   Native intents, snapshots, CWM1 and replay checkpoint14 retain protocol82 shapes.

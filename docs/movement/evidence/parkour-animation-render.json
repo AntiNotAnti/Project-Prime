@@ -1,0 +1,193 @@
+{
+  "producer": "780a39d9f7a86f18ae37e7a2392fe18dfc26f54a",
+  "sourceFiles": 6658,
+  "overlayFiles": 0,
+  "archiveSha256": "7ce586621e72f233d0fa4bb6e2a5cced834fa8600a1ddd93a0ae741ebf6d3d4b",
+  "fullSourceManifestSha256": "16bac4f1d7ec840ff19aea7f2b3b835408b01ad9815fbf1e8e2a973c11c126f6",
+  "normalClientSha256": "5406aa0aaa7c7ab3a7003704c8599ea6f0f8af2f66d47b017e83cb1207929d39",
+  "toolDllSha256": "ca359acb381fc5ee2334711242c0e54ff37b84c27686084edd536e728e359abe",
+  "copiedClientSha256": "5406aa0aaa7c7ab3a7003704c8599ea6f0f8af2f66d47b017e83cb1207929d39",
+  "buildExit": 0,
+  "runExit": 0,
+  "status": "PASS",
+  "normalArtifactsUnchanged": true,
+  "assetsUnchanged": true,
+  "privateAssetFencePass": true,
+  "sourceFence": "PASS6658",
+  "schema": 1,
+  "scope": "Windows hidden unfocused actual native external-body GL captures using genuine W/Space/G inputs and initial lane placement only. No first-person gun raster, Mac, physical-device, UI-focus, frame pacing or performance qualification.",
+  "driver": {
+    "vendor": "NVIDIA Corporation",
+    "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+    "version": "4.6.0 NVIDIA 617.42",
+    "hidden": true,
+    "focused": false
+  },
+  "assertions": 16947,
+  "scenarios": 14,
+  "positiveFrames": 378,
+  "pngFiles": 1512,
+  "normalArtifactFileCount": 803,
+  "renderArtifactFileCount": 352,
+  "sourceExtraFiles": 0,
+  "privateGeneratedAssetFiles": 8,
+  "buildWarnings": 0,
+  "buildErrors": 0,
+  "rows": [
+    {
+      "hunter": "Samus",
+      "action": "mantle",
+      "activeTicks": 17,
+      "visiblePoseFrames": 9,
+      "frames": 30,
+      "maxChangedPosePixels": 11066,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Samus",
+      "action": "grapple",
+      "activeTicks": 32,
+      "visiblePoseFrames": 16,
+      "frames": 24,
+      "maxChangedPosePixels": 10218,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Kanden",
+      "action": "mantle",
+      "activeTicks": 17,
+      "visiblePoseFrames": 9,
+      "frames": 30,
+      "maxChangedPosePixels": 14693,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Kanden",
+      "action": "grapple",
+      "activeTicks": 32,
+      "visiblePoseFrames": 16,
+      "frames": 24,
+      "maxChangedPosePixels": 13123,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Spire",
+      "action": "mantle",
+      "activeTicks": 17,
+      "visiblePoseFrames": 9,
+      "frames": 30,
+      "maxChangedPosePixels": 23990,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Spire",
+      "action": "grapple",
+      "activeTicks": 32,
+      "visiblePoseFrames": 16,
+      "frames": 24,
+      "maxChangedPosePixels": 25803,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Noxus",
+      "action": "mantle",
+      "activeTicks": 17,
+      "visiblePoseFrames": 9,
+      "frames": 30,
+      "maxChangedPosePixels": 15798,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Noxus",
+      "action": "grapple",
+      "activeTicks": 32,
+      "visiblePoseFrames": 16,
+      "frames": 24,
+      "maxChangedPosePixels": 16729,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Trace",
+      "action": "mantle",
+      "activeTicks": 17,
+      "visiblePoseFrames": 9,
+      "frames": 30,
+      "maxChangedPosePixels": 15074,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Trace",
+      "action": "grapple",
+      "activeTicks": 32,
+      "visiblePoseFrames": 16,
+      "frames": 24,
+      "maxChangedPosePixels": 15017,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Sylux",
+      "action": "mantle",
+      "activeTicks": 17,
+      "visiblePoseFrames": 9,
+      "frames": 30,
+      "maxChangedPosePixels": 12731,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Sylux",
+      "action": "grapple",
+      "activeTicks": 32,
+      "visiblePoseFrames": 16,
+      "frames": 24,
+      "maxChangedPosePixels": 11513,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Weavel",
+      "action": "mantle",
+      "activeTicks": 17,
+      "visiblePoseFrames": 9,
+      "frames": 30,
+      "maxChangedPosePixels": 11097,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    },
+    {
+      "hunter": "Weavel",
+      "action": "grapple",
+      "activeTicks": 32,
+      "visiblePoseFrames": 16,
+      "frames": 24,
+      "maxChangedPosePixels": 10498,
+      "repeatRgbExact": true,
+      "canonicalStateUnchanged": true
+    }
+  ],
+  "manualImageReview": {
+    "selectedPositiveImages": 14,
+    "sameTickNativeControlImages": 2,
+    "findings": "Inspected one active frame per seven Hunters and each action, plus Samus same-tick native controls for both actions. Clear intact native bodies show distinct mantle lift/reach and grapple braced limb pose; cannon remains readable. Fixed external angle can hide part of offhand behind body; no missing body or visible geometry explosion observed.",
+    "selectionManifest": "visual-selection.json"
+  },
+  "priorAttempts": {
+    "animation01": "not run",
+    "animation02": "compile failure: ambiguous ErrorCode; retained",
+    "animation03": "hidden GL available; fixture unknown training room before scenarios; retained"
+  },
+  "logs": {
+    "build.log": "f87aae59098e571dec7c39a719f5a41bfacba9788fac7a2c787ebf22715e5e1d",
+    "run.log": "5727ec175b31c63698c2a631d3590c8798ea28332cf927d9f220c6e05d9fdcfb"
+  }
+}

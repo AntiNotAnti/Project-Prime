@@ -14,7 +14,7 @@ internal sealed class ReplayReplicaCheckpoint
     internal ReadOnlySpan<byte> Bytes => _bytes;
     internal ReplayReplicaCheckpoint(ReadOnlySpan<byte> bytes)
     {
-            int maximum = bytes.Length >= 8 && BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]) == ReplayReplicaCheckpointLayout.CustomVersion ? MaximumCustomBytes : MaximumBytes;
+            int maximum = bytes.Length >= 8 && BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]) is ReplayReplicaCheckpointLayout.CustomVersion or ReplayReplicaCheckpointLayout.LegacyCustomVersion ? MaximumCustomBytes : MaximumBytes;
             if (bytes.Length > maximum) throw new InvalidDataException("Replica checkpoint is too large.");
         _bytes = bytes.ToArray();
     }
@@ -36,7 +36,7 @@ internal sealed partial class ReplayReplicaState
         writer.Write(CheckpointMagic);
         writer.Write(CustomWeapons == null ? CheckpointVersion : ReplayReplicaCheckpointLayout.CustomVersion);
         writer.Write((byte)NetConfig.ProtocolVersion);
-        writer.Write((byte)(ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple
+        writer.Write((byte)(ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose
             | (TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None)
             | (CustomWeapons != null ? ReplayReplicaCheckpointFeatures.CustomWeapons : ReplayReplicaCheckpointFeatures.None)));
         writer.Write(RecordingFrame); writer.Write(MatchRecordingFrame); writer.Write(ServerTick);
@@ -147,6 +147,7 @@ internal sealed partial class ReplayReplicaState
                 Read(layout.PlayerBytes).CopyTo(upgraded, 0);
                 if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
                 var value = PlayerState.Read(upgraded);
+                if (protocol < 84) value.MantleVisualPhase = 0;
                 if (protocol < 69) value.Crouched = false;
                 if (protocol < 77) value.Tucked = false;
                 return value;
@@ -209,6 +210,7 @@ internal sealed partial class ReplayReplicaState
                 restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
                     (NetworkPlayerState)reader.ReadByte(), Flag()));
                 restored._hasPlayer[i] = Flag(); restored._players[i] = ReadPlayer();
+                if (protocol < 84) restored._players[i].MantleVisualPhase = 0;
                 restored._hasIntent[i] = Flag(); restored._intents[i] = IntentPacket.Read(Read(layout.IntentBytes));
                 if (protocol < 69) restored._intents[i].Buttons &= ~(IntentButtons.Crouch | IntentButtons.CrouchedState);
                 if (protocol < 82) { restored._intents[i].Buttons &= ~IntentButtons.Grapple; restored._intents[i].GrappleRequestNonce = 0; }

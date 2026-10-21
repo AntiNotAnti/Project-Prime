@@ -35,6 +35,7 @@ public partial class PlayerEntity
 
     private void ModResetParkourGrappleForLife()
     {
+        ModResetParkourAnimation();
         _modGrapple = default;
         _modGrappleNonce = _modGrappleCancelled = 0;
         _modGrappleWasDown = _modGrappleHasSource = _modGrappleAdmissionPending = false;

@@ -178,6 +178,7 @@ namespace MphRead.Entities
             }
 
             gunLocalPosition.Y += ModCrouchDrawBobCorrection(presentationAlpha, gun: true);
+            gunLocalPosition += ModGetParkourAnimationPose().GunOffset;
             Vector3 gunPosition = cameraPosition + ModFromPresentationLocal(
                 gunLocalPosition, renderRight, renderUp, renderForward);
             Vector3 gunFacing = ModFromPresentationLocal(
@@ -766,6 +767,7 @@ namespace MphRead.Entities
             }
 
             gunLocalPosition.Y += ModCrouchDrawBobCorrection(presentationAlpha, gun: true);
+            gunLocalPosition += ModGetParkourAnimationPose().GunOffset;
             Vector3 gunPosition = cameraPosition + ModFromPresentationLocal(
                 gunLocalPosition, renderRight, renderUp, renderForward);
             Vector3 gunFacing = ModFromPresentationLocal(

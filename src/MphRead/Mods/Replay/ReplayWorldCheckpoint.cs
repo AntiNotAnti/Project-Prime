@@ -45,7 +45,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null,
         bool indexedFirePresentation = false, bool hasPresentationContract = true, bool hasAuthorityFormHistory = true, bool hasTurretOutcomeContract = true,
         ReplayWorldCheckpointAppendices appendices = ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups | ReplayWorldCheckpointAppendices.Grapple,
-        ReplayReplicaCheckpointFeatures decoderFeatures = ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple,
+        ReplayReplicaCheckpointFeatures decoderFeatures = ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose,
         ReplayCustomWeaponDescriptor? customDescriptor = null)
     {
         _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract;
@@ -336,7 +336,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
             return new(stream.Detach(), frame, indexedFirePresentation: indexedFirePresentation,
                 appendices: appendices, customDescriptor: custom ? replay.State.CustomWeaponDescriptor : null,
-                decoderFeatures: ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple
+                decoderFeatures: ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose
                     | (custom ? ReplayReplicaCheckpointFeatures.CustomWeapons : ReplayReplicaCheckpointFeatures.None)
                     | (replay.State.TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None));
         }
@@ -629,6 +629,8 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
                 PlayerGrappleState.TryRead(row[4..], out state);
             }
             replay.Scene.Players.Items[slot].ModRestoreGrapplePresentation(state, generation, life);
+            replay.Scene.Players.Items[slot].ModRestoreMantleVisual(
+                replay.State.TryGetPlayer(slot, out var recorded) ? recorded.MantleVisualPhase : (byte)0);
         }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
         if (custom)

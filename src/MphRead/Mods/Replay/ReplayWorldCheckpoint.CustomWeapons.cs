@@ -57,6 +57,9 @@ internal sealed partial class ReplayWorldCheckpoint
             || !CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(metadata.CustomWeapons.CopyBytes())
             || HasTimedShotContract != metadata.TimedShotCertificates)
             throw new InvalidDataException("World12 differs from its custom archive capability.");
+        if (ReplayReplicaState.InspectCustomCheckpointLayout(ConstructionState()).Protocol != metadata.ProtocolVersion
+            || ReplayReplicaState.InspectCustomCheckpointLayout(DecoderState()).Protocol != metadata.ProtocolVersion)
+            throw new InvalidDataException("Custom world decoder protocol differs from its archive.");
         var header = ClipMetadata(0, Array.Empty<ReplayPlayerInfo>());
         if (!StringComparer.Ordinal.Equals(header.RoomKey, metadata.RoomKey) || header.Mode != metadata.Mode || header.MapHash != metadata.MapHash
             || current != null && !DecoderState().Bytes.SequenceEqual(current.Bytes))

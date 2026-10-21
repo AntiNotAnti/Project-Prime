@@ -29,7 +29,7 @@ internal sealed class PreparedCustomReplayArchive : IDisposable
         try
         {
             reader = DemoReader.Open(fullPath, out var result) ?? throw new InvalidDataException("Cannot prepare custom archive: " + result);
-            if (reader.ProtocolVersion != 83 || reader.Metadata is not { FormatVersion: 7, CustomWeapons: not null, LeadInFrames: 0 } metadata
+            if (reader.ProtocolVersion is not (83 or 84) || reader.Metadata is not { FormatVersion: 7, CustomWeapons: not null, LeadInFrames: 0 } metadata
                 || metadata.WorldCheckpoint.Length == 0)
                 throw new InvalidDataException("Custom file inspection requires an exact format7 world12 baseline without a lead-in.");
             ReplayFormatV3.ValidateCustomArchiveMetadata(metadata);

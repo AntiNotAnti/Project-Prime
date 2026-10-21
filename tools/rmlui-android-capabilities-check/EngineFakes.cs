@@ -24,11 +24,18 @@ namespace MphRead.Mods.Launcher
     // policy. These checks exercise the native Hunter/Suit presenter, not
     // imported-body admission, gameplay, replay or character assets.
     public enum LaunchKind { Offline }
-    public enum OfflineCharacterMode { Native }
+    public enum OfflineCharacterMode { Native, TrooperScoutDronePractice = 2 }
     public sealed record LocalAppearanceMatchRules(bool RiftlineM7Available = false);
     public sealed record LaunchPlan(LocalBodyAppearance LocalBody, LaunchKind Kind,
         Hunter Hunter, GameMode Mode, OfflineCharacterMode OfflineCharacter,
-        LocalAppearanceMatchRules MatchRules);
+        LocalAppearanceMatchRules MatchRules, LocalDroneAppearance LocalDrone = LocalDroneAppearance.Native);
+    internal static class OfflineCharacterGameplay
+    {
+        // Imported gameplay is outside this source-only presenter fixture. Keep
+        // the real drone policy linked while refusing this engine boundary.
+        internal static bool TryAdmit(LaunchPlan plan, out string reason)
+        { reason = "Imported character gameplay is unavailable in this source-only check."; return false; }
+    }
     public static class LauncherPrefs
     {
         public static Hunter LastHunter { get; set; } = Hunter.Samus;

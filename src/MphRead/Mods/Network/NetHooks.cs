@@ -417,7 +417,11 @@ namespace MphRead.Mods.Network
                 if (customPlaced && customControlled && stanceMatches)
                 {
                     NetShotProof.ObservePose(player, NetSession.RemoteIntents[slot]);
-                    if (authorityRole) player.ModObserveGrappleRequest(NetSession.RemoteIntents[slot]);
+                    if (authorityRole)
+                    {
+                        player.ModObserveGrappleRequest(NetSession.RemoteIntents[slot]);
+                        player.ModObserveMantleVisual(NetSession.RemoteIntents[slot]);
+                    }
                 }
                 player.OwningScene.CustomCombat?.RecordSourceInput(player,NetSession.RemoteIntents[slot],customBody,customBiped,
                     acceptedPose: customPlaced && customControlled && stanceMatches);
