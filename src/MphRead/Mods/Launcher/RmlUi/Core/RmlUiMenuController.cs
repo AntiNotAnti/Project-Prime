@@ -423,7 +423,7 @@ public sealed class RmlUiMenuController : IDisposable
                     Status("NO MPH ARENAS AVAILABLE // SET UP GAME FILES OR HOST AN INSTALLED COMMUNITY MAP");
                     return false;
                 }
-                _createMap = maps.Contains(_createMap) ? _createMap : maps[0];
+                _createMap = LauncherPrefs.PreferredMap(maps);
                 _createCommunity = null; _createMaxPlayers = 8;
                 _createOpen = true;
                 _browsing = true;
@@ -434,6 +434,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (available.Length == 0) { Status("NO BUILT-IN ARENAS AVAILABLE"); return false; }
                 int at = Array.IndexOf(available, _createMap);
                 _createMap = available[(at + 1) % available.Length];
+                LauncherPrefs.RememberMap(_createMap);
                 _createCommunity = null; _createMaxPlayers = 8;
                 Dirty();
                 return true;
@@ -632,8 +633,14 @@ public sealed class RmlUiMenuController : IDisposable
                     if (changed) Dirty();
                     return changed;
                 }
+                string previousMap = _offline.Map;
                 bool offlineChanged = _offline.Change(argument);
-                if (offlineChanged) Dirty();
+                if (offlineChanged)
+                {
+                    if (!String.Equals(previousMap, _offline.Map, StringComparison.OrdinalIgnoreCase))
+                        LauncherPrefs.RememberMap(_offline.Map);
+                    Dirty();
+                }
                 return offlineChanged;
             case RmlUiIntentKind.OfflineOpenArena:
                 if (_offline == null || _trainingRoute || _busy || _trainingOptionsOpen) return false;
@@ -651,6 +658,7 @@ public sealed class RmlUiMenuController : IDisposable
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineSelectArena:
                 if (_offline == null || _trainingRoute || !_offline.SelectArena(argument)) return false;
+                LauncherPrefs.RememberMap(_offline.Map);
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineLaunchMatch:
                 if (_offline == null || _trainingRoute || _busy || _offlineLaunched || _offline.ArenaOpen || _trainingOptionsOpen || !_offline.Valid) return false;
@@ -790,6 +798,8 @@ public sealed class RmlUiMenuController : IDisposable
                     if (mapError.Length > 0) { _rulesStatus = mapError; Dirty(); }
                     return false;
                 }
+                // Save an intentional map choice separately from the server-managed rotation.
+                LauncherPrefs.RememberMap(room);
                 if (_mapOpenedRules)
                 {
                     // A picker opened from the lobby is a map-only operation.
@@ -1132,6 +1142,9 @@ public sealed class RmlUiMenuController : IDisposable
             {
                 if (live.Value.Match == editor.Draft.Match && live.Value.Flags == editor.Draft.Flags)
                 {
+                    if (!String.Equals(editor.Source.Match.RoomKey, live.Value.Match.RoomKey,
+                        StringComparison.OrdinalIgnoreCase))
+                        LauncherPrefs.RememberMap(live.Value.Match.RoomKey);
                     CloseRules();
                     Status("RULE CHANGES CONFIRMED BY SERVER");
                 }
