@@ -11,21 +11,28 @@ internal sealed partial class ReplayRecorder
     internal bool CustomWeaponCaptureFailed { get; private set; }
     internal void FailCustomWeaponFacts() => CustomWeaponCaptureFailed = true;
     private ulong _customFactSequence, _customFactStateRevision;
+    private ReplayCustomWeaponState? _customReplayState;
     private readonly CustomPickupItemState?[] _customRecordedPickups = new CustomPickupItemState?[64];
     internal void RetireCustomWeaponFacts()
     {
         CustomWeaponContext = null; _customFactSequence = _customFactStateRevision = 0;
+        _customReplayState = null;
         Array.Clear(_customRecordedPickups);
     }
     private void ResetCustomWeaponFacts()
     { RetireCustomWeaponFacts(); CustomWeaponCaptureFailed = false; AcceptedCustomWeaponFacts = 0; }
     private bool CustomFactScope => !CustomWeaponCaptureFailed && CustomWeaponContext is { } context
         && context.Bootstrap.World.Start.MatchId == _matchId && context.Bootstrap.World.Start.AuthorityEpoch == _epoch;
+    private bool HasCustomWeaponMatch => _match is { } match
+        && (((MatchModifierFlags)MatchStatePacket.Read(match.Payload[1..]).RuleBits)
+            & (MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable)) != 0;
     private bool PublishCustom(ReplayCustomWeaponFact fact, uint recordingFrame)
     {
         if (CustomWeaponCaptureFailed) return false;
         try
         {
+            if (_customReplayState == null || !_customReplayState.Accept(fact, recordingFrame))
+                throw new InvalidDataException("Custom recorder state did not consume its next accepted fact.");
             PublishTransient(new(recordingFrame, fact.World, ReplayFactKind.CustomWeapon, fact.CopyBytes()));
             _customFactSequence = fact.Sequence; AcceptedCustomWeaponFacts++; return true;
         }
@@ -50,7 +57,7 @@ internal sealed partial class ReplayRecorder
             // Validate both values before publishing either half of this scope.
             var first = ReplayCustomWeaponFact.Bootstrap(context);
             var baseline = ReplayCustomWeaponFact.Baseline(context, 2, capture, slots, flights);
-            RetireCustomWeaponFacts(); CustomWeaponContext = context;
+            RetireCustomWeaponFacts(); CustomWeaponContext = context; _customReplayState = new(context);
             return PublishCustom(first, recordingFrame) && PublishCustom(baseline, recordingFrame);
         }
         catch (Exception error) when (error is InvalidDataException or ArgumentException)
@@ -98,6 +105,22 @@ internal sealed partial class ReplayRecorder
         }
         catch (Exception error) when (error is InvalidDataException or ArgumentException)
         { CustomWeaponCaptureFailed = true; return false; }
+    }
+    private void AcceptCustomWeaponClock(uint world, uint recordingFrame)
+    {
+        if (!CustomFactScope || _customReplayState is not { HasBaseline: true } state || _customFactSequence == ulong.MaxValue
+            || !NetLifecycleTracker.Newer(world, state.World)) return;
+        try { PublishCustom(ReplayCustomWeaponFact.Clock(CustomWeaponContext!, _customFactSequence + 1, world), recordingFrame); }
+        catch (Exception error) when (error is InvalidDataException or ArgumentException) { CustomWeaponCaptureFailed = true; }
+    }
+    // Immutable current values for later archive/world construction. The
+    // original baseline is never relabelled as current state. No native/world
+    // replay gate is opened and no mutable recorder owner is lent to callers.
+    internal bool TryCaptureCustomWeaponState(out ReplayCustomWeaponDescriptor? descriptor, out byte[] checkpoint)
+    {
+        descriptor = null; checkpoint = Array.Empty<byte>();
+        if (!CustomFactScope || _customReplayState is not { CompleteForRestore: true } state || state.Sequence != _customFactSequence) return false;
+        descriptor = ReplayCustomWeaponDescriptor.ForInspection(CustomWeaponContext!); checkpoint = state.CaptureCheckpointBytes(); return true;
     }
 }
 
