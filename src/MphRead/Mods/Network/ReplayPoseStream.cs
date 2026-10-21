@@ -1179,7 +1179,7 @@ internal sealed class ReplayPoseStream : IDisposable
         if (!_postWorld || packet.IsEmpty || packet[0] != ReplayPostWorldRecord.Tag) return packet;
         var inner = ReplayPostWorldRecord.ValidateAndGetPayload(packet,
             _world.State.CustomWeapons?.Context);
-        if ((ulong)sourceFrame == (ulong)reader.Metadata!.OriginRecordingFrame + reader.DurationFrames)
+        if ((ulong)sourceFrame == (ulong)reader.Metadata!.OriginRecordingFrame + reader.Metadata.LeadInFrames + reader.DurationFrames)
             return ReadOnlySpan<byte>.Empty; // No following world: permanently inert.
         availability = checked(sourceFrame + 1);
         return inner;

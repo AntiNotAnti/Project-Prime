@@ -65,7 +65,6 @@ namespace MphRead.Mods.Network
         public System.Threading.Tasks.Task<ReplayOpenResult> SaveSelectionAsync(System.Threading.CancellationToken cancellation = default, bool wholeReplay = false)
         {
             LastSavedSelectionPath = null;
-            if (_session.IsCustomInspection) return System.Threading.Tasks.Task.FromResult(ReplayOpenResult.UnsupportedFormat);
             if (_session.CurrentPath == null || (!wholeReplay && (!ClipIn.HasValue || !ClipOut.HasValue || ClipIn >= ClipOut))) return System.Threading.Tasks.Task.FromResult(ReplayOpenResult.Empty);
             string source = _session.CurrentPath; uint start = wholeReplay ? 0 : ClipIn!.Value, end = wholeReplay ? DurationFrames : ClipOut!.Value;
             string output = System.IO.Path.Combine(DemoLibrary.Directory, $"clip_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}_{Guid.NewGuid():N}.ppdemo");
@@ -199,8 +198,11 @@ namespace MphRead.Mods.Network
         internal int FramesDue()
         {
             if (State == ReplayState.Seeking)
+            {
+                if (_session.IsCustomArchiveInspection && _session.IsWarming && _target.HasValue) return 120;
                 return _target.HasValue ? (int)Math.Min(120u,
                     _target.Value - CurrentFrame + (_session.HasSimulatedFrame ? 0u : 1u)) : 0;
+            }
             if (State == ReplayState.Paused)
             {
                 if (_steps == 0) return 0;
@@ -229,7 +231,7 @@ namespace MphRead.Mods.Network
                 State = _session.LastResult == ReplayOpenResult.Success ? ReplayState.Ended : ReplayState.Error;
                 _target = null;
             }
-            else if (_target.HasValue && CurrentFrame >= _target.Value)
+            else if (_target.HasValue && CurrentFrame >= _target.Value && !_session.IsWarming)
             {
                 _presentationStartFrame = CurrentFrame;
                 _target = null;

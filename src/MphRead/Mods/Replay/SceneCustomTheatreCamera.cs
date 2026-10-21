@@ -18,6 +18,27 @@ public partial class Scene
     private bool ApplyCustomTheatreCamera()
     {
         if (!DemoPlayback.IsCustomPlayback || !DemoPlayback.Owns(this)) return false;
+        ReplayCamera.EnsureTrack();
+        if (ReplayCamera.BookmarkRequested)
+        {
+            ReplayCamera.BookmarkRequested = false;
+            ReplayCamera.SaveKeyframe(_cameraPosition, _cameraFacing, _cameraFov);
+        }
+        if (ReplayCamera.RestoreRequested)
+        {
+            ReplayCamera.RestoreRequested = false;
+            if (ReplayCamera.NextKeyframe(out var saved))
+            {
+                ClearCustomInspectionFirstPerson();
+                ReplayCamera.PlayTrack = false; ReplayCamera.SetMode(ReplayCameraMode.Free);
+                ApplyReplayKeyframe(saved); return true;
+            }
+        }
+        if (ReplayCamera.Profile == ReplayPresentationProfile.Presentation && ReplayCamera.PlayTrack
+            && ReplayCamera.Track.Sample(ReplayPresentationTime, out var track, ReplayCamera.TrackConstantSpeed))
+        {
+            ClearCustomInspectionFirstPerson(); ApplyReplayKeyframe(track); return true;
+        }
         var mode = ReplayCamera.Mode;
         if (mode == ReplayCameraMode.FirstPerson && SetCustomInspectionFirstPerson(DemoPlayback.CustomSubjectSlot))
         { _freeCam = false; return true; }

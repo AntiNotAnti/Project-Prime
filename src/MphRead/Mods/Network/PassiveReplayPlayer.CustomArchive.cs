@@ -39,8 +39,8 @@ internal sealed partial class PassiveReplayPlayer
             Transport.Begin(); Transport.AfterFrame();
             SeekRestoreFrame = Current.Session.CurrentFrame;
             CheckpointSource = SeekRestoreFrame == 0 ? "initial world" : "file";
-            uint target = checked(prepared.TargetFrame - _customBaseline.OriginRecordingFrame);
-            if (target > Current.Session.CurrentFrame)
+            uint target = checked(prepared.TargetFrame - _customBaseline.OriginRecordingFrame - _customBaseline.LeadInFrames);
+            if (target > Current.Session.CurrentFrame || Current.Session.IsWarming)
             {
                 _customGoal = target; _customResume = true;
                 Transport.ContinueSeek(target, resume: true);
@@ -109,7 +109,7 @@ internal sealed partial class PassiveReplayPlayer
         if (_customNeedsPreparation && _customGoal is uint prepareTarget)
         {
             string path = _customPath!, store = _customStore!;
-            uint absolute = checked(_customBaseline!.OriginRecordingFrame + prepareTarget);
+            uint absolute = checked(_customBaseline!.OriginRecordingFrame + _customBaseline.LeadInFrames + prepareTarget);
             _customWorkTarget = prepareTarget;
             var cancellation = _customCancellation = new CancellationTokenSource();
             CancellationToken token = cancellation.Token;
@@ -127,6 +127,7 @@ internal sealed partial class PassiveReplayPlayer
             Transport.AfterFrame(); steps++;
             if (seeking) SeekSimulationSteps++;
             Stepped?.Invoke(Current.Scene);
+            if (seeking && !Transport.IsSeeking) break;
         }
         if (!Transport.IsSeeking)
         {
