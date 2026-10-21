@@ -597,6 +597,9 @@ namespace MphRead.Effects
         internal Matrix4? DrawTransformOverride { get; set; }
         // World-attached overrides retain the existing world projection.
         internal bool DrawTransformUsesViewModel { get; set; }
+        // Private replay visibility is chosen per picture without modifying
+        // the recorded element flags that subsequent simulation consumes.
+        internal bool? DrawEnabledOverride { get; set; }
 
         public bool IsFinished
         {
@@ -925,7 +928,7 @@ namespace MphRead.Effects
         private bool _drawPoseActive;
         private bool _canonicalDrawPass;
         private ParticleDrawCache _canonicalDrawCache;
-        private readonly record struct ParticleDrawCache(Vector3 Vec1, Vector3 Vec2, Vector3 Vec3,
+        internal readonly record struct ParticleDrawCache(Vector3 Vec1, Vector3 Vec2, Vector3 Vec3,
             bool Visible, Vector3 Color, Vector2 Uv0, Vector3 V0, Vector2 Uv1, Vector3 V1,
             Vector2 Uv2, Vector3 V2, Vector2 Uv3, Vector3 V3, bool Node, BillboardMode Billboard, Matrix4 Transform);
         private Mods.Render.ParticleDrawPose CanonicalDrawPose => new(Position, Speed,
@@ -950,9 +953,7 @@ namespace MphRead.Effects
                 : CanonicalDrawPose;
             _drawPoseActive = _drawPose != CanonicalDrawPose || Owner.PresentationTransform != Owner.Transform;
             if (_drawPoseActive)
-                _canonicalDrawCache = new(EffectVec1, EffectVec2, EffectVec3, ShouldDraw, Color,
-                    Texcoord0, Vertex0, Texcoord1, Vertex1, Texcoord2, Vertex2, Texcoord3, Vertex3,
-                    DrawNode, BillboardMode, NodeTransform);
+                _canonicalDrawCache = ModCaptureDrawCache();
             return _drawPoseActive;
         }
         internal void ModFinishDraw()
@@ -963,7 +964,13 @@ namespace MphRead.Effects
             // Packets own their sampled geometry. The existing archive slots
             // keep the exact current-state geometry computed before this scope,
             // including fields a nondrawing canonical pose does not overwrite.
-            var cache = _canonicalDrawCache;
+            ModRestoreDrawCache(_canonicalDrawCache);
+        }
+        internal ParticleDrawCache ModCaptureDrawCache() => new(EffectVec1, EffectVec2, EffectVec3, ShouldDraw, Color,
+            Texcoord0, Vertex0, Texcoord1, Vertex1, Texcoord2, Vertex2, Texcoord3, Vertex3,
+            DrawNode, BillboardMode, NodeTransform);
+        internal void ModRestoreDrawCache(in ParticleDrawCache cache)
+        {
             EffectVec1 = cache.Vec1; EffectVec2 = cache.Vec2; EffectVec3 = cache.Vec3;
             ShouldDraw = cache.Visible; Color = cache.Color;
             Texcoord0 = cache.Uv0; Vertex0 = cache.V0;

@@ -4397,6 +4397,11 @@ namespace MphRead
             entry.DrawTransformOverride = transform;
             entry.DrawTransformUsesViewModel = viewModel;
         }
+        internal void SetPresentationEffectDrawEnabled(EffectEntry entry, bool enabled)
+        {
+            if (!_presentationOverrideEntries.Contains(entry)) _presentationOverrideEntries.Add(entry);
+            entry.DrawEnabledOverride = enabled;
+        }
         internal void ClearPresentationEffectTransforms()
         {
             _presentationEffectTints.Clear();
@@ -4404,6 +4409,7 @@ namespace MphRead
             {
                 entry.DrawTransformOverride = null;
                 entry.DrawTransformUsesViewModel = false;
+                entry.DrawEnabledOverride = null;
             }
             _presentationOverrideEntries.Clear();
         }
@@ -5460,7 +5466,7 @@ namespace MphRead
             for (int i = 0; i < _activeElements.Count; i++)
             {
                 EffectElementEntry element = _activeElements[i];
-                if (element.Flags.TestFlag(EffElemFlags.DrawEnabled))
+                if (element.EffectEntry?.DrawEnabledOverride ?? element.Flags.TestFlag(EffElemFlags.DrawEnabled))
                 {
                     for (int j = 0; j < element.Particles.Count; j++)
                     {
@@ -5474,6 +5480,10 @@ namespace MphRead
                         }
                         // Preserve the historical current-state geometry/cache
                         // before generating this picture's temporary sample.
+                        // A replica must also restore values from before the
+                        // canonical draw pass: billboard calculation itself is
+                        // camera-dependent and cannot alter its durable world.
+                        var replayDrawCache = Services.IsReplica ? particle.ModCaptureDrawCache() : default;
                         particle.ModBeginCanonicalDraw();
                         try
                         {
@@ -5512,6 +5522,7 @@ namespace MphRead
                         finally
                         {
                             particle.ModFinishDraw();
+                            if (Services.IsReplica) particle.ModRestoreDrawCache(replayDrawCache);
                         }
                     }
                 }
