@@ -21,7 +21,8 @@ internal static class ReplayTimelineArchive
             using var custom = ReplayWorldCheckpoint.CaptureCustom(world);
             var metadata = custom.ClipMetadata(0, Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))
                 .Where(p => p.Occupant.Generation != 0).Select(p => new ReplayPlayerInfo((byte)p.Slot, (byte)p.Occupant.Hunter,
-                    p.Occupant.Team, p.Occupant.Name, p.Occupant.IsBot, p.Occupant.BotLevel)).ToArray(), type);
+                    p.Occupant.Team, p.Occupant.Name, p.Occupant.IsBot, p.Occupant.BotLevel)).ToArray(), type,
+                customFormatVersion: world.Session.Metadata?.FormatVersion == 8 ? (byte)8 : (byte)7);
             return metadata;
         }
         using var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
@@ -51,6 +52,30 @@ internal static class ReplayTimelineArchive
             writer.WriteRecord(frame, EncodeMarker(record.ServerTick, marker));
             if (EventType(marker.Kind) is { } type) writer.WriteEvent(new(frame, type, marker.Actor, marker.Target, marker.Value));
         }
+    }
+    internal static ReadOnlySpan<byte> PhasePayload(ReplayTimelineRecord record)
+    {
+        if (record.Marker is { } marker)
+        {
+            if (record.Kind != ReplayFactKind.Event || !record.Payload.IsEmpty)
+                throw new InvalidDataException("A phase marker must be an explicit semantic fact.");
+            return EncodeMarker(record.ServerTick, marker);
+        }
+        if (record.Payload.IsEmpty || record.Kind is not (ReplayFactKind.Match or ReplayFactKind.Roster
+            or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld
+            or ReplayFactKind.Presentation or ReplayFactKind.CustomWeapon))
+            throw new InvalidDataException("Only accepted canonical facts can enter a capture phase.");
+        return record.Payload;
+    }
+    internal static void WritePostWorld(ReplayWriterV3 writer, ReplayTimelineRecord record,
+        uint origin, ReplayCustomWeaponContext context)
+    {
+        if (!writer.HasCustomWeaponContract || record.RecordingFrame < origin)
+            throw new InvalidDataException("Post-world storage requires its exact custom recording origin.");
+        uint frame = record.RecordingFrame - origin;
+        writer.WriteRecord(frame, ReplayPostWorldRecord.Encode(PhasePayload(record), context));
+        if (record.Marker is { } marker && EventType(marker.Kind) is { } type)
+            writer.WriteEvent(new(frame, type, marker.Actor, marker.Target, marker.Value));
     }
     // File-only compressed construction decoder for faithful v2 extraction.
     // It preserves the legacy preflight roster/rules even for clips shorter

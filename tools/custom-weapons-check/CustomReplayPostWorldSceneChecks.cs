@@ -24,7 +24,7 @@ internal static class CustomReplayPostWorldSceneChecks
     private sealed record ShotEvidence(uint Source, ReplayShotFact Fact);
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
-    internal static int Run(string input, string output, bool mixed = false, bool requireIndexed = false)
+    internal static int Run(string input, string output, bool mixed = false, bool requireIndexed = false, bool livePhase = false)
     {
         string cwd = Directory.GetCurrentDirectory();
         NativeWindow? window = null;
@@ -383,7 +383,101 @@ internal static class CustomReplayPostWorldSceneChecks
             foreach (var target in targets)
                 File.WriteAllBytes(Path.Combine(output, "phase-expected-" + target.Name + "-world" + worldVersion + ".bin"), expected[target.Frame]);
             string phasePath = Path.Combine(output, "derived-phase-indexed.ppdemo");
-            WriteDerived(phasePath, expected);
+            if (!livePhase) WriteDerived(phasePath, expected);
+            else
+            {
+                // This comparison producer uses the typed live API, while the earlier
+                // literal oracle bypassed its batch validation and phase application.
+                using var live = PassiveReplayScene.RestorePostWorldInspection(baseline, seed.Resources, new(640, 480));
+                live.Scene.ReplayPoses = new ReplayPoseStream(live, seed, indexed);
+                live.Scene.BeginOwnerPresentation(seed.Path);
+                Check(ReplayTimelineArchive.Metadata(live, ReplayType.FullMatch).FormatVersion == 8,
+                    "typed live Scene metadata explicitly selects format8");
+                var pump = new ReplayWritePump(phasePath, phaseMetadata, origin);
+                var clock = new ReplayCapturePhaseClock(origin);
+                bool finished = false;
+                ReplayCaptureRecord Typed(SourceRecord row, ReplayCapturePhase phase)
+                {
+                    uint source = checked(origin + row.Frame);
+                    ReplayTimelineRecord record = row.Bytes[0] == 254
+                        ? ReplayTimelineArchive.DecodeMarker(source, row.Bytes)
+                        : new(source, 0, row.Bytes[0] == ReplayCustomWeaponFact.Tag
+                            ? ReplayFactKind.CustomWeapon : ReplayFactKind.Presentation, row.Bytes);
+                    return new(record, phase);
+                }
+                void LiveCompare()
+                {
+                    if (!targets.Any(row => row.Frame == live.Session.RecordingFrame)) return;
+                    using var desired = ReplayWorldCheckpoint.FromCustomBytes(expected[live.Session.RecordingFrame], metadata.BuildId);
+                    using var actual = ReplayWorldCheckpoint.CaptureCustom(live);
+                    var diff = desired.CanonicalGraphDifferences(actual);
+                    string label = targets.Single(row => row.Frame == live.Session.RecordingFrame).Name;
+                    File.WriteAllText(Path.Combine(output, "live-" + label + "-differences.json"), JsonSerializer.Serialize(diff));
+                    Check(diff.Length == 0, "typed live capture matches literal phase oracle " + label);
+                    if (actual.Frame != origin)
+                    {
+                        var checkpoint = new ReplayTimelineRecord(actual.Frame, 0, ReplayFactKind.World, actual.Bytes);
+                        try { Check(pump.Checkpoint(checkpoint), "completed live target checkpoint queues"); }
+                        finally { checkpoint.Release(); }
+                    }
+                }
+                try
+                {
+                    LiveCompare();
+                    for (uint next = origin + 1; next <= end; next++)
+                    {
+                        var batch = new List<ReplayCaptureRecord>();
+                        try
+                        {
+                            if (post.TryGetValue(next - origin - 1, out var deferred))
+                                batch.AddRange(deferred.Select(row => Typed(row, ReplayCapturePhase.PostWorld)));
+                            if (ordinary.TryGetValue(next - origin, out var current))
+                                batch.AddRange(current.Select(row => Typed(row, ReplayCapturePhase.Ordinary)));
+                            foreach (var item in batch)
+                            {
+                                Check(clock.Classify(item.Record.RecordingFrame) == item.Phase,
+                                    "single completed-world clock classifies original source");
+                                Check(pump.Record(item), "same typed fact queues for format8 storage");
+                            }
+                            live.StepPostWorldInspection(next, batch);
+                            clock.Complete(next);
+                            Check(pump.EndFrame(next - origin), "only completed live world commits writer frontier");
+                            LiveCompare();
+                        }
+                        finally { foreach (var item in batch) item.Release(); }
+                    }
+                    // Genuine final post suffix is stored, never applied to the held EOF world.
+                    if (post.TryGetValue(duration, out var terminal))
+                        foreach (var row in terminal)
+                        {
+                            var item = Typed(row, ReplayCapturePhase.PostWorld);
+                            try { Check(pump.Record(item), "final inert post retains original source clock"); }
+                            finally { item.Release(); }
+                        }
+                    pump.Complete();
+                    Check(pump.Completion.Wait(TimeSpan.FromSeconds(20)), "actual async phase writer closes within bound");
+                    pump.Completion.GetAwaiter().GetResult();
+                    Check(pump.Error == null && pump.QueuedBytes == 0, "live phase writer releases all retained records");
+                    using (var closed = DemoReader.Open(phasePath, out var openedLive))
+                    {
+                        int projectedEvents = 0;
+                        foreach (var row in records.Where(row => row.Bytes[0] == 254))
+                        {
+                            var marker = ReplayTimelineArchive.DecodeMarker(origin + row.Frame, row.Bytes);
+                            try { if (ReplayTimelineArchive.EventType(marker.Marker!.Value.Kind).HasValue) projectedEvents++; }
+                            finally { marker.Release(); }
+                        }
+                        Check(closed != null && openedLive == ReplayOpenResult.Success
+                            && closed.Metadata!.Events.Count == projectedEvents,
+                            "typed semantic records project footer once without copying duplicate coarse source index");
+                    }
+                    finished = true;
+                }
+                finally
+                {
+                    if (!finished) { pump.Abort(); pump.Completion.Wait(TimeSpan.FromSeconds(20)); }
+                }
+            }
             Check(store.Uninstall(package.PackageHash) && store.Prune() == 0,
                 "independent seed owner retains exact historical bytes after uninstall");
             void Compare(PassiveReplayScene scene, Target target, string label)
@@ -573,7 +667,7 @@ internal static class CustomReplayPostWorldSceneChecks
             File.WriteAllText(Path.Combine(output, "phase-scene-results.json"), JsonSerializer.Serialize(new
             {
                 checks, sourcePath, sourceHash, records = records.Count, payloadBytes, origin, end, indexed, mixed,
-                worldVersion, requireIndexed,
+                worldVersion, requireIndexed, livePhase,
                 drawings, sourcePoseRows, futurePoseRows, intentClockRows, blockedFutureFire,
                 terminalNonquietSourceRecords = records.Count(row => row.Frame == duration && !IsQuiet(row)),
                 visibleAuthoredFire, capabilityGuards, ackAvailabilityGuards, authoredClockChecks, nativeIntentAgeChecks, mixedInheritedRows, visibility, eofControls,

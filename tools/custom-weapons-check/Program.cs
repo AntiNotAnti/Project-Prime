@@ -14,6 +14,11 @@ if (args.Length == 3 && args[0] == "--custom-replay-post-world-scene-indexed") r
 if (args.Length == 3 && args[0] == "--custom-replay-post-world-scene-indexed-mixed") return CustomReplayPostWorldSceneChecks.Run(args[1],args[2], mixed:true, requireIndexed:true);
 if (args.Length == 3 && args[0] == "--custom-replay-post-world-scene-mixed") return CustomReplayPostWorldSceneChecks.Run(args[1],args[2], mixed:true);
 if (args.Length == 3 && args[0] == "--custom-replay-post-world-scene") return CustomReplayPostWorldSceneChecks.Run(args[1],args[2]);
+if (args.Length == 3 && args[0] == "--custom-replay-live-phase-scene") return CustomReplayPostWorldSceneChecks.Run(args[1], args[2], livePhase: true);
+if (args.Length == 3 && args[0] == "--custom-replay-live-phase-scene-mixed") return CustomReplayPostWorldSceneChecks.Run(args[1], args[2], mixed: true, livePhase: true);
+if (args.Length == 3 && args[0] == "--custom-replay-live-phase-scene-indexed") return CustomReplayPostWorldSceneChecks.Run(args[1], args[2], requireIndexed: true, livePhase: true);
+if (args.Length == 3 && args[0] == "--custom-replay-live-phase-scene-indexed-mixed") return CustomReplayPostWorldSceneChecks.Run(args[1], args[2], mixed: true, requireIndexed: true, livePhase: true);
+if (args.Length == 2 && args[0] == "--custom-replay-capture-phase") return CustomReplayCapturePhaseChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--custom-replay-post-world-session") return CustomReplayPostWorldSessionChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--custom-replay-post-world") return CustomReplayPostWorldChecks.Run(args[1]);
 if (args.Length == 2 && args[0] == "--custom-replay-authority-origin") return CustomReplayAuthorityOriginChecks.Run(args[1]);
