@@ -13,13 +13,16 @@ internal static class NetCombatPayments
     internal const uint Retention = 1024;
     private struct Entry
     {
-        public bool Live, Paid;
+        public bool Live, Paid, RescuedClaim;
         public ShotPaymentKey Key;
         public uint Frame;
         public byte Weapon;
         public CombatAckEntry Outcome;
     }
     private static readonly Entry[,] Entries = new Entry[8, CapacityPerShooter];
+    // Avoid a second ledger scan on native contacts until a rescued claim
+    // has actually paid for this shooter during the current match.
+    private static readonly bool[] MayHaveRescuedClaim = new bool[8];
     internal static long Suppressed, CapacityRefused, Payments;
     // Per-process evidence survives the authority clearing its final empty room.
     internal static long LifetimePayments, LifetimeSuppressed, LifetimeCapacityRefused;
@@ -50,6 +53,57 @@ internal static class NetCombatPayments
         { outcome = Entries[key.Shot.ShooterSlot, at].Outcome; return true; }
         outcome = default; return false;
     }
+    // An individual native beam cannot hit one body directly AND explode against
+    // that same body as a separate splash: CheckSplashDamage excludes colWith.
+    // A client rescue can choose the opposite outcome from the authoritative
+    // collision on a different rewind timeline. Only that cross-timeline pair
+    // is exclusive. Two independent native contacts and different child
+    // components/victims are deliberately not collapsed.
+    // A direct player impact ends a Judicator/Magmaul parent; a later child
+    // cannot be another outcome for that same victim if the parent already
+    // paid a rescued direct claim. The inverse arrival order is identical.
+    // Parent wall splash followed by child direct is legal and stays payable.
+    private static bool DescendsFrom(uint child, uint parent)
+    {
+        if (child == 0 || parent == 0 || child == parent) return false;
+        for (int depth = 0; depth < 8 && child != 0; depth++)
+        {
+            child >>= 4;
+            if (child == parent) return true;
+        }
+        return false;
+    }
+    private static int FindAlternative(in ShotPaymentKey key, byte weapon, bool incomingClaim)
+    {
+        if (!Valid(key) || !incomingClaim && !MayHaveRescuedClaim[key.Shot.ShooterSlot]) return -1;
+        for (int i = 0; i < CapacityPerShooter; i++)
+        {
+            ref readonly var entry = ref Entries[key.Shot.ShooterSlot, i];
+            if (Expired(entry) || !entry.Paid || entry.Weapon != weapon
+                || (!incomingClaim && !entry.RescuedClaim)
+                || entry.Key.Shot != key.Shot || entry.Key.Victim != key.Victim
+                || entry.Key.Generation != key.Generation || entry.Key.Life != key.Life
+                || entry.Key.Phase != key.Phase
+                || (entry.Key.Kind & 4) != (key.Kind & 4)) continue;
+            int existingKind = entry.Key.Kind & 3, newKind = key.Kind & 3;
+            bool oppositeCollisionKind = entry.Key.Component == key.Component
+                && ((existingKind == 1 && newKind == 2) || (existingKind == 2 && newKind == 1));
+            bool bouncedWeapon = weapon == (byte)BeamType.Judicator || weapon == (byte)BeamType.Magmaul;
+            bool mutuallyExclusiveRicochet = bouncedWeapon
+                && (existingKind == 1 && DescendsFrom(key.Component, entry.Key.Component)
+                    || newKind == 1 && DescendsFrom(entry.Key.Component, key.Component));
+            if (oppositeCollisionKind || mutuallyExclusiveRicochet) return i;
+        }
+        return -1;
+    }
+    internal static bool TryGetClaimOutcome(in ShotPaymentKey key, byte weapon, out CombatAckEntry outcome)
+    {
+        if (TryGet(key, weapon, out outcome)) return true;
+        int at = FindAlternative(key, weapon, incomingClaim: true);
+        if (at >= 0 && Entries[key.Shot.ShooterSlot, at].Weapon == weapon)
+        { outcome = Entries[key.Shot.ShooterSlot, at].Outcome; return true; }
+        outcome = default; return false;
+    }
     // A read does not reserve, refresh, retire or correct the existing ledger.
     internal static FastPaymentFact Inspect(in ShotPaymentKey key, byte weapon)
     {
@@ -73,6 +127,7 @@ internal static class NetCombatPayments
             if (entry.Key != _key || entry.Paid) return;
             outcome.ShotId = _key.Shot.ShotId;
             entry.Outcome = outcome; entry.Paid = true; Payments++; LifetimePayments++;
+            if (entry.RescuedClaim) MayHaveRescuedClaim[_slot] = true;
             NetCampaignEvidence.TimelinePayment("payment-committed", _key, entry.Weapon, outcome: outcome, claimId: claimId);
             NetCombatFastPath.Payment(_key, outcome);
             NetSelfSplash.RecordPayment(_key, outcome);
@@ -98,11 +153,11 @@ internal static class NetCombatPayments
                 Entries[_slot, _at] = default;
         }
     }
-    internal static Reservation Begin(in ShotPaymentKey key, byte weapon)
+    internal static Reservation Begin(in ShotPaymentKey key, byte weapon, bool fromClaim = false)
     {
         if (!Valid(key)) return new(true);
         NetCampaignEvidence.TimelinePayment("payment-attempt", key, weapon);
-        if (Find(key) >= 0)
+        if (Find(key) >= 0 || FindAlternative(key, weapon, fromClaim) >= 0)
         {
             NetCampaignEvidence.TimelinePayment("payment-refused", key, weapon, result: 1);
             Suppressed++; LifetimeSuppressed++; return new(false);
@@ -111,7 +166,7 @@ internal static class NetCombatPayments
             if (Expired(Entries[key.Shot.ShooterSlot, i]))
             {
                 Entries[key.Shot.ShooterSlot, i] = new Entry { Live = true, Key = key,
-                    Weapon = weapon, Frame = NetSession.NetFrame };
+                    Weapon = weapon, Frame = NetSession.NetFrame, RescuedClaim = fromClaim };
                 return new(true, key.Shot.ShooterSlot, i, key);
             }
         NetCampaignEvidence.TimelinePayment("payment-refused", key, weapon, result: 2);
@@ -155,5 +210,5 @@ internal static class NetCombatPayments
                 if (owner == slot || Entries[owner, i].Key.Victim == slot) Entries[owner, i] = default;
     }
     internal static void Reset()
-    { Array.Clear(Entries); Suppressed = CapacityRefused = Payments = 0; }
+    { Array.Clear(Entries); Array.Clear(MayHaveRescuedClaim); Suppressed = CapacityRefused = Payments = 0; }
 }

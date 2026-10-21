@@ -352,6 +352,14 @@ namespace MphRead.Mods.Network
         // today, and a silently short array here would quietly stop
         // compensating whichever beams fell off the end.
         private static bool[] _beamsBefore = new bool[16];
+        // A pooled beam object may be replaced between BeginShot and EndShot.
+        // Preserve both identities so we never advance an unrelated old flight.
+        private static ShotKey[] _beamPriorKeys = new ShotKey[16];
+        private static uint[] _beamPriorComponents = new uint[16];
+        // EndShot reuses _beamsBefore for the active catch-up set. These identities
+        // also keep retired/overwritten slots from being processed a second time.
+        private static ShotKey[] _beamTrackedKeys = new ShotKey[16];
+        private static uint[] _beamTrackedComponents = new uint[16];
         private static PlayerEntity? _shooter;
         private static int _rewind;
 
@@ -380,7 +388,7 @@ namespace MphRead.Mods.Network
             FormRewinds = FormMismatches = KandenHistoricalSegmentChecks = KandenHistoricalSegmentHits = 0; Array.Clear(_formLog);
             NetDynamicGeometryHistory.ResetRoom();
             LagCompensationPolicy.Reset();
-            CatchUpShots = CatchUpTruncations = 0; MaximumCatchUpSteps = 0;
+            CatchUpShots = CatchUpTruncations = DerivedCatchUpSpawns = 0; MaximumCatchUpSteps = 0;
             Array.Clear(_stamp);
             Array.Clear(_moved);
             _newest = 0;
@@ -884,10 +892,18 @@ namespace MphRead.Mods.Network
             if (_beamsBefore.Length < beams.Length)
             {
                 _beamsBefore = new bool[beams.Length];
+                _beamPriorKeys = new ShotKey[beams.Length];
+                _beamPriorComponents = new uint[beams.Length];
+                _beamTrackedKeys = new ShotKey[beams.Length];
+                _beamTrackedComponents = new uint[beams.Length];
             }
             for (int i = 0; i < beams.Length; i++)
             {
                 _beamsBefore[i] = beams[i].Lifespan > 0;
+                _beamPriorKeys[i] = beams[i].ModLaunchKey;
+                _beamPriorComponents[i] = beams[i].ModComponentId;
+                _beamTrackedKeys[i] = default;
+                _beamTrackedComponents[i] = 0;
             }
         }
 
@@ -1206,8 +1222,62 @@ namespace MphRead.Mods.Network
 
         private static WeaponLagPolicy _shotPolicy;
         public static long CatchUpShots { get; private set; }
+        // Number of ricochet/derived projectiles adopted into historical catch-up.
+        public static long DerivedCatchUpSpawns { get; private set; }
+        internal static bool CatchUpDerivedFrom(in ShotKey launched, in ShotKey candidate, uint component)
+            => launched.ShotId != 0 && candidate == launched && component >> 4 != 0;
         public static long CatchUpTruncations { get; private set; }
         public static int MaximumCatchUpSteps { get; private set; }
+
+        // These two helpers are also used by native asset regressions to
+        // exercise pool reuse and child adoption without changing live timing.
+        internal static int MarkNewCatchUpFlights(BeamProjectileEntity[] beams, out ShotKey launchedKey)
+        {
+            int newCount = 0;
+            launchedKey = default;
+            for (int i = 0; i < beams.Length; i++)
+            {
+                BeamProjectileEntity beam = beams[i];
+                bool oldFlight = _beamsBefore[i] && _beamPriorKeys[i] == beam.ModLaunchKey
+                    && _beamPriorComponents[i] == beam.ModComponentId;
+                if (!oldFlight && beam.Lifespan > 0)
+                {
+                    _beamsBefore[i] = true;
+                    _beamTrackedKeys[i] = beam.ModLaunchKey;
+                    _beamTrackedComponents[i] = beam.ModComponentId;
+                    if (launchedKey.ShotId == 0 && beam.ModLaunchKey.ShotId != 0)
+                        launchedKey = beam.ModLaunchKey;
+                    newCount++;
+                }
+                else _beamsBefore[i] = false;
+            }
+            return newCount;
+        }
+
+        internal static int AdoptDerivedCatchUp(BeamProjectileEntity[] beams, in ShotKey launchedKey)
+        {
+            if (launchedKey.ShotId == 0) return 0;
+            int adopted = 0;
+            for (int i = 0; i < beams.Length; i++)
+            {
+                if (_beamsBefore[i]) continue;
+                BeamProjectileEntity child = beams[i];
+                bool oldFlight = _beamPriorKeys[i] == child.ModLaunchKey
+                    && _beamPriorComponents[i] == child.ModComponentId;
+                bool alreadyProcessed = _beamTrackedKeys[i] == child.ModLaunchKey
+                    && _beamTrackedComponents[i] == child.ModComponentId;
+                if (child.Lifespan <= 0 || child.Flags.TestFlag(BeamFlags.Collided)
+                    || oldFlight || alreadyProcessed
+                    || !CatchUpDerivedFrom(launchedKey, child.ModLaunchKey, child.ModComponentId))
+                    continue;
+                _beamsBefore[i] = true;
+                _beamTrackedKeys[i] = child.ModLaunchKey;
+                _beamTrackedComponents[i] = child.ModComponentId;
+                adopted++;
+                DerivedCatchUpSpawns++;
+            }
+            return adopted;
+        }
 
         public static void AbortShot()
         {
@@ -1234,19 +1304,7 @@ namespace MphRead.Mods.Network
             }
             int slot = shooter.SlotIndex;
             BeamProjectileEntity[] beams = _shotBeams ?? shooter.EquipInfo.Beams;
-            int newCount = 0;
-            for (int i = 0; i < beams.Length; i++)
-            {
-                if (!_beamsBefore[i] && beams[i].Lifespan > 0)
-                {
-                    _beamsBefore[i] = true; // reused as "this one is ours, and still going"
-                    newCount++;
-                }
-                else
-                {
-                    _beamsBefore[i] = false;
-                }
-            }
+            int newCount = MarkNewCatchUpFlights(beams, out ShotKey launchedKey);
             if (newCount == 0)
             {
                 // Nothing spawned: out of ammo, or a continuous beam being
@@ -1292,9 +1350,21 @@ namespace MphRead.Mods.Network
                         continue;
                     }
                     BeamProjectileEntity beam = beams[i];
+                    // Spawn() can reuse a pool slot while a parent is being
+                    // processed. Never step a replacement as its old identity.
+                    if (beam.ModLaunchKey != _beamTrackedKeys[i]
+                        || beam.ModComponentId != _beamTrackedComponents[i])
+                    {
+                        _beamsBefore[i] = false;
+                        newCount--;
+                        continue;
+                    }
                     bool hit = beam.Flags.TestFlag(BeamFlags.Collided);
                     CatchUpSteps++;
-                    if (!beam.Process() || beam.Flags.TestFlag(BeamFlags.Collided))
+                    bool alive = beam.Process();
+                    if (!alive || beam.Lifespan <= 0 || beam.Flags.TestFlag(BeamFlags.Collided)
+                        || beam.ModLaunchKey != _beamTrackedKeys[i]
+                        || beam.ModComponentId != _beamTrackedComponents[i])
                     {
                         if (!hit && beam.Flags.TestFlag(BeamFlags.Collided))
                         {
@@ -1304,6 +1374,12 @@ namespace MphRead.Mods.Network
                         newCount--;
                     }
                 }
+                // Ricochet children are spawned *inside* a parent's Process()
+                // (Judicator is a common case). Capture them after the entire
+                // step so no child can be advanced in its birth frame. They
+                // receive every remaining historical frame on the next pass.
+                // Never pull in pre-existing shots or unrelated pool occupants.
+                newCount += AdoptDerivedCatchUp(beams, launchedKey);
             }
             MaximumCatchUpSteps = Math.Max(MaximumCatchUpSteps, completed);
             Restore();
