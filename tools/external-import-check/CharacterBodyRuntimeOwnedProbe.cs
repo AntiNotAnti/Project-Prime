@@ -267,7 +267,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
                                 "repeated draw preserves native health, actor, ammo, aim, projectiles, RNG and source clock/raw skin");
                             repeats++;
                         }
-                        Check(GL.GetError() == ErrorCode.NoError, "actual body/native world frame leaves no GL error");
+                        Check(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, "actual body/native world frame leaves no GL error");
                         DesktopGraphicsSession.Present(window); scene.AfterRenderFrame();
                     }
                 }

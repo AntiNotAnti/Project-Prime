@@ -75,7 +75,10 @@ internal static partial class CharacterModelAssetCheck
                 };
                 start.ArgumentList.Add("/d");
                 start.ArgumentList.Add("/c");
-                start.ArgumentList.Add($"mklink /J \"{link}\" \"{target}\"");
+                start.ArgumentList.Add("mklink");
+                start.ArgumentList.Add("/J");
+                start.ArgumentList.Add(link);
+                start.ArgumentList.Add(target);
                 using var process = Process.Start(start) ?? throw new IOException("Junction fixture process did not start.");
                 if (!process.WaitForExit(10000))
                 {
