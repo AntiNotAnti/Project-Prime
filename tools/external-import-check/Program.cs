@@ -40,6 +40,8 @@ try
         return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true);
     if (args.Length == 2 && args[0] == "--probe-character-final-ball-runtime")
         return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true);
+    if (args.Length == 2 && args[0] == "--probe-character-source-ball-trail-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true,probeTrail:true);
     if (args.Length == 2 && args[0] == "--probe-character-generated-profile")
         return CharacterGeneratedProfileOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-preview")

@@ -36,9 +36,10 @@ internal static class CharacterCannonRuntimeOwnedProbe
         new("charge-release",40),new("turn",30),new("walk",30),new("missile",50),new("power",50),
         new("morph",100),new("unmorph",100),new("settle",100)];
     private sealed record Result(string Identity, string[] Trace, object[] Stages, int CannonFrames,
-        int FallbackFrames, int RepeatedDraws, double MaximumTipError, double MaximumPaletteError, object[] FractionalSchedules, object? Ball = null);
+        int FallbackFrames, int RepeatedDraws, double MaximumTipError, double MaximumPaletteError, object[] FractionalSchedules, object? Ball = null,
+        string[]? TrailTrace = null, object? Trail = null);
 
-    internal static int Run(string rvz, bool trooper = false, bool probeBall = false)
+    internal static int Run(string rvz, bool trooper = false, bool probeBall = false, bool probeTrail = false)
     {
         string temporary = Path.Combine(Path.GetTempPath(), "prime-cannon-runtime-" + Guid.NewGuid().ToString("N"));
         string cwd = Environment.CurrentDirectory;
@@ -68,6 +69,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
             Check(OperatingSystem.IsWindows() && RuntimeInformation.ProcessArchitecture == Architecture.X64
                 && !Headless.Active && !NetSession.Active && !DemoPlayback.IsActive && !ReplayCapture.LiveRecordingActive,
                 "fresh actual Windows x64 offline first-person process");
+            Check(!probeTrail||probeBall&&!trooper,"source trail fixture uses both exact local Echoes ball selections");
             Check(!string.IsNullOrWhiteSpace(native) && Directory.Exists(native), "existing owned AMHE1 fixture required");
             native = Path.GetFullPath(native!); rvz = Path.GetFullPath(rvz);
             sourceBefore = HashFile(rvz); nativeBefore = Inventory(native);
@@ -119,6 +121,12 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     Check(result.Trace.Length==baseline.Trace.Length,"first-person parity traces have matching lengths");
                     int mismatch=Enumerable.Range(0,result.Trace.Length).FirstOrDefault(i=>result.Trace[i]!=baseline.Trace[i],-1);
                     Check(mismatch<0,result.Identity+" native health/actor/ammo/aim/projectile/effect/RNG parity; first mismatch="+mismatch);
+                    if(probeTrail)
+                    {
+                        Check(result.TrailTrace!.Length==baseline.TrailTrace!.Length,"native active trail history traces have matching completed-step grains");
+                        int trailMismatch=Enumerable.Range(0,result.TrailTrace.Length).FirstOrDefault(i=>result.TrailTrace[i]!=baseline.TrailTrace[i],-1);
+                        Check(trailMismatch<0,result.Identity+" native18-slot alpha/index/active-matrix history parity; first mismatch="+trailMismatch);
+                    }
                 }
             }
 
@@ -232,6 +240,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     Vector3? ballFirst=null;
                     double maxTip=0,maxPalette=0;bool fired=false,charged=false,morphed=false,missile=false;
                     var trace=new List<string>();var stages=new List<object>();var captured=new HashSet<string>();
+                    var trailTrace=new List<string>();int trailPictures=0,blueTrailPictures=0,nativeTrailPictures=0,rollingTrailPictures=0,morphTrailGuards=0,maxTrailSegments=0;
                     var fractionalSchedules=new List<object>();
                     using var sourceLocks = selection == null ? null : new SourceFileLocks(imports);
                     Check(selection == null || sourceLocks!.Count >= ids.Length * 13,
@@ -265,6 +274,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                     CameraSequence=scene.CameraSequences.Current!=null,Bright=BrightSkins.ShouldApply(player),
                                     DamageTimer=typeof(PlayerEntity).GetField("_timeSinceDamage",Hidden)!.GetValue(player)}));
                             trace.Add(State(scene,player)+(probeBall?":"+BombState(scene,player):""));animations.Add(player.GunAnimation.ToString());
+                            if(probeTrail)trailTrace.Add(TrailHistory(player,activeOnly:true)+":"+Rng.Rng1+":"+Rng.Rng2);
                             respawned|=died&&player.Health>0&&player.ModIsInPlay;
                             if(respawned&&BallItems(scene).Count>0)afterLifeBallFrames++;
                             if(probeBall)maxBombs=Math.Max(maxBombs,SceneBombs(scene).Count(b=>ReferenceEquals(b.Owner,player)));
@@ -283,6 +293,9 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     if(probeBall)Console.WriteLine(JsonSerializer.Serialize(new{Probe="ball-run-summary",Identity=selection?.SelectedAppearance.SkinSource??"native",maxBombs,ballFrames,ballFallback,ballMoved}));
                     if(probeBall)Check(maxBombs>0&&died&&respawned&&(!expectsBall||ballFrames>0&&ballMoved&&afterLifeBallFrames>0),
                         "actual native input earns bomb, injected death/native respawn and moving source ball in both lives where selected");
+                    if(probeTrail)Check(rollingTrailPictures>0&&trailPictures>0&&morphTrailGuards>0
+                        &&(expectsBall?blueTrailPictures>0:nativeTrailPictures>0),
+                        "actual native W rolling emits real TrailStack packets, with selected source tint and guarded native morph presentation");
                     var ballSchedules=new List<object>();
                     if(probeBall&&expectsBall)
                     {
@@ -291,13 +304,21 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         for(int n=0;n<110;n++){scene.OnSimulationFrame();Picture(false);}
                         Check(player.IsAltForm&&!player.IsMorphing&&BallItems(scene).Count==sourceBall!.Segments.Count,
                             "post-trace ball contracts start from a genuine settled native morph");
+                        if(probeTrail)
+                        {
+                            Key(keyboard,Keys.W,true);
+                            for(int n=0;n<60&&TrailItems(scene).Count==0;n++){scene.OnSimulationFrame();Picture(false,"trail-guard-prime");}
+                            Check(TrailItems(scene).Count>0&&BallItems(scene).Count>0,"native rolling input primes genuine active trail before pause/fallback guards");
+                        }
                         double frozenClock=owner!.BallMaterialSeconds;string frozenSkin=RawPalette(sourceBall!);
+                        string frozenTrail=probeTrail?TrailHistory(player,activeOnly:false):"";
                         scene.GameState.PauseMenu();
                         try
                         {
                             for(int n=0;n<4;n++){scene.OnSimulationFrame();Picture(true);}
                             Check(owner.BallMaterialSeconds==frozenClock&&RawPalette(sourceBall!)==frozenSkin,
                                 "paused simulation and repeated draw preserve fixed ball raw skin and material clock");
+                            if(probeTrail)Check(TrailHistory(player,activeOnly:false)==frozenTrail,"pause leaves all18 native trail alphas/index/matrices frozen without fabricated updates");
                         }
                         finally{scene.GameState.UnpauseMenu();}
                         var flagsProperty=typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!;var flags=player.Flags2;
@@ -307,9 +328,17 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         RenderOptions.Shadows=ShadowQuality.Low;
                         try{Picture(true);Check(BallItems(scene).Count==0&&WorldItems(scene).Any(i=>nativeBallLists.Contains(i.ListId)),"dynamic-shadow guard draws full native sphere with zero source packets");}
                         finally{RenderOptions.Shadows=ShadowQuality.Off;}
+                        if(probeTrail)
+                        {
+                            RenderOptions.ShowCustomCosmetics=false;
+                            try{Picture(true);Check(BallItems(scene).Count==0&&TrailItems(scene).Count>0,"cosmetics-off draws actual active native-color trail with complete native ball fallback");}
+                            finally{RenderOptions.ShowCustomCosmetics=true;}
+                        }
                         Picture(false);
                         Check(BallItems(scene).Count==sourceBall!.Segments.Count&&owner.BallMaterialSeconds==frozenClock&&RawPalette(sourceBall)==frozenSkin,
                             "guard restoration resumes the complete captured sphere without simulation, IO or clock advance");
+                        if(probeTrail)Check(TrailHistory(player,activeOnly:false)==frozenTrail&&TrailItems(scene).Count>0,
+                            "restoring source admission recolors only current trail packets and leaves canonical history unchanged");
                         Key(keyboard,Keys.W,true);
                         foreach(int rate in new[]{90,120,240,540})
                         {
@@ -470,17 +499,40 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             Check(player.IsAltForm&&!player.IsMorphing&&!owner.BallCurrent&&BallItems(scene).Count==0
                                 &&WorldItems(scene).Any(i=>nativeBallLists.Contains(i.ListId)),
                                 "native remorph after context retirement draws native sphere without IO or source resurrection");
+                            if(probeTrail)
+                            {
+                                Key(keyboard,Keys.W,true);
+                                for(int n=0;n<60&&TrailItems(scene).Count==0;n++){scene.OnSimulationFrame();Picture(true,"trail-retired-roll");}
+                                Check(TrailItems(scene).Count>0&&BallItems(scene).Count==0&&!owner.BallCurrent,
+                                    "retired source context still earns genuine native-color trail through real native rolling input");
+                                Key(keyboard,Keys.W,false);
+                            }
                         }
                     }
                     else Check(sourceFrames==0,"native first-person path retains native gun rendering");
                     return new(selection?.SelectedAppearance.SkinSource??"native",trace.ToArray(),stages.ToArray(),sourceFrames,fallbackFrames,repeats,maxTip,maxPalette,fractionalSchedules.ToArray(),
                         probeBall?new{BallFrames=ballFrames,AfterLifeBallFrames=afterLifeBallFrames,NativeBallFallbackPictures=ballFallback,Moving=ballMoved,
                             Died=died,Respawned=respawned,MaximumPaletteOrCenterError=maxBallError,CollisionRadiusFitError=ballRadiusError,
-                            MaximumOwnedBombs=maxBombs,FractionalSchedules=ballSchedules}:null);
+                            MaximumOwnedBombs=maxBombs,FractionalSchedules=ballSchedules}:null,
+                        probeTrail?trailTrace.ToArray():null,probeTrail?new{TrailPictures=trailPictures,BlueTrailPictures=blueTrailPictures,NativeTrailPictures=nativeTrailPictures,
+                            RollingTrailPictures=rollingTrailPictures,MorphGuardPictures=morphTrailGuards,MaximumSegments=maxTrailSegments,Slots=18,
+                            TraceGrain="one post-step record per original1415-step script; all18 alphas/ring index, matrices only for alpha>0, plus native global RNG; inactive matrix storage intentionally excluded across Scenes"}:null);
 
                     void Picture(bool repeat,string? label=null)
                     {
+                        string canonicalTrail=probeTrail?TrailHistory(player,activeOnly:false):"";uint rngBefore1=Rng.Rng1,rngBefore2=Rng.Rng2;
                         scene.OnDrawFrame();var items=SourceItems(scene);
+                        if(probeTrail)
+                        {
+                            bool hasTrail=TrailItems(scene).Count>0;
+                            if(canonicalTrail!=TrailHistory(player,activeOnly:false)||hasTrail&&(rngBefore1!=Rng.Rng1||rngBefore2!=Rng.Rng2))
+                                Console.WriteLine(JsonSerializer.Serialize(new{Probe="trail-draw-canonical-diagnostic",Identity=selection?.SelectedAppearance.SkinSource??"native",Stage=label,
+                                    SameCanonicalHistory=canonicalTrail==TrailHistory(player,activeOnly:false),RngBefore1=rngBefore1,RngAfter1=Rng.Rng1,RngBefore2=rngBefore2,RngAfter2=Rng.Rng2,
+                                    player.IsAltForm,player.IsMorphing,player.IsUnmorphing,player.Health,SourceBallPackets=BallItems(scene).Count,TrailPackets=TrailItems(scene).Count}));
+                            Check(canonicalTrail==TrailHistory(player,activeOnly:false)&&(!hasTrail||rngBefore1==Rng.Rng1&&rngBefore2==Rng.Rng2),
+                                "draw-only trail presentation preserves every canonical slot/alpha/index/matrix and emitted-trail native RNG");
+                            ObserveTrail(label,count:true);
+                        }
                         if(probeBall)
                         {
                             var balls=BallItems(scene);
@@ -586,10 +638,12 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                 float[] actual=new float[16];GL.GetUniform(program,GL.GetUniformLocation(program,"gx_projection"),actual);
                                 Check(Distance(ReadMatrix(actual,0),projection)<.00002,"actual source sphere uses world camera projection");
                             }
-                            if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "ball-roll" or "ball-bomb"&&captured.Add(label))
+                            if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "ball-roll" or "ball-bomb"
+                                &&(!probeTrail||TrailItems(scene).Any(trail=>trail.ItemCount>=12))&&captured.Add(label))
                             {
                                 string path=Path.Combine(capturesRoot,selection!.SelectedAppearance.SkinSource+"-"+label+".png");
-                                Check(ScreenCapture.SaveWindow(scene,path),"optional actual source ball frame saved");captures.Add(new{Path=path,Sha256=HashFile(path),SourcePackets=BallItems(scene).Count});
+                                Check(ScreenCapture.SaveWindow(scene,path),"optional actual source ball frame saved");captures.Add(new{Path=path,Sha256=HashFile(path),SourcePackets=BallItems(scene).Count,
+                                    TrailSegments=TrailItems(scene).Select(trail=>trail.ItemCount).ToArray()});
                             }
                         }
                         if(items.Count>0)
@@ -602,7 +656,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                 float[] actual=new float[16];GL.GetUniform(program,GL.GetUniformLocation(program,"gx_projection"),actual);
                                 Check(Distance(ReadMatrix(actual,0),vm)<.00002,"actual source GX program uses viewmodel FOV rather than widened world FOV");
                             }
-                            if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "idle" or "fire"&&captured.Add(label))
+                            if(!probeTrail&&!string.IsNullOrWhiteSpace(capturesRoot)&&label is "idle" or "fire"&&captured.Add(label))
                             {
                                 string path=Path.Combine(capturesRoot,selection!.SelectedAppearance.SkinSource+"-cannon-"+label+".png");
                                 Check(ScreenCapture.SaveWindow(scene,path),"explicit optional cannon gameplay PNG saved");
@@ -613,7 +667,15 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         {
                             string state=State(scene,player),raw=cannon==null?"":RawPalette(cannon);double? clock=owner?.MaterialSeconds;
                             string ballRaw=sourceBall==null?"":RawPalette(sourceBall),bombState=probeBall?BombState(scene,player):"";double? ballClock=owner?.BallMaterialSeconds;
+                            string trailPackets=probeTrail?TrailPacketHash(scene):"",trailState=probeTrail?TrailHistory(player,activeOnly:false):"";bool hadTrail=probeTrail&&TrailItems(scene).Count>0;
+                            uint trailRng1=Rng.Rng1,trailRng2=Rng.Rng2;
                             scene.OnDrawFrame();Check(scene.OnRenderFrame(),"repeated actual first-person frame renders");
+                            if(probeTrail)
+                            {
+                                ObserveTrail(label,count:false);
+                                Check(TrailPacketHash(scene)==trailPackets&&TrailHistory(player,activeOnly:false)==trailState&&(!hadTrail||Rng.Rng1==trailRng1&&Rng.Rng2==trailRng2),
+                                    "repeated draw preserves native trail packet geometry/alpha/index/matrices/color, full canonical history and RNG");
+                            }
                             Check(State(scene,player)==state&&owner?.MaterialSeconds==clock&&(cannon==null||RawPalette(cannon)==raw),
                                 "repeated draw preserves native effects/projectiles/aim/ammo/RNG and fixed raw cannon/owner clock");repeats++;
                             Check(!probeBall||ballClock==owner?.BallMaterialSeconds&&(sourceBall==null||RawPalette(sourceBall)==ballRaw)&&BombState(scene,player)==bombState,
@@ -621,6 +683,40 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         }
                         Check(GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"actual source/native first-person frame is GL-clean");
                         DesktopGraphicsSession.Present(window);scene.AfterRenderFrame();
+                    }
+
+                    void ObserveTrail(string? label,bool count)
+                    {
+                        var trails=TrailItems(scene);bool submitted=BallItems(scene).Count>0;
+                        if(count&&(player.IsMorphing||player.IsUnmorphing)){morphTrailGuards++;Check(!submitted,"morph/unmorph never grants source-blue trail authority");}
+                        if(count&&trails.Count>0)
+                        {trailPictures++;maxTrailSegments=Math.Max(maxTrailSegments,trails.Max(trail=>trail.ItemCount));if(submitted)blueTrailPictures++;else nativeTrailPictures++;if(label is "ball-roll" or "ball-after-life-roll")rollingTrailPictures++;}
+                        var alphas=(float[,])typeof(PlayerEntity).GetField("_mbTrailAlphas",Hidden)!.GetValue(player)!;
+                        var matrices=(Matrix4[,])typeof(PlayerEntity).GetField("_mbTrailMatrices",Hidden)!.GetValue(player)!;
+                        var indices=(int[])typeof(PlayerEntity).GetField("_mbTrailIndices",Hidden)!.GetValue(player)!;int slot=player.SlotIndex,index=indices[slot];
+                        Check(alphas.GetLength(1)==18&&matrices.GetLength(1)==18&&index is >=0 and <18,"native trail retains exact18-slot ring storage and bounded canonical cursor");
+                        var expectedColor=submitted?new Vector3(90/255f,200/255f,1):new Vector3(1,27/31f,11/31f);
+                        foreach(var trail in trails)
+                        {
+                            Check(trail.MatrixStackCount==18&&trail.Alpha==1&&trail.ItemCount is >0 and <=18
+                                &&trail.TextureBindingId==(int)typeof(PlayerEntity).GetField("_trailBindingId1",Hidden)!.GetValue(player)!,
+                                "actual native TrailStack retains its native texture,18-matrix stack, alpha and bounded geometry");
+                            for(int i=0;i<18;i++)Check(Distance(ReadMatrix(trail.MatrixStack,i*16),matrices[slot,i])==0,"every submitted native trail matrix remains bit-exact canonical storage");
+                            int pairs=0;
+                            for(int i=0;i<18;i++)
+                            {
+                                int first=(index-1-i+18)%18,second=(first+17)%18;float a=alphas[slot,first],b=alphas[slot,second];
+                                if(a<=0||b<=0)continue;pairs++;
+                                float u1=(31-(int)(a*31))/32f,u2=(31-(int)(b*31))/32f;
+                                Vector3[] points=[new(u1,0,first),new(0,.375f,0),new(u1,1,first),new(0,-.375f,0),
+                                    new(u2,1,second),new(0,-.375f,0),new(u2,0,second),new(0,.375f,0)];
+                                Check(trail.Points.AsSpan(i*8,8).SequenceEqual(points),"native ring alpha selects unchanged UV/fade, slot indices and ribbon vertices");
+                            }
+                            Check(trail.ItemCount==pairs,"submitted native trail segment count exactly matches real active ring pairs");
+                            if(trail.Diffuse!=expectedColor)Console.WriteLine(JsonSerializer.Serialize(new{Probe="source-ball-trail-color",Identity=selection?.SelectedAppearance.SkinSource??"native",Stage=label,
+                                SourceBallSubmitted=submitted,TrailSegments=trail.ItemCount,Slots=trail.MatrixStackCount,ActualRgb=new[]{trail.Diffuse.X,trail.Diffuse.Y,trail.Diffuse.Z},ExpectedRgb=new[]{expectedColor.X,expectedColor.Y,expectedColor.Z}}));
+                            Check(trail.Diffuse==expectedColor,"actual native TrailStack is source-blue exactly when this picture submitted its complete current source ball; otherwise native gold");
+                        }
                     }
                 }
                 finally{if(scene!=null)Release(scene);}
@@ -649,8 +745,10 @@ internal static class CharacterCannonRuntimeOwnedProbe
                 CoreSha256=coreSha,ToolSha256=toolSha,Renderer=renderer,GlVersion=version,SourceSha256Before=sourceBefore,SourceSha256After=sourceAfter,
                 NativeSha256Before=nativeBefore,NativeSha256After=nativeAfter,TemporaryDerivedDataDeleted=cleaned,Captures=captures,
                 Runs=runs.Select(run=>new{run.Identity,Frames=run.Trace.Length,GameplayTraceSha256=Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.Trace))),
-                    run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError,run.FractionalSchedules,run.Ball}),
+                    run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError,run.FractionalSchedules,run.Ball,
+                    TrailHistoryFrames=run.TrailTrace?.Length,TrailHistoryTraceSha256=run.TrailTrace==null?null:Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.TrailTrace))),run.Trail}),
                 Scope="Actual owned offline input/Scene/GX; fixed "+(trooper?"Weavel/four Trooper206tri/35joint/three-material":"Samus/normal392tri+Final793tri/39joint/own source materials+Final shell alpha")+" source cannon; "+(probeBall?"normal2220tri and Final8170tri two-joint source balls with independent material/heart policy,1415-step parity trace with native roll/bomb/injected death/native respawn plus separately counted ball pause/guards/fractional schedules/retirement;":"675-step parity trace;")+" native muzzle/effect/weapon authority plus separately counted source-cannon simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
+                TrailScope=probeTrail?"actual native TrailStack packet tint only, completed-step active native history parity; no fabricated emitter or gameplay ticks; no other core/boost/furl effects":null,
                 Unqualified=new[]{"physical controls","Android/macOS","online/replay","source cannon skeletal animation","other weapons","achieved refresh rate","visual art completeness"}}));
         }
         return error==null?0:1;
@@ -659,6 +757,29 @@ internal static class CharacterCannonRuntimeOwnedProbe
     private static List<RenderItem> AllSourceItems(Scene scene)=>(List<RenderItem>)typeof(Scene).GetField("_sourceBodyItems",Hidden)!.GetValue(scene)!;
     private static List<RenderItem> SourceItems(Scene scene)=>AllSourceItems(scene).Where(i=>i.ViewModel).ToList();
     private static List<RenderItem> BallItems(Scene scene)=>AllSourceItems(scene).Where(i=>i.SourceGx?.AlternateForm==true).ToList();
+    private static List<RenderItem> TrailItems(Scene scene)=>WorldItems(scene).Where(i=>i.Type==RenderItemType.TrailStack).ToList();
+    private static string TrailHistory(PlayerEntity player,bool activeOnly)
+    {
+        var alphas=(float[,])typeof(PlayerEntity).GetField("_mbTrailAlphas",Hidden)!.GetValue(player)!;
+        var matrices=(Matrix4[,])typeof(PlayerEntity).GetField("_mbTrailMatrices",Hidden)!.GetValue(player)!;
+        var indices=(int[])typeof(PlayerEntity).GetField("_mbTrailIndices",Hidden)!.GetValue(player)!;
+        using var bytes=new MemoryStream();using var writer=new BinaryWriter(bytes);int slot=player.SlotIndex;
+        writer.Write(slot);writer.Write(alphas.GetLength(1));writer.Write(indices[slot]);
+        for(int i=0;i<alphas.GetLength(1);i++)
+        {writer.Write(alphas[slot,i]);if(!activeOnly||alphas[slot,i]>0)for(int r=0;r<4;r++)for(int c=0;c<4;c++)writer.Write(matrices[slot,i][r,c]);}
+        return Sha(bytes.ToArray());
+    }
+    private static string TrailPacketHash(Scene scene)
+    {
+        using var bytes=new MemoryStream();using var writer=new BinaryWriter(bytes);var trails=TrailItems(scene);writer.Write(trails.Count);
+        foreach(var item in trails)
+        {
+            writer.Write(item.Diffuse.X);writer.Write(item.Diffuse.Y);writer.Write(item.Diffuse.Z);writer.Write(item.Alpha);writer.Write(item.ItemCount);writer.Write(item.MatrixStackCount);writer.Write(item.TextureBindingId);
+            foreach(float value in item.MatrixStack.Take(16*item.MatrixStackCount))writer.Write(value);
+            foreach(var point in item.Points.Take(8*item.ItemCount)){writer.Write(point.X);writer.Write(point.Y);writer.Write(point.Z);}
+        }
+        return Sha(bytes.ToArray());
+    }
     private static IEnumerable<BombEntity> SceneBombs(Scene scene)=>((IEnumerable<EntityBase>)typeof(Scene).GetField("_entities",Hidden)!.GetValue(scene)!).OfType<BombEntity>();
     private static string BombState(Scene scene,PlayerEntity player)
     {

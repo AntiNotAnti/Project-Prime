@@ -1,5 +1,15 @@
 # Overcharged Dark Samus composite ball
 
+Merged in [PR961](https://github.com/AntiNotAnti/Project-Prime/pull/961) at
+`967a6f7a2d71413d9fe488fef1486d0f5fa3f29b`. Qualified head is
+`f862bc5053793467ccbcdf06783d1d556c984fd6`. Concurrent PR962 changed only two
+tool-side protocol83 assertions before merge; the complete `src` tree is
+identical to the qualified head (`21aeb31398626f7c9a2e07a643e7b7180149b632`).
+The merged nettest was rebuilt against the same qualified `da82cebd…ca12` core:
+694 Quake III replay compatibility,971 offline policy and architecture checks
+pass. Merged nettest SHA256:
+`edf5f9590f16d902cebeead450b9138f0ebb2a593cbb4058f41f470877e3cf0d`.
+
 The Overcharged Echoes appearance selected in Hunters now has its own composite
 ball in local offline Samus matches: transparent shell, front-facing vents,
 folded red vessels, outward blue lines and a beating heart. It shares the existing
