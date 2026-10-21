@@ -136,7 +136,18 @@ namespace MphRead.Mods.Network
         internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
         {
             if (prepared.FormatVersion != 7)
-                throw new InvalidDataException("Post-world Scene playback requires phase-aware pose/fire presentation; CPU inspection is available separately.");
+                throw new InvalidDataException("Ordinary custom archive Scene admission requires format7.");
+            return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
+        }
+        internal static PassiveReplayScene OpenPostWorldArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
+        {
+            if (prepared.FormatVersion != 8
+                || prepared.Resources.Descriptor.InspectContext().Bootstrap.OriginKind != ReplayCustomWeaponOriginKind.Recipient)
+                throw new InvalidDataException("Post-world Scene inspection requires an explicit format8 recipient archive.");
+            return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
+        }
+        private static PassiveReplayScene OpenPreparedCustomArchive(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget)
+        {
             using var world = prepared.CopyWorld();
             var scene = RestoreCustomInspection(world, prepared.Resources, size);
             try
