@@ -360,7 +360,10 @@ internal sealed class KillcamController : IDisposable
         Vector3 focus = actor.ReplayDrawTransform.Row3.Xyz + Vector3.UnitY * (actor.IsAltForm ? .6f : 1.2f);
         Vector3 right = Vector3.Cross(facing, Vector3.UnitY);
         if (right.LengthSquared < .0001f) right = Vector3.UnitX;
-        var mode = (KillcamCameraMode)Math.Clamp(Launcher.LauncherPrefs.KillCamCamera, 0, 2);
+        // Preserve user-selected cameras for personal death replays. Final
+        // kill replays always use the cinematic director.
+        var mode = Kind == KillCamKind.Final ? KillcamCameraMode.Cinematic
+            : (KillcamCameraMode)Math.Clamp(Launcher.LauncherPrefs.KillCamCamera, 0, 2);
         if (world.State.CustomWeapons != null)
         {
             if (mode == KillcamCameraMode.FirstPerson && scene.SetCustomInspectionFirstPerson(slot)) return;
@@ -379,13 +382,16 @@ internal sealed class KillcamController : IDisposable
             return;
         }
         double relativeFrame = scene.ReplayPresentationFrame - _killFrame;
+        bool reduceMotion = Launcher.LauncherPrefs.ReduceMotion
+            || Render.Hud.HudProfiles.Runtime.ReduceMotion;
         float distance = 3.2f;
         if (mode == KillcamCameraMode.Cinematic)
         {
             if (relativeFrame < -15) distance = 4.6f;
             else if (relativeFrame <= 15) distance = 2.7f;
             else distance = 2.7f + (float)Math.Clamp((relativeFrame - 15) / 60, 0, 1) * 1.5f;
-            float orbit = (float)Math.Clamp(relativeFrame / 75, 0, 1) * .55f;
+            float orbit = reduceMotion ? 0f
+                : (float)Math.Clamp(relativeFrame / 75d, 0d, 1d) * .85f;
             if (orbit != 0)
             {
                 facing = Vector3.Transform(facing, Quaternion.FromAxisAngle(Vector3.UnitY, orbit));
@@ -398,8 +404,41 @@ internal sealed class KillcamController : IDisposable
         if (CollisionDetection.CheckBetweenPoints(focus, camera, TestFlags.Players, scene, ref collision))
             camera = focus + (camera - focus) * Math.Max(.05f, collision.Distance - .05f);
         Vector3 cameraTarget = focus + facing * 5;
-        scene.SetReplicaCamera(camera, cameraTarget, 82);
-        _lastKillerCamera = new(camera, cameraTarget, facing, 82, Frame);
+        if (Kind == KillCamKind.Final && Math.Abs(relativeFrame) < 24
+            && kill.VictimSlot < scene.Players.Items.Count
+            && world.State.Occupant(kill.VictimSlot).Generation == kill.VictimGeneration
+            && (kill.VictimLifeId == 0 || world.State.MatchesLife(kill.VictimSlot,
+                kill.VictimGeneration, kill.VictimLifeId))
+            && scene.Players.Items[kill.VictimSlot] is { } victim)
+        {
+            Vector3 impact = victim.ReplayDrawTransform.Row3.Xyz + Vector3.UnitY;
+            if ((impact - focus).LengthSquared < 400f)
+            {
+                float tracking = .68f * (1f - (float)Math.Abs(relativeFrame) / 24f);
+                cameraTarget = Vector3.Lerp(cameraTarget, impact, tracking);
+            }
+        }
+        float fov = 82f;
+        if (Kind == KillCamKind.Final && !reduceMotion)
+            fov *= 1f - .065f * (1f - (float)Math.Clamp(Math.Abs(relativeFrame) / 45d, 0d, 1d));
+
+        // Blend the live winner shot with the historical replay only when
+        // both views are close. Otherwise, the replay HUD draws a dark shutter
+        // to hide the discontinuity rather than sweeping through geometry.
+        if (Kind == KillCamKind.Final && _handoffCamera is { } entrance && _finalTicks <= 12
+            && (entrance.Position - camera).LengthSquared < 36f)
+        {
+            float alpha = Math.Clamp(_finalTicks / 12f, 0f, 1f);
+            alpha = alpha * alpha * (3f - 2f * alpha);
+            camera = Vector3.Lerp(entrance.Position, camera, alpha);
+            cameraTarget = Vector3.Lerp(entrance.Target, cameraTarget, alpha);
+            fov = entrance.Fov + (fov - entrance.Fov) * alpha;
+            collision = default;
+            if (CollisionDetection.CheckBetweenPoints(focus, camera, TestFlags.Players, scene, ref collision))
+                camera = focus + (camera - focus) * Math.Clamp(collision.Distance - .025f, .05f, 1f);
+        }
+        scene.SetReplicaCamera(camera, cameraTarget, fov);
+        _lastKillerCamera = new(camera, cameraTarget, facing, fov, Frame);
     }
     internal void DrawHud(Scene scene)
     {
@@ -419,10 +458,16 @@ internal sealed class KillcamController : IDisposable
             && (kill.KillerLifeId == 0 || services.State.MatchesLife(kill.KillerSlot,
                 kill.KillerGeneration, kill.KillerLifeId))
             ? scene.Players.Items[kill.KillerSlot].Health : 0;
-        _hud.Draw(Kind == KillCamKind.Final, killer, victim, weapon, headshot,
+        bool reduceMotion = Launcher.LauncherPrefs.ReduceMotion
+            || Render.Hud.HudProfiles.Runtime.ReduceMotion;
+        _hud.Draw(Kind == KillCamKind.Final, killer, victim, weapon, marker.Weapon, headshot,
             killerHealth, Progress,
             _end > _start ? (_killFrame - _start) / (float)(_end - _start) : 1,
-            ((float)_killFrame - Frame) / 60);
+            ((float)_killFrame - Frame) / 60,
+            Kind == KillCamKind.Final
+                ? FinalKillPresentation.ImpactStrength(scene.ReplayPresentationFrame, _killFrame, reduceMotion)
+                : 0f,
+            _finalTicks, (int)FinalReplayFrames, reduceMotion);
     }
     internal void FailPresentation(Exception error)
     { LastError = error.Message; Stop(KillcamEndReason.Failed); }
