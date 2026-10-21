@@ -2380,7 +2380,7 @@ namespace MphRead.Mods.Network
 
             }
             peer.ClientId = clientId;
-            peer.Spectating = spectating;
+            CareerSetSpectating(peer, spectating);
             if (Simulating)
                 NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
             ClaimOwner(peer, packet.Payload);
