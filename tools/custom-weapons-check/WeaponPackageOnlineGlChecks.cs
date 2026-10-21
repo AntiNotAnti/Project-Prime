@@ -134,6 +134,8 @@ internal static class WeaponPackageOnlineGlChecks
                     "accepted ordinary client context pins the actual creator archive");
                 Check(acceptedFacts.Count>0&&acceptedFacts.Count==recorder.AcceptedCustomWeaponFacts,"subscription copied every accepted ordinary client custom fact");
                 var counts=new Dictionary<ReplayCustomWeaponFactKind,int>();var receipt=new List<object>();ulong expectedSequence=1;
+                var linear=new ReplayCustomWeaponState(context);
+                var parsedFacts=new List<(ReplayCustomWeaponFact Fact,uint Frame)>();var completePoints=new List<int>();
                 bool recordedEmpty=false,recordedPickup=false,recordedSpent=false,recordedReloading=false,recordedReloaded=false,recordedOptic4=false;
                 var recordedSlots=new CustomReplicaSlot[8];var recordedFlights=new CustomReplicaFlight[64];
                 using(var stream=new FileStream(Path.Combine(output,"accepted-facts.bin"),FileMode.Create,FileAccess.Write,FileShare.None))
@@ -145,6 +147,9 @@ internal static class WeaponPackageOnlineGlChecks
                             "copied accepted custom fact validates against its exact context");
                         if(!ReplayCustomWeaponFact.TryRead(captured.Payload,context,out var fact))throw new InvalidDataException("Invalid accepted custom fact.");
                         Check(fact!.Sequence==expectedSequence++,"accepted custom fact sequence is contiguous");
+                        if(!linear.Accept(fact,captured.RecordingFrame))throw new InvalidDataException("Actual accepted fact was unexpectedly duplicated.");
+                        parsedFacts.Add((fact,captured.RecordingFrame));
+                        if(linear.CompleteForRestore)completePoints.Add(parsedFacts.Count-1);
                         counts[fact.Kind]=counts.GetValueOrDefault(fact.Kind)+1;
                         if(fact.Kind is ReplayCustomWeaponFactKind.Baseline or ReplayCustomWeaponFactKind.State)
                         {
@@ -172,10 +177,48 @@ internal static class WeaponPackageOnlineGlChecks
                 Check(recordedReloading,"accepted tables preserve actual reloading phase");
                 Check(recordedReloaded,"accepted tables preserve completed reload six/twentytwo");
                 Check(recordedOptic4,"accepted tables preserve fourth creator optic");
+                Check(linear.CompleteForRestore&&!linear.Invalidated&&completePoints.Count>0,
+                    "actual accepted facts produce complete passive custom state");
+                var leftFlights=new CustomReplicaFlight[ReplayCustomWeaponState.FlightCapacity];
+                var rightFlights=new CustomReplicaFlight[ReplayCustomWeaponState.FlightCapacity];
+                bool SameState(ReplayCustomWeaponState left,ReplayCustomWeaponState right)
+                {
+                    if(left.Invalidated||right.Invalidated||!left.CompleteForRestore||!right.CompleteForRestore
+                        ||left.Sequence!=right.Sequence||left.World!=right.World||left.RecordingFrame!=right.RecordingFrame)return false;
+                    for(int slot=0;slot<8;slot++)
+                        if(!left.TrySlot(slot,out var slotLeft)||!right.TrySlot(slot,out var slotRight)||slotLeft!=slotRight)return false;
+                    for(int index=0;index<context.Layout.Count;index++)
+                        if(!left.TryPickup(index,out var pickupLeft)||!right.TryPickup(index,out var pickupRight)||pickupLeft!=pickupRight)return false;
+                    int leftCount=left.CopyFlights(leftFlights),rightCount=right.CopyFlights(rightFlights);
+                    return leftCount==rightCount&&leftFlights.AsSpan(0,leftCount).SequenceEqual(rightFlights.AsSpan(0,rightCount));
+                }
+                int forwardRestores=0,backwardRestores=0;long suffixFactsApplied=0;
+                // Rebuild one prefix at a time instead of retaining every large state
+                // snapshot. Test memory stays bounded independently of fact count.
+                foreach(bool backwards in new[]{false,true})
+                foreach(int index in backwards?completePoints.AsEnumerable().Reverse():completePoints)
+                {
+                    var prefix=new ReplayCustomWeaponState(context);
+                    for(int n=0;n<=index;n++)prefix.Accept(parsedFacts[n].Fact,parsedFacts[n].Frame);
+                    var point=prefix.CaptureRestorePoint();
+                    var freshContext=new ReplayCustomWeaponContext(context.Bootstrap,context.Definition,context.Layout);
+                    var restored=point.Restore(freshContext);
+                    Check(ReferenceEquals(restored.Context,freshContext)&&SameState(prefix,restored),
+                        "typed custom restore independently reproduces captured slots pickups and sorted flights");
+                    for(int n=index+1;n<parsedFacts.Count;n++)
+                    {restored.Accept(parsedFacts[n].Fact,parsedFacts[n].Frame);suffixFactsApplied++;}
+                    restored.Advance(linear.World,linear.RecordingFrame);
+                    Check(SameState(linear,restored),backwards
+                        ?"backward typed restore plus actual suffix matches final linear custom state"
+                        :"forward typed restore plus actual suffix matches final linear custom state");
+                    if(backwards)backwardRestores++;else forwardRestores++;
+                }
                 File.WriteAllText(Path.Combine(output,"accepted-facts-results.json"),JsonSerializer.Serialize(new{count=acceptedFacts.Count,capturedBytes,
                     package.PackageHash,context=context.Digest.ToString(),counts=counts.ToDictionary(pair=>pair.Key.ToString(),pair=>pair.Value),facts=receipt,
                     observations=new{recordedEmpty,recordedPickup,recordedSpent,recordedReloading,recordedReloaded,recordedOptic4},
-                    scope="Copied accepted ordinary-client custom facts in a test-only length-prefixed file. No actual contact capture expected from this single-client wall shot. Not a Demo archive, record-close-reopen playback, or seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
+                    passiveRestore=new{completePoints=completePoints.Count,forwardRestores,backwardRestores,suffixFactsApplied,
+                        finalSequence=linear.Sequence,finalWorld=linear.World,finalRecordingFrame=linear.RecordingFrame},
+                    scope="Copied accepted ordinary-client custom facts and typed passive-state restores in both directions, with actual suffix replay and exact slot/pickup/sorted-flight equality. No actual contact capture expected from this single-client wall shot. Test-only length-prefixed file, not a Demo archive, file checkpoint, record-close-reopen playback, or archive seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
             }
             Check(clientStore.Prune()==0,"ordinary live session and scene retain archive uninstalled before match transition");NetSession.Stop();Check(clientStore.Prune()==0&&scene.LocalWeaponPackage?.PackageHash==package.PackageHash,"session Stop preserves independently retained ordinary scene package owner");scene.DoCleanup();scene=null;Check(clientStore.Prune()==1,"ordinary scene cleanup releases final retained client archive");
             File.WriteAllText(Path.Combine(output,"online-package-gl-results.json"),JsonSerializer.Serialize(new{checks,renderer,version,sawCwmDuringStarting,package.PackageHash,contentId=package.Project.ContentId,seconds=watch.Elapsed.TotalSeconds,pictures,scope="Actual separate dedicated process and ordinary NetSession client/native GL; genuine package preparation, native world admission, W world pickup,scope4,fire,reload. Authored approach placement is declared; no synthetic snapshots, grant or client authority."},new JsonSerializerOptions{WriteIndented=true}));Console.WriteLine($"PASS {checks} ordinary online package client GL checks");return 0;
