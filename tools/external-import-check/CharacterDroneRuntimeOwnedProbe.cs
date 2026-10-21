@@ -499,6 +499,15 @@ internal static class CharacterDroneRuntimeOwnedProbe
             void Observe()
             {
                 var items=Items(scene);int nativeCount=NativePackets(scene,native);check(items.Count is 0 or 2,"both original source material packets or complete native fallback");
+                if(probeMovement&&owner is{Current:true}&&player.IsAltForm&&!player.IsMorphing&&!player.IsUnmorphing)
+                {
+                    int cameraStep=(ushort)typeof(PlayerEntity).GetField("_camSwitchTimer",Hidden)!.GetValue(player)!,cameraEnd=player.Values.CamSwitchTime*2;
+                    if(cameraStep<cameraEnd)
+                    {
+                        if(items.Count!=0)Console.WriteLine(JsonSerializer.Serialize(new{Probe="source-drone-native-camera-handoff",Appearance=appearance.ToString(),CameraStep=cameraStep,CameraEnd=cameraEnd,player.CameraType,player.CameraInfo.Fov,player.EquipInfo.Zoomed,SourceItems=items.Count,NativeItems=nativeCount}));
+                        check(items.Count==0&&nativeCount>0,"unfinished actual native third-person camera handoff retains complete native drone presentation");
+                    }
+                }
                 if(items.Count>0){sourcePictures++;if(player.DroneFireState!=0)sourceBurstPictures++;if(player.DroneLaserFrame>=0)sourceLaserPictures++;check(owner is{Current:true,Ready:true}&&nativeCount==0&&items.All(i=>ReferenceEquals(i.SourceGx!.BodyOwner,owner)&&i.SourceGx.AlternateForm&&!i.ViewModel&&i.SourceGx.Seconds==owner.MaterialSeconds),"own complete source drone replaces exactly native mobile model and carries own supported-step material clock");}else if(nativeCount>0){nativePictures++;if(player.DroneFireState!=0)burstFallback++;if(player.DroneLaserFrame>=0)laserFallback++;}
                 if((!burstContract&&player.DroneFireState!=0)||(!laserContract&&player.DroneLaserFrame>=0)||player.IsMorphing||player.IsUnmorphing)check(items.Count==0,"unsupported native burst/laser/morph states retain complete native presentation");
                 var all=WorldItems(scene).Distinct().ToArray();int binding=(int)typeof(PlayerEntity).GetField("_trailBindingId1",Hidden)!.GetValue(player)!;var lasers=all.Where(i=>i.Type==RenderItemType.TrailSingle&&i.TextureBindingId==binding&&i.Diffuse==new Vector3(1,.15f,.1f)).ToArray();check(lasers.Length==(player.DroneLaserOn?2:0),"native cached laser always draws exact crossed-strip count during source fallback");if(lasers.Length>0){laserPictures++;check(lasers.All(i=>(i.Transform.Row3.Xyz-player.DroneLaserOrigin).LengthSquared<.0000001f),"native laser packets retain cached native origin");}
