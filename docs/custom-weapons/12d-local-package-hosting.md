@@ -1,10 +1,8 @@
 # CW-12d — local package hosting contract
 
-This is a source/design contract. Current CW-12d validation is pending; this
-document does not establish test passes, UI delivery or complete CW-12 acceptance.
-The initial112.53s desktop and70.84s dedicated builds were superseded before
-functional testing when review found a missing joining-client selection path.
-The corrected qualified rebuild is running; no functional pass is claimed here.
+This is the source/design contract for local package hosting. Observed local
+qualification and its limits are recorded in the [CW-12d receipt](evidence/CW-12d.md).
+This slice does not establish launcher UI delivery or complete CW-12 acceptance.
 
 `LocalWeaponPackageSelection` is an immutable public value containing a bounded
 local store directory and an exact lowercase64-character archive SHA-256.
@@ -66,6 +64,6 @@ Start; the flags select an available world-pickup weapon, never spawn ownership.
 This slice introduces no remote allocator wire change and makes no launcher UI
 claim. Remote allocator selection, custom bots and custom replay/seek remain
 open. Native replay continues explicitly refusing package/custom gameplay.
-Android testing remains deferred by user scope. Local child lifecycle, exact
-argument forwarding, ownership and gameplay observations require separate
-validation evidence before this source contract can be called qualified.
+Android testing remains deferred by user scope. The linked evidence distinguishes
+local child lifecycle, argument forwarding, ownership and gameplay observations
+from unqualified remote, device and performance acceptance.
