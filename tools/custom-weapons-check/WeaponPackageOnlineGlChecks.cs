@@ -314,6 +314,47 @@ internal static class WeaponPackageOnlineGlChecks
                         }
                         Check(NetSession.Active==liveActive&&ReferenceEquals(scene.GameState,liveGameState)&&scene.Random.Rng1==liveBefore1&&scene.Random.Rng2==liveBefore2,"passive visual inspection preserves foreground session GameState and RNG "+entry.Key);
                     }
+                    uint PrefixFrame(ReplayReplicaCheckpoint checkpoint){var value=new ReplayReplicaState();value.RestoreCustomCheckpoint(checkpoint);return value.RecordingFrame;}
+var fileBaseline=capturedWorlds.First(item=>item.Name=="before-pickup");
+                    var expectedFileWorlds=new List<object>();var namedFileFrames=capturedWorlds.Select(item=>(item.Name,Frame:PrefixFrame(item.Prefix))).ToArray();
+                    using(var baselineWorld=MphRead.Mods.Replay.ReplayWorldCheckpoint.FromCustomBytes(fileBaseline.Bytes))
+                    using(var fileSource=PassiveReplayScene.RestoreCustomInspection(baselineWorld,preparedReplay,new Vector2i(640,480)))
+                    {
+                        uint fileOrigin=fileSource.Session.RecordingFrame;string filePath=Path.Combine(output,"actual-full-custom"+DemoFile.Extension);
+                        var fileMetadata=baselineWorld.ClipMetadata(0,Array.Empty<ReplayPlayerInfo>());
+                        uint betweenFrame=checked(namedFileFrames.Single(item=>item.Name=="accepted-launch").Frame+5);
+                        while(betweenFrame<fullInspection.RecordingFrame&&namedFileFrames.Any(item=>item.Frame==betweenFrame))betweenFrame++;
+                        Check(betweenFrame>fileOrigin&&betweenFrame<fullInspection.RecordingFrame&&!namedFileFrames.Any(item=>item.Frame==betweenFrame),"genuine non-indexed between target fits accepted stream");
+                        void SaveExpected(string name)
+                        {
+                            using var expected=MphRead.Mods.Replay.ReplayWorldCheckpoint.CaptureCustom(fileSource);string filename="file-expected-"+name+"-world12.bin";File.WriteAllBytes(Path.Combine(output,filename),expected.Bytes.ToArray());expectedFileWorlds.Add(new{name,frame=fileSource.Session.RecordingFrame,filename});
+                        }
+                        SaveExpected("baseline");
+                        using(var writer=new ReplayWriterV3(filePath,fileMetadata))
+                        {
+                            for(ulong absolute=(ulong)fileOrigin+1;absolute<=fullInspection.RecordingFrame;absolute++)
+                            {
+                                uint frame=checked((uint)absolute);var records=new List<ReplayTimelineRecord>();
+                                try
+                                {
+                                    foreach(var item in scopedSceneFacts)if(item.Frame==frame){var record=new ReplayTimelineRecord(frame,item.Tick,item.Kind,item.Payload);records.Add(record);ReplayTimelineArchive.Write(writer,record,fileOrigin);}
+                                    fileSource.StepCustomInspection(frame,records);
+                                }
+                                finally{foreach(var record in records)record.Release();}
+                                if(frame==betweenFrame)SaveExpected("between"); // Intentionally no durable checkpoint at this observed frame.
+                                var names=namedFileFrames.Where(item=>item.Name!="before-pickup"&&item.Frame==frame).Select(item=>item.Name).ToArray();
+                                if(names.Length>0)
+                                {
+                                    foreach(string name in names)SaveExpected(name);
+                                    using var checkpoint=MphRead.Mods.Replay.ReplayWorldCheckpoint.CaptureCustom(fileSource);writer.WriteCheckpoint(frame-fileOrigin,checkpoint.Bytes);
+                                }
+                            }
+                            writer.WriteRecord(fullInspection.RecordingFrame-fileOrigin,new byte[]{255});SaveExpected("end");
+                        }
+                        Check(fileSource.State.CustomWeapons!.CaptureCheckpointBytes().AsSpan().SequenceEqual(fullInspection.CustomWeapons!.CaptureCheckpointBytes()),"full native/custom file source reaches genuine accepted final frontier");
+                    }
+                    File.WriteAllText(Path.Combine(output,"file-expected-worlds.json"),JsonSerializer.Serialize(expectedFileWorlds,new JsonSerializerOptions{WriteIndented=true}));File.WriteAllText(Path.Combine(output,"replay-fixture-data.txt"),data);
+                    Check(CustomReplayFileReopenChecks.Validate(output,Path.Combine(output,"file-reopen-inline"),window)>0,"actual full custom archive closes reopens and seeks into fresh Scenes");
                     uint foregroundSuffixRng1=scene.Random.Rng1,foregroundSuffixRng2=scene.Random.Rng2;bool foregroundSuffixActive=NetSession.Active;
                     int worldForwardSuffixFrames=0,worldBackwardRestores=0;
                     foreach(var captured in capturedWorlds.AsEnumerable().Reverse())
