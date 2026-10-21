@@ -19,22 +19,40 @@ The backend-owned `prime.rating_rollout_controls` row
 release, ranking formula change, or replay of old results is required.**
 
 Included: new **completed authoritative online PvP** reports from provisioned
-reporters with 2–8 started players, verifiable **distinct Hunter License**
+reporters with 2–8 started players, authenticated **distinct Hunter License**
 identities and at least one opposing player/team. Standard/custom game modes,
 modifiers, hosted/persistent and continuous matches can earn RP, including
-nonofficial registered reporters. The trusted Edge Function still verifies
-reporter credentials and per-player match tickets.
+nonofficial registered reporters.
+
+**Guest and email-unverified Licenses are included.** An install automatically
+creates an anonymous Supabase Auth session and an owned Hunter License. Neither
+email confirmation nor linking a social sign-in is needed. The same narrow
+HMAC career ticket is issued to guests and secured accounts, carrying only the
+authenticated Supabase UUID and network ClientId. The trusted Edge Function
+verifies that token, and the database credits the corresponding License.
+"Verified" on the native UI describes an authoritative *synced snapshot*, not
+whether the user has verified an email.
+
+The client requests its anonymous session, license record and career ticket
+automatically when joining online, even if the Hunter License UI was never
+opened. A locally "UNVERIFIED" display may just need to sync; it does not
+automatically disqualify the account once the authenticated ticket arrives.
 
 Unchanged exclusions: bot-assisted matches (never enqueued; rejected again by
-Edge and DB), offline/local bot matches, guest/duplicate identities, unfinished
-matches, a roster without opposing pairs, unknown/unregistered reporters.
+Edge and DB), offline/local bot matches, **completely unauthenticated or
+unsynced** profiles without valid account attribution, duplicate identities,
+unfinished matches, a roster without opposing pairs, unknown/unregistered
+reporters. A display name or network ClientId alone cannot identify a License
+safely for permanent RP.
 This is not retroactive and does not bypass the existing idempotent `MatchId`,
 canonical player locks or PairwiseNormalizedV1 RP calculation (0–850).
 
 An enabled rollout does not guarantee RP for a match when the server's
-`PROJECT_PRIME_CAREER_SERVER_KEY` is absent or any started participant lacks a
-verified career ticket. Results are posted via the durable asynchronous outbox;
-Hunter License refresh may lag briefly.
+`PROJECT_PRIME_CAREER_SERVER_KEY` is absent or a started participant lacks
+a **valid authenticated career ticket**, even when the participant has a local
+name/License card. This is **not** an email verification requirement. Results
+are posted via the durable asynchronous outbox; Hunter License refresh and
+guest session creation may lag briefly.
 
 ## Reversal
 
@@ -57,8 +75,10 @@ To reactivate, set `enabled=true`. Do not modify this setting from clients.
 - Migration was dry-run in a rolled-back transaction, then applied.
 - `supabase/tests/temporary_all_completed_pvp_ranking.sql` replays a
   previously unrated authoritative FFA report under new match IDs in a
-  transaction, verifies rating transactions are generated while enabled and
-  withheld when disabled, then **rolls back** all changes.
+  transaction, asserts that an **anonymous guest account receives an RP
+  transaction without an email-verification requirement**, checks no RP when
+  the toggle is disabled, checks missing-identity rejection, then **rolls
+  back** all changes.
 - `supabase/tests/bot_assisted_career.sql` continues testing bot rejection.
 - After a new real completed PvP round, check
   `prime.accepted_matches.RatingStatus='applied'` and corresponding rows in
