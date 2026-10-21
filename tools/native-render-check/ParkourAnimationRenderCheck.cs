@@ -34,19 +34,23 @@ internal static class ParkourAnimationRenderCheck
         .GetMethod("SetKeyState", Hidden)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
     private sealed record Pose(float MantleProgress, float MantleWeight, float GrappleAmount,
-        float[] RopeDirection, double Seconds);
+        float[] RopeDirection, double Seconds, byte WallCue, float WallAmount, float[] WallNormal, bool WallTucked);
     private sealed record Image(string File, string RgbSha256, string PngSha256, int Width, int Height);
     private sealed record Pixels(byte[] Rgb, Image Metadata);
     private sealed record Canonical(Vector3 Position, Vector3 Previous, Vector3 Speed, object? Collision,
         Vector3 Eye, Vector3 Target, Matrix4 View, Vector3 Muzzle, Vector3 AimPosition, Vector3 Gun,
-        object? Grapple, object? SourceFacts, string NativeClocks, Pose Pose, ulong Frame);
+        object? Grapple, object? SourceFacts, string NativeClocks, string WallControllers, Pose Pose, ulong Frame);
+    private static readonly FieldInfo[] WallControllerFields = typeof(PlayerEntity).GetFields(Hidden)
+        .Where(f => !f.FieldType.IsArray && (f.Name.StartsWith("_modWall", StringComparison.Ordinal)
+            || f.Name.StartsWith("_modParkourWall", StringComparison.Ordinal)
+            || f.Name == "_modParkourIncomingContactSpeed")).OrderBy(f => f.Name).ToArray();
     private sealed class Fixture : IDisposable
     {
         internal readonly Scene Scene;
         internal readonly PlayerEntity Player;
         internal readonly KeyboardState Keyboard = SyntheticInput.CreateKeyboard();
         internal readonly Vector3 CameraOffset;
-        internal Fixture(Hunter hunter, string scenario, Vector2i size)
+        internal Fixture(Hunter hunter, string scenario, Vector2i size, bool west = false)
         {
             Rng.SetRng1(8128); Rng.SetRng2(0x8128a5a5);
             Scene = new Scene(size, Keyboard, SyntheticInput.CreateMouse(), _ => { }, () => { });
@@ -62,6 +66,8 @@ internal static class ParkourAnimationRenderCheck
                 Player = Scene.Players.Main;
                 foreach (var binding in Player.Controls.All) { binding.Type = ButtonType.Key; binding.Key = Keys.Unknown; }
                 Player.Controls.MoveUp.Key = Keys.W; Player.Controls.Jump.Key = Keys.Space;
+                Player.Controls.MoveLeft.Key = Keys.A; Player.Controls.MoveRight.Key = Keys.D;
+                Player.Controls.Crouch.Key = Keys.LeftControl;
                 Player.Controls.Grapple.Key = Keys.G; Player.Controls.Shoot.Key = Keys.Enter;
                 Player.Controls.MouseAim = false; Player.Controls.KeyboardAim = true;
                 SetKey(Keyboard, Keys.Enter, true);
@@ -70,11 +76,16 @@ internal static class ParkourAnimationRenderCheck
                 Require(Player.LoadFlags.TestFlag(LoadFlags.Spawned), "real keyboard shoot-to-spawn");
                 Scene.CameraSequences.Current?.End();
                 for (int tick = 0; tick < 120; tick++) Step();
-                Vector3 initial = scenario == "mantle" ? new(-30, .5f, 14) : new(-42, .5f, 25);
+                bool wall = scenario.StartsWith("wall", StringComparison.Ordinal);
+                float side = west ? -1 : 1;
+                Vector3 initial = scenario == "mantle" ? new(-30, .5f, 14)
+                    : scenario == "grapple" ? new(-42, .5f, 25)
+                    : new(side * (scenario == "wallstrafe" ? 42 : 46), .5f, scenario == "walltuck" ? 20 : 10);
+                Vector3 facing = wall ? new Vector3(side * 3, 0, 1).Normalized() : Vector3.UnitZ;
                 // Explicit initial lane seam only; all subsequent travel, contact,
                 // admission, phase and animation time come from production input.
-                Player.Reposition(initial, Vector3.UnitZ, NodeRef.None); Player.PrevPosition = initial;
-                Invoke(Player, "ModSetSpawnFacing", Vector3.UnitZ);
+                Player.Reposition(initial, facing, NodeRef.None); Player.PrevPosition = initial;
+                Invoke(Player, "ModSetSpawnFacing", facing);
                 for (int tick = 0; tick < 12; tick++) Step();
                 Require(Player.Flags1.TestFlag(PlayerFlags1.Standing), "initial native floor support");
                 Require(!Player.IsBot && Player.Health > 0 && !Headless.Active && !NetSession.Active,
@@ -82,7 +93,7 @@ internal static class ParkourAnimationRenderCheck
                 Require(!(bool)Get(Player, "ModParkourMantleActive")!
                     && !(bool)Get(Get(Player, "ModGrappleState")!, "Active")!,
                     "initial fixture has no fabricated or retained active movement controller");
-                CameraOffset = ChooseCamera(Scene, Player);
+                CameraOffset = ChooseCamera(Scene, Player, wall ? -side : 0);
             }
             catch { Release(Scene); throw; }
         }
@@ -118,8 +129,22 @@ internal static class ParkourAnimationRenderCheck
     {
         object pose = Invoke(player, "ModGetParkourAnimationPose")!;
         Vector3 rope = (Vector3)Get(pose, "RopeDirection")!;
+        Vector3 wall = (Vector3)Get(pose, "WallNormal")!;
         return new((float)Get(pose, "MantleProgress")!, (float)Get(pose, "MantleWeight")!,
-            (float)Get(pose, "GrappleAmount")!, new[] { rope.X, rope.Y, rope.Z }, (double)Get(pose, "Seconds")!);
+            (float)Get(pose, "GrappleAmount")!, new[] { rope.X, rope.Y, rope.Z }, (double)Get(pose, "Seconds")!,
+            (byte)Get(pose, "WallCue")!, (float)Get(pose, "WallAmount")!,
+            new[] { wall.X, wall.Y, wall.Z }, (bool)Get(pose, "WallTucked")!);
+    }
+    private static string WallControllers(PlayerEntity player)
+    {
+        static string Float(float value) => BitConverter.SingleToInt32Bits(value).ToString("x8");
+        return string.Join("|", WallControllerFields.Select(field => field.Name + "=" + (field.GetValue(player) switch
+        {
+            Vector3 vector => Float(vector.X) + "," + Float(vector.Y) + "," + Float(vector.Z),
+            float value => Float(value),
+            double value => BitConverter.DoubleToInt64Bits(value).ToString("x16"),
+            var value => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture)
+        })));
     }
     private static string Clock(PlayerEntity player, string field)
     {
@@ -138,23 +163,28 @@ internal static class ParkourAnimationRenderCheck
             (Vector3)Get(camera, "Position")!, (Vector3)Get(camera, "Target")!, (Matrix4)Get(camera, "ViewMatrix")!,
             (Vector3)Get(p, "_muzzlePos")!, (Vector3)Get(p, "_aimPosition")!, (Vector3)Get(p, "_gunVec1")!,
             Get(p, "ModGrappleState"), source[1], Clock(p, "_bipedModel1") + ":" + Clock(p, "_bipedModel2"),
-            Picture(p), fixture.Scene.FrameCount);
+            WallControllers(p), Picture(p), fixture.Scene.FrameCount);
     }
     private static bool Equal(Canonical a, Canonical b)
         => a.Position == b.Position && a.Previous == b.Previous && a.Speed == b.Speed
             && Equals(a.Collision, b.Collision) && a.Eye == b.Eye && a.Target == b.Target && a.View == b.View
             && a.Muzzle == b.Muzzle && a.AimPosition == b.AimPosition && a.Gun == b.Gun
             && Equals(a.Grapple, b.Grapple) && Equals(a.SourceFacts, b.SourceFacts)
-            && a.NativeClocks == b.NativeClocks && a.Frame == b.Frame
+            && a.NativeClocks == b.NativeClocks && a.WallControllers == b.WallControllers && a.Frame == b.Frame
             && a.Pose.MantleProgress == b.Pose.MantleProgress && a.Pose.MantleWeight == b.Pose.MantleWeight
             && a.Pose.GrappleAmount == b.Pose.GrappleAmount && a.Pose.Seconds == b.Pose.Seconds
-            && a.Pose.RopeDirection.SequenceEqual(b.Pose.RopeDirection);
-    private static Vector3 ChooseCamera(Scene scene, PlayerEntity player)
+            && a.Pose.RopeDirection.SequenceEqual(b.Pose.RopeDirection)
+            && a.Pose.WallCue == b.Pose.WallCue && a.Pose.WallAmount == b.Pose.WallAmount
+            && a.Pose.WallTucked == b.Pose.WallTucked && a.Pose.WallNormal.SequenceEqual(b.Pose.WallNormal);
+    private static Vector3 ChooseCamera(Scene scene, PlayerEntity player, float interiorX = 0)
     {
         Vector3 aim = player.Position + Vector3.UnitY * .65f;
         foreach (Vector3 offset in new[] { new Vector3(3, 1.2f, 3), new(-3, 1.2f, 3),
             new(3, 1.2f, -3), new(-3, 1.2f, -3), new(4, 1, 0), new(-4, 1, 0) })
         {
+            // A camera clear at the approach seed must remain on the arena side
+            // when the body reaches the x=+/-48 boundary later in the sequence.
+            if (interiorX != 0 && offset.X * interiorX <= 0) continue;
             CollisionResult hit = default;
             if (!CollisionDetection.CheckBetweenPoints(aim, aim + offset, TestFlags.Beams, scene, ref hit)) return offset;
         }
@@ -220,7 +250,7 @@ internal static class ParkourAnimationRenderCheck
             "frozen counterfactuals preserve motion, collision, eye, shot anchors, native clocks and accepted state");
         int bodyPixels = Difference(positive, hidden); posePixels = Difference(positive, native);
         Require(bodyPixels >= 20, "native Hunter body contributes positive isolated pixels");
-        if (before.Pose.MantleWeight == 0 && before.Pose.GrappleAmount == 0)
+        if (before.Pose.MantleWeight == 0 && before.Pose.GrappleAmount == 0 && before.Pose.WallAmount == 0)
             Require(posePixels == 0, "inactive overlay retains the native body picture");
         frames.Add(new { number, simulationFrame = before.Frame, file = Path.GetFileName(positive.Metadata.File),
             durationSeconds = 1d / 30, pose = before.Pose });
@@ -294,6 +324,130 @@ internal static class ParkourAnimationRenderCheck
                 scope = "Private native positive frames at every second fixed tick, plus an establishing frame; encode only verified sequences; no elapsed/performance claim" }, Json));
         }
     }
+    private static bool BoundaryContact(PlayerEntity player, Vector3 normal)
+    {
+        float radius = Fixed.ToFloat(player.Values.BipedColRadius);
+        foreach (CollisionResult hit in (CollisionResult[])Get(player, "_collisionScratch")!)
+            if (hit.Field0 == 0 && hit.EntityCollision == null && hit.Slipperiness == 0
+                && !hit.Flags.TestFlag(CollisionFlags.Damaging) && hit.Terrain != Terrain.Lava
+                // Native collision normals are fixed-point decoded (e.g.
+                // -4095/4096), then normalized by the admitted contact owner.
+                && float.IsFinite(hit.Plane.LengthSquared) && MathF.Abs(hit.Plane.Xyz.LengthSquared - 1) < .001f
+                && hit.Plane.Xyz.Normalized() == normal && MathF.Abs(hit.Plane.W + 48) < .001f
+                && MathF.Abs(Vector3.Dot(player.Position, normal) - hit.Plane.W - radius) <= .03f) return true;
+        return false;
+    }
+    private static int WallKind(byte cue) => cue is >= 1 and <= 12 ? (cue - 1) / 4 + 1 : 0;
+    private static Vector3 CueNormal(byte cue) => cue is >= 1 and <= 12 ? ((cue - 1) % 4) switch
+    {
+        0 => Vector3.UnitX, 1 => -Vector3.UnitX, 2 => Vector3.UnitZ, _ => -Vector3.UnitZ
+    } : Vector3.Zero;
+    private static object WallScenario(Hunter hunter, string scenario, bool west, NativeWindow window,
+        FieldInfo suppress, string shots, Vector2i size)
+    {
+        string side = west ? "west" : "east";
+        string folder = Path.Combine(shots, hunter.ToString().ToLowerInvariant(), scenario + "-" + side);
+        Directory.CreateDirectory(folder); var pictures = new List<object>(); var frames = new List<object>();
+        using var fixture = new Fixture(hunter, scenario, size, west);
+        PlayerEntity player = fixture.Player; Vector3 normal = west ? Vector3.UnitX : -Vector3.UnitX;
+        int targetKind = scenario == "wallrun" ? 2 : scenario == "wallkick" ? 3 : 1;
+        int length = scenario == "wallstrafe" ? 180 : scenario == "walltuck" ? 110 : 150;
+        int kick = -1, kickCount = 0, runTicks = 0, appliedStrafeTicks = 0, contactTicks = 0;
+        int activeTicks = 0, visiblePoseFrames = 0, tuckedPoseFrames = 0, picture = 0;
+        bool complete = false; string manifest = Path.Combine(folder, "frames.json");
+        void KeysFor(bool moving, bool jump, bool tuck)
+        {
+            SetKey(fixture.Keyboard, Keys.W, moving); SetKey(fixture.Keyboard, Keys.A, moving && west);
+            SetKey(fixture.Keyboard, Keys.D, moving && !west); SetKey(fixture.Keyboard, Keys.Space, jump);
+            SetKey(fixture.Keyboard, Keys.LeftControl, tuck); SetKey(fixture.Keyboard, Keys.G, false);
+        }
+        bool Target(Pose pose) => WallKind(pose.WallCue) == targetKind
+            && (scenario != "walltuck" || pose.WallTucked) && pose.WallAmount > .25f;
+        void PictureAt(int tick)
+        {
+            if (tick % 2 != 0) return;
+            Pose pose = Picture(player);
+            pictures.Add(Capture(fixture, window, suppress, folder, picture++, frames, out int changed));
+            if (Target(pose) && changed >= 8) visiblePoseFrames++;
+            if (pose.WallTucked && pose.WallAmount > .25f && changed >= 8) tuckedPoseFrames++;
+        }
+        try
+        {
+            Require(Picture(player).WallCue == 0, "neutral initial wall lane earns no proximity-only wall cue");
+            pictures.Add(Capture(fixture, window, suppress, folder, picture++, frames, out _));
+            for (int tick = 0; tick < length; tick++)
+            {
+                if (scenario == "wallkick" && kick < 0 && (bool)Get(player, "ModParkourWallrunActive")!)
+                    kick = tick + 4;
+                bool moving = scenario != "wallkick" || kick < 0 || tick <= kick;
+                bool jump = scenario == "walltuck" ? tick == 70
+                    : (scenario is "wallrun" or "wallkick") && (tick == 32 || tick == kick);
+                bool tuck = scenario == "walltuck" && tick is >= 72 and <= 91;
+                KeysFor(moving, jump, tuck); ulong frame = fixture.Scene.FrameCount; fixture.Step();
+                Require(player.Controls.MoveUp.IsDown == moving && player.Controls.MoveLeft.IsDown == (moving && west)
+                    && player.Controls.MoveRight.IsDown == (moving && !west) && player.Controls.Jump.IsDown == jump
+                    && player.Controls.Crouch.IsDown == tuck && !player.Controls.Grapple.IsDown,
+                    "production controls consume exact W/side/fresh Space/Ctrl wall commands");
+                Require(player.Health > 0 && !player.IsAltForm && !player.IsMorphing
+                    && float.IsFinite(player.Position.LengthSquared) && float.IsFinite(player.Speed.LengthSquared),
+                    "wall course retains living finite native biped motion");
+                bool run = (bool)Get(player, "ModParkourWallrunActive")!;
+                bool kicked = (bool)Invoke(player, "ModParkourWallkickApplied", frame)!;
+                bool applied = (bool)Invoke(player, "ModParkourWallstrafeApplied", frame)!;
+                bool contact = BoundaryContact(player, normal);
+                if (run) runTicks++; if (kicked) kickCount++; if (applied) appliedStrafeTicks++;
+                if (contact) contactTicks++;
+                Pose pose = Picture(player); int kind = WallKind(pose.WallCue);
+                Require(pose.WallCue <= 12 && float.IsFinite(pose.WallAmount) && pose.WallAmount is >= 0 and <= 1,
+                    "wall cue and amount stay within their presentation contract");
+                if (pose.WallAmount > 0)
+                {
+                    Require(kind > 0 && pose.WallNormal.SequenceEqual(new[] { CueNormal(pose.WallCue).X,
+                        CueNormal(pose.WallCue).Y, CueNormal(pose.WallCue).Z }),
+                        "published wall normal matches the exact cue's world side");
+                    Require(pose.MantleWeight == 0 && pose.GrappleAmount == 0,
+                        "wall picture does not fabricate concurrent mantle or grapple");
+                    if (kind == 2) Require(run, "wallrun picture is earned by the actual active controller");
+                    if (kind == 3) Require(kickCount == 1, "kick tail follows one actual accepted fresh-Space kick");
+                }
+                if (Target(pose))
+                {
+                    activeTicks++;
+                    Require(pose.WallNormal.SequenceEqual(new[] { normal.X, normal.Y, normal.Z }),
+                        "selected course action uses the physically approached east/west boundary");
+                    if (targetKind != 3) Require(contact, "strafe/run picture has actual safe static boundary contact");
+                }
+                PictureAt(tick);
+                if (scenario == "wallkick" && kick >= 0 && tick > kick + 24 && pose.WallAmount == 0) break;
+            }
+            // Release only through the real keyboard and native completed ticks.
+            // This also records the retired picture after the bounded kick tail.
+            KeysFor(false, false, false);
+            for (int tick = 0; tick < 14; tick++) { fixture.Step(); PictureAt(tick); }
+            Require(Picture(player).WallAmount == 0 && Picture(player).WallCue == 0,
+                "physical wall-input release retires the wall picture");
+            Require(contactTicks > 1 && activeTicks > 1 && visiblePoseFrames >= 2,
+                "actual repeated wall admission earns multiple visible same-state pixel differences");
+            if (scenario == "wallstrafe" || scenario == "walltuck")
+                Require(appliedStrafeTicks > 1, "course earned actual native wallstrafe impulses before stable cap");
+            if (scenario is "wallrun" or "wallkick") Require(runTicks > 1,
+                "fresh takeoff earned actual airborne wallrun ticks");
+            if (scenario == "wallkick") Require(kick > 32 && kickCount == 1,
+                "released takeoff plus one fresh active-run Space accepts exactly one wallkick");
+            else Require(kickCount == 0, "nonkick course never fabricates a kick");
+            if (scenario == "walltuck") Require(tuckedPoseFrames >= 2,
+                "actual airborne Ctrl earns several visible tucked wallstrafe pictures");
+            complete = true;
+            return new { hunter = hunter.ToString(), scenario, side, kick, kickCount, runTicks, appliedStrafeTicks,
+                contactTicks, activeTicks, visiblePoseFrames, tuckedPoseFrames, frameManifest = manifest, pictures };
+        }
+        finally
+        {
+            File.WriteAllText(manifest, JsonSerializer.Serialize(new { status = complete ? "PASS" : "FAIL_OR_INCOMPLETE",
+                fps = 30, scenario, side, frames, pictures,
+                scope = "Private native wall frames every second fixed tick plus establishing frame; actual W/side/fresh Space/Ctrl with one initial placement only; no elapsed/performance claim" }, Json));
+        }
+    }
     private static void Release(Scene scene)
     {
         Type commitType = Engine("MphRead.Mods.Launcher.PostMatchCommitContext");
@@ -314,6 +468,8 @@ internal static class ParkourAnimationRenderCheck
     // Program wiring is intentionally separate from this testing-only owner.
     // Proposed invocation: -parkouranimationcheck -hunter all -scenario both
     // -shots <fresh directory> -output <fresh JSON> [-size 800x600].
+    // -scenario walls selects strafe/run/kick, keeping default both unchanged.
+    // -wall-side east|west|both optionally mirrors wall courses; walltuck is opt-in.
     internal static int Run(string[] args)
     {
         _checks = 0;
@@ -343,7 +499,10 @@ internal static class ParkourAnimationRenderCheck
             string selected = Value("-hunter", "all"), scenario = Value("-scenario", "both");
             Hunter[] hunters = selected == "all" ? Hunters : new[] { Enum.Parse<Hunter>(selected, true) };
             Require(hunters.All(h => Hunters.Contains(h)), "only the seven native Hunters are admitted");
-            Require(scenario is "both" or "mantle" or "grapple", "known actual-input scenario");
+            Require(scenario is "both" or "mantle" or "grapple" or "walls" or "wallstrafe" or "wallrun"
+                or "wallkick" or "walltuck", "known actual-input scenario");
+            string wallSide = Value("-wall-side", "east");
+            Require(wallSide is "east" or "west" or "both", "known authored wall side");
             string[] dimensions = Value("-size", "800x600").Split('x');
             var size = new Vector2i(int.Parse(dimensions[0]), int.Parse(dimensions[1]));
             Require(size.X is >= 640 and <= 1920 && size.Y is >= 480 and <= 1080, "bounded native capture dimensions");
@@ -377,11 +536,18 @@ internal static class ParkourAnimationRenderCheck
             FrameTiming.FrameRateCap = 60; FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
             FieldInfo suppress = Engine("MphRead.Mods.Render.ParkourPoseOverlay").GetField("SuppressForCheck", Static)!;
             Require(!(bool)suppress.GetValue(null)!, "default native pose counterfactual seam is disabled");
+            string[] actions = scenario == "both" ? new[] { "mantle", "grapple" }
+                : scenario == "walls" ? new[] { "wallstrafe", "wallrun", "wallkick" } : new[] { scenario };
             foreach (Hunter hunter in hunters)
-            foreach (string action in scenario == "both" ? new[] { "mantle", "grapple" } : new[] { scenario })
+            foreach (string action in actions)
             {
                 Require(input.Isolated, "physical input polling remains scoped out of the authored keyboard fixture");
-                rows.Add(Scenario(hunter, action, window, suppress, shots, size));
+                if (action.StartsWith("wall", StringComparison.Ordinal))
+                {
+                    foreach (bool west in wallSide == "both" ? new[] { false, true } : new[] { wallSide == "west" })
+                        rows.Add(WallScenario(hunter, action, west, window, suppress, shots, size));
+                }
+                else rows.Add(Scenario(hunter, action, window, suppress, shots, size));
             }
             HiddenWindow(window); status = "PASS"; exit = 0;
         }
@@ -397,7 +563,7 @@ internal static class ParkourAnimationRenderCheck
         finally
         {
             File.WriteAllText(output, JsonSerializer.Serialize(new { schema = 1, status, failure, checks = _checks,
-                scope = "Windows hidden unfocused native GL Scene; real W/Space/G admission and native bodies; initial lane placement only; frozen render-only overlay suppression/body-hidden controls; no OS-focus/UI automation, imported assets, physical-device, Mac, timing or performance acceptance",
+                scope = "Windows hidden unfocused native GL Scene; real W/side/Space/G/Ctrl admission and native bodies; initial lane placement only; frozen render-only overlay suppression/body-hidden controls; no OS-focus/UI automation, imported assets, physical-device, Mac, timing or performance acceptance",
                 driver, simulationHz = 60, frameSequenceFps = 30, nativeClientMvid = typeof(Scene).Module.ModuleVersionId,
                 clientSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(Scene).Assembly.Location))).ToLowerInvariant(),
                 harnessSha256 = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(ParkourAnimationRenderCheck).Assembly.Location))).ToLowerInvariant(),

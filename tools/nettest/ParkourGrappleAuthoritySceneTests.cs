@@ -25,7 +25,7 @@ internal static class ParkourGrappleAuthoritySceneTests
 
     internal static int Run(string? output = null)
     {
-        _checks = 0; var rows = new List<object>(); string? failure = null; int result = 0, grappleChecks = 0;
+        _checks = 0; var rows = new List<object>(); string? failure = null; int result = 0, grappleChecks = 0, mantleVisualChecks = 0;
         var sim = new ServerSim();
         try
         {
@@ -81,6 +81,7 @@ internal static class ParkourGrappleAuthoritySceneTests
                 rows.Add(new { label, packet.Frame, packet.MatchId, packet.AuthorityEpoch, packet.SlotGeneration,
                     packet.LifeId, packet.GrappleRequestNonce, admitted, fresh, state.Active,
                     packet.MantleVisualPhase, publishedMantlePhase = published.MantleVisualPhase,
+                    packet.WallVisualCue, publishedWallCue = published.WallVisualCue,
                     nativeMantle = player.ModParkourMantleActive,
                     acceptedNonce = state.RequestNonce, anchorX = state.Anchor.X, anchorY = state.Anchor.Y,
                     anchorZ = state.Anchor.Z, state.RopeLength, selections = player.ModGrappleSelectionCount,
@@ -229,6 +230,86 @@ internal static class ParkourGrappleAuthoritySceneTests
                 Intake("mantle-visual-repeat-none-" + repeat, VisualPacket(0), true);
                 Phase(0, "repeated none");
             }
+            mantleVisualChecks = _checks - grappleChecks;
+
+            // Real ServerSim accepted-input admission; no wall controller,
+            // role, lifecycle or visual cache is injected by this sequence.
+            IntentPacket WallPacket(byte cue)
+            {
+                var packet = VisualPacket(0); packet.WallVisualCue = cue; return packet;
+            }
+            var wallReceived = typeof(PlayerEntity).GetField("_modWallVisualReceived", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            (ulong Received, uint Source) WallStamp() => ((ulong)wallReceived.GetValue(player)!, VisualStamp().Source);
+            var exactRope = player.ModGrappleState;
+            void Wall(byte expected, string label, bool sameBody = true)
+            {
+                Check(published.WallVisualCue == expected && player.ModPublishedWallVisualCue == expected
+                    && published.MantleVisualPhase == 0 && player.ModPublishedMantleVisualPhase == 0,
+                    label + ": actual authority snapshot publishes the exact wall-only accepted cue");
+                Check(player.ModGrappleState == exactRope && published.Grapple == exactRope
+                    && player.ModGrappleSelectionCount == visualSelections && player.ModGrappleForceCount == 0,
+                    label + ": wall presentation preserves the exact mechanical rope/nonce and no owner forces");
+                Check(!player.ModParkourWallrunActive && !player.ModParkourWallkickApplied(scene.FrameCount - 1)
+                    && !player.ModParkourWallstrafeApplied(scene.FrameCount - 1)
+                    && !player.ModParkourMantleActive && player.ModLocalWallVisualCue == 0,
+                    label + ": accepted hint never runs any wall or mantle controller on human puppet");
+                if(sameBody)Check(nativePhysics == (player.Position, player.Speed, player.ModBipedBottom,
+                    player.ModBipedTop, player.ModBipedEyeOffset, player.ModCrouched, player.ModSliding, player.ModTucked,
+                    player.IsAltForm, player.IsMorphing, player.IsUnmorphing),
+                    label + ": actual native zero-control position/velocity/stance stays byte-exact");
+            }
+            for(byte cue=1;cue<=12;cue++)
+            {
+                var current=WallPacket(cue);Intake("wall-visual-current-cue-"+cue,current,true);Wall(cue,"current wall cue "+cue);
+                Check(WallStamp().Source==current.Frame,"wall hint is tied to the actual jointly accepted current input frame");
+            }
+            var acceptedWall=WallPacket(6);Intake("wall-visual-established-source",acceptedWall,true);Wall(6,"established wall cue");
+            var wallStamp=WallStamp();
+            var wrongWallLife=WallPacket(12);wrongWallLife.LifeId^=0x4000;
+            Intake("wall-visual-wrong-life",wrongWallLife,false);Wall(6,"wrong wall life");
+            Check(WallStamp()==wallStamp,"wrong-life wall cannot replace or renew prior accepted presentation");
+            for(int tick=0;tick<35;tick++)
+            {
+                var repeated=acceptedWall;repeated.WallVisualCue=12;
+                Intake("wall-visual-duplicate-frame-"+tick,repeated,false);
+                Check(WallStamp()==wallStamp,"duplicate source frame cannot refresh wall scene age");
+                Wall(scene.FrameCount-wallStamp.Received<=30?(byte)6:(byte)0,"duplicate wall tick "+tick);
+            }
+            Wall(0,"duplicate wall source expires after30 scene ticks");
+            var renewedWall=WallPacket(9);Intake("wall-visual-valid-source-renews",renewedWall,true);Wall(9,"renewed wall cue");
+            wallStamp=WallStamp();
+            for(int tick=0;tick<35;tick++)
+            {
+                var badPose=WallPacket(11);badPose.Position=rejectedPosition;
+                Intake("wall-visual-fresh-transport-rejected-pose-"+tick,badPose,true);
+                Check(NetSession.RemoteIntents[0].WallVisualCue==11&&NetSession.RemoteIntentAge(0)<=1
+                    &&NetSession.RemoteIntents[0].Position==rejectedPosition,
+                    "fresh wall carrier reaches normal intake despite rejected finite source pose");
+                Check(WallStamp()==wallStamp,"joint pose rejection cannot install wall cue or refresh its accepted age");
+                Wall(scene.FrameCount-wallStamp.Received<=30?(byte)9:(byte)0,"bad-pose wall tick "+tick);
+            }
+            Wall(0,"accepted wall expires despite fresh rejected-pose transport");
+            Intake("wall-visual-new-current-life-source",WallPacket(4),true);Wall(4,"wall renewed after rejected pose");
+            Intake("wall-visual-explicit-new-zero",WallPacket(0),true);Wall(0,"new explicit zero retires wall cue");
+            var priorLifeWall=WallPacket(3);Intake("wall-visual-before-native-life-retirement",priorLifeWall,true);Wall(3,"before native death");
+            ushort previousLife=NetPlayerLifecycle.Get(0);
+            player.TakeDamage(10000,DamageFlags.IgnoreInvuln|DamageFlags.Death|DamageFlags.NoSfx,null,null);
+            Check(player.Health==0,"actual native lethal damage retires the wall actor");
+            NetSession.BroadcastSnapshot();
+            Check(published.Health==0&&published.WallVisualCue==0&&player.ModPublishedWallVisualCue==0,
+                "actual dead native actor publishes no prior wall cue");
+            // Call the real public native Spawn endpoint: its ordinary authority
+            // OnSpawn owns BeginLife and every presentation/controller reset.
+            player.Spawn(seed,Vector3.UnitZ,Vector3.UnitY,NodeRef.None,respawn:true);
+            NetSession.BroadcastSnapshot();
+            Check(player.Health>0&&NetPlayerLifecycle.Get(0)!=previousLife&&published.WallVisualCue==0
+                &&player.ModPublishedWallVisualCue==0,"actual native respawn begins a fresh life with no inherited wall presentation");
+            exactRope=player.ModGrappleState;
+            Intake("wall-visual-prior-life-cannot-return",priorLifeWall,false);
+            Check(published.WallVisualCue==0&&player.ModPublishedWallVisualCue==0,"old-life serialized wall hint cannot resurrect after actual spawn");
+            Intake("wall-visual-new-life-explicit-zero",WallPacket(0),true);
+            exactRope=player.ModGrappleState;
+            Wall(0,"new-life explicit zero",sameBody:false);
         }
         catch (Exception error) { failure = error.ToString(); Console.Error.WriteLine("PARKOUR GRAPPLE AUTHORITY FAIL " + error); result = 1; }
         finally { sim.Stop(); NetSession.Stop(); }
@@ -236,8 +317,8 @@ internal static class ParkourGrappleAuthoritySceneTests
         {
             string path = Path.GetFullPath(output); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { status = result == 0 ? "PASS" : "FAIL",
-                checks = _checks, grappleChecks, mantleVisualChecks = _checks - grappleChecks,
-                failure, scope = "Actual ServerSim authority and native accepted pose/control seam; serialized in-process carrier intake and initial placement, including cosmetic mantle phase source/age/life isolation; no live UDP qualification", rows },
+                checks = _checks, grappleChecks, mantleVisualChecks, wallVisualChecks = _checks - grappleChecks - mantleVisualChecks,
+                failure, scope = "Actual ServerSim authority and native accepted pose/control seam; serialized in-process carrier intake and initial placement, including exact mantle/wall cosmetic source/age/life isolation; no live UDP qualification", rows },
                 new JsonSerializerOptions { WriteIndented = true }));
         }
         Console.WriteLine($"PARKOUR GRAPPLE AUTHORITY {(result == 0 ? "PASS" : "FAIL")} {_checks} assertions"); return result;

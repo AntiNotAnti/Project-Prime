@@ -487,7 +487,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82 or 83 or 84)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82 or 83 or 84 or 85)
                 status = Read(src);
             else
             {
@@ -1432,6 +1432,7 @@ namespace MphRead.Mods.Network
         public Mods.Input.NativeTouchReport NativeTouch;
         public ushort GrappleRequestNonce;
         public byte MantleVisualPhase;
+        public byte WallVisualCue;
         public ushort MatchId;
         public ulong AuthorityEpoch;
         public ushort SlotGeneration;
@@ -1682,7 +1683,7 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
-            if (dest.Length >= TouchCanonicalSize && MantleVisualPhase > 15)
+            if (dest.Length >= TouchCanonicalSize && (MantleVisualPhase > 15 || !ParkourWallVisualCodec.Valid(WallVisualCue)))
                 throw new ArgumentException("Invalid mantle visual phase.");
             BinaryPrimitives.WriteUInt16LittleEndian(dest[74..], MatchId);
             BinaryPrimitives.WriteUInt64LittleEndian(dest[76..], AuthorityEpoch);
@@ -1725,8 +1726,8 @@ namespace MphRead.Mods.Network
                 BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 10)..], ContinuousFireTick);
             if (dest.Length >= TouchCanonicalSize)
             {
-                if (MantleVisualPhase > 15) throw new ArgumentException("Invalid mantle visual phase.");
-                dest[Protocol82TouchSize] = MantleVisualPhase;
+                if (MantleVisualPhase > 15 || !ParkourWallVisualCodec.Valid(WallVisualCue)) throw new ArgumentException("Invalid Parkour visual cue.");
+                dest[Protocol82TouchSize] = ParkourWallVisualCodec.PackIntent(MantleVisualPhase, WallVisualCue);
             }
             if (dest.Length >= Protocol82TouchSize)
                 BinaryPrimitives.WriteUInt16LittleEndian(dest[Protocol80TouchSize..], GrappleRequestNonce);
@@ -1743,7 +1744,7 @@ namespace MphRead.Mods.Network
 
         public static IntentPacket Read(ReadOnlySpan<byte> src)
         {
-            if (src.Length >= TouchCanonicalSize && src[Protocol82TouchSize] > 15)
+            if (src.Length >= TouchCanonicalSize && !ParkourWallVisualCodec.Valid((byte)(src[Protocol82TouchSize] >> 4)))
                 throw new ArgumentException("Invalid mantle visual phase.");
             var presses = new InputEdgeHistory();
             for (int i = 0; i < InputEdgeHistory.Capacity; i++)
@@ -1765,7 +1766,8 @@ namespace MphRead.Mods.Network
             }
             return new IntentPacket
             {
-                MantleVisualPhase = src.Length >= TouchCanonicalSize ? src[Protocol82TouchSize] : (byte)0,
+                MantleVisualPhase = src.Length >= TouchCanonicalSize ? (byte)(src[Protocol82TouchSize] & 15) : (byte)0,
+                WallVisualCue = src.Length >= TouchCanonicalSize ? (byte)(src[Protocol82TouchSize] >> 4) : (byte)0,
                 GrappleRequestNonce = src.Length >= Protocol82TouchSize ? BinaryPrimitives.ReadUInt16LittleEndian(src[Protocol80TouchSize..]) : (ushort)0,
                 NativeTouch = src.Length >= Protocol80TouchSize
                     ? Mods.Input.NativeTouchReport.Read(src.Slice(FullSize, Mods.Input.NativeTouchReport.WireSize))
@@ -1885,6 +1887,8 @@ namespace MphRead.Mods.Network
         public const int Size = Protocol80Size + PlayerGrappleState.Size;
         public PlayerGrappleState Grapple;
         public byte MantleVisualPhase;
+        public byte WallVisualCue;
+        internal uint WallVisualRevision;
         public PlayerFormState Form;
         public Mods.EnhancedHunters.EnhancedHunterNetState Enhanced;
         public bool HalfturretActive;
@@ -2014,10 +2018,10 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
-            if (MantleVisualPhase > 15) throw new ArgumentException("Invalid mantle visual phase.");
+            if (MantleVisualPhase > 15 || !ParkourWallVisualCodec.Valid(WallVisualCue)) throw new ArgumentException("Invalid Parkour visual cue.");
             Enhanced.Write(dest[LegacySize..]);
             Form.Write(dest[Protocol48Size..]);
-            if (!Grapple.TryWrite(dest[Protocol80Size..], out _)) throw new ArgumentException("Invalid grapple state.");
+            if (!ParkourWallVisualCodec.TryWriteGrapple(Grapple, WallVisualCue, dest[Protocol80Size..], out _)) throw new ArgumentException("Invalid grapple state.");
             dest[0] = SlotIndex;
             dest[1] = Flags;
             WriteVec(dest[2..], Position);
@@ -2048,9 +2052,9 @@ namespace MphRead.Mods.Network
             var state = ReadFields(src[..41], src.Slice(41, 7), src[48..], src.Length >= Protocol80Size && PlayerFormState.TryRead(src.Slice(Protocol48Size, PlayerFormState.Size), out var form) ? form : default);
             if (src.Length >= Size)
             {
-                if (!PlayerGrappleState.TryRead(src.Slice(Protocol80Size, PlayerGrappleState.Size), out var grapple))
+                if (!ParkourWallVisualCodec.TryReadGrapple(src.Slice(Protocol80Size, PlayerGrappleState.Size), out var grapple, out byte wall))
                     throw new ArgumentException("Invalid grapple state.");
-                state.Grapple = grapple;
+                state.Grapple = grapple; state.WallVisualCue = wall;
             }
             return state;
         }
@@ -2684,7 +2688,7 @@ namespace MphRead.Mods.Network
         // Protocol81 adds exact package preparation at99/100/101; native layouts and Parkour-v4 attribution remain unchanged.
         // Protocol82 selects Parkour v5 and accepted grapple state; historical profiles remain frozen.
         // Protocol83 appends the exact archive hash to HostRequest; native gameplay/replay widths remain unchanged.
-        public const int ProtocolVersion = 84;
+        public const int ProtocolVersion = 85;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

@@ -108,7 +108,7 @@ internal static class WorldCheckpointCompatibilityTests
         check(grappleState.TryGetPlayer(0, out var acceptedPlayer) && acceptedPlayer.Grapple == accepted,
             "world fixture carries admitted accepted anchor and current life");
         combined = grappleState.CaptureCheckpoint().Bytes.ToArray();
-        check(combined[6] == 84 && BinaryPrimitives.ReadUInt16LittleEndian(combined.AsSpan(4)) == 16,
+        check(combined[6] == 85 && BinaryPrimitives.ReadUInt16LittleEndian(combined.AsSpan(4)) == 16,
             "current grapple world embeds actual protocol83 decoder14");
         byte[] grapple = new byte[184];
         BinaryPrimitives.WriteUInt16LittleEndian(grapple, 4); BinaryPrimitives.WriteUInt16LittleEndian(grapple.AsSpan(2), 5);

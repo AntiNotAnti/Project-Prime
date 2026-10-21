@@ -22,7 +22,7 @@ internal static class ParkourCompatibilityTests
             catch (InvalidDataException) { rejected = true; }
             Check(rejected, $"Protocol{protocol} must reject Parkour bit19.");
         }
-        Check(NetConfig.ProtocolVersion == 84, "Current protocol84 retains Parkour v5 introduced in protocol82.");
+        Check(NetConfig.ProtocolVersion == 85, "Current protocol85 retains Parkour v5 introduced in protocol82.");
         Check((byte)MovementModel.Parkour == 4 && (uint)MatchModifierFlags.ParkourMovement == 524288u,
             "Parkour model4 and bit19 are stable.");
         Check(MovementModelRules.KnownModifierMask == 2097151u,
@@ -50,6 +50,9 @@ internal static class ParkourCompatibilityTests
             .RecordedMovementProfileVersion == 4, "Protocol81 package preparation preserves Parkour v4 explicitly.");
         Check(new ReplayMetadata { ProtocolVersion = 82, IndexedMovementModel = MovementModel.Parkour }
             .RecordedMovementProfileVersion == 5, "Protocol82 records Parkour v5 explicitly.");
+        foreach (byte protocol in new byte[] { 83, 84, 85 })
+            Check(new ReplayMetadata { ProtocolVersion = protocol, IndexedMovementModel = MovementModel.Parkour }
+                .RecordedMovementProfileVersion == 5, "Presentation protocol" + protocol + " retains exact Parkour v5 gameplay attribution.");
         var metadata = new ReplayMetadata { ProtocolVersion = 77, IndexedMovementModel = MovementModel.Parkour };
         Check(metadata.RecordedMovementModel == MovementModel.Parkour
             && metadata.RecordedMovementProfileVersion == 1, "Protocol77 records Parkour v1 explicitly.");

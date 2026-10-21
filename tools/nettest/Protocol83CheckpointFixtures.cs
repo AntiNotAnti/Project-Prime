@@ -27,14 +27,14 @@ internal static class Protocol83CheckpointFixtures
     internal static byte[] ToProtocol83(ReadOnlySpan<byte> current)
     {
         if (current.Length < 8 || BinaryPrimitives.ReadUInt32LittleEndian(current) != 0x43525050
-            || current[6] != 84 || PlayerState.Size != 192 || IntentPacket.TouchCanonicalSize != 1299
+            || current[6] is not (84 or 85) || PlayerState.Size != 192 || IntentPacket.TouchCanonicalSize != 1299
             || PublishedAuxiliaryOffset != 54 + DamageEvent.Size * PlayerState.DamageHistory)
-            throw new InvalidOperationException("Unexpected protocol84 checkpoint fixture widths/header.");
+            throw new InvalidOperationException("Unexpected protocol84/85 checkpoint fixture widths/header.");
         ushort version = BinaryPrimitives.ReadUInt16LittleEndian(current[4..]);
         bool custom = version == 17;
         byte expectedFeatures = (byte)(custom ? 119 : 87);
         if ((!custom && version != 16) || (current[7] & ~8) != expectedFeatures)
-            throw new InvalidOperationException("Unexpected protocol84 checkpoint fixture feature contract.");
+            throw new InvalidOperationException("Unexpected protocol84/85 checkpoint fixture feature contract.");
 
         // Independently verify that the public writer still places its phase in
         // the frozen auxiliary byte, rather than trusting the offset expression.
@@ -52,6 +52,8 @@ internal static class Protocol83CheckpointFixtures
         output.Write(current[..at]);
         for (int slot = 0; slot < 8; slot++)
         {
+            if ((current[at + 7 + 173] & 0xf0) != 0)
+                throw new InvalidOperationException("Historical fixture cannot discard accepted wall cue.");
             if ((current[at + 7 + PublishedAuxiliaryOffset] & 0xf0) != 0)
                 throw new InvalidOperationException("Historical fixture cannot discard accepted mantle phase.");
             output.Write(current.Slice(at, 7 + 192)); at += 7 + 192;

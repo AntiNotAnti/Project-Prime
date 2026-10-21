@@ -1,0 +1,21 @@
+{
+  "status": "PASS",
+  "producer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+  "sourceCommittedFiles": 6678,
+  "sourceOverlayFiles": 0,
+  "retainedArchives": 16,
+  "recreatedCompatibilityFixtures": 10,
+  "actualRetainedRecordings": 6,
+  "exactMatchingFields": 514,
+  "explicitSizeChangeChecks": 32,
+  "expectedPerWorldGrowth": {
+    "77-81": 540,
+    "82-83": 16,
+    "84": 0
+  },
+  "frames": 38209,
+  "worldCheckpoints": 175,
+  "seeks": 1758,
+  "sourceBinaryArchiveHelperConfigFences": true,
+  "ownedProcessesRemaining": 0
+}

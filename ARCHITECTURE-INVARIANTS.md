@@ -6,7 +6,8 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **84** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **85** (`NetConfig.ProtocolVersion`).
+- Protocol85 adds visual wallstrafe, wallrun and wall-kick codes in reserved high nibbles of intent1298 and canonical grapple-flags173. Pure grapple mechanics remain unchanged and strict. Native192, intent1299, compact/fast/slow and checkpoint16/custom17 widths stay fixed. Slow-revision receipt owns live wall freshness; cached fast rows cannot renew it. Historical84 retains mantle and defaults wall presentation to none. See `docs/network/parkour-wall-animation-version-contract.md`.
 - Protocol84 adds a one-byte mantle visual hint to intents and accepted phase in the existing snapshot auxiliary nibble; native player widths stay fixed. Native16/custom17 checkpoint rows add that byte while published14/15 remain1298. Gameplay stays Parkour v5; rendering restores all native pose matrices. See `docs/network/parkour-animation-version-contract.md`.
 - Protocol83 appends an optional exact weapon archive hash to hosting requests.
   The allocator resolves it only against an operator-approved local store.
