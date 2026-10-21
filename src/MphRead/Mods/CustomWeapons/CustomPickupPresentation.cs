@@ -28,6 +28,7 @@ internal static class CustomPickupPresentation
     }
     internal static void DrawOnline(Scene scene)
     {
+        if (scene.Services.IsReplica) { scene.DrawReplayCustomPickups(); return; }
         if(Headless.Active||scene.Services.IsReplica||DemoPlayback.IsActive||!NetSession.IsClient||NetSession.IsAuthority
             ||!NetSession.TryGetCustomPickupReplica(out var receiver))return;
         for(int i=0;i<receiver.Layout.Count;i++)

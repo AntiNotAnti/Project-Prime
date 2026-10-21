@@ -10,7 +10,8 @@ public partial class Scene
     private ReplayCustomWeaponDescriptor? _replayWeaponDescriptor;
     internal bool HasReplayWeaponPackage(ReplayCustomWeaponDescriptor descriptor)
         => !_exiting && _replayWeaponPackage != null && _weaponPackageResources != null && _replayWeaponDescriptor != null
-            && _replayWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes());
+            && (ReferenceEquals(_replayWeaponDescriptor, descriptor)
+                || _replayWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes()));
     internal void BindReplayWeaponPackage(PreparedReplayWeaponPackage prepared)
     {
         ArgumentNullException.ThrowIfNull(prepared);
@@ -26,7 +27,7 @@ public partial class Scene
             var resources = owned.Resources(0);
             ApplyCustomRiflePackageResources(resources);
             _weaponPackageResources = resources;
-            _replayWeaponDescriptor = prepared.Descriptor;
+            _replayWeaponDescriptor = services.State.CustomWeaponDescriptor;
             _replayWeaponPackage = owned;
             // Scene ownership outlives a stopped decoder; keep native capture closed for this Scene's lifetime.
             CustomReplayUnsupported = true;
