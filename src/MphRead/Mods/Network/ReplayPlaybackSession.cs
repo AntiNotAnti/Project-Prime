@@ -41,14 +41,15 @@ namespace MphRead.Mods.Network
         internal int SourceProtocolVersion => _reader is { } reader ? reader.ProtocolVersion
             : _clip is { } clip ? clip.PresentationProtocolVersion : _liveMetadata?.ProtocolVersion ?? 0;
         private uint LeadInFrames => _reader?.Metadata?.LeadInFrames ?? 0;
-        public uint CurrentFrame => _frame >= LeadInFrames ? _frame - LeadInFrames : 0;
-        internal uint RecordingFrame => checked(_frame + (_reader?.Metadata?.OriginRecordingFrame ?? 0));
+        public uint CurrentFrame => IsCustomArchiveInspection ? checked(_frame - _reader!.Metadata!.OriginRecordingFrame)
+            : _frame >= LeadInFrames ? _frame - LeadInFrames : 0;
+        internal uint RecordingFrame => _customInspection ? _frame : checked(_frame + (_reader?.Metadata?.OriginRecordingFrame ?? 0));
         internal double RecordingPresentationFrame(double visibleFrame) => _clip != null
             ? visibleFrame
             : visibleFrame + LeadInFrames + (_reader?.Metadata?.OriginRecordingFrame ?? 0);
         internal IReadOnlyList<ReplayCheckpointIndex> DurableCheckpoints => _reader?.Checkpoints ?? Array.Empty<ReplayCheckpointIndex>();
         internal uint CheckpointVisibleFrame(ReplayCheckpointIndex index) => index.Frame >= LeadInFrames ? index.Frame - LeadInFrames : 0;
-        internal uint SourceFrame => _frame;
+        internal uint SourceFrame => IsCustomArchiveInspection ? CurrentFrame : _frame;
         internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true)
         {
             var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
@@ -84,7 +85,9 @@ namespace MphRead.Mods.Network
         public double DurationSeconds => LastFrame / 60.0;
 
         /// <summary>True once the file has no more records -- the scene holds on the last state rather than closing itself.</summary>
-        public bool AtEnd => IsActive && !_live && (_clip != null ? _started && _frame >= LastFrame : _pending == null);
+        internal bool IsCustomArchiveInspection => _customInspection && !_live && _reader != null;
+        public bool AtEnd => IsActive && !_live && (IsCustomArchiveInspection ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LastFrame
+            : _clip != null ? _started && _frame >= LastFrame : _pending == null);
 
         internal void JoinLive(ReplayReplicaCheckpoint construction, uint frame, ulong mapHash)
         {
@@ -150,6 +153,58 @@ namespace MphRead.Mods.Network
                 throw new InvalidDataException("Custom world decoder differs from its prepared inspection scope.");
             passive.State.RestoreCustomCheckpoint(checkpoint);
             _frame = LastFrame = validated.RecordingFrame; _started = true;
+        }
+        internal void AttachCustomArchive(PreparedCustomReplayArchive prepared)
+        {
+            if (!IsActive || !_customInspection || !_live || !_started)
+                throw new InvalidOperationException("A custom archive requires its freshly restored private world.");
+            var reader = prepared.TakeReader();
+            try
+            {
+                var metadata = reader.Metadata ?? throw new InvalidDataException("Custom archive metadata is unavailable.");
+                if (metadata.CustomWeapons == null || _liveMetadata?.CustomWeapons is not { } descriptor
+                    || !metadata.CustomWeapons.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes())
+                    || _frame < metadata.OriginRecordingFrame || _frame > (ulong)metadata.OriginRecordingFrame + reader.DurationFrames)
+                    throw new InvalidDataException("Custom file differs from its retained historical world scope.");
+                var pending = reader.SeekAfter(checked(_frame - metadata.OriginRecordingFrame));
+                if (reader.LastResult != ReplayOpenResult.Success) throw new InvalidDataException("Custom archive seek failed: " + reader.LastResult);
+                _reader = reader; _pending = pending; CurrentPath = prepared.Path; _live = false;
+                LastFrame = reader.DurationFrames;
+            }
+            catch { reader.Dispose(); throw; }
+        }
+        internal bool AdvanceCustomArchiveInspection()
+        {
+            if (!IsActive || !IsCustomArchiveInspection) throw new InvalidOperationException("No explicit custom file inspection is active.");
+            if (AtEnd) return false;
+            try
+            {
+                uint next = checked(_frame + 1), origin = _reader!.Metadata!.OriginRecordingFrame;
+                int count = 0, bytes = 0;
+                while (_pending is { } record && (ulong)record.Frame + origin <= next)
+                {
+                    if ((ulong)record.Frame + origin != next || ++count > 4096 || (bytes = checked(bytes + record.Data.Length)) > 1024 * 1024)
+                        throw new InvalidDataException("Custom file records regress or exceed the bounded per-frame budget.");
+                    if (record.Data.Length == 0 || record.Data[0] == 253)
+                        throw new InvalidDataException("Construction records cannot replace an active custom file world.");
+                    if (record.Data[0] == 255 && (record.Data.Length != 1 || record.Frame != _reader.DurationFrames))
+                        throw new InvalidDataException("Custom file end markers must close their declared final frame.");
+                    if ((record.Data[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag) && !_reader.Metadata!.TimedShotCertificates)
+                        throw new InvalidDataException("Timed shot facts lack their recording capability.");
+                    if (record.Data[0] != 255)
+                    {
+                        // This explicitly admitted custom archive retains its custom
+                        // rules/facts; only the old83 presentation bytes need upgrading.
+                        ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.NormalizeLegacyParkourPose(record.Data, _reader.ProtocolVersion);
+                        if (!converted.IsEmpty) _host.Inject(converted, next);
+                    }
+                    _pending = _reader.ReadNext();
+                }
+                if (_reader.LastResult != ReplayOpenResult.Success) throw new InvalidDataException("Custom archive stopped: " + _reader.LastResult);
+                _frame = next; _started = true; return true;
+            }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            { Stop(); LastResult = ReplayOpenResult.Corrupt; LastError = "Custom file inspection stopped: " + error.Message; throw; }
         }
 
         internal void Join(ReplayTimelineClip clip, ReplayReplicaCheckpoint construction)
@@ -446,6 +501,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         internal bool Reposition(uint frame, uint netFrame, bool sourceClock = false)
         {
+            if (_customInspection) throw new InvalidOperationException("Custom inspection seek requires a fresh resource-owned world.");
             if (IsActive && _clip != null)
             {
                 if (frame < _clip.RestorePoint.RecordingFrame || frame > _clip.EndRecordingFrame) return false;
@@ -491,6 +547,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public void PumpFrame()
         {
+            if (_customInspection) throw new InvalidOperationException("Custom inspection requires its explicit accepted-record or file stepping API.");
             if (IsActive && _clip != null)
             {
                 if (AtEnd) return;

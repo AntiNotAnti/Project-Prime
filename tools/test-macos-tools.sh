@@ -87,6 +87,10 @@ printf '<rml><head/><body>Signed UI fixture</body></rml>\n' > "$fixture/rmlui/pr
 printf '<rml><head/><body>Start</body></rml>\n' > "$fixture/rmlui/pages/startup/startup.rml"
 printf 'RmlUi fixture attribution\n' > "$fixture/licenses/RmlUi-LICENSE.txt"
 printf 'optional debug symbols are not release resources\n' > "$fixture/MphRead.CorpsePhysics.pdb"
+# The corpse physics dependency publishes this Markdown notice into the flat
+# root. App packaging must retain it as signed documentation, not nested code.
+printf 'Synthetic third-party license attribution\n' > "$fixture/THIRD-PARTY-NOTICES.md"
+printf 'Synthetic additional future license notice\n' > "$fixture/EXTRA-NOTICE.txt"
 # The native provenance manifest is adjacent in flat publish for hash verification.
 # Signed .app packaging must relocate that non-executable JSON to Resources.
 printf '{"renderer":"gl2"}\n' > "$fixture/PRIME-RMLUI.json"
@@ -105,6 +109,10 @@ done
 [[ ! -e "$app/Contents/MacOS/MphRead.CorpsePhysics.pdb" ]] || exit 1
 cmp "$fixture/PRIME-RMLUI.json" "$app/Contents/Resources/PRIME-RMLUI.json"
 [[ ! -e "$app/Contents/MacOS/PRIME-RMLUI.json" ]] || exit 1
+for notice in THIRD-PARTY-NOTICES.md EXTRA-NOTICE.txt; do
+    cmp "$fixture/$notice" "$app/Contents/Resources/$notice"
+    [[ ! -e "$app/Contents/MacOS/$notice" ]] || exit 1
+done
 for resource in gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
     cmp "$fixture/$resource" "$app/Contents/Resources/$resource"
     [[ ! -e "$app/Contents/MacOS/$resource" ]] || exit 1
@@ -135,6 +143,10 @@ codesign --verify --deep --strict "$app"
 printf '\n' >> "$app/Contents/Resources/PRIME-RMLUI.json"
 expect_failure codesign --verify --deep --strict "$app"
 cp "$fixture/PRIME-RMLUI.json" "$app/Contents/Resources/PRIME-RMLUI.json"
+codesign --verify --deep --strict "$app"
+printf '\n' >> "$app/Contents/Resources/THIRD-PARTY-NOTICES.md"
+expect_failure codesign --verify --deep --strict "$app"
+cp "$fixture/THIRD-PARTY-NOTICES.md" "$app/Contents/Resources/THIRD-PARTY-NOTICES.md"
 codesign --verify --deep --strict "$app"
 dotnet run --project "$repo/tools/platformtest/platformtest.csproj" -c Release
 echo 'macOS bundle resource regressions passed.'

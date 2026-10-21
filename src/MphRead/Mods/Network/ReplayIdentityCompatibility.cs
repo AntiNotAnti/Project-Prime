@@ -23,7 +23,7 @@ internal static class ReplayIdentityCompatibility
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
         => NormalizeLegacyParkourPose(NormalizeLegacyTuck(NormalizeLegacyStance(UpgradeGrapple(ConvertCore(packet, protocol), protocol), protocol), protocol), protocol);
 
-    private static ReadOnlySpan<byte> NormalizeLegacyParkourPose(ReadOnlySpan<byte> packet, int protocol)
+    internal static ReadOnlySpan<byte> NormalizeLegacyParkourPose(ReadOnlySpan<byte> packet, int protocol)
     {
         if (protocol >= 84 || packet.IsEmpty) return packet;
         PacketType type = (PacketType)packet[0];
