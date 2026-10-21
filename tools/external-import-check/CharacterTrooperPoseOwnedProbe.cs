@@ -79,8 +79,8 @@ internal static class CharacterTrooperPoseOwnedProbe
             foreach (string id in Ids)
             {
                 var selection = CharacterSourcePreviewSelection.Load(id, CancellationToken.None, imports);
-                Check(selection.NativeHunter == Hunter.Weavel && !selection.HasCannon && !selection.RuntimeCannon && selection.Clips.Count == 113,
-                    "Owned pose capture uses the exact Weavel source profile without cannon authority.");
+                Check(selection.NativeHunter == Hunter.Weavel && selection.HasCannon && !selection.RuntimeCannon && selection.Clips.Count == 113,
+                    "Owned pose capture uses the exact Weavel source profile with cannon asset capability and no runtime gun activation.");
                 Check(selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.Biped, 0, out var asset)
                     && selection.Pack.TryCreateSourcePreviewLease(asset, out _), "Actual private source asset and lease resolve.");
                 Check(selection.Pack.TryCreateSourcePreviewLease(asset, out var lease), "Exact source pose lease captured.");

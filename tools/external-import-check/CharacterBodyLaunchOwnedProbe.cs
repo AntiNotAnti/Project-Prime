@@ -188,8 +188,10 @@ internal static class CharacterBodyLaunchOwnedProbe
                     "real load barrier binds captured appearance/generation before native life spawn");
                 if (trooper)
                     Check(player.Hunter == Hunter.Weavel && plan.OfflineCharacter == OfflineCharacterMode.Native && !plan.IsPlaytest
-                        && owner.CannonModel == null && !owner.CannonCurrent && owner.Model.Joints.Count == 35 && owner.Model.IndexCount == 1970 * 3,
-                        "Trooper load barrier preserves native Weavel gameplay and complete35-joint body without a first-person cannon");
+                        && owner.CannonCurrent && owner.CannonModel is { } cannon && cannon.IndexCount == 206 * 3
+                        && cannon.SourceCannon is { IsGenerated: true, TriangleCount: 206 }
+                        && owner.Model.Joints.Count == 35 && owner.Model.IndexCount == 1970 * 3,
+                        "Trooper load barrier preserves native Weavel gameplay, complete35-joint body and its exact206-triangle generated cannon owner");
                 var mode = typeof(Scene).GetField("_inputMode", Hidden)!;
                 mode.SetValue(scene, Enum.Parse(mode.FieldType, "All"));
                 foreach (var button in player.Controls.All) { button.Type = ButtonType.Key; button.Key = Keys.Unknown; }

@@ -461,8 +461,8 @@ namespace MphRead.Mods.Render.Characters
             pack._sourceRoot=root;
             pack._sourceManifestSha=Convert.ToHexString(SHA256.HashData(manifestBytes)).ToLowerInvariant();
             foreach(var proof in proofs)pack._sourceProofs.Add(proof.Asset,(proof.Entry,proof.Source,proof.Sha));
-            foreach(var proof in proofs.Where(p => p.Source == "darksamus-overcharged-echoes"
-                || CharacterGeneratedTrooperProfile.Find(p.Source) != null))
+            foreach(var proof in proofs.Where(p => p.Asset.Part == CharacterModelPart.Biped
+                && (p.Source == "darksamus-overcharged-echoes" || CharacterGeneratedTrooperProfile.Find(p.Source) != null)))
                 pack.CaptureSourceMaterials(proof.Asset, proof.Source);
             return pack;
         }

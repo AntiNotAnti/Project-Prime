@@ -749,7 +749,13 @@ namespace MphRead.Mods.Render.Characters
                     && sourceMaterials.Archive.Binding.CharacterId == "darksamus-echoes"
                     && sourceMaterials.Programs.Count == 7 && geometry.IndexCount == 392 * 3
                     && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[] { 2, 5 });
-                if (attachment == null || !(generatedCannonCut || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
+                bool trooperCannonCut = sourceLease.SourceCannon is { IsGenerated: true, GeneratedTrooper: { } profile }
+                    && asset.Part == CharacterModelPart.ViewModel && asset.Hunter == Hunter.Weavel
+                    && asset.PrivateAppearance == new PrivateCharacterAppearance("trooper", profile.Skin)
+                    && sourceMaterials.Archive.Binding.CharacterId == profile.Id && sourceMaterials.Archive.Sha256 == profile.MaterialSha
+                    && sourceMaterials.Programs.Count == 3 && geometry.IndexCount == 206 * 3
+                    && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[] { 0, 1, 2 });
+                if (attachment == null || !(generatedCannonCut || trooperCannonCut || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
                         && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() == sourceMaterials.Programs.Count)
                     || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count))
                     throw new InvalidDataException("Complete original body material ordinals required.");

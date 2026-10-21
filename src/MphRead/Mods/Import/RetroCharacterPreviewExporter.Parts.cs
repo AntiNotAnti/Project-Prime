@@ -45,9 +45,7 @@ public static partial class RetroCharacterPreviewExporter
             part.Id + " v" + part.Version + ": " + part.State
             + (part.State == ImportBundleState.Ready || inspection.ComponentStates == null ? "" : " (" + string.Join(", ", part.Components
                 .Where(c => c.State != ImportBundleState.Ready).Select(c => c.Role + " v" + c.Version + " " + c.State)) + ")")));
-        string scope = Source(id).Game == ExternalGameKind.MetroidPrime
-            ? ". Update to view the imported Trooper body, materials and animations. Imported match actors and weapons remain unavailable."
-            : ". Source authoring bundle; normal and Overcharged Echoes support a source-program body preview with preview lighting. First-person and playable animation/morph remain unqualified.";
+        string scope = ". Choose an updated imported body in Hunters for local offline matches. Unsupported states and online matches use native presentation.";
         return id + ": " + inspection.State + ". " + parts + ". " + inspection.Message + scope;
     }
 
@@ -62,7 +60,7 @@ public static partial class RetroCharacterPreviewExporter
     {
         SourceCharacter source = Source(id);
         _ = ExternalSourceRequirements.For(source.Game, edition);
-        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? 5 : FullPrime(source, edition) ? 4 : 1);
+        var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? 5 : FullPrime(source, edition) ? 5 : 1);
         return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 3 } } : new[] { body });
     }
 
@@ -100,7 +98,8 @@ public static partial class RetroCharacterPreviewExporter
             ? new[] { new AuthoringComponent("source-materials", 1, stem + ".materials.bin") }
             : Array.Empty<AuthoringComponent>())
         .Concat(prime && part == "body"
-            ? new[] { new AuthoringComponent("source-preview-manifest", 1, "characters.json") }
+            ? new[] { new AuthoringComponent("source-preview-manifest", 2, "characters.json"),
+                new AuthoringComponent("source-cannon-recipe", 1, stem + ".cannon-source.json") }
             : Array.Empty<AuthoringComponent>())
         .Concat(id == "darksamus-echoes" && part == "body"
             ? new[] { new AuthoringComponent("source-preview-manifest", 2, "characters.json"),
@@ -123,13 +122,14 @@ public static partial class RetroCharacterPreviewExporter
         if (spec.AlternateForm == null)
         {
             // Preserve the original four Prime body recipes byte-for-byte.
-            // Rev 2 v5 adds the exact generated source-program manifest.
-            // Older v2/v3/v4 receipts remain readable as Outdated.
+            // Rev 2 v6 adds the fixed source cannon and its manifest entry.
+            // Older v2/v3/v4/v5 receipts remain readable as Outdated.
             string legacy = $"retro-character-preview-v1:{spec.Id}:{spec.Game}:{spec.Ancs:x8}:{spec.NativeName}:obj-skeleton-weights-motions-optional-graph";
             if (edition == ExternalSourceEdition.PrimeUsaRevision2)
-                return new(spec.Id, 5, HashRecipe("prime-usa-rev2-full-source-v5:" + fingerprint + ":" + legacy
+                return new(spec.Id, 6, HashRecipe("prime-usa-rev2-full-source-v6:" + fingerprint + ":" + legacy
                     + ":root3-parent2-v1:full-anim-bank-v1:generated-glb-v1:source-only-provenance-v1:required-graph"
-                    + ":body-raw-materials-txtr-authoring-v1-all-local-slots:generated-trooper-source-program-manifest-v1"), fingerprint,
+                    + ":body-raw-materials-txtr-authoring-v1-all-local-slots:generated-trooper-source-program-manifest-v1"
+                    + ":trooper-fixed-generated-cannon-v1-global-triangle-ids"), fingerprint,
                     RequiredPartComponents(spec.Id, "body", edition).Select(c => c.File).ToArray());
             return new(spec.Id, 1, HashRecipe(legacy), fingerprint,
                 RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
@@ -264,17 +264,33 @@ public static partial class RetroCharacterPreviewExporter
                     };
                     // Unique temporary names preserve Update-all partitioning;
                     // each appearance commits its own immutable manifest.
+                    string cannonName = spec.Id + ".cannon-source.json";
+                    var inputs = new Dictionary<string, string>(StringComparer.Ordinal)
+                    {
+                        [geometryName] = RetroAnimationGraphProof.Sha(geometry),
+                        [provenanceName] = RetroAnimationGraphProof.Sha(provenance),
+                        [graphName] = RetroAnimationGraphProof.Sha(graph.Descriptor),
+                        [rawName] = RetroAnimationGraphProof.Sha(ancsBytes),
+                        [cinfName] = RetroAnimationGraphProof.Sha(cinfBytes),
+                        [animationName] = RetroAnimationGraphProof.Sha(archive)
+                    };
+                    var bank = RetroCharacterAnimationArchive.Read(archive, graph, cinfBytes, echoes: false);
+                    byte[] cannon = RetroCharacterCannonSource.Author(model, skeleton, bank, inputs, spec.Id);
+                    File.WriteAllBytes(Path.Combine(staging, cannonName), cannon); Stage(cannonName);
+                    object Entry(string presentationPart, bool cut) => new
+                    {
+                        hunter = "Weavel", part = presentationPart, lod = 0, skinning = "Weighted4", poseSource = "SourceRigPreview",
+                        model = geometryName, characterId = "trooper", skinSource = skin,
+                        provenance = provenanceName, provenanceSha256 = RetroAnimationGraphProof.Sha(provenance),
+                        sourceAnimationArchive = animationName, sourceAnimationArchiveSha256 = RetroAnimationGraphProof.Sha(archive),
+                        sourceCannonReceipt = cut ? cannonName : null, sourceCannonSha256 = cut ? RetroAnimationGraphProof.Sha(cannon) : null,
+                        boneMap = new Dictionary<string, string>()
+                    };
                     string temporary = spec.Id + ".characters.json";
                     File.WriteAllBytes(Path.Combine(staging, temporary), JsonSerializer.SerializeToUtf8Bytes(new
                     {
-                        format = 1, id = "generated-" + spec.Id + "-source-preview-v1", models = new[] { new
-                        {
-                            hunter = "Weavel", part = "Biped", lod = 0, skinning = "Weighted4", poseSource = "SourceRigPreview",
-                            model = geometryName, characterId = "trooper", skinSource = skin,
-                            provenance = provenanceName, provenanceSha256 = RetroAnimationGraphProof.Sha(provenance),
-                            sourceAnimationArchive = animationName, sourceAnimationArchiveSha256 = RetroAnimationGraphProof.Sha(archive),
-                            boneMap = new Dictionary<string, string>()
-                        } }
+                        format = 1, id = "generated-" + spec.Id + "-source-cannon-v2",
+                        models = new[] { Entry("Biped", false), Entry("ViewModel", true) }
                     }));
                     Stage(temporary, "characters.json");
                 }
