@@ -98,11 +98,29 @@ namespace MphRead.Mods.Network
             try { session.Join(clip, checkpoint.ConstructionState()); return session; }
             catch { session.Dispose(); throw; }
         }
-        private PassiveReplayScene(ReplayPlaybackSession session, Vector2i size)
+        internal static PassiveReplayScene CreateCustomInspection(ReplayReplicaCheckpoint initial, PreparedReplayWeaponPackage prepared,
+            ulong mapHash, Vector2i size)
+        {
+            if (mapHash == 0) throw new InvalidDataException("Custom Scene inspection requires the recorded exact map hash.");
+            var session = new ReplayPlaybackSession(new PassiveReplaySessionHost());
+            try
+            {
+                session.JoinCustomInspection(initial, prepared, mapHash);
+                if (!((PassiveReplaySessionHost)session.Host).State.HasRecordedSceneBaseline)
+                    throw new InvalidDataException("Custom Scene inspection requires accepted native roster and snapshot coverage.");
+                if (ReplayMapIdentity.Validate(session.Metadata!) != ReplayOpenResult.Success)
+                    throw new InvalidDataException("The exact recorded replay map is unavailable or differs from installed data.");
+                return new PassiveReplayScene(session, size, prepared);
+            }
+            catch { session.Dispose(); throw; }
+        }
+        private PassiveReplayScene(ReplayPlaybackSession session, Vector2i size, PreparedReplayWeaponPackage? prepared = null)
         {
             Session = session;
             State = ((PassiveReplaySessionHost)session.Host).State;
             MatchStatePacket match = State.Match ?? throw new InvalidDataException("Replay has no room.");
+            if (State.CustomWeapons != null && prepared == null)
+                throw new InvalidDataException("Custom Scene construction requires independently prepared historical resources.");
             InitialState = State.CaptureCheckpoint();
             MapHash = Session.Metadata?.MapHash is > 0 ? Session.Metadata.MapHash : ReplayMapIdentity.Compute(match.RoomKey);
             Scene = new Scene(size, SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { },
@@ -113,6 +131,7 @@ namespace MphRead.Mods.Network
             Scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             try
             {
+                if (prepared != null) Scene.BindReplayWeaponPackage(prepared);
                 Scene.GameState.Mode = (GameMode)match.Mode;
                 if (Scene.GameState.SinglePlayer) throw new InvalidDataException("Passive reconstruction requires a recorded multiplayer world.");
                 ((ReplaySceneServices)Scene.Services).ApplyRules(Scene, 0);
@@ -135,6 +154,7 @@ namespace MphRead.Mods.Network
         public bool Step()
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            if (Session.IsCustomInspection) throw new InvalidOperationException("Custom inspection requires explicit accepted-record stepping.");
             if (Session.AtEnd) return false;
             Session.PumpFrame();
             if (Session.LastResult != ReplayOpenResult.Success) throw new InvalidDataException(Session.LastError);
@@ -147,6 +167,12 @@ namespace MphRead.Mods.Network
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             Session.AdvanceLive(frame, records);
+            Scene.StepReplica(); HasStepped = true;
+        }
+        internal void StepCustomInspection(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            Session.AdvanceCustomInspection(frame, records);
             Scene.StepReplica(); HasStepped = true;
         }
         public void Dispose()
