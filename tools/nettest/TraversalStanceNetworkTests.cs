@@ -17,18 +17,24 @@ internal static class TraversalStanceNetworkTests
     private const IntentButtons StanceBits = IntentButtons.Crouch | IntentButtons.CrouchedState;
     private static void Check(bool good, string label)
     { _checks++; if (!good) throw new InvalidOperationException(label); }
-    private static byte[] Snapshot(PlayerState player)
+    private static byte[] Snapshot(PlayerState player, bool historical = false)
     {
-        var bytes = new byte[1 + SnapshotHeader.Size + PlayerState.Size + NetMatchTimeSync.Size + NetHealthSync.HeaderSize];
+        int width = historical ? 173 : 192;
+        var bytes = new byte[1 + SnapshotHeader.Size + width + NetMatchTimeSync.Size + NetHealthSync.HeaderSize];
         bytes[0] = (byte)PacketType.Snapshot;
         new SnapshotHeader { MatchId = 7, AuthorityEpoch = 23, Frame = 20, PlayerCount = 1 }.Write(bytes.AsSpan(1));
-        player.Write(bytes.AsSpan(1 + SnapshotHeader.Size));
+        byte[] currentPlayer = new byte[192]; player.Write(currentPlayer);
+        if (historical && currentPlayer.AsSpan(173, 19).IndexOfAnyExcept((byte)0) >= 0)
+            throw new InvalidOperationException("Historical stance fixture cannot discard grapple state.");
+        currentPlayer.AsSpan(0, width).CopyTo(bytes.AsSpan(1 + SnapshotHeader.Size));
         BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(bytes.Length - NetHealthSync.HeaderSize), 7);
         return bytes;
     }
-    private static byte[] Intent(IntentPacket intent, bool slotted)
+    private static byte[] Intent(IntentPacket intent, bool slotted, bool historical = false)
     {
-        var bytes = new byte[(slotted ? 2 : 1) + IntentPacket.TouchCanonicalSize];
+        if (historical && (intent.GrappleRequestNonce != 0 || (intent.Buttons & IntentButtons.Grapple) != 0))
+            throw new InvalidOperationException("Historical stance fixture cannot discard grapple request.");
+        var bytes = new byte[(slotted ? 2 : 1) + (historical ? 1296 : 1298)];
         bytes[0] = (byte)(slotted ? PacketType.SlotIntent : PacketType.Intent);
         intent.Write(bytes.AsSpan(slotted ? 2 : 1)); return bytes;
     }
@@ -37,8 +43,8 @@ internal static class TraversalStanceNetworkTests
         try
         {
             _checks = 0;
-            Check(NetConfig.ProtocolVersion == 80 && (uint)IntentButtons.Crouch == 1u << 22
-                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol80 preserves distinct held and canonical stance bits");
+            Check(NetConfig.ProtocolVersion == 81 && (uint)IntentButtons.Crouch == 1u << 22
+                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol81 preserves distinct held and canonical stance bits");
             foreach (IntentButtons bits in new[] { IntentButtons.None, IntentButtons.Crouch, IntentButtons.CrouchedState, StanceBits })
             {
                 var carrier = new IntentPacket { Buttons = IntentButtons.InPlayState | bits, Aim = Vector3.UnitZ };
@@ -83,16 +89,14 @@ internal static class TraversalStanceNetworkTests
             Buttons = IntentButtons.InPlayState | IntentButtons.MoveUp | (crouched ? StanceBits : 0), MoveY = 91 };
         foreach (bool slotted in new[] { false, true })
         {
-            byte[] packet = Intent(intent, slotted); int at = slotted ? 2 : 1;
-            Check(IntentPacket.Read(packet.AsSpan(at)).Buttons == intent.Buttons, "current intent preserves held and canonical stance independently");
-            Check(ReplayIdentityCompatibility.Convert(packet, 69).SequenceEqual(packet), "protocol69 intent conversion is byte-exact");
-            Check(ReplayIdentityCompatibility.Convert(packet, 70).SequenceEqual(packet), "protocol70 native intent conversion is byte-exact");
-            Check(ReplayIdentityCompatibility.Convert(packet, 71).SequenceEqual(packet), "protocol71 native intent conversion is byte-exact");
-            Check(ReplayIdentityCompatibility.Convert(packet, 72).SequenceEqual(packet), "protocol72 native intent conversion preserves protocol71 bytes");
-            Check(ReplayIdentityCompatibility.Convert(packet, 73).SequenceEqual(packet), "protocol73 native intent conversion preserves protocol71/72 bytes");
-            Check(ReplayIdentityCompatibility.Convert(packet, 74).SequenceEqual(packet), "protocol74 native intent conversion preserves protocol71/72/73 bytes");
-            Check(ReplayIdentityCompatibility.Convert(packet, 75).SequenceEqual(packet), "protocol75 native intent conversion preserves protocol74 bytes");
-            Check(ReplayIdentityCompatibility.Convert(packet, 76).SequenceEqual(packet), "protocol76 native intent conversion preserves protocol74/75 bytes");
+            byte[] currentPacket = Intent(intent, slotted), packet = Intent(intent, slotted, historical: true);
+            int at = slotted ? 2 : 1;
+            Check(IntentPacket.Read(currentPacket.AsSpan(at)).Buttons == intent.Buttons
+                && ReplayIdentityCompatibility.Convert(currentPacket, 81).SequenceEqual(currentPacket),
+                "current81 intent preserves exact held and canonical stance bytes");
+            foreach (int protocol in new[] { 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80 })
+                Check(ReplayIdentityCompatibility.Convert(packet, protocol).SequenceEqual(currentPacket),
+                    "historical1296-byte intent preserves original stance bytes with zero nonce: " + protocol);
             foreach (int protocol in new[] { 60, 61, 62, 63, 64, 65, 66, 67, 68 })
             {
                 var old = IntentPacket.Read(ReplayIdentityCompatibility.Convert(packet, protocol)[at..]);
@@ -103,19 +107,16 @@ internal static class TraversalStanceNetworkTests
                     "historical intent clears only previously reserved stance bits and preserves every other byte");
             }
         }
-        foreach (byte[] packet in new[] { full, fast })
+        foreach (var fixture in new[] { (Packet: full, Historical: Snapshot(player, historical: true)), (Packet: fast, Historical: fast) })
         {
-            Check(ReplayIdentityCompatibility.Convert(packet, 69).SequenceEqual(packet), "protocol69 snapshot conversion is byte-exact");
-            Check(ReplayIdentityCompatibility.Convert(packet, 70).SequenceEqual(packet), "protocol70 native snapshot conversion is byte-exact");
-            Check(ReplayIdentityCompatibility.Convert(packet, 71).SequenceEqual(packet), "protocol71 native snapshot conversion is byte-exact");
-            Check(ReplayIdentityCompatibility.Convert(packet, 72).SequenceEqual(packet), "protocol72 native snapshot conversion preserves protocol71 bytes");
-            Check(ReplayIdentityCompatibility.Convert(packet, 73).SequenceEqual(packet), "protocol73 native snapshot conversion preserves protocol71/72 bytes");
-            Check(ReplayIdentityCompatibility.Convert(packet, 74).SequenceEqual(packet), "protocol74 native snapshot conversion preserves protocol71/72/73 bytes");
-            Check(ReplayIdentityCompatibility.Convert(packet, 75).SequenceEqual(packet), "protocol75 native snapshot conversion preserves protocol74 bytes");
-            Check(ReplayIdentityCompatibility.Convert(packet, 76).SequenceEqual(packet), "protocol76 native snapshot conversion preserves protocol74/75 bytes");
+            byte[] packet = fixture.Packet, historical = fixture.Historical;
+            Check(ReplayIdentityCompatibility.Convert(packet, 81).SequenceEqual(packet), "current81 full/fast stance packet remains exact");
+            foreach (int protocol in new[] { 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80 })
+                Check(ReplayIdentityCompatibility.Convert(historical, protocol).SequenceEqual(packet),
+                    "historical173-byte full/unchanged fast stance preserves body and real tail: " + protocol);
             foreach (int protocol in new[] { 60, 61, 62, 63, 64, 65, 66, 67, 68 })
             {
-                byte[] normalized = ReplayIdentityCompatibility.Convert(packet, protocol).ToArray();
+                byte[] normalized = ReplayIdentityCompatibility.Convert(historical, protocol).ToArray();
                 var expectedPlayer = player; expectedPlayer.Crouched = false;
                 byte[] expected = Snapshot(expectedPlayer);
                 if (packet == fast)
@@ -147,7 +148,7 @@ internal static class TraversalStanceNetworkTests
             && restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint), "current replica checkpoint retains exact stance and intent bytes");
         foreach (byte protocol in new byte[] { 60, 61, 62, 63, 64, 65, 66, 67, 68 })
         {
-            byte[] oldCheckpoint = (byte[])checkpoint.Clone(); oldCheckpoint[6] = protocol;
+            byte[] oldCheckpoint = ReplicaCheckpointCompatibilityTests.Protocol80Rows(checkpoint); oldCheckpoint[6] = protocol;
             restored.RestoreCheckpoint(new(oldCheckpoint));
             Check(restored.TryGetPlayer(0, out var old) && !old.Crouched && old.Health == 77
                 && restored.TryGetIntent(0, out var oldIntent) && (oldIntent.Buttons & StanceBits) == 0

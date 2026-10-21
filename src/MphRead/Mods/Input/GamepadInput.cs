@@ -498,6 +498,7 @@ namespace MphRead.Mods.Input
             Bind(controls.Shoot, PadAction.Shoot); Bind(controls.AltAttack, PadAction.Shoot);
             Bind(controls.Jump, PadAction.Jump); Bind(controls.Boost, PadAction.Jump);
             Bind(controls.Crouch, PadAction.Crouch);
+            Bind(controls.Grapple, PadAction.Grapple);
             Bind(controls.Zoom, PadAction.Zoom); Bind(controls.Morph, PadAction.Morph);
             Bind(controls.Scan, PadAction.Scan); Bind(controls.ScanVisor, PadAction.ScanVisor);
             Hold(controls.WeaponMenu, WheelHeld, Actions.WasPressed(PadAction.WeaponWheel));

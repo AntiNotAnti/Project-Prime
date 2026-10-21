@@ -34,7 +34,9 @@ namespace MphRead.Mods.Input
         // Append only: existing layout instance action IDs remain stable.
         CustomWeapon,
         CustomReload,
-        CustomOptic
+        CustomOptic,
+        // Append only: saved touch action IDs remain stable.
+        Grapple = 24
     }
 
     public enum TouchMode { Auto, Touch, AimOnly, Off }
@@ -160,7 +162,8 @@ namespace MphRead.Mods.Input
             (TouchControl.OmegaCannon, "Omega Cannon button"),
             (TouchControl.CustomWeapon, "Custom weapon button"),
             (TouchControl.CustomReload, "Custom weapon reload"),
-            (TouchControl.CustomOptic, "Custom weapon optic")
+            (TouchControl.CustomOptic, "Custom weapon optic"),
+            (TouchControl.Grapple, "Grapple button")
         };
 
         private static readonly TouchControl[] _directWeapons =
@@ -189,6 +192,7 @@ namespace MphRead.Mods.Input
             hidden.Add(TouchControl.CustomWeapon);
             hidden.Add(TouchControl.CustomReload);
             hidden.Add(TouchControl.CustomOptic);
+            hidden.Add(TouchControl.Grapple);
             return hidden;
         }
 
@@ -245,6 +249,7 @@ namespace MphRead.Mods.Input
                 TouchControl.CustomWeapon => "CUSTOM",
                 TouchControl.CustomReload => "RELOAD",
                 TouchControl.CustomOptic => "OPTIC",
+                TouchControl.Grapple => "GRAPPLE",
                 _ => control.ToString()
             };
         }
@@ -374,6 +379,8 @@ namespace MphRead.Mods.Input
                     => new TouchButtonGeometry(0.62f * w, 0.54f * h, 0.052f * h),
                 TouchControl.CustomOptic
                     => new TouchButtonGeometry(0.70f * w, 0.54f * h, 0.052f * h),
+                TouchControl.Grapple
+                    => new TouchButtonGeometry(w - 0.62f * h, h - 0.50f * h, 0.065f * h),
                 _ => new TouchButtonGeometry(0.5f * w, 0.5f * h, 0.06f * h)
             };
         }

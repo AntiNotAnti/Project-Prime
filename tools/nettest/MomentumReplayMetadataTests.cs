@@ -64,7 +64,7 @@ internal static class MomentumReplayMetadataTests
         foreach (byte[][] packets in new[] { new[] { Match(MovementModel.Parkour) }, new[] { Session(MovementModel.Parkour) },
             new[] { Match(MovementModel.Parkour), Session(MovementModel.Parkour) } })
         {
-            foreach (byte protocol in new byte[] { 77, 78, 79, 80 })
+            foreach (byte protocol in new byte[] { 77, 78, 79, 80, 81 })
             {
                 int profile = protocol - 76;
                 var metadata = Metadata(protocol, packets);

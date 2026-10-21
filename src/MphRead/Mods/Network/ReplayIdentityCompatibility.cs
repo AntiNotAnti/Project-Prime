@@ -21,7 +21,41 @@ internal static class ReplayIdentityCompatibility
         => protocol >= OldestReplayProtocol && protocol < NetConfig.ProtocolVersion;
 
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
-        => NormalizeLegacyTuck(NormalizeLegacyStance(ConvertCore(packet, protocol), protocol), protocol);
+        => NormalizeLegacyTuck(NormalizeLegacyStance(UpgradeGrapple(ConvertCore(packet, protocol), protocol), protocol), protocol);
+
+    private static ReadOnlySpan<byte> UpgradeGrapple(ReadOnlySpan<byte> packet, int protocol)
+    {
+        if (protocol >= 81 || packet.IsEmpty) return packet;
+        PacketType type = (PacketType)packet[0];
+        if (type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int prefix = type == PacketType.Intent ? 1 : 2;
+            Require(packet.Length >= prefix + IntentPacket.Size && packet.Length <= prefix + IntentPacket.TouchCanonicalSize);
+            byte[] result = new byte[prefix + IntentPacket.TouchCanonicalSize];
+            packet.CopyTo(result);
+            BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(prefix + 4),
+                BinaryPrimitives.ReadUInt32LittleEndian(result.AsSpan(prefix + 4)) & ~(uint)IntentButtons.Grapple);
+            result.AsSpan(prefix + IntentPacket.Protocol80TouchSize, 2).Clear();
+            return result;
+        }
+        // Older adapters already expand directly into the current stride.
+        if (protocol is >= 49 and <= 80 && type == PacketType.Snapshot)
+        {
+            Require(packet.Length >= 1 + SnapshotHeader.Size);
+            var header = SnapshotHeader.Read(packet[1..]);
+            Require(header.PlayerCount <= 8);
+            int oldTail = 1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Protocol80Size;
+            Require(packet.Length >= oldTail + NetMatchTimeSync.Size + NetHealthSync.HeaderSize);
+            byte[] result = new byte[packet.Length + header.PlayerCount * PlayerGrappleState.Size];
+            packet[..(1 + SnapshotHeader.Size)].CopyTo(result);
+            for (int i = 0; i < header.PlayerCount; i++)
+                packet.Slice(1 + SnapshotHeader.Size + i * PlayerState.Protocol80Size, PlayerState.Protocol80Size)
+                    .CopyTo(result.AsSpan(1 + SnapshotHeader.Size + i * PlayerState.Size));
+            packet[oldTail..].CopyTo(result.AsSpan(1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size));
+            return result;
+        }
+        return packet;
+    }
 
     private static ReadOnlySpan<byte> NormalizeLegacyTuck(ReadOnlySpan<byte> packet, int protocol)
     {

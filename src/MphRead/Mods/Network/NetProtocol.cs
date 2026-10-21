@@ -475,7 +475,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81)
                 status = Read(src);
             else
             {
@@ -1007,7 +1007,8 @@ namespace MphRead.Mods.Network
         CrouchedState = 1u << 23,
         TuckedState = 1u << 24,
         // Cumulative ground stance-pivot count, not an input action.
-        TuckRebaseMask = 15u << 25
+        TuckRebaseMask = 15u << 25,
+        Grapple = 1u << 29
     }
 
     /// <summary>
@@ -1415,6 +1416,7 @@ namespace MphRead.Mods.Network
     {
         // Live compact-intent extension; historical canonical replay widths are unchanged.
         public Mods.Input.NativeTouchReport NativeTouch;
+        public ushort GrappleRequestNonce;
         public ushort MatchId;
         public ulong AuthorityEpoch;
         public ushort SlotGeneration;
@@ -1465,7 +1467,8 @@ namespace MphRead.Mods.Network
         public const int FullSize = LegacyFullSize + NetFireEvents.WireSize;
         // Protocol 53 canonical replay records append the exact 30 Hz touch
         // report; pre-53 records keep FullSize and decode with no touch contact.
-        public const int TouchCanonicalSize = FullSize + Mods.Input.NativeTouchReport.WireSize;
+        public const int Protocol80TouchSize = FullSize + Mods.Input.NativeTouchReport.WireSize;
+        public const int TouchCanonicalSize = Protocol80TouchSize + 2;
         public bool HasFireEvents;
         public byte FireEventCount;
         public FireEventHistory FireEvents;
@@ -1703,6 +1706,8 @@ namespace MphRead.Mods.Network
             if (dest.Length >= LegacyFullSize)
                 BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 10)..], ContinuousFireTick);
             if (dest.Length >= TouchCanonicalSize)
+                BinaryPrimitives.WriteUInt16LittleEndian(dest[Protocol80TouchSize..], GrappleRequestNonce);
+            if (dest.Length >= Protocol80TouchSize)
                 NativeTouch.Write(dest.Slice(FullSize, Mods.Input.NativeTouchReport.WireSize));
             if (dest.Length >= FullSize)
             {
@@ -1735,7 +1740,8 @@ namespace MphRead.Mods.Network
             }
             return new IntentPacket
             {
-                NativeTouch = src.Length >= TouchCanonicalSize
+                GrappleRequestNonce = src.Length >= TouchCanonicalSize ? BinaryPrimitives.ReadUInt16LittleEndian(src[Protocol80TouchSize..]) : (ushort)0,
+                NativeTouch = src.Length >= Protocol80TouchSize
                     ? Mods.Input.NativeTouchReport.Read(src.Slice(FullSize, Mods.Input.NativeTouchReport.WireSize))
                     : default,
                 HasFireEvents = currentFireEvents || posedFireEvents || legacyFireEvents,
@@ -1849,7 +1855,9 @@ namespace MphRead.Mods.Network
         private const int JumpPadEventOffset = HalfturretOffset + 3;
         public const int LegacySize = JumpPadEventOffset + 2;
         public const int Protocol48Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
-        public const int Size = Protocol48Size + PlayerFormState.Size;
+        public const int Protocol80Size = Protocol48Size + PlayerFormState.Size;
+        public const int Size = Protocol80Size + PlayerGrappleState.Size;
+        public PlayerGrappleState Grapple;
         public PlayerFormState Form;
         public Mods.EnhancedHunters.EnhancedHunterNetState Enhanced;
         public bool HalfturretActive;
@@ -1981,6 +1989,7 @@ namespace MphRead.Mods.Network
         {
             Enhanced.Write(dest[LegacySize..]);
             Form.Write(dest[Protocol48Size..]);
+            if (!Grapple.TryWrite(dest[Protocol80Size..], out _)) throw new ArgumentException("Invalid grapple state.");
             dest[0] = SlotIndex;
             dest[1] = Flags;
             WriteVec(dest[2..], Position);
@@ -2005,7 +2014,17 @@ namespace MphRead.Mods.Network
             }
         }
 
-        public static PlayerState Read(ReadOnlySpan<byte> src) => ReadFields(src[..41], src.Slice(41, 7), src[48..], src.Length >= Size && PlayerFormState.TryRead(src.Slice(Protocol48Size, PlayerFormState.Size), out var form) ? form : default);
+        public static PlayerState Read(ReadOnlySpan<byte> src)
+        {
+            var state = ReadFields(src[..41], src.Slice(41, 7), src[48..], src.Length >= Protocol80Size && PlayerFormState.TryRead(src.Slice(Protocol48Size, PlayerFormState.Size), out var form) ? form : default);
+            if (src.Length >= Size)
+            {
+                if (!PlayerGrappleState.TryRead(src.Slice(Protocol80Size, PlayerGrappleState.Size), out var grapple))
+                    throw new ArgumentException("Invalid grapple state.");
+                state.Grapple = grapple;
+            }
+            return state;
+        }
         internal static PlayerState ReadFast(ReadOnlySpan<byte> fast, ReadOnlySpan<byte> slow)
             => ReadFields(fast[..41], slow, fast[41..], default);
         private static PlayerState ReadFields(ReadOnlySpan<byte> prefix, ReadOnlySpan<byte> slow, ReadOnlySpan<byte> suffix, PlayerFormState form)
@@ -2632,7 +2651,8 @@ namespace MphRead.Mods.Network
         // Protocol78 selects Parkour v2 wall-strafe policy; native packet widths and protocol77 tuck boundaries remain unchanged.
         // Protocol79 selects Parkour v3; packet widths and historical stance boundaries remain unchanged.
         // Protocol80 selects Parkour v4 mantle; packet widths and historical stance boundaries remain unchanged.
-        public const int ProtocolVersion = 80;
+        // Protocol81 selects Parkour v5 and accepted grapple state; historical profiles remain frozen.
+        public const int ProtocolVersion = 81;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

@@ -179,6 +179,10 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-wallrun-rules
       - name: Parkour mantle geometry and warmed allocation contract
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-mantle-rules
+      - name: Parkour grapple velocity and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-grapple-rules
+      - name: Grapple wire, historical widths and passive ownership
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-grapple-wire
       - name: Crouch dimensions, slide equations and allocation contract
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-rules
       - name: Crouch wire and historical checkpoint compatibility

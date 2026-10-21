@@ -122,6 +122,7 @@ namespace MphRead.Entities
             ModGetDrawActorPose(out Vector3 drawPosition, out Vector3 drawFacing);
             if (networkPresented)
                 drawPosition = Mods.Network.NetPlayerBridge.InFormFor(this, presentedPosition, presentedAlt);
+            ModDrawGrapple(drawPosition);
             bool drawAltForm = IsAltForm;
             bool drawAlive = _health > 0;
             // This is the newly enabled consumer. Preserve preexisting live

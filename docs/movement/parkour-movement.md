@@ -72,3 +72,7 @@ describes mantle admission and historical boundaries. Optional grapple follows
 as a separate slice.
 
 Mantle qualification and limits: [Parkour v4 results](parkour-mantle-results.md).
+
+## Dedicated grapple (v5)
+
+Hold Grapple (keyboard G; gamepad unbound; optional touch hidden) to request a static anchor within2-24 units. Release to let go. Online movement waits for authority acceptance of that press; a rejected hold needs a release/repress. A rope lasts at most3 seconds, preserves native gravity/collision and ends for native Jump, morph, crouch, teleport, obstruction or ability ownership. It adds bounded inward velocity assistance and removes outward radial motion when taut, without snapping position. Rope length is fixed for the hold; there is no reeling input. See the [v5 version contract](../network/parkour-v5-version-contract.md).

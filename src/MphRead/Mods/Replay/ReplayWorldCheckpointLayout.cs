@@ -9,7 +9,7 @@ using MphRead.Mods.Network;
 namespace MphRead.Mods.Replay;
 
 [Flags]
-internal enum ReplayWorldCheckpointAppendices : byte { None = 0, NativeTouch = 1, Pickups = 2 }
+internal enum ReplayWorldCheckpointAppendices : byte { None = 0, NativeTouch = 1, Pickups = 2, Grapple = 4 }
 
 internal sealed partial class ReplayWorldCheckpoint
 {
@@ -19,7 +19,8 @@ internal sealed partial class ReplayWorldCheckpoint
         ushort version = reader.ReadUInt16();
         if (version is < 1 or > Version) throw new InvalidDataException("Unsupported replay world checkpoint format.");
         var declared = version >= 10 ? (ReplayWorldCheckpointAppendices)reader.ReadByte() : ReplayWorldCheckpointAppendices.None;
-        if (version >= 10 && declared != (ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups))
+        if (version >= 10 && declared != (ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups
+                | (version >= 11 ? ReplayWorldCheckpointAppendices.Grapple : ReplayWorldCheckpointAppendices.None)))
             throw new InvalidDataException("Unsupported replay world appendix contract.");
         return (version, declared);
     }
@@ -51,7 +52,8 @@ internal sealed partial class ReplayWorldCheckpoint
         if (appendices.HasFlag(ReplayWorldCheckpointAppendices.NativeTouch)
             && !currentLayout.Has(ReplayReplicaCheckpointFeatures.NativeTouch)
             || appendices.HasFlag(ReplayWorldCheckpointAppendices.Pickups)
-            && !currentLayout.Has(ReplayReplicaCheckpointFeatures.Pickups))
+            && !currentLayout.Has(ReplayReplicaCheckpointFeatures.Pickups)
+            || appendices.HasFlag(ReplayWorldCheckpointAppendices.Grapple) != currentLayout.Has(ReplayReplicaCheckpointFeatures.Grapple))
             throw new InvalidDataException("Replay world appendix differs from its decoder contract.");
         int count = Count(reader, MaximumObjects);
         var types = new Type[count];
@@ -73,10 +75,33 @@ internal sealed partial class ReplayWorldCheckpoint
             var state = new ReplayReplicaState(); state.RestoreCheckpoint(decoder);
             ValidatePickupAppendix(ReadBytes(reader, 65536), types, state);
         }
+        if (appendices.HasFlag(ReplayWorldCheckpointAppendices.Grapple))
+        {
+            var state = new ReplayReplicaState(); state.RestoreCheckpoint(decoder);
+            ValidateGrappleAppendix(ReadBytes(reader, 184), state);
+        }
         byte indexed = version >= 6 ? reader.ReadByte() : (byte)0;
         if (indexed > 1 || reader.BaseStream.Position != reader.BaseStream.Length)
             throw new InvalidDataException("Invalid replay world capsule length/presentation marker.");
         return (appendices, currentLayout.Features, indexed == 1);
+    }
+
+    private static void ValidateGrappleAppendix(byte[] bytes, ReplayReplicaState state)
+    {
+        if (bytes.Length != 8 * (4 + PlayerGrappleState.Size)) throw new InvalidDataException("Invalid grapple appendix length.");
+        for (int slot = 0; slot < 8; slot++)
+        {
+            var row = bytes.AsSpan(slot * 23, 23);
+            ushort generation = BinaryPrimitives.ReadUInt16LittleEndian(row), life = BinaryPrimitives.ReadUInt16LittleEndian(row[2..]);
+            if (!PlayerGrappleState.TryRead(row[4..], out var grapple)) throw new InvalidDataException("Invalid grapple appendix state.");
+            if (state.TryGetPlayer(slot, out var player) && player.SlotGeneration != 0 && player.LifeId != 0)
+            {
+                if (generation != player.SlotGeneration || life != player.LifeId || grapple != player.Grapple)
+                    throw new InvalidDataException("Grapple appendix differs from accepted decoder life/state.");
+            }
+            else if (generation != 0 || life != 0 || grapple != default)
+                throw new InvalidDataException("Unknown-life grapple appendix row.");
+        }
     }
 
     private static void ValidateNativeTouchAppendix(byte[] bytes)

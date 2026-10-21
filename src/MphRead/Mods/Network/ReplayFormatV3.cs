@@ -88,7 +88,7 @@ namespace MphRead.Mods.Network
                 || metadata.FormatVersion == 3 && (metadata.WorldCheckpoint.Length != 0 || metadata.OriginRecordingFrame != 0 || metadata.LeadInFrames != 0)
                 || metadata.FormatVersion < 6 && (metadata.FormatVersion == 5) != metadata.IndexedFireContinuation.HasValue
                 || (metadata.FormatVersion == 6) != metadata.TimedShotCertificates
-                || metadata.TimedShotCertificates && metadata.ProtocolVersion is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80))
+                || metadata.TimedShotCertificates && metadata.ProtocolVersion is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81))
                 throw new InvalidDataException("Invalid replay metadata version.");
             using var buffer = new MemoryStream();
             using var writer = new BinaryWriter(buffer, Encoding.UTF8, true);
@@ -217,7 +217,7 @@ namespace MphRead.Mods.Network
             bool timedShots = false;
             if (version == 6)
             {
-                if (protocol is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80) || bytes.Length - reader.BaseStream.Position != 6
+                if (protocol is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81) || bytes.Length - reader.BaseStream.Position != 6
                     || reader.ReadUInt32() != TimedShotCapabilityMagic || reader.ReadByte() != 1)
                     throw new InvalidDataException("Invalid timed shot recording capability.");
                 byte policy = reader.ReadByte();
@@ -257,6 +257,7 @@ namespace MphRead.Mods.Network
                 new ReplayReplicaState().RestoreCheckpoint(construction);
                 return true;
             }
+            packet = ReplayIdentityCompatibility.Convert(packet, protocol).ToArray();
             ReadOnlySpan<byte> payload = packet.AsSpan(1);
             return (PacketType)packet[0] switch
             {
@@ -291,6 +292,8 @@ namespace MphRead.Mods.Network
             int timeOffset = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
             int healthOffset = timeOffset + NetMatchTimeSync.Size;
             if (healthOffset > payload.Length) return false;
+            for (int i = 0; i < header.PlayerCount; i++)
+                if (!PlayerGrappleState.TryRead(payload.Slice(SnapshotHeader.Size + i * PlayerState.Size + PlayerState.Protocol80Size, PlayerGrappleState.Size), out _)) return false;
             ReadOnlySpan<byte> health = payload[healthOffset..];
             return NetMatchTimeSync.Validate(payload.Slice(timeOffset, NetMatchTimeSync.Size))
                 && NetHealthSync.Validate(health)
