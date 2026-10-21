@@ -81,16 +81,33 @@ internal static class GeneratedFinalBallAcceptance
             (.24, 1.216279779863255), (.28, 1.0414312679976971), (.336, .8229868237783395),
             (.38, .9910535855276109), (.44, 1.1499572749138791), (.5, 1.0314417078984202),
             (.6, 1.0000022418007788), (.7, 1.000000000000027), (.8, .9945056142689929),
-            (1, 1.2939024651412447), (1_000_000, .9945056142689929)
+            (1, 1.2939024651412447), (2.4, 1), (1_000_000, .9945056142689929)
         };
         foreach (var sample in samples)
             Check(Math.Abs(RetroFinalBallPresentation.HeartScale(sample.Seconds) - sample.Expected) < 2e-14,
                 "independent heartbeat literal at source seconds " + sample.Seconds);
+        Check(RetroFinalBallPresentation.HeartScale(2.4) == 1
+            && RetroFinalBallPresentation.HeartScale(2.4) - RetroFinalBallPresentation.HeartScale(0) > .005,
+            "direct donor double seconds retain the documented phase-boundary discontinuity at2.4seconds");
+        (long Step, double Expected)[] stepSamples =
+        {
+            (0, .9945056142689929), (6, .7736344079321082), (12, 1.2939024651412447),
+            (25, 1.1172436483959853), (31, 1.0116991532426298), (48, .9945056142689929),
+            (144, .9945056142689929), (long.MaxValue, 1.0116991532426298)
+        };
+        foreach (var sample in stepSamples)
+            Check(Math.Abs(RetroFinalBallPresentation.HeartScaleAtStep(sample.Step) - sample.Expected) < 2e-14,
+                "canonical completed-step heartbeat matches independently calculated sample: " + sample.Step);
         for (int tick = 0; tick < 48; tick++)
-            for (int cycle = 1; cycle <= 4; cycle++)
-                Check(Math.Abs(RetroFinalBallPresentation.HeartScale(tick / 60d)
-                    - RetroFinalBallPresentation.HeartScale((tick + cycle * 48) / 60d)) < 2e-14,
-                    "heartbeat repeats every48 completed60Hz source ticks");
+        {
+            double expected = RetroFinalBallPresentation.HeartScaleAtStep(tick);
+            Check(expected == RetroFinalBallPresentation.HeartScale(tick / 60d),
+                "first completed-step cycle retains exact donor equation and phase");
+            foreach (long cycle in new long[] { 1, 2, 3, 4, 1_000_000, long.MaxValue / 48 - 1 })
+                Check(BitConverter.DoubleToInt64Bits(expected)
+                    == BitConverter.DoubleToInt64Bits(RetroFinalBallPresentation.HeartScaleAtStep(tick + cycle * 48)),
+                    "integer source phase repeats bit-exactly every48 completed60Hz steps, including near long limit");
+        }
         double minimum = double.PositiveInfinity, maximum = 0, minTime = 0, maxTime = 0;
         for (int i = 0; i < 12_000; i++)
         {
@@ -133,6 +150,8 @@ internal static class GeneratedFinalBallAcceptance
         foreach (double seconds in new[] { -double.Epsilon, -1, double.NaN, double.NegativeInfinity,
             double.PositiveInfinity, Math.BitIncrement(1_000_000d), double.MaxValue })
             Refuse(() => RetroFinalBallPresentation.HeartScale(seconds), "invalid source heartbeat seconds");
+        foreach (long steps in new[] { -1L, long.MinValue })
+            Refuse(() => RetroFinalBallPresentation.HeartScaleAtStep(steps), "negative completed source heartbeat steps");
     }
     private static void Refuse(Action action, string label)
     {
