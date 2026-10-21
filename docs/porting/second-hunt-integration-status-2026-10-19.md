@@ -24,6 +24,16 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 
 ## Completed and merged slices
 
+PR[972](https://github.com/AntiNotAnti/Project-Prime/pull/972) adds selected Trooper
+body and fixed cannon presentation to explicit offline Arsenal practice. Merge
+`0b4e611867fba1b6c446b096ddd3245f96d642eb` has the exact qualified full tree
+`8fb779c0a3b4d11ae515bed70005be7e97048c23`; production source remains `9f61b262a`.
+Windows actual runtime passes557,045 checks with identical1,094-row native trace
+for Native and all four Troopers. Ten captures were inspected and individually
+deleted; low/right fixed-cannon fit and cropped third-person legs limit visual
+acceptance. Native drone fallback, online/replay refusal and full-character gaps
+remain. See [scoped evidence](second-hunt-trooper-arsenal-body-2026-10-21.md).
+
 | PR | Change | Merge commit |
 | --- | --- | --- |
 | [790](https://github.com/AntiNotAnti/Project-Prime/pull/790) | SH-00 frozen upstream/path/source ownership audit and SH-09 feasibility | `36a87be6b` |
