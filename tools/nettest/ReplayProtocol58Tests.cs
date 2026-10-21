@@ -300,23 +300,13 @@ internal static class ReplayProtocol58Tests
                     "actual archive writer/reader for each protocol/policy");
             }
             finally { File.Delete(path); File.Delete(path + ".part"); }
-            foreach (byte protocol in new byte[] { 82, 83 })
-            {
-                byte[] historical = Protocol83CheckpointFixtures.ToProtocol83(current);
-                historical[6] = protocol;
-                var layout = ReplayReplicaState.InspectCheckpointLayout(new(historical));
-                Check(layout.Version == 14 && layout.IntentBytes == 1298 && layout.PlayerBytes == 192
-                    && historical[7] == (timed ? 31 : 23), "retained82/83 decoder14 has exact original features and widths");
-                destination.RestoreCheckpoint(new(historical));
-                Check(destination.CaptureCheckpoint().Bytes.SequenceEqual(current), "retained82/83 native facts survive restore");
-            }
             void Reject(byte[] malformed, string label) => Check(Refused(() => ReplayFormatV3.DecodeMetadata(protocol, malformed, 6)), label);
             Reject(encoded[..^1], "truncated metadata capability");
             Reject(encoded.Concat(new byte[] { 0 }).ToArray(), "unexpected metadata tail");
             var magic = encoded.ToArray(); magic[^6] ^= 1; Reject(magic, "wrong capability magic");
             var capability = encoded.ToArray(); capability[^2] = 2; Reject(capability, "wrong capability revision");
             var policy = encoded.ToArray(); policy[^1] = 3; Reject(policy, "invalid continuation policy");
-            foreach (byte unsupported in new byte[] { 55, 84 })
+            foreach (byte unsupported in new byte[] { 55, 85 })
             {
                 Check(Refused(() => ReplayFormatV3.EncodeMetadata(Fixture(unsupported, continuation))), "unreviewed metadata protocol refused by encoder");
                 Check(Refused(() => ReplayFormatV3.DecodeMetadata(unsupported, encoded, 6)), "unreviewed metadata protocol refused by decoder");

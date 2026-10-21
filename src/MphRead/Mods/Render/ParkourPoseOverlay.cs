@@ -184,7 +184,7 @@ internal static class ParkourPoseOverlay
     private static Matrix4 Around(Vector3 pivot, Vector3 axis, float angle)
         => Matrix4.CreateTranslation(-pivot) * Matrix4.CreateFromAxisAngle(axis, angle) * Matrix4.CreateTranslation(pivot);
     private static Vector3 Unit(Vector3 value, Vector3 fallback)
-        => Finite(value) && value.LengthSquared > 1e-10f ? value.Normalized()
-            : Finite(fallback) && fallback.LengthSquared > 1e-10f ? fallback.Normalized() : Vector3.UnitZ;
+        => Finite(value) && float.IsFinite(value.LengthSquared) && value.LengthSquared > 1e-10f ? value.Normalized()
+            : Finite(fallback) && float.IsFinite(fallback.LengthSquared) && fallback.LengthSquared > 1e-10f ? fallback.Normalized() : Vector3.UnitZ;
     private static bool Finite(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z);
 }
