@@ -116,7 +116,7 @@ internal sealed class CharacterSourceClip
   var profile=CharacterGeneratedTrooperProfile.FromSkin(_asset.PrivateAppearance?.SkinSource);
   Require(MotionPolicy=="source-raw-v1"&&profile!=null&&_asset.Hunter==Hunter.Weavel
    &&_asset.Part==CharacterModelPart.Biped&&_lease.SourceAnimations?.RootBoneId==3
-   &&_rig.Nodes.Count==36&&_rig.JointNodes.Count==35&&_rig.ContentSha256==profile.ModelSha,
+   &&_rig.Nodes.Count==36&&_rig.JointNodes.Count==35&&String.Equals(_rig.ContentSha256,profile.ModelSha,StringComparison.OrdinalIgnoreCase),
    "Only the complete qualified Trooper actor rig supports root pinning");
   var root=_bones.Single(b=>b.Id==3);var pelvis=_bones.Single(b=>b.Id==4);
   Require(_rig.Nodes[pelvis.Node].Parent==root.Node,"Exact Trooper root/pelvis hierarchy required");
