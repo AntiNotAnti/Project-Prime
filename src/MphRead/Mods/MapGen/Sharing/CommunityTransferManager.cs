@@ -36,7 +36,9 @@ public sealed record CommunityTransferJob(
     CommunityPublishRequest? Publish = null,
     bool Listed = true,
     bool Draft = false,
-    string? Error = null)
+    string? Error = null,
+    CommunityWeaponDownload? WeaponDownload = null,
+    CommunityContentRegistration? WeaponPublish = null)
 {
     [System.Text.Json.Serialization.JsonIgnore]
     internal CommunityTransferAccount? Account { get; init; }
@@ -57,7 +59,7 @@ internal sealed record CommunityTransferStoredIndex(int Schema, CommunityTransfe
 /// Uploads reuse the service's authoritative offset; downloads reuse a stable
 /// .part file and HTTP Range. No credential is written to disk.
 /// </summary>
-public sealed class CommunityTransferManager : IAsyncDisposable
+public sealed partial class CommunityTransferManager : IAsyncDisposable
 {
     private const int SchemaVersion = 2;
     private const int MaximumRetainedJobs = 32;
@@ -273,6 +275,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             // dictionary. The exact archive hash and service remain the key.
             existing = _jobs.Values.FirstOrDefault(j =>
                 j.Kind == CommunityTransferKind.Download
+                && j.WeaponDownload == null
                 && j.PackageHash == map.Hash
                 && j.Endpoint == endpoint && j.State != CommunityTransferState.Cancelled);
             if (existing == null)
@@ -411,6 +414,8 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         ArgumentNullException.ThrowIfNull(expected);
         var credentials = _credentials as ICommunityAccountCredentialSource ?? throw new CommunityTransferAuthorizationException();
         CommunityTransferJob captured = GetJob(id);
+        if (captured.WeaponDownload != null)
+        { await ReauthorizeWeaponDownloadAsync(id, expected, cancellation).ConfigureAwait(false); return; }
         if (captured.Kind != CommunityTransferKind.Upload || captured.State != CommunityTransferState.NeedsAuthorization
             || captured.Account != null && !expected.Matches(captured.Account))
             throw new CommunityTransferAuthorizationException();
@@ -418,10 +423,20 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         await Task.Run(() =>
         {
             cancellation.ThrowIfCancellationRequested();
-            using var package = new MapPackageReader(snapshot);
-            if (package.Manifest == null || new FileInfo(snapshot).Length != captured.TotalBytes
-                || MapBuildFingerprint.HashFile(snapshot) != captured.PackageHash)
-                throw new InvalidDataException("The frozen upload archive changed or is missing.");
+            if (captured.WeaponPublish is { } weaponPublication)
+            {
+                var weapon = ReadTransferWeapon(snapshot);
+                if (weapon.Project.ContentId != weaponPublication.ContentId || weapon.Project.Name != weaponPublication.Name
+                    || weapon.PackageHash != captured.PackageHash || new FileInfo(snapshot).Length != captured.TotalBytes)
+                    throw new InvalidDataException("The frozen weapon upload changed or is missing.");
+            }
+            else
+            {
+                using var package = new MapPackageReader(snapshot);
+                if (package.Manifest == null || new FileInfo(snapshot).Length != captured.TotalBytes
+                    || MapBuildFingerprint.HashFile(snapshot) != captured.PackageHash)
+                    throw new InvalidDataException("The frozen upload archive changed or is missing.");
+            }
         }, cancellation).ConfigureAwait(false);
         CommunityTransferJob? notification = null;
         await credentials.CommitForAccountAsync(expected, () =>
@@ -470,6 +485,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             string snapshot = UploadPath(id);
             if (File.Exists(snapshot)) File.Delete(snapshot);
         }
+        else if (job.WeaponDownload != null) DeletePrivateWeaponDownload(id);
     }
 
     public async Task<CommunityTransferJob> WaitAsync(Guid id,
@@ -553,6 +569,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             string snapshot = UploadPath(oldest.Id);
             if (File.Exists(snapshot)) File.Delete(snapshot);
         }
+        else if (oldest.WeaponDownload != null) DeletePrivateWeaponDownload(oldest.Id);
     }
 
     private void Schedule(Guid id)
@@ -691,7 +708,9 @@ public sealed class CommunityTransferManager : IAsyncDisposable
         UpdateAttempt(job.Id, job.Attempt, j => j with { State = CommunityTransferState.Uploading });
         var operations = UploadOperations(job.Endpoint, account);
         Action<long, long> progress = (offset, total) => Progress(job.Id, job.Attempt, offset, total);
-        if (job.Publish is { } publication)
+        if (job.WeaponPublish is { } weaponPublication)
+            await operations.UseClientAsync(true, client => client.PublishContentAsync(snapshot, weaponPublication, cancellation), cancellation).ConfigureAwait(false);
+        else if (job.Publish is { } publication)
             await operations.PublishPackageAsync(snapshot, publication, cancellation,
                 job.Listed, job.Draft, progress).ConfigureAwait(false);
         else
@@ -729,6 +748,7 @@ public sealed class CommunityTransferManager : IAsyncDisposable
 
     private async Task DownloadAsync(CommunityTransferJob job, CancellationToken cancellation)
     {
+        if (job.WeaponDownload != null) { await DownloadWeaponAsync(job, cancellation).ConfigureAwait(false); return; }
         CommunityMap map = job.Download
             ?? throw new InvalidDataException("Missing exact Community map selection.");
         var exact = new MapContentIdentity(map.MapId, map.Name,
@@ -1092,6 +1112,11 @@ public sealed class CommunityTransferManager : IAsyncDisposable
             || job.AcknowledgedBytes < 0 || job.AcknowledgedBytes > job.TotalBytes)
             throw new InvalidDataException("Invalid stored transfer identity or byte limits.");
         ValidateEndpoint(job.Endpoint);
+        if (job.WeaponDownload != null || job.WeaponPublish != null)
+        {
+            ValidateWeaponRecord(job);
+            return;
+        }
         if (job.Kind == CommunityTransferKind.Download)
         {
             if (job.Account != null) throw new InvalidDataException("A download cannot carry upload authorization.");
