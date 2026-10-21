@@ -92,18 +92,21 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                 var pin = CharacterGeneratedTrooperProfile.Find(id)!;
                 var spec = RetroCharacterPreviewExporter.BundleSpec(id, ExternalSourceEdition.PrimeUsaRevision2);
                 var state = LocalImportBundle.Inspect(imports, id, spec);
-                Check(spec.Version == 5 && state.State == ImportBundleState.Ready && state.Receipt?.Version == 5
-                    && spec.RequiredComponents.Contains(id + ".materials.bin"), id + " current v5 recipe includes raw materials.");
+                Check(spec.Version == 6 && state.State == ImportBundleState.Ready && state.Receipt?.Version == 6
+                    && spec.RequiredComponents.Length == 13 && spec.RequiredComponents.Contains(id + ".materials.bin")
+                    && spec.RequiredComponents.Contains(id + ".cannon-source.json"), id + " current v6 recipe includes raw materials and its fixed cannon recipe.");
                 string folder = Path.GetDirectoryName(state.Files.Single(f => Path.GetFileName(f) == "characters.json"))!;
                 Check(Path.GetFileName(folder) == state.Receipt!.Generation && state.Files.All(f => Path.GetDirectoryName(f) == folder), id + " has one immutable committed generation.");
                 foreach (string file in state.Files) LocalImportBundle.CheckPath(file, imports);
                 var selection = CharacterSourcePreviewSelection.Load(id, CancellationToken.None, imports);
                 Check(selection.NativeHunter == Hunter.Weavel && selection.SelectedAppearance == new PrivateCharacterAppearance("trooper", pin.Skin)
-                    && !selection.HasCannon && !selection.RuntimeCannon && selection.Generation == state.Receipt.Generation,
-                    id + " captures only its closed Weavel body-viewer appearance.");
+                    && selection.HasCannon && !selection.RuntimeCannon && selection.Generation == state.Receipt.Generation,
+                    id + " captures its closed Weavel viewer appearance and cannon asset without runtime gun activation.");
                 bool found = selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.Biped, 0, out var asset);
                 Check(found && !selection.Pack.TryResolvePrivate(Hunter.Samus, selection.SelectedAppearance, CharacterModelPart.Biped, 0, out _)
-                    && !selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.ViewModel, 0, out _), id + " cannot alias Samus or a cannon.");
+                    && selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.ViewModel, 0, out _)
+                    && !selection.Pack.TryResolvePrivate(Hunter.Samus, selection.SelectedAppearance, CharacterModelPart.ViewModel, 0, out _),
+                    id + " resolves its own Weavel cannon asset and cannot alias Samus.");
                 Check(selection.Pack.TryCreateSourcePreviewLease(asset, out var lease) && lease.SourceMaterials != null
                     && lease.SourceAnimations != null && lease.ModelSha256 == pin.ModelSha, id + " lease captures exact whole-pinned model/material/animation authority.");
                 var materials = lease.SourceMaterials!;
@@ -121,15 +124,16 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                     && selection.Clips.All(c => lease.SourceAnimations!.Data.Roots.Any(r => r.Ordinal == c.Ordinal && r.CharacterDeclared && r.StrictPlay)), id + " exposes exactly113 genuine strict source clips.");
                 var localBody = CharacterSourcePreviewSelection.LoadForLocalBody(id, CancellationToken.None, imports);
                 Check(localBody.NativeHunter == Hunter.Weavel && localBody.SelectedAppearance == selection.SelectedAppearance
-                    && localBody.Generation == selection.Generation && !localBody.HasCannon && !localBody.RuntimeCannon
+                    && localBody.Generation == selection.Generation && localBody.HasCannon && localBody.RuntimeCannon
                     && localBody.Clips.Select(c => c.Ordinal).SequenceEqual(selection.Clips.Select(c => c.Ordinal)),
-                    id + " explicit local-body selection preserves its Weavel generation/strict clips without a cannon.");
+                    id + " explicit local-body selection preserves its Weavel generation/strict clips and enables its exact source cannon.");
                 Reject(() => CharacterSourceClip.Load(lease, asset, geometry.SourceRig!, int.MaxValue), id + ": undeclared clip refuses");
                 Check(!selection.Pack.TryCreateSourcePreviewLease(asset with { }, out _), id + " copied asset cannot mint owner authority.");
                 captured.Add(new(id, folder, selection, asset, lease, materials, state.Files.ToDictionary(f => f, HashFile)));
                 profiles.Add(new { Character = id, selection.Generation, ModelSha256 = pin.ModelSha, MaterialSha256 = pin.MaterialSha,
                     ProvenanceSha256 = pin.ProvenanceSha, SourceTriangles = 1970, Joints = 35, Nodes = 36, StrictClips = selection.Clips.Count,
-                    SourcePrograms = 3, SourceTextures = 7, C1 = new[] { c1.X, c1.Y, c1.Z, c1.W }, HasCannon = false });
+                    SourcePrograms = 3, SourceTextures = 7, C1 = new[] { c1.X, c1.Y, c1.Z, c1.W },
+                    HasCannon = selection.HasCannon, RuntimeCannon = selection.RuntimeCannon, LocalBodyRuntimeCannon = localBody.RuntimeCannon });
             }
             // Mutations use disposable flat packs. No original generation is
             // edited and no rejected profile is submitted to a GL owner.
