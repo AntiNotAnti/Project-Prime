@@ -1700,7 +1700,7 @@ namespace MphRead.Entities
                                     _weaponIconInst.PositionX = (_hudObjects.WeaponIconPosX + _objShiftX) / 256f;
                                     _weaponIconInst.PositionY = (_hudObjects.WeaponIconPosY + _objShiftY) / 192f;
                                     _weaponIconInst.Alpha = Features.HudOpacity;
-                                    if (!_scene.CustomWeaponHud(this).Visible) _scene.DrawHudObject(_weaponIconInst);
+                                    if (!_scene.CustomWeaponHud(this).Visible && !ModPirateSelected) _scene.DrawHudObject(_weaponIconInst);
                                 }
                                 // Crosshair size is a separate aiming preference,
                                 // not part of the helmet/readout scale.
@@ -2373,7 +2373,9 @@ namespace MphRead.Entities
                 _weaponIconInst.PositionX=2*HudAspectFix/256;
                 _weaponIconInst.PositionY=46/192f;
                 _weaponIconInst.Alpha=Features.HudOpacity;
-                if (_scene.CustomWeaponHud(this).Visible)
+                if (ModPirateSelected)
+                    DrawText2D(2*HudAspectFix,46,Align.Left,0,"BLASTER",alpha:Features.HudOpacity,scale:.4f);
+                else if (_scene.CustomWeaponHud(this).Visible)
                     DrawText2D(2*HudAspectFix,46,Align.Left,0,"M7",alpha:Features.HudOpacity,scale:.6f);
                 else _scene.DrawHudObject(_weaponIconInst,mode:1);
                 return;
@@ -2445,7 +2447,7 @@ namespace MphRead.Entities
                     continue;
                 }
                 ammoRightX = panelX + panelWidth - 1.5f * scale * aspectFix;
-                bool equipped = beam == CurrentWeapon && !_scene.CustomWeaponHud(this).Visible;
+                bool equipped = beam == CurrentWeapon && !_scene.CustomWeaponHud(this).Visible && !ModPirateSelected;
                 WeaponInfo info = ModDisplayWeaponInfo(beam, _scene.WeaponRules[i]);
                 // The colour this weapon is known by. See _weaponListColors:
                 // deliberately not the game's own beam colour, which is the
@@ -2705,6 +2707,7 @@ namespace MphRead.Entities
         {
             _locatorInfo.Clear();
             ProcessOpponent();
+            ModProcessPirateMarks();
             if (_scene.GameState.IsTokenMode) ProcessHudTokens();
             if (_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams || _scene.GameState.Mode == GameMode.OneInTheChamber)
             {

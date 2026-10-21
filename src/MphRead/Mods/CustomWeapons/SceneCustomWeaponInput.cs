@@ -33,7 +33,7 @@ public partial class Scene
         _customInput?.Reset();_customInput=null;_customInputSink=null;_customInputPlayer=null;_customInputLife=default;
     }
     internal bool CustomInputSuppressesNative(PlayerEntity player)
-        =>ReferenceEquals(_customInputPlayer,player)&&_customInput?.SuppressNative==true
+        =>PirateBlaster?.Selected(player)==true || ReferenceEquals(_customInputPlayer,player)&&_customInput?.SuppressNative==true
                 &&(!NetSession.Active||_customInputLife==ShotKey.For(player.SlotIndex,0))
             ||!NetSession.Active&&OfflineWeapons?.InputProjection(player)?.Selected==true
             ||NetSession.IsClient&&!NetSession.IsAuthority&&player.SlotIndex==NetSession.LocalSlot
@@ -72,6 +72,11 @@ public partial class Scene
         int slot=NetSession.Active?NetSession.LocalSlot:0;
         if((uint)slot>=Players.Items.Count)return;
         var player=Players.Items[slot];if(player.IsBot)return;
+        if (PirateBlaster is {} pirate)
+        {
+            pirate.SampleInput(player, allowed);
+            return;
+        }
         var controls=player.Controls;
         bool native=player.ModTakeNativeSelectionIntent()
             ||controls.PowerBeam.IsPressed||controls.Missile.IsPressed||controls.VoltDriver.IsPressed

@@ -523,7 +523,7 @@ namespace MphRead.Mods.Launcher
         internal static void AddLocalPlayers(Scene scene, LaunchPlan plan,
             bool teamPlay)
         {
-            if (plan.OfflineCharacter == OfflineCharacterMode.TrooperScoutDroneCombatPractice) teamPlay = false;
+            if (plan.OfflineCharacter is OfflineCharacterMode.TrooperScoutDroneCombatPractice or OfflineCharacterMode.TrooperArsenalPractice) teamPlay = false;
             int bots = Math.Clamp(plan.Bots, 0, PlayerEntity.SlotCapacity - 1);
             // PlayerEntity.Create refuses every slot past MaxPlayers, and the
             // offline default is still the four a DS match could hold, so

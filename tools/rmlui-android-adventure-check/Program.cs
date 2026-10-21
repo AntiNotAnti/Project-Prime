@@ -136,7 +136,7 @@ foreach (var bad in new[] {
     combatPlan with { IsPlaytest = false }, combatPlan with { Hunter = Hunter.Samus },
     combatPlan with { Mode = GameMode.BattleTeams }, combatPlan with { RoomKey = "OTHER" },
     combatPlan with { Kind = LaunchKind.Online }, combatPlan with { Kind = LaunchKind.Adventure },
-    combatPlan with { OfflineCharacter = (OfflineCharacterMode)4 }, combatPlan with { SaveSlot = 1 },
+    combatPlan with { OfflineCharacter = (OfflineCharacterMode)5 }, combatPlan with { SaveSlot = 1 },
     combatPlan with { NewGame = true }, combatPlan with { AdventureDestination = CampaignPlanet.Alinos },
     combatPlan with { ExitShipToSurface = true } })
     Check(!combatRequest.MatchesPlan(bad, 2), "mutating any captured combat identity cannot cross Android handoff");
@@ -164,6 +164,67 @@ Check(combatAdmission.TryTakePlan(() => true, out var deliveredCombat, out var d
     && deliveredCombat.Equals(combatPlan) && deliveredCombatRequest == combatRequest
     && !combatAdmission.TryTakePlan(() => true, out _, out _),
     "exact combat request and plan retire atomically once");
+
+// New mode4 handoff is an immutable exact-identity boundary. Shared launcher
+// policy separately validates the supported count/difficulty/suit ranges.
+var arsenal = practice with { Character = OfflineCharacterMode.TrooperArsenalPractice, Bots = 1 };
+var arsenalRequest = RmlUiAndroidLocalLaunchRequest.ForOffline(arsenal);
+var arsenalPlan = practicePlan with { OfflineCharacter = OfflineCharacterMode.TrooperArsenalPractice, Bots = 1 };
+Check((int)arsenal.Character == 4 && arsenalRequest.MatchesPlan(arsenalPlan, 2),
+    "Android captures literal mode4 arsenal with its exact one-bot private lifetime");
+Check(!arsenalRequest.MatchesPlan(dronePlan, 2) && !arsenalRequest.MatchesPlan(practicePlan, 2)
+    && !arsenalRequest.MatchesPlan(offlinePlan, 2) && !droneRequest.MatchesPlan(arsenalPlan, 2)
+    && !practiceRequest.MatchesPlan(arsenalPlan, 2) && !offlineRequest.MatchesPlan(arsenalPlan, 2),
+    "arsenal, drone, wall-cling and native captures cannot substitute mechanics");
+Check(!arsenalRequest.MatchesPlan(combatPlan, 2) && !combatRequest.MatchesPlan(arsenalPlan, 2),
+    "combat3 and Arsenal4 remain distinct even with identical actor/count/difficulty/suit");
+for (int bots = 0; bots <= 7; bots++)
+for (int level = 0; level <= 3; level++)
+for (int suit = 0; suit <= 3; suit++)
+{
+    var exact = arsenal with { Bots = bots, BotLevel = level, Suit = suit };
+    var request = RmlUiAndroidLocalLaunchRequest.ForOffline(exact);
+    var exactPlan = arsenalPlan with { Bots = bots, BotLevel = level };
+    Check(request.MatchesPlan(exactPlan, suit), "each supported raw arsenal tuple retains exact Android identity");
+    Check(!request.MatchesPlan(exactPlan with { Bots = (bots + 1) % 8 }, suit)
+        && !request.MatchesPlan(exactPlan with { BotLevel = (level + 1) % 4 }, suit)
+        && !request.MatchesPlan(exactPlan, (suit + 1) % 4),
+        "even another valid bot/difficulty/suit cannot replace the captured arsenal tuple");
+}
+foreach (var bad in new[] {
+    arsenalPlan with { Bots = 0 }, arsenalPlan with { Bots = 2 }, arsenalPlan with { Bots = -1 }, arsenalPlan with { Bots = 8 },
+    arsenalPlan with { BotLevel = -1 }, arsenalPlan with { BotLevel = 4 }, arsenalPlan with { BotLevel = 2 },
+    arsenalPlan with { IsPlaytest = false }, arsenalPlan with { Hunter = Hunter.Samus },
+    arsenalPlan with { Mode = GameMode.BattleTeams }, arsenalPlan with { RoomKey = "OTHER" },
+    arsenalPlan with { Kind = LaunchKind.Online }, arsenalPlan with { Kind = LaunchKind.Adventure },
+    arsenalPlan with { OfflineCharacter = (OfflineCharacterMode)5 }, arsenalPlan with { SaveSlot = 1 },
+    arsenalPlan with { NewGame = true }, arsenalPlan with { AdventureDestination = CampaignPlanet.Alinos },
+    arsenalPlan with { ExitShipToSurface = true } })
+    Check(!arsenalRequest.MatchesPlan(bad, 2), "mutating any captured arsenal identity cannot cross Android handoff");
+Check(!arsenalRequest.MatchesPlan(arsenalPlan, -1) && !arsenalRequest.MatchesPlan(arsenalPlan, 4),
+    "out-of-range current suits cannot equal captured valid arsenal suit");
+Check(!resume.MatchesPlan(plan with { OfflineCharacter = OfflineCharacterMode.TrooperArsenalPractice }, 0)
+    && !ship.MatchesPlan(shipPlan with { OfflineCharacter = OfflineCharacterMode.TrooperArsenalPractice }, 0),
+    "Adventure and Ship cannot acquire arsenal mechanics");
+var arsenalTaggedShip = shipPlan with { OfflineCharacter = OfflineCharacterMode.TrooperArsenalPractice };
+Check(!RmlUiAndroidLocalLaunchRequest.TryShip(effect with { Plan = arsenalTaggedShip }, out var forbiddenArsenalShip)
+    || !forbiddenArsenalShip.MatchesPlan(arsenalTaggedShip, 0),
+    "an Arsenal-tagged ship effect cannot pass final Android handoff even if the factory captures it");
+var arsenalAdmission = new RmlUiAndroidLauncherAdmission<RmlUiAndroidLocalLaunchRequest, LaunchPlan>();
+Check(arsenalAdmission.TryRequest(arsenalRequest, out var arsenalCapture)
+    && !arsenalAdmission.TryAccept(arsenalCapture with { Request = droneRequest }, dronePlan)
+    && !arsenalAdmission.TryAccept(arsenalCapture with {
+        Request = RmlUiAndroidLocalLaunchRequest.ForOffline(arsenal with { Bots = 2 }) }, arsenalPlan with { Bots = 2 })
+    && !arsenalAdmission.TryAccept(arsenalCapture with {
+        Request = RmlUiAndroidLocalLaunchRequest.ForOffline(arsenal with { BotLevel = 2 }) }, arsenalPlan with { BotLevel = 2 })
+    && !arsenalAdmission.TryAccept(arsenalCapture with {
+        Request = RmlUiAndroidLocalLaunchRequest.ForOffline(arsenal with { Suit = 1 }) }, arsenalPlan)
+    && arsenalAdmission.TryAccept(arsenalCapture, arsenalPlan),
+    "same-generation Android owner cannot exchange captured arsenal mechanics, count, difficulty or suit");
+Check(arsenalAdmission.TryTakePlan(() => true, out var deliveredArsenal, out var deliveredArsenalRequest)
+    && deliveredArsenal.Equals(arsenalPlan) && deliveredArsenalRequest == arsenalRequest
+    && !arsenalAdmission.TryTakePlan(() => true, out _, out _),
+    "exact arsenal request and plan retire atomically once");
 
 var admission = new RmlUiAndroidLauncherAdmission<RmlUiAndroidLocalLaunchRequest, LaunchPlan>();
 Check(admission.TryRequest(resume, out var captured) && !admission.TryRequest(ship, out _), "one request can await existing UI owner");

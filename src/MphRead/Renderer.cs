@@ -2469,6 +2469,7 @@ namespace MphRead
                 return;
             }
             OfflineWeapons?.Step();
+            PirateBlaster?.Step();
             CustomCombat?.Advance();
             // Pointer/button debouncing must advance on the same fixed clock that
             // consumes gameplay input. RenderWindow can draw 120/144/240 pictures

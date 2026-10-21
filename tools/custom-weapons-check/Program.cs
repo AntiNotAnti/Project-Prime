@@ -212,6 +212,8 @@ finally { scene.DoCleanup(); }
 Check(Weapons.WeaponsMP.Count == 18 && Weapons.Weapons1P.Count == 18
     && (sbyte)BeamType.Imperialist == 4 && (sbyte)BeamType.OmegaCannon == 8, "native shape remains fixed");
 MechanicsChecks.Run(Check);
+PrivatePirateDefinitionChecks.Run(Check, provenanceLaunch);
+PirateBurstTimelineChecks.Run(Check);
 RuntimeStateChecks.Run(Check);
 NetworkContractChecks.Run(Check);
 SourceJournalChecks.Run(Check);

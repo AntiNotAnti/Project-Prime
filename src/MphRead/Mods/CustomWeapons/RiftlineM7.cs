@@ -62,7 +62,8 @@ internal sealed record class CustomShotSource
     {
         identity = default; actionIdentity = default;
         var definition = launch.Definition; var certificate = launch.Source; var action = certificate.Action;
-        if (definition == null || definition.Identity.Kind != WeaponIdentityKind.Custom || !action.IsValid
+        if (definition == null || definition.Mechanics.Behavior != WeaponBehavior.SemiAutoPrecision
+            || definition.Identity.Kind != WeaponIdentityKind.Custom || !action.IsValid
             || action.Kind != CustomWeaponActionKind.Fire || !certificate.CanUseWeapon || !certificate.IsValidFor(action)) return false;
         var owner = action.Owner;
         if (!owner.IsValid || launch.Before.Owner != owner || launch.After.Owner != owner

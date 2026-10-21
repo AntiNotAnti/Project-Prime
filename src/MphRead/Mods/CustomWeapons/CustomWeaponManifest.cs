@@ -72,7 +72,8 @@ internal sealed class CustomWeaponManifest
         var items = new List<WeaponDefinition>();
         foreach (var definition in definitions)
         {
-            if (definition == null || items.Count == MaxEntries)
+            if (definition == null || definition.Mechanics.Behavior != WeaponBehavior.SemiAutoPrecision
+                || items.Count == MaxEntries)
                 throw new ArgumentException("Invalid or excessive custom manifest entries.", nameof(definitions));
             items.Add(definition);
         }

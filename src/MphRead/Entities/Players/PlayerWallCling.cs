@@ -56,7 +56,7 @@ public partial class PlayerEntity
 
     private bool ModCharacterGameplayEnabled => !_modCharacterGameplayRetired
         && _modCharacterGameplayBound
-        && _modCharacterGameplay.Variant is CharacterGameplayVariant.TrooperV1 or CharacterGameplayVariant.TrooperDroneV1 or CharacterGameplayVariant.TrooperDroneCombatV1
+        && _modCharacterGameplay.Variant is CharacterGameplayVariant.TrooperV1 or CharacterGameplayVariant.TrooperDroneV1 or CharacterGameplayVariant.TrooperDroneCombatV1 or CharacterGameplayVariant.TrooperArsenalV1
         && _modCharacterGameplay.IsValidFor(Hunter)
         && Hunter == _modCharacterGameplayHunter
         && _modCharacterGameplayScene == _scene.LifetimeGeneration
@@ -74,6 +74,7 @@ public partial class PlayerEntity
         _modCharacterGameplay = CharacterGameplayRules.Native;
         WallClingInit();
         ScoutDroneRetire();
+        _scene.PirateBlaster?.Dispose();
     }
 
     private bool WallClingMovementBlocked => Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck)
