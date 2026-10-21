@@ -232,7 +232,7 @@ internal static class PrimeRevision2RecipeChecks
             var body = RetroCharacterPreviewExporter.InspectParts(next.Id, missing).Single();
             Check(missing.State == ImportBundleState.Incomplete && body is { Version: 4, State: ImportBundleState.Incomplete }
                 && missing.ComponentStates!.Single(c => c.Id == "characters.json").State == ImportBundleState.Incomplete
-                && missing.ComponentStates.Where(c => c.Id != "characters.json").Count(c => c.State == ImportBundleState.Ready) == 11
+                && missing.ComponentStates!.Where(c => c.Id != "characters.json").Count(c => c.State == ImportBundleState.Ready) == 11
                 && body.Components.Count(c => c.State == ImportBundleState.Incomplete) == 1,
                 "missing required preview manifest reports Incomplete while all eleven material-authoring components remain Ready");
         }
