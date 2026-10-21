@@ -269,6 +269,28 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         }
                         FrameTiming.Reset();FrameTiming.FrameRateCap=oldCap;
                         sourceFrames=savedSourceFrames;fallbackFrames=savedFallbackFrames;repeats=savedRepeats;
+                        // Declared presentation-guard fixtures only: native
+                        // movement ability execution is qualified elsewhere.
+                        foreach(string abilityFlag in new[]{"_modMantling","_modWallrunning"})
+                        {
+                            var abilityField=typeof(PlayerEntity).GetField(abilityFlag,Hidden)!;
+                            bool priorAbility=(bool)abilityField.GetValue(player)!;
+                            string priorState=State(scene,player),priorRaw=RawPalette(cannon);
+                            double priorClock=owner!.MaterialSeconds;
+                            abilityField.SetValue(player,true);
+                            try
+                            {
+                                Picture(true);
+                                Check(SourceItems(scene).Count==0&&WorldItems(scene).Any(item=>item.ViewModel&&nativeGunLists.Contains(item.ListId)),
+                                    abilityFlag+" presentation guard retains native gun with zero source cannon packets");
+                                Check(State(scene,player)==priorState&&RawPalette(cannon)==priorRaw&&owner.MaterialSeconds==priorClock,
+                                    abilityFlag+" guard drawing preserves native state, fixed source skin and source clock");
+                            }
+                            finally{abilityField.SetValue(player,priorAbility);}
+                            Picture(false);
+                            Check(SourceItems(scene).Count==cannon.Segments.Count&&owner.MaterialSeconds==priorClock,
+                                abilityFlag+" guard restoration resumes complete source cannon without simulation");
+                        }
                         var flagsProperty=typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!;var flags=player.Flags2;
                         flagsProperty.SetValue(player,flags|PlayerFlags2.Cloaking);
                         try{Picture(false);Check(SourceItems(scene).Count==0,"cloaking falls back before any source cannon packet");}
