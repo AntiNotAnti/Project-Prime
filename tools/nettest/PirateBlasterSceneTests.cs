@@ -107,7 +107,7 @@ internal static class PirateBlasterSceneTests
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
             File.WriteAllText(output,JsonSerializer.Serialize(new {checks=_checks,room,cadence,budget,aim,selection,cancellation,population,damage,
                 staleMark,head,funding,modifiers,cutoff,totals,scope="owned initialized offline mode4 Scene/native controls/projectiles/UA; synthetic inert target placement explicitly separate",
-                unqualified=new[]{"physical controls/graphics/audio presentation","imported Trooper presentation","exact15-unit equality headshot boundary","native bot damage/kill","network/replay/career"}},new JsonSerializerOptions{WriteIndented=true}));
+                unqualified=new[]{"physical controls/graphics/audio presentation","imported Trooper presentation","exact15-unit equality headshot boundary; other protection/effectiveness/handicap edge cases","native bot damage/kill","network/replay/career"}},new JsonSerializerOptions{WriteIndented=true}));
             Console.WriteLine($"PIRATE BLASTER SCENE PASS {_checks} assertions; initialized owned offline CPU only.");return 0;
         }
         catch(Exception ex){Console.Error.WriteLine("PIRATE BLASTER SCENE FAIL "+ex);return 1;}
@@ -369,12 +369,38 @@ internal static class PirateBlasterSceneTests
             // actor or frozen target. Spawn initializes the real bot AI itself;
             // all later position, form, pickups and controls belong to that AI.
             Check(p.ModTryPirateAim(out var origin,out var direction),"actual native muzzle supplies bot placement axis");
-            Vector3 forward=new(direction.X,0,direction.Z);forward.Normalize();Vector3 position=p.Position+forward*5;
-            var floor=new CollisionResult();Check(CollisionDetection.CheckBetweenPoints(position.AddY(5),position.AddY(-20),TestFlags.Players,f.Scene,ref floor)
-                &&floor.Plane.Y>.5f,"actual bot fixture has native standing floor");
-            position.Y=floor.Position.Y-bot.ModBipedBottom+.05f;var wall=new CollisionResult();
-            Check(!CollisionDetection.CheckBetweenPoints(origin,position.AddY(.1f),TestFlags.Beams,f.Scene,ref wall),"actual bot fixture begins in room LOS");
-            bot.Spawn(position,-forward,Vector3.UnitY,p.NodeRef,respawn:true);
+            Vector3 forward=new(direction.X,0,direction.Z);forward.Normalize();
+            Vector3 position=default,bodyCenter=default;bool found=false;int candidates=0,noFloor=0,blockedLos=0,blockedBody=0;
+            int chosenDegrees=0;float chosenDistance=0,radius=PlayerEntity.PlayerVolumes[(int)bot.Hunter,0].SphereRadius;
+            var contacts=new CollisionResult[8];
+            foreach(float distance in new[]{5f,4f,3f})
+            {
+                foreach(int degrees in new[]{0,45,-45,90,-90,135,-135,180})
+                {
+                    candidates++;float angle=degrees*MathF.PI/180;
+                    Vector3 heading=new(forward.X*MathF.Cos(angle)+forward.Z*MathF.Sin(angle),0,
+                        forward.Z*MathF.Cos(angle)-forward.X*MathF.Sin(angle));
+                    Vector3 candidate=p.Position+heading*distance;var floor=new CollisionResult();
+                    if(!CollisionDetection.CheckBetweenPoints(candidate.AddY(5),candidate.AddY(-20),TestFlags.Players,f.Scene,ref floor)
+                        ||floor.Plane.Y<=.5f){noFloor++;continue;}
+                    candidate.Y=floor.Position.Y-bot.ModBipedBottom+.05f;
+                    Vector3 center=candidate.AddY((bot.ModBipedBottom+bot.ModBipedTop)/2);var wall=new CollisionResult();
+                    if(CollisionDetection.CheckBetweenPoints(origin,center,TestFlags.Beams,f.Scene,ref wall)){blockedLos++;continue;}
+                    Vector3 low=candidate.AddY(bot.ModBipedBottom+radius),high=candidate.AddY(bot.ModBipedTop-radius);
+                    bool occupied=CollisionDetection.CheckSphereBetweenPoints(low,high,radius,contacts.Length,false,TestFlags.Players,f.Scene,contacts)>0;
+                    foreach(var sample in new[]{low,center,high})
+                        occupied|=CollisionDetection.CheckSpherePenetration(sample,radius,contacts.Length,TestFlags.Players,f.Scene,contacts)>0;
+                    if(occupied){blockedBody++;continue;}
+                    position=candidate;bodyCenter=center;chosenDegrees=degrees;chosenDistance=distance;found=true;break;
+                }
+                if(found)break;
+            }
+            Console.WriteLine("PIRATE BLASTER NATIVE BOT PLACEMENT "+JsonSerializer.Serialize(new{found,candidates,bound=24,noFloor,blockedLos,blockedBody,
+                chosenDegrees,chosenDistance,radius,position=new[]{position.X,position.Y,position.Z},bodyCenter=new[]{bodyCenter.X,bodyCenter.Y,bodyCenter.Z},
+                syntheticSetup="one native Spawn after real floor, body-center LOS and standing capsule clearance queries"}));
+            Check(found,"bounded actual floor/body-center LOS/standing-clearance search finds native bot placement");
+            Vector3 facing=p.Position-position;facing.Y=0;facing.Normalize();
+            bot.Spawn(position,facing,Vector3.UnitY,p.NodeRef,respawn:true);
             Check(bot.IsBot&&bot.ModIsInPlay&&bot.Health>0&&bot.TeamIndex!=p.TeamIndex&&!bot.ModMatchSpawnProtectionActive,
                 "public native Spawn preserves live unmodified opposing bot AI");
             int nativeDealt=state.MatchDamageDealt[1],humanTaken=state.MatchDamageTaken[0],nativeHits=state.ShotsHit[1];
