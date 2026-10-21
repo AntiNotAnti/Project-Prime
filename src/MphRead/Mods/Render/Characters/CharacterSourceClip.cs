@@ -72,16 +72,15 @@ internal sealed class CharacterSourceClip
   CharacterSourceRig rig,CharacterSourceAnimationArchive imported,int ordinal)
  {
   Require((asset.Part==CharacterModelPart.Biped||asset.Part==CharacterModelPart.AlternateForm&&(imported.IsBall&&ordinal==CharacterGeneratedNormalBallProfile.ClipOrdinal
-   ||imported.IsDrone&&ordinal==CharacterGeneratedDroneProfile.ClipOrdinal)
+   ||imported.IsDrone&&CharacterSourceDronePose.RequiredOrdinals.Contains(ordinal))
    ||asset.Part==CharacterModelPart.ViewModel&&lease.SourceCannon?.IsGenerated==true&&ordinal==lease.SourceCannon.ClipOrdinal)&&ReferenceEquals(lease.SourceAnimations,imported)
    &&String.Equals(rig.ContentSha256,lease.ModelSha256,StringComparison.OrdinalIgnoreCase),"Exact source-rig imported animation owner required");
   var clip=imported.Open(ordinal);
   if(asset.Part==CharacterModelPart.ViewModel)Require(clip.Source.Id==lease.SourceCannon!.ClipResourceId&&clip.RigidScale,"Exact fixed original cannon primitive required");
   if(asset.Part==CharacterModelPart.AlternateForm)Require(clip.RigidScale && (imported.IsBall
    &&clip.Source.Id==CharacterGeneratedNormalBallProfile.ClipId&&clip.Source.Sha256==CharacterGeneratedNormalBallProfile.ClipSha
-   ||imported.IsDrone&&clip.Source.Id==CharacterGeneratedDroneProfile.ClipId
-   &&clip.Source.Sha256=="d714b3f01328ad897a82ed67de2f3e20e0922283bd9e453c269939684cc46cb0"),
-   "Alternate source part permits only its own reviewed ready primitive");
+   ||imported.IsDrone&&CharacterGeneratedDroneProfile.MatchesClip(ordinal,clip.Source.Id,clip.Source.Sha256)),
+   "Alternate source part permits only its own reviewed primitive");
   var anim=clip.CaptureAnimation();var source=imported.Skeleton.Bones;
   Require(source.Count==imported.ExpectedJointCount&&rig.Nodes.Count==source.Count+1,"Complete imported skeleton and source rig required");
   var bindings=new List<(uint,int,double[])>();
@@ -133,9 +132,9 @@ internal sealed class CharacterSourceClip
   var profile=CharacterGeneratedDroneProfile.FromSkin(_asset.PrivateAppearance?.SkinSource);
   Require(MotionPolicy=="source-raw-v1"&&profile!=null&&_asset.Hunter==Hunter.Weavel
    &&_asset.Part==CharacterModelPart.AlternateForm&&_lease.SourceAnimations?.IsDrone==true
-   &&Ordinal==CharacterGeneratedDroneProfile.ClipOrdinal&&ResourceId==CharacterGeneratedDroneProfile.ClipId
+   &&CharacterGeneratedDroneProfile.MatchesClip(Ordinal,ResourceId,ContentSha256)
    &&_rig.Nodes.Count==34&&_rig.JointNodes.Count==33&&String.Equals(_rig.ContentSha256,profile.ModelSha,StringComparison.OrdinalIgnoreCase),
-   "Only the exact full drone Ready rig supports this root pinning policy");
+   "Only the exact full drone primitive/rig supports this root pinning policy");
   return PinRootPelvis("drone-pinned-root-pelvis-v1");
  }
  private CharacterSourceClip PinRootPelvis(string policy)

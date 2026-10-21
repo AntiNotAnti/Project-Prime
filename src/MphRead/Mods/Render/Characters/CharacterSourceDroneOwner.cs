@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using MphRead.Entities;
@@ -17,6 +18,7 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
     private readonly CharacterSourcePreviewInstance _instance;
     private readonly CharacterWeightedRenderModel _model;
     private readonly CharacterSourceClip _clip;
+    private readonly CharacterSourceDronePose _pose;
     private readonly int _slot;
     private readonly long _generation;
     private readonly Matrix4 _fit;
@@ -29,6 +31,7 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
     internal string Generation => _selection.Generation;
     internal CharacterWeightedRenderModel Model => _model;
     internal CharacterSourceClip Clip => _clip;
+    internal CharacterSourceDronePose Pose => _pose;
     internal Matrix4 Fit => _fit;
     internal CharacterSourceDroneOwner(Scene scene,PlayerEntity player,CharacterSourceDroneSelection selection)
     {
@@ -44,10 +47,16 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
             if(!CharacterModelRuntime.TryGetSourcePreview(scene,Hunter.Weavel,CharacterModelPart.AlternateForm,_native,
                 selection.Pack,selection.Appearance,_instance,true,out _model)
                 ||_model.Joints.Count!=33||_model.IndexCount!=1390*3||_model.Segments.Count!=2
-                ||_model.Segments.Any(s=>s.SourceGx==null||s.SourceJointPalette is not {Count:>0 and <=32}||s.SourcePresentationPalette==null)
-                ||!CharacterModelRuntime.TryLoadSourceClip(scene,_instance,_model,CharacterGeneratedDroneProfile.ClipOrdinal,out var raw))
+                ||_model.Segments.Any(s=>s.SourceGx==null||s.SourceJointPalette is not {Count:>0 and <=32}||s.SourcePresentationPalette==null))
                 throw new InvalidDataException("Complete source drone could not bind to the current Scene.");
-            _clip=raw.WithPinnedDroneRootMotion();
+            var clips=new Dictionary<int,CharacterSourceClip>();
+            foreach(int ordinal in CharacterSourceDronePose.RequiredOrdinals)
+            {
+                if(!CharacterModelRuntime.TryLoadSourceClip(scene,_instance,_model,ordinal,out var raw))
+                    throw new InvalidDataException("The source drone primitive could not bind: "+ordinal);
+                clips.Add(ordinal,raw.WithPinnedDroneRootMotion());
+            }
+            _clip=clips[CharacterGeneratedDroneProfile.ClipOrdinal];_pose=new(clips);
             var pose=_clip.Sample(0);var rig=_model.SourceRig!;
             int pelvis=Enumerable.Range(0,rig.Nodes.Count).Single(i=>rig.Nodes[i].Name=="source_bone_4_Skeleton_Root");
             Matrix4 global=pose[pelvis];
@@ -74,12 +83,12 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
     {
         if(_disposed||_step==step)return;
         _step=step;
-        if(!Current){Ready=false;return;}
-        if(_life!=life){_life=life;CompletedSteps=0;}
-        Ready=supported;
-        if(!Ready)return;
+        if(!Current){Ready=false;_pose.Suspend();return;}
+        if(_life!=life){_life=life;CompletedSteps=0;_pose.Reset();}
+        Ready=supported&&CharacterSourceDronePose.Supports(_player.DroneFireState,_player.DroneFireFrame);
+        if(!Ready){_pose.Suspend();return;}
         CompletedSteps++;
-        _model.UpdateSourcePreviewPalette(_clip.Sample(MaterialSeconds%_clip.Duration));
+        _model.UpdateSourcePreviewPalette(_pose.Sample(_player.DroneFireState,_player.DroneFireFrame));
     }
     internal bool Prepare(Matrix4 nativeFacing,out Matrix4 presentation)
     {
