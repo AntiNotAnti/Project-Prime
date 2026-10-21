@@ -376,7 +376,8 @@ namespace MphRead.Mods.Render.Characters
                 bool cannonPreview=entry.SourceCannonReceipt!=null||entry.SourceCannonSha256!=null;
                 if(cannonPreview&&(!sourcePreview||entry.Part!=CharacterModelPart.ViewModel||entry.SourceCannonReceipt==null||entry.SourceCannonSha256==null))
                     throw new InvalidDataException("Cannon requires an explicit verified source-only ViewModel receipt.");
-                if(sourcePreview && (!OperatingSystem.IsMacOS() || mobile==true || ForceMobileTierForCheck)) throw new InvalidDataException("Source preview is macOS private-only.");
+                if(sourcePreview && (!CharacterSourceRootWitness.QualifiedForCurrentProcess || mobile==true || ForceMobileTierForCheck))
+                    throw new InvalidDataException("Private source models require a qualified desktop physical-identity profile.");
                 bool privateEntry = sourcePreview || entry.CharacterId != null || entry.SkinSource != null
                     || entry.Provenance != null || entry.ProvenanceSha256 != null || cannonPreview;
                 PrivateCharacterAppearance? appearance = null;

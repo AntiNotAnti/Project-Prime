@@ -277,6 +277,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
         catch (Exception exception)
         {
             errorType = exception.GetType().Name; errorHash = Sha(Encoding.UTF8.GetBytes(exception.Message));
+            Console.Error.WriteLine("OWNED BODY RUNTIME failure: " + exception);
         }
         finally
         {
