@@ -32,7 +32,8 @@ namespace MphRead.Mods.Launcher.Gui
         public OfflineWorkspace(MenuSettings settings, IReadOnlyList<string> rooms, PrimeOverlayHost overlays)
         {
             _settings = settings; _rooms = rooms; _overlays = overlays;
-            _room = rooms.Contains(settings.RoomKey) ? settings.RoomKey : rooms.FirstOrDefault() ?? "";
+            _room = LauncherPrefs.PreferredMap(rooms,
+                LauncherPrefs.LastSelectedMap.Length > 0 ? LauncherPrefs.LastSelectedMap : settings.RoomKey);
             var names = Multiplayer.HunterRules.Pool(settings.LowTier == "on").Select(h => h.ToString()).Append("Random").ToArray();
             _hunter = new ChoiceRow("Hunter", names, Math.Max(0, Array.IndexOf(names, LauncherPrefs.LastHunter.ToString())));
             _suit = new ChoiceRow("Suit", new[] { "1", "2", "3", "4" }, Math.Clamp(LauncherPrefs.LastColor, 0, 3));
@@ -442,7 +443,13 @@ namespace MphRead.Mods.Launcher.Gui
                 Multiplayer.MapModeCapabilities.Supports(room, SelectedMode(),
                     Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1,
                     allowLocalSource: true) ? null : reason);
-            picker.Done += (_, room) => { _room = room; Refresh(); _overlays.Close(); };
+            picker.Done += (_, room) =>
+            {
+                _room = room;
+                _settings.RoomKey = room;
+                LauncherPrefs.RememberMap(room);
+                Refresh(); _overlays.Close();
+            };
             picker.Cancelled += (_, _) => _overlays.Close();
             _overlays.Show(picker);
         }
@@ -591,7 +598,7 @@ namespace MphRead.Mods.Launcher.Gui
         public void OnDeactivated() { }
         public void Refresh()
         {
-            if (_room.Length == 0 && _rooms.Count > 0) _room = _rooms[0];
+            if (_room.Length == 0 && _rooms.Count > 0) _room = LauncherPrefs.PreferredMap(_rooms);
             _start.IsEnabled = _rooms.Count > 0;
             _map.Label = _room.Length == 0
                 ? "NO ARENAS // SET UP GAME FILES"
