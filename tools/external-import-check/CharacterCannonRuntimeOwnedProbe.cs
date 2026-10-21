@@ -240,7 +240,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     Vector3? ballFirst=null;
                     double maxTip=0,maxPalette=0;bool fired=false,charged=false,morphed=false,missile=false;
                     var trace=new List<string>();var stages=new List<object>();var captured=new HashSet<string>();
-                    var trailTrace=new List<string>();int trailPictures=0,blueTrailPictures=0,nativeTrailPictures=0,rollingTrailPictures=0,morphTrailGuards=0;
+                    var trailTrace=new List<string>();int trailPictures=0,blueTrailPictures=0,nativeTrailPictures=0,rollingTrailPictures=0,morphTrailGuards=0,maxTrailSegments=0;
                     var fractionalSchedules=new List<object>();
                     using var sourceLocks = selection == null ? null : new SourceFileLocks(imports);
                     Check(selection == null || sourceLocks!.Count >= ids.Length * 13,
@@ -515,7 +515,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             Died=died,Respawned=respawned,MaximumPaletteOrCenterError=maxBallError,CollisionRadiusFitError=ballRadiusError,
                             MaximumOwnedBombs=maxBombs,FractionalSchedules=ballSchedules}:null,
                         probeTrail?trailTrace.ToArray():null,probeTrail?new{TrailPictures=trailPictures,BlueTrailPictures=blueTrailPictures,NativeTrailPictures=nativeTrailPictures,
-                            RollingTrailPictures=rollingTrailPictures,MorphGuardPictures=morphTrailGuards,Slots=18,
+                            RollingTrailPictures=rollingTrailPictures,MorphGuardPictures=morphTrailGuards,MaximumSegments=maxTrailSegments,Slots=18,
                             TraceGrain="one post-step record per original1415-step script; all18 alphas/ring index, matrices only for alpha>0, plus native global RNG; inactive matrix storage intentionally excluded across Scenes"}:null);
 
                     void Picture(bool repeat,string? label=null)
@@ -639,7 +639,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                 Check(Distance(ReadMatrix(actual,0),projection)<.00002,"actual source sphere uses world camera projection");
                             }
                             if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "ball-roll" or "ball-bomb"
-                                &&(!probeTrail||TrailItems(scene).Any(trail=>label!="ball-roll"||trail.ItemCount>=5))&&captured.Add(label))
+                                &&(!probeTrail||TrailItems(scene).Any(trail=>trail.ItemCount>=12))&&captured.Add(label))
                             {
                                 string path=Path.Combine(capturesRoot,selection!.SelectedAppearance.SkinSource+"-"+label+".png");
                                 Check(ScreenCapture.SaveWindow(scene,path),"optional actual source ball frame saved");captures.Add(new{Path=path,Sha256=HashFile(path),SourcePackets=BallItems(scene).Count,
@@ -656,7 +656,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                 float[] actual=new float[16];GL.GetUniform(program,GL.GetUniformLocation(program,"gx_projection"),actual);
                                 Check(Distance(ReadMatrix(actual,0),vm)<.00002,"actual source GX program uses viewmodel FOV rather than widened world FOV");
                             }
-                            if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "idle" or "fire"&&captured.Add(label))
+                            if(!probeTrail&&!string.IsNullOrWhiteSpace(capturesRoot)&&label is "idle" or "fire"&&captured.Add(label))
                             {
                                 string path=Path.Combine(capturesRoot,selection!.SelectedAppearance.SkinSource+"-cannon-"+label+".png");
                                 Check(ScreenCapture.SaveWindow(scene,path),"explicit optional cannon gameplay PNG saved");
@@ -690,7 +690,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         var trails=TrailItems(scene);bool submitted=BallItems(scene).Count>0;
                         if(count&&(player.IsMorphing||player.IsUnmorphing)){morphTrailGuards++;Check(!submitted,"morph/unmorph never grants source-blue trail authority");}
                         if(count&&trails.Count>0)
-                        {trailPictures++;if(submitted)blueTrailPictures++;else nativeTrailPictures++;if(label is "ball-roll" or "ball-after-life-roll")rollingTrailPictures++;}
+                        {trailPictures++;maxTrailSegments=Math.Max(maxTrailSegments,trails.Max(trail=>trail.ItemCount));if(submitted)blueTrailPictures++;else nativeTrailPictures++;if(label is "ball-roll" or "ball-after-life-roll")rollingTrailPictures++;}
                         var alphas=(float[,])typeof(PlayerEntity).GetField("_mbTrailAlphas",Hidden)!.GetValue(player)!;
                         var matrices=(Matrix4[,])typeof(PlayerEntity).GetField("_mbTrailMatrices",Hidden)!.GetValue(player)!;
                         var indices=(int[])typeof(PlayerEntity).GetField("_mbTrailIndices",Hidden)!.GetValue(player)!;int slot=player.SlotIndex,index=indices[slot];
