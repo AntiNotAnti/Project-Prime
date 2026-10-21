@@ -2191,7 +2191,7 @@ namespace MphRead.Entities
         /// <summary>Burning from an affinity Magmaul.</summary>
         internal bool ModBurning => _burnTimer > 0;
 
-        /// <summary>Aim disrupted by an affinity Volt Driver.</summary>
+        /// <summary>Visual interference from an affinity Volt Driver.</summary>
         internal bool ModDisrupted => _disruptedTimer > 0;
 
         /// <summary>
@@ -2205,12 +2205,10 @@ namespace MphRead.Entities
         /// and nowhere else -- so the one player who should have seen the
         /// screen tear apart was the one player who did not.
         ///
-        /// Two things happen here and both matter. The timer is what the aim
-        /// path reads, so the disruption is *felt* -- and it is felt on the
-        /// machine whose aim it is, which is the only place that can apply it
-        /// to a real player's input rather than to a puppet's relayed
-        /// direction. The HUD state is the distortion itself, which is the
-        /// main player's alone.
+        /// The timer tracks the live visual affliction on each replica, while
+        /// the HUD state drives the screen distortion on the local victim.
+        /// Neither the raw aim nor the fired projectile direction is modified;
+        /// charged Volt disrupts the screen, not player input accuracy.
         ///
         /// The countdown runs locally, like the freeze's: it starts a fraction
         /// of a second late, which nobody can see, and it is topped up while
