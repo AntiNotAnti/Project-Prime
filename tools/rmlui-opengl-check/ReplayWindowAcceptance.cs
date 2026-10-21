@@ -392,6 +392,39 @@ internal sealed partial class ReplayWindowAcceptance
         Wait("production replay opens native playback on the same Shell window",()=>DemoPlayback.IsActive&&Page is{IsOpen:true}&&_lastWorldFrame==_observedFrames);
         Do("pause existing replay through native keyboard action",()=>{if(!ReplayController.IsPaused)Activate("replay_pause");});
         Wait("paused successful world picture",()=>ReplayController.IsPaused&&!ReplayController.IsSeeking&&_lastWorldFrame==_observedFrames);
+        if (_studioRole)
+        {
+            Do("Studio Space owns playback even with Library focused and key repeat",()=>
+            {
+                Focus("replay_back");
+                var space=new KeyboardKeyEventArgs(Keys.Space,scanCode:0,0,isRepeat:false);
+                Require(RmlUiOpenGlSmoke.KeyDown(space)&&RmlUiOpenGlSmoke.KeyDown(space)
+                    &&RmlUiOpenGlSmoke.KeyUp(space),"production Studio accepts Space down/repeat/up");
+            });
+            Wait("Studio Space resumes without closing the workspace",()=>
+                DemoPlayback.IsActive&&Page is{IsOpen:true}&&_window!.HasScene
+                &&!ReplayController.IsPaused&&!ReplayController.IsSeeking);
+            Do("Studio Right seeks through the transport rather than the Library button",()=>
+            {
+                Focus("replay_back");
+                var right=new KeyboardKeyEventArgs(Keys.Right,scanCode:0,0,isRepeat:false);
+                Require(RmlUiOpenGlSmoke.KeyDown(right)&&RmlUiOpenGlSmoke.KeyUp(right),
+                    "production Studio accepts Right down/up");
+            });
+            Wait("Studio arrow seek retains playing state and the replay owner",()=>
+                DemoPlayback.IsActive&&Page is{IsOpen:true}&&_window!.HasScene
+                &&!ReplayController.IsPaused&&!ReplayController.IsSeeking);
+            Do("Studio Space pauses without invoking focused Library button",()=>
+            {
+                Focus("replay_back");
+                var space=new KeyboardKeyEventArgs(Keys.Space,scanCode:0,0,isRepeat:false);
+                Require(RmlUiOpenGlSmoke.KeyDown(space)&&RmlUiOpenGlSmoke.KeyUp(space),
+                    "production Studio accepts Space pause down/up");
+            });
+            Wait("Studio keyboard transport returns to paused live workspace",()=>
+                DemoPlayback.IsActive&&Page is{IsOpen:true}&&_window!.HasScene
+                &&ReplayController.IsPaused&&!ReplayController.IsSeeking&&_lastWorldFrame==_observedFrames);
+        }
         HeldViewportResize();
         Do("capture real playback ownership",()=>{_playerOwner=DemoPlayback.PlaybackOwner;_oldTransport=DemoPlayback.Session.Transport;_oldReplica=DemoPlayback.PresentationScene;});
         Do("open actual native bookmark panel",()=>Activate(_studioRole?"studio_tab_markers":"replay_bookmarks"));
