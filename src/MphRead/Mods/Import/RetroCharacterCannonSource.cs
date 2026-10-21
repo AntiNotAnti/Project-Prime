@@ -21,7 +21,8 @@ internal static class RetroCharacterCannonSource
     {
         void Require(bool value, string why) { if (!value) throw new InvalidDataException(why); }
         bool trooper = sourceCharacter is "trooper-power" or "trooper-ice" or "trooper-wave" or "trooper-plasma";
-        Require(trooper || sourceCharacter == "darksamus-echoes", "Closed generated cannon source profile required.");
+        bool final = sourceCharacter == "darksamus-overcharged-echoes";
+        Require(trooper || final || sourceCharacter == "darksamus-echoes", "Closed generated cannon source profile required.");
         uint elbowId = trooper ? 23u : 24u, tipId = trooper ? 34u : 32u, externalParent = trooper ? 2u : 97u;
         int ordinal = trooper ? 1 : 32;
         string tipName = trooper ? "R_gun_LCTR" : "GUN_Particle_LCTR";
@@ -35,8 +36,9 @@ internal static class RetroCharacterCannonSource
             { Require(seen.Add(id), "Source cut ancestry cycle."); if (id == elbowId) return true; id = bone.Parent; }
             Require(id == externalParent, "Source cut requires complete original ancestry."); return false;
         }
-        Require(Under(tipId) && model.Materials.Length == (trooper ? 3 : 7) && model.Skin?.Count == model.PositionCount, "Complete original source cut required.");
+        Require(Under(tipId) && model.Materials.Length == (trooper ? 3 : final ? 9 : 7) && model.Skin?.Count == model.PositionCount, "Complete original source cut required.");
         var selected = Enumerable.Range(0, model.Materials.Length).Select(_ => new List<int>()).ToArray();
+        var removed = new List<int>();
         for (int face = 0; face < model.TriangleCount; face++)
         {
             bool on = true;
@@ -47,15 +49,26 @@ internal static class RetroCharacterCannonSource
                 { Require(float.IsFinite(influence.Weight) && influence.Weight >= 0, "Invalid source cut weight."); if (influence.Weight > 0) vertex |= Under(influence.Bone); }
                 on &= vertex;
             }
+            if (on && final && model.TriangleMaterial[face] == 5
+                && Enumerable.Range(0,3).Any(c => {
+                    int index = model.Triangles[face * 3 + c].T0;
+                    Require(index >= 0 && index * 2 + 1 < model.Uv0.Length, "Complete raw Final trim coordinates required.");
+                    return CharacterSourceCannonRecipe.FinalTrimUv(model.Uv0[index * 2], model.Uv0[index * 2 + 1]);
+                })) { removed.Add(face); continue; }
             if (on) selected[model.TriangleMaterial[face]].Add(face);
         }
         Require(trooper ? selected.Sum(a => a.Count) == 206 && selected[0].Count == 10 && selected[1].Count == 32 && selected[2].Count == 164
+            : final ? selected.Sum(a => a.Count) == 793 && selected[3].Count == 392 && selected[4].Count == 66
+                && selected[5].Count == 314 && selected[7].Count == 21 && removed.Count == 12
             : selected.Sum(a => a.Count) == 392 && selected[2].Count == 66 && selected[5].Count == 326,
             "Original elbow cut must retain the complete pinned whole-triangle inventory.");
         var root = archive.Roots[ordinal]; var clip = archive.OpenStrictPrimitive(ordinal);
         Require(root.CharacterDeclared && clip.Source.Id == (trooper ? 0x5528972bu : 0xd12fdfa3u) && clip.RigidScale
             && (!trooper || root.Name == "A_gunloop_pirate" && clip.Source.Sha256 == "5b6540fbfdcbf37edd24133b4475468e0f0199a744e3159df2f0b942c498ccc7"),
             "Exact rigid zero-phase cannon source primitive required.");
+        Require(!final || root.Name == "A_MissileBarrage_dark_samus"
+            && clip.Source.Sha256 == "4bdb85ff6b36f10c5b330158fa7968f2af9203f293c00b8fb7796d32306ed197",
+            "Final uses its own captured strict source primitive.");
         var animation = clip.CaptureAnimation(); animation.Sample(0, out var rotations, out var translations);
         Require(animation.Rot.Keys.Concat(animation.Trans.Keys).Concat(animation.Scale.Keys).All(bones.ContainsKey), "Foreign cannon animation channel.");
         var globals = new Dictionary<uint, Matrix4>();

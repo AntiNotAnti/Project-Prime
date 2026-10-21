@@ -25,11 +25,13 @@ internal sealed partial class CharacterModelPack
             && p.ValueKind == JsonValueKind.Number && p.TryGetInt64(out long n) && n == value;
         bool Flag(string name, bool value) => receipt.TryGetProperty(name, out var p)
             && p.ValueKind == (value ? JsonValueKind.True : JsonValueKind.False);
-        if (asset.Hunter != Hunter.Samus || !(asset.Part == CharacterModelPart.Biped || CharacterSourceCannonRecipe.IsGeneratedEntry(entry, verifiedModelSha ?? CharacterSourceProofIO.HashFile(asset.ModelPath, MaximumModelBytes))) || asset.Lod != 0
+        string modelSha = verifiedModelSha ?? CharacterSourceProofIO.HashFile(asset.ModelPath, MaximumModelBytes);
+        bool cannon = final ? CharacterSourceCannonRecipe.IsGeneratedFinalEntry(entry,modelSha) : CharacterSourceCannonRecipe.IsGeneratedEntry(entry,modelSha);
+        if (asset.Hunter != Hunter.Samus || !(asset.Part == CharacterModelPart.Biped || cannon) || asset.Lod != 0
             || asset.Skinning != CharacterSkinningMode.Weighted4 || asset.PoseSource != CharacterPoseSource.SourceRigPreview
             || appearance != new PrivateCharacterAppearance("darksamus", final ? "MP2DarkSamusFinal" : "MP2DarkSamus")
             || sourceCharacter is not ("darksamus-echoes" or "darksamus-overcharged-echoes")
-            || final && (asset.Part != CharacterModelPart.Biped || entry.SourceCannonReceipt != null || entry.SourceGraphProof != null)
+            || final && (entry.SourceGraphProof != null || !cannon && (entry.SourceCannonReceipt != null || entry.SourceCannonSha256 != null))
             || entry.MobileModel != null || entry.BoneMap.Count != 0 || entry.SourceAnimationArchive == null
             || !Text("kind", "generated-retro-source-rig-preview-v1") || !Number("writerVersion", RetroCharacterSourceGlbWriter.Version)
             || !Text("materialPolicy", RetroCharacterSourceGlbWriter.MaterialPolicy) || !Text("sourceBasis", "(-x,z,y)")

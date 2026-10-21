@@ -61,7 +61,7 @@ internal sealed class CharacterSourcePreviewSelection
         if (!pack.TryResolvePrivate(hunter, appearance, CharacterModelPart.Biped, 0, out var asset))
             throw new InvalidDataException("Generated source preview asset is unavailable.");
         pack.CaptureSourceMaterials(asset, id);
-        if (!final && (runtimeCannon || trooper != null))
+        if (runtimeCannon || trooper != null || final)
         {
             if (!pack.TryResolvePrivate(hunter, appearance, CharacterModelPart.ViewModel, 0, out var cannonAsset))
                 throw new InvalidDataException("The generated source cannon is unavailable.");
@@ -90,9 +90,8 @@ internal sealed class CharacterSourcePreviewSelection
             _ = clip.Sample(0);
             clips.Add(new(rootClip.Ordinal, rootClip.Name, temporal.Duration));
         }
-        // Normal's viewer retains its diagnostic cannon colors; Troopers use
-        // their shared source programs. Final never borrows a cannon capability.
-        if (!final)
+        // Normal's viewer retains its diagnostic colors; the other appearances
+        // use their own source programs and independently qualified recipes.
         {
             if (!pack.TryResolvePrivate(hunter, appearance, CharacterModelPart.ViewModel, 0, out var cannon)
                 || !pack.TryCreateSourcePreviewLease(cannon, out var cannonLease) || cannonLease.SourceCannon?.IsGenerated != true)
@@ -102,6 +101,6 @@ internal sealed class CharacterSourcePreviewSelection
         }
         if (clips.Count == 0) throw new InvalidDataException("No qualified strict source clips are available.");
         lease.Require(asset); cancellation.ThrowIfCancellationRequested();
-        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, !final, runtimeCannon && !final);
+        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, true, runtimeCannon);
     }
 }

@@ -755,11 +755,17 @@ namespace MphRead.Mods.Render.Characters
                     && sourceMaterials.Archive.Binding.CharacterId == profile.Id && sourceMaterials.Archive.Sha256 == profile.MaterialSha
                     && sourceMaterials.Programs.Count == 3 && geometry.IndexCount == 206 * 3
                     && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[] { 0, 1, 2 });
-                if (attachment == null || !(generatedCannonCut || trooperCannonCut || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
+                bool finalCannonCut = sourceLease.SourceCannon is {IsGenerated:true,GeneratedFinal:true}
+                    && asset.Part == CharacterModelPart.ViewModel && asset.Hunter == Hunter.Samus
+                    && asset.PrivateAppearance == new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal")
+                    && sourceMaterials.Archive.Binding.CharacterId == "darksamus-overcharged-echoes"
+                    && sourceMaterials.Programs.Count == 9 && geometry.IndexCount == 793 * 3
+                    && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[]{3,4,5,7});
+                if (attachment == null || !(generatedCannonCut || trooperCannonCut || finalCannonCut || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
                         && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() == sourceMaterials.Programs.Count)
                     || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count))
                     throw new InvalidDataException("Complete original body material ordinals required.");
-                sourcePrograms = scene.PrepareSourceGxMaterials(sourceMaterials);
+                sourcePrograms = scene.PrepareSourceGxMaterials(finalCannonCut ? sourceMaterials.ForFinalCannon() : sourceMaterials);
             }
             var nodeIndices = nativeModel.Nodes.Select((node, index) => (Name: node.Name, Index: index))
                 .ToDictionary(value => value.Name, value => value.Index, StringComparer.Ordinal);
