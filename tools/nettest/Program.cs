@@ -97,6 +97,7 @@ namespace MphRead.NetTest
                     + "  --party-join-ownership            Test actual content-free client lifecycle and stale candidate cleanup.\n"
                     + "  --android-local-cycle-integration Test actual content-free scene retirement and foreground release.\n"
                     + "  --match-rotations                 Test consecutive server generations and stale/reordered round packets.\n"
+                    + "  --career-spectator                 Test spectator-only career exclusion and role transitions.\n"
                     + "  --display-pose-integration        Test display pose isolation across lifecycle discontinuities.\n"
                     + "  --particle-presentation           Test read-only fractional particle geometry and continuity.\n"
                     + "  --beam-presentation               Test read-only beam head, trail and model-pose coherence.\n"
@@ -1186,6 +1187,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--party-join-ownership") return PartyJoinOwnershipTests.Run();
             if (args.Length > 0 && args[0] == "--android-local-cycle-integration") return AndroidLocalSceneIntegrationTests.Run();
             if (args.Length > 0 && args[0] == "--match-rotations") return MatchRotationTests.Run();
+            if (args.Length > 0 && args[0] == "--career-spectator") return CareerSpectatorTests.Run();
             if (args.Length > 0 && args[0] == "--display-pose-integration") return DisplayPoseIntegrationTests.Run();
             if (args.Length > 0 && args[0] == "--lobby-community-selection") { NetLobbyTest.CustomMapDownloadScenario(lobbySelectionOnly: true); return 0; }
             if (args.Length > 0 && args[0] == "--custom-map-download") { NetLobbyTest.CustomMapDownloadScenario(); return 0; }
