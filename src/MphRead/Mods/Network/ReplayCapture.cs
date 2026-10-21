@@ -56,7 +56,8 @@ namespace MphRead.Mods.Network
             return true;
         }
 
-        internal static bool NeedsWorld => !CustomReplayBoundary.IsBlocked() && ((!Headless.Active && (Mods.Launcher.LauncherPrefs.KillCamEnabled
+        internal static bool NeedsWorld => DemoRecorder.IsCustomRecording && CustomClientRecordingScope()
+            || !CustomReplayBoundary.IsBlocked() && ((!Headless.Active && (Mods.Launcher.LauncherPrefs.KillCamEnabled
             || Mods.Launcher.LauncherPrefs.FinalKillCamEnabled || DemoClip.Active))
             || DemoClip.IsSaving || DemoRecorder.IsRecording || ServerReplayRecorder.IsRecording);
 

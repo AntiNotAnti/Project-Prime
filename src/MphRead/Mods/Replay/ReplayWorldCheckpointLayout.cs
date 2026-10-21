@@ -9,7 +9,7 @@ using MphRead.Mods.Network;
 namespace MphRead.Mods.Replay;
 
 [Flags]
-internal enum ReplayWorldCheckpointAppendices : byte { None = 0, NativeTouch = 1, Pickups = 2 }
+internal enum ReplayWorldCheckpointAppendices : byte { None = 0, NativeTouch = 1, Pickups = 2, Grapple = 4, CustomWeapons = 8, HeadHistory = 16 }
 
 internal sealed partial class ReplayWorldCheckpoint
 {
@@ -17,9 +17,12 @@ internal sealed partial class ReplayWorldCheckpoint
     {
         if (reader.ReadUInt32() != Magic) throw new InvalidDataException("Unsupported replay world checkpoint format.");
         ushort version = reader.ReadUInt16();
-        if (version is < 1 or > Version) throw new InvalidDataException("Unsupported replay world checkpoint format.");
+        if (version is < 1 or > CustomVersion) throw new InvalidDataException("Unsupported replay world checkpoint format.");
         var declared = version >= 10 ? (ReplayWorldCheckpointAppendices)reader.ReadByte() : ReplayWorldCheckpointAppendices.None;
-        if (version >= 10 && declared != (ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups))
+        if (version >= 10 && declared != (ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups
+                | (version >= 11 ? ReplayWorldCheckpointAppendices.Grapple : ReplayWorldCheckpointAppendices.None)
+                | (IsCustomWorldVersion(version) ? ReplayWorldCheckpointAppendices.CustomWeapons : ReplayWorldCheckpointAppendices.None)
+                | (version == CustomVersion ? ReplayWorldCheckpointAppendices.HeadHistory : ReplayWorldCheckpointAppendices.None)))
             throw new InvalidDataException("Unsupported replay world appendix contract.");
         return (version, declared);
     }
@@ -27,14 +30,18 @@ internal sealed partial class ReplayWorldCheckpoint
     // The stable object fingerprint covers neither optional appendix. The
     // collided v9 layouts are identified by complete validated decoder bodies,
     // not protocol >= comparisons or a guessed appendix size.
-    private static (ReplayWorldCheckpointAppendices Appendices, ReplayReplicaCheckpointFeatures DecoderFeatures, bool IndexedFire)
-        InspectWorldBody(BinaryReader reader, ushort version, ReplayWorldCheckpointAppendices declared)
+    private static (ReplayWorldCheckpointAppendices Appendices, ReplayReplicaCheckpointFeatures DecoderFeatures, bool IndexedFire,
+        ReplayCustomWeaponDescriptor? CustomDescriptor, uint? HeadOrigin)
+        InspectWorldBody(BinaryReader reader, ushort version, ReplayWorldCheckpointAppendices declared, string room, GameMode mode, uint frame)
     {
         reader.ReadUInt32(); reader.ReadUInt32(); // RNG values
-        var construction = new ReplayReplicaCheckpoint(ReadBytes(reader, ReplayReplicaCheckpoint.MaximumBytes));
-        var decoder = new ReplayReplicaCheckpoint(ReadBytes(reader, ReplayReplicaCheckpoint.MaximumBytes));
-        var initialLayout = ReplayReplicaState.InspectCheckpointLayout(construction);
-        var currentLayout = ReplayReplicaState.InspectCheckpointLayout(decoder);
+        bool custom = IsCustomWorldVersion(version);
+        int maximum = custom ? ReplayReplicaCheckpoint.MaximumCustomBytes : ReplayReplicaCheckpoint.MaximumBytes;
+        var construction = new ReplayReplicaCheckpoint(ReadBytes(reader, maximum));
+        var decoder = new ReplayReplicaCheckpoint(ReadBytes(reader, maximum));
+        var initialLayout = custom ? ReplayReplicaState.InspectCustomCheckpointLayout(construction) : ReplayReplicaState.InspectCheckpointLayout(construction);
+        var currentLayout = custom ? ReplayReplicaState.InspectCustomCheckpointLayout(decoder) : ReplayReplicaState.InspectCheckpointLayout(decoder);
+        ReplayReplicaState? customState = custom ? ValidateCustomWorldDecoders(construction, decoder, room, mode, frame) : null;
         if ((initialLayout.Features & ~currentLayout.Features) != 0)
             throw new InvalidDataException("Contradictory replay world decoder contracts.");
         var appendices = declared;
@@ -51,7 +58,8 @@ internal sealed partial class ReplayWorldCheckpoint
         if (appendices.HasFlag(ReplayWorldCheckpointAppendices.NativeTouch)
             && !currentLayout.Has(ReplayReplicaCheckpointFeatures.NativeTouch)
             || appendices.HasFlag(ReplayWorldCheckpointAppendices.Pickups)
-            && !currentLayout.Has(ReplayReplicaCheckpointFeatures.Pickups))
+            && !currentLayout.Has(ReplayReplicaCheckpointFeatures.Pickups)
+            || appendices.HasFlag(ReplayWorldCheckpointAppendices.Grapple) != currentLayout.Has(ReplayReplicaCheckpointFeatures.Grapple))
             throw new InvalidDataException("Replay world appendix differs from its decoder contract.");
         int count = Count(reader, MaximumObjects);
         var types = new Type[count];
@@ -70,13 +78,39 @@ internal sealed partial class ReplayWorldCheckpoint
             ValidateNativeTouchAppendix(ReadBytes(reader, 4096));
         if (appendices.HasFlag(ReplayWorldCheckpointAppendices.Pickups))
         {
-            var state = new ReplayReplicaState(); state.RestoreCheckpoint(decoder);
+            var state = customState ?? new ReplayReplicaState(); if (!custom) state.RestoreCheckpoint(decoder);
             ValidatePickupAppendix(ReadBytes(reader, 65536), types, state);
         }
+        if (appendices.HasFlag(ReplayWorldCheckpointAppendices.Grapple))
+        {
+            var state = customState ?? new ReplayReplicaState(); if (!custom) state.RestoreCheckpoint(decoder);
+            ValidateGrappleAppendix(ReadBytes(reader, 184), state);
+        }
+        if (custom) ValidateCustomWorldAppendix(ReadBytes(reader, CustomWorldAppendixSize), customState!);
+        uint? headOrigin = version == CustomVersion
+            ? Scene.ValidateReplayHeadHistory(ReadBytes(reader, ReplayHeadSeedCodec.MaximumBytes), customState!, frame) : null;
         byte indexed = version >= 6 ? reader.ReadByte() : (byte)0;
         if (indexed > 1 || reader.BaseStream.Position != reader.BaseStream.Length)
             throw new InvalidDataException("Invalid replay world capsule length/presentation marker.");
-        return (appendices, currentLayout.Features, indexed == 1);
+        return (appendices, currentLayout.Features, indexed == 1, customState?.CustomWeaponDescriptor, headOrigin);
+    }
+
+    private static void ValidateGrappleAppendix(byte[] bytes, ReplayReplicaState state)
+    {
+        if (bytes.Length != 8 * (4 + PlayerGrappleState.Size)) throw new InvalidDataException("Invalid grapple appendix length.");
+        for (int slot = 0; slot < 8; slot++)
+        {
+            var row = bytes.AsSpan(slot * 23, 23);
+            ushort generation = BinaryPrimitives.ReadUInt16LittleEndian(row), life = BinaryPrimitives.ReadUInt16LittleEndian(row[2..]);
+            if (!PlayerGrappleState.TryRead(row[4..], out var grapple)) throw new InvalidDataException("Invalid grapple appendix state.");
+            if (state.TryGetPlayer(slot, out var player) && player.SlotGeneration != 0 && player.LifeId != 0)
+            {
+                if (generation != player.SlotGeneration || life != player.LifeId || grapple != player.Grapple)
+                    throw new InvalidDataException("Grapple appendix differs from accepted decoder life/state.");
+            }
+            else if (generation != 0 || life != 0 || grapple != default)
+                throw new InvalidDataException("Unknown-life grapple appendix row.");
+        }
     }
 
     private static void ValidateNativeTouchAppendix(byte[] bytes)

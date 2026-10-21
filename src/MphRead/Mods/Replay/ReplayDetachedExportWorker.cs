@@ -26,6 +26,9 @@ internal static class ReplayDetachedExportWorker
             using var installation = OperatingSystem.IsWindows() ? Update.DesktopInstallationUse.Acquire(AppContext.BaseDirectory) : null;
             if (!Path.IsPathFullyQualified(path)) throw new InvalidDataException("The export ticket path must be absolute.");
             ticket = ReplayDetachedExportTicket.Read(path);
+            using (var reader = DemoReader.Open(ticket.Manifest.Replay, out _))
+                if (reader?.Metadata?.CustomWeapons != null)
+                    throw new InvalidOperationException("Custom replay export is not supported.");
             log = new StreamWriter(new FileStream(ticket.LogPath, FileMode.Append, FileAccess.Write, FileShare.Read)) { AutoFlush = true };
             Console.SetOut(TextWriter.Synchronized(log)); Console.SetError(Console.Out);
             Directory.SetCurrentDirectory(ticket.WorkDirectory);

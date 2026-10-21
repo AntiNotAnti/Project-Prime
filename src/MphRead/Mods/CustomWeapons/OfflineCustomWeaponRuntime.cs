@@ -33,6 +33,7 @@ internal sealed partial class OfflineCustomWeaponRuntime : IDisposable
     private readonly Slot?[] _slots = new Slot[8];
     private bool _disposed;
     internal WeaponMechanics Mechanics=>_definition.Mechanics;
+    internal WeaponDefinition Definition=>_definition;
     internal bool TryPeek(PlayerEntity player,out WeaponStateSnapshot state,out bool selected)
     {
         state=default;selected=false;
@@ -49,7 +50,7 @@ internal sealed partial class OfflineCustomWeaponRuntime : IDisposable
         && (_availabilityPlayer==null || _scene.Players.Items.Count>0
             && ReferenceEquals(_scene.Players.Items[0],_availabilityPlayer) && !_availabilityPlayer.IsBot);
     private uint Tick => (uint)_scene.FrameCount;
-    internal OfflineCustomWeaponRuntime(Scene scene, bool developerOptIn, bool publicAvailability=false)
+    internal OfflineCustomWeaponRuntime(Scene scene, bool developerOptIn, bool publicAvailability=false, WeaponDefinition? definition=null)
     {
         _scene = scene;
         if (!developerOptIn || !IsEligible) throw new InvalidOperationException("Custom rifle requires explicit offline Battle developer opt-in.");
@@ -63,10 +64,10 @@ internal sealed partial class OfflineCustomWeaponRuntime : IDisposable
         }
         foreach (var enemy in scene.GetEnemyInstanceEntities())
             throw new InvalidOperationException("Custom campaign/enemy damage is unavailable in this prototype.");
-        _definition = RiftlineM7.Create();
+        _definition = definition ?? RiftlineM7.Create();
         var manifest = new CustomWeaponManifest(new[] { _definition }); Manifest = manifest.Digest;
         // Validate the authored layout before publishing the scene registry.
-        var placements = publicAvailability ? StockRiftlinePickups.ForRoom(scene.Room?.Meta.Name ?? "") : null;
+        var placements = publicAvailability ? StockRiftlinePickups.ForRoom(scene.Room?.Meta.Name ?? "",_definition) : null;
         if (publicAvailability)
             foreach (var map in Mods.MapGen.CustomRooms.Definitions)
                 if (string.Equals(map.Name,scene.Room?.Meta.Name,StringComparison.OrdinalIgnoreCase))

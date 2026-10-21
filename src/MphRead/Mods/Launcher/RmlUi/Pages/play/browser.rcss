@@ -132,15 +132,15 @@ margin-top: 14dp;
 }
 
 #play_quick {
-nav-up: #nav_play; nav-right: #play_create_open; nav-down: #play_entry0;
+nav-left: #play_create_open; nav-right: #play_refresh;
 }
 
 #play_create_open {
-nav-left: #play_quick; nav-right: #play_refresh;
+nav-up: #nav_play; nav-right: #play_quick; nav-down: #play_entry0;
 }
 
 #play_refresh {
-nav-left: #play_create_open; nav-right: #play_back;
+nav-left: #play_quick; nav-right: #play_back;
 }
 
 #play_back {

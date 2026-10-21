@@ -19,7 +19,7 @@ using OpenTK.Graphics.OpenGL;
 
 internal static class MapPickerGlAcceptance
 {
-    private const string Scope = "Actual authored native map modal, five native category commands, pending custom catalog with immediately selectable MPH maps, owner-bound synthetic TGA image, offline-only disabled choice, scrolling and pager. Synthetic catalog/preview only; no server, HTTP, game setup, actual package install or rule submission.";
+    private const string Scope = "Actual authored native map modal, five native category commands, pending custom catalog with immediately selectable MPH maps, owner-bound synthetic TGA image, offline-only disabled choice, scrolling and pager. Synthetic catalog/preview and captured rule requests only; no server, HTTP, game setup or actual package install.";
     internal static void Run(RmlUiHost host, int width, int height)
     {
         string output = Path.GetFullPath(Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_MAP_PICKER_OUTPUT")
@@ -41,9 +41,28 @@ internal static class MapPickerGlAcceptance
                 "held custom catalog still presents actionable MPH cards immediately");
             string firstMap = Text("map_choice0_name");
             Activate("map_choice0", RmlUiIntentKind.LobbyMapSelect, 0);
-            Check(!controller.MapPickerOpen && Text("rules_map") == firstMap && authority.Submissions == 0,
-                "native MPH card selection edits only the draft while custom catalog is held");
-            controller.Dispatch(RmlUiIntentKind.LobbyRulesClose); Settle();
+            Check(!controller.MapPickerOpen && !Flag("lobby_rules_open") && authority.Submissions == 1
+                && host.TryGetElementBounds(layout.Manager.Top, "lobby_map_preview", out _, out _, out _, out _),
+                "direct native map selection submits once and returns to actual Lobby without rules sheet");
+            var submitted = authority.LastDraft!.Value;
+            var original = authority.ReadRules()!.Value;
+            Check(submitted.Match.RoomKey == firstMap && submitted.MatchId == original.MatchId
+                && submitted.AuthorityEpoch == original.AuthorityEpoch && submitted.SessionRevision == original.SessionRevision
+                && submitted.Flags == original.Flags && submitted.Match.Mode == original.Match.Mode
+                && submitted.Match.Format == original.Match.Format && submitted.Match.PointGoal == original.Match.PointGoal
+                && submitted.Match.TimeLimitSeconds == original.Match.TimeLimitSeconds,
+                "direct map request preserves captured authority and unrelated rules");
+            Check(authority.Lobby().Map == "MP1 SANCTORUS", "accepted request does not fabricate authoritative lobby map acknowledgement");
+            Check(!controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0) && authority.Submissions == 1,
+                "stale map selection after modal closure cannot submit again");
+            authority.AcceptRules = false; Open();
+            Activate("map_choice0", RmlUiIntentKind.LobbyMapSelect, 0, accepted: false);
+            Check(controller.MapPickerOpen && authority.Submissions == 2
+                && NativeSemanticReadback.Read(host, layout.Manager.Top).ContainsText("SYNTHETIC MAP REQUEST REFUSED"),
+                "refused direct request retains actual picker and displays authority error");
+            Activate("map_close", RmlUiIntentKind.LobbyMapClose, 0);
+            Check(!Flag("lobby_rules_open"), "canceling refused direct picker returns to lobby");
+            authority.AcceptRules = true;
             authority.Catalog.TrySetCanceled();
             authority.Catalog = new(TaskCreationOptions.RunContinuationsAsynchronously); Open();
             authority.Catalog.SetResult(new[]
@@ -72,7 +91,7 @@ internal static class MapPickerGlAcceptance
                 if (i == 1)
                 {
                     Check(!host.FocusDocument(layout.Manager.Top, "map_choice0"), "offline-only Echoes card is disabled in actual native DOM");
-                    Check(!controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0) && controller.MapPickerOpen && authority.Submissions == 0,
+                    Check(!controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0) && controller.MapPickerOpen && authority.Submissions == 2,
                         "offline-only scoped choice cannot enter the network rule draft");
                     Check(Flag("map_choice1_enabled"), "other verified choice in same category remains selectable");
                 }
@@ -96,8 +115,16 @@ internal static class MapPickerGlAcceptance
             Check(Text("map_page").StartsWith("1 /", StringComparison.Ordinal), "native previous pager remains reachable at small viewport");
             Measure(); Capture("mph-image-and-pager");
             Activate("map_close", RmlUiIntentKind.LobbyMapClose, 0);
-            Check(!controller.MapPickerOpen && authority.Submissions == 0 && GL.GetError() == ErrorCode.NoError,
-                "closing native map picker never applies rules or mutates a real server");
+            Check(!controller.MapPickerOpen && authority.Submissions == 2 && GL.GetError() == ErrorCode.NoError,
+                "closing native map picker submits no additional rules");
+            Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesOpen), "existing rules draft opens independently"); Settle();
+            Activate("rules_map_next", RmlUiIntentKind.LobbyMapOpen, 0);
+            string stagedMap = Text("map_choice0_name");
+            Activate("map_choice0", RmlUiIntentKind.LobbyMapSelect, 0);
+            Check(!controller.MapPickerOpen && Flag("lobby_rules_open") && Text("rules_map") == stagedMap
+                && authority.Submissions == 2 && host.TryGetElementBounds(layout.Manager.Top, "rules_map_next", out _, out _, out _, out _),
+                "picker opened from existing rules stages draft only and returns to actual rules sheet");
+            controller.Dispatch(RmlUiIntentKind.LobbyRulesClose); Settle();
             Save(true, null);
         }
         catch (Exception error) { Capture("failure"); Save(false, error.ToString()); throw; }
@@ -143,7 +170,7 @@ internal static class MapPickerGlAcceptance
             }
             throw new InvalidOperationException("Native map target cannot be scrolled into viewport: " + id);
         }
-        void Activate(string id, RmlUiIntentKind kind, int argument, bool pointer = true)
+        void Activate(string id, RmlUiIntentKind kind, int argument, bool pointer = true, bool accepted = true)
         {
             var b = Reach(id); host.DiscardIntents();
             if (pointer) { double x = b.X + b.W / 2, y = b.Y + b.H / 2; host.Input.PointerMoved(x, y); host.Input.PointerButton(0, x, y, true); host.Input.PointerButton(0, x, y, false); }
@@ -153,7 +180,7 @@ internal static class MapPickerGlAcceptance
             {
                 Check(intent.Kind == kind && intent.Argument == argument, "native bridge decodes exact map action/category");
                 Check(layout.HandleIntent(intent, out var forwarded) && forwarded.Kind != 0
-                    && controller.Dispatch(forwarded.Kind, forwarded.Argument), "existing page/controller accepts native map action");
+                    && controller.Dispatch(forwarded.Kind, forwarded.Argument) == accepted, "existing page/controller reports expected native map action result");
                 Check(layout.HandleIntent(intent, out var duplicate) && duplicate.Kind == 0, "native sequence cannot repeat map action"); count++;
             }
             Check(count == 1, "one activation emits one native map action"); Settle();
@@ -182,6 +209,8 @@ internal static class MapPickerGlAcceptance
     {
         internal string Preview = "";
         internal int CatalogCalls, Submissions;
+        internal bool AcceptRules = true;
+        internal RmlUiRuleDraft? LastDraft;
         internal TaskCompletionSource<IReadOnlyList<RmlUiArenaChoice>> Catalog = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private readonly string[] _builtIn = Metadata.RoomList.Select(r => r.Name)
             .Where(n => n.StartsWith("MP", StringComparison.Ordinal) || n.StartsWith("AD", StringComparison.Ordinal))
@@ -199,7 +228,7 @@ internal static class MapPickerGlAcceptance
         public RmlUiRuleDraft? ReadRules() => new(5, 999, 17,
             new MatchDefinition { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle,
                 Format = MatchFormat.FreeForAll, PointGoal = 7, TimeLimitSeconds = 420 }, LobbyRuleFlags.None);
-        public bool SubmitRules(RmlUiRuleDraft draft, out string error) { Submissions++; error = "FIXTURE"; return false; }
+        public bool SubmitRules(RmlUiRuleDraft draft, out string error) { Submissions++; LastDraft = draft; error = AcceptRules ? "" : "SYNTHETIC MAP REQUEST REFUSED"; return AcceptRules; }
         public Task<RmlUiDirectory> Browse(CancellationToken token) => Task.FromResult(new RmlUiDirectory(false, "FIXTURE", Array.Empty<RmlUiServerCandidate>()));
         public Task<RmlUiServerCandidate?> QuickMatch(CancellationToken token) => Task.FromResult<RmlUiServerCandidate?>(null);
         public Task<RmlUiJoinResult> Join(string endpoint, string playerName, CancellationToken token) => Task.FromResult(new RmlUiJoinResult(false, new LaunchPlan(), "FIXTURE"));

@@ -56,6 +56,7 @@ namespace MphRead.Mods.Input
         // OpenTK forwards lifecycle events without replacing GLFW's window-owned callback.
         public static void DeviceChanged(int index)
         {
+            if (GamepadManager.DiagnosticInputIsolated) return;
             if ((uint)index >= Slots.Length) return;
             var slot = Slots[index];
             if (slot.Id != null) { GamepadHaptics.Unregister(slot.Id); GamepadManager.RemoveDevice(slot.Id); }
@@ -64,6 +65,7 @@ namespace MphRead.Mods.Input
 
         public static void Poll()
         {
+            if (GamepadManager.DiagnosticInputIsolated) return;
             // No physical input belongs to a server or synthetic headless
             // client. Avoid mapping discovery and native GLFW loading there.
             if (Headless.Active) return;
@@ -96,6 +98,7 @@ namespace MphRead.Mods.Input
         /// </summary>
         public static unsafe void PollAimOnly()
         {
+            if (GamepadManager.DiagnosticInputIsolated) return;
             GamepadManager.ClearPresentationAxes();
             if (OperatingSystem.IsAndroid() || _unavailable)
             {

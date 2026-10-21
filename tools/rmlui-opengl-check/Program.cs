@@ -67,7 +67,7 @@ if (args.Length == 1 && args[0] == "--studio-owner")
     return 0;
 }
 
-if (args.Length is < 1 or > 3 || (args.Length >= 2 && args[1] is not ("--native-settings-popups" or "--menu-environment" or "--canvas" or "--startup" or "--random-match" or "--license" or "--license-card" or "--offline-rules" or "--offline-character" or "--ingame" or "--party" or "--social-invites" or "--input" or "--replay-workspace" or "--theatre-library" or "--playback" or "--map-preview" or "--campaign-ending" or "--campaign-ship" or "--native-hunters" or "--map-picker" or "--lobby-interactions" or "--community-import" or "--community-host-gl" or "--community-report" or "--community-library" or "--community-history" or "--community-transfers" or "--community-publish" or "--studio-workspace" or "--studio-editor" or "--studio-build" or "--party-queue" or "--adventure-saves" or "--adventure-save-work" or "--lobby-restoration"))
+if (args.Length is < 1 or > 3 || (args.Length >= 2 && args[1] is not ("--native-settings-popups" or "--menu-environment" or "--canvas" or "--startup" or "--random-match" or "--license" or "--license-card" or "--offline-rules" or "--offline-character" or "--ingame" or "--party" or "--social-invites" or "--input" or "--replay-workspace" or "--theatre-library" or "--playback" or "--map-preview" or "--campaign-ending" or "--campaign-ship" or "--native-hunters" or "--map-picker" or "--lobby-interactions" or "--community-import" or "--community-host-gl" or "--community-report" or "--community-library" or "--community-history" or "--community-transfers" or "--community-publish" or "--studio-workspace" or "--studio-editor" or "--studio-build" or "--party-queue" or "--adventure-saves" or "--adventure-save-work" or "--lobby-restoration" or "--lobby-countdown"))
     || !File.Exists(Path.Combine(args[0], "prime_home.rml")))
     throw new ArgumentException("Pass --replay-files or --studio-owner for headless acceptance, or the RmlUi asset directory containing prime_home.rml, optionally followed by --menu-environment, --startup, --random-match, --license, --license-card, --offline-rules, --ingame, --party, --social-invites, --input, --theatre-library, --replay-workspace, --playback, --map-preview, --campaign-ending, --campaign-ship, --native-hunters, --map-picker, --lobby-interactions, --community-import, --community-host-gl, --community-report, --community-library, --community-history, --community-transfers, --community-publish, --studio-workspace or --studio-editor or --studio-build, --party-queue or --adventure-saves, --adventure-save-work or --lobby-restoration or --offline-character [WIDTHxHEIGHT].");
 
@@ -87,6 +87,9 @@ if (args.Length >= 2 && args[1] == "--offline-character")
 
 if (args.Length >= 2 && args[1] == "--native-hunters")
     return NativeHunterStageGlAcceptance.Run(args[0], requestedWidth, requestedHeight);
+
+if (args.Length >= 2 && args[1] == "--lobby-countdown")
+    return LobbyCountdownGlAcceptance.RunWindow(args[0], requestedWidth, requestedHeight);
 
 if (args.Length >= 2 && args[1] == "--lobby-restoration")
     return LobbyRestorationGlAcceptance.RunWindow(args[0], requestedWidth, requestedHeight);

@@ -44,6 +44,10 @@ public sealed partial class DedicatedServer
             {Remove(entry.Peer,"custom replica acknowledgement timed out or stream retired");continue;}
             if(!mailbox.HasBaseline&&captured)
             {
+                // World admission can finish while the start countdown still
+                // holds simulation at frame0. Its bootstrap names frame1;
+                // publish only after that real authority frame exists.
+                if(unchecked((int)(capture.World-entry.State.Wire.Bootstrap.AuthorityFrame))<0)continue;
                 if(!_customAudience.BeginBaseline(slot,mailbox,capture,_customReplicaSlots,_customReplicaFlights,now))
                 {mailbox.Close();continue;}
             }
@@ -79,9 +83,10 @@ public static partial class NetSession
     private static CustomReplicaConsumer? CurrentCustomReplica()
     {
         if(!CustomWeaponReadinessConfirmed||_customReadiness is not {} ready)
-        {_customReplicaConsumer?.Close();_customReplicaConsumer=null;_customReplicaWire=null;_customReplicaConnection=0;return null;}
+        {if(_customReplicaConsumer!=null)ReplayCapture.Recorder.RetireCustomWeaponFacts();_customReplicaConsumer?.Close();_customReplicaConsumer=null;_customReplicaWire=null;_customReplicaConnection=0;return null;}
         if(!ReferenceEquals(_customReplicaWire,ready.Wire)||_customReplicaConnection!=_customReadinessConnection)
         {
+            ReplayCapture.Recorder.RetireCustomWeaponFacts();
             _customReplicaConsumer?.Close();_customReplicaWire=ready.Wire;_customReplicaConnection=_customReadinessConnection;
             _customReplicaConsumer=new(ready.Wire,Clock);
         }
@@ -89,7 +94,7 @@ public static partial class NetSession
     }
     internal static bool CustomWeaponReplicaReady=>CurrentCustomReplica() is {IsReady:true,PendingFacts: < CustomReplicaConsumer.Capacity};
     private static void ResetCustomReplica()
-    {ResetCustomPickupReplica();_customReplicaConsumer?.Close();_customReplicaConsumer=null;_customReplicaWire=null;_customReplicaConnection=0;}
+    {ReplayCapture.Recorder.RetireCustomWeaponFacts();ResetCustomPickupReplica();_customReplicaConsumer?.Close();_customReplicaConsumer=null;_customReplicaWire=null;_customReplicaConnection=0;}
     internal static bool TryTakeCustomReplicaFact(out CustomReplicaEvent fact)
     {fact=default;return CurrentCustomReplica()?.TryTakeFact(out fact)==true;}
     internal static bool TryCopyCustomReplicaState(Span<CustomReplicaSlot> slots,out uint world)
@@ -103,7 +108,10 @@ public static partial class NetSession
             ||CurrentCustomReplica() is not {} consumer)return;
         if(!CustomReplayBoundary.TryActivateClient(out _))
         { _customReadiness?.Invalidate();ResetCustomReplica();return; }
-        if(consumer.Receive(packet.Type,packet.Payload,Clock,out var ack)&&ack.Id!=0&&_transport!=null)
+        bool wasReady=consumer.IsReady;ulong previousState=consumer.StateRevision,previousEvents=consumer.DeliveredEvents;
+        bool accepted=consumer.Receive(packet.Type,packet.Payload,Clock,out var ack);
+        if(accepted)CaptureCustomReplicaAccepted(consumer,wasReady,previousState,previousEvents);
+        if(accepted&&ack.Id!=0&&_transport!=null)
         {
             Span<byte> bytes=stackalloc byte[CustomReplicaAck.Size];
             if(_customReplicaWire!=null&&CustomReplicaCodec.TryWriteAck(_customReplicaWire,ack,bytes))

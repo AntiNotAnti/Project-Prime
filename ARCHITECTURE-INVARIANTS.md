@@ -6,7 +6,22 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **76** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **85** (`NetConfig.ProtocolVersion`).
+- Protocol85 adds visual wallstrafe, wallrun and wall-kick codes in reserved high nibbles of intent1298 and canonical grapple-flags173. Pure grapple mechanics remain unchanged and strict. Native192, intent1299, compact/fast/slow and checkpoint16/custom17 widths stay fixed. Slow-revision receipt owns live wall freshness; cached fast rows cannot renew it. Historical84 retains mantle and defaults wall presentation to none. See `docs/network/parkour-wall-animation-version-contract.md`.
+- Protocol84 adds a one-byte mantle visual hint to intents and accepted phase in the existing snapshot auxiliary nibble; native player widths stay fixed. Native16/custom17 checkpoint rows add that byte while published14/15 remain1298. Gameplay stays Parkour v5; rendering restores all native pose matrices. See `docs/network/parkour-animation-version-contract.md`.
+- Protocol83 appends an optional exact weapon archive hash to hosting requests.
+  The allocator resolves it only against an operator-approved local store.
+  Native intents, snapshots, CWM1 and replay checkpoint14 retain protocol82 shapes.
+- Protocol82 adds accepted Parkour v5 grapple state to slow/canonical lanes and a request nonce to intents. The fast prefix stays138 bytes. Humans remain owner-reported; passive replicas never run the grapple controller. See `docs/network/parkour-v5-version-contract.md`.
+- Protocol81 adds the operator-selected package availability bit20 and bounded
+  package offer/Ready/confirmation messages99–101. They pin CWPK v1 exact
+  archive/content/dependency metadata to match, configuration, slot generation
+  and connection before loading. CWM1 and native packet bodies retain their
+  existing bytes. CW-12c binds the selected definition to authoritative combat
+  and exact prewarmed resources to ordinary client scenes before loaded ACKs.
+  Availability never grants inventory; authored world contact owns acquisition.
+  Native archives remain readable;
+  custom/package replay continues to refuse rather than substitute definitions.
 - Protocol76 selects Quake3 profile v4 and Traversal profile v5. Qualified static
   walkable ground uses surface-speed acceleration and contact redirection;
   earned Traversal slides receive one bounded slope-gravity force per fixed tick.
@@ -100,7 +115,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Never restore IntentBundle, observer bundling, snapshot keyframes/deltas,
   baseline reconstruction or damage sidecars from reverted PR #28.
 - The protocol-16 byte-equivalence and protocol-17 migration notes describe the
-  historical Netcode P0 train; current internal refactors preserve protocol 75
+  historical Netcode P0 train; current internal refactors preserve current source
   packet identities and layouts unless independently justified and versioned.
 - Spawn placements are lifecycle operations, not movement reconciliation.
   Same-life snapshots never correct the local owner collision body or velocity;
@@ -268,7 +283,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 - Protocol 31 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
   SessionState carries the modifier word after its protocol-28 payload; status
-  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion` (currently 75).
+  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion`.
 - Protocols 24–30 recorded session packets convert their combined flags at the
   replay boundary. Decoder checkpoints use the recorded protocol's packet size.
 - Octolith Auto Reset is authoritative and only valid in Capture/Bounty/Relic. The
@@ -326,3 +341,14 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Preserve room-then-entity reverse traversal, face order, strict distance tie-breaks
   and collision floating-point evaluation order. This refactor does not change
   simulation timing, protocol layouts or replay schemas.
+
+## Parkour static ledges
+
+- Protocol80 selects Parkour v4; 77/78/79 recordings retain v1/v2/v3 attribution.
+  Classic remains default; model4/bit19 and packet widths remain unchanged.
+- Fresh Forward+Jump mantle admission requires current safe native static face
+  contact, continuous full standing-body route clearance and an entire supported
+  landing footprint. At most 24 velocity-driven native collision steps assist it;
+  no position/previous-position snap or native jump/ability ownership migration.
+- Owner humans/native authority bots run the controller. Remote puppets/passive
+  replay consume accepted state. The passive checkpoint is not an active save.

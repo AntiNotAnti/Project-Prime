@@ -98,11 +98,16 @@ internal static class OfflineCharacterGameplayTests
                 "fourth choice16 explicitly captures Arsenal with one native opponent");
             RmlUiOfflineRequest capturedArsenal = draft.Current;
             Check(draft.CharacterName == "TROOPER ARSENAL"
-                && draft.CharacterNotice.Contains("Native fallback gun and bolts", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("Hunters BODY", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("Trooper body and Blaster cannon", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("Native keeps native models", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("DRONE selects its flying appearance", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("Unsupported states use native fallback", StringComparison.Ordinal)
+                && draft.CharacterNotice.Contains("Native bolts", StringComparison.Ordinal)
                 && draft.CharacterNotice.Contains("60 shared UA each life", StringComparison.Ordinal)
                 && draft.CharacterNotice.Contains("Private Blaster", StringComparison.Ordinal)
                 && draft.CharacterNotice.Contains("No replays", StringComparison.Ordinal),
-                "Arsenal notice declares private Blaster, per-life shared UA and fallback presentation");
+                "Arsenal notice distinguishes selected body/cannon, native fallback and unchanged private UA/bolts/no-replay rules");
             Check(draft.Change(16) && draft.Current.Character == OfflineCharacterMode.Native && draft.CharacterNotice == "",
                 "fifth choice16 cycles back to Native without a persistent gameplay preference");
             Check(captured.Character == OfflineCharacterMode.TrooperWallClingPractice

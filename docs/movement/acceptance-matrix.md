@@ -1,5 +1,7 @@
 # Momentum acceptance matrix
 
+The [2026-10-21 integration audit](parkour-integration-results.md) records merged mantle [#942](https://github.com/AntiNotAnti/Project-Prime/pull/942) and grapple [#947](https://github.com/AntiNotAnti/Project-Prime/pull/947). The later [wall animation refresh](parkour-wall-animation-results.md) advances presentation to protocol85/Parkourv5, native checkpoint16/custom17; Classic remains default. Each report retains its own device, rendering, Linux, refresh, performance and hosted-CI boundaries. Earlier rows remain historical source leases, not current universal acceptance.
+
 This audit maps implementation-plan sections 7 and 9 and PR-09 to retained
 results. **V1 implementation is delivered; final hosted CI and listed physical
 qualification remain unverified.** [Closeout](pr09-closeout.md) records the
@@ -92,3 +94,26 @@ special/replay suites cover many named boundaries; no report establishes every
 possible simultaneous online event. That is a scoped evidence limitation, not
 an invented requirement to enumerate all combinations. PR-10 surf/slide/training
 features are explicitly optional future work and are not v1 release gates.
+
+## Parkour v4 mantle refresh
+
+[PR #942 mantle results](parkour-mantle-results.md) adds bounded static ledge mantle and separately attributed full/targeted Windows leases. Seven native scene gates and56 Classic golden trajectories pass. Original77-79 archives were lost externally; new replacement fixtures establish decoder compatibility only. Full live-menu/Android checks remain environment-blocked; physical-device/GL/Linux/refresh/performance gaps above remain open.
+
+## Parkour v5 and final integration refresh
+
+[PR #947 grapple results](parkour-grapple-results.md) and [selected evidence](evidence/parkour-grapple-selection.json) qualify protocol82/v5 with normal Windows builds,27 pure gates,9 native gates/558,773 assertions,56 unchanged Classic trajectories and actual clean/impaired authority/two-owner/native-bot sessions. Accepted ropes produce positive owner forces, replicate remotely and survive CPU world capture/restore/seek without passive queries or forces. This is not GL raster or physical-input acceptance.
+
+The latest-main refresh repeats native/pure checks and all15 local replay-workflow gates. Ten77–81 archives match300 semantic facts with explicit524-byte capsule growth; both current82 archives match37 facts each, including grapple state and unchanged sizes. Stable selected retry passes all374 field checks; a first batch rejected concurrent lobby-created runtime outputs and remains preserved. Lost original77–79 continuity remains unverified. Supplemental Android source-only735 passes; no APK/device acceptance follows.
+
+The [integration audit](parkour-integration-results.md) and [timestamped exact-head CI receipt](evidence/parkour-integration-ci.json) record repaired fixture failures, merge status and rollback. Final hosted green CI remains open wherever queued/running/failed; local passes do not imply remote success. Full live-menu remains blocked by Windows symbolic-link privilege; current Android workload/runtime, physical controller/focus/touch, rope GL/theatre/export, achieved refresh, current Linux asset runtime and deferred performance acceptance remain outstanding. All earlier named limitations remain visible above.
+
+
+## Parkour animation refresh
+
+[Dedicated mantle/grapple animation results](parkour-animation-results.md) and [selected evidence](evidence/parkour-animation-selection.json) add actual skeletal and first-person presentation. The full Windows producer passes 34 pure gates, 15 local archive-workflow gates, 644,802 native assertions plus 56 unchanged Classic trajectories, clean/impaired two-owner/native-bot sessions and 14 historical archives. Hidden external-body GL now qualifies all seven Hunters for both new actions with 16,947 assertions and visible changed pixels; first-person gun/effect transforms pass CPU checks. This does not qualify first-person raster, replacement assets, passive theatre/export images, physical devices, achieved refresh or performance. Original lost77–79 continuity remains open. The latest-main custom file-inspection refresh and exact observed CI head are separately attributed in the results and receipts; all earlier gaps remain scoped as written above.
+
+## Wall animation refresh
+
+[Wall animation results](parkour-wall-animation-results.md) qualify dedicated wallstrafe, wallrun, successful wall-kick and tucked-wallstrafe presentation for all seven Hunters. Protocol85 preserves Parkourv5 gameplay and the existing packet/checkpoint widths; old84 mantle animation remains readable. Frozen full qualification passes 35 pure gates, 15 local archive-workflow gates, 903,799 native assertions plus 56 unchanged Classic trajectories, and 183,556 hidden OpenGL assertions across 56 mirrored scenarios. Native coverage includes 70 actual-input trajectories, 140 body/LOD combinations, 35 owner cannon/effect cases and zero warmed wall-pose allocation. Eighteen retained/current archives pass 588 exact field comparisons; generic clean/impaired UDP sessions pass without shadow refusals. Dedicated wall trajectory coverage comes from native, serialized authority and rendering checks rather than those generic UDP sessions.
+
+The results retain exact producer attribution, test-only CI repairs, failed attempts and existing device/performance boundaries. Trace's ground-wallstrafe raster has native wall occlusion in both pose variants. First-person raster, replacement rigs, passive theatre/export raster, physical devices, achieved refresh, current Linux asset runtime, original lost77–79 continuity and final hosted green CI remain unqualified. Local passes do not close those gaps.

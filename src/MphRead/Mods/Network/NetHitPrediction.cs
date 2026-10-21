@@ -170,8 +170,15 @@ namespace MphRead.Mods.Network
         /// </summary>
         private static readonly ushort[,] _pendingClaim = new ushort[Slots, PendingCapacity];
         private static readonly uint[,] _pendingShot = new uint[Slots, PendingCapacity];
+        private static readonly PredictionHealthProjection.Pending[,] _pendingProjection = new PredictionHealthProjection.Pending[Slots, PendingCapacity];
         // Exact authoritative event receipts replace victim-only settled credits.
         private const int ReceiptCapacity = 128;
+        // Feedback receipts are consumed; projection exclusions must survive that
+        // consumption so a paid event cannot subsidize a different pending hit.
+        private static readonly PredictionHealthProjection.Accepted[,] _projectionAccepted = new PredictionHealthProjection.Accepted[Slots, ReceiptCapacity];
+        private static readonly int[] _projectionAcceptedNext = new int[Slots];
+        public static long ProjectionAmbiguousSamples { get; private set; }
+        public static long ProjectionOverlapPoints { get; private set; }
         private static readonly ushort[,] _receiptSequence = new ushort[Slots, ReceiptCapacity];
         private static readonly uint[,] _receiptFrame = new uint[Slots, ReceiptCapacity];
         private static readonly int[] _receiptNext = new int[Slots];
@@ -564,6 +571,9 @@ namespace MphRead.Mods.Network
             Array.Clear(_pendingBeam);
             Array.Clear(_pendingClaim);
             Array.Clear(_pendingShot);
+            Array.Clear(_pendingProjection);
+            Array.Clear(_projectionAccepted); Array.Clear(_projectionAcceptedNext);
+            ProjectionAmbiguousSamples = ProjectionOverlapPoints = 0;
             Array.Clear(_receiptSequence); Array.Clear(_receiptFrame); Array.Clear(_receiptNext);
             Array.Clear(_pendingSpent);
             Array.Clear(_pendingSelf); Array.Clear(_pendingDeferred);
@@ -806,6 +816,12 @@ namespace MphRead.Mods.Network
                     lethal, headshot, beam, self);
                 if (at >= 0)
                 {
+                    var canonical = NetSession.RemoteStates[victim.SlotIndex];
+                    bool form = canonical.Form.Phase != FormPhase.Unknown;
+                    _pendingProjection[victim.SlotIndex, at] = new((int)damage,
+                        canonical.DamageEventId, form ? canonical.Form.DamageEventId : canonical.DamageEventId,
+                        canonical.Health, form ? canonical.Form.BodyHealth : canonical.Health,
+                        (byte)local, shotKey?.Generation ?? NetPlayerLifecycle.Generation(local), (byte)beam);
                     _pendingHeld[victim.SlotIndex, at] = claimedLethal && (!self || exactSelf);
                     _pendingDeferred[victim.SlotIndex, at] = deferSelf;
                     _pendingImpulse[victim.SlotIndex, at] = deferSelf ? Vector3.Zero : direction ?? Vector3.Zero;
@@ -1001,6 +1017,7 @@ namespace MphRead.Mods.Network
         {
             if (!ack.Accepted || (ack.Flags & CombatAckFlags.OutcomePresent) == 0 || ack.DamageSequence == 0) return;
             int slot = ack.VictimSlot;
+            RememberAcceptedOutcome(ack);
             int at = _receiptNext[slot]++ % ReceiptCapacity;
             _receiptSequence[slot, at] = (ushort)ack.DamageSequence;
             _receiptFrame[slot, at] = NetSession.NetFrame;
@@ -1047,6 +1064,8 @@ namespace MphRead.Mods.Network
             _lastAuthorityHealth[slot] = 0;
             for (int i = 0; i < ReceiptCapacity; i++) _receiptSequence[slot, i] = 0;
             _receiptNext[slot] = 0;
+            for (int i = 0; i < ReceiptCapacity; i++) _projectionAccepted[slot, i] = default;
+            _projectionAcceptedNext[slot] = 0;
         }
 
         /// <summary>
@@ -1269,6 +1288,29 @@ namespace MphRead.Mods.Network
         /// dead. A predicted kill goes through <c>TakeDamage</c> like any
         /// other and is held by <see cref="HeldDead"/> instead.
         /// </summary>
+        private static PredictionHealthProjection.Result ProjectRemoteHealth(int slot, int health, ushort? sampleSequence)
+        {
+            Span<PredictionHealthProjection.Pending> pending = stackalloc PredictionHealthProjection.Pending[PendingCapacity];
+            Span<PredictionHealthProjection.Accepted> accepted = stackalloc PredictionHealthProjection.Accepted[ReceiptCapacity];
+            int count = 0, acceptedCount = 0;
+            uint now = NetSession.NetFrame;
+            int hold = HoldFrames;
+            for (int i = 0; i < _pendingCount[slot]; i++)
+            {
+                int at = (_pendingHead[slot] + i) % PendingCapacity;
+                if (!_pendingSelf[slot, at] && !_pendingSpent[slot, at] && _pendingDamage[slot, at] > 0
+                    && now - _pendingFrame[slot, at] < (uint)hold
+                    && NetPlayerLifecycle.Matches(slot, _pendingGeneration[slot, at], _pendingLife[slot, at]))
+                    pending[count++] = _pendingProjection[slot, at] with { Damage = _pendingDamage[slot, at] };
+            }
+            for (int i = 0; i < ReceiptCapacity; i++)
+                if (_projectionAccepted[slot, i].Sequence != 0)
+                    accepted[acceptedCount++] = _projectionAccepted[slot, i];
+            var state = NetSession.RemoteStates[slot];
+            return PredictionHealthProjection.Project(health, sampleSequence ?? state.DamageEventId, state,
+                pending[..count], accepted[..acceptedCount], sampleSequence.HasValue && state.Form.Phase != FormPhase.Unknown);
+        }
+
         public static int HealthFor(int slot, int authorityHealth, ushort? sampleSequence = null)
         {
             EnsureLife(slot);
@@ -1306,9 +1348,14 @@ namespace MphRead.Mods.Network
             // the exact receipt arrives, take the lower presentation/authority
             // value instead of subtracting that impact from a paid snapshot again.
             int debit = Debit(slot);
-            int health = slot != NetHooks.LocalSlot && debit > 0 && authorityHealth > 1
-                ? Math.Max(1, authorityHealth - debit)
-                : authorityHealth;
+            int health = authorityHealth;
+            if (slot != NetHooks.LocalSlot && debit > 0 && authorityHealth > 0)
+            {
+                var projection = ProjectRemoteHealth(slot, authorityHealth, sampleSequence);
+                health = projection.Health;
+                if (projection.Ambiguous) ProjectionAmbiguousSamples++;
+                ProjectionOverlapPoints += projection.PossibleOverlap;
+            }
             int owed = health;
             // Only local self-damage may hold the last shown floor. Remote
             // presentation recovers as each wrong or unanswered debit retires.
@@ -1658,6 +1705,24 @@ namespace MphRead.Mods.Network
             if (ack.VictimSlot != slot || ack.VictimGeneration != generation || ack.VictimLife != life) return null;
             Span<byte> bytes = stackalloc byte[CombatAckEntry.Size]; ack.Write(bytes);
             return Convert.ToHexString(bytes);
+        }
+
+        /// <summary>Called only after receipt identity validation. An exact paid
+        /// event remains unavailable to other predictions even if its own
+        /// prediction expired. Retained independently of consumable feedback and
+        /// age: fresh predictions can start while snapshots are still stale.</summary>
+        internal static void RememberAcceptedOutcome(in CombatAckEntry ack)
+        {
+            int slot = ack.VictimSlot;
+            if ((uint)slot >= Slots || !ack.Accepted || (ack.Flags & CombatAckFlags.OutcomePresent) == 0
+                || ack.DamageSequence == 0 || !NetPlayerLifecycle.Matches(slot, ack.VictimGeneration, ack.VictimLife)) return;
+            EnsureLife(slot);
+            ushort sequence = (ushort)ack.DamageSequence;
+            for (int i = 0; i < ReceiptCapacity; i++)
+                if (_projectionAccepted[slot, i].Sequence == sequence) return;
+            int at = _projectionAcceptedNext[slot];
+            _projectionAcceptedNext[slot] = (at + 1) % ReceiptCapacity;
+            _projectionAccepted[slot, at] = new(sequence, ack.DamageApplied);
         }
 
         /// <summary>Retire the exact named prediction and reconcile its presentation outcome.</summary>

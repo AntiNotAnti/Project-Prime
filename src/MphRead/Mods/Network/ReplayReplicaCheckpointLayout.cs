@@ -8,17 +8,21 @@ namespace MphRead.Mods.Network;
 internal enum ReplayReplicaCheckpointFeatures : byte
 {
     None = 0, NativeTouch = 1, Pickups = 2,
-    Grants = 4, TimedShots = 8
+    Grants = 4, TimedShots = 8, Grapple = 16, CustomWeapons = 32, ParkourPose = 64
 }
 
 internal readonly record struct ReplayReplicaCheckpointLayout(ushort Version, int Protocol,
     ReplayReplicaCheckpointFeatures Features, int HeaderBytes)
 {
-    internal const ushort DefaultVersion = 12, CurrentVersion = 13;
+    internal const ushort DefaultVersion = 12, TimedVersion = 13, GrappleVersion = 14, CurrentVersion = 16;
+    internal const ushort LegacyCustomVersion = 15, CustomVersion = 17;
     internal const ReplayReplicaCheckpointFeatures CurrentFeatures
         = ReplayReplicaCheckpointFeatures.NativeTouch | ReplayReplicaCheckpointFeatures.Pickups | ReplayReplicaCheckpointFeatures.Grants;
     internal bool Has(ReplayReplicaCheckpointFeatures feature) => (Features & feature) != 0;
-    internal int IntentBytes => Has(ReplayReplicaCheckpointFeatures.NativeTouch) ? IntentPacket.TouchCanonicalSize
+    internal int PlayerBytes => Protocol >= 82 ? PlayerState.Size : Protocol >= 49 ? PlayerState.Protocol80Size : Protocol >= 29 ? PlayerState.Protocol48Size : PlayerState.LegacySize;
+    internal int IntentBytes => Has(ReplayReplicaCheckpointFeatures.ParkourPose) ? IntentPacket.TouchCanonicalSize
+        : Has(ReplayReplicaCheckpointFeatures.Grapple) ? IntentPacket.Protocol82TouchSize
+        : Has(ReplayReplicaCheckpointFeatures.NativeTouch) ? IntentPacket.Protocol80TouchSize
         : Protocol >= 43 ? IntentPacket.FullSize : Protocol >= 39 ? IntentPacket.Protocol42FullSize
         : Protocol >= 30 ? IntentPacket.Protocol38FullSize : IntentPacket.LegacyFullSize;
 
@@ -44,11 +48,27 @@ internal readonly record struct ReplayReplicaCheckpointLayout(ushort Version, in
         {
             var features = (ReplayReplicaCheckpointFeatures)bytes[7];
             if (protocol == 55 && features == (ReplayReplicaCheckpointFeatures.NativeTouch | ReplayReplicaCheckpointFeatures.Pickups)
-                || (protocol is 56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77) && features == CurrentFeatures)
+                || (protocol is 56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81) && features == CurrentFeatures)
                 return [new(version, protocol, features, 8)];
         }
-        if (version == CurrentVersion && bytes.Length >= 8 && (protocol is 56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77)
+        if (version == TimedVersion && bytes.Length >= 8 && (protocol is 56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81)
             && (ReplayReplicaCheckpointFeatures)bytes[7] == (CurrentFeatures | ReplayReplicaCheckpointFeatures.TimedShots))
+            return [new(version, protocol, (ReplayReplicaCheckpointFeatures)bytes[7], 8)];
+        if (version == GrappleVersion && protocol is 82 or 83 && bytes.Length >= 8
+            && ((ReplayReplicaCheckpointFeatures)bytes[7] & ~ReplayReplicaCheckpointFeatures.TimedShots)
+                == (CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple))
+            return [new(version, protocol, (ReplayReplicaCheckpointFeatures)bytes[7], 8)];
+        if (version == LegacyCustomVersion && protocol == 83 && bytes.Length >= 8
+            && ((ReplayReplicaCheckpointFeatures)bytes[7] & ~ReplayReplicaCheckpointFeatures.TimedShots)
+                == (CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.CustomWeapons))
+            return [new(version, protocol, (ReplayReplicaCheckpointFeatures)bytes[7], 8)];
+        if (version == CurrentVersion && protocol >= 84 && bytes.Length >= 8
+            && ((ReplayReplicaCheckpointFeatures)bytes[7] & ~ReplayReplicaCheckpointFeatures.TimedShots)
+                == (CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose))
+            return [new(version, protocol, (ReplayReplicaCheckpointFeatures)bytes[7], 8)];
+        if (version == CustomVersion && protocol >= 84 && bytes.Length >= 8
+            && ((ReplayReplicaCheckpointFeatures)bytes[7] & ~ReplayReplicaCheckpointFeatures.TimedShots)
+                == (CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.CustomWeapons | ReplayReplicaCheckpointFeatures.ParkourPose))
             return [new(version, protocol, (ReplayReplicaCheckpointFeatures)bytes[7], 8)];
         throw new InvalidDataException("Unsupported replica checkpoint layout/features.");
     }

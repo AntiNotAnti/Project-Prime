@@ -3,6 +3,14 @@
 The simulation runs at exactly 60 Hz. The picture runs at the display's rate.
 Nothing else changed, and that separation is the whole feature.
 
+Parkour's dedicated mantle/grapple poses are render-only palette overlays;
+their accepted mantle phase and grapple anchor do not advance simulation or
+native animation cursors. Scoped submission restores canonical nodes/palettes,
+including the native shooting branch. First-person cannon motion changes the
+prepared presentation gun/effect transform, not camera/aim or combat nodes.
+See `docs/network/parkour-animation-version-contract.md` for protocol84's
+separate visual state and frozen historical intent/checkpoint widths.
+
 ## Why the simulation cannot simply be sped up
 
 Every timer in this engine is counted in frames. The DS ran its logic at 30 Hz;

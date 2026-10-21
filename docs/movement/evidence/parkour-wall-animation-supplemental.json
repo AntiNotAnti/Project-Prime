@@ -1,0 +1,19 @@
+{
+  "status": "PASS",
+  "producer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+  "sourceCommittedFiles": 6678,
+  "zeroOverlay": true,
+  "testOnlyBuilds": 2,
+  "runtimeGates": 14,
+  "currentProtocol": 85,
+  "retainedCustomFileProtocols": [
+    83,
+    84
+  ],
+  "currentAndRetainedFileChecks": 62,
+  "exactAndroidSourceOnlyChecks": 735,
+  "scratchSourceUnchanged": true,
+  "releasedNormalRuntimeUnchanged": true,
+  "helperSha256": "2bfb931a54dfadd11de704b010a076a0e16be8e4a81dc814cd6acfc827c6e173",
+  "scope": "Frozen03 exact-source custom archive/source-only gates. No native/device/GPU or dedicated wall-movement UDP claim."
+}

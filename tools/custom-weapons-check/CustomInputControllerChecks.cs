@@ -31,7 +31,25 @@ internal static class CustomInputControllerChecks
     internal static void Run(Action<bool,string> check)
     {
         Selection(check);UncertainEquipFence(check);Denials(check);QueueRefusal(check);Scope(check);HeldScope(check);HeldRefusal(check);HoldReconciliation(check);
-        Context(check);BootstrapBoundary(check);ManifestBoundary(check);ResourceBoundary(check);RenderSchedules(check);Allocation(check);
+        OpticCountMatrix(check);Context(check);BootstrapBoundary(check);ManifestBoundary(check);ResourceBoundary(check);RenderSchedules(check);Allocation(check);
+    }
+    private static void OpticCountMatrix(Action<bool,string> check)
+    {
+        for(int count=1;count<=4;count++)
+        {
+            var controller=new CustomWeaponInputController();var sink=new Sink();controller.Synchronize(Projection(true,1),count);
+            for(int step=1;step<=count*2;step++)
+            {
+                int before=sink.Count;byte expected=(byte)(step%count+1);controller.Sample(Sample(cycle:true),sink);
+                check(controller.PresentationOptic==expected&&sink.Count==before+(count==1?0:1)
+                    &&(count==1||sink.Trace[before].Kind==CustomWeaponActionKind.Optic&&sink.Trace[before].Optic==expected),"actual input sink cycles exactly selected optic count "+count+" step "+step);
+                controller.Synchronize(Projection(true,expected,settled:sink.Sequence),count);
+            }
+            controller.Sample(Sample(zoom:true),sink);check(controller.PresentationOptic==0,"selected count scope toggle exits without changing ammo "+count);
+            controller.Synchronize(Projection(true,0,settled:sink.Sequence),count);int unscoped=sink.Count;controller.Sample(Sample(cycle:true),sink);
+            check(sink.Count==unscoped&&controller.PresentationOptic==0,"unscoped cycle changes preference without authority request "+count);
+            controller.Sample(Sample(zoom:true),sink);check(controller.PresentationOptic==(count==1?1:2)&&sink.Trace[sink.Count-1].Optic==controller.PresentationOptic,"next scope submits exact bounded preferred optic to actual sink "+count);
+        }
     }
     private static void Selection(Action<bool,string> check)
     {

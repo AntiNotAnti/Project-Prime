@@ -9,11 +9,13 @@ namespace MphRead.Mods.Network;
 internal sealed class ReplayReplicaCheckpoint
 {
     internal const int MaximumBytes = 512 * 1024;
+        internal const int MaximumCustomBytes = MaximumBytes + ReplayCustomWeaponDescriptor.MaximumBytes + ReplayCustomWeaponState.MaximumCheckpointBytes + 8;
     private readonly byte[] _bytes;
     internal ReadOnlySpan<byte> Bytes => _bytes;
     internal ReplayReplicaCheckpoint(ReadOnlySpan<byte> bytes)
     {
-        if (bytes.Length > MaximumBytes) throw new InvalidDataException("Replica checkpoint is too large.");
+            int maximum = bytes.Length >= 8 && BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]) is ReplayReplicaCheckpointLayout.CustomVersion or ReplayReplicaCheckpointLayout.LegacyCustomVersion ? MaximumCustomBytes : MaximumBytes;
+            if (bytes.Length > maximum) throw new InvalidDataException("Replica checkpoint is too large.");
         _bytes = bytes.ToArray();
     }
 }
@@ -32,10 +34,11 @@ internal sealed partial class ReplayReplicaState
     internal void WriteCheckpoint(BinaryWriter writer)
     {
         writer.Write(CheckpointMagic);
-        writer.Write(TimedShots.Enabled ? CheckpointVersion : ReplayReplicaCheckpointLayout.DefaultVersion);
+        writer.Write(CustomWeapons == null ? CheckpointVersion : ReplayReplicaCheckpointLayout.CustomVersion);
         writer.Write((byte)NetConfig.ProtocolVersion);
-        writer.Write((byte)(ReplayReplicaCheckpointLayout.CurrentFeatures
-            | (TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None)));
+        writer.Write((byte)(ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose
+            | (TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None)
+            | (CustomWeapons != null ? ReplayReplicaCheckpointFeatures.CustomWeapons : ReplayReplicaCheckpointFeatures.None)));
         writer.Write(RecordingFrame); writer.Write(MatchRecordingFrame); writer.Write(ServerTick);
         writer.Write(Rng1); writer.Write(Rng2);
         writer.Write(AcceptedPackets); writer.Write(IgnoredPackets);
@@ -94,6 +97,7 @@ internal sealed partial class ReplayReplicaState
         WritePickupFacts(writer);
         WriteGrantFacts(writer);
         if (TimedShots.Enabled) WriteTimedShotCertificates(writer);
+        if (CustomWeapons != null) WriteCustomWeaponCheckpoint(writer);
 
     }
 
@@ -102,13 +106,21 @@ internal sealed partial class ReplayReplicaState
         // Every candidate is a private decoder. Commit only after a unique
         // complete layout succeeds, including the collided historical v10s.
         var restored = ReplayReplicaCheckpointLayout.DecodeUnique(checkpoint.Bytes,
-            layout => DecodeCheckpoint(checkpoint, layout));
+            layout =>
+            {
+                if (layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons)) throw new InvalidDataException("Explicit custom inspection contract required.");
+                return DecodeCheckpoint(checkpoint, layout);
+            });
         CommitCheckpoint(restored);
     }
 
     internal static ReplayReplicaCheckpointLayout InspectCheckpointLayout(ReplayReplicaCheckpoint checkpoint)
         => ReplayReplicaCheckpointLayout.DecodeUnique(checkpoint.Bytes,
-            layout => { DecodeCheckpoint(checkpoint, layout); return layout; });
+            layout =>
+            {
+                if (layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons)) throw new InvalidDataException("Native checkpoint inspection refuses custom features.");
+                DecodeCheckpoint(checkpoint, layout); return layout;
+            });
 
     private static ReplayReplicaState DecodeCheckpoint(ReplayReplicaCheckpoint checkpoint,
         ReplayReplicaCheckpointLayout layout)
@@ -131,17 +143,15 @@ internal sealed partial class ReplayReplicaState
             if (layout.HeaderBytes == 8 && reader.ReadByte() != (byte)layout.Features) throw Malformed();
             PlayerState ReadPlayer()
             {
-                if (protocol >= 49)
-                {
-                    var value = PlayerState.Read(Read(PlayerState.Size));
-                    if (protocol < 69) value.Crouched = false;
-                    if (protocol < 77) value.Tucked = false;
-                    return value;
-                }
                 byte[] upgraded = new byte[PlayerState.Size];
-                Read(protocol >= 29 ? PlayerState.Protocol48Size : PlayerState.LegacySize).CopyTo(upgraded, 0);
+                Read(layout.PlayerBytes).CopyTo(upgraded, 0);
                 if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
-                var historical = PlayerState.Read(upgraded); historical.Crouched = historical.Tucked = false; return historical;
+                if (protocol < 85) upgraded[PlayerState.Protocol80Size] &= 15;
+                var value = PlayerState.Read(upgraded);
+                if (protocol < 84) value.MantleVisualPhase = 0;
+                if (protocol < 69) value.Crouched = false;
+                if (protocol < 77) value.Tucked = false;
+                return value;
             }
             bool Flag()
             {
@@ -152,7 +162,7 @@ internal sealed partial class ReplayReplicaState
             // Replay packet compatibility reaches back to protocol 4, but this
             // detached checkpoint schema was introduced much later. Do not confuse
             // permissive packet playback with binary checkpoint compatibility.
-            if (version is < 1 or > CheckpointVersion || protocol < 24
+            if (version is < 1 or > ReplayReplicaCheckpointLayout.CustomVersion || protocol < 24
                 || !ReplayIdentityCompatibility.Supports(protocol))
                 throw new InvalidDataException("Incompatible replica checkpoint.");
             restored.RecordingFrame = reader.ReadUInt32(); restored.MatchRecordingFrame = reader.ReadUInt32();
@@ -165,14 +175,18 @@ internal sealed partial class ReplayReplicaState
                 int matchSize = protocol < 29 ? 103 : protocol < 60 ? MatchStatePacket.Protocol59Size : MatchStatePacket.Size;
                 var packet = new byte[1 + matchSize]; packet[0] = (byte)PacketType.MatchState;
                 Read(matchSize).CopyTo(packet, 1);
-                restored.Match = MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(packet, protocol)[1..]);
+                // Custom15 explicitly freezes protocol83's current shapes. The
+                // native historical converter must continue refusing custom rules.
+                restored.Match = MatchStatePacket.Read(layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons)
+                    ? packet.AsSpan(1) : ReplayIdentityCompatibility.Convert(packet, protocol)[1..]);
             }
             if (Flag())
             {
                 int size = protocol == 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size : SessionStatePacket.Size;
                 byte[] packet = new byte[size + 1]; packet[0] = (byte)PacketType.SessionState;
                 Read(size).CopyTo(packet, 1);
-                if (!SessionStatePacket.TryReadArchived(ReplayIdentityCompatibility.Convert(packet, protocol)[1..], out var configuration)) throw Malformed();
+                bool custom = layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons);
+                if (!ReadReplicaConfiguration(custom ? packet.AsSpan(1) : ReplayIdentityCompatibility.Convert(packet, protocol)[1..], custom, out var configuration)) throw Malformed();
                 restored.Configuration = configuration;
                 ValidateMovementRules(restored.Match, restored.Configuration);
             }
@@ -197,8 +211,19 @@ internal sealed partial class ReplayReplicaState
                 restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
                     (NetworkPlayerState)reader.ReadByte(), Flag()));
                 restored._hasPlayer[i] = Flag(); restored._players[i] = ReadPlayer();
-                restored._hasIntent[i] = Flag(); restored._intents[i] = IntentPacket.Read(Read(layout.IntentBytes));
+                if (protocol < 84) restored._players[i].MantleVisualPhase = 0;
+                if (protocol < 85) restored._players[i].WallVisualCue = 0;
+                restored._hasIntent[i] = Flag();
+                byte[] intentSource = Read(layout.IntentBytes);
+                if (protocol < 85 && intentSource.Length >= IntentPacket.TouchCanonicalSize)
+                    intentSource[IntentPacket.Protocol82TouchSize] &= 15;
+                if (protocol < 84 && intentSource.Length >= IntentPacket.TouchCanonicalSize)
+                    intentSource[IntentPacket.Protocol82TouchSize] = 0;
+                restored._intents[i] = IntentPacket.Read(intentSource);
+                if (protocol < 85) restored._intents[i].WallVisualCue = 0;
+                if (protocol < 84) restored._intents[i].MantleVisualPhase = 0;
                 if (protocol < 69) restored._intents[i].Buttons &= ~(IntentButtons.Crouch | IntentButtons.CrouchedState);
+                if (protocol < 82) { restored._intents[i].Buttons &= ~IntentButtons.Grapple; restored._intents[i].GrappleRequestNonce = 0; }
                 if (protocol < 77) restored._intents[i].Buttons &= ~(IntentButtons.TuckedState | IntentButtons.TuckRebaseMask);
                 restored._intentReceivedFrame[i] = reader.ReadUInt32();
                 if (restored._lives[i].Generation != restored._roster[i].Generation
@@ -271,6 +296,9 @@ internal sealed partial class ReplayReplicaState
             if (layout.Has(ReplayReplicaCheckpointFeatures.Pickups)) restored.ReadPickupFacts(reader);
             if (layout.Has(ReplayReplicaCheckpointFeatures.Grants)) restored.ReadGrantFacts(reader);
             if (layout.Has(ReplayReplicaCheckpointFeatures.TimedShots)) restored.ReadTimedShotCertificates(reader);
+            if (layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons)) restored.ReadCustomWeaponCheckpoint(reader);
+            else if (restored.Match is { } nativeMatch && !restored.CustomMatchAllowed(nativeMatch)
+                || restored.Configuration is { } nativeRules && !restored.CustomConfigurationAllowed(nativeRules)) throw Malformed();
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
                 || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
         }
@@ -285,6 +313,7 @@ internal sealed partial class ReplayReplicaState
         RestorePickupFacts(restored);
         TimedGrants = restored.TimedGrants;
         TimedShots = restored.TimedShots;
+        CustomWeaponDescriptor = restored.CustomWeaponDescriptor; CustomWeapons = restored.CustomWeapons;
         ChatLines.Clear(); ChatLines.AddRange(restored.ChatLines);
         SemanticEvents = restored.SemanticEvents;
         ContainsBots = restored.ContainsBots;

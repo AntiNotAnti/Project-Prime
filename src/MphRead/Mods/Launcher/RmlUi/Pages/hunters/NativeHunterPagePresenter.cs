@@ -75,6 +75,8 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         {
             RmlUiIntentKind.HunterSelect => SelectHunter(intent.Argument),
             RmlUiIntentKind.HunterSuit => !_cosmetics.Current().Busy && _controller.SelectSuit(intent.Argument),
+            RmlUiIntentKind.HunterBodySelect => !_cosmetics.Current().Busy && _controller.SelectBody(intent.Argument),
+            RmlUiIntentKind.HunterDroneSelect => !_cosmetics.Current().Busy && _controller.SelectDrone(intent.Argument),
             RmlUiIntentKind.HunterApply => ApplyLoadout(),
             RmlUiIntentKind.HunterResetPreview => Discard(),
             RmlUiIntentKind.HunterCancel => CloseIfClean(),
@@ -240,6 +242,10 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         _cosmeticVisibility = CosmeticVisibility();
         var data = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal)
         {
+            ["visible:hunter_local_body"] = RmlUiBindingValue.FromBoolean(
+                state.Choice.Hunter is Hunter.Samus or Hunter.Weavel && LocalBodyAppearanceRules.Available),
+            ["visible:hunter_local_drone"] = RmlUiBindingValue.FromBoolean(
+                state.Choice.Hunter == Hunter.Weavel && LocalDroneAppearanceRules.Available),
             ["native_hunter_name"] = RmlUiBindingValue.FromText(
                 state.Choice.Hunter.ToString().ToUpperInvariant()),
             ["native_hunter_status"] = RmlUiBindingValue.FromText(
@@ -306,6 +312,20 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         {
             data["class:hunter_suit" + i + ":selected"] = RmlUiBindingValue.FromBoolean(i == state.Choice.Suit);
             data["disabled:hunter_suit" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy);
+        }
+        for (int i = 0; i < 7; i++)
+        {
+            data["visible:hunter_body" + i] = RmlUiBindingValue.FromBoolean(
+                LocalBodyAppearanceRules.MatchesHunter((LocalBodyAppearance)i, state.Choice.Hunter));
+            data["class:hunter_body" + i + ":selected"] = RmlUiBindingValue.FromBoolean(i == (int)state.Choice.Body);
+            data["disabled:hunter_body" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy
+                || !LocalBodyAppearanceRules.MatchesHunter((LocalBodyAppearance)i, state.Choice.Hunter));
+        }
+        for (int i = 0; i < 3; i++)
+        {
+            data["class:hunter_drone" + i + ":selected"] = RmlUiBindingValue.FromBoolean(i == (int)state.Choice.Drone);
+            data["disabled:hunter_drone" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy
+                || !LocalDroneAppearanceRules.MatchesHunter((LocalDroneAppearance)i, state.Choice.Hunter));
         }
         for (int i = 0; i < 5; i++)
         {
@@ -406,17 +426,21 @@ internal sealed class CurrentCosmeticEquipService : ILauncherCosmeticEquipServic
 internal sealed class LauncherHunterChoiceStore : ILauncherHunterChoiceStore
 {
     public LauncherHunterChoice Capture()
-        => new(LauncherPrefs.LastHunter, LauncherPrefs.LastColor);
+        => new(LauncherPrefs.LastHunter, LauncherPrefs.LastColor, LauncherPrefs.LocalBody, LauncherPrefs.LocalDrone);
 
     public void Save(LauncherHunterChoice choice)
     {
         LauncherHunterChoice before = Capture();
         LauncherPrefs.LastHunter = choice.Hunter;
         LauncherPrefs.LastColor = choice.Suit;
+        LauncherPrefs.LocalBody = choice.Body;
+        LauncherPrefs.LocalDrone = choice.Drone;
         if (!LauncherPrefs.TrySave())
         {
             LauncherPrefs.LastHunter = before.Hunter;
             LauncherPrefs.LastColor = before.Suit;
+            LauncherPrefs.LocalBody = before.Body;
+            LauncherPrefs.LocalDrone = before.Drone;
             throw new InvalidOperationException("Hunter profile could not be saved.");
         }
     }

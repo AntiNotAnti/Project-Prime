@@ -223,7 +223,7 @@ namespace MphRead.Mods.Network
                     result = ReplayOpenResult.InvalidMagic;
                     return null;
                 }
-                if (header[4] is not (1 or 2 or 3 or 4 or 5 or 6))
+                if (header[4] is not (1 or 2 or 3 or 4 or 5 or 6 or 7 or 8))
                 {
                     stream.Dispose();
                     result = ReplayOpenResult.UnsupportedFormat;
@@ -267,6 +267,17 @@ namespace MphRead.Mods.Network
                 record = ReadNext();
             }
             while (record is DemoRecord value && value.Frame <= frame);
+            return record;
+        }
+
+        /// <summary>First packet at or after the original file clock, including frame zero.
+        /// Legacy readers remain sequential and should be freshly opened.</summary>
+        public DemoRecord? SeekAtOrAfter(uint frame)
+        {
+            if (_v3 != null) return _v3.SeekAtOrAfter(frame);
+            DemoRecord? record;
+            do { record = ReadNext(); }
+            while (record is DemoRecord value && value.Frame < frame);
             return record;
         }
 

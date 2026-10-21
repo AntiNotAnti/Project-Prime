@@ -10,9 +10,10 @@ public partial class PlayerEntity
     {bool value=_customNativeSelectionIntent;_customNativeSelectionIntent=false;return value;}
     internal bool ModNativeWheelReleaseIntent=>Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen)
         &&!Controls.WeaponMenu.IsDown&&!Input.StylusWeaponMenuDown&&WeaponSelection!=BeamType.None;
-    internal bool ModCustomOwnsBipedControls=>!_scene.Services.IsReplica&&!IsAltForm
-        &&(!NetSession.Active||NetSession.IsClient&&!NetSession.IsAuthority&&SlotIndex==NetSession.LocalSlot)
-        &&_scene.CustomInputSuppressesNative(this);
+    internal bool ModCustomOwnsBipedControls=>!IsAltForm && (_scene.Services.IsReplica
+        ? _scene.ReplayCustomOwnsBipedPresentation(this)
+        : (!NetSession.Active||NetSession.IsClient&&!NetSession.IsAuthority&&SlotIndex==NetSession.LocalSlot)
+            &&_scene.CustomInputSuppressesNative(this));
     internal void ModSynchronizeCustomNativeSuppression()
     {
         bool suppressed=ModCustomOwnsBipedControls;
@@ -21,7 +22,7 @@ public partial class PlayerEntity
             if(EquipInfo.ChargeLevel!=0){StopBeamChargeSfx(CurrentWeapon);EquipInfo.ChargeLevel=0;}
             Flags2&=~PlayerFlags2.Shooting;_powerBeamAutofire=0;
             if(EquipInfo.Zoomed)UpdateZoom(false);
-            NetContinuousTargeting.ResetPlayer(this);
+            if(!_scene.Services.IsReplica)NetContinuousTargeting.ResetPlayer(this);
         }
         _customNativeSuppressed=suppressed;
     }

@@ -305,14 +305,52 @@ namespace MphRead.Mods.Network
             MatchFormat format = MatchFormat.Auto, bool requireReady = false,
             bool allowJoinInProgress = true, bool friendlyFire = false,
             bool shadowFreeze = false, bool affinityWeapons = false,
-            bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, HostedMapPreparation? hostedMaps = null)
+            bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, HostedMapPreparation? hostedMaps = null,
+            LocalWeaponPackageSelection? weaponPackage = null)
         {
             lock (StartLifecycleGate)
             {
                 if (cancel.IsCancellationRequested) { LastError="server startup was cancelled"; return -1; }
-                return StartCore(serverName,rotation,maxPlayers,timeLimit,pointGoal,masterHost,masterPort,listed,
-                    cancel,lobby,requestedPort,ownerToken,format,requireReady,allowJoinInProgress,friendlyFire,
-                    shadowFreeze,affinityWeapons,spawnProtection,waitUntilReady,requiredMap,hostedMaps);
+                try
+                {
+                    // Validate before port selection, rotation writes or process creation.
+                    // This lease protects bytes during launch. The child independently
+                    // requires its installed marker; uninstall during handoff fails closed.
+                    using var lease = weaponPackage?.Acquire(cancel);
+                    if (weaponPackage != null && (rotation.Count is < 1 or > HostRequestPacket.MaxRotation
+                        || rotation.Any(entry => entry.Mode != GameMode.Battle)))
+                    { LastError = "packaged local hosting requires a bounded Battle rotation"; return -1; }
+                    return StartCore(serverName,rotation,maxPlayers,timeLimit,pointGoal,masterHost,masterPort,listed,
+                        cancel,lobby || weaponPackage != null,requestedPort,ownerToken,format,requireReady,allowJoinInProgress,friendlyFire,
+                        shadowFreeze,affinityWeapons,spawnProtection,waitUntilReady,requiredMap,hostedMaps,weaponPackage);
+                }
+                catch (OperationCanceledException) when (cancel.IsCancellationRequested)
+                { LastError = "server startup was cancelled"; return -1; }
+                catch (Exception error) when (weaponPackage != null && (error is InvalidDataException or IOException
+                    or UnauthorizedAccessException or ArgumentException or InvalidOperationException
+                    or NotSupportedException or System.Security.SecurityException))
+                { LastError = "the exact installed weapon package could not be prepared for local hosting"; return -1; }
+            }
+        }
+
+        // Remote allocators already validated on a bounded worker. Retain that
+        // proof in memory instead of parsing an archive on their packet loop.
+        internal static int StartPrepared(PreparedLocalWeaponPackage prepared, string serverName,
+            IReadOnlyList<(string RoomKey, GameMode Mode)> rotation, int maxPlayers,
+            float timeLimit, int pointGoal, string masterHost, int masterPort, bool listed,
+            int port, Guid ownerToken, MatchFormat format, bool requireReady,
+            bool allowJoinInProgress, NetworkMapIdentity requiredMap, HostedMapPreparation hostedMaps)
+        {
+            lock (StartLifecycleGate)
+            {
+                using var retained = prepared.Retain();
+                if (rotation.Count is < 1 or > HostRequestPacket.MaxRotation
+                    || rotation.Any(entry => entry.Mode != GameMode.Battle))
+                { LastError = "packaged hosting requires a bounded Battle rotation"; return -1; }
+                return StartCore(serverName, rotation, maxPlayers, timeLimit, pointGoal, masterHost, masterPort,
+                    listed, lobby: true, requestedPort: port, ownerToken: ownerToken, format: format,
+                    requireReady: requireReady, allowJoinInProgress: allowJoinInProgress, waitUntilReady: false,
+                    requiredMap: requiredMap, hostedMaps: hostedMaps, weaponPackage: prepared.Selection);
             }
         }
 
@@ -325,7 +363,8 @@ namespace MphRead.Mods.Network
             MatchFormat format = MatchFormat.Auto, bool requireReady = false,
             bool allowJoinInProgress = true, bool friendlyFire = false,
             bool shadowFreeze = false, bool affinityWeapons = false,
-            bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, HostedMapPreparation? hostedMaps = null)
+            bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, HostedMapPreparation? hostedMaps = null,
+            LocalWeaponPackageSelection? weaponPackage = null)
         {
             LastError = null;
             HostedLibrary = null;
@@ -472,6 +511,7 @@ namespace MphRead.Mods.Network
                 start.ArgumentList.Add(argument);
             }
             start.ArgumentList.Add("-server");
+            weaponPackage?.AppendArguments(start);
             if (hostedMaps != null)
                 start.ArgumentList.Add("-hostedchild");
             start.ArgumentList.Add("-usermapdirectory");

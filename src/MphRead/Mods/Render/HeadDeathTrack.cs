@@ -10,7 +10,7 @@ internal readonly record struct HeadDeathPose(bool Active,float Head,float Colla
 // Exactly one accepted cause per victim life, including an ordinary body death.
 // This never changes HP/death state or emits audio. A fact may precede the HP
 // snapshot, but only an actually dead actor can expose a corpse pose.
-internal sealed class HeadDeathTrack
+internal sealed partial class HeadDeathTrack
 {
     internal const uint Duration=42, MaximumDuration=144, PendingLifetime=18;
     internal HeadHitVictim Victim {get;private set;}

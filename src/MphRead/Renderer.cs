@@ -2431,6 +2431,8 @@ namespace MphRead
                 textEntry: false, results: false);
             Mods.Input.GamepadInput.BeginFrame();
             Mods.Replay.ReplayInput.PollGamepad();
+            if (!Mods.Network.DemoPlayback.IsCustomPlayback)
+            {
             Mods.SpectatorMode.NoteScoreboard(_keyboardState.IsKeyDown(Keys.Tab)
                 || Mods.Input.GamepadInput.State.Down(Mods.Input.GamepadButtons.Back));
 
@@ -2438,6 +2440,7 @@ namespace MphRead
             if (camera.HasValue)
             {
                 SetFreeCamera(camera.Value);
+            }
             }
             if (!Mods.PauseMenu.Open)
             {
@@ -2663,6 +2666,9 @@ namespace MphRead
                     player.CameraInfo.ModCaptureDrawState();
                     player.ModCaptureFirstPersonDrawState();
                     player.ModCaptureTraversalVisual();
+                    if (this.GameState.MatchState == MatchState.InProgress && !this.GameState.MenuPause
+                        && !this.GameState.DialogPause && !_playingLandingMovie)
+                        player.ModStepSourceBody();
                 }
 
                 // Ages the predictions the authority has not answered yet and
@@ -2793,6 +2799,8 @@ namespace MphRead
                 return;
             }
             using var preparationTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Preparation);
+            ApplyCustomTheatreCamera();
+            using var customInspectionSubject = BeginCustomInspectionPicture();
             using var directorSubject = BeginDirectorPicturePreparation();
             RefreshTextureQuality();
             BeginRenderDiagnostics();
@@ -2851,6 +2859,7 @@ namespace MphRead
             _decalItems.Clear();
             _nonDecalItems.Clear();
             _translucentItems.Clear();
+            _sourceBodyItems.Clear();
             NcxBeginDrawItems();
             _renderingViewModelItems = false;
             while (_usedRenderItems.Count > 0)
@@ -2870,8 +2879,14 @@ namespace MphRead
             // draw the previous frame's particles a second time, at the
             // positions they had then, until the 200-entry table filled up and
             // started dropping the new ones.
-            _singleParticleCount = 0;
-            if ((!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this)) && (ProcessFrame || CameraMode != CameraMode.Player || Services.IsReplica))
+            if (Services.IsReplica) _replayDrawSingleParticleCount = 0;
+            else _singleParticleCount = 0;
+            if (_customInspectionFirstPersonSlot >= 0)
+            {
+                TransformCamera();
+                UpdateCameraPosition();
+            }
+            else if ((!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this)) && (ProcessFrame || CameraMode != CameraMode.Player || Services.IsReplica))
             {
                 ModReplayCamera();
                 // Controller hardware is polled by the simulation input step only.
@@ -3628,6 +3643,7 @@ namespace MphRead
             }
             // Collection now includes preview and outline geometry, so one
             // program choice can safely persist through every pass this frame.
+            using var customInspectionSubject = BeginCustomInspectionPicture();
             using var directorSubject = BeginDirectorPictureRender();
             SelectWorldShaderVariant(allowPlain: true);
             BeginWorldPass();
@@ -3654,7 +3670,12 @@ namespace MphRead
         private bool RenderFrameContent()
         {
             CountFrame();
-            bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
+            // Explicit custom inspection owns camera/viewmodel pictures, not
+            // a foreground retail HUD. Constructing that HUD would add models
+            // and mutable HUD state to the restored canonical world. A caller
+            // may supply ReplayPresentationHud as a separate presentation owner.
+            bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud
+                && !(Services is Mods.Network.ReplaySceneServices { Session.IsCustomInspection: true });
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             drawGameHud &= Mods.Replay.ReplayVideoExporter.Active || NativeStudioPreviewGameHud;
 #endif
@@ -4050,6 +4071,10 @@ namespace MphRead
         private readonly Queue<EffectParticle> _inactiveParticles = new Queue<EffectParticle>(_effectParticleMax);
         private int _singleParticleCount = 0;
         private readonly List<SingleParticle> _singleParticles = new List<SingleParticle>(_singleParticleMax);
+        // Singles are submitted per picture. A private replay keeps that
+        // bounded scratch separate from its restored canonical pool values.
+        private List<SingleParticle>? _replayDrawSingleParticles;
+        private int _replayDrawSingleParticleCount;
         private readonly Queue<BeamEffectEntity> _inactiveBeamEffects = new Queue<BeamEffectEntity>(_beamEffectMax);
         private readonly List<BeamEffectEntity> _activeBeamEffects = new List<BeamEffectEntity>(_beamEffectMax);
         private readonly Queue<BombEntity> _inactiveBombs = new Queue<BombEntity>(_bombMax);
@@ -4072,6 +4097,11 @@ namespace MphRead
             for (int i = 0; i < _singleParticleMax; i++)
             {
                 _singleParticles.Add(new SingleParticle());
+            }
+            if (Services.IsReplica)
+            {
+                _replayDrawSingleParticles = new List<SingleParticle>(_singleParticleMax);
+                for (int i = 0; i < _singleParticleMax; i++) _replayDrawSingleParticles.Add(new SingleParticle());
             }
             for (int i = 0; i < _beamEffectMax; i++)
             {
@@ -4118,9 +4148,12 @@ namespace MphRead
         public void AddSingleParticle(SingleType type, Vector3 position, Vector3 color, float alpha, float scale, bool cosmeticTint = false)
         {
             // note: skipping the room size limit check; singles get cleared every frame anyway
-            if (_singleParticleCount < _singleParticleMax)
+            int count = Services.IsReplica ? _replayDrawSingleParticleCount : _singleParticleCount;
+            if (count < _singleParticleMax)
             {
-                SingleParticle entry = _singleParticles[_singleParticleCount++];
+                SingleParticle entry;
+                if (Services.IsReplica) entry = _replayDrawSingleParticles![_replayDrawSingleParticleCount++];
+                else entry = _singleParticles[_singleParticleCount++];
                 entry.CosmeticTint = cosmeticTint;
                 entry.ParticleDefinition = Read.GetSingleParticle(type);
                 entry.Position = position;
@@ -4128,9 +4161,10 @@ namespace MphRead
                 entry.Alpha = alpha;
                 entry.Scale = scale;
                 NcxTagSingle(entry);
-                if (!_texPalMap.ContainsKey(OwnModel(entry.ParticleDefinition.Model).Id))
+                Model singleModel = OwnSingleParticleDrawModel(entry.ParticleDefinition.Model);
+                if (!_texPalMap.ContainsKey(singleModel.Id))
                 {
-                    InitTextures(OwnModel(entry.ParticleDefinition.Model));
+                    InitTextures(singleModel);
                 }
             }
         }
@@ -4142,6 +4176,7 @@ namespace MphRead
                 return null;
             }
             EffectEntry entry = _inactiveEffects.Dequeue();
+            _presentationEffectTints.Remove(entry);
             entry.EffectId = 0;
             Debug.Assert(entry.Elements.Count == 0);
             return entry;
@@ -4149,6 +4184,7 @@ namespace MphRead
 
         public void UnlinkEffectEntry(EffectEntry entry)
         {
+            _presentationEffectTints.Remove(entry);
             for (int i = 0; i < entry.Elements.Count; i++)
             {
                 EffectElementEntry element = entry.Elements[i];
@@ -4429,19 +4465,39 @@ namespace MphRead
         }
 
         private readonly List<EffectEntry> _presentationOverrideEntries = new(4);
+        private readonly Dictionary<EffectEntry, Vector3> _presentationEffectTints = new(4);
         internal bool HasPendingEffectSimulation => _pendingEffectSteps > 0;
+        // Renewed by the owning player's admitted draw, never stored in the
+        // effect/particle simulation or shared material state.
+        internal void SetPresentationEffectTint(EffectEntry entry, Vector3 tint)
+        {
+            ArgumentNullException.ThrowIfNull(entry);
+            if (!float.IsFinite(tint.X) || !float.IsFinite(tint.Y) || !float.IsFinite(tint.Z)
+                || tint.X < 0 || tint.X > 1 || tint.Y < 0 || tint.Y > 1 || tint.Z < 0 || tint.Z > 1)
+                throw new ArgumentOutOfRangeException(nameof(tint));
+            _presentationEffectTints[entry] = tint;
+        }
+        internal Vector3? GetPresentationEffectTint(EffectEntry? entry)
+            => entry != null && _presentationEffectTints.TryGetValue(entry, out var tint) ? tint : null;
         internal void SetPresentationEffectTransform(EffectEntry entry, Matrix4 transform, bool viewModel = true)
         {
             if (!_presentationOverrideEntries.Contains(entry)) _presentationOverrideEntries.Add(entry);
             entry.DrawTransformOverride = transform;
             entry.DrawTransformUsesViewModel = viewModel;
         }
+        internal void SetPresentationEffectDrawEnabled(EffectEntry entry, bool enabled)
+        {
+            if (!_presentationOverrideEntries.Contains(entry)) _presentationOverrideEntries.Add(entry);
+            entry.DrawEnabledOverride = enabled;
+        }
         internal void ClearPresentationEffectTransforms()
         {
+            _presentationEffectTints.Clear();
             foreach (var entry in _presentationOverrideEntries)
             {
                 entry.DrawTransformOverride = null;
                 entry.DrawTransformUsesViewModel = false;
+                entry.DrawEnabledOverride = null;
             }
             _presentationOverrideEntries.Clear();
         }
@@ -4943,7 +4999,7 @@ namespace MphRead
             bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null,
             bool weightedSkinning = false, bool authoredTexture = false,
             RepeatMode authoredWrapS = RepeatMode.Repeat, RepeatMode authoredWrapT = RepeatMode.Repeat,
-            bool authoredDoubleSided = false, bool authoredTransparent = false, bool independentSurface = false, Vector3? authoredSurfaceTint = null, bool authoredNeutralAlbedo = false)
+            bool authoredDoubleSided = false, bool authoredTransparent = false, bool independentSurface = false, Vector3? authoredSurfaceTint = null, bool authoredNeutralAlbedo = false, Vector3? diffuseOverride = null)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4983,7 +5039,7 @@ namespace MphRead
             item.Wireframe = material.Wireframe != 0;
             item.Lighting = independentSurface || material.Lighting != 0;
             item.NoLines = false;
-            item.Diffuse = independentSurface ? authoredSurfaceTint ?? Vector3.One : material.CurrentDiffuse;
+            item.Diffuse = diffuseOverride ?? (independentSurface ? authoredSurfaceTint ?? Vector3.One : material.CurrentDiffuse);
             item.Ambient = independentSurface ? (authoredSurfaceTint ?? Vector3.One) * 0.5f : material.CurrentAmbient;
             item.Specular = material.CurrentSpecular;
             item.Emission = emission;
@@ -5314,6 +5370,12 @@ namespace MphRead
                 _previewItems.Add(item);
                 return;
             }
+            if (item.SourceGx?.BodyOwner != null)
+            {
+                _sourceBodyItems.Add(item);
+                if (pooled) _usedRenderItems.Enqueue(item);
+                return;
+            }
             if (item.RenderMode == RenderMode.Decal)
                 _decalItems.Add(item);
             else
@@ -5501,7 +5563,7 @@ namespace MphRead
             for (int i = 0; i < _activeElements.Count; i++)
             {
                 EffectElementEntry element = _activeElements[i];
-                if (element.Flags.TestFlag(EffElemFlags.DrawEnabled))
+                if (element.EffectEntry?.DrawEnabledOverride ?? element.Flags.TestFlag(EffElemFlags.DrawEnabled))
                 {
                     for (int j = 0; j < element.Particles.Count; j++)
                     {
@@ -5515,6 +5577,10 @@ namespace MphRead
                         }
                         // Preserve the historical current-state geometry/cache
                         // before generating this picture's temporary sample.
+                        // A replica must also restore values from before the
+                        // canonical draw pass: billboard calculation itself is
+                        // camera-dependent and cannot alter its durable world.
+                        var replayDrawCache = Services.IsReplica ? particle.ModCaptureDrawCache() : default;
                         particle.ModBeginCanonicalDraw();
                         try
                         {
@@ -5542,7 +5608,7 @@ namespace MphRead
                                 }
                                 try
                                 {
-                                    particle.AddRenderItem(this);
+                                    particle.AddRenderItem(this, GetPresentationEffectTint(particle.Owner.EffectEntry));
                                 }
                                 finally
                                 {
@@ -5553,18 +5619,21 @@ namespace MphRead
                         finally
                         {
                             particle.ModFinishDraw();
+                            if (Services.IsReplica) particle.ModRestoreDrawCache(replayDrawCache);
                         }
                     }
                 }
             }
-            for (int i = 0; i < _singleParticleCount; i++)
+            int singleDrawCount = Services.IsReplica ? _replayDrawSingleParticleCount : _singleParticleCount;
+            var singleDrawPool = Services.IsReplica ? _replayDrawSingleParticles! : _singleParticles;
+            for (int i = 0; i < singleDrawCount; i++)
             {
-                SingleParticle single = _singleParticles[i];
+                SingleParticle single = singleDrawPool[i];
                 single.Process();
             }
-            for (int i = 0; i < _singleParticleCount; i++)
+            for (int i = 0; i < singleDrawCount; i++)
             {
-                SingleParticle single = _singleParticles[i];
+                SingleParticle single = singleDrawPool[i];
                 if (single.ShouldDraw)
                 {
                     using var ncxOwner = NcxSingleItems(single);
@@ -5756,6 +5825,7 @@ namespace MphRead
             if (!_exiting)
             {
                 _exiting = true;
+                foreach (var player in Players.Items) player?.ModRetireSourceBody();
                 foreach (var player in Players.Items) player?.ModRetireCharacterGameplay();
                 // Keep known asynchronous/decoder owners explicit. No release
                 // is inferred merely because UnloadGl later clears its queues.
@@ -5977,7 +6047,7 @@ namespace MphRead
             Mods.Render.RetainedMeshDescriptor? retainedMesh = null,
             bool drawGeometry = true, bool applyObjectState = true)
         {
-            if (item.SourceGx != null) { DrawSourceGxRenderItem(item); return; }
+            if (item.SourceGx != null) { if (drawGeometry) DrawSourceGxRenderItem(item); return; }
             int sourcePass = Mods.Render.OpenGlPassProfiler.CurrentPass;
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.ItemSetup))
             using (Mods.Render.OpenGlDrawAttribution.Measure(item, sourcePass, geometry: false))
@@ -7467,6 +7537,13 @@ localCenter *= _profileHudScale;
         /// </summary>
         public void SetFreeCamera(bool on)
         {
+            if (Mods.Network.DemoPlayback.IsCustomPlayback && Mods.Network.DemoPlayback.Owns(this))
+            {
+                _freeCam = on;
+                if (on) { ClearCustomInspectionFirstPerson(); _cameraMode = CameraMode.Roam; }
+                else SetCustomInspectionFirstPerson(Mods.Network.DemoPlayback.CustomSubjectSlot);
+                return;
+            }
             // A freshly restored replica starts in Roam with _freeCam false.
             // The flag alone cannot tell whether first-person was established.
             if (on == _freeCam && (on || _cameraMode == CameraMode.Player))
@@ -9208,7 +9285,9 @@ localCenter *= _profileHudScale;
         private bool _displayVSyncFallback;
         private bool _appliedDisplayVSyncFallback;
         private bool _pacingSourceInvalidated = true;
-        private long _appliedPacingGeneration = -1;
+        // Distinct from FrameTiming.PresentationGeneration: dropped simulation
+        // steps fence camera interpolation, not GLFW pacing configuration.
+        private long _pacingSourceGeneration;
         private readonly Mods.Render.DesktopPacingMeasurement _pacingMeasurement = new();
         private long _presentationInputRevision = Mods.Input.GamepadContexts.Revision;
 
@@ -9242,15 +9321,13 @@ localCenter *= _profileHudScale;
         {
             int cap = Mods.Render.FrameTiming.FrameRateCap;
             double refreshRate = MonitorRefreshRate(this);
-            bool sourceChanged = _pacingSourceInvalidated
-                || _appliedPacingGeneration != Mods.Render.FrameTiming.PresentationGeneration
-                || cap != _appliedFrameRateCap
-                || Math.Abs(refreshRate - _appliedMonitorRefreshRate)
-                    > Mods.Render.DesktopFramePacing.NativeRefreshToleranceHz;
+            bool sourceChanged = Mods.Render.DesktopFramePacing.SourceChanged(
+                _pacingSourceInvalidated, cap, _appliedFrameRateCap,
+                refreshRate, _appliedMonitorRefreshRate);
             _pacingSourceInvalidated = false;
-            _appliedPacingGeneration = Mods.Render.FrameTiming.PresentationGeneration;
+            if (sourceChanged) _pacingSourceGeneration++;
             _pacingMeasurement.Observe(elapsedSeconds,
-                Mods.Render.FrameTiming.PresentationGeneration, sourceChanged, IsFocused);
+                _pacingSourceGeneration, sourceChanged, IsFocused);
             if (sourceChanged)
             {
                 _displayVSyncFallback = false;
@@ -9593,12 +9670,17 @@ localCenter *= _profileHudScale;
 #if MPHREAD_SHELL
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Ui))
             {
-            Mods.Render.UiOverlay.Draw(PixelSize.X, PixelSize.Y);
+            bool nativeMatchStart = false;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            nativeMatchStart = Mods.Launcher.Gui.Shell.RmlUiMatchStartVisible
+                && Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.BeforeLauncherComposite(this);
+#endif
+            if (!nativeMatchStart) Mods.Render.UiOverlay.Draw(PixelSize.X, PixelSize.Y);
             // The real hunter, over the screens, when a screen is asking for
             // one during a match -- which is the results panel. Under the
             // texture is where the world's own pass would put it, and the
             // panel it goes in is opaque, so under is behind a card.
-            Mods.Render.LauncherHunter.Draw(this, PixelSize.X, PixelSize.Y);
+            if (!nativeMatchStart) Mods.Render.LauncherHunter.Draw(this, PixelSize.X, PixelSize.Y);
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.Draw(this);
 #endif
@@ -9781,6 +9863,8 @@ localCenter *= _profileHudScale;
             Mods.Render.OpenGlFrameProfiler.CancelFrame();
 #endif
             _pacingSourceInvalidated = true;
+            Mods.DebugLog.Line("frametiming",
+                $"window focus {(e.IsFocused ? "gained" : "lost")}; presentation pacing will be refreshed");
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeFocusChanged(e.IsFocused);
 #endif

@@ -1,0 +1,628 @@
+{
+  "status": "PASS",
+  "candidate": "wallrun01",
+  "producerCommit": "6eec103001a5e44e0efb850ea0216eedd9fec4bd",
+  "integrationBaseSha": "d0867e7f03a7d21e9643b1f9d8649435486bc478",
+  "integrationMergeSha": "e114eef010fbfae5786ca7537dfcb716f025ec37",
+  "protocol": 79,
+  "parkourProfileVersion": 3,
+  "source": {
+    "exactCommittedProducer": true,
+    "emptyOverlay": true,
+    "fullSourceFiles": 6457,
+    "manifestSha256": "25da1c47a5c41d4632edff79950ea7e5c3830b21a975e7b4d02822b41fd8caef",
+    "fullSourceManifestSha256": "060341d382852dca398c58703915a3c4ca3815218a6958a0c1a2372674efc25c",
+    "closureFiles": 41,
+    "assetGuard": "PASS",
+    "bundleSha256": "c0b6757d104077be9506ad5868ed3871f43d8bc2c00ab1f7ac414df853699aae"
+  },
+  "normalReleaseBuild": {
+    "platform": "Windows",
+    "sdk": "10.0.401",
+    "elapsed": "00:00:58.37",
+    "nettestExitCode": 0,
+    "customExitCode": 0,
+    "warnings": 1,
+    "warningCodes": [
+      "CS0649"
+    ],
+    "errors": 0,
+    "binaries": {
+      "ProjectPrime.dll": "70d79b5753827f08df73bcaf786a36a3932fa4c7d97248e38052c52945bbc33b",
+      "nettest.dll": "91087b39a7c84572322b667c0f424c8b45852d118f6c812ffb62d433ae156083",
+      "MphRead.CorpsePhysics.dll": "4bbf6af060db3c65a3b5aa791b001cbe20d65d6f42eb76afe6151575255aaa76",
+      "BepuPhysics.dll": "5bbd07c09f058025049e741e136a4e7ab8a68afe56f391f58072429f44262fbe",
+      "BepuUtilities.dll": "4666356f52ed46fce9707786cda72cfb6ba6460f8bcd789d75cb816a744643f6"
+    },
+    "customToolSha256": "2e53b0c2264b2757a0600eb09a88b3cd6c11369a463f10db70845ccc993966dd",
+    "partyToolSha256": "f8b70423ddd9f77d7f0de51ae1b051bfb991f7ceb3df5469b38092231f7b4369",
+    "coreUnchangedDuringCustomAndPartyBuilds": true,
+    "buildLogSha256": "ac1a4f630e2230cc7421713eb686b438b6af06efe66a24a3d936588293a9c6bd"
+  },
+  "focusedGateCount": 16,
+  "supplementalGates": [
+    {
+      "gate": "parkour-stance-rules",
+      "status": "PASS",
+      "assertions": 99,
+      "logSha256": "1aa598e87d265a21178b8a496e36b2e761930245075adae9f1558f4ab640839c"
+    }
+  ],
+  "focusedGates": [
+    {
+      "gate": "parkour-wallrun-rules",
+      "status": "PASS",
+      "logSha256": "3dd473b0fb3b7016d2f2f6cff603da255e06a38b3e991e1f0fc12f27fa4172e6",
+      "count": 1102,
+      "unit": "assertions"
+    },
+    {
+      "gate": "parkour-wallrun-scene",
+      "status": "PASS",
+      "logSha256": "df1af8f44e3ad08815daed0bd3d1d16714faef84502235b818a654db8018a8aa",
+      "count": 6149,
+      "unit": "assertions"
+    },
+    {
+      "gate": "parkour-wallstrafe-rules",
+      "status": "PASS",
+      "logSha256": "bcf625ab54d4945b66e51684f9fc9fbca258bb4f53c93a2f61961704d64bf7e6",
+      "count": 25,
+      "unit": "assertions"
+    },
+    {
+      "gate": "parkour-wallstrafe-scene",
+      "status": "PASS",
+      "logSha256": "0dcb88bb0cf88bd484d32fca985a59bb0f7394ea987f63a8adf96c8dec417fff",
+      "count": 11820,
+      "unit": "assertions"
+    },
+    {
+      "gate": "parkour-tuck-scene",
+      "status": "PASS",
+      "logSha256": "4b4865d9845fb2364f95bd60762ba0a4c70e6bd0ccdd4fd4385cb1c1a0885b3f",
+      "count": 33971,
+      "unit": "assertions"
+    },
+    {
+      "gate": "parkour-compatibility",
+      "status": "PASS",
+      "logSha256": "a10411bc256a96925c1b7dfb843e278e574eae4e0d9941311b97d8fd4ab65906",
+      "count": 47,
+      "unit": "assertions"
+    },
+    {
+      "gate": "traversal-rules",
+      "status": "PASS",
+      "logSha256": "d4b0e3c6a5f17cea4e6263337c46508c3a5c7a403bc4f8d1570e045d24d086d7",
+      "count": 278,
+      "unit": "assertions"
+    },
+    {
+      "gate": "replay-compatibility",
+      "status": "PASS",
+      "logSha256": "e71ea59a1aad99ace1e01c7a4dc3c3a9880727a4f9ecb7d7a50fe8264df644f0",
+      "count": 674,
+      "unit": "assertions"
+    },
+    {
+      "gate": "metadata",
+      "status": "PASS",
+      "logSha256": "37525045d110424d35b24582659f87a50abe2052ccfd312a93e65a6291468a3e",
+      "count": 173,
+      "unit": "assertions"
+    },
+    {
+      "gate": "protocol58",
+      "status": "PASS",
+      "logSha256": "9926d1c3f77057b9ae469c943bae77b0c45813f3dc8db2ceae6b905319905a9c",
+      "count": 1061,
+      "unit": "assertions"
+    },
+    {
+      "gate": "native-baseline",
+      "status": "PASS",
+      "logSha256": "0078d522f37f8549820c6def7606bce8b6700588c7319b84c61f1fc4f41afd39",
+      "count": 56,
+      "unit": "native golden trajectories"
+    },
+    {
+      "gate": "timed-shot-replay",
+      "status": "PASS",
+      "logSha256": "33b8278bdd42a70e449fc13dba898c387439e8d1245110b0678bf1158b88afcb",
+      "count": 4673,
+      "unit": "assertions"
+    },
+    {
+      "gate": "offline-character-gameplay",
+      "status": "PASS",
+      "logSha256": "2612b6e677b6ac888123208216f947fdc690cba6022c094871c2de15dd96ab7b",
+      "count": 971,
+      "unit": "assertions"
+    },
+    {
+      "gate": "architecture",
+      "status": "PASS",
+      "logSha256": "8b0ab8dcfe255a93ddcc58101bfe0681ac4e29b4d277519e0a7e5e0355903d4a"
+    },
+    {
+      "gate": "protocol17",
+      "status": "PASS",
+      "logSha256": "e8981993ba02f535e79da6702b76352a2d5e8244b38c1f3b14010f25c8cea6be"
+    },
+    {
+      "gate": "stance-network",
+      "status": "PASS",
+      "logSha256": "47581d7c526a6970ce32f2d9170bffa2af47763e9f0739abe5c5168866b0171e",
+      "count": 178,
+      "unit": "assertions"
+    }
+  ],
+  "customDefault": {
+    "status": "PASS",
+    "checks": 36962,
+    "scope": "pure contracts, no custom scene or GL qualification"
+  },
+  "partyTool": {
+    "status": "PASS",
+    "actualDllChecks": 138
+  },
+  "wallrunScene": {
+    "status": "PASS",
+    "assertions": 6149,
+    "resultSha256": "0ac97fd9fc1ebea67c5d614cd8bf45c75e2b3a01221708690c0e671d08fb230e",
+    "earnedActiveTicks": 45,
+    "firstActiveTick": 32,
+    "lastActiveTick": 76,
+    "budgetExhausted": true,
+    "gravityScale": 0.35,
+    "maximumStoredNativeGravityDifferenceDuringBudgetSpend": 0.0,
+    "storedNativeGravityComparisonScope": "45 budget-spending ticks only; ground contact and other inactive native states excluded",
+    "freshKickCount": 1,
+    "freshKickTick": 37,
+    "safeStaticLandingTick": 104,
+    "budgetAtLanding": 45,
+    "heldOriginalJumpKickCount": 0,
+    "legacyModelsWithZeroRunActivation": 4,
+    "nativeTeleportApi": {
+      "calls": 1,
+      "tick": 36,
+      "remainingAtTeleport": 42,
+      "cancelledWithoutRefill": true,
+      "scope": "same-origin native Teleport API lifecycle check; no real map trigger qualification"
+    }
+  },
+  "helperAllocation": {
+    "checks": 1102,
+    "warmupCalls": 20000,
+    "measuredCalls": 20000,
+    "warmedManagedBytes": 0,
+    "scope": "pure kick helper only"
+  },
+  "retainedActualRecordings": [
+    {
+      "kind": "clean",
+      "status": "PASS",
+      "recordingProducer": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+      "archiveSha256": "c301c0519b805cd6e10cd4790303a0f21d921d541ee826dfb7c80df891e7497d",
+      "archiveDigestCountsCheckpointAndSeekByteIdentical": true,
+      "replay": {
+        "checks": 124319,
+        "frames": 2400,
+        "recordedProtocol": 77,
+        "recordedProfileVersion": 1,
+        "snapshotPoseChecks": 6841,
+        "snapshotStanceChecks": 6841,
+        "tuckedSnapshotChecks": 951,
+        "continuedFrames": 2351,
+        "memoryCheckpointCount": 8,
+        "gameplayPresentationDigest": "FEDF463796954F8B292AC9807803DB3314C9C9925E8474BCD0E2FC5DE5536190",
+        "checkpointCount": 11,
+        "seekCount": 89
+      }
+    },
+    {
+      "kind": "faulted",
+      "status": "PASS",
+      "recordingProducer": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+      "archiveSha256": "a342438db0091b70f9e495c5251e41bd4eb9fbbe332615918e2b6abb698e7c11",
+      "archiveDigestCountsCheckpointAndSeekByteIdentical": true,
+      "replay": {
+        "checks": 126177,
+        "frames": 2404,
+        "recordedProtocol": 77,
+        "recordedProfileVersion": 1,
+        "snapshotPoseChecks": 7032,
+        "snapshotStanceChecks": 7032,
+        "tuckedSnapshotChecks": 999,
+        "continuedFrames": 2343,
+        "memoryCheckpointCount": 8,
+        "gameplayPresentationDigest": "03498EC7E4BF7AFB145E7FF2AB0729DE57664126D887F47E4E097E6165288255",
+        "checkpointCount": 11,
+        "seekCount": 114
+      }
+    },
+    {
+      "kind": "clean",
+      "status": "PASS",
+      "recordingProducer": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+      "archiveSha256": "ab8b697afefdbfd873b5a40fa83ba45b531959717fe9dffdbe82ac6ff9c4a5da",
+      "archiveDigestCountsCheckpointAndSeekByteIdentical": true,
+      "replay": {
+        "checks": 126905,
+        "frames": 2399,
+        "recordedProtocol": 78,
+        "recordedProfileVersion": 2,
+        "snapshotPoseChecks": 7197,
+        "snapshotStanceChecks": 7197,
+        "tuckedSnapshotChecks": 1068,
+        "continuedFrames": 2350,
+        "memoryCheckpointCount": 7,
+        "gameplayPresentationDigest": "A8B440187F8260EDED13EB0FEEEFF49BC7A4CDDA8EC5E99EC0EF051CBAF4F537",
+        "checkpointCount": 10,
+        "seekCount": 97
+      }
+    },
+    {
+      "kind": "faulted",
+      "status": "PASS",
+      "recordingProducer": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+      "archiveSha256": "d84a0a1e02c1ab39770f12294c312f218b8b39669daad80078658f5e7a0afed2",
+      "archiveDigestCountsCheckpointAndSeekByteIdentical": true,
+      "replay": {
+        "checks": 124201,
+        "frames": 2405,
+        "recordedProtocol": 78,
+        "recordedProfileVersion": 2,
+        "snapshotPoseChecks": 6855,
+        "snapshotStanceChecks": 6855,
+        "tuckedSnapshotChecks": 949,
+        "continuedFrames": 2341,
+        "memoryCheckpointCount": 8,
+        "gameplayPresentationDigest": "C3EAB2B9A528780113CCED8AE3A51352C0D4FB36B9FF2E6904B01F7666E47F65",
+        "checkpointCount": 11,
+        "seekCount": 85
+      }
+    }
+  ],
+  "currentProtocol79Cohorts": [
+    {
+      "kind": "clean",
+      "status": "PASS",
+      "secondsPerOwner": 40,
+      "independentOwners": 2,
+      "nativeAuthorityBots": 1,
+      "processExitCodes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "archiveSha256": "d687c2acf174a6914ed789d1072bf8b9d44583f40fbc6baa60681abba1e4511f",
+      "archiveByteIdenticalAfterReplay": true,
+      "owners": [
+        {
+          "ordinal": 0,
+          "checks": 32442,
+          "ticks": 2400,
+          "profileVersion": 3,
+          "solverSteps": 1604,
+          "inputTicks": 1439,
+          "ownerTuckedTicks": 400,
+          "ownerTuckedIntentPackets": 407,
+          "ownerCanonicalTuckedSnapshots": 378,
+          "remoteCanonicalTuckedSnapshots": 569,
+          "remoteTuckedPoseChecks": 611
+        },
+        {
+          "ordinal": 1,
+          "checks": 33351,
+          "ticks": 2400,
+          "profileVersion": 3,
+          "solverSteps": 2400,
+          "inputTicks": 1439,
+          "ownerTuckedTicks": 602,
+          "ownerTuckedIntentPackets": 611,
+          "ownerCanonicalTuckedSnapshots": 607,
+          "remoteCanonicalTuckedSnapshots": 402,
+          "remoteTuckedPoseChecks": 406
+        }
+      ],
+      "replay": {
+        "checks": 126721,
+        "frames": 2399,
+        "recordedProtocol": 79,
+        "recordedProfileVersion": 3,
+        "snapshotPoseChecks": 7197,
+        "snapshotStanceChecks": 7197,
+        "tuckedSnapshotChecks": 1018,
+        "continuedFrames": 2350,
+        "memoryCheckpointCount": 7,
+        "gameplayPresentationDigest": "D7CE744C13B2E4AA7C330ADECA76811E4B36E1932D0B3026F0BE08BFF36F9634",
+        "checkpointCount": 10,
+        "seekCount": 87
+      },
+      "authorityAdvisory": {
+        "hardRejections": 0,
+        "Evaluated": 3445,
+        "Unsupported": 294,
+        "WouldRefuse": 0
+      }
+    },
+    {
+      "kind": "faulted",
+      "status": "PASS",
+      "secondsPerOwner": 40,
+      "independentOwners": 2,
+      "nativeAuthorityBots": 1,
+      "processExitCodes": {
+        "server": 0,
+        "owner0": 0,
+        "owner1": 0
+      },
+      "archiveSha256": "a341b67aaa47b60f4357c7057927c85bf44995fe1addf08df103c39d05526451",
+      "archiveByteIdenticalAfterReplay": true,
+      "owners": [
+        {
+          "ordinal": 0,
+          "checks": 31428,
+          "ticks": 2406,
+          "profileVersion": 3,
+          "solverSteps": 1473,
+          "inputTicks": 1445,
+          "ownerTuckedTicks": 459,
+          "ownerTuckedIntentPackets": 466,
+          "ownerCanonicalTuckedSnapshots": 427,
+          "remoteCanonicalTuckedSnapshots": 569,
+          "remoteTuckedPoseChecks": 593
+        },
+        {
+          "ordinal": 1,
+          "checks": 32214,
+          "ticks": 2405,
+          "profileVersion": 3,
+          "solverSteps": 2225,
+          "inputTicks": 1444,
+          "ownerTuckedTicks": 588,
+          "ownerTuckedIntentPackets": 597,
+          "ownerCanonicalTuckedSnapshots": 573,
+          "remoteCanonicalTuckedSnapshots": 429,
+          "remoteTuckedPoseChecks": 445
+        }
+      ],
+      "replay": {
+        "checks": 124522,
+        "frames": 2405,
+        "recordedProtocol": 79,
+        "recordedProfileVersion": 3,
+        "snapshotPoseChecks": 6853,
+        "snapshotStanceChecks": 6853,
+        "tuckedSnapshotChecks": 1039,
+        "continuedFrames": 2342,
+        "memoryCheckpointCount": 8,
+        "gameplayPresentationDigest": "DA9BB9B6E10D2EFFFA1377975CCC710B1782D5E40AFE5BD776351CB55585B3BE",
+        "checkpointCount": 11,
+        "seekCount": 93
+      },
+      "authorityAdvisory": {
+        "hardRejections": 0,
+        "Evaluated": 2248,
+        "Unsupported": 199,
+        "WouldRefuse": 0
+      },
+      "appliedImpairmentVerified": [
+        {
+          "worker": "owner0",
+          "roundTripMs": 200,
+          "jitterMs": 20,
+          "lossRate": 0.02,
+          "reorderRate": 0.02,
+          "duplicateRate": 0.01,
+          "seed": 190
+        },
+        {
+          "worker": "owner1",
+          "roundTripMs": 200,
+          "jitterMs": 20,
+          "lossRate": 0.02,
+          "reorderRate": 0.02,
+          "duplicateRate": 0.01,
+          "seed": 191
+        }
+      ]
+    }
+  ],
+  "benchmark": {
+    "status": "PASS",
+    "scope": "one bounded eight-native-AI Classic verification pair and separate timing pair, fixed60Hz; unequal workload diagnostic only",
+    "comparativeAcceptanceThresholdApplied": false,
+    "noiseReruns": 0,
+    "runs": [
+      {
+        "phase": "verify",
+        "model": "Native",
+        "profileVersion": 0,
+        "status": "PASS",
+        "players": 8,
+        "warmupSteps": 1200,
+        "measuredSteps": 3600,
+        "simulationHz": 60,
+        "resultSha256": "68ad94decd2a459231bc604fe514059952f6433d4fb92cce02a7410c2be00fa1",
+        "verification": {
+          "diagnosticsEnabled": true,
+          "solverApplications": 0,
+          "positiveInputSolverTicks": 0,
+          "verifiedSnapshotBodies": 38400,
+          "allEightAliveObservedDuringWarmup": true
+        },
+        "workload": {
+          "shotsFired": 687,
+          "damageEvents": 204,
+          "publishedSnapshots": 3600,
+          "botIntentEvents": 28774,
+          "slotTotals": {
+            "AliveSteps": 24276,
+            "EligibleSteps": 0,
+            "MovingSteps": 23880,
+            "Travel": 2627.7740044937636,
+            "Deaths": 24,
+            "Respawns": 26
+          }
+        }
+      },
+      {
+        "phase": "verify",
+        "model": "Parkour",
+        "profileVersion": 3,
+        "status": "PASS",
+        "players": 8,
+        "warmupSteps": 1200,
+        "measuredSteps": 3600,
+        "simulationHz": 60,
+        "resultSha256": "851bc6adc0b29eb8f56094516398cf0b4b66df49873345424e4d1841e5a38fcf",
+        "verification": {
+          "diagnosticsEnabled": true,
+          "solverApplications": 19346,
+          "positiveInputSolverTicks": 3459,
+          "verifiedSnapshotBodies": 38400,
+          "allEightAliveObservedDuringWarmup": true
+        },
+        "workload": {
+          "shotsFired": 508,
+          "damageEvents": 210,
+          "publishedSnapshots": 3600,
+          "botIntentEvents": 28770,
+          "slotTotals": {
+            "AliveSteps": 23171,
+            "EligibleSteps": 19341,
+            "MovingSteps": 23003,
+            "Travel": 2389.3046112254815,
+            "Deaths": 32,
+            "Respawns": 30
+          }
+        }
+      },
+      {
+        "phase": "timing",
+        "model": "Native",
+        "profileVersion": 0,
+        "status": "PASS",
+        "players": 8,
+        "warmupSteps": 1200,
+        "measuredSteps": 3600,
+        "simulationHz": 60,
+        "resultSha256": "32ea68e1963f7c91a5c252c9190d43fb2d0dc47f745d52078f3d6bf514bcd320",
+        "verification": {
+          "diagnosticsEnabled": false,
+          "solverApplications": 0,
+          "positiveInputSolverTicks": 0,
+          "verifiedSnapshotBodies": 0,
+          "allEightAliveObservedDuringWarmup": true
+        },
+        "workload": {
+          "shotsFired": 687,
+          "damageEvents": 204,
+          "publishedSnapshots": 3600,
+          "botIntentEvents": 28774,
+          "slotTotals": {
+            "AliveSteps": 24276,
+            "EligibleSteps": 0,
+            "MovingSteps": 23880,
+            "Travel": 2627.7740044937636,
+            "Deaths": 24,
+            "Respawns": 26
+          }
+        },
+        "wallMilliseconds": {
+          "mean": 0.18291836111111137,
+          "p50": 0.17400000000000002,
+          "p95": 0.2651,
+          "p99": 0.3362,
+          "worst": 3.3194000000000004
+        },
+        "allocation": {
+          "simStepCurrentThreadBytes": 12465568,
+          "bytesPerStep": 3462.657777777778,
+          "bytesPerAlivePlayerStep": 513.4934915142528,
+          "processAllocationBytes": 12465856
+        }
+      },
+      {
+        "phase": "timing",
+        "model": "Parkour",
+        "profileVersion": 3,
+        "status": "PASS",
+        "players": 8,
+        "warmupSteps": 1200,
+        "measuredSteps": 3600,
+        "simulationHz": 60,
+        "resultSha256": "a74613f5dea29d2d35ec03d8dcd6a880dc8bcd26f7357557f577529e1cffc015",
+        "verification": {
+          "diagnosticsEnabled": false,
+          "solverApplications": 0,
+          "positiveInputSolverTicks": 0,
+          "verifiedSnapshotBodies": 0,
+          "allEightAliveObservedDuringWarmup": true
+        },
+        "workload": {
+          "shotsFired": 508,
+          "damageEvents": 210,
+          "publishedSnapshots": 3600,
+          "botIntentEvents": 28770,
+          "slotTotals": {
+            "AliveSteps": 23171,
+            "EligibleSteps": 19341,
+            "MovingSteps": 23003,
+            "Travel": 2389.3046112254815,
+            "Deaths": 32,
+            "Respawns": 30
+          }
+        },
+        "wallMilliseconds": {
+          "mean": 0.18726655555555585,
+          "p50": 0.1748,
+          "p95": 0.2564,
+          "p99": 0.3663,
+          "worst": 12.026
+        },
+        "allocation": {
+          "simStepCurrentThreadBytes": 12596088,
+          "bytesPerStep": 3498.9133333333334,
+          "bytesPerAlivePlayerStep": 543.6143455181045,
+          "processAllocationBytes": 12596376
+        }
+      }
+    ],
+    "limitations": [
+      "Models produce different survival, travel, eligible steps and combat work; timings are not equal-work comparisons",
+      "Verification instrumentation is excluded from timing values",
+      "No overall performance improvement or hardware-independent guarantee inferred"
+    ]
+  },
+  "finalReadback": {
+    "status": "PASS",
+    "ownedRuntimeProcessCount": 0,
+    "ownedScheduledTasksCreated": 0,
+    "sourceBinaryLeaseUnchanged": true,
+    "customCoreDependenciesUnchanged": true,
+    "producer07FullSourceAndBinariesUnchanged": true,
+    "retainedFourArchivesByteIdentical": true,
+    "archiveSeedsByteIdentical": true,
+    "freeBytes": 166937505792,
+    "cleanupDeletesPerformed": false,
+    "newCohortsRun": true,
+    "benchmarkRun": true,
+    "glRun": false
+  },
+  "evidence": {
+    "zipSha256": "cd037d76b0efffa1865167e1ebf0af292a32b3444a048de1969d8fe7e2a064cb",
+    "zipBytes": 2827639,
+    "rootEvidenceFiles": 81,
+    "copiedLocallyHashVerified": true
+  },
+  "scopeLimitations": [
+    "CPU authored static-wall scenes plus headless network/replay qualification only; no GL, physical-device, acoustic or perceived-smoothness acceptance",
+    "Fresh network cohorts prove canonical79/profile3 transport and replay; specific wall contact/kick proof is the authored scene",
+    "No historical batch repeated beyond retained real77/v1 and78/v2 archive pairs and protocol58 compatibility fixtures",
+    "No Mac build, game or UI execution; no mantle or grapple work"
+  ]
+}

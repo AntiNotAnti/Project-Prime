@@ -13,13 +13,15 @@ internal enum KillCamKind { None, Personal, Final }
 /// this adapter reads live lifecycle and routes presentation/input at the boundary.</summary>
 internal static class KillCam
 {
-    private static readonly KillcamController Controller = new(ReplayCapture.Recorder.Timeline);
+    private static readonly KillcamController Controller = new(ReplayCapture.Recorder.Timeline,
+        acceptedDeaths: () => NetSession.SemanticReceived.Events, sourceProtocolVersion: NetConfig.ProtocolVersion);
     private static Scene? _live;
     private static int _skipRequested;
     private static bool _releaseFire;
     private static bool _finalRequested;
     private static uint _finalRequestedFrame;
     private static uint _finalRequestedAt;
+    private static uint? _finalIdentityWaitStarted;
     public static bool Active => Controller.Active;
     public static bool IsPersonal => Controller.Kind == KillCamKind.Personal;
     public static bool IsFinal => Controller.Kind == KillCamKind.Final;
@@ -28,7 +30,7 @@ internal static class KillCam
     internal static KillcamState State => Controller.State;
     internal static KillcamEndReason EndReason => Controller.EndReason;
     internal static string? LastError => Controller.LastError;
-    internal static string Diagnostics => $"{Controller.State}/{Controller.EndReason} Â· requested-end-frame={_finalRequestedFrame} Â· current-net-frame={NetSession.NetFrame} Â· candidate-kill-frame={Controller.Candidate?.Kill?.ServerTick ?? 0} Â· mapped-recording-frame={Controller.CandidateFrame} Â· authority-end-cause={Controller.AuthorityEndCause} Â· {Controller.StartupMilliseconds:0.0} ms Â· {Controller.ClipBytes / 1024d:0} KiB";
+    internal static string Diagnostics => $"{Controller.State}/{Controller.EndReason} · identity={Controller.IdentityResolution} · requested-end-frame={_finalRequestedFrame} · current-net-frame={NetSession.NetFrame} · candidate-kill-frame={Controller.Candidate?.Kill?.ServerTick ?? 0} · mapped-recording-frame={Controller.CandidateFrame} · authority-end-cause={Controller.AuthorityEndCause} · {Controller.StartupMilliseconds:0.0} ms · {Controller.ClipBytes / 1024d:0} KiB";
 
     private static KillcamContext Context(Scene? scene)
     {
@@ -53,7 +55,7 @@ internal static class KillCam
 
     internal static void AfterSimulation(Scene scene)
     {
-        if (CustomReplayBoundary.IsBlocked(scene)) { Reset(); return; }
+        if (CustomReplayBoundary.IsBlocked(scene)) { ResetUnsupported(); return; }
         _live = scene;
         if (Interlocked.Exchange(ref _skipRequested, 0) != 0) { Controller.Skip(); _releaseFire = true; }
         if (_finalRequested && scene.GameState.MatchTime <= 0)
@@ -63,15 +65,14 @@ internal static class KillCam
             bool matching = world != null && world.MatchId == context.MatchId && world.Epoch == context.Epoch;
             if (matching && world!.EndCause != ReplayEndCause.None)
             {
-                _finalRequested = false;
                 bool causal = world.EndCause == ReplayEndCause.Kill
                     && KillcamController.SameKillIdentity(world.EndingKill, Controller.Candidate?.Kill);
-                Controller.BeginFinal(scene, context, _finalRequestedFrame, world.EndCause == ReplayEndCause.Time, causal);
+                _finalRequested = !CompleteFinalRequest(Controller, scene, context, _finalRequestedFrame,
+                    world.EndCause == ReplayEndCause.Time, causal, ref _finalIdentityWaitStarted);
             }
             else if (NetSession.NetFrame >= _finalRequestedAt
                 && NetSession.NetFrame - _finalRequestedAt >= 30)
             {
-                _finalRequested = false;
                 // Older protocol-16 servers have no world extension. Keep their
                 // bounded terminal-clock fallback; new authorities must identify
                 // the cause explicitly instead of selecting an unrelated kill.
@@ -90,9 +91,10 @@ internal static class KillCam
                             || game.Mode is GameMode.Battle or GameMode.BattleTeams
                                 && game.TeamPoints[team] >= game.PointGoal);
                     }
-                    Controller.BeginFinal(scene, context, _finalRequestedFrame,
-                        !causal && NetSession.ServerMatch is { TimeRemaining: <= 3.1f }, causal);
+                    _finalRequested = !CompleteFinalRequest(Controller, scene, context, _finalRequestedFrame,
+                        !causal && NetSession.ServerMatch is { TimeRemaining: <= 3.1f }, causal, ref _finalIdentityWaitStarted);
                 }
+                else { _finalRequested = false; _finalIdentityWaitStarted = null; }
             }
         }
         Controller.Update(scene, Context(scene) with { PersonalEnabled = Context(scene).PersonalEnabled && !_finalRequested
@@ -100,15 +102,32 @@ internal static class KillCam
     }
     internal static bool FinalPresentationPending => _finalRequested
         || IsFinal && Controller.State != KillcamState.AwaitCompletion;
+    // The native winner camera runs before the first eligible final attempt.
+    // Only a proof-specific failure starts this bounded identity wait; its clock
+    // is separate from the original authority-world fallback request clock.
+    internal static bool CompleteFinalRequest(KillcamController controller, Scene scene, KillcamContext context,
+        uint endFrame, bool timedEnd, bool causalEnd, ref uint? identityWaitStarted)
+    {
+        if (identityWaitStarted is uint started && unchecked(context.Frame - started) > 30)
+        { controller.Stop(KillcamEndReason.Unavailable); identityWaitStarted = null; return true; }
+        if (controller.BeginFinal(scene, context, endFrame, timedEnd, causalEnd, out bool missingProof))
+        { identityWaitStarted = null; return true; }
+        if (!missingProof) { identityWaitStarted = null; return true; }
+        identityWaitStarted ??= context.Frame;
+        if (unchecked(context.Frame - identityWaitStarted.Value) < 30) return false;
+        identityWaitStarted = null; return true;
+    }
     internal static bool BeginFinal(uint authoritativeEndFrame)
     {
         _finalRequested = !CustomReplayBoundary.IsBlocked() && NetSession.Active && LauncherPrefs.KillCamEnabled && LauncherPrefs.FinalKillCamEnabled;
         _finalRequestedFrame = authoritativeEndFrame;
+        _finalIdentityWaitStarted = null;
         _finalRequestedAt = NetSession.NetFrame; Controller.CancelPersonal(); return false;
     }
     internal static void EndFinal()
     {
         _finalRequested = false;
+        _finalIdentityWaitStarted = null;
         if (IsFinal) Controller.Stop(KillcamEndReason.Completed);
     }
     internal static void FilterInput(Scene scene)
@@ -136,7 +155,7 @@ internal static class KillCam
     }
     internal static Scene? Presentation(Scene live)
     {
-        if (CustomReplayBoundary.IsBlocked(live)) { Reset(); return null; }
+        if (CustomReplayBoundary.IsBlocked(live)) { ResetUnsupported(); return null; }
         if (live.Services.IsReplica || !ReferenceEquals(live, _live)) return null;
         if (!NetSession.Active) { Controller.Reset(KillcamEndReason.Disconnected); return null; }
         if (Controller.Playing?.Kill is { } kill && (kill.MatchId != NetSession.CurrentMatchId || kill.AuthorityEpoch != NetSession.AuthorityEpoch))
@@ -149,9 +168,13 @@ internal static class KillCam
     internal static bool IsRecentFinalKill(uint kill, uint end) => KillcamController.FinalEligible(kill, end, timedEnd: true, causalEnd: false);
     internal static string WeaponName(int value) => value is >= sbyte.MinValue and <= sbyte.MaxValue
         && Enum.IsDefined(typeof(BeamType), (sbyte)value) ? ((BeamType)value).ToString().ToUpperInvariant() : "";
+    // An unavailable replay retires history without consuming gameplay input.
+    // Re-arming the replay-skip latch every live step would swallow every shot.
+    private static void ResetUnsupported()
+    { Reset(); _releaseFire = false; }
     internal static void Reset()
     {
-        Controller.Reset(KillcamEndReason.SceneClosed); _live = null; _finalRequested = false;
+        Controller.Reset(KillcamEndReason.SceneClosed); _live = null; _finalRequested = false; _finalIdentityWaitStarted = null;
         _releaseFire = true; Interlocked.Exchange(ref _skipRequested, 0);
     }
 }

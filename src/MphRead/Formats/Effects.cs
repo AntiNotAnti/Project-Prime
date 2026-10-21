@@ -79,7 +79,7 @@ namespace MphRead.Effects
             uvsAndVerts[5] = Vertex2;
             uvsAndVerts[6] = new Vector3(Texcoord3);
             uvsAndVerts[7] = Vertex3;
-            Model model = scene.OwnModel(ParticleDefinition.Model);
+            Model model = scene.OwnSingleParticleDrawModel(ParticleDefinition.Model);
             Material material = model.Materials[ParticleDefinition.MaterialId];
             // should already be bound
             int bindingId = scene.BindGetTexture(model, material.TextureId, material.PaletteId, 0);
@@ -597,6 +597,9 @@ namespace MphRead.Effects
         internal Matrix4? DrawTransformOverride { get; set; }
         // World-attached overrides retain the existing world projection.
         internal bool DrawTransformUsesViewModel { get; set; }
+        // Private replay visibility is chosen per picture without modifying
+        // the recorded element flags that subsequent simulation consumes.
+        internal bool? DrawEnabledOverride { get; set; }
 
         public bool IsFinished
         {
@@ -925,7 +928,7 @@ namespace MphRead.Effects
         private bool _drawPoseActive;
         private bool _canonicalDrawPass;
         private ParticleDrawCache _canonicalDrawCache;
-        private readonly record struct ParticleDrawCache(Vector3 Vec1, Vector3 Vec2, Vector3 Vec3,
+        internal readonly record struct ParticleDrawCache(Vector3 Vec1, Vector3 Vec2, Vector3 Vec3,
             bool Visible, Vector3 Color, Vector2 Uv0, Vector3 V0, Vector2 Uv1, Vector3 V1,
             Vector2 Uv2, Vector3 V2, Vector2 Uv3, Vector3 V3, bool Node, BillboardMode Billboard, Matrix4 Transform);
         private Mods.Render.ParticleDrawPose CanonicalDrawPose => new(Position, Speed,
@@ -950,9 +953,7 @@ namespace MphRead.Effects
                 : CanonicalDrawPose;
             _drawPoseActive = _drawPose != CanonicalDrawPose || Owner.PresentationTransform != Owner.Transform;
             if (_drawPoseActive)
-                _canonicalDrawCache = new(EffectVec1, EffectVec2, EffectVec3, ShouldDraw, Color,
-                    Texcoord0, Vertex0, Texcoord1, Vertex1, Texcoord2, Vertex2, Texcoord3, Vertex3,
-                    DrawNode, BillboardMode, NodeTransform);
+                _canonicalDrawCache = ModCaptureDrawCache();
             return _drawPoseActive;
         }
         internal void ModFinishDraw()
@@ -963,7 +964,13 @@ namespace MphRead.Effects
             // Packets own their sampled geometry. The existing archive slots
             // keep the exact current-state geometry computed before this scope,
             // including fields a nondrawing canonical pose does not overwrite.
-            var cache = _canonicalDrawCache;
+            ModRestoreDrawCache(_canonicalDrawCache);
+        }
+        internal ParticleDrawCache ModCaptureDrawCache() => new(EffectVec1, EffectVec2, EffectVec3, ShouldDraw, Color,
+            Texcoord0, Vertex0, Texcoord1, Vertex1, Texcoord2, Vertex2, Texcoord3, Vertex3,
+            DrawNode, BillboardMode, NodeTransform);
+        internal void ModRestoreDrawCache(in ParticleDrawCache cache)
+        {
             EffectVec1 = cache.Vec1; EffectVec2 = cache.Vec2; EffectVec3 = cache.Vec3;
             ShouldDraw = cache.Visible; Color = cache.Color;
             Texcoord0 = cache.Uv0; Vertex0 = cache.V0;
@@ -1473,8 +1480,12 @@ namespace MphRead.Effects
             (SetVecsId, DrawId) = GetFuncIds(Owner.Flags, Owner.DrawType);
         }
 
-        public void AddRenderItem(Scene scene)
+        public void AddRenderItem(Scene scene, Vector3? presentationTint = null)
         {
+            // SecondHunt 41452f2 (MIT): retain the native sampled brightness
+            // and alpha while replacing hue. Only submitted packets change.
+            Vector3 color = presentationTint is Vector3 tint
+                ? tint * MathF.Max(Color.X, MathF.Max(Color.Y, Color.Z)) : Color;
             if (DrawNode)
             {
                 Model model = Owner.Model;
@@ -1493,18 +1504,25 @@ namespace MphRead.Effects
                 bool sampled = _drawPoseActive && _drawPose != CanonicalDrawPose;
                 Vector3 canonicalDiffuse = material.CurrentDiffuse;
                 float canonicalAlpha = material.CurrentAlpha;
-                Debug.Assert(model.NodeMatrixIds.Count == 0);
-                if (!sampled || _canonicalDrawCache.Visible)
-                {
-                    material.CurrentDiffuse = new Vector3(Red, Green, Blue);
-                    material.CurrentAlpha = Alpha;
-                    scene.UpdateMaterials(model, 0);
-                    canonicalDiffuse = material.CurrentDiffuse;
-                    canonicalAlpha = material.CurrentAlpha;
-                }
                 RenderMode canonicalMode = material.RenderMode;
+                Debug.Assert(model.NodeMatrixIds.Count == 0);
                 try
                 {
+                    if (!sampled || _canonicalDrawCache.Visible)
+                    {
+                        material.CurrentDiffuse = new Vector3(Red, Green, Blue);
+                        material.CurrentAlpha = Alpha;
+                        scene.UpdateMaterials(model, 0);
+                        // Live rendering retains its existing canonical surface.
+                        // A private replica must return the shared effect model
+                        // to its pre-picture values even for an unsampled draw.
+                        if (!scene.Services.IsReplica)
+                        {
+                            canonicalDiffuse = material.CurrentDiffuse;
+                            canonicalAlpha = material.CurrentAlpha;
+                            canonicalMode = material.RenderMode;
+                        }
+                    }
                     if (sampled)
                     {
                         material.CurrentDiffuse = Color;
@@ -1512,11 +1530,12 @@ namespace MphRead.Effects
                         scene.UpdateMaterials(model, 0);
                     }
                     scene.AddRenderItem(material, scene.GetNextPolygonId(), 1, Vector3.Zero, LightInfo.Zero, texcoordMtx,
-                        transform, mesh.ListId, 0, Array.Empty<float>(), null, null, SelectionType.None, BillboardMode);
+                        transform, mesh.ListId, 0, Array.Empty<float>(), null, null, SelectionType.None, BillboardMode,
+                        diffuseOverride: presentationTint.HasValue ? color : null);
                 }
                 finally
                 {
-                    if (sampled)
+                    if (sampled || scene.Services.IsReplica)
                     {
                         material.CurrentDiffuse = canonicalDiffuse;
                         material.CurrentAlpha = canonicalAlpha;
@@ -1571,7 +1590,7 @@ namespace MphRead.Effects
                 {
                     transform = Matrix4.CreateTranslation(DrawPosition);
                 }
-                scene.AddRenderItem(RenderItemType.Particle, DrawAlpha, scene.GetNextPolygonId(), Color, xRepeat, yRepeat,
+                scene.AddRenderItem(RenderItemType.Particle, DrawAlpha, scene.GetNextPolygonId(), color, xRepeat, yRepeat,
                     scaleS, scaleT, transform, uvsAndVerts, bindingId, BillboardMode);
             }
         }

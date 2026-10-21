@@ -109,7 +109,8 @@ public sealed partial class DedicatedServer
             || !entry.Combat.Admit(now) || !CustomCanReceiveAction(scene,entry.Combat)
             || !CustomPrivateAction.TryRead(packet.Payload,out var envelope) || envelope.Action.Slot!=peer.SlotIndex
             || envelope.Action.Bootstrap!=peer.BootstrapIdentity || envelope.Action.Manifest!=entry.State.Wire.Manifest.Digest
-            || envelope.Action.Weapon.Value!=10 || !NetPlayerLifecycle.Matches(envelope.Action.Slot,envelope.Action.Owner.Generation,envelope.Action.Life)
+            || envelope.Action.Weapon.Value!=10 || envelope.Action.Optic>entry.State.Wire.Definition.Mechanics.OpticMagnificationsMilli.Count
+            || !NetPlayerLifecycle.Matches(envelope.Action.Slot,envelope.Action.Owner.Generation,envelope.Action.Life)
             || !entry.Combat.AcceptsMode(envelope.Action.Owner,1)) return;
         var action=envelope.Action;
         var offered=entry.Combat.Outbox.Reserve(action,envelope.Knowledge,now);

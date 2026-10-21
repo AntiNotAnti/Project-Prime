@@ -28,9 +28,27 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "--killcam-identity") return KillcamIdentityTests.Run();
+            if (args.Length > 0 && args[0] == "--recorded-killcam")
+            {
+                if (args.Length != 5 || !byte.TryParse(args[3], out byte victim) || victim >= 8)
+                {
+                    Console.Error.WriteLine("Usage: --recorded-killcam <asset profile> <recording> <victim slot 0..7> <json>");
+                    return 1;
+                }
+                string profile = System.IO.Path.GetFullPath(args[1]);
+                string recording = System.IO.Path.GetFullPath(args[2]);
+                string output = System.IO.Path.GetFullPath(args[4]);
+                System.IO.Directory.SetCurrentDirectory(profile);
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return RecordedKillcamTests.Run(recording, victim, output);
+            }
             if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
             {
                 Console.WriteLine("Usage: nettest [host] [port]\n"
+                    + "  --killcam-identity                 Test exact accepted death-life attribution and bounded startup gates.\n"
+                    + "  --recorded-killcam <profile> <recording> <victim> <json> Diagnose actual marker clip fidelity and lifecycle fences.\n"
+                    + "  --prediction-health-projection    Test bounded snapshot/prediction overlap without settlement.\n"
                     + "  --ncx-timeline off|on              Test bounded opt-in shot timeline and clock identity.\n"
                     + "  --ncx-visibility                  Test exact pixel differences and restoration controls.\n"
                     + "  --ncx-hit-oracle                  Test frozen independent native contact inputs.\n"
@@ -79,6 +97,7 @@ namespace MphRead.NetTest
                     + "  --party-join-ownership            Test actual content-free client lifecycle and stale candidate cleanup.\n"
                     + "  --android-local-cycle-integration Test actual content-free scene retirement and foreground release.\n"
                     + "  --match-rotations                 Test consecutive server generations and stale/reordered round packets.\n"
+                    + "  --career-spectator                 Test spectator-only career exclusion and role transitions.\n"
                     + "  --display-pose-integration        Test display pose isolation across lifecycle discontinuities.\n"
                     + "  --particle-presentation           Test read-only fractional particle geometry and continuity.\n"
                     + "  --beam-presentation               Test read-only beam head, trail and model-pose coherence.\n"
@@ -129,8 +148,15 @@ namespace MphRead.NetTest
                     + "  --ground-slope-rules               Test surface speed, qualified clipping and bounded slope force.\n"
                     + "  --ground-slope-scene <assets> [json] Test earned ramps, slopes, slides and native controls.\n"
                     + "  --parkour-tuck-scene <assets> [json] Test native input, tuck clearance and landing.\n"
+                    + "  --parkour-grapple-rules            Test radial force invariants and fixed bounds.\n"
+                    + "  --parkour-grapple-wire             Test accepted state, input and historical widths.\n"
+                    + "  --parkour-grapple-scene <assets> [json] Test native anchors, release and ability priority.\n"
+                    + "  --parkour-wallstrafe-scene <assets> [json] Test actual static-wall input and bounded gain.\n"
+                    + "  --parkour-wallstrafe-rules        Test bounded wall-tangent acceleration.\n"
+                    + "  --parkour-wallrun-scene <assets> [json] Test earned wallrun, kick and landing budget.\n"
+                    + "  --parkour-wallrun-rules          Test wallkick impulse and fixed profile limits.\n"
                     + "  --parkour-stance-rules             Test Parkour tuck eligibility and shape.\n"
-                    + "  --parkour-compatibility            Test Parkour v1 rules and archive protocol boundaries.\n"
+                    + "  --parkour-compatibility            Test Parkour rules and archive protocol boundaries.\n"
                     + "  --traversal-rules                  Test five-mode selection, stronger air control and ramp math.\n"
                     + "  --quake3-rules                     Test five-mode authoritative rules and protocol60 admission.\n"
                     + "  --quake3-replay-compatibility      Test historical replay widths and movement identity.\n"
@@ -188,6 +214,10 @@ namespace MphRead.NetTest
             }
             if (args.Length == 1 && args[0] == "--offline-character-gameplay")
                 return OfflineCharacterGameplayTests.Run();
+            if (args.Length == 1 && args[0] == "--arsenal-body-presentation")
+                return ArsenalBodyPresentationTests.Run();
+            if (args.Length == 1 && args[0] == "--arsenal-drone-presentation")
+                return ArsenalDronePresentationTests.Run();
             if (args.Length == 1 && args[0] == "--scout-drone-laser-geometry") return ScoutDroneLaserGeometryTests.Run();
             if (args.Length > 0 && args[0] == "--scout-drone-gl")
             {
@@ -490,6 +520,7 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return ContinuousCombatTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 0 && args[0] == "--prediction-health-projection") return PredictionHealthProjectionTests.Run();
             if (args.Length > 0 && args[0] == "--combat-reconciliation") return CombatReconciliationTests.Run();
             if (args.Length > 0 && args[0] == "--self-prediction") return SelfPredictionTests.Run();
             if (args.Length > 1 && args[0] == "--bomb-scene")
@@ -550,6 +581,9 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return Q3TraversalSceneTests.Run(args.Length > 2 ? args[2] : "MP3 PROVING GROUND");
             }
+            if (args.Length > 0 && args[0] == "--parkour-animation-wire") return ParkourAnimationWireTests.Run();
+            if (args.Contains("--parkour-wall-animation-wire")) return ParkourWallAnimationWireTests.Run();
+
             if (args.Length > 0 && args[0] == "--movement-telemetry-hud") return MovementTelemetryHudTests.Run();
             if (args.Length > 1 && args[0] == "--traversal-self-splash")
             {
@@ -572,6 +606,91 @@ namespace MphRead.NetTest
                 return TraversalStanceNetworkTests.RunScene(output);
             }
             if (args.Length > 0 && args[0] == "--traversal-stance-rules") return TraversalStanceTests.Run();
+            if (args.Length > 0 && args[0] == "--parkour-grapple-rules") return ParkourGrappleTests.Run();
+            if (args.Length > 0 && args[0] == "--parkour-grapple-wire") return ParkourGrappleWireTests.Run();
+            if (args.Length > 1 && args[0] == "--parkour-grapple-authority")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-grapple-authority";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourGrappleAuthoritySceneTests.Run(output);
+            }
+            if (args.Length > 1 && args[0] == "--parkour-animation-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-animation";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourAnimationSceneTests.Run(output);
+            }
+            if (args.Length > 1 && args[0] == "--parkour-wall-animation-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-wall-animation";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourWallAnimationSceneTests.Run(output);
+            }
+            if (args.Length > 1 && args[0] == "--parkour-grapple-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-grapple";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourGrappleSceneTests.Run(output);
+            }
+            if (args.Length > 0 && args[0] == "--parkour-mantle-rules") return ParkourMantleTests.Run();
+            if (args.Length > 1 && args[0] == "--parkour-mantle-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-mantle";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourMantleSceneTests.Run(output);
+            }
+            if (args.Length > 1 && args[0] == "--parkour-wallrun-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-wallrun";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourWallrunSceneTests.Run(output);
+            }
+            if (args.Length > 1 && args[0] == "--parkour-wallstrafe-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-wallstrafe";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourWallstrafeSceneTests.Run(output);
+            }
             if (args.Length > 1 && args[0] == "--parkour-tuck-scene")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
@@ -621,6 +740,8 @@ namespace MphRead.NetTest
                 Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
                 return GroundSlopeSceneTests.Run(output);
             }
+            if (args.Length > 0 && args[0] == "--parkour-wallrun-rules") return ParkourWallrunTests.Run(args.Length > 1 ? args[1] : null);
+            if (args.Length > 0 && args[0] == "--parkour-wallstrafe-rules") return ParkourWallstrafeTests.Run();
             if (args.Length > 0 && args[0] == "--parkour-stance-rules") return ParkourStanceTests.Run();
             if (args.Length > 0 && args[0] == "--parkour-compatibility") return ParkourCompatibilityTests.Run();
             if (args.Length > 0 && args[0] == "--traversal-rules") return TraversalRulesTests.Run();
@@ -1066,6 +1187,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--party-join-ownership") return PartyJoinOwnershipTests.Run();
             if (args.Length > 0 && args[0] == "--android-local-cycle-integration") return AndroidLocalSceneIntegrationTests.Run();
             if (args.Length > 0 && args[0] == "--match-rotations") return MatchRotationTests.Run();
+            if (args.Length > 0 && args[0] == "--career-spectator") return CareerSpectatorTests.Run();
             if (args.Length > 0 && args[0] == "--display-pose-integration") return DisplayPoseIntegrationTests.Run();
             if (args.Length > 0 && args[0] == "--lobby-community-selection") { NetLobbyTest.CustomMapDownloadScenario(lobbySelectionOnly: true); return 0; }
             if (args.Length > 0 && args[0] == "--custom-map-download") { NetLobbyTest.CustomMapDownloadScenario(); return 0; }

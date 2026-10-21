@@ -145,7 +145,9 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
         HunterBeamNext = 278, HunterBeamColorNext = 279,
         HunterBeamSelect = 280, HunterBeamColorSelect = 281,
         HunterSkinSelect = 282, HunterArmorSelect = 283, HunterDeathSelect = 284,
-        HunterCosmeticCategory = 285
+        HunterCosmeticCategory = 285,
+        HunterBodySelect = 286,
+        HunterDroneSelect = 287
     }
 
     public enum RmlUiRouteArgument
@@ -345,6 +347,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.LobbyRulesToggle => argument is >= 0 and < LobbyRuleChoiceCount,
             RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext => argument is >= 0 and < 8,
             RmlUiIntentKind.HunterSelect => argument is >= 0 and < 7,
+            RmlUiIntentKind.HunterBodySelect => argument is >= 0 and < 7,
+            RmlUiIntentKind.HunterDroneSelect => argument is >= 0 and < 3,
             RmlUiIntentKind.HunterBeamSelect => argument is >= 0 and < 9,
             RmlUiIntentKind.HunterBeamColorSelect => argument is >= 0 and < 9,
             RmlUiIntentKind.HunterSkinSelect => argument is >= 0 and < 7,
@@ -429,6 +433,10 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.HunterBeamColorSelect, argument, document, sequence);
             else if (TryIndex(action, "hunter:skin-select:", 7, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterSkinSelect, argument, document, sequence);
+            else if (TryIndex(action, "hunter:body-select:", 7, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.HunterBodySelect, argument, document, sequence);
+            else if (TryIndex(action, "hunter:drone-select:", 3, out argument) && argument >= 0)
+                intent = new(RmlUiIntentKind.HunterDroneSelect, argument, document, sequence);
             else if (TryIndex(action, "hunter:armor-select:", 21, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterArmorSelect, argument, document, sequence);
             else if (TryIndex(action, "hunter:death-select:", 8, out argument) && argument >= 0)
@@ -559,6 +567,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 RmlUiIntentKind.HunterBeamSelect => "hunter:beam-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterBeamColorSelect => "hunter:beam-color-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterSkinSelect => "hunter:skin-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.HunterBodySelect => "hunter:body-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
+                RmlUiIntentKind.HunterDroneSelect => "hunter:drone-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterArmorSelect => "hunter:armor-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterDeathSelect => "hunter:death-select:" + intent.Argument.ToString(CultureInfo.InvariantCulture),
                 RmlUiIntentKind.HunterCosmeticCategory => "hunter:category:" + intent.Argument.ToString(CultureInfo.InvariantCulture),

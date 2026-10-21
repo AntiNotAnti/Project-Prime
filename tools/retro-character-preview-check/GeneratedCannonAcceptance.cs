@@ -53,6 +53,10 @@ internal static class GeneratedCannonAcceptance
             && first.Indices.SequenceEqual(new uint[] { 2, 0, 1 }), "returned source-ID groups and index subsets detach from later caller mutations");
         Frames(); Failures();
         Console.WriteLine($"PASS: generated cannon source IDs, descendant cut and fixed frame ({_checks} checks)");
+        int normalChecks = _checks; Trooper();
+        Console.WriteLine($"PASS: Trooper full35 source cut, local palettes and fixed frame ({_checks - normalChecks} checks)");
+        int beforeFinal = _checks; FinalTrim();
+        Console.WriteLine($"PASS: Final rawUV whole-triangle trim ({_checks - beforeFinal} checks)");
     }
 
     private static void Frames()
@@ -107,13 +111,111 @@ internal static class GeneratedCannonAcceptance
         Throws<InvalidDataException>(() => Fixture(cycle: true), "malformed ancestry rejected by actual rig reader");
     }
 
-    private static CharacterWeightedModelData Fixture(bool reordered = false, bool tipOutside = false, bool wrongElbow = false, bool cycle = false)
+    private static void Trooper()
+    {
+        var source = Fixture(trooper: true); var reordered = Fixture(reordered: true, trooper: true);
+        string original = Fingerprint(source), otherOriginal = Fingerprint(reordered);
+        Check(source.Joints.Count == 35 && source.SourceRig!.Nodes.Count == 36 && reordered.Joints.Count == 35,
+            "Trooper kernel fixture keeps all35 joints and an independent mesh node");
+        Check(source.Primitives.All(p => p.JointPalette!.Any(j => j >= 32)),
+            "physical palettes map5bit local slots to full joint ordinals beyond31");
+        var cut = CharacterSourceCannonRecipe.SelectGeneratedCut(source, 23);
+        var recut = CharacterSourceCannonRecipe.SelectGeneratedCut(reordered, 23);
+        Check(cut.Selected[2].SequenceEqual(new[] { 44 }) && cut.Selected[5].SequenceEqual(new[] { 7, 1200 })
+            && cut.Selected.Sum(a => a.Length) == 3 && cut.Selected.Zip(recut.Selected).All(p => p.First.SequenceEqual(p.Second)),
+            "Trooper named23 elbow selects literal whole IDs independent of physical batch, full joint and node ordering");
+        Check(cut.Primitives.Sum(p => p.Indices.Length) == 9 && !cut.Selected.SelectMany(a => a).Contains(404)
+            && !cut.Selected.SelectMany(a => a).Contains(901),
+            "Trooper any-positive influence still requires all3 corners and rejects zero-only descendant weight");
+        foreach (var p in cut.Primitives)
+        {
+            var raw = source.Primitives.Single(q => p.SourceTriangleIds!.All(id => q.SourceTriangleIds!.Contains(id)));
+            Check(ReferenceEquals(raw.Vertices, p.Vertices) && ReferenceEquals(raw.JointPalette, p.JointPalette)
+                && raw.SourcePrimitiveOrdinal == p.SourcePrimitiveOrdinal && raw.SourceMaterialOrdinal == p.SourceMaterialOrdinal,
+                "Trooper cut changes only complete index and sourceID subsets, preserving attributes and physical palettes");
+        }
+        M basis = CharacterSourceCannonRecipe.GeneratedBasis(source, source.SourceRig!.Nodes.Select(n => n.Local).ToArray(), 23, 34, "R_gun_LCTR");
+        M reorderedBasis = CharacterSourceCannonRecipe.GeneratedBasis(reordered, reordered.SourceRig!.Nodes.Select(n => n.Local).ToArray(), 23, 34, "R_gun_LCTR");
+        Check(basis == M.CreateTranslation(-1, -2, -5) && basis == reorderedBasis,
+            "Trooper locator34 frame uses full inversebind hierarchy and has independent literal muzzle oracle");
+        Check(Fingerprint(source) == original && Fingerprint(reordered) == otherOriginal,
+            "Trooper selection and basis leave both complete source fixtures unchanged");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(source), "Trooper never borrows default Echoes elbow24");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, source.SourceRig.Nodes.Select(n => n.Local).ToArray()), "Trooper never borrows default Echoes locators");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(source, -1), "negative named elbow ID");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, source.SourceRig.Nodes.Select(n => n.Local).ToArray(), 23, 34), "same locatorID wrong source name");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, source.SourceRig.Nodes.Select(n => n.Local).ToArray(), 23, 33, "R_gun_LCTR"), "same source name wrong locatorID");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(Fixture(trooper: true, wrongElbow: true), 23), "Trooper wrong elbow sourceID");
+        var outside = Fixture(trooper: true, tipOutside: true);
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(outside, outside.SourceRig!.Nodes.Select(n => n.Local).ToArray(), 23, 34, "R_gun_LCTR"), "Trooper tip must descend from elbow23");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, new M[35], 23, 34, "R_gun_LCTR"), "full35 joints still require all36 local node matrices");
+        var badParts = source.Primitives.ToArray(); badParts[0] = badParts[0] with { JointPalette = new[] { 35, 0, 1, 2 } };
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(source with { Primitives = badParts }, 23), "local palette cannot escape full35 joints");
+    }
+
+    private static void FinalTrim()
+    {
+        Check(CharacterSourceCannonRecipe.FinalTrimUv(.489f, .764f)
+            && !CharacterSourceCannonRecipe.FinalTrimUv(.489f, 1 - .764f), "Final selector uses original rawV, never the rendered copiedV flip");
+        foreach (var uv in new[] { new UV(.49099997f,.764f), new UV(.48700002f,.764f), new UV(.489f,.76599997f), new UV(.489f,.7620001f) })
+            Check(CharacterSourceCannonRecipe.FinalTrimUv(uv.X, uv.Y), "nearest interior floating sourceUV remains inside the strict trim box");
+        foreach (var uv in new[] { new UV(.49100003f,.764f), new UV(.48699996f,.764f), new UV(.489f,.76600003f), new UV(.489f,.76199996f), new UV(float.NaN,.764f), new UV(.489f,float.PositiveInfinity) })
+            Check(!CharacterSourceCannonRecipe.FinalTrimUv(uv.X, uv.Y), "nearest exterior/nonfinite sourceUV never satisfies the strict trim box");
+        var fixture = Fixture(); var donor = fixture.Primitives[0]; var parts = new List<CharacterWeightedPrimitive>();
+        CharacterWeightedPrimitive Part(int id, int material, int hitCorner = -1, UV? hit = null, bool outside = false)
+        {
+            var vertices = new[] { donor.Vertices[1], donor.Vertices[2], donor.Vertices[0] }.Select(v => v with { Texcoord = new UV(.1f,.2f) }).ToArray();
+            if (hitCorner >= 0) vertices[hitCorner] = vertices[hitCorner] with { Texcoord = hit ?? new UV(.489f,.764f) };
+            if (outside) vertices[0] = vertices[0] with { Weights = new W(1,0,0,0), PackedJoints = CharacterWeightedModelLoader.PackJoints(0,0,0,0) };
+            return donor with { SourcePrimitiveOrdinal = id % 3, SourceMaterialOrdinal = material,
+                SourceTriangleIds = new[] { id }, Vertices = vertices, Indices = new uint[] { 2,0,1 } };
+        }
+        for (int corner = 0; corner < 3; corner++) parts.Add(Part(1000 + corner, 5, corner));
+        parts.Add(Part(1003,5,0,new(.489f,1-.764f))); parts.Add(Part(1004,4,1)); parts.Add(Part(1005,3,2));
+        parts.Add(Part(1006,5,2,new(.49099997f,.764f))); parts.Add(Part(1007,5,0,new(.49100003f,.764f)));
+        parts.Add(Part(1008,5,1,new(.489f,.77f))); parts.Add(Part(1009,5,2,outside:true));
+        var source = fixture with { Primitives = parts }; string original = Fingerprint(source);
+        var complete = CharacterSourceCannonRecipe.SelectGeneratedCut(source);
+        var trimmed = CharacterSourceCannonRecipe.SelectGeneratedCut(source, finalTrim:true);
+        Check(complete.Selected.Sum(a => a.Length) == 9 && trimmed.Selected.Sum(a => a.Length) == 5,
+            "Final trim removes whole triangles on any matching corner only after the same complete elbow cut");
+        Check(trimmed.Selected[5].SequenceEqual(new[] { 1003,1007,1008 }) && trimmed.Selected[4].SequenceEqual(new[] { 1004 })
+            && trimmed.Selected[3].SequenceEqual(new[] { 1005 }) && !complete.Selected.SelectMany(a => a).Contains(1009),
+            "Final material5-only trim retains literal original IDs across batches; other material hits and flippedV remain intact");
+        foreach (var p in trimmed.Primitives)
+        {
+            var raw = parts.Single(q => q.SourceTriangleIds![0] == p.SourceTriangleIds![0]);
+            Check(p.Indices.SequenceEqual(new uint[] { 2,0,1 }) && ReferenceEquals(p.Vertices, raw.Vertices) && ReferenceEquals(p.JointPalette, raw.JointPalette)
+                && p.SourcePrimitiveOrdinal == raw.SourcePrimitiveOrdinal && p.SourceMaterialOrdinal == raw.SourceMaterialOrdinal,
+                "Trim preserves complete corner winding, attributes, positive influences, local palette and physical material identity");
+        }
+        var reordered = CharacterSourceCannonRecipe.SelectGeneratedCut(source with { Primitives = parts.AsEnumerable().Reverse().ToArray() }, finalTrim:true);
+        Check(trimmed.Selected.Zip(reordered.Selected).All(p => p.First.SequenceEqual(p.Second)), "Final globalID groups do not depend on physical batch ordering");
+        Check(Fingerprint(source) == original && CharacterSourceCannonRecipe.SelectGeneratedCut(source).Selected.Zip(complete.Selected).All(p => p.First.SequenceEqual(p.Second)),
+            "Final trim never mutates source inputs or changes the default untrimmed selector");
+        int firstId = trimmed.Primitives[0].SourceTriangleIds![0]; int firstIndex = parts.FindIndex(p => p.SourceTriangleIds![0] == firstId);
+        parts[firstIndex].SourceTriangleIds![0] = 99999; parts[firstIndex].Indices[0] = 1;
+        Check(trimmed.Primitives[0].SourceTriangleIds![0] == firstId && trimmed.Primitives[0].Indices[0] == 2,
+            "Trimmed IDs and index subsets detach from later caller mutation");
+    }
+
+    private static CharacterWeightedModelData Fixture(bool reordered = false, bool tipOutside = false, bool wrongElbow = false, bool cycle = false, bool trooper = false)
     {
         string[] order = reordered ? new[] { "mesh", "child", "elbow", "outside", "root", "tip" } : new[] { "outside", "tip", "mesh", "root", "elbow", "child" };
         var index = order.Select((name, i) => (name, i)).ToDictionary(p => p.name, p => p.i);
         var parent = new Dictionary<string, string?> { ["root"] = cycle ? "child" : null, ["mesh"] = null, ["outside"] = "root", ["elbow"] = "root", ["tip"] = tipOutside ? "root" : "elbow", ["child"] = "elbow" };
         var names = new Dictionary<string, string> { ["root"] = "source_bone_0_root", ["mesh"] = "own_identity_mesh", ["outside"] = "source_bone_99_outside", ["elbow"] = wrongElbow ? "source_bone_99_R_elbow" : "source_bone_24_R_elbow", ["tip"] = "source_bone_32_GUN_Particle_LCTR", ["child"] = "source_bone_25_child" };
         var local = new Dictionary<string, V> { ["root"] = V.Zero, ["mesh"] = V.Zero, ["outside"] = new(-2, 0, 0), ["elbow"] = new(1, 2, 3), ["tip"] = new(0, 0, 2), ["child"] = new(0, 1, 0) };
+        string[] extras = trooper ? Enumerable.Range(0, 35).Where(id => id is not (0 or 3 or 23 or 24 or 34)).Select(id => "extra" + id).ToArray() : [];
+        if (trooper)
+        {
+            names["root"] = "source_bone_3_Root"; names["outside"] = "source_bone_0_outside";
+            names["elbow"] = wrongElbow ? "source_bone_99_R_elbow" : "source_bone_23_R_elbow";
+            names["tip"] = "source_bone_34_R_gun_LCTR"; names["child"] = "source_bone_24_child";
+            foreach (string role in extras) { parent[role] = "root"; names[role] = "source_bone_" + role[5..] + "_own"; local[role] = V.Zero; }
+            order = reordered ? extras.Reverse().Concat(order).ToArray() : order.Concat(extras).ToArray();
+            index = order.Select((name, i) => (name, i)).ToDictionary(p => p.name, p => p.i);
+        }
         var nodes = new JsonArray();
         foreach (string role in order)
         {
@@ -122,6 +224,7 @@ internal static class GeneratedCannonAcceptance
             if (role == "mesh") { n["mesh"] = 0; n["skin"] = 0; } nodes.Add(n);
         }
         string[] jointOrder = reordered ? new[] { "root", "tip", "outside", "child", "elbow" } : new[] { "child", "outside", "elbow", "tip", "root" };
+        if (trooper) jointOrder = extras.Concat(jointOrder).ToArray();
         using var json = JsonDocument.Parse(new JsonObject { ["nodes"] = nodes, ["joints"] = new JsonArray(jointOrder.Select(n => JsonValue.Create(index[n])).ToArray()) }.ToJsonString());
         var nodeElements = json.RootElement.GetProperty("nodes").EnumerateArray().ToArray();
         var rig = CharacterSourceRig.Read(nodeElements, json.RootElement.GetProperty("joints").EnumerateArray().ToArray(), new() { nodeElements[index["mesh"]] });

@@ -25,7 +25,8 @@ public static class ExternalCharacterCatalog
                 Hunter.Weavel, true,
                 Array.AsReadOnly(new[]
                 {
-                    "MP1PowerTrooper", "MP1IceTrooper", "MP1WaveTrooper", "MP1PlasmaTrooper"
+                    "MP1PowerTrooper", "MP1IceTrooper", "MP1WaveTrooper", "MP1PlasmaTrooper",
+                    "MP1AlphaDrone", "MP1GammaDrone"
                 })),
         });
 

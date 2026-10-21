@@ -21,7 +21,77 @@ internal static class ReplayIdentityCompatibility
         => protocol >= OldestReplayProtocol && protocol < NetConfig.ProtocolVersion;
 
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
-        => NormalizeLegacyTuck(NormalizeLegacyStance(ConvertCore(packet, protocol), protocol), protocol);
+        => NormalizeLegacyParkourPose(NormalizeLegacyTuck(NormalizeLegacyStance(UpgradeGrapple(ConvertCore(packet, protocol), protocol), protocol), protocol), protocol);
+
+    internal static ReadOnlySpan<byte> NormalizeLegacyParkourPose(ReadOnlySpan<byte> packet, int protocol)
+    {
+        if (protocol >= 85 || packet.IsEmpty) return packet;
+        PacketType type = (PacketType)packet[0];
+        if (type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int prefix = type == PacketType.Intent ? 1 : 2;
+            Require(packet.Length >= prefix + IntentPacket.Size && packet.Length <= prefix + IntentPacket.TouchCanonicalSize);
+            byte[] result = new byte[prefix + IntentPacket.TouchCanonicalSize];
+            packet.CopyTo(result); result[^1] = protocol < 84 ? (byte)0 : (byte)(result[^1] & 15);
+            return result;
+        }
+        if (type is PacketType.Snapshot or PacketType.SnapshotFast)
+        {
+            Require(packet.Length >= 1 + SnapshotHeader.Size);
+            var header = SnapshotHeader.Read(packet[1..]);
+            Require(header.PlayerCount <= 8);
+            int stride = type == PacketType.SnapshotFast ? SnapshotFast.PlayerSize : PlayerState.Size;
+            int auxiliary = 54 + DamageEvent.Size * PlayerState.DamageHistory - (type == PacketType.SnapshotFast ? 7 : 0);
+            Require(packet.Length >= 1 + SnapshotHeader.Size + header.PlayerCount * stride);
+            bool reserved = false;
+            for (int slot = 0; slot < header.PlayerCount; slot++)
+                reserved |= (protocol < 84 && (packet[1 + SnapshotHeader.Size + slot * stride + auxiliary] & 0xf0) != 0)
+                    || (type == PacketType.Snapshot && (packet[1 + SnapshotHeader.Size + slot * stride + PlayerState.Protocol80Size] & 0xf0) != 0);
+            if (!reserved) return packet;
+            byte[] result = packet.ToArray();
+            for (int slot = 0; slot < header.PlayerCount; slot++)
+            {
+                if (protocol < 84) result[1 + SnapshotHeader.Size + slot * stride + auxiliary] &= 15;
+                if (type == PacketType.Snapshot) result[1 + SnapshotHeader.Size + slot * stride + PlayerState.Protocol80Size] &= 15;
+            }
+            return result;
+        }
+        return packet;
+    }
+
+    private static ReadOnlySpan<byte> UpgradeGrapple(ReadOnlySpan<byte> packet, int protocol)
+    {
+        if (protocol >= 82 || packet.IsEmpty) return packet;
+        PacketType type = (PacketType)packet[0];
+        if (type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int prefix = type == PacketType.Intent ? 1 : 2;
+            Require(packet.Length >= prefix + IntentPacket.Size && packet.Length <= prefix + IntentPacket.TouchCanonicalSize);
+            byte[] result = new byte[prefix + IntentPacket.TouchCanonicalSize];
+            packet.CopyTo(result);
+            BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(prefix + 4),
+                BinaryPrimitives.ReadUInt32LittleEndian(result.AsSpan(prefix + 4)) & ~(uint)IntentButtons.Grapple);
+            result.AsSpan(prefix + IntentPacket.Protocol80TouchSize, 2).Clear();
+            return result;
+        }
+        // Older adapters already expand directly into the current stride.
+        if (protocol is >= 49 and <= 81 && type == PacketType.Snapshot)
+        {
+            Require(packet.Length >= 1 + SnapshotHeader.Size);
+            var header = SnapshotHeader.Read(packet[1..]);
+            Require(header.PlayerCount <= 8);
+            int oldTail = 1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Protocol80Size;
+            Require(packet.Length >= oldTail + NetMatchTimeSync.Size + NetHealthSync.HeaderSize);
+            byte[] result = new byte[packet.Length + header.PlayerCount * PlayerGrappleState.Size];
+            packet[..(1 + SnapshotHeader.Size)].CopyTo(result);
+            for (int i = 0; i < header.PlayerCount; i++)
+                packet.Slice(1 + SnapshotHeader.Size + i * PlayerState.Protocol80Size, PlayerState.Protocol80Size)
+                    .CopyTo(result.AsSpan(1 + SnapshotHeader.Size + i * PlayerState.Size));
+            packet[oldTail..].CopyTo(result.AsSpan(1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size));
+            return result;
+        }
+        return packet;
+    }
 
     private static ReadOnlySpan<byte> NormalizeLegacyTuck(ReadOnlySpan<byte> packet, int protocol)
     {
@@ -340,12 +410,12 @@ internal static class ReplayIdentityCompatibility
         if (type == PacketType.MatchState)
         {
             Require(converted.Length == 1 + MatchStatePacket.Size);
-            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & 262144u) == 0);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & (262144u | 1048576u)) == 0);
         }
         if (type == PacketType.SessionState)
         {
             Require(converted.Length == 1 + SessionStatePacket.Size);
-            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 262144u) == 0);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & (262144u | 1048576u)) == 0);
         }
         return converted;
     }

@@ -18,7 +18,13 @@ namespace MphRead.Mods.Render.Characters
     // the existing attachment/lease and preview instance which submits it.
     internal sealed record CharacterSourceGxBinding(Scene Owner, CharacterSourceGxProgram Program,
         int ProgramId, IReadOnlyList<int> Textures);
-    internal sealed record CharacterSourceGxDraw(CharacterSourceGxBinding Binding, double Seconds);
+    internal sealed record CharacterSourceGxDraw(CharacterSourceGxBinding Binding, double Seconds,
+        ICharacterSourcePresentationOwner? BodyOwner = null, bool ViewModel = false, bool AlternateForm = false)
+    {
+        internal CharacterModelPart Part => ViewModel ? CharacterModelPart.ViewModel : AlternateForm ? CharacterModelPart.AlternateForm : CharacterModelPart.Biped;
+        internal bool ActorCurrent => BodyOwner is { } owner && !(ViewModel && AlternateForm)
+            && owner.IsCurrent(Part);
+    }
 }
 
 namespace MphRead
@@ -44,6 +50,24 @@ namespace MphRead
         private static readonly TextureSamplerDescriptor SourceGxSampling = new(true, true, false, 1, 0);
         private Matrix4? _sourceGxPreviewView, _sourceGxPreviewProjection;
         internal CharacterSourceGxDraw? SourceGxSubmission { get; set; }
+        private readonly List<RenderItem> _sourceBodyItems = new();
+        private bool _drawingSourceBody, _sourceBodyDepthOnly;
+
+        private void DrawSourceBodyPass(bool opaque, bool depthOnly)
+        {
+#if !MPHREAD_SERVER && !ANDROID
+            _drawingSourceBody = true; _sourceBodyDepthOnly = depthOnly;
+            try
+            {
+                foreach (var item in _sourceBodyItems)
+                    if (item.SourceGx is { BodyOwner: { } owner } draw
+                        && draw.ActorCurrent
+                        && (draw.Binding.Program.DrawPass == CharacterSourceGxProgram.Pass.Opaque) == opaque)
+                        DrawSourceGxRenderItem(item);
+            }
+            finally { _drawingSourceBody = false; _sourceBodyDepthOnly = false; }
+#endif
+        }
 
         internal IReadOnlyList<CharacterSourceGxBinding> PrepareSourceGxMaterials(CharacterSourceGxMaterials materials)
         {
@@ -71,13 +95,14 @@ namespace MphRead
                 GL.PixelStore(PixelStoreParameter.UnpackSkipPixels, 0);
                 // Admission is complete before publishing any body segment.
                 var bindings = new Dictionary<uint, int>();
-                foreach (var texture in materials.Archive.Textures)
+                foreach (var texture in materials.Images.OrderBy(p=>p.Key))
                 {
-                    var image = materials.Images[texture.ResourceId];
-                    string key = CharacterSourceGxProgram.Policy + "/" + texture.RgbaSha256 + "/" + texture.Width + "x" + texture.Height;
-                    int binding = CharacterTextureAssets.UploadRgba(key, texture.Width, texture.Height, image.Pixels.ToArray(), SourceGxSampling);
+                    var image = texture.Value;
+                    string pixelSha=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(image.Pixels));
+                    string key = materials.Policy + "/" + pixelSha + "/" + image.Layout.Width + "x" + image.Layout.Height;
+                    int binding = CharacterTextureAssets.UploadRgba(key, image.Layout.Width, image.Layout.Height, image.Pixels.ToArray(), SourceGxSampling);
                     if (binding == 0) throw new InvalidOperationException("Complete body source texture upload failed.");
-                    bindings.Add(texture.ResourceId, binding); _characterPinnedBindings.Add(binding);
+                    bindings.Add(texture.Key, binding); _characterPinnedBindings.Add(binding);
                 }
                 var result = new List<CharacterSourceGxBinding>();
                 foreach (var material in materials.Programs)
@@ -90,7 +115,10 @@ namespace MphRead
                     string key = vertexSource + fragmentSource;
                     if (!_sourceGxPrograms.TryGetValue(key, out var gpu))
                     {
-                        if (_sourceGxPrograms.Count >= 16) throw new InvalidOperationException("Source body program budget exceeded.");
+                        // Closed bodies28 + at most9 Final cannon alpha variants
+                        // + original normal ball1 + derived vent1. Source shader
+                        // identity remains complete; draw policies live in bindings.
+                        if (_sourceGxPrograms.Count >= 39) throw new InvalidOperationException("Source body program budget exceeded.");
                         int vertex = 0, fragment = 0, program = 0;
                         try
                         {
@@ -133,7 +161,9 @@ namespace MphRead
         private void StampSourceGxSubmission(RenderItem item)
         {
             if (SourceGxSubmission is not { } draw) return;
-            if (!_collectingPreview || !item.WeightedSkinning || item.Type != RenderItemType.Mesh
+            bool body = !_collectingPreview && draw.ViewModel == _collectingViewModelItems
+                && draw.ActorCurrent;
+            if ((!_collectingPreview && !body) || !item.WeightedSkinning || item.Type != RenderItemType.Mesh
                 || !ReferenceEquals(draw.Binding.Owner, this)) throw new InvalidOperationException("Source GX requires its existing weighted preview owner.");
             _ = CharacterSourceGxProgram.Clock(draw.Seconds);
             item.SourceGx = draw;
@@ -153,8 +183,13 @@ namespace MphRead
             throw new NotSupportedException("Source body rendering is desktop-private only.");
 #else
             var draw = item.SourceGx!; var binding = draw.Binding;
-            if (!ReferenceEquals(binding.Owner, this) || _sourceGxPreviewView is not { } view
-                || _sourceGxPreviewProjection is not { } projection || !item.WeightedSkinning
+            bool body = draw.BodyOwner != null;
+            bool current = draw.ActorCurrent;
+            Matrix4? selectedView = body ? _drawingSourceBody && current ? _viewMatrix : null : _sourceGxPreviewView;
+            Matrix4? selectedProjection = body ? _drawingSourceBody && draw.ViewModel == item.ViewModel
+                ? item.ViewModel ? _viewModelPerspectiveMatrix : _perspectiveMatrix : null : _sourceGxPreviewProjection;
+            if (!ReferenceEquals(binding.Owner, this) || selectedView is not { } view
+                || selectedProjection is not { } projection || !item.WeightedSkinning
                 || item.MatrixStackCount is < 1 or > 32)
                 throw new InvalidOperationException("Current source preview camera, Scene and palette required.");
             var gpu = _sourceGxPrograms.Values.SingleOrDefault(p => p.Id == binding.ProgramId)
@@ -182,8 +217,15 @@ namespace MphRead
                 }
                 GL.Enable(EnableCap.DepthTest); GL.DepthFunc(DepthFunction.Lequal);
                 bool opaque = binding.Program.DrawPass == CharacterSourceGxProgram.Pass.Opaque;
-                GL.DepthMask(binding.Program.SourceDepthWrite && !binding.Program.SourceDepthSorting);
-                GL.Disable(EnableCap.AlphaTest); GL.Disable(EnableCap.CullFace);
+                GL.DepthMask(body ? opaque : binding.Program.SourceDepthWrite && !binding.Program.SourceDepthSorting);
+                if (body)
+                {
+                    GL.ColorMask(!_sourceBodyDepthOnly, !_sourceBodyDepthOnly, !_sourceBodyDepthOnly, !_sourceBodyDepthOnly);
+                    GL.Disable(EnableCap.StencilTest);
+                }
+                GL.Disable(EnableCap.AlphaTest);
+                if(binding.Program.FrontFacesOnly){GL.Enable(EnableCap.CullFace);GL.CullFace(TriangleFace.Back);NativeGL.FrontFace(FrontFaceDirection.Ccw);}
+                else GL.Disable(EnableCap.CullFace);
                 GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
                 GL.BlendEquation(BlendEquationMode.FuncAdd);
                 if (opaque) GL.Disable(EnableCap.Blend);
@@ -193,7 +235,7 @@ namespace MphRead
                     if (binding.Program.DrawPass == CharacterSourceGxProgram.Pass.Additive) GL.BlendFunc(BlendingFactor.One, BlendingFactor.One);
                     else GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
                 }
-                DrawRenderItemGeometry(item, null);
+                for(int copy=0;copy<binding.Program.DrawCopies;copy++)DrawRenderItemGeometry(item, null);
             }
             finally
             {
@@ -220,6 +262,7 @@ namespace MphRead
             if (_sourceGxPrograms.Values.Any(p => p.Id == current)) GL.UseProgram(0);
             foreach (var p in _sourceGxPrograms.Values) GL.DeleteProgram(p.Id);
             _sourceGxPrograms.Clear(); SourceGxSubmission = null;
+            _sourceBodyItems.Clear(); _drawingSourceBody = _sourceBodyDepthOnly = false;
             _sourceGxPreviewView = _sourceGxPreviewProjection = null;
         }
     }

@@ -58,7 +58,7 @@ internal readonly record struct CustomWeaponAction(WorldBootstrapIdentity Bootst
         {
             if (!CustomWeaponProtocol.ValidBootstrap(Bootstrap) || !Manifest.IsValid || Slot >= 8 || Life == 0
                 || Weapon.Value is < 10 or > 73 || Sequence == 0 || (byte)Kind is < 1 or > 5
-                || Optic > 2) return false;
+                || Optic > 4) return false;
             if (Kind != CustomWeaponActionKind.Fire)
                 return Origin == Vector3.Zero && Direction == Vector3.Zero && AckFrame == 0 && AckSubFrame == 0
                     && (Kind == CustomWeaponActionKind.Optic || Optic == 0);

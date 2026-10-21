@@ -32,6 +32,28 @@
                     <button id="hunter_suit2" data-action="hunter:suit:2">SUIT 3</button>
                     <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
                 </div>
+                <div id="hunter_local_body" style="display:none">
+                    <div class="section-title">LOCAL OFFLINE BODY</div>
+                    <div class="hint">Requires the matching local import. Dark Samus includes a source ball. Dark Samus and Troopers include a Power Beam cannon. Hunters preview, other weapons and unsupported states use native presentation. Online uses your native loadout.</div>
+                    <div class="hunter-suits">
+                        <button id="hunter_body0" data-action="hunter:body-select:0">NATIVE</button>
+                        <button id="hunter_body1" data-action="hunter:body-select:1">DARK SAMUS</button>
+                        <button id="hunter_body2" data-action="hunter:body-select:2">OVERCHARGED</button>
+                        <button id="hunter_body3" data-action="hunter:body-select:3">POWER TROOPER</button>
+                        <button id="hunter_body4" data-action="hunter:body-select:4">ICE TROOPER</button>
+                        <button id="hunter_body5" data-action="hunter:body-select:5">WAVE TROOPER</button>
+                        <button id="hunter_body6" data-action="hunter:body-select:6">PLASMA TROOPER</button>
+                    </div>
+                </div>
+                <div id="hunter_local_drone" style="display:none">
+                    <div class="section-title">PRACTICE DRONE</div>
+                    <div class="hint">Appearance for Scout Drone or Trooper Arsenal practice; requires the matching local import. Unsupported states use the native drone. Select mechanics separately in offline setup. The Hunters preview shows your native alternate form.</div>
+                    <div class="hunter-suits">
+                        <button id="hunter_drone0" data-action="hunter:drone-select:0">NATIVE</button>
+                        <button id="hunter_drone1" data-action="hunter:drone-select:1">ALPHA</button>
+                        <button id="hunter_drone2" data-action="hunter:drone-select:2">GAMMA</button>
+                    </div>
+                </div>
                 <div class="section-title">CUSTOMIZE LOADOUT</div>
                 <div class="hunter-categories" role="group" aria-label="Cosmetic category">
                     <button id="hunter_category0" data-action="hunter:category:0">SKIN</button>

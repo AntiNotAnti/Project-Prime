@@ -426,6 +426,16 @@ namespace MphRead.Mods.Network
 
         public void Run(CancellationToken cancel = default)
         {
+            try { RunCore(cancel); }
+            finally
+            {
+                try { if (_transport != null) Shutdown((ushort)_transport.LocalPort); }
+                finally { _weaponPackages?.Dispose(); _weaponPackages = null; }
+            }
+        }
+
+        private void RunCore(CancellationToken cancel)
+        {
             Telemetry.ProductionTelemetry.Configure(Telemetry.NetTelemetryConfig.Load());
             InitializeWaitlist();
             _transport = new NetTransport(_port);
@@ -519,6 +529,7 @@ namespace MphRead.Mods.Network
                     PumpTurretDelivery();
                     PumpPickupDelivery();
                     PumpCustomWeaponReadiness(now);
+                    PumpWeaponPackagePreparation(now);
                     PumpCustomActionResults(now);
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     PumpCustomNativeIntents();
@@ -645,7 +656,7 @@ namespace MphRead.Mods.Network
                     {
                         lastHostMapPump = now;
                         _hostMapRequests.Pump(now,
-                            (request, sender, time, packages) => Hosts.Start(request, sender, time, packages),
+                            (request, sender, time, packages) => Hosts.StartPrepared(request, sender, time, packages),
                             SendHostReply);
                     }
 
@@ -871,6 +882,7 @@ namespace MphRead.Mods.Network
             _sim?.Stop();
             _sim = null;
             Mods.RoomPrewarm.Clear();
+            _weaponPackages?.Dispose(); _weaponPackages = null;
             NetHitClaims.CombatAckSink = null;
         }
 
@@ -1283,6 +1295,7 @@ namespace MphRead.Mods.Network
                     break;
                 case PacketType.WorldReady: HandleWorldReady(packet, now); break;
                 case PacketType.CustomWeaponReady: HandleCustomWeaponReady(packet,now); break;
+                case PacketType.WeaponPackageReady: HandleWeaponPackageReady(packet,now); break;
                 case PacketType.CustomWeaponAction: HandleCustomWeaponAction(packet,now); break;
                 case PacketType.CustomWeaponControl: HandleCustomWeaponControl(packet,now); break;
                 case PacketType.CustomWeaponInput: HandleCustomWeaponInput(packet,now); break;
@@ -2248,9 +2261,9 @@ namespace MphRead.Mods.Network
                 }
                 else
                 {
-                    if (request.RequiresMapPreparation)
+                    if (request.RequiresPreparation)
                     {
-                        _hostMapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
+                        _hostMapRequests.Enqueue(request, packet.Sender, now, SendHostReply, Hosts.WeaponStoreDirectory);
                         return;
                     }
                     reply = Hosts.Start(request, packet.Sender, now);
@@ -2367,7 +2380,7 @@ namespace MphRead.Mods.Network
 
             }
             peer.ClientId = clientId;
-            peer.Spectating = spectating;
+            CareerSetSpectating(peer, spectating);
             if (Simulating)
                 NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
             ClaimOwner(peer, packet.Payload);

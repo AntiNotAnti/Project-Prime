@@ -97,10 +97,55 @@ namespace MphRead.Mods.Render.Characters
         public IReadOnlyList<CharacterWeightedRenderJoint> Joints { get; }
         public float[] MatrixPalette { get; }
         private readonly CharacterWeightedModelData? _sourceGeometry;
+        internal bool IsFinalSourceBall { get; }
+        private readonly Vector3 _finalBallCenter;
         internal bool IsSourcePreview => _sourceGeometry?.SourceRig != null;
         internal Matrix4 DiagnosticPreviewFit { get; }
         internal CharacterSourceRig? SourceRig => _sourceGeometry?.SourceRig;
         internal CharacterSourceCannonRecipe? SourceCannon => _sourceGeometry?.SourceCannon;
+        internal Matrix4 FitSourceBodyToFeet(IReadOnlyList<Matrix4> readyPose, float nativeHeight)
+        {
+            if (_sourceGeometry?.SourceRig is not { } rig || SourceCannon != null
+                || !float.IsFinite(nativeHeight) || nativeHeight <= 0)
+                throw new InvalidDataException("Complete body rig and native biped height required.");
+            var skin = rig.Evaluate(readyPose, _sourceGeometry.Joints);
+            float minimum = float.PositiveInfinity, maximum = float.NegativeInfinity;
+            foreach (var primitive in _sourceGeometry.Primitives)
+                foreach (var vertex in primitive.Vertices)
+                {
+                    var position = new Vector3(vertex.Position.X, vertex.Position.Y, vertex.Position.Z);
+                    Vector3 posed = Vector3.Zero;
+                    for (int slot = 0; slot < 4; slot++)
+                    {
+                        float weight = vertex.Weights[slot];
+                        if (weight > 0) posed += Vector3.TransformPosition(position,
+                            skin[primitive.JointPalette![vertex.PackedJoints >> (slot * 5) & 31]]) * weight;
+                    }
+                    minimum = MathF.Min(minimum, posed.Y); maximum = MathF.Max(maximum, posed.Y);
+                }
+            float sourceHeight = maximum - minimum;
+            if (!float.IsFinite(sourceHeight) || sourceHeight < .0001f)
+                throw new InvalidDataException("Source ready pose has invalid standing bounds.");
+            // Root X/Z remain the authored actor origin. Only feet and height
+            // are fitted, once at load; launcher camera/zoom never participate.
+            return Matrix4.CreateTranslation(0, -minimum, 0) * Matrix4.CreateScale(nativeHeight / sourceHeight);
+        }
+        internal Matrix4 FitSourceBall(IReadOnlyList<Matrix4>? readyPose,float nativeRadius)
+        {
+            var source=_sourceGeometry??throw new InvalidDataException("Captured source ball required.");
+            // The donor's outer shell defines the ball fit. Veins/heart do not
+            // silently shrink the sphere or change native collision authority.
+            if(IsFinalSourceBall)source=source with{Primitives=source.Primitives.Where(p=>p.SourceMaterialOrdinal==0).ToArray()};
+            return CharacterSourceBallPose.Fit(source,readyPose,nativeRadius);
+        }
+        internal void PrepareSourceBallPresentation(Matrix4 presentation,long completedSteps)
+            => PrepareSourcePreviewPresentation(presentation,IsFinalSourceBall
+                ?(float)Import.RetroFinalBallPresentation.HeartScaleAtStep(completedSteps):null);
+        private Matrix4 HeartTransform(float scale) => Matrix4.CreateTranslation(-_finalBallCenter)
+            *Matrix4.CreateScale(scale)*Matrix4.CreateTranslation(_finalBallCenter);
+        internal Matrix4 SourceBallSegmentPresentation(CharacterWeightedRenderSegment segment,Matrix4 presentation,long completedSteps)
+            => IsFinalSourceBall&&segment.SourcePrimitiveOrdinal==5
+                ?HeartTransform((float)Import.RetroFinalBallPresentation.HeartScaleAtStep(completedSteps))*presentation:presentation;
         internal void UpdateSourcePreviewPalette(IReadOnlyList<Matrix4>? localPose = null)
         {
             if (_sourceGeometry?.SourceRig is not { } rig) throw new InvalidOperationException("Model is not a source preview.");
@@ -116,9 +161,11 @@ namespace MphRead.Mods.Render.Characters
                 Array.Copy(palettes[i],buffer,palettes[i].Length);
             }
         }
-        internal void PrepareSourcePreviewPresentation(Matrix4 presentationPose)
+        internal void PrepareSourcePreviewPresentation(Matrix4 presentationPose,float? compositeHeartScale=null)
         {
             if (!IsSourcePreview) throw new InvalidOperationException("Native palettes already contain their owner pose.");
+            if(compositeHeartScale is { } beat&&(!IsFinalSourceBall||!float.IsFinite(beat)||beat is <.69f or >1.31f))
+                throw new InvalidDataException("Only the exact Final composite admits its bounded heart-only pulse.");
             // The existing preview owner supplies positive uniform zoom and rotation.
             // Preserve the shader's normalized mat3 normal convention; no new
             // nonuniform-scale, mirrored, perspective or world-clock contract.
@@ -154,7 +201,9 @@ namespace MphRead.Mods.Render.Characters
                         raw[offset+12], raw[offset+13], raw[offset+14], raw[offset+15]);
                     // OpenTK row-vector order; GL's transpose=false interpretation
                     // supplies world * skin to the existing column-vector shader.
-                    WriteMatrix(target, offset, skin * sourcePresentation);
+                    Matrix4 heart=compositeHeartScale is { } scale&&segment.SourcePrimitiveOrdinal==5
+                        ?HeartTransform(scale):Matrix4.Identity;
+                    WriteMatrix(target, offset, skin * heart * sourcePresentation);
                 }
             }
         }
@@ -164,9 +213,18 @@ namespace MphRead.Mods.Render.Characters
         public CharacterWeightedRenderModel(CharacterModelAsset asset,
             IReadOnlyList<CharacterWeightedRenderSegment> segments,
             IReadOnlyList<CharacterWeightedRenderJoint> joints,
-            int vertexCount, int indexCount, CharacterWeightedModelData? sourceGeometry = null)
+            int vertexCount, int indexCount, CharacterWeightedModelData? sourceGeometry = null,bool finalSourceBall=false)
         {
             _sourceGeometry = sourceGeometry;
+            IsFinalSourceBall=finalSourceBall;
+            if(finalSourceBall)
+            {
+                if(sourceGeometry?.SourceRig==null||asset.Part!=CharacterModelPart.AlternateForm||sourceGeometry.IndexCount!=8170*3
+                    ||sourceGeometry.Primitives.Count!=6||!sourceGeometry.Primitives.Select(p=>p.SourceMaterialOrdinal).SequenceEqual(Enumerable.Range(0,6)))
+                    throw new InvalidDataException("Exact six-batch Final composite required for heart presentation.");
+                var points=sourceGeometry.Primitives[0].Vertices.Select(v=>new Vector3(v.Position.X,v.Position.Y,v.Position.Z)).ToArray();
+                _finalBallCenter=(points.Aggregate(Vector3.ComponentMin)+points.Aggregate(Vector3.ComponentMax))*.5f;
+            }
             DiagnosticPreviewFit = Matrix4.Identity;
             if (sourceGeometry?.SourceRig != null)
             {
@@ -256,9 +314,11 @@ namespace MphRead.Mods.Render.Characters
         internal readonly string? MaterialAnchorName;
         internal readonly CharacterModelPart Part;
         internal readonly object? StageOwner;
+        internal readonly ICharacterSourcePresentationOwner? BodyOwner;
         internal object? PublishedContext;
-        internal CharacterSourcePreviewInstance(string? materialAnchorName = null,CharacterModelPart part=CharacterModelPart.Biped,object? stageOwner=null)
-            =>(MaterialAnchorName,Part,StageOwner)=(materialAnchorName,part,stageOwner);
+        internal CharacterSourcePreviewInstance(string? materialAnchorName = null,CharacterModelPart part=CharacterModelPart.Biped,object? stageOwner=null,
+            ICharacterSourcePresentationOwner? bodyOwner=null)
+            =>(MaterialAnchorName,Part,StageOwner,BodyOwner)=(materialAnchorName,part,stageOwner,bodyOwner);
     }
 
     internal static partial class CharacterModelRuntime
@@ -465,13 +525,17 @@ namespace MphRead.Mods.Render.Characters
             if(!CharacterSourceRootWitness.QualifiedForCurrentProcess)
             {if(instance!=null)ReleaseSourcePreview(scene,instance);DebugLog.Line("render",CharacterSourceRootWitness.UnsupportedPlatformMessage);return false;}
             bool diagnosticStage = false;
+            bool localBody = instance?.BodyOwner?.Owns(scene, nativeModel, privatePack, appearance, instance) == true;
 #if !ANDROID && !MPHREAD_SERVER
             diagnosticStage = instance?.StageOwner is { } stageOwner && LauncherHunter.OwnsSourcePreview(scene,stageOwner);
 #endif
-            if(instance==null||Headless.Active||(!RenderOptions.CharacterModelReplacements&&!diagnosticStage)||!allowSourcePreview
-                ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
+            if(instance==null||Headless.Active||(!RenderOptions.CharacterModelReplacements&&!diagnosticStage&&!localBody)||!allowSourcePreview
+                ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel or CharacterModelPart.AlternateForm)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
                 ||!privatePack.TryResolvePrivate(hunter,appearance,part,0,out var asset)||asset.PoseSource!=CharacterPoseSource.SourceRigPreview
-                ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset))
+                ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset)
+                ||part==CharacterModelPart.AlternateForm&&(!localBody||!(instance.BodyOwner is CharacterSourceBodyOwner&&privatePack.HasSourceBall(asset)
+                    ||instance.BodyOwner is CharacterSourceDroneOwner&&privatePack.HasSourceDrone(asset)
+                    ||instance.BodyOwner is CharacterSourceArsenalDroneOwner&&privatePack.HasSourceDrone(asset))))
             {if(instance!=null)ReleaseSourcePreview(scene,instance);return false;}
             var resources=_scenes.GetValue(scene,_=>new SceneResources());
             if(resources.TextureQuality!=RenderOptions.TextureQuality||resources.SamplingKey!=TextureSamplingPolicy.RuntimeKey)
@@ -538,6 +602,28 @@ namespace MphRead.Mods.Render.Characters
             }
             catch(Exception e)when(e is IOException or InvalidDataException or InvalidOperationException or ArgumentException
                 or NotSupportedException or JsonException or FormatException or OverflowException or KeyNotFoundException){clip=null!;return false;}
+        }
+
+        // Captured actors may only reuse published residents. A retired Scene,
+        // import generation or quality context cannot cause IO/reload in Draw.
+        internal static bool IsSourceBodyCurrent(Scene scene, CharacterSourcePreviewInstance instance,
+            CharacterWeightedRenderModel model)
+        {
+            if (!_scenes.TryGetValue(scene, out var resources)
+                || !ReferenceEquals(instance.PublishedContext, resources)
+                || resources.TextureQuality != RenderOptions.TextureQuality
+                || resources.SamplingKey != TextureSamplingPolicy.RuntimeKey) return false;
+            foreach (var entry in resources.SourceModels.Where(e => ReferenceEquals(e.Key.Instance, instance)
+                && ReferenceEquals(e.Value.Model, model)).Select(e => e.Value))
+            {
+                try
+                {
+                    entry.Attachment?.RequireCurrent(scene, resources, entry.Lease, model.Asset, entry.NativeModel, model.SourceRig);
+                    return entry.Attachment != null;
+                }
+                catch (InvalidDataException) { return false; }
+            }
+            return false;
         }
         internal static bool IsSourceClipCurrent(Scene scene,CharacterSourcePreviewInstance instance,
             CharacterWeightedRenderModel model,CharacterSourceClip clip)
@@ -700,13 +786,51 @@ namespace MphRead.Mods.Render.Characters
                 attachment=new(scene,resources,sourceLease,asset,nativeModel,geometry,sourceAnchor);
             }
             IReadOnlyList<CharacterSourceGxBinding>? sourcePrograms = null;
-            if (sourceLease?.SourceMaterials is { } sourceMaterials && sourceLease.SourceCannon == null)
+            if (sourceLease?.SourceMaterials is { } sourceMaterials)
             {
-                if (attachment == null || asset.Part != CharacterModelPart.Biped
-                    || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count)
-                    || geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() != sourceMaterials.Programs.Count)
+                bool generatedCannonCut = sourceLease.SourceCannon?.IsGenerated == true
+                    && asset.Part == CharacterModelPart.ViewModel
+                    && asset.PrivateAppearance == CharacterSourcePreviewSelection.Appearance
+                    && sourceMaterials.Archive.Binding.CharacterId == "darksamus-echoes"
+                    && sourceMaterials.Programs.Count == 7 && geometry.IndexCount == 392 * 3
+                    && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[] { 2, 5 });
+                bool trooperCannonCut = sourceLease.SourceCannon is { IsGenerated: true, GeneratedTrooper: { } profile }
+                    && asset.Part == CharacterModelPart.ViewModel && asset.Hunter == Hunter.Weavel
+                    && asset.PrivateAppearance == new PrivateCharacterAppearance("trooper", profile.Skin)
+                    && sourceMaterials.Archive.Binding.CharacterId == profile.Id && sourceMaterials.Archive.Sha256 == profile.MaterialSha
+                    && sourceMaterials.Programs.Count == 3 && geometry.IndexCount == 206 * 3
+                    && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[] { 0, 1, 2 });
+                bool finalCannonCut = sourceLease.SourceCannon is {IsGenerated:true,GeneratedFinal:true}
+                    && asset.Part == CharacterModelPart.ViewModel && asset.Hunter == Hunter.Samus
+                    && asset.PrivateAppearance == new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal")
+                    && sourceMaterials.Archive.Binding.CharacterId == "darksamus-overcharged-echoes"
+                    && sourceMaterials.Programs.Count == 9 && geometry.IndexCount == 793 * 3
+                    && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[]{3,4,5,7});
+                bool normalBall=asset.Part==CharacterModelPart.AlternateForm && sourceLease.SourceAnimations?.IsNormalBall==true
+                    && asset.PrivateAppearance==CharacterSourcePreviewSelection.Appearance && asset.Hunter==Hunter.Samus
+                    && sourceLease.ModelSha256==CharacterGeneratedNormalBallProfile.ModelSha
+                    && sourceMaterials.Archive.Binding.CharacterId==CharacterGeneratedNormalBallProfile.MaterialId
+                    && sourceMaterials.Archive.Sha256==CharacterGeneratedNormalBallProfile.MaterialSha
+                    && sourceMaterials.Programs.Count==1 && geometry.IndexCount==2220*3 && geometry.Joints.Count==2
+                    && geometry.Primitives.All(p=>p.SourceMaterialOrdinal==0);
+                bool finalBall=asset.Part==CharacterModelPart.AlternateForm&&sourceLease.SourceAnimations?.IsFinalBall==true
+                    &&asset.PrivateAppearance==new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal")&&asset.Hunter==Hunter.Samus
+                    &&sourceLease.ModelSha256==CharacterGeneratedFinalBallProfile.ModelSha&&sourceMaterials.IsFinalBall
+                    &&sourceMaterials.Archive.Sha256==CharacterGeneratedFinalBallProfile.MaterialSha
+                    &&sourceMaterials.Programs.Count==6&&geometry.IndexCount==8170*3&&geometry.Joints.Count==2
+                    &&geometry.Primitives.Select(p=>p.SourceMaterialOrdinal).SequenceEqual(Enumerable.Range(0,6))
+                    &&geometry.Primitives.Select(p=>p.SourcePrimitiveOrdinal).SequenceEqual(Enumerable.Range(0,6));
+                bool drone=asset.Part==CharacterModelPart.AlternateForm&&asset.Hunter==Hunter.Weavel
+                    &&CharacterGeneratedDroneProfile.FromSkin(asset.PrivateAppearance?.SkinSource) is { } droneProfile
+                    &&sourceLease.SourceAnimations?.IsDrone==true&&sourceLease.ModelSha256==droneProfile.ModelSha
+                    &&sourceMaterials.Archive.Binding.CharacterId==droneProfile.Id&&sourceMaterials.Archive.Sha256==droneProfile.MaterialSha
+                    &&sourceMaterials.Programs.Count==2&&geometry.IndexCount==1390*3&&geometry.Joints.Count==33
+                    &&geometry.Primitives.Select(p=>p.SourceMaterialOrdinal).SequenceEqual(new[]{0,1});
+                if (attachment == null || !(generatedCannonCut || trooperCannonCut || finalCannonCut || normalBall || finalBall || drone || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
+                        && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() == sourceMaterials.Programs.Count)
+                    || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count))
                     throw new InvalidDataException("Complete original body material ordinals required.");
-                sourcePrograms = scene.PrepareSourceGxMaterials(sourceMaterials);
+                sourcePrograms = scene.PrepareSourceGxMaterials(finalCannonCut ? sourceMaterials.ForFinalCannon() : sourceMaterials);
             }
             var nodeIndices = nativeModel.Nodes.Select((node, index) => (Name: node.Name, Index: index))
                 .ToDictionary(value => value.Name, value => value.Index, StringComparer.Ordinal);
@@ -774,7 +898,7 @@ namespace MphRead.Mods.Render.Characters
                         primitive.SurfaceTint is System.Numerics.Vector3 tint ? new Vector3(tint.X,tint.Y,tint.Z) : null, primitive.NeutralAlbedo));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
-                    geometry.VertexCount, geometry.IndexCount, sourceLease==null?null:geometry);
+                    geometry.VertexCount, geometry.IndexCount, sourceLease==null?null:geometry,sourceLease?.SourceMaterials?.IsFinalBall==true);
             }
             catch
             {

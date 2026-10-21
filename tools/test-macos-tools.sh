@@ -76,13 +76,24 @@ echo 'macOS signing gate regressions passed.'
 # Reproduce the full app layout, including non-code map data. A flat publish
 # can sign and launch successfully while its enclosing app cannot be signed.
 fixture="$temp/package-input"
-mkdir -p "$fixture/maps" "$fixture/fidelity-baselines"
+mkdir -p "$fixture/maps" "$fixture/fidelity-baselines" "$fixture/rmlui/pages/startup" "$fixture/licenses"
 cp "$root/ProjectPrime" "$root/libopenal.1.dylib" "$root/libktx.dylib" "$fixture/"
 # Synthetic data keeps the packaging gate independent of controller/fidelity feature branches.
 printf '# Controller mapping packaging fixture\n' > "$fixture/gamecontrollerdb.txt"
 printf 'Controller mapping license fixture\n' > "$fixture/gamecontrollerdb.LICENSE"
 printf '{"Name":"PACKAGING TEST"}\n' > "$fixture/maps/fixture.json"
 printf '{"fixture":true}\n' > "$fixture/fidelity-baselines/fixture.json"
+printf '<rml><head/><body>Signed UI fixture</body></rml>\n' > "$fixture/rmlui/prime_home.rml"
+printf '<rml><head/><body>Start</body></rml>\n' > "$fixture/rmlui/pages/startup/startup.rml"
+printf 'RmlUi fixture attribution\n' > "$fixture/licenses/RmlUi-LICENSE.txt"
+printf 'optional debug symbols are not release resources\n' > "$fixture/MphRead.CorpsePhysics.pdb"
+# The corpse physics dependency publishes this Markdown notice into the flat
+# root. App packaging must retain it as signed documentation, not nested code.
+printf 'Synthetic third-party license attribution\n' > "$fixture/THIRD-PARTY-NOTICES.md"
+printf 'Synthetic additional future license notice\n' > "$fixture/EXTRA-NOTICE.txt"
+# The native provenance manifest is adjacent in flat publish for hash verification.
+# Signed .app packaging must relocate that non-executable JSON to Resources.
+printf '{"renderer":"gl2"}\n' > "$fixture/PRIME-RMLUI.json"
 "$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3
 mkdir "$temp/unpacked"
 tar -xzf "$temp/dist/ProjectPrime-v1.2.3-$rid.tar.gz" -C "$temp/unpacked"
@@ -91,6 +102,17 @@ app="$temp/unpacked/Project Prime.app"
 [[ ! -e "$app/Contents/MacOS/maps" ]] || exit 1
 cmp "$fixture/fidelity-baselines/fixture.json" "$app/Contents/Resources/fidelity-baselines/fixture.json"
 [[ ! -e "$app/Contents/MacOS/fidelity-baselines" ]] || exit 1
+for resource in rmlui/prime_home.rml rmlui/pages/startup/startup.rml licenses/RmlUi-LICENSE.txt; do
+    cmp "$fixture/$resource" "$app/Contents/Resources/$resource"
+done
+[[ ! -e "$app/Contents/MacOS/rmlui" && ! -e "$app/Contents/MacOS/licenses" ]] || exit 1
+[[ ! -e "$app/Contents/MacOS/MphRead.CorpsePhysics.pdb" ]] || exit 1
+cmp "$fixture/PRIME-RMLUI.json" "$app/Contents/Resources/PRIME-RMLUI.json"
+[[ ! -e "$app/Contents/MacOS/PRIME-RMLUI.json" ]] || exit 1
+for notice in THIRD-PARTY-NOTICES.md EXTRA-NOTICE.txt; do
+    cmp "$fixture/$notice" "$app/Contents/Resources/$notice"
+    [[ ! -e "$app/Contents/MacOS/$notice" ]] || exit 1
+done
 for resource in gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
     cmp "$fixture/$resource" "$app/Contents/Resources/$resource"
     [[ ! -e "$app/Contents/MacOS/$resource" ]] || exit 1
@@ -107,6 +129,24 @@ codesign --verify --deep --strict "$app"
 printf '\n' >> "$app/Contents/Resources/fidelity-baselines/fixture.json"
 expect_failure codesign --verify --deep --strict "$app"
 cp "$fixture/fidelity-baselines/fixture.json" "$app/Contents/Resources/fidelity-baselines/fixture.json"
+codesign --verify --deep --strict "$app"
+printf '\n' >> "$app/Contents/Resources/rmlui/prime_home.rml"
+expect_failure codesign --verify --deep --strict "$app"
+cp "$fixture/rmlui/prime_home.rml" "$app/Contents/Resources/rmlui/prime_home.rml"
+codesign --verify --deep --strict "$app"
+printf '\n' >> "$app/Contents/Resources/licenses/RmlUi-LICENSE.txt"
+expect_failure codesign --verify --deep --strict "$app"
+cp "$fixture/licenses/RmlUi-LICENSE.txt" "$app/Contents/Resources/licenses/RmlUi-LICENSE.txt"
+codesign --verify --deep --strict "$app"
+# The manifest is part of the app's resource seal and may not be modified
+# without invalidating its signature. Keep validating this after extraction.
+printf '\n' >> "$app/Contents/Resources/PRIME-RMLUI.json"
+expect_failure codesign --verify --deep --strict "$app"
+cp "$fixture/PRIME-RMLUI.json" "$app/Contents/Resources/PRIME-RMLUI.json"
+codesign --verify --deep --strict "$app"
+printf '\n' >> "$app/Contents/Resources/THIRD-PARTY-NOTICES.md"
+expect_failure codesign --verify --deep --strict "$app"
+cp "$fixture/THIRD-PARTY-NOTICES.md" "$app/Contents/Resources/THIRD-PARTY-NOTICES.md"
 codesign --verify --deep --strict "$app"
 dotnet run --project "$repo/tools/platformtest/platformtest.csproj" -c Release
 echo 'macOS bundle resource regressions passed.'

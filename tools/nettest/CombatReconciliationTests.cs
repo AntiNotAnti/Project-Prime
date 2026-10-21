@@ -27,6 +27,14 @@ internal static class CombatReconciliationTests
             OutOfOrderAcknowledgements();
             AckFirstSuppressesOnlyExactEvent();
             EventFirstStillRequiresExactAck();
+            SnapshotBeforeAckDoesNotDebitTwice();
+            AcceptedExclusionSurvivesFeedbackAndHistoryEviction();
+            LateAcceptedEvictedPredictionCannotSubsidizeOthers();
+            AcceptedExclusionCoversFreshPredictionAgainstStaleSnapshot();
+            MissingHistoryCannotSettlePrediction();
+            PredictionsFreezeDifferentCanonicalCursors();
+            KnownWrongAttackerOrBeamCannotOverlap();
+            BodyAndFormProjectionUseIndependentSamples();
             DeadVictimRejectRetiresDebit();
             WrongIdentityDoesNotSettle();
             EventSequenceWrap();
@@ -148,6 +156,143 @@ internal static class CombatReconciliationTests
         Deliver(Ack(claim, 4));
         Check(NetHitPrediction.Confirmed == 1 && NetHitPrediction.HealthFor(1, 79) == 79,
             "later exact ACK settles without double subtracting canonical health");
+    }
+
+    private static void SnapshotBeforeAckDoesNotDebitTwice()
+    {
+        Prepare(); var claim = Predict(450);
+        var state = NetSession.RemoteStates[1];
+        state.Health = 79; state.DamageEventId = 1;
+        state.Damage0 = new DamageEvent { EventId = 1, AttackerSlot = 0,
+            AttackerGeneration = 9, Beam = (byte)BeamType.Missile, Damage = 20 };
+        NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 79) == 79,
+            "snapshot before exact ACK must not debit already represented damage twice");
+        Check(NetHitPrediction.Confirmed == 0 && NetHitPrediction.Outstanding == 1,
+            "compact snapshot event does not settle the prediction");
+        Deliver(Ack(claim));
+        Check(NetHitPrediction.HealthFor(1, 79) == 79 && NetHitPrediction.Confirmed == 1,
+            "exact ACK settles without a health yo-yo");
+    }
+
+    private static DamageEvent CompactHit(ushort sequence, ushort generation = 9,
+        BeamType beam = BeamType.Missile) => new()
+    {
+        EventId = sequence, AttackerSlot = 0, AttackerGeneration = generation,
+        Beam = (byte)beam, Damage = 20
+    };
+
+    private static void AcceptedExclusionSurvivesFeedbackAndHistoryEviction()
+    {
+        Prepare(); var first = Predict(460); Predict(461);
+        var state = NetSession.RemoteStates[1];
+        state.Health = 79; state.DamageEventId = 1; state.Damage0 = CompactHit(1);
+        NetSession.RemoteStates[1] = state;
+        Deliver(Ack(first));
+        Check(Event(1), "accepted first prediction consumes its exact feedback receipt");
+        Check(NetHitPrediction.HealthFor(1, 79) == 59,
+            "consuming accepted feedback cannot lend that event to another pending prediction");
+        state.Damage0 = default;
+        NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 79) == 59
+            && NetHitPrediction.Confirmed == 1 && NetHitPrediction.Outstanding == 1,
+            "accepted exclusion survives compact-history eviction without settling the second claim");
+    }
+
+    private static void MissingHistoryCannotSettlePrediction()
+    {
+        Prepare(); var claim = Predict(470);
+        var state = NetSession.RemoteStates[1]; state.Health = 79; state.DamageEventId = 7;
+        NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 79) == 79,
+            "missing compact history retains bounded optimistic presentation without double debit");
+        Check(NetHitPrediction.Outstanding == 1 && NetHitPrediction.Confirmed == 0
+            && NetHitPrediction.Denied == 0 && NetSession.RemoteStates[1].Health == 79
+            && NetDamage.Sequence(1) == 0,
+            "missing history cannot settle claims or mutate canonical health or payment sequence");
+        Deliver(Ack(claim, result: CombatAckResult.RejectedGeometry));
+        Check(NetHitPrediction.Denied == 1 && NetHitPrediction.Outstanding == 0
+            && NetHitPrediction.HealthFor(1, 79) == 79,
+            "exact terminal rejection still owns settlement after ambiguous presentation");
+    }
+
+    private static void LateAcceptedEvictedPredictionCannotSubsidizeOthers()
+    {
+        Prepare(); var evicted = Predict(510, 1);
+        for (uint shot = 511; shot <= 534; shot++) Predict(shot, 1);
+        var ack = Ack(evicted, health: 98); ack.DamageApplied = 1;
+        Deliver(ack);
+        var state = NetSession.RemoteStates[1]; state.Health = 98; state.DamageEventId = 1;
+        state.Damage0 = CompactHit(1); state.Damage0.Damage = 1;
+        NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 98) == 74 && NetHitPrediction.Outstanding == 24,
+            "validated late acceptance of an evicted prediction cannot subsidize other live predictions");
+    }
+
+    private static void AcceptedExclusionCoversFreshPredictionAgainstStaleSnapshot()
+    {
+        Prepare(); var first = Predict(540); Deliver(Ack(first));
+        uint start = NetSession.NetFrame;
+        typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, start + 119);
+        Predict(541);
+        typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, start + 120);
+        var state = NetSession.RemoteStates[1]; state.Health = 79; state.DamageEventId = 1;
+        state.Damage0 = CompactHit(1); NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 79) == 59 && NetHitPrediction.Outstanding == 1,
+            "accepted exclusion still protects fresh predictions authored while canonical snapshots lagged the ACK");
+    }
+
+    private static void PredictionsFreezeDifferentCanonicalCursors()
+    {
+        Prepare(); Predict(480);
+        var state = NetSession.RemoteStates[1]; state.Health = 79; state.DamageEventId = 1;
+        NetSession.RemoteStates[1] = state;
+        Predict(481);
+        Check(NetHitPrediction.HealthFor(1, 79) == 59,
+            "fresh prediction at the current cursor cannot borrow earlier missing damage");
+        state.Health = 59; state.DamageEventId = 2;
+        NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 59) == 59
+            && NetHitPrediction.Outstanding == 2 && NetHitPrediction.Confirmed == 0,
+            "separate missing events can overlap two predictions frozen at different canonical cursors");
+    }
+
+    private static void KnownWrongAttackerOrBeamCannotOverlap()
+    {
+        foreach (bool wrongGeneration in new[] { true, false })
+        {
+            Prepare(); Predict(wrongGeneration ? 490u : 491u);
+            var state = NetSession.RemoteStates[1]; state.Health = 79; state.DamageEventId = 1;
+            state.Damage0 = CompactHit(1, wrongGeneration ? (ushort)10 : (ushort)9,
+                wrongGeneration ? BeamType.Missile : BeamType.PowerBeam);
+            NetSession.RemoteStates[1] = state;
+            Check(NetHitPrediction.HealthFor(1, 79) == 59 && NetHitPrediction.Outstanding == 1,
+                "complete history with a different attacker generation or beam cannot overlap the prediction");
+        }
+    }
+
+    private static void BodyAndFormProjectionUseIndependentSamples()
+    {
+        Prepare();
+        var state = NetSession.RemoteStates[1];
+        state.Form = new PlayerFormState { Phase = FormPhase.Biped, BodyHealth = 120, DamageEventId = 0 };
+        NetSession.RemoteStates[1] = state;
+        Predict(495);
+        state.Health = 79; state.DamageEventId = 1; state.Damage0 = CompactHit(1);
+        NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 79) == 79,
+            "new body sample can include a pending prediction before its exact ACK");
+        Check(NetHitPrediction.HealthFor(1, 120, sampleSequence: 0) == 100,
+            "older form sample retains its independent pending debit despite newer body evidence");
+        state.Form.BodyHealth = 100; state.Form.DamageEventId = 1;
+        NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 100, sampleSequence: 1) == 100,
+            "form sample overlaps pending damage only after its own cursor advances");
+        state.Form.BodyHealth = 130;
+        NetSession.RemoteStates[1] = state;
+        Check(NetHitPrediction.HealthFor(1, 130, sampleSequence: 1) == 130
+            && NetHitPrediction.HealthFor(1, 79) == 79 && NetHitPrediction.Outstanding == 1,
+            "form healing remains visible independently of body samples and exact claim settlement");
     }
 
     private static void DeadVictimRejectRetiresDebit()

@@ -57,6 +57,7 @@ namespace MphRead.Mods.Network
             HideOpponentHealth = true, DisablePowerups = !EnablePowerups, SpawnProtection = SpawnProtection,
             Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist,
             BalancedMode = BalancedMode, MovementModel = MovementModel, RiftlineM7Available = RiftlineM7Available,
+            PackagedWeaponAvailable = _weaponPackages != null,
             OctolithAutoReset = Mods.Multiplayer.MatchModifierRules.UsesOctolith(entry.Mode) && OctolithAutoReset
         }.NormalizeLegacy();
 
@@ -287,6 +288,8 @@ namespace MphRead.Mods.Network
                     break;
                 case LobbyCommandType.UpdateMatch:
                     var proposed = command.Configuration.Match;
+                    if (proposed.PackagedWeaponAvailable != (_weaponPackages != null))
+                    { reason = "The operator's exact package selection cannot be changed by a lobby command."; return LobbyResultCode.InvalidConfiguration; }
                     var valid = LobbyRules.ValidateDefinition(proposed, out reason);
                     if (valid != LobbyResultCode.Ok) return valid;
                     if (proposed.RiftlineM7Available && _bots.Count > 0)
@@ -387,6 +390,7 @@ namespace MphRead.Mods.Network
         private bool BeginLobbyMatch(MatchDefinition match, double now, out string reason)
         {
             reason = "";
+            if (!RequirePackagesForStart(match, out reason)) return false;
             if (match.RiftlineM7Available && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit(
                 match.Mode, match.Rules, online: true, _bots.Count, out reason)) return false;
             if (match.MapIdentity.IsCustom)
@@ -581,8 +585,9 @@ namespace MphRead.Mods.Network
             else return;
             if (peer == null || identity != CurrentStartIdentity
                 || _phase is not (SessionPhase.Starting or SessionPhase.InMatch)) return;
+            if (!PackagePeerReady(peer)) return;
             if (CurrentDefinition.MapIdentity.IsCustom && (peer.PreparedMap != CurrentDefinition.MapIdentity || peer.MapAvailability != MapAvailabilityState.Ready)) return;
-            peer.Spectating = spectating;
+            CareerSetSpectating(peer, spectating);
             if (Simulating) NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
             peer.LastSeen = now; peer.SceneLoaded = true;
             if (_phase == SessionPhase.Starting) _start.MarkLoaded(peer.SlotIndex, identity);

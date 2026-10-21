@@ -64,6 +64,11 @@ static class Program
             && defaults.NotificationVolume == "1" && defaults.EffectsVolume == "1", "Legacy defaults");
         AudioLifetimeChecks.Run();
         FailedCloseChecks.Run();
-        Console.WriteLine("PASS: pool recycling, 10,000 failed allocations, routing, gains, legacy defaults");
+        int musicStops = 0;
+        AudioLifetime.StopMusic = () => musicStops++;
+        AudioLifetime.Shutdown();
+        AudioLifetime.Shutdown();
+        Require(musicStops == 1, "Process audio shutdown ran twice");
+        Console.WriteLine("PASS: pool recycling, 10,000 failed allocations, routing, gains, legacy defaults, idempotent audio shutdown");
     }
 }

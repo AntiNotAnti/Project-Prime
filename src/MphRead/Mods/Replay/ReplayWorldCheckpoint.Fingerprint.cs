@@ -12,10 +12,11 @@ internal sealed partial class ReplayWorldCheckpoint
         using var source=_data.OpenRead();using var reader=new BinaryReader(source);
         using var normalized=new MemoryStream(Bytes.Length);using var writer=new BinaryWriter(normalized);
         writer.Write(reader.ReadUInt32());ushort version=reader.ReadUInt16();writer.Write(version);
-        if(version!=Version)throw new InvalidDataException("Graph comparison requires this build's current checkpoint layout.");
+        if(version!=Version&&!IsCustomWorldVersion(version))throw new InvalidDataException("Graph comparison requires this build's current checkpoint layout.");
         writer.Write(reader.ReadByte());writer.Write(reader.ReadString());writer.Write(reader.ReadString());writer.Write(reader.ReadInt32());writer.Write(reader.ReadUInt64());
         writer.Write(reader.ReadUInt32());writer.Write(reader.ReadUInt32());writer.Write(reader.ReadUInt32());
-        WriteBytes(writer,ReadBytes(reader,ReplayReplicaCheckpoint.MaximumBytes));WriteBytes(writer,ReadBytes(reader,ReplayReplicaCheckpoint.MaximumBytes));
+        int maximum=IsCustomWorldVersion(version)?ReplayReplicaCheckpoint.MaximumCustomBytes:ReplayReplicaCheckpoint.MaximumBytes;
+        WriteBytes(writer,ReadBytes(reader,maximum));WriteBytes(writer,ReadBytes(reader,maximum));
         int count=Count(reader,MaximumObjects);writer.Write(count);
         for(int i=0;i<count;i++){writer.Write(reader.ReadUInt16());_ = reader.ReadUInt64();WriteBytes(writer,ReadBytes(reader,MaximumBytes));}
         // Remaining bounded component sections are already validated by Capture.

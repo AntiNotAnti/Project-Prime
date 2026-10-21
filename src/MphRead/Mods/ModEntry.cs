@@ -34,6 +34,32 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            if (HasFlag(args, "weaponplay"))
+            {
+#if ANDROID || MPHREAD_SERVER
+                Console.Error.WriteLine("Package play requires the desktop client.");
+                Environment.ExitCode = 2;
+                return true;
+#else
+                // Refuse mixed server/replay/character modes before any other
+                // early command can take ownership of this invocation.
+                if (args.Length is not (4 or 6)
+                    || !args[0].Equals("-weaponplay", StringComparison.OrdinalIgnoreCase)
+                    || args.Skip(1).Any(value => value.StartsWith('-')
+                        && !value.Equals("-seconds", StringComparison.OrdinalIgnoreCase)))
+                {
+                    Console.Error.WriteLine("Usage: -weaponplay <store> <exact-lowercase-package-sha256> <stock-room> [-seconds 1..600]");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+#endif
+            }
+            int weaponIndex = Array.FindIndex(args, value => value.Equals("-weapon", StringComparison.OrdinalIgnoreCase));
+            if (weaponIndex >= 0)
+            {
+                Environment.ExitCode = CustomWeapons.Packages.WeaponPackageCli.Run(args.Skip(weaponIndex + 1).ToArray());
+                return true;
+            }
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             if (HasFlag(args, "replayexportworker"))
             {
@@ -434,6 +460,11 @@ namespace MphRead.Mods
             if (HasFlag(args, "charactermodelcheck"))
             {
                 Environment.ExitCode = Render.Characters.CharacterModelAssetCheck.Run();
+                return true;
+            }
+            if (HasFlag(args, "sourcebodycheck"))
+            {
+                Environment.ExitCode = Render.Characters.CharacterSourceBodyCheck.Run();
                 return true;
             }
             if (HasFlag(args, "hudmetrics")) Render.Hud.HudDrawMetrics.Enable();
@@ -969,6 +1000,9 @@ namespace MphRead.Mods
             // the old behaviour, and -noupdate turns off the checking too.
             // See Mods/Update/ServerUpdate.cs for why the swap is not the
             // desktop's.
+            string? approvedHostWeaponStore = null;
+            if ((HasFlag(args, "masterserver") || HasFlag(args, "server") || HasFlag(args, "dedicated"))
+                && !TryReadHostWeaponStore(args, out approvedHostWeaponStore)) return true;
             if (HasFlag(args, "masterserver") || HasFlag(args, "server")
                 || HasFlag(args, "dedicated"))
             {
@@ -1004,6 +1038,7 @@ namespace MphRead.Mods
                     masterPort = parsedMasterPort;
                 }
                 var master = new MasterServer(masterPort);
+                master.SetWeaponStore(approvedHostWeaponStore);
                 using var masterSignals = new ShutdownSignals();
                 // The ports it may start games on, for players whose routers
                 // will not forward one. A range by default, because the whole
@@ -1108,6 +1143,7 @@ namespace MphRead.Mods
             {
                 return false;
             }
+            if (!TryReadLocalWeaponPackage(args, "server", out var weaponPackage)) return true;
             int port = NetConfig.DefaultPort;
             string? portValue = ValueAfter(args, "port");
             if (portValue != null && Int32.TryParse(portValue, out int parsedPort))
@@ -1215,6 +1251,21 @@ namespace MphRead.Mods
                     RetentionDays: replayRetentionDays,
                     KeepLast: replayKeepLast)
             };
+            server.Hosts.SetWeaponStore(approvedHostWeaponStore);
+            if (weaponPackage != null)
+            {
+                try { server.ConfigureWeaponPackage(weaponPackage.StoreDirectory, weaponPackage.ArchiveHash); }
+                catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException
+                    or UnauthorizedAccessException or ArgumentException or InvalidOperationException
+                    or NotSupportedException or System.Security.SecurityException)
+                {
+                    // Store/parser errors can include private paths or creator text.
+                    // Keep the operator diagnostic fixed, bounded and ASCII-only.
+                    Console.Error.WriteLine("[server] The exact installed weapon package could not be configured. Verify the private store and archive hash.");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+            }
             server.SetSessionOptions(HasFlag(args, "requireready"),
                 !HasFlag(args, "nojoininprogress"));
             // Whether this server will also open *extra* matches, on ports of
@@ -1314,6 +1365,8 @@ namespace MphRead.Mods
             Console.WriteLine("      canonical replays: on; 25 GiB; 14 days; keep newest 100");
             Console.WriteLine("      override with -serverreplays on|off, -serverreplaystoragegb N,");
             Console.WriteLine("      -serverreplayretentiondays N and -serverreplaykeeplast N.");
+            Console.WriteLine("      optional: -weaponstore <directory> -weaponarchive <exact lowercase SHA-256>");
+            Console.WriteLine("      selects one installed weapon package and forces a persistent lobby.");
             Console.WriteLine();
             Console.WriteLine($"  {exe} -masterserver -port {NetMasterConfig.DefaultPort}");
             Console.WriteLine("      run a server directory of your own.");
@@ -1470,6 +1523,13 @@ namespace MphRead.Mods
 
         public static bool TryHandle(string[] args)
         {
+#if !ANDROID && !MPHREAD_SERVER
+            if (HasFlag(args, "weaponplay"))
+            {
+                Environment.ExitCode = CustomWeapons.Packages.WeaponPackageDeveloperLaunch.Run(args);
+                return true;
+            }
+#endif
             if (HasFlag(args, "respawnrendercheck"))
             {
                 Environment.ExitCode = Render.RespawnRenderCheck.Run(
@@ -1488,7 +1548,7 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.Characters.ViewModelAcceptanceCheck.Run(viewModelRoom,
                     ValueAfter(args, "output") ?? "viewmodel-acceptance",
                     Enum.TryParse(ValueAfter(args, "hunter"), true, out Hunter viewModelHunter) ? viewModelHunter : Hunter.Samus,
-                    HasFlag(args, "poseonly"), HasFlag(args, "projectiononly"));
+                    HasFlag(args, "poseonly"), HasFlag(args, "projectiononly"), HasFlag(args, "nativeprojectiononly"));
                 return true;
             }
             if (HasFlag(args, "charactermaterialpalette"))
@@ -2075,6 +2135,7 @@ namespace MphRead.Mods
             string? hostLocal = ValueAfter(args, "hostlocal");
             if (hostLocal != null)
             {
+                if (!TryReadLocalWeaponPackage(args, "hostlocal", out var localWeaponPackage)) return true;
                 var localMaps = new List<(string RoomKey, GameMode Mode)>();
                 GameMode localMode = GameMode.Battle;
                 string? localModeValue = ValueAfter(args, "mode");
@@ -2106,7 +2167,7 @@ namespace MphRead.Mods
                     timeLimit: 7 * 60, pointGoal: 7,
                     masterHost: ValueAfter(args, "master") ?? NetMasterConfig.DefaultHost,
                     masterPort: ParseMasterPort(args),
-                    listed: !HasFlag(args, "nomaster"));
+                    listed: !HasFlag(args, "nomaster"), weaponPackage: localWeaponPackage);
                 if (localPort < 0)
                 {
                     Console.WriteLine($"[hostlocal] {LocalServer.LastError}");
@@ -2132,6 +2193,16 @@ namespace MphRead.Mods
             string? hostGame = ValueAfter(args, "hostgame");
             if (hostGame != null)
             {
+                if (!TryReadLocalWeaponPackage(args, "hostgame", out var requestedWeaponPackage)) return true;
+                CustomWeapons.Packages.WeaponPackageLease? hostClientLease = null;
+                try { hostClientLease = requestedWeaponPackage?.Acquire(default); }
+                catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException
+                    or ArgumentException or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException)
+                {
+                    Console.Error.WriteLine("[hostgame] The exact selected weapon package must be installed locally before requesting a host.");
+                    Environment.ExitCode = 2; return true;
+                }
+                using var selectedClientPackage = hostClientLease;
                 string masterHost = ValueAfter(args, "master") ?? NetMasterConfig.DefaultHost;
                 int masterPort = NetMasterConfig.DefaultPort;
                 string? masterPortValue = ValueAfter(args, "masterport");
@@ -2174,7 +2245,7 @@ namespace MphRead.Mods
                 HostedGame game = NetMasterClient.RequestGame(masterHost, masterPort,
                     hostGame, hostMode, timeLimit: 7 * 60, pointGoal: 7,
                     maxPlayers: PlayerEntity.SlotCapacity, serverName: $"{hostName}'s game",
-                    rotation: hostRotation);
+                    rotation: hostRotation, weaponArchiveHash: requestedWeaponPackage?.ArchiveHash);
                 if (!game.Started)
                 {
                     Console.WriteLine($"[net] it would not: {game.Reason}");
@@ -2183,7 +2254,8 @@ namespace MphRead.Mods
                 }
                 Console.WriteLine($"[net] running on {game.Host}:{game.Port}; joining it");
                 Network.NetConnectCommand.Run(game.Host, game.Port, hostName,
-                    ParseHunter(args), ParseRecolor(args));
+                    ParseHunter(args), ParseRecolor(args), ownerToken: game.OwnerToken,
+                    weaponPackage: requestedWeaponPackage);
                 return true;
             }
 
@@ -2801,6 +2873,48 @@ namespace MphRead.Mods
                 }
             }
             return -1;
+        }
+
+        private static bool TryReadHostWeaponStore(string[] args, out string? directory)
+        {
+            directory = null;
+            if (!HasFlag(args, "hostweaponstore")) return true;
+            string? selected = ValueAfter(args, "hostweaponstore");
+            if (!String.IsNullOrWhiteSpace(selected) && selected.Length <= 4096 && !selected.StartsWith('-')
+                && !selected.Any(char.IsControl)
+                && args.Count(value => value.TrimStart('-').Equals("hostweaponstore", StringComparison.OrdinalIgnoreCase)) == 1)
+            {
+                try
+                {
+                    _ = new CustomWeapons.Packages.WeaponPackageStore(selected);
+                    directory = System.IO.Path.GetFullPath(selected); return true;
+                }
+                catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException
+                    or ArgumentException or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException) { }
+            }
+            Console.Error.WriteLine("[host] Supply -hostweaponstore <approved local directory> once.");
+            Environment.ExitCode = 2; return false;
+        }
+
+        private static bool TryReadLocalWeaponPackage(string[] args, string command,
+            out LocalWeaponPackageSelection? selection)
+        {
+            selection = null;
+            bool store = HasFlag(args, "weaponstore"), archive = HasFlag(args, "weaponarchive");
+            if (!store && !archive) return true;
+            string? directory = ValueAfter(args, "weaponstore"), hash = ValueAfter(args, "weaponarchive");
+            if (store && archive
+                && args.Count(value => value.TrimStart('-').Equals("weaponstore", StringComparison.OrdinalIgnoreCase)) == 1
+                && args.Count(value => value.TrimStart('-').Equals("weaponarchive", StringComparison.OrdinalIgnoreCase)) == 1
+                && !string.IsNullOrWhiteSpace(directory) && !directory.StartsWith('-'))
+            {
+                try { selection = new(directory, hash!); return true; }
+                catch (Exception error) when (error is System.IO.InvalidDataException or System.IO.IOException or ArgumentException
+                    or UnauthorizedAccessException or NotSupportedException or System.Security.SecurityException) { }
+            }
+            Console.Error.WriteLine($"[{command}] Supply both -weaponstore <directory> and -weaponarchive <exact lowercase SHA-256>, once each.");
+            Environment.ExitCode = 2;
+            return false;
         }
 
         private static string? ValueAfter(string[] args, string name)

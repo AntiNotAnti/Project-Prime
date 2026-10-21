@@ -173,6 +173,7 @@ internal static class HostRequestGuard
         hash.Add(request.MapIdentity); hash.Add(request.Policy);
         hash.Add(request.AllowJoinInProgress); hash.Add(request.RequireReady);
         hash.Add(request.Format);
+        hash.Add(request.WeaponArchiveHash ?? "", StringComparer.Ordinal);
         if (request.Rotation != null)
             foreach (HostRotationEntry entry in request.Rotation)
             {

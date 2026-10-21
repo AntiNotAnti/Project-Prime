@@ -18,6 +18,17 @@ namespace MphRead.Mods.Network
         internal ReplayReplicaCheckpoint InitialState { get; }
         internal ulong MapHash { get; }
         internal bool HasStepped { get; private set; }
+        internal bool HasRestoredCustomWorld { get; private set; }
+        internal uint? CustomHeadHistoryOrigin { get; private set; }
+        internal void BeginCustomHeadHistory()
+        {
+            if (!Session.IsActive || !Session.IsCustomInspection || Session.IsCustomArchiveInspection
+                || HasStepped || HasRestoredCustomWorld || CustomHeadHistoryOrigin.HasValue)
+                throw new InvalidOperationException("Head history must begin on a fresh private custom source before stepping or restoration.");
+            CustomHeadHistoryOrigin = Session.RecordingFrame;
+        }
+        internal void RestoreCustomHeadHistoryOrigin(uint origin) => CustomHeadHistoryOrigin = origin;
+        internal void MarkCustomWorldRestored() => HasRestoredCustomWorld = true;
         private bool _disposed;
         private bool _ownsScene = true;
         internal Scene DetachScene() { _ownsScene = false; return Scene; }
@@ -98,11 +109,68 @@ namespace MphRead.Mods.Network
             try { session.Join(clip, checkpoint.ConstructionState()); return session; }
             catch { session.Dispose(); throw; }
         }
-        private PassiveReplayScene(ReplayPlaybackSession session, Vector2i size)
+        internal static PassiveReplayScene CreateCustomInspection(ReplayReplicaCheckpoint initial, PreparedReplayWeaponPackage prepared,
+            ulong mapHash, Vector2i size)
+        {
+            if (mapHash == 0) throw new InvalidDataException("Custom Scene inspection requires the recorded exact map hash.");
+            var session = new ReplayPlaybackSession(new PassiveReplaySessionHost());
+            try
+            {
+                session.JoinCustomInspection(initial, prepared, mapHash);
+                if (!((PassiveReplaySessionHost)session.Host).State.HasRecordedSceneBaseline)
+                    throw new InvalidDataException("Custom Scene inspection requires accepted native roster and snapshot coverage.");
+                if (ReplayMapIdentity.Validate(session.Metadata!) != ReplayOpenResult.Success)
+                    throw new InvalidDataException("The exact recorded replay map is unavailable or differs from installed data.");
+                return new PassiveReplayScene(session, size, prepared);
+            }
+            catch { session.Dispose(); throw; }
+        }
+        internal static PassiveReplayScene RestoreCustomInspection(Replay.ReplayWorldCheckpoint checkpoint, PreparedReplayWeaponPackage prepared, Vector2i size)
+        {
+            if (!checkpoint.HasCustomWeaponContract) throw new InvalidDataException("An explicit custom world12/13 capsule is required.");
+            var metadata = checkpoint.ClipMetadata(0, Array.Empty<ReplayPlayerInfo>());
+            var scene = CreateCustomInspection(checkpoint.ConstructionState(), prepared, metadata.MapHash, size);
+            try { checkpoint.RestoreCustom(scene); return scene; }
+            catch { scene.Dispose(); throw; }
+        }
+        internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
+        {
+            if (prepared.FormatVersion != 7)
+                throw new InvalidDataException("Ordinary custom archive Scene admission requires format7.");
+            return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
+        }
+        internal static PassiveReplayScene OpenPostWorldArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
+        {
+            if (prepared.FormatVersion != 8
+                || prepared.Resources.Descriptor.InspectContext().Bootstrap.OriginKind != ReplayCustomWeaponOriginKind.Recipient)
+                throw new InvalidDataException("Post-world Scene inspection requires an explicit format8 recipient archive.");
+            return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
+        }
+        private static PassiveReplayScene OpenPreparedCustomArchive(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget)
+        {
+            using var world = prepared.CopyWorld();
+            var scene = RestoreCustomInspection(world, prepared.Resources, size);
+            try
+            {
+                scene.Session.AttachCustomArchive(prepared);
+                // Preserve the producer's saved firing contract. Merely
+                // opening a file must not relabel an unindexed world.
+                scene.Scene.ReplayPoses = new(scene, prepared, world.IndexedFirePresentation);
+                scene.Scene.BeginOwnerPresentation(prepared.Path);
+                scene.PrepareCustomPresentation();
+                while (reconstructToTarget && scene.Session.RecordingFrame < prepared.TargetFrame)
+                    if (!scene.StepCustomArchiveInspection()) throw new InvalidDataException("Custom archive ended before its requested seek frame.");
+                return scene;
+            }
+            catch { scene.Dispose(); throw; }
+        }
+        private PassiveReplayScene(ReplayPlaybackSession session, Vector2i size, PreparedReplayWeaponPackage? prepared = null)
         {
             Session = session;
             State = ((PassiveReplaySessionHost)session.Host).State;
             MatchStatePacket match = State.Match ?? throw new InvalidDataException("Replay has no room.");
+            if (State.CustomWeapons != null && prepared == null)
+                throw new InvalidDataException("Custom Scene construction requires independently prepared historical resources.");
             InitialState = State.CaptureCheckpoint();
             MapHash = Session.Metadata?.MapHash is > 0 ? Session.Metadata.MapHash : ReplayMapIdentity.Compute(match.RoomKey);
             Scene = new Scene(size, SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { },
@@ -113,6 +181,7 @@ namespace MphRead.Mods.Network
             Scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             try
             {
+                if (prepared != null) Scene.BindReplayWeaponPackage(prepared);
                 Scene.GameState.Mode = (GameMode)match.Mode;
                 if (Scene.GameState.SinglePlayer) throw new InvalidDataException("Passive reconstruction requires a recorded multiplayer world.");
                 ((ReplaySceneServices)Scene.Services).ApplyRules(Scene, 0);
@@ -135,6 +204,7 @@ namespace MphRead.Mods.Network
         public bool Step()
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            if (Session.IsCustomInspection) throw new InvalidOperationException("Custom inspection requires explicit accepted-record stepping.");
             if (Session.AtEnd) return false;
             Session.PumpFrame();
             if (Session.LastResult != ReplayOpenResult.Success) throw new InvalidDataException(Session.LastError);
@@ -148,6 +218,28 @@ namespace MphRead.Mods.Network
             ObjectDisposedException.ThrowIf(_disposed, this);
             Session.AdvanceLive(frame, records);
             Scene.StepReplica(); HasStepped = true;
+        }
+        internal void StepCustomInspection(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            Session.AdvanceCustomInspection(frame, records);
+            PrepareCustomPresentation();
+            Scene.StepReplica(); HasStepped = true;
+        }
+        internal bool StepCustomArchiveInspection()
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (!Session.AdvanceCustomArchiveInspection()) return false;
+            PrepareCustomPresentation();
+            Scene.StepReplica(); HasStepped = true; return true;
+        }
+        private void PrepareCustomPresentation()
+        {
+            if (Scene.ReplayPoses is { } poses && !poses.Prepare())
+            {
+                Session.FailCustomPresentation(poses.LastError);
+                throw new InvalidDataException(Session.LastError);
+            }
         }
         public void Dispose()
         {

@@ -34,7 +34,8 @@ internal static class PlayerFormProtocolTests
         Form().Write(bad); BinaryPrimitives.WriteUInt32LittleEndian(bad.AsSpan(4), 21); Check(!PlayerFormState.TryRead(bad, out _), "future transition start rejected");
         var wrap = Form(0); wrap.StartedFrame = uint.MaxValue; wrap.Write(bad); Check(PlayerFormState.TryRead(bad, out _), "transition order supports wrap");
         var lanes = new NetReplicationLanes(); lanes.Prepare(Canonical(20));
-        Check(PlayerFormState.Size == 28 && NetReplicationLanes.SlowEntry == 58 && SnapshotFast.PlayerSize == PlayerState.Protocol48Size - 7
+        Check(PlayerFormState.Size == 28 && NetReplicationLanes.Protocol80SlowEntry == 58
+            && NetReplicationLanes.SlowEntry == 77 && SnapshotFast.PlayerSize == PlayerState.Protocol48Size - 7
             && SnapshotFast.MaximumEncodedSize <= 1200, "canonical stride and unchanged fast MTU");
         var receiver = new NetReplicationReceiver(); var decoded = new PlayerState[1];
         Check(receiver.Receive(PacketType.PlayerSlowState, lanes.Slow.AsSpan(0, lanes.SlowLength), 7, 8)

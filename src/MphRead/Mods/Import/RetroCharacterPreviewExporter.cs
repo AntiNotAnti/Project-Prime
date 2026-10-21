@@ -32,6 +32,8 @@ public static partial class RetroCharacterPreviewExporter
             "darksamus-overcharged-echoes"=>"Overcharged Dark Samus (Echoes)",
             "trooper-power"=>"Power Trooper (Prime)","trooper-ice"=>"Ice Trooper (Prime)",
             "trooper-wave"=>"Wave Trooper (Prime)","trooper-plasma"=>"Plasma Trooper (Prime)",
+            "trooper-drone-alpha"=>"Alpha Scout Drone (Prime Rev2)",
+            "trooper-drone-gamma"=>"Gamma Scout Drone (Prime Rev2)",
             _=>Id
         };
     }
@@ -47,6 +49,8 @@ public static partial class RetroCharacterPreviewExporter
         // Dark_Samus or a playable/native-Hunter registration.
         new SourceCharacter("darksamus-overcharged-echoes", ExternalGameKind.Echoes, 0x39900a11, "Battle_3")
             { AlternateForm = new("ball", 0x654a3f97, "Dark_Samus_MorphBall", 1) },
+        new SourceCharacter("trooper-drone-alpha", ExternalGameKind.MetroidPrime, 0x5e058399, "AlphaDrone"),
+        new SourceCharacter("trooper-drone-gamma", ExternalGameKind.MetroidPrime, 0x5e058399, "Gamma_Drone"),
     });
 
     public static string DefaultRoot => CharacterImportPaths.Resolve(OperatingSystem.IsAndroid());
@@ -79,6 +83,19 @@ public static partial class RetroCharacterPreviewExporter
     public static IReadOnlyList<string> ExportFromOwnedGame(string sourcePath,
         string? destinationRoot = null, CancellationToken cancellation = default,
         IProgress<ImportPublishStage>? progress = null, IReadOnlyCollection<string>? selectedIds = null)
+        => ExportFromOwnedGameCore(sourcePath, destinationRoot, cancellation, progress, selectedIds, false);
+
+    public static IReadOnlyList<string> ExportSourceGroupFromOwnedGame(string sourcePath,
+        IReadOnlyCollection<string> selectedIds, string? destinationRoot = null, CancellationToken cancellation = default,
+        IProgress<ImportPublishStage>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(selectedIds);
+        return ExportFromOwnedGameCore(sourcePath, destinationRoot, cancellation, progress, selectedIds, true);
+    }
+
+    private static IReadOnlyList<string> ExportFromOwnedGameCore(string sourcePath,
+        string? destinationRoot, CancellationToken cancellation,
+        IProgress<ImportPublishStage>? progress, IReadOnlyCollection<string>? selectedIds, bool sameSourceGroup)
     {
         cancellation.ThrowIfCancellationRequested();
         progress?.Report(ImportPublishStage.Checking);
@@ -90,11 +107,11 @@ public static partial class RetroCharacterPreviewExporter
 
         // A preview must be sourced from the exact pinned media edition.
         // SHA1 here is an upstream recipe identity, not a security signature.
-        var selected = Sources.Where(x => x.Game == disc.Game && (selectedIds == null || selectedIds.Contains(x.Id, StringComparer.Ordinal))).ToArray();
-        if (selected.Length == 0 || selectedIds != null && (selectedIds.Count != selected.Length || selectedIds.Distinct(StringComparer.Ordinal).Count() != selectedIds.Count))
-            throw new InvalidDataException("Choose supported character previews from this source edition.");
         ExternalSourceEdition edition = ExternalSourceRequirements.EditionFor(disc);
-        var required = ExternalSourceRequirements.For(disc.Game, edition);
+        var selected = SelectSourcesForEdition(disc.Game, edition, selectedIds, sameSourceGroup).ToArray();
+        var required = selected.SelectMany(s => RequiredSourceArchives(s.Id, edition))
+            .GroupBy(a => a.Path, StringComparer.Ordinal).Select(g => g.Select(a => a.ExpectedSha1).Distinct().Count() == 1
+                ? g.First() : throw new InvalidDataException("Conflicting source archive requirements.")).ToArray();
         foreach (var archive in required)
         {
             cancellation.ThrowIfCancellationRequested();
@@ -110,11 +127,14 @@ public static partial class RetroCharacterPreviewExporter
             foreach (ExternalArchiveRequirement archive in required)
                 paks.Add(new RetroPakReader(disc.OpenRead(archive.Path), leaveOpen: false));
 
-            byte[] Resource(uint id)
+            byte[] Resource(SourceCharacter source, uint id)
             {
                 cancellation.ThrowIfCancellationRequested();
-                foreach (RetroPakReader pak in paks)
-                    if (pak.Contains(id)) return pak.ReadResource(id);
+                foreach (var archive in RequiredSourceArchives(source.Id, edition))
+                {
+                    int index = Array.FindIndex(required, a => a.Path == archive.Path);
+                    if (paks[index].Contains(id)) return paks[index].ReadResource(id);
+                }
                 throw new InvalidDataException("Missing required local character resource " +
                     id.ToString("x8"));
             }
@@ -128,8 +148,10 @@ public static partial class RetroCharacterPreviewExporter
                 foreach (SourcePart part in PartsFor(spec.Id, edition))
                 {
                     cancellation.ThrowIfCancellationRequested();
-                    parts.Add(WritePart(spec, part, disc.GameId, staging, root, Resource, staged, edition, cancellation));
+                    parts.Add(WritePart(spec, part, disc.GameId, staging, root, id => Resource(spec, id), staged, edition, cancellation));
                 }
+                if (spec.Id == "darksamus-echoes") AppendNormalBallManifest(staging);
+                if (spec.Id == "darksamus-overcharged-echoes") AppendFinalBallManifest(staging);
                 if (spec.AlternateForm != null)
                 {
                     string name = spec.Id + ".parts.json";
@@ -166,7 +188,7 @@ public static partial class RetroCharacterPreviewExporter
                 }
             }
             return LocalImportBundle.PublishSequential(root,PrepareUpdates(),cancellation,progress)
-                .Where(path=>selected.Any(spec=>Path.GetFileName(path)==spec.Id+".obj")).ToArray();
+                .Where(path=>selected.Any(spec=>Path.GetFileName(path)==PartStem(spec.Id, IsDrone(spec) ? "drone" : "body")+".obj")).ToArray();
         }
         finally
         {

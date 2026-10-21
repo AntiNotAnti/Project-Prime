@@ -26,7 +26,55 @@ def report(rows, role='client', frequency=1000, overflow=0):
         Overflow=overflow, UnkeyedRows=0, Complete=True))
 
 
+def as_schema2(source):
+    result = copy.deepcopy(source)
+    timeline = result['ShotTimeline']
+    timeline.update(Schema=2, Provenance=dict(Pose='presentation only',
+                    UnusedMetadata='unexported-v2-extension-canary'))
+    for index, event in enumerate(timeline['Rows']):
+        event['Pose'] = None if index % 2 == 0 else dict(
+            Origin=dict(X=1.0, Y=2.0, Z=3.0), Aim=dict(X=0.0, Y=0.0, Z=1.0),
+            Direction=dict(X=0.0, Y=0.0, Z=1.0), Charge=0)
+        event['UnusedMetadata'] = 'unexported-v2-extension-canary'
+    return result
+
+
 class TimelineTests(unittest.TestCase):
+    def test_schema2_optional_pose_and_unknown_metadata_preserve_core_observations(self):
+        legacy = {'server': report([row('claim-received', 100), row('terminal-decided', 110)], 'server'),
+                  'client': report([row('source-emitted', 50), row('predicted-feedback', 55)])}
+        extended = {label: as_schema2(source) for label, source in legacy.items()}
+        before = copy.deepcopy(extended)
+        self.assertEqual(audit(legacy), audit(extended))
+        self.assertEqual(audit(extended)['counts']['uniqueObservedShotKeys'], 1)
+        self.assertEqual(extended, before)
+        self.assertNotIn('unexported-v2-extension-canary', json.dumps(audit(extended)))
+
+    def test_unknown_future_or_untyped_timeline_schema_is_rejected(self):
+        for schema in (None, 0, 3, 1 << 31, True, '2', 2.0):
+            with self.subTest(schema=schema):
+                source = report([row('source-emitted')]); source['ShotTimeline']['Schema'] = schema
+                result = audit({'server': source})
+                self.assertEqual(result['processes'][0]['clockStatus'], 'UNAVAILABLE')
+                self.assertEqual(result['counts']['uniqueObservedShotKeys'], 0)
+                self.assertEqual(result['status'], 'INCOMPLETE')
+
+    def test_schema2_does_not_hide_malformed_core_rows_or_clock(self):
+        for field, value in (('Timestamp', -1), ('LocalFrame', 1 << 32), ('AckFrame', True)):
+            source = as_schema2(report([row('source-emitted', **{field: value})]))
+            result = audit({'server': source})
+            self.assertEqual(result['counts']['uniqueObservedShotKeys'], 0, field)
+            self.assertEqual(result['status'], 'INCOMPLETE', field)
+        source = as_schema2(report([row('source-emitted', Key=dict(KEY, ShotId=0))]))
+        self.assertEqual(audit({'server': source})['counts']['uniqueObservedShotKeys'], 0)
+        source = as_schema2(report([row('source-emitted')]))
+        source['ShotTimeline']['Clock']['Domain'] = 'OtherClock'
+        self.assertEqual(audit({'server': source})['processes'][0]['clockStatus'], 'UNAVAILABLE')
+        source = as_schema2(report([row('unknown-v2-stage')]))
+        result = audit({'server': source})
+        self.assertEqual(result['counts']['unknownStageRows'], 1)
+        self.assertEqual(result['status'], 'INCOMPLETE')
+
     def test_retirement_preserves_phase_and_is_not_payment_or_delivery(self):
         rows = [row('receipt-retired', Phase=9, Result=1),
                 row('receipt-retired', Phase=10, Result=3),

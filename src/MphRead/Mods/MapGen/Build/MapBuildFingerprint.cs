@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -10,11 +11,23 @@ using System.Threading.Tasks;
 namespace MphRead.Mods.MapGen
 {
     public sealed record MapBuildFingerprint(int CompilerVersion, int ProjectFormat,
-        string RecipeHash, string SourceHash, string TextureHash, string ConfigurationHash)
+        string RecipeHash, string SourceHash, string TextureHash, string ConfigurationHash,
+        string GeneratorHash = "")
     {
         // Bump when compiler output or build-relevant defaults change.
         public const int CurrentCompilerVersion = 10;
         public const int SourceGeometryCompilerVersion = 11;
+
+        // Generated from the map compiler and collision sources at build time.
+        // Unlike a manually bumped compiler version, this invalidates collision
+        // and room binaries automatically when the generator implementation
+        // changes. The MVID fallback is conservative for custom build systems
+        // that bypass the MSBuild stamp: never silently trust old collision.
+        public static string CurrentGeneratorHash { get; } =
+            typeof(MapBuildFingerprint).Assembly
+                .GetCustomAttributes<System.Reflection.AssemblyMetadataAttribute>()
+                .FirstOrDefault(attribute => attribute.Key == "ProjectPrimeMapGeneratorHash")?.Value
+            ?? typeof(MapBuildFingerprint).Module.ModuleVersionId.ToString("N");
 
         public static MapBuildFingerprint Create(MapDefinition definition)
         {
@@ -25,11 +38,12 @@ namespace MphRead.Mods.MapGen
             string Select(string kind) => HashText(JsonSerializer.Serialize(
                 System.Linq.Enumerable.Where(dependencies, d => d.Kind == kind)));
             return new(definition.HasSourceGeometry ? SourceGeometryCompilerVersion : CurrentCompilerVersion, definition.FormatVersion, recipe,
-                Select("source"), Select("textures"), HashText(JsonSerializer.Serialize(dependencies)));
+                Select("source"), Select("textures"), HashText(JsonSerializer.Serialize(dependencies)),
+                CurrentGeneratorHash);
         }
 
         public string ContentKey => HashText(JsonSerializer.Serialize(new
-        { CompilerVersion, ProjectFormat, RecipeHash, SourceHash, TextureHash, ConfigurationHash }));
+        { CompilerVersion, ProjectFormat, RecipeHash, SourceHash, TextureHash, ConfigurationHash, GeneratorHash }));
 
         public static string HashText(string value) => Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(value))).ToLowerInvariant();

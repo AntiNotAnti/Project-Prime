@@ -16,6 +16,14 @@ internal static class ReplayTimelineArchive
     internal static ReplayMetadata Metadata(PassiveReplayScene world, ReplayType type)
     {
         var match = world.State.Match ?? throw new InvalidDataException("Replay has no match.");
+        if (world.State.CustomWeapons != null)
+        {
+            using var custom = ReplayWorldCheckpoint.CaptureCustom(world);
+            var metadata = custom.ClipMetadata(0, Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))
+                .Where(p => p.Occupant.Generation != 0).Select(p => new ReplayPlayerInfo((byte)p.Slot, (byte)p.Occupant.Hunter,
+                    p.Occupant.Team, p.Occupant.Name, p.Occupant.IsBot, p.Occupant.BotLevel)).ToArray(), type);
+            return metadata;
+        }
         using var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
         return new ReplayMetadata
         {
@@ -32,9 +40,11 @@ internal static class ReplayTimelineArchive
     }
     internal static void Write(ReplayWriterV3 writer, ReplayTimelineRecord record, uint origin)
     {
+        if (record.Kind == ReplayFactKind.CustomWeapon && !writer.HasCustomWeaponContract)
+            throw new InvalidDataException("Custom facts require an explicit format7 archive contract.");
         if (record.RecordingFrame < origin) return;
         uint frame = record.RecordingFrame - origin;
-        if (frame > 0 && record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation)
+        if (record.Kind == ReplayFactKind.CustomWeapon || frame > 0 && record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation)
             writer.WriteRecord(frame, record.Payload);
         if (record.Marker is { } marker)
         {
@@ -54,14 +64,17 @@ internal static class ReplayTimelineArchive
             compressed.Write(checkpoint.Bytes);
         return buffer.ToArray();
     }
-    internal static ReplayReplicaCheckpoint ReadConstruction(ReadOnlySpan<byte> packet)
+    internal static ReplayReplicaCheckpoint ReadConstruction(ReadOnlySpan<byte> packet, bool custom = false)
     {
+        if (packet.Length < 2 || packet[0] != 253 || packet.Length > (custom ? ReplayFormatV3.MaxCustomConstruction : ReplayFormatV3.MaxTimedConstruction))
+            throw new InvalidDataException("Invalid replay construction packet.");
         using var input = new MemoryStream(packet[1..].ToArray());
         using var compressed = new DeflateStream(input, CompressionMode.Decompress);
-        byte[] bytes = new byte[ReplayReplicaCheckpoint.MaximumBytes + 1];
+        int maximum = custom ? ReplayReplicaCheckpoint.MaximumCustomBytes : ReplayReplicaCheckpoint.MaximumBytes;
+        byte[] bytes = new byte[maximum + 1];
         int length = 0, read;
         while (length < bytes.Length && (read = compressed.Read(bytes, length, bytes.Length - length)) != 0) length += read;
-        if (length > ReplayReplicaCheckpoint.MaximumBytes) throw new InvalidDataException("Oversized replay construction decoder.");
+        if (length > maximum) throw new InvalidDataException("Oversized replay construction decoder.");
         return new(bytes.AsSpan(0, length));
     }
     internal static void EndFrame(ReplayWriterV3 writer, uint frame) => writer.WriteRecord(frame, FrameMarker);

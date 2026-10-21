@@ -14,7 +14,8 @@ public partial class Scene
 {
     private sealed class HeadHitSlot
     {
-        internal readonly HeadHitTrack Track=new();
+        internal readonly HeadHitTrack Track;
+        internal HeadHitSlot(HeadHitTrack? track=null) => Track=track??new();
         internal Vector3 Position;
         internal uint NotBefore;
         internal bool Terminated;

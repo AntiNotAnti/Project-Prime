@@ -147,6 +147,26 @@ namespace MphRead.Mods.Network
         private readonly (ushort Generation, ushort Life, byte Flags, bool Alive, bool Crouched, bool Tucked)[] _presentationLives =
             new (ushort, ushort, byte, bool, bool, bool)[PlayerEntity.SlotCapacity];
         private readonly bool[] _presentationKnown = new bool[PlayerEntity.SlotCapacity];
+        internal void RebindCompletedPresentationLives()
+        {
+            // Completed worlds already projected their accepted player state.
+            // The serialized generation fence distinguishes those worlds from
+            // a fresh construction that has not taken its first replica step.
+            // Missing players remain unknown: removal clears the decoder's
+            // player only on a generation change, which also requires a reset
+            // when the next occupant's first snapshot arrives.
+            Array.Clear(_presentationKnown);
+            Array.Clear(_presentationLives);
+            for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+                if (State.TryGetPlayer(slot, out var recorded) && _generations[slot] != 0
+                    && _generations[slot] == recorded.SlotGeneration)
+                {
+                    _presentationKnown[slot] = true;
+                    _presentationLives[slot] = (recorded.SlotGeneration, recorded.LifeId,
+                        (byte)(recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm)),
+                        recorded.Health > 0, recorded.Crouched, recorded.Tucked);
+                }
+        }
         public void AfterSimulation(Scene scene)
         {
             // Reconcile visual projectile endpoints after replica simulation has

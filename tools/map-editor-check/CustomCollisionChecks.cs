@@ -15,6 +15,15 @@ static class CustomCollisionChecks
 {
     public static void Run(Action<bool, string> check)
     {
+        // The build must carry the actual compiler source checksum. Old
+        // manifests without it must not be mistaken for fresh collision data.
+        string generatorHash = MapBuildFingerprint.CurrentGeneratorHash;
+        check(generatorHash.Length == 64 && generatorHash.All(Uri.IsHexDigit),
+            "client/server map generator embeds a 256-bit source stamp");
+        var oldStamp = new MapBuildFingerprint(10, 3, "r", "s", "t", "c", "old");
+        check(oldStamp != oldStamp with { GeneratorHash = generatorHash },
+            "generator changes invalidate cached collision build identities");
+
         CollisionDetection.Init();
         // This content-free fixture constructs Scene with initializeRuntime:
         // false. Populate the real immutable hunter collision volumes before

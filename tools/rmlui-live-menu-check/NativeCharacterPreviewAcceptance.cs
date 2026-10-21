@@ -42,31 +42,30 @@ internal static class NativeCharacterPreviewAcceptance
                 while (parts.CharacterPreviewId != source.Id) parts.CycleCharacterPreview();
                 parts.CheckCharacterPreview(); Wait(parts);
                 Check(parts.Status.Contains("body v5: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("ball v3: Ready", StringComparison.Ordinal)
-                    && parts.Status.Contains("Source authoring bundle;", StringComparison.Ordinal)
-                    && parts.Status.Contains("normal and Overcharged Echoes support a source-program body preview with preview lighting", StringComparison.Ordinal)
-                    && parts.Status.Contains("First-person and playable animation/morph remain unqualified.", StringComparison.Ordinal),
-                    "complete verified synthetic v6 bundle reports body-v5 and ball-v3 Ready with explicit source-program preview and gameplay qualification limits");
+                    && parts.Status.Contains("ball v4: Ready", StringComparison.Ordinal)
+                    && parts.Status.Contains("Choose an updated imported body in Hunters for local offline matches.", StringComparison.Ordinal)
+                    && parts.Status.Contains("Unsupported states and online matches use native presentation.", StringComparison.Ordinal),
+                    "complete verified synthetic v7 bundle reports body-v5 and ball-v4 Ready with explicit local-only source presentation limits");
                 var spec = RetroCharacterPreviewExporter.BundleSpec(source.Id);
-                Check(spec.Version == 6 && spec.RequiredComponents.Length == 20,
-                    "normal source authoring recipe-v6 independently requires all twenty components");
-                foreach(var component in new[]{(".obj","geometry"),(".cinf.bin","skeleton-source"),(".animations.bin","animation-resources"),(".source.glb","source-rig-geometry"),(".source.json","generated-provenance")})
+                Check(spec.Version == 7 && spec.RequiredComponents.Length == 23,
+                    "normal source authoring recipe-v7 independently requires all twenty-three components");
+                foreach(var component in new[]{(".obj","geometry"),(".cinf.bin","skeleton-source"),(".animations.bin","animation-resources"),(".source.glb","source-rig-geometry"),(".source.json","generated-provenance"),(".ancs-graph.json","animation-graph"),(".ancs.bin","animation-graph-source"),(".materials.bin","source-materials")})
                 {
                     var installed = LocalImportBundle.Inspect(root, source.Id, spec);
                     string name = RetroCharacterPreviewExporter.PartStem(source.Id, "ball") + component.Item1;
                     File.Delete(installed.Files.Single(file => Path.GetFileName(file) == name));
                     parts.CheckCharacterPreview(); Wait(parts);
                     Check(parts.Status.Contains("body v5: Ready", StringComparison.Ordinal)
-                        && parts.Status.Contains("ball v3: Incomplete", StringComparison.Ordinal)
+                        && parts.Status.Contains("ball v4: Incomplete", StringComparison.Ordinal)
                         && parts.Status.Contains(component.Item2+" v1 Incomplete", StringComparison.Ordinal)
-                        && parts.Status.Contains("Source authoring bundle;", StringComparison.Ordinal)
-                        && parts.Status.Contains("First-person and playable animation/morph remain unqualified.", StringComparison.Ordinal),
+                        && parts.Status.Contains("Choose an updated imported body in Hunters for local offline matches.", StringComparison.Ordinal)
+                        && parts.Status.Contains("Unsupported states and online matches use native presentation.", StringComparison.Ordinal),
                         "missing required ball component leaves body Ready and identifies exact incomplete role without playable qualification: "+component.Item2);
                     LocalImportBundle.Publish(root, spec, spec.RequiredComponents.ToDictionary(c => c, c => Encoding.UTF8.GetBytes("synthetic fixture: " + c)));
                     parts.CheckCharacterPreview(); Wait(parts);
                     Check(parts.Status.Contains("body v5: Ready", StringComparison.Ordinal)
-                        && parts.Status.Contains("ball v3: Ready", StringComparison.Ordinal),
-                        "complete republish repairs v6 synthetic component fixture before removal and snapshot checks: "+component.Item2);
+                        && parts.Status.Contains("ball v4: Ready", StringComparison.Ordinal),
+                        "complete republish repairs v7 synthetic component fixture before removal and snapshot checks: "+component.Item2);
                 }
             }
             using(var manifestOwner=new NativeFullSettingsController(settings))
@@ -74,7 +73,7 @@ internal static class NativeCharacterPreviewAcceptance
                 const string normal="darksamus-echoes";
                 while(manifestOwner.CharacterPreviewId!=normal)manifestOwner.CycleCharacterPreview();
                 var spec=RetroCharacterPreviewExporter.BundleSpec(normal);
-                foreach (var component in new[] { ("characters.json", "source-preview-manifest v2"), ("darksamus-echoes.cannon-source.json", "source-cannon-recipe v1"),
+                foreach (var component in new[] { ("characters.json", "source-preview-manifest v3"), ("darksamus-echoes.cannon-source.json", "source-cannon-recipe v1"),
                     ("darksamus-echoes.materials.bin", "source-materials v1") })
                 {
                 var installed=LocalImportBundle.Inspect(root,normal,spec);
@@ -82,11 +81,11 @@ internal static class NativeCharacterPreviewAcceptance
                 manifestOwner.CheckCharacterPreview();Wait(manifestOwner);
                 Check(manifestOwner.Status.Contains("body v5: Incomplete",StringComparison.Ordinal)
                     &&manifestOwner.Status.Contains(component.Item2+" Incomplete",StringComparison.Ordinal)
-                    &&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
+                    &&manifestOwner.Status.Contains("ball v4: Ready",StringComparison.Ordinal),
                     "missing normal manifest identifies incomplete body without hiding verified ball components");
                 LocalImportBundle.Publish(root,spec,spec.RequiredComponents.ToDictionary(c=>c,c=>Encoding.UTF8.GetBytes("synthetic fixture: "+c)));
                 manifestOwner.CheckCharacterPreview();Wait(manifestOwner);
-                Check(manifestOwner.Status.Contains("body v5: Ready",StringComparison.Ordinal)&&manifestOwner.Status.Contains("ball v3: Ready",StringComparison.Ordinal),
+                Check(manifestOwner.Status.Contains("body v5: Ready",StringComparison.Ordinal)&&manifestOwner.Status.Contains("ball v4: Ready",StringComparison.Ordinal),
                     "normal component repair restores complete synthetic inventory before removal checks");
                 }
             }
@@ -211,17 +210,17 @@ internal static class NativeCharacterPreviewAcceptance
                 "Settings with game-file access disabled cannot route preview action245");
             controller.RequestCharacterSourcePreview();Check(!restricted.TryTakeCharacterSourcePreview(out _),"game-file restriction fences even a direct pending controller request");
         }
-        // Actual worker paths need no commercial data: both supported Echoes
-        // generations are absent, and Trooper has no supported body source program.
-        const string unsupportedProfile = "Body source programs currently support normal and Overcharged Echoes";
+        // Actual worker paths need no commercial data: the supported Echoes
+        // and Prime Rev 2 Trooper source bundles are absent from this fixture.
+        const string missingBundle = "Update the selected source bundle";
         foreach(string id in new[]{"darksamus-echoes","darksamus-overcharged-echoes","trooper-power"})
         {
             using var preview=new NativeCharacterSourcePreviewPage(host,pages,id,asModal:false);preview.Open();
             Task task=(Task)Get(preview,"_load")!;Await(task);preview.Tick();
             string status=(string)Get(preview,"_status")!;
             Check(preview.Request==null&&Get(preview,"_selection")==null
-                &&status.Contains(id=="trooper-power"?unsupportedProfile:"Update the selected source bundle",StringComparison.Ordinal),
-                "missing/unsupported source returns bounded error with no render request: "+id);
+                &&status.Contains(missingBundle,StringComparison.Ordinal),
+                "missing source bundle returns bounded error with no render request: "+id);
             Check(preview.Handle(new(RmlUiIntentKind.HunterCancel,0,preview.Document,1))&&preview.Closed,"Back remains usable after source load refusal: "+id);
         }
         using(var covered=new NativeCharacterSourcePreviewPage(host,pages,"trooper-power",asModal:false))
@@ -232,7 +231,7 @@ internal static class NativeCharacterPreviewAcceptance
             Check(ReferenceEquals(Get(covered,"_load"),completed)&&(string)Get(covered,"_status")! ==prior
                 &&covered.Request==null&&native.Publications==publications,"covered source page defers completed worker adoption and native publication");
             pages.CloseModal();covered.Tick();
-            Check(Get(covered,"_load")==null&&((string)Get(covered,"_status")!).Contains(unsupportedProfile,StringComparison.Ordinal),
+            Check(Get(covered,"_load")==null&&((string)Get(covered,"_status")!).Contains(missingBundle,StringComparison.Ordinal),
                 "restored source page adopts only its own completed worker result");
         }
         foreach(string retirement in new[]{"back","dispose","dead-document"})
@@ -315,7 +314,7 @@ internal static class NativeCharacterPreviewAcceptance
         Check(echoes.SequenceEqual(new[] { "darksamus-echoes", "darksamus-overcharged-echoes" }) && !ReferenceEquals(first, echoes), "Echoes all selects both distinct supported source appearances in fresh array");
         owner.TakeArenaImport(); owner.BeginArenaImport(null); owner.CycleCharacterPreview(); owner.RequestCharacterImport(true);
         var troopers = (string[])Get(owner,"_characterImportIds")!;
-        Check(troopers.SequenceEqual(new[] { "trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma" }), "Prime all captures four Troopers without Echoes");
+        Check(troopers.SequenceEqual(new[] { "trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma", "trooper-drone-alpha", "trooper-drone-gamma" }), "Prime all captures four Troopers and both Scout Drones without Echoes");
         owner.TakeArenaImport(); owner.BeginArenaImport(null); owner.RequestCharacterImport(false);
         Check(((string[])Get(owner,"_characterImportIds")!).SequenceEqual(new[] { "trooper-power" }), "selected Trooper request excludes other appearances");
         owner.Dispose(); owner.BeginArenaImport("missing-owned-source.iso");

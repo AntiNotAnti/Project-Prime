@@ -31,7 +31,7 @@ internal sealed class HostedMapRequests : IDisposable
         public HostRequestPacket Request;
         public IPEndPoint Sender = null!;
         public byte[] Wire = null!;
-        public Task<HostedMapPreparation> Download = null!;
+        public Task<PreparedHostRequest> Download = null!;
         public CancellationTokenSource Cancel = null!;
         public HostReplyPacket? Reply;
         public double CompletedAt;
@@ -51,7 +51,7 @@ internal sealed class HostedMapRequests : IDisposable
         Platform.AppPaths.UserDataDirectory, "hosted-map-packages");
 
     public void Enqueue(HostRequestPacket request, IPEndPoint sender, double now,
-        Action<IPEndPoint, HostReplyPacket> send)
+        Action<IPEndPoint, HostReplyPacket> send, string? approvedWeaponStore = null)
     {
         byte[] wire = new byte[request.Length];
         request.Write(wire);
@@ -73,6 +73,8 @@ internal sealed class HostedMapRequests : IDisposable
         try
         {
             Validate(request);
+            if (request.RequiresWeaponPreparation && approvedWeaponStore == null)
+                throw new InvalidDataException("This host has no approved weapon package store.");
             string address = _source ?? NetworkMapIdentity.ConfiguredDownloadSource();
             var cancel = new CancellationTokenSource(TimeSpan.FromMinutes(2));
             _pending.Add(new Pending
@@ -81,8 +83,8 @@ internal sealed class HostedMapRequests : IDisposable
                 Sender = sender,
                 Wire = wire,
                 Cancel = cancel,
-                Download = Task.Run(() => PrepareArchivesAsync(
-                    request, address, _cacheDirectory ?? CacheDirectory, null, cancel.Token))
+                Download = Task.Run(() => PrepareRequestAsync(request, address,
+                    _cacheDirectory ?? CacheDirectory, approvedWeaponStore, cancel.Token))
             });
         }
         catch (Exception ex)
@@ -117,6 +119,9 @@ internal sealed class HostedMapRequests : IDisposable
         {
             throw new InvalidDataException("The requested first map must be rotation entry zero.");
         }
+        if (request.RequiresWeaponPreparation && (request.Mode != (byte)GameMode.Battle
+            || entries.Any(entry => entry.Mode != GameMode.Battle)))
+            throw new InvalidDataException("Packaged hosting requires a Battle rotation.");
 
         for (int i = 0; i < entries.Count; i++)
         {
@@ -154,6 +159,27 @@ internal sealed class HostedMapRequests : IDisposable
         {
             if (group.Select(e => e.PackageHash).Distinct().Skip(1).Any())
                 throw new InvalidDataException("One hosted rotation cannot request two versions of the same runtime map.");
+        }
+    }
+
+    private static async Task<PreparedHostRequest> PrepareRequestAsync(HostRequestPacket request,
+        string address, string directory, string? approvedWeaponStore, CancellationToken cancellation)
+    {
+        PreparedLocalWeaponPackage? weapon = null;
+        HostedMapPreparation? maps = null;
+        try
+        {
+            // Weapon-only requests never enter Community map download/cache code.
+            if (request.RequiresWeaponPreparation)
+                weapon = PreparedLocalWeaponPackage.Prepare(approvedWeaponStore!, request.WeaponArchiveHash!, cancellation);
+            if (request.RequiresMapPreparation)
+                maps = await PrepareArchivesAsync(request, address, directory, null, cancellation).ConfigureAwait(false);
+            cancellation.ThrowIfCancellationRequested();
+            return new(maps, weapon);
+        }
+        catch
+        {
+            weapon?.Dispose(); TryDeleteDirectory(maps?.LibraryPath); throw;
         }
     }
 
@@ -386,27 +412,28 @@ internal sealed class HostedMapRequests : IDisposable
     }
 
     public void Pump(double now,
-        Func<HostRequestPacket, IPEndPoint, double, HostedMapPreparation, HostReplyPacket> start,
+        Func<HostRequestPacket, IPEndPoint, double, PreparedHostRequest, HostReplyPacket> start,
         Action<IPEndPoint, HostReplyPacket> send)
     {
         foreach (var pending in _pending)
         {
             if (pending.Reply != null || !pending.Download.IsCompleted)
                 continue;
-            HostedMapPreparation? prepared = null;
+            PreparedHostRequest? prepared = null;
             try
             {
                 prepared = pending.Download.GetAwaiter().GetResult();
                 pending.Reply = start(pending.Request, pending.Sender, now, prepared);
-                if (pending.Reply is { Started: false })
-                    TryDeleteDirectory(prepared.LibraryPath);
+                if (pending.Reply is { Started: true }) prepared.TransferMaps();
             }
             catch (Exception ex)
             {
-                if (prepared != null) TryDeleteDirectory(prepared.LibraryPath);
                 pending.Reply = new HostReplyPacket
-                { Reason = "Map preparation failed: " + ex.GetBaseException().Message };
+                { Reason = pending.Request.RequiresWeaponPreparation
+                    ? "Exact installed weapon package preparation failed."
+                    : "Map preparation failed: " + ex.GetBaseException().Message };
             }
+            finally { prepared?.Dispose(); }
             pending.CompletedAt = now;
             pending.Cancel.Dispose();
             send(pending.Sender, pending.Reply.Value);
@@ -422,7 +449,7 @@ internal sealed class HostedMapRequests : IDisposable
             _ = pending.Download.ContinueWith(t =>
             {
                 if (t.Status == TaskStatus.RanToCompletion)
-                    TryDeleteDirectory(t.Result.LibraryPath);
+                    t.Result.Dispose();
                 else
                     _ = t.Exception;
                 pending.Cancel.Dispose();

@@ -126,6 +126,7 @@ namespace MphRead.Mods.Render
             Batchable = (item.Type == RenderItemType.Mesh
                 || ProceduralBatchEnabled && item.Type is RenderItemType.Particle or RenderItemType.TrailSingle
                     or RenderItemType.TrailMulti or RenderItemType.TrailStack)
+                && item.SourceGx == null
                 && !item.ViewModel
                 && item.BillboardMode == BillboardMode.None
                 && item.Cosmetics == default
@@ -981,6 +982,7 @@ namespace MphRead
                     GL.StencilFunc(StencilFunction.Always, 0, 0xFF);
                     DrawRenderGraphPackets(pass.Kind);
                     GL.Disable(EnableCap.AlphaTest);
+                    DrawSourceBodyPass(opaque: true, depthOnly: false);
 #if !MPHREAD_SERVER
                     if (snapshotDepth)
                         depthCaptured = (_depthReplaySnapshot ??= new()).Capture(
@@ -1037,6 +1039,7 @@ namespace MphRead
                     else
                     {
                         DrawRenderGraphPackets(pass.Kind);
+                        DrawSourceBodyPass(opaque: true, depthOnly: true);
                     }
                     break;
 
@@ -1061,6 +1064,7 @@ namespace MphRead
             GL.DepthMask(true);
             GL.Disable(EnableCap.AlphaTest);
             GL.Disable(EnableCap.StencilTest);
+            DrawSourceBodyPass(opaque: false, depthOnly: false);
             GL.PolygonMode(TriangleFace.FrontAndBack,
                 OpenTK.Graphics.OpenGL.PolygonMode.Fill);
             }

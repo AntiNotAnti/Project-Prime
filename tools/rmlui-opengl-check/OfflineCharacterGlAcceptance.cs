@@ -17,11 +17,20 @@ using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 // Real native authored DOM, translated input and GL composition. Services are
-// invented local values: no game files, match Scene, preferences or media capture.
+// invented local values and explicit private preferences: no game files, match Scene or media capture.
 internal static class OfflineCharacterGlAcceptance
 {
     internal static int Run(string assets, int requestedWidth, int requestedHeight)
     {
+        assets = Path.GetFullPath(assets);
+        string root = Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA") ?? "";
+        if (!Path.IsPathFullyQualified(root))
+            throw new ArgumentException("Offline fixture requires explicit private PROJECT_PRIME_USER_DATA; map choices now persist.");
+        root = Path.GetFullPath(root);
+        Directory.CreateDirectory(root);
+        Directory.SetCurrentDirectory(root);
+        if (!String.Equals(Path.GetFullPath(LauncherPrefs.Directory), root, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Offline fixture preferences must stay in the explicit private root.");
         int checks=0,translated=0;
         void Check(bool value,string why){checks++;if(!value)throw new InvalidOperationException(why);}
         GraphicsBackendPolicy.Configure("opengl");
@@ -157,7 +166,7 @@ internal static class OfflineCharacterGlAcceptance
         Check(Label("offline_character").Contains("TROOPER ARSENAL",StringComparison.Ordinal)
             &&Label("offline_start")=="START ARSENAL PRACTICE"
             &&controller.Tick().Bindings["offline_bots_value"].Text=="1 BOTS"
-            &&controller.Tick().Bindings["offline_character_notice"].Text.Contains("Native fallback gun and bolts",StringComparison.Ordinal)
+            &&controller.Tick().Bindings["offline_character_notice"].Text.Contains("Unsupported states use native fallback.",StringComparison.Ordinal)
             &&controller.Tick().Bindings["offline_character_notice"].Text.Contains("60 shared UA each life",StringComparison.Ordinal)
             &&services.Captured?.Character==OfflineCharacterMode.TrooperScoutDroneCombatPractice,
             "fourth real click selects Arsenal with exact notice while delivered combat capture remains detached");
@@ -261,7 +270,7 @@ internal static class OfflineCharacterGlAcceptance
             &&ReferenceEquals(GameState.Current.Owner,priorOwner)
             &&prefs==(LauncherPrefs.LastHunter,LauncherPrefs.LastColor,LauncherPrefs.Bots,LauncherPrefs.BotLevel,LauncherPrefs.LastKind),"all native paths preserve prefs/Scene and only four distinct permitted in-memory practice launch callbacks");
         Check(GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"native authored Offline acceptance finishes GL-clean");
-        Console.WriteLine($"OFFLINE CHARACTER NATIVE GL PASS {checks} checks; {translated} translated intents; actual framebuffer {width}x{height}; synthetic services, no media/captures/Scene/prefs writes");
+        Console.WriteLine($"OFFLINE CHARACTER NATIVE GL PASS {checks} checks; {translated} translated intents; actual framebuffer {width}x{height}; synthetic services, isolated map preferences, no media/captures/Scene writes");
         return 0;
 
         string Label(string id)=>NativeSemanticReadback.Read(host,manager.Top).Label(id);

@@ -61,7 +61,7 @@ public static class RetroCharacterMaterialArchive
         {
             if ((uint)ordinal >= Programs.Count) throw new ArgumentOutOfRangeException(nameof(ordinal));
             Program p = Programs[ordinal];
-            var material = Cmdl.ReadMaterial(_bytes, p.Offset, p.Offset + p.Length, echoes: true);
+            var material = Cmdl.ReadMaterial(_bytes, p.Offset, p.Offset + p.Length, echoes: IsEchoes(Binding.CharacterId));
             material.TexIds = material.Tex.Select(t => _textureTable[t]).ToArray();
             return material;
         }
@@ -94,9 +94,10 @@ public static class RetroCharacterMaterialArchive
             && cskr.Length is > 0 and <= MaxCskrBytes && Hex(geometrySha256, 64), "Invalid character material source binding.");
         // Capture caller arrays before resource callbacks can mutate them.
         byte[] model = cmdl.ToArray(), skin = cskr.ToArray();
-        var section = MaterialSection(model);
+        bool echoes = IsEchoes(source.CharacterId);
+        var section = MaterialSection(model, echoes);
         byte[] materials = model.AsSpan(section.Start, section.Length).ToArray();
-        var parsed = ParseSet(materials, 0);
+        var parsed = ParseSet(materials, 0, echoes);
         uint[] ids = parsed.Programs.SelectMany(p => p.TextureIds).Distinct().Order().ToArray();
         Require(ids.Length is > 0 and <= MaxTextures, "Character texture count exceeds its limit.");
         long next = HeaderBytes + (long)ids.Length * EntryBytes + materials.Length, decodedTotal = 0;
@@ -131,7 +132,8 @@ public static class RetroCharacterMaterialArchive
         Put(h, 32, source.Cmdl); Put(h, 36, source.Cskr); Put(h, 40, source.Cinf); Put(h, 44, source.Ancs);
         SHA256.HashData(model).CopyTo(h[48..]); SHA256.HashData(skin).CopyTo(h[80..]);
         Convert.FromHexString(geometrySha256).CopyTo(h[112..]); SHA256.HashData(materials).CopyTo(h[144..]);
-        Convert.FromHexString(source.SourceFingerprint).CopyTo(h[176..]); "G2ME01"u8.CopyTo(h[196..]); PixelHash.CopyTo(h[204..]);
+        Convert.FromHexString(source.SourceFingerprint).CopyTo(h[176..]);
+        Encoding.ASCII.GetBytes(echoes ? "G2ME01" : "GM8E01").CopyTo(h[196..]); PixelHash.CopyTo(h[204..]);
         materials.CopyTo(output.AsSpan(HeaderBytes + ids.Length * EntryBytes));
         for (int i = 0; i < textures.Length; i++)
         {
@@ -153,11 +155,16 @@ public static class RetroCharacterMaterialArchive
         // authoritative between header validation and payload capture.
         byte[] bytes = input.ToArray(); input = bytes;
         Require(input[..4].SequenceEqual("PPCM"u8) && U32(input, 4) == 1 && U32(input, 8) == HeaderBytes
-            && U32(input, 12) == input.Length && input.Slice(196, 6).SequenceEqual("G2ME01"u8)
+            && U32(input, 12) == input.Length
             && Zero(input.Slice(202, 2)) && input.Slice(204, 32).SequenceEqual(PixelHash) && Zero(input.Slice(236, 20)),
             "Unsupported character material archive header or pixel contract.");
         string id = U32(input, 16) switch { 1 => "darksamus-echoes", 2 => "darksamus-overcharged-echoes",
+            3 => "trooper-power", 4 => "trooper-ice", 5 => "trooper-wave", 6 => "trooper-plasma", 7 => "darksamus-echoes-ball", 8 => "darksamus-overcharged-echoes-ball",
+            9 => "trooper-drone-alpha", 10 => "trooper-drone-gamma",
             _ => throw new InvalidDataException("Unknown character material profile.") };
+        bool echoes = IsEchoes(id);
+        Require(input.Slice(196, 6).SequenceEqual(echoes ? "G2ME01"u8 : "GM8E01"u8),
+            "Character material profile differs from its source game.");
         var binding = new Source(id, U32(input, 32), U32(input, 36), U32(input, 40), U32(input, 44),
             Convert.ToHexStringLower(input.Slice(176, 20)));
         CheckSource(binding);
@@ -167,7 +174,7 @@ public static class RetroCharacterMaterialArchive
         int materialAt = HeaderBytes + count * EntryBytes;
         Require(materialAt + (long)materialBytes <= input.Length, "Truncated character material directory.");
         Require(Hash(bytes.AsSpan(materialAt, materialBytes)) == HashAt(bytes, 144), "Character material-set integrity failed.");
-        var parsed = ParseSet(bytes.AsSpan(materialAt, materialBytes), materialAt);
+        var parsed = ParseSet(bytes.AsSpan(materialAt, materialBytes), materialAt, echoes);
         Require(parsed.Programs.Length == programs, "Character program count differs from the material set.");
         uint[] needed = parsed.Programs.SelectMany(p => p.TextureIds).Distinct().Order().ToArray();
         Require(needed.Length == count, "Character texture directory does not cover exactly every referenced slot.");
@@ -202,12 +209,12 @@ public static class RetroCharacterMaterialArchive
         return new(bytes, binding, parsed.Table, parsed.Programs, textures);
     }
 
-    // Only the first material set of a bounded Echoes CMDL is captured. This
+    // Only the first material set of a bounded, edition-bound CMDL is captured. This
     // does not turn the legacy complete CMDL parser into an untrusted reader.
-    private static (int Start, int Length) MaterialSection(ReadOnlySpan<byte> cmdl)
+    private static (int Start, int Length) MaterialSection(ReadOnlySpan<byte> cmdl, bool echoes)
     {
-        Require(cmdl.Length is >= 64 and <= MaxArchiveBytes && Be32(cmdl, 0) == 0xdeadbabe && Be32(cmdl, 4) == 4,
-            "Expected a bounded Echoes body CMDL.");
+        Require(cmdl.Length is >= 64 and <= MaxArchiveBytes && Be32(cmdl, 0) == 0xdeadbabe
+            && Be32(cmdl, 4) == (echoes ? 4u : 2u), "Expected an edition-bound character body CMDL.");
         uint sections = Be32(cmdl, 0x24), sets = Be32(cmdl, 0x28);
         Require(sections is > 0 and <= 1024 && sets is > 0 and <= 16 && sets <= sections
             && 0x2c + 4L * sections <= cmdl.Length, "Invalid character CMDL section directory.");
@@ -222,7 +229,7 @@ public static class RetroCharacterMaterialArchive
         return (first, firstLength);
     }
 
-    private static (uint[] Table, Program[] Programs) ParseSet(ReadOnlySpan<byte> set, int archiveOffset)
+    private static (uint[] Table, Program[] Programs) ParseSet(ReadOnlySpan<byte> set, int archiveOffset, bool echoes)
     {
         Require(set.Length is >= 8 and <= MaxMaterialSetBytes, "Invalid character material-set extent.");
         uint textureCount = Be32(set, 0);
@@ -239,7 +246,7 @@ public static class RetroCharacterMaterialArchive
             Require(end > previous && end <= set.Length - baseAt && end - previous <= Cmdl.MaxMaterialBytes,
                 "Invalid character material record extent.");
             int start = baseAt + previous, length = (int)end - previous;
-            Cmdl.Material material = Cmdl.ReadMaterial(bounded, start, start + length, echoes: true);
+            Cmdl.Material material = Cmdl.ReadMaterial(bounded, start, start + length, echoes);
             var ids = new uint[material.Tex.Length];
             for (int t = 0; t < ids.Length; t++)
             { Require((uint)material.Tex[t] < table.Length, "Character material local slot is outside its texture table."); ids[t] = table[material.Tex[t]]; }
@@ -254,13 +261,34 @@ public static class RetroCharacterMaterialArchive
     private static void CheckSource(Source source)
     {
         ArgumentNullException.ThrowIfNull(source);
-        uint cmdl = Profile(source.CharacterId) == 1 ? 0xd2c3805bu : 0xfaa12c05u;
-        uint cskr = source.CharacterId == "darksamus-echoes" ? 0xb9ec2f8du : 0x918e83d3u;
-        string expected = RetroCharacterPreviewExporter.BundleSpec(source.CharacterId).SourceFingerprint;
-        Require(source.Cmdl == cmdl && source.Cskr == cskr && source.Cinf == 0x4abc8a50 && source.Ancs == 0x39900a11
+        bool echoes = IsEchoes(source.CharacterId);
+        bool ball = source.CharacterId is "darksamus-echoes-ball" or "darksamus-overcharged-echoes-ball";
+        bool drone = source.CharacterId is "trooper-drone-alpha" or "trooper-drone-gamma";
+        (uint cmdl, uint cskr) = source.CharacterId switch
+        {
+            "darksamus-echoes" => (0xd2c3805bu, 0xb9ec2f8du),
+            "darksamus-overcharged-echoes" => (0xfaa12c05u, 0x918e83d3u),
+            "darksamus-echoes-ball" => (0x2f2c1e6fu, 0x4403b1b9u),
+            "darksamus-overcharged-echoes-ball" => (0x2f2c1e6fu, 0x4403b1b9u),
+            "trooper-power" => (0xf8691b86u, 0x9346b450u),
+            "trooper-ice" => (0x45e6de5bu, 0x2ec9718du),
+            "trooper-wave" => (0x5eb5adfau, 0x359a022cu),
+            "trooper-plasma" => (0x202ac74cu, 0x4b05689au),
+            "trooper-drone-alpha" => (0xef920604u, 0x84bda9d2u),
+            "trooper-drone-gamma" => (0x0b6586cbu, 0x604a291du),
+            _ => throw new InvalidDataException("Unsupported character material appearance.")
+        };
+        string expected = RetroCharacterPreviewExporter.BundleSpec(ball ? source.CharacterId[..^5] : source.CharacterId,
+            echoes ? ExternalSourceEdition.OriginalRecipe : ExternalSourceEdition.PrimeUsaRevision2).SourceFingerprint;
+        Require(source.Cmdl == cmdl && source.Cskr == cskr && source.Cinf == (ball ? 0xc7dbc44au : drone ? 0xc3af0235u : echoes ? 0x4abc8a50u : 0x0c9669bcu)
+            && source.Ancs == (ball ? 0x654a3f97u : drone ? 0x5e058399u : echoes ? 0x39900a11u : 0x8169653au)
             && source.SourceFingerprint == expected, "Unsupported character material source edition or part.");
     }
+    private static bool IsEchoes(string id) => Profile(id) is 1 or 2 or 7 or 8;
     private static int Profile(string id) => id switch { "darksamus-echoes" => 1, "darksamus-overcharged-echoes" => 2,
+        "trooper-power" => 3, "trooper-ice" => 4, "trooper-wave" => 5, "trooper-plasma" => 6, "darksamus-echoes-ball" => 7,
+        "darksamus-overcharged-echoes-ball" => 8,
+        "trooper-drone-alpha" => 9, "trooper-drone-gamma" => 10,
         _ => throw new InvalidDataException("Unsupported character material appearance.") };
     private static bool Hex(string? s, int length) => s?.Length == length && s.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');
     private static bool Zero(ReadOnlySpan<byte> bytes) { foreach (byte b in bytes) if (b != 0) return false; return true; }

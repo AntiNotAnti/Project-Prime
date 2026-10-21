@@ -218,7 +218,9 @@ Check(movement.MovementVisible && movement.MovementLabel == "Classic" && movemen
     && movement.Validate("7", "7:00", "1:30")
     && movement.Toggle(13) && movement.Draft.MovementModel == "Traversal" && movement.MovementLabel == "Traversal"
     && movement.Validate("7", "7:00", "1:30")
-    && movement.Toggle(13) && movement.Draft == Rules(), "explicit local movement choice cycles all four models");
+    && movement.Toggle(13) && movement.Draft.MovementModel == "Parkour" && movement.MovementLabel == "Parkour"
+    && movement.Validate("7", "7:00", "1:30")
+    && movement.Toggle(13) && movement.Draft == Rules(), "explicit local movement choice cycles all five models");
 movement.Toggle(13);
 Check(movement.Toggle(12) && movement.NextDamage() && movement.Validate("31", "8:10", "2:00")
     && movement.Draft.MovementModel == "Momentum" && movement.Draft.Enabled(12),

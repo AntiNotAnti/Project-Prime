@@ -108,19 +108,23 @@ internal static class MapPickerCatalogAcceptance
             "local-only installed package is visible but cannot alter lobby rules or submit");
         Check(controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 2) && Text(controller, "map_choice0_name") == "LOCAL ONLY PACKAGE"
             && !controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 5), "themed view shares installed identity and rejects wrong category index");
-        Check(controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 0) && controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0)
-            && !controller.MapPickerOpen && Flag(controller, "lobby_rules_open") && services.Submissions == 0,
-            "pending catalog never prevents staged MPH selection through existing rule draft");
+        Check(controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 0) && controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 1)
+            && !controller.MapPickerOpen && !Flag(controller, "lobby_rules_open") && services.Submissions == 1
+            && services.SubmittedRule.Match.RoomKey == "MP2 HARVESTER"
+            && services.LobbyView.Map == "MP1 SANCTORUS",
+            "pending catalog never prevents one direct MPH request returning to lobby without optimistic authority changes");
     }
     private static void RetirementAndErrors()
     {
         var services = Services(); var requests = new List<(TaskCompletionSource<IReadOnlyList<RmlUiArenaChoice>> Work, CancellationToken Token)>();
         services.MapCatalog = token => { var work = new TaskCompletionSource<IReadOnlyList<RmlUiArenaChoice>>(TaskCreationOptions.RunContinuationsAsynchronously); requests.Add((work, token)); return work.Task; };
         using var controller = new RmlUiMenuController(services);
-        Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen) && controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0)
+        Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen) && controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 1)
             && requests[0].Token.IsCancellationRequested, "MPH selection cancels still-pending custom catalog");
         requests[0].Work.TrySetResult(new[] { new RmlUiArenaChoice("LATE SELECTED CATALOG", RmlUiArenaCategory.Halo) }); controller.Tick();
-        Check(!controller.MapPickerOpen && Text(controller, "rules_map") == "Data Shrine", "late selected catalog cannot change staged rule map");
+        Check(!controller.MapPickerOpen && !Flag(controller, "lobby_rules_open")
+            && services.Submissions == 1 && services.SubmittedRule.Match.RoomKey == "MP2 HARVESTER"
+            && services.LobbyView.Map == "MP1 SANCTORUS", "late selected catalog cannot change submitted map or authoritative lobby state");
         controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
         Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen) && controller.Dispatch(RmlUiIntentKind.LobbyMapClose)
             && requests[1].Token.IsCancellationRequested && !Flag(controller, "lobby_rules_open"),
@@ -154,13 +158,14 @@ internal static class MapPickerCatalogAcceptance
         controller.Dispatch(RmlUiIntentKind.LobbyMapOpen); var disposed = requests.Last(); controller.Dispose();
         Check(disposed.Token.IsCancellationRequested, "controller disposal cancels last held catalog");
         disposed.Work.TrySetException(new InvalidOperationException("PRIVATE LATE DISPOSAL"));
-        Check(services.Submissions == 0, "all asynchronous catalog outcomes remain presentation-only without rule submission");
+        Check(services.Submissions == 1 && services.SubmittedRule.Match.RoomKey == "MP2 HARVESTER",
+            "all asynchronous catalog outcomes remain presentation-only without additional rule requests");
     }
     private static Stub Services() => new()
     {
         LobbyView = new(true, false, true, false, false, true, true, "SYNTHETIC MAP PICKER", "MP1 SANCTORUS", "Battle", "FreeForAll", "READY", 8, Array.Empty<RmlUiLobbyPlayer>()),
         AuthorityRules = new(5, 999, 17, new MatchDefinition { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle, Format = MatchFormat.FreeForAll, PointGoal = 7, TimeLimitSeconds = 420 }, LobbyRuleFlags.RequireReady),
-        BuiltInMaps = new[] { "MP1 SANCTORUS", "MP2 HIGHGROUND" }
+        BuiltInMaps = new[] { "MP1 SANCTORUS", "MP2 HARVESTER" }
     };
     private static string Text(RmlUiMenuController controller, string key) => controller.Tick().Bindings.TryGetValue(key, out var value) ? value.Text : "";
     private static bool Flag(RmlUiMenuController controller, string key) => controller.Tick().Bindings.TryGetValue(key, out var value) && value.Boolean;

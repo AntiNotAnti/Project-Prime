@@ -26,6 +26,9 @@ internal sealed class CharacterSourceClip
  internal readonly uint ResourceId;
  internal readonly string ContentSha256;
  internal double Duration=>_anim.Duration;
+ internal int KeyCount=>_anim.Keys;
+ internal double TickSeconds=>_anim.Tick;
+ internal string MotionPolicy {get;private init;}="source-raw-v1";
  internal static int CapturedFileReads {get;private set;}
  private static readonly M Basis=new(-1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1);
  private CharacterSourceClip(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,CharacterSourceRig rig,Anim anim,(uint,int,double[])[] bones,int ordinal,string name,uint id,string sha)
@@ -36,7 +39,7 @@ internal sealed class CharacterSourceClip
  private static string Flat(string root,string name){Require(name.Length is >0 and <128&&name==Path.GetFileName(name)&&!name.Contains('\\')&&!name.Contains(':'),"Contained flat clip witness name");return Path.Combine(root,name);}
  internal static CharacterSourceClip Load(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,CharacterSourceRig rig,int ordinal)
  {
-  if(asset.Part==CharacterModelPart.ViewModel)Require(lease.SourceCannon!=null&&ordinal==32,"Only the verified fixed cannon authoring primitive is allowed");
+  if(asset.Part==CharacterModelPart.ViewModel)Require(lease.SourceCannon!=null&&ordinal==lease.SourceCannon.ClipOrdinal,"Only the verified fixed cannon authoring primitive is allowed");
   lease.Require(asset);Require(String.Equals(rig.ContentSha256,lease.ModelSha256,StringComparison.OrdinalIgnoreCase),"Exact current loaded source rig required");
   if(lease.SourceAnimations is { } imported)return LoadImported(lease,asset,rig,imported,ordinal);
   string root=Path.GetDirectoryName(asset.ModelPath)!;
@@ -68,22 +71,28 @@ internal sealed class CharacterSourceClip
  internal static CharacterSourceClip LoadImported(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,
   CharacterSourceRig rig,CharacterSourceAnimationArchive imported,int ordinal)
  {
-  Require((asset.Part==CharacterModelPart.Biped||asset.Part==CharacterModelPart.ViewModel&&lease.SourceCannon?.IsGenerated==true&&ordinal==32)&&ReferenceEquals(lease.SourceAnimations,imported)
+  Require((asset.Part==CharacterModelPart.Biped||asset.Part==CharacterModelPart.AlternateForm&&(imported.IsBall&&ordinal==CharacterGeneratedNormalBallProfile.ClipOrdinal
+   ||imported.IsDrone&&CharacterSourceDronePose.RequiredOrdinals.Contains(ordinal))
+   ||asset.Part==CharacterModelPart.ViewModel&&lease.SourceCannon?.IsGenerated==true&&ordinal==lease.SourceCannon.ClipOrdinal)&&ReferenceEquals(lease.SourceAnimations,imported)
    &&String.Equals(rig.ContentSha256,lease.ModelSha256,StringComparison.OrdinalIgnoreCase),"Exact source-rig imported animation owner required");
   var clip=imported.Open(ordinal);
-  if(asset.Part==CharacterModelPart.ViewModel)Require(clip.Source.Id==0xd12fdfa3&&clip.RigidScale,"Exact fixed original cannon primitive required");
+  if(asset.Part==CharacterModelPart.ViewModel)Require(clip.Source.Id==lease.SourceCannon!.ClipResourceId&&clip.RigidScale,"Exact fixed original cannon primitive required");
+  if(asset.Part==CharacterModelPart.AlternateForm)Require(clip.RigidScale && (imported.IsBall
+   &&clip.Source.Id==CharacterGeneratedNormalBallProfile.ClipId&&clip.Source.Sha256==CharacterGeneratedNormalBallProfile.ClipSha
+   ||imported.IsDrone&&CharacterGeneratedDroneProfile.MatchesClip(ordinal,clip.Source.Id,clip.Source.Sha256)),
+   "Alternate source part permits only its own reviewed primitive");
   var anim=clip.CaptureAnimation();var source=imported.Skeleton.Bones;
-  Require(source.Count==39&&rig.Nodes.Count==40,"Complete imported skeleton and source rig required");
+  Require(source.Count==imported.ExpectedJointCount&&rig.Nodes.Count==source.Count+1,"Complete imported skeleton and source rig required");
   var bindings=new List<(uint,int,double[])>();
   foreach(var bone in source.Values.OrderBy(b=>b.Id))
   {
-   Require(bone.Id==0?bone.Parent==97&&bone.Name=="root":source.ContainsKey(bone.Parent),"Exact source root/parent policy");
+   Require(bone.Id==imported.RootBoneId?bone.Parent==imported.ExternalParentId&&bone.Name=="root":source.ContainsKey(bone.Parent),"Exact source root/parent policy");
    double[] p={bone.X,bone.Y,bone.Z};
    if(source.TryGetValue(bone.Parent,out var parent)){p[0]-=parent.X;p[1]-=parent.Y;p[2]-=parent.Z;}
    int node=Enumerable.Range(0,rig.Nodes.Count).Single(i=>rig.Nodes[i].Name=="source_bone_"+bone.Id+"_"+bone.Name);
    M bind=M.CreateTranslation((float)-p[0],(float)p[2],(float)p[1]);
    Require(MatrixDistance(bind,rig.Nodes[node].Local)<.00001f,"Imported CINF must match the complete loaded source bind hierarchy");
-   int expectedParent=bone.Id==0?-1:Enumerable.Range(0,rig.Nodes.Count).Single(i=>rig.Nodes[i].Name=="source_bone_"+parent!.Id+"_"+parent.Name);
+   int expectedParent=bone.Id==imported.RootBoneId?-1:Enumerable.Range(0,rig.Nodes.Count).Single(i=>rig.Nodes[i].Name=="source_bone_"+parent!.Id+"_"+parent.Name);
    Require(rig.Nodes[node].Parent==expectedParent,"Imported CINF parent identity must match the loaded hierarchy");
    bindings.Add((bone.Id,node,p));
   }
@@ -104,9 +113,60 @@ internal sealed class CharacterSourceClip
  }
  internal bool Matches(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,CharacterSourceRig rig)
   =>ReferenceEquals(_lease,lease)&&ReferenceEquals(_asset,asset)&&ReferenceEquals(_rig,rig);
+ // Private actor derivation over captured keys, using the same temporal sampler.
+ // RootPin from SecondHunt 41452f2d (MIT, NoneGiven 2020). The raw archive,
+ // viewer clip and shared rig stay unchanged; only this actor's copy is pinned.
+ internal CharacterSourceClip WithPinnedTrooperRootMotion()
+ {
+  _lease.RequireCurrent(_asset);
+  var profile=CharacterGeneratedTrooperProfile.FromSkin(_asset.PrivateAppearance?.SkinSource);
+  Require(MotionPolicy=="source-raw-v1"&&profile!=null&&_asset.Hunter==Hunter.Weavel
+   &&_asset.Part==CharacterModelPart.Biped&&_lease.SourceAnimations?.RootBoneId==3
+   &&_rig.Nodes.Count==36&&_rig.JointNodes.Count==35&&String.Equals(_rig.ContentSha256,profile.ModelSha,StringComparison.OrdinalIgnoreCase),
+   "Only the complete qualified Trooper actor rig supports root pinning");
+  return PinRootPelvis("trooper-pinned-root-pelvis-v1");
+ }
+ internal CharacterSourceClip WithPinnedDroneRootMotion()
+ {
+  _lease.RequireCurrent(_asset);
+  var profile=CharacterGeneratedDroneProfile.FromSkin(_asset.PrivateAppearance?.SkinSource);
+  Require(MotionPolicy=="source-raw-v1"&&profile!=null&&_asset.Hunter==Hunter.Weavel
+   &&_asset.Part==CharacterModelPart.AlternateForm&&_lease.SourceAnimations?.IsDrone==true
+   &&CharacterGeneratedDroneProfile.MatchesClip(Ordinal,ResourceId,ContentSha256)
+   &&_rig.Nodes.Count==34&&_rig.JointNodes.Count==33&&String.Equals(_rig.ContentSha256,profile.ModelSha,StringComparison.OrdinalIgnoreCase),
+   "Only the exact full drone primitive/rig supports this root pinning policy");
+  return PinRootPelvis("drone-pinned-root-pelvis-v1");
+ }
+ private CharacterSourceClip PinRootPelvis(string policy)
+ {
+  var root=_bones.Single(b=>b.Id==3);var pelvis=_bones.Single(b=>b.Id==4);
+  Require(_rig.Nodes[pelvis.Node].Parent==root.Node,"Exact Trooper root/pelvis hierarchy required");
+  var copy=new Anim{Duration=_anim.Duration,Tick=_anim.Tick,Keys=_anim.Keys};
+  foreach(var (input,output) in new[]{(_anim.Rot,copy.Rot),(_anim.Trans,copy.Trans),(_anim.Scale,copy.Scale)})
+   foreach(var channel in input)output.Add(channel.Key,channel.Value.Select(v=>v.ToArray()).ToList());
+  var travel=new double[_anim.Keys][];var height=new double[_anim.Keys];
+  for(int k=0;k<_anim.Keys;k++)
+  {
+   _anim.Sample(k*_anim.Tick,out _,out var t);
+   var r=t.GetValueOrDefault(3u)??root.Bind;var p=t.GetValueOrDefault(4u)??pelvis.Bind;
+   travel[k]=[p[0]+r[0],p[1]+r[1]];height[k]=p[2];
+  }
+  var sway=new double[_anim.Keys][];
+  for(int k=0;k<_anim.Keys;k++)
+  {
+   double f=(double)k/(_anim.Keys-1);
+   sway[k]=Enumerable.Range(0,2).Select(i=>travel[k][i]-(travel[0][i]+(travel[^1][i]-travel[0][i])*f)).ToArray();
+  }
+  double mx=sway.Average(p=>p[0]),my=sway.Average(p=>p[1]);
+  copy.Rot[3]=Enumerable.Range(0,_anim.Keys).Select(_=>new double[]{0,0,0,1}).ToList();
+  copy.Trans[3]=Enumerable.Range(0,_anim.Keys).Select(_=>root.Bind.ToArray()).ToList();
+  copy.Trans[4]=Enumerable.Range(0,_anim.Keys).Select(k=>new[]{pelvis.Bind[0]+sway[k][0]-mx,pelvis.Bind[1]+sway[k][1]-my,height[k]}).ToList();
+  return new(_lease,_asset,_rig,copy,_bones,Ordinal,Name,ResourceId,ContentSha256)
+   {MotionPolicy=policy};
+ }
  internal ReadOnlyCollection<M> Sample(double seconds)
  {
-  if(_lease.SourceCannon!=null&&seconds!=0)throw new NotSupportedException("Source cannon holds its reviewed authoring phase; no FP clock/state semantics");
+  if((_lease.SourceCannon!=null||_asset.Part==CharacterModelPart.AlternateForm&&MotionPolicy!="drone-pinned-root-pelvis-v1")&&seconds!=0)throw new NotSupportedException("Fixed source part holds its reviewed authoring phase; native owners retain motion");
   _lease.RequireCurrent(_asset);Require(String.Equals(_rig.ContentSha256,_lease.ModelSha256,StringComparison.OrdinalIgnoreCase),"Exact immutable rig identity");if(!double.IsFinite(seconds))throw new ArgumentOutOfRangeException(nameof(seconds));
   _anim.Sample(seconds,out var rotations,out var translations);M[] pose=Enumerable.Repeat(M.Identity,_rig.Nodes.Count).ToArray();
   foreach(var bone in _bones)

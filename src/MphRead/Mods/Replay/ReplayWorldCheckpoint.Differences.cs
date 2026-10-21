@@ -38,7 +38,7 @@ internal sealed partial class ReplayWorldCheckpoint
         var parts=new Dictionary<string,byte[]>(StringComparer.Ordinal);
         using var input=_data.OpenRead();using var reader=new BinaryReader(input);
         long start=input.Position;
-        reader.ReadUInt32();ushort version=reader.ReadUInt16();if(version!=Version)throw new InvalidDataException("Graph paths require this build's checkpoint layout.");
+        reader.ReadUInt32();ushort version=reader.ReadUInt16();if(version!=Version&&!IsCustomWorldVersion(version))throw new InvalidDataException("Graph paths require this build's checkpoint layout.");
         reader.ReadByte();reader.ReadString();reader.ReadString();reader.ReadInt32();reader.ReadUInt64();reader.ReadUInt32();reader.ReadUInt32();reader.ReadUInt32();
         parts["Header"]=Slice(start,input.Position);
         parts["InitialDecoder"]=ReadBytes(reader,MaximumBytes);parts["CurrentDecoder"]=ReadBytes(reader,MaximumBytes);
@@ -61,8 +61,10 @@ internal sealed partial class ReplayWorldCheckpoint
             }
             if(nodeStream.Position!=data.Length)throw new InvalidDataException("Graph field path decoder differs from captured schema.");
         }
-        string[] sections={"Assets","Cosmetics","BombWorld","Traversal","AuthorityForms","NativeTouch","PickupBindings"};
+        string[] sections={"Assets","Cosmetics","BombWorld","Traversal","AuthorityForms","NativeTouch","PickupBindings","Grapple"};
         foreach(string section in sections)parts[section]=ReadBytes(reader,MaximumBytes);
+        if(IsCustomWorldVersion(version))parts["CustomWeapons"]=ReadBytes(reader,CustomWorldAppendixSize);
+        if(version==CustomVersion)parts["HeadHistory"]=ReadBytes(reader,ReplayHeadSeedCodec.MaximumBytes);
         parts["IndexedFirePresentation"]=new[]{reader.ReadByte()};
         if(input.Position!=input.Length)throw new InvalidDataException("Unexpected graph comparison tail.");
         return parts;

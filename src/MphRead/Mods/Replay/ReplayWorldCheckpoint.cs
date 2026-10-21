@@ -22,7 +22,9 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 10;
+    private const ushort Version = 11;
+    private const ushort LegacyCustomVersion = 12, CustomVersion = 13;
+    private static bool IsCustomWorldVersion(ushort version) => version is LegacyCustomVersion or CustomVersion;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -32,26 +34,38 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
     internal bool HasAuthorityFormHistory { get; }
     internal bool HasTurretOutcomeContract { get; }
     internal bool HasNativeTouchContract => (_appendices & ReplayWorldCheckpointAppendices.NativeTouch) != 0;
+    internal bool HasGrappleContract => (_appendices & ReplayWorldCheckpointAppendices.Grapple) != 0;
     internal bool HasTimedPickupContract => (_appendices & ReplayWorldCheckpointAppendices.Pickups) != 0;
     internal bool HasTimedShotContract => (_decoderFeatures & ReplayReplicaCheckpointFeatures.TimedShots) != 0;
+    internal bool HasCustomWeaponContract => (_appendices & ReplayWorldCheckpointAppendices.CustomWeapons) != 0;
+    internal bool HasHeadHistoryContract => (_appendices & ReplayWorldCheckpointAppendices.HeadHistory) != 0;
+    internal uint? HeadHistoryOrigin { get; }
+    internal ReplayCustomWeaponDescriptor? CustomWeaponDescriptor { get; }
     internal bool RequiresNativeTouchContract => (_decoderFeatures & ReplayReplicaCheckpointFeatures.NativeTouch) != 0;
     private readonly ReplayWorldCheckpointAppendices _appendices;
     private readonly ReplayReplicaCheckpointFeatures _decoderFeatures;
     private readonly string _sourceContract;
     private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null,
         bool indexedFirePresentation = false, bool hasPresentationContract = true, bool hasAuthorityFormHistory = true, bool hasTurretOutcomeContract = true,
-        ReplayWorldCheckpointAppendices appendices = ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups,
-        ReplayReplicaCheckpointFeatures decoderFeatures = ReplayReplicaCheckpointLayout.CurrentFeatures)
+        ReplayWorldCheckpointAppendices appendices = ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups | ReplayWorldCheckpointAppendices.Grapple,
+        ReplayReplicaCheckpointFeatures decoderFeatures = ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose,
+        ReplayCustomWeaponDescriptor? customDescriptor = null, uint? headHistoryOrigin = null)
     {
         _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract;
         IndexedFirePresentation = indexedFirePresentation; HasPresentationContract = hasPresentationContract;
         HasAuthorityFormHistory = hasAuthorityFormHistory; HasTurretOutcomeContract = hasTurretOutcomeContract;
         _appendices = appendices; _decoderFeatures = decoderFeatures;
+        CustomWeaponDescriptor = customDescriptor;
+        HeadHistoryOrigin = headHistoryOrigin;
     }
     private bool _disposed;
     public void Dispose() { if (!_disposed) { _disposed = true; _data.Release(); GC.SuppressFinalize(this); } }
     ~ReplayWorldCheckpoint() => Dispose();
     internal static ReplayWorldCheckpoint FromBytes(ReadOnlySpan<byte> bytes, string? producerBuild = null)
+        => FromBytesCore(bytes, producerBuild, custom: false);
+    internal static ReplayWorldCheckpoint FromCustomBytes(ReadOnlySpan<byte> bytes, string? producerBuild = null)
+        => FromBytesCore(bytes, producerBuild, custom: true);
+    private static ReplayWorldCheckpoint FromBytesCore(ReadOnlySpan<byte> bytes, string? producerBuild, bool custom)
     {
         if (bytes.Length > MaximumBytes) throw new InvalidDataException("Replay world exceeds its checkpoint budget.");
         var data = ReplayPayload.Copy(bytes);
@@ -59,38 +73,50 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         {
             using var stream = data.OpenRead(); using var reader = new BinaryReader(stream);
             var (version, declared) = ReadWorldHeader(reader);
+            if (IsCustomWorldVersion(version) != custom)
+                throw new InvalidDataException("An explicit custom world12/13 inspection contract is required; native and custom capsules are distinct.");
             string sourceContract = reader.ReadString();
             if (!SupportsContract(sourceContract, producerBuild))
                 throw new InvalidDataException("This replay uses a different saved-world layout. Open it with the game version that recorded it.");
-            reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
+            string room = reader.ReadString(); var mode = (GameMode)reader.ReadInt32(); reader.ReadUInt64();
             uint frame = reader.ReadUInt32();
-            var inspection = InspectWorldBody(reader, version, declared);
+            var inspection = InspectWorldBody(reader, version, declared, room, mode, frame);
             return new(data, frame, sourceContract, indexedFirePresentation: inspection.IndexedFire,
                 hasPresentationContract: version >= 6, hasAuthorityFormHistory: version >= 7,
                 hasTurretOutcomeContract: version >= 8, appendices: inspection.Appendices,
-                decoderFeatures: inspection.DecoderFeatures);
+                decoderFeatures: inspection.DecoderFeatures, customDescriptor: inspection.CustomDescriptor, headHistoryOrigin: inspection.HeadOrigin);
         }
         catch { data.Release(); throw; }
     }
 
     // Detached metadata only: safe to read on a writer worker, no Scene/resource access.
-    internal ReplayMetadata ClipMetadata(uint leadIn, IReadOnlyList<ReplayPlayerInfo> players)
+    internal ReplayMetadata ClipMetadata(uint leadIn, IReadOnlyList<ReplayPlayerInfo> players, ReplayType type = ReplayType.Clip)
     {
         using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
         ReadWorldHeader(reader); reader.ReadString();
         string room = reader.ReadString(); var mode = (GameMode)reader.ReadInt32(); ulong map = reader.ReadUInt64();
         uint origin = reader.ReadUInt32();
-        return new ReplayMetadata { FormatVersion = HasTimedShotContract ? (byte)6 : (byte)4,
-            TimedShotCertificates = HasTimedShotContract, Type = ReplayType.Clip, RoomKey = room, Mode = mode,
+        return new ReplayMetadata { FormatVersion = HasCustomWeaponContract ? (byte)7 : HasTimedShotContract ? (byte)6 : (byte)4,
+            TimedShotCertificates = HasTimedShotContract, Type = type, RoomKey = room, Mode = mode,
             MapHash = map, OriginRecordingFrame = origin, LeadInFrames = leadIn,
-            WorldCheckpoint = Bytes.ToArray(), Players = players };
+            WorldCheckpoint = Bytes.ToArray(), Players = players, CustomWeapons = CustomWeaponDescriptor,
+            IndexedFireContinuation = HasCustomWeaponContract ? IndexedFirePresentation : null,
+            Bootstrap = HasCustomWeaponContract ? new() { Packets = new[] { ReplayTimelineArchive.Construction(DecoderState()) } } : new() };
     }
     internal ReplayReplicaCheckpoint ConstructionState()
     {
         using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
         ReadWorldHeader(reader); reader.ReadString(); reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
         reader.ReadUInt32(); reader.ReadUInt32(); reader.ReadUInt32();
-        return new(ReadBytes(reader, ReplayReplicaCheckpoint.MaximumBytes));
+        return new(ReadBytes(reader, HasCustomWeaponContract ? ReplayReplicaCheckpoint.MaximumCustomBytes : ReplayReplicaCheckpoint.MaximumBytes));
+    }
+    internal ReplayReplicaCheckpoint DecoderState()
+    {
+        using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
+        ReadWorldHeader(reader); reader.ReadString(); reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
+        reader.ReadUInt32(); reader.ReadUInt32(); reader.ReadUInt32();
+        int maximum = HasCustomWeaponContract ? ReplayReplicaCheckpoint.MaximumCustomBytes : ReplayReplicaCheckpoint.MaximumBytes;
+        ReadBytes(reader, maximum); return new(ReadBytes(reader, maximum));
     }
 
     private static readonly BindingFlags InstanceFields = BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
@@ -225,14 +251,36 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
 
     internal static ReplayWorldCheckpoint Capture(PassiveReplayScene replay, uint? recordingFrame = null, bool boundAccessors = true)
     {
+        if (replay.State.CustomWeapons != null || replay.Scene.CustomReplayUnsupported)
+            throw new InvalidOperationException("Custom Scene capture requires the retained historical resource and presentation contract.");
+        return CaptureCore(replay, recordingFrame, boundAccessors, custom: false);
+    }
+    internal static ReplayWorldCheckpoint CaptureCustom(PassiveReplayScene replay, bool boundAccessors = true)
+    {
+        RequireCustomScene(replay);
+        return CaptureCore(replay, replay.Session.RecordingFrame, boundAccessors, custom: true);
+    }
+    private static void RequireCustomScene(PassiveReplayScene replay)
+    {
+        if (!replay.Session.IsActive || !replay.Session.IsCustomInspection || replay.State.CustomWeapons is not { CompleteForRestore: true }
+            || replay.State.CustomWeaponDescriptor is not { } descriptor || !replay.Scene.HasReplayWeaponPackage(descriptor))
+            throw new InvalidOperationException("A custom world requires its active private inspection and retained exact historical resources.");
+    }
+    private static ReplayWorldCheckpoint CaptureCore(PassiveReplayScene replay, uint? recordingFrame, bool boundAccessors, bool custom)
+    {
+        var appendices = ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups | ReplayWorldCheckpointAppendices.Grapple
+            | (custom ? ReplayWorldCheckpointAppendices.CustomWeapons : ReplayWorldCheckpointAppendices.None)
+            | (custom && replay.CustomHeadHistoryOrigin.HasValue ? ReplayWorldCheckpointAppendices.HeadHistory : ReplayWorldCheckpointAppendices.None);
+        uint frame = recordingFrame ?? replay.Session.CurrentFrame;
+        ReplayReplicaCheckpoint? customDecoder = custom ? replay.State.CaptureCheckpoint() : null;
+        if (custom) ValidateCustomWorldDecoders(replay.InitialState, customDecoder!, replay.Scene.Room!.Meta.Name, replay.Scene.GameState.Mode, frame);
         using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Checkpoint);
         using var stream = new ReplayCheckpointWriter();
         using var writer = new BinaryWriter(stream);
-        writer.Write(Magic); writer.Write(Version);
-        writer.Write((byte)(ReplayWorldCheckpointAppendices.NativeTouch | ReplayWorldCheckpointAppendices.Pickups));
+        writer.Write(Magic); writer.Write(custom ? replay.CustomHeadHistoryOrigin.HasValue ? CustomVersion : LegacyCustomVersion : Version);
+        writer.Write((byte)appendices);
         writer.Write(Contract);
         writer.Write(replay.Scene.Room!.Meta.Name); writer.Write((int)replay.Scene.GameState.Mode); writer.Write(replay.MapHash);
-        uint frame = recordingFrame ?? replay.Session.CurrentFrame;
         writer.Write(frame); writer.Write(replay.Scene.Random.Rng1); writer.Write(replay.Scene.Random.Rng2);
         WriteBytes(writer, replay.InitialState.Bytes);
         long decoder = ReplayCheckpointWriter.BeginComponent(writer);
@@ -271,6 +319,23 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             long pickups = ReplayCheckpointWriter.BeginComponent(writer);
             WritePickupItems(writer, graph, replay.State);
             ReplayCheckpointWriter.EndComponent(writer, pickups);
+            long grapple = ReplayCheckpointWriter.BeginComponent(writer);
+            Span<byte> grappleRow = stackalloc byte[23];
+            for (int slot = 0; slot < 8; slot++)
+            {
+                grappleRow.Clear();
+                if (replay.State.TryGetPlayer(slot, out var accepted) && accepted.SlotGeneration != 0 && accepted.LifeId != 0)
+                {
+                    System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(grappleRow, accepted.SlotGeneration);
+                    System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(grappleRow[2..], accepted.LifeId);
+                    replay.Scene.Players.Items[slot].ModGrappleState.TryWrite(grappleRow[4..], out _);
+                }
+                writer.Write(grappleRow);
+            }
+            ReplayCheckpointWriter.EndComponent(writer, grapple);
+            if (custom) WriteBytes(writer, CustomWorldAppendix(customDecoder!));
+            if (custom && replay.CustomHeadHistoryOrigin is { } origin)
+                WriteBytes(writer, replay.Scene.CaptureReplayHeadHistory(origin, frame));
             // Posed discrete firing (protocol 43+) changes world reconstruction.
             // A live canonical world has no indexed cursor; its capsule remains
             // a valid recording baseline, but cannot accelerate indexed seeks.
@@ -278,7 +343,10 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
             writer.Write(indexedFirePresentation);
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
             return new(stream.Detach(), frame, indexedFirePresentation: indexedFirePresentation,
-                decoderFeatures: ReplayReplicaCheckpointLayout.CurrentFeatures
+                appendices: appendices, customDescriptor: custom ? replay.State.CustomWeaponDescriptor : null,
+                headHistoryOrigin: custom ? replay.CustomHeadHistoryOrigin : null,
+                decoderFeatures: ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose
+                    | (custom ? ReplayReplicaCheckpointFeatures.CustomWeapons : ReplayReplicaCheckpointFeatures.None)
                     | (replay.State.TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None));
         }
         finally { graph.Clear(); }
@@ -367,11 +435,24 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
 
     internal void Restore(PassiveReplayScene replay, uint? playbackFrame = null)
     {
-        if (replay.HasStepped) throw new InvalidOperationException("Restore requires a new unpublished replica.");
+        if (HasCustomWeaponContract || replay.Scene.CustomReplayUnsupported || replay.State.CustomWeapons != null)
+            throw new InvalidOperationException("Custom Scene restore requires the retained historical resource and presentation contract.");
+        RestoreCore(replay, playbackFrame, custom: false);
+    }
+    internal void RestoreCustom(PassiveReplayScene replay)
+    {
+        RequireCustomScene(replay);
+        if (!HasCustomWeaponContract || CustomWeaponDescriptor == null || !replay.Scene.HasReplayWeaponPackage(CustomWeaponDescriptor))
+            throw new InvalidOperationException("Custom world restoration requires the exact retained historical package and descriptor.");
+        RestoreCore(replay, playbackFrame: null, custom: true);
+    }
+    private void RestoreCore(PassiveReplayScene replay, uint? playbackFrame, bool custom)
+    {
+        if (replay.HasStepped || custom && replay.HasRestoredCustomWorld) throw new InvalidOperationException("Restore requires a new unpublished replica.");
         using var stream = _data.OpenRead(); using var reader = new BinaryReader(stream);
         if (Bytes.Length > MaximumBytes) throw new InvalidDataException("Invalid replay world capsule.");
         var (version, declared) = ReadWorldHeader(reader);
-        if (version is < 1 or > Version
+        if ((custom ? !IsCustomWorldVersion(version) : version is < 1 or > Version)
             || reader.ReadString() != _sourceContract || reader.ReadString() != replay.Scene.Room!.Meta.Name
             || reader.ReadInt32() != (int)replay.Scene.GameState.Mode || reader.ReadUInt64() != replay.MapHash)
             throw new InvalidDataException("Replay world checkpoint contract or room differs.");
@@ -379,11 +460,15 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         // Older v4 capsules can contain an earlier decoder version. Compare the
         // normalized values, not two different encodings of the same baseline.
         var construction = new ReplayReplicaState();
-        construction.RestoreCheckpoint(new ReplayReplicaCheckpoint(ReadBytes(reader, ReplayReplicaCheckpoint.MaximumBytes)));
+        int maximum = custom ? ReplayReplicaCheckpoint.MaximumCustomBytes : ReplayReplicaCheckpoint.MaximumBytes;
+        var initial = new ReplayReplicaCheckpoint(ReadBytes(reader, maximum));
+        if (custom) construction.RestoreCustomCheckpoint(initial); else construction.RestoreCheckpoint(initial);
         if (!construction.CaptureCheckpoint().Bytes.SequenceEqual(replay.InitialState.Bytes))
             throw new InvalidDataException("Replay world construction baseline differs.");
-        var decoder = new ReplayReplicaCheckpoint(ReadBytes(reader, ReplayReplicaCheckpoint.MaximumBytes));
-        var decoded = new ReplayReplicaState(); decoded.RestoreCheckpoint(decoder);
+        var decoder = new ReplayReplicaCheckpoint(ReadBytes(reader, maximum));
+        var decoded = new ReplayReplicaState();
+        if (custom) decoded = ValidateCustomWorldDecoders(initial, decoder, replay.Scene.Room!.Meta.Name, replay.Scene.GameState.Mode, frame);
+        else decoded.RestoreCheckpoint(decoder);
         for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
         {
             var occupant = decoded.Occupant(slot);
@@ -409,6 +494,12 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         byte[]? forms = version >= 7 ? ReadBytes(reader, 4096) : null;
         byte[]? nativeTouch = HasNativeTouchContract ? ReadBytes(reader, 4096) : null;
         byte[]? pickups = HasTimedPickupContract ? ReadBytes(reader, 65536) : null;
+        byte[]? grapple = HasGrappleContract ? ReadBytes(reader, 184) : null;
+        if (grapple != null) ValidateGrappleAppendix(grapple, decoded);
+        if (custom) ValidateCustomWorldAppendix(ReadBytes(reader, CustomWorldAppendixSize), decoded);
+        byte[]? headHistory = HasHeadHistoryContract ? ReadBytes(reader, ReplayHeadSeedCodec.MaximumBytes) : null;
+        if (headHistory != null && Scene.ValidateReplayHeadHistory(headHistory, decoded, frame) != HeadHistoryOrigin)
+            throw new InvalidDataException("Head-history origin differs from its inspected world.");
         bool indexedFirePresentation = version >= 6 && reader.ReadBoolean();
         if (indexedFirePresentation != IndexedFirePresentation) throw new InvalidDataException("Replay presentation contract marker differs.");
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
@@ -490,9 +581,13 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
                 throw new InvalidDataException("Invalid native touch checkpoint appendix.");
         }
         if (assets != null) ReplayAssetCheckpoint.Restore(replay.Scene, assets);
-        if (!replay.Session.Reposition(playbackFrame ?? frame, 0, sourceClock: playbackFrame.HasValue))
-            throw new InvalidDataException(replay.Session.LastError);
-        replay.State.RestoreCheckpoint(decoder);
+        if (custom) replay.Session.RestoreCustomInspection(decoder);
+        else
+        {
+            if (!replay.Session.Reposition(playbackFrame ?? frame, 0, sourceClock: playbackFrame.HasValue))
+                throw new InvalidDataException(replay.Session.LastError);
+            replay.State.RestoreCheckpoint(decoder);
+        }
         ((ReplaySceneServices)replay.Scene.Services).RestoreMatchModifiers(replay.Scene);
         foreach (var player in replay.Scene.Players.Items)
         {
@@ -535,7 +630,30 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
         if (pickups != null) ReadPickupItems(pickups, objects, replay.State);
         else foreach (var item in objects.OfType<ItemInstanceEntity>())
         { item.ModPickupSpawn = null; item.ModPickupHidden = false; }
+        for (int slot = 0; slot < replay.Scene.Players.Items.Count; slot++)
+        {
+            PlayerGrappleState state = default; ushort generation = 0, life = 0;
+            if (grapple != null)
+            {
+                var row = grapple.AsSpan(slot * 23, 23);
+                generation = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(row);
+                life = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(row[2..]);
+                PlayerGrappleState.TryRead(row[4..], out state);
+            }
+            replay.Scene.Players.Items[slot].ModRestoreGrapplePresentation(state, generation, life);
+            replay.Scene.Players.Items[slot].ModRestoreMantleVisual(
+                replay.State.TryGetPlayer(slot, out var recorded) ? recorded.MantleVisualPhase : (byte)0);
+            replay.Scene.Players.Items[slot].ModRestoreWallVisual(recorded.WallVisualCue);
+        }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
+        ((ReplaySceneServices)replay.Scene.Services).RebindCompletedPresentationLives();
+        if (custom)
+        {
+            if (headHistory != null)
+                replay.RestoreCustomHeadHistoryOrigin(replay.Scene.RestoreReplayHeadHistory(headHistory, replay.State, frame));
+            replay.Scene.RebuildReplayCustomPresentation(retainHeadHistory: headHistory != null);
+            replay.MarkCustomWorldRestored();
+        }
     }
 
     private static void WritePickupItems(BinaryWriter writer, CaptureGraph graph, ReplayReplicaState state)

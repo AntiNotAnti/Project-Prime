@@ -1966,6 +1966,7 @@ namespace MphRead.Droid
                 _input.Apply(controls.CustomWeapon, _controls.IsHeld(TouchAction.CustomWeapon));
                 _input.Apply(controls.CustomReload, _controls.IsHeld(TouchAction.CustomReload));
                 _input.Apply(controls.CustomOptic, _controls.IsHeld(TouchAction.CustomOptic));
+                _input.Apply(controls.Grapple, _controls.IsHeld(TouchAction.Grapple));
 
                 // MSSL swaps to the Missile and back to the Power Beam, since
                 // neither is on the wheel and a thumb has no number row. The

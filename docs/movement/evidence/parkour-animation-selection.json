@@ -1,0 +1,386 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "qualifiedProducer": {
+    "baseSha": "780a39d9f7a86f18ae37e7a2392fe18dfc26f54a",
+    "integrationBaseSha": "07f23c014a408d134d1cc67e2f1d7074fc7f7942",
+    "archiveSha256": "7ce586621e72f233d0fa4bb6e2a5cced834fa8600a1ddd93a0ae741ebf6d3d4b",
+    "sourceManifestSha256": "909f754fb90ebcebaa5d612941e7bd49aace251a2f783b34abc4bf792dafa26d",
+    "fullSourceManifestSha256": "16bac4f1d7ec840ff19aea7f2b3b835408b01ad9815fbf1e8e2a973c11c126f6",
+    "overlaySha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85",
+    "overlayFiles": 0,
+    "fullSourceFiles": 6658,
+    "exactCommittedProducer": true,
+    "gitArchiveCoreAutocrlf": false,
+    "receiptTiming": "Source identity frozen before build and runtime; gate results below were collected afterward."
+  },
+  "integrationBase": "07f23c014a408d134d1cc67e2f1d7074fc7f7942",
+  "clientSha256": "5406aa0aaa7c7ab3a7003704c8599ea6f0f8af2f66d47b017e83cb1207929d39",
+  "nettestSha256": "90e009f8d3f124ed80547d9ba87a7a3a043a4dc6a79287d7bcab0c7cea2301d2",
+  "serverSha256": "6e5692b5b4e3efe7f27ac9d2b0a04069a8e97a3ebddd426f0a7f2f56524652de",
+  "normalReleaseBuild": "PASS; existing CS0649 readiness-probe warning only",
+  "serverReleaseBuild": "PASS; same existing warning",
+  "pureGates": [
+    {
+      "gate": "parkour-animation-wire",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-grapple-rules",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-grapple-wire",
+      "exit": 0
+    },
+    {
+      "gate": "compact-intents",
+      "exit": 0
+    },
+    {
+      "gate": "player-form-protocol",
+      "exit": 0
+    },
+    {
+      "gate": "pickup-replay",
+      "exit": 0
+    },
+    {
+      "gate": "traversal-rules",
+      "exit": 0
+    },
+    {
+      "gate": "quake3-advanced-rules",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-input-packets",
+      "exit": 0
+    },
+    {
+      "gate": "crouch-input-check",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-mantle-rules",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-compatibility",
+      "exit": 0
+    },
+    {
+      "gate": "lifecycle",
+      "exit": 0
+    },
+    {
+      "gate": "architecture",
+      "exit": 0
+    },
+    {
+      "gate": "protocol17",
+      "exit": 0
+    },
+    {
+      "gate": "protocol58-replay",
+      "exit": 0
+    },
+    {
+      "gate": "quake3-replay-compatibility",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-replay-metadata",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-replay-rules",
+      "exit": 0
+    },
+    {
+      "gate": "traversal-stance-network",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-stance-rules",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-wallstrafe-rules",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-wallrun-rules",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-rules",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-offline-rules",
+      "exit": 0
+    },
+    {
+      "gate": "quake3-rules",
+      "exit": 0
+    },
+    {
+      "gate": "enhanced-retirement",
+      "exit": 0
+    },
+    {
+      "gate": "movement-validation-shadow",
+      "exit": 0
+    },
+    {
+      "gate": "timed-shot-replay",
+      "exit": 0
+    },
+    {
+      "gate": "grant-replay",
+      "exit": 0
+    },
+    {
+      "gate": "player-names-chat",
+      "exit": 0
+    },
+    {
+      "gate": "continuous-targets",
+      "exit": 0
+    },
+    {
+      "gate": "pickup-protocol",
+      "exit": 0
+    },
+    {
+      "gate": "advanced-rules",
+      "exit": 0
+    }
+  ],
+  "animationWireAssertions": 6944,
+  "workflowGates": [
+    {
+      "gate": "protocol58-replay",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 1.192
+    },
+    {
+      "gate": "momentum-replay-rules",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.146
+    },
+    {
+      "gate": "momentum-replay-metadata",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.196
+    },
+    {
+      "gate": "architecture",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.263
+    },
+    {
+      "gate": "timed-shot-replay",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.322
+    },
+    {
+      "gate": "pickup-replay",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.314
+    },
+    {
+      "gate": "grant-replay",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.127
+    },
+    {
+      "gate": "compact-intents",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.278
+    },
+    {
+      "gate": "protocol17",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.097
+    },
+    {
+      "gate": "player-names-chat",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.133
+    },
+    {
+      "gate": "continuous-targets",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.184
+    },
+    {
+      "gate": "pickup-protocol",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.068
+    },
+    {
+      "gate": "enhanced-retirement",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.211
+    },
+    {
+      "gate": "lobby",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 103.589
+    },
+    {
+      "gate": "advanced-rules",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 2.415
+    }
+  ],
+  "native": {
+    "gateCount": 10,
+    "assertions": 644802,
+    "nativeGoldenTrajectories": 56,
+    "nativeGoldenTolerance": 1e-05,
+    "nativeGoldenRecorded": false,
+    "sourceFence": true,
+    "binaryFence": true,
+    "frozenRuntimeFiles": 355
+  },
+  "animationScene": {
+    "assertions": 85517,
+    "hunterActions": 14,
+    "bodyLodCombinations": 28,
+    "actualOwnerGunCues": 14,
+    "excludedProfiles": 4,
+    "warmedZeroAllocationProbes": 4,
+    "iterationsPerProbe": 20000
+  },
+  "authority": {
+    "assertions": 774,
+    "originalGrappleAssertions": 262,
+    "newMantleVisualAssertions": 512,
+    "publishedPhaseCodes": 15
+  },
+  "supplemental": {
+    "status": "PASS",
+    "producer": "780a39d9f7a86f18ae37e7a2392fe18dfc26f54a",
+    "runtimeGatesPassed": 13,
+    "testProjectBuildsPassed": 2,
+    "androidSourceOnlyChecks": 735,
+    "customPureContractChecks": 37067,
+    "customReplayBootstrapChecks": 460,
+    "customReplayStateChecks": 73,
+    "customReplayFileFactChecks": 2368,
+    "customReplayDurableCheckpointChecks": 1541,
+    "customReplayReplicaCheckpoint17AndRetained15Checks": 30289,
+    "customReplayClockChecks": 97,
+    "customReplayArchive7RetentionChecks": 63,
+    "customReplayWorld12Checks": 84,
+    "customReplayResourceChecks": 50,
+    "customReplayVisualChecks": 61,
+    "remoteHostRequestWireChecks": 273,
+    "frozenSource6658Unchanged": true,
+    "scratchTrackedSource6658Unchanged": true,
+    "normalRecursive355RuntimeFilesUnchanged": true,
+    "all14SelectedArchivesAndFactsUnchanged": true,
+    "helpersUnchanged": true,
+    "helperSha256": "02b5cce41cec01745c62472c10ae026671d6791377b230acb77f10ea0e884a6f",
+    "scope": "Source-only Android uses production policy links with declared engine/native fakes; custom contract/checkpoint/archive/world-envelope/resource preparation checks use exact04 fixed main references. No device/GL claim."
+  },
+  "partyRegistry": {
+    "partySourceBuild": "PASS; no warnings",
+    "actualDllAssertions": 146,
+    "registryOldNamesPreserved": 78,
+    "packetIdsChanged": 0
+  },
+  "online": {
+    "clean": {
+      "status": "PASS",
+      "producer": "780a39d9f7a86f18ae37e7a2392fe18dfc26f54a",
+      "protocol": 84,
+      "replacementCompatibilityFixture": false,
+      "scope": "New current producer CPU UDP qualification; no GL/device/timing claim",
+      "processResults": {
+        "owner0": 0,
+        "owner1": 0,
+        "server": 0
+      },
+      "movementShadow": {
+        "enabled": true,
+        "hardRejections": 0,
+        "wouldRefuse": 0
+      },
+      "archiveSha256": "c0081d2ff6cd6464c27f952d9a4d37b32dc330929f05df80087fe8e7265bf625",
+      "replay": {
+        "checks": 191391,
+        "frames": 2384,
+        "digest": "43BC05032932C07DDB2E73AD2A953BED2DF543AE62FEF47985B50F6F4AE74F81",
+        "checkpoints": 12,
+        "seeks": 142
+      },
+      "sourceBinaryLeaseUnchanged": true,
+      "ownedProcessesRemaining": 0
+    },
+    "impaired": {
+      "status": "PASS",
+      "producer": "780a39d9f7a86f18ae37e7a2392fe18dfc26f54a",
+      "protocol": 84,
+      "replacementCompatibilityFixture": false,
+      "scope": "New current producer CPU UDP qualification; no GL/device/timing claim",
+      "processResults": {
+        "owner0": 0,
+        "owner1": 0,
+        "server": 0
+      },
+      "movementShadow": {
+        "enabled": true,
+        "hardRejections": 0,
+        "wouldRefuse": 0
+      },
+      "archiveSha256": "65e156358a4762980d21de97d73338c903d612483f0b93062476d8dfb30bc2ea",
+      "replay": {
+        "checks": 190280,
+        "frames": 2406,
+        "digest": "3AF62C5D3C9F8A78FE2742FC4D94BE3C426BEA14294203339507AE986A4AC296",
+        "checkpoints": 13,
+        "seeks": 111
+      },
+      "sourceBinaryLeaseUnchanged": true,
+      "ownedProcessesRemaining": 0
+    }
+  },
+  "historicalSummary": "parkour-animation-history.json",
+  "renderSummary": "parkour-animation-render.json",
+  "excludedAttempts": [
+    {
+      "candidate": "animation01",
+      "reason": "Nettest compilation failed; missing using and misplaced duplicate fixture block. No runtime qualification."
+    },
+    {
+      "candidate": "animation02",
+      "reason": "Pure diagnostic exposed stale current-size/version fixtures and missing protocol84 discovery allowlist. GL tool compile failed ambiguous ErrorCode before runtime."
+    },
+    {
+      "candidate": "animation03",
+      "reason": "Full pure34/workflow15 passed. Animation test had camera-sideways expectation sign error; GL fixture lacked authored training map. Concurrent lobby session JSON/log writes invalidated historical and impaired UDP fences; these attempts are excluded, unchanged runtime DLLs/source/archives retained."
+    }
+  ],
+  "scope": "Frozen Windows normal client/server, CPU scene/UDP/native replay and hidden native body GL. No new assets/clips published; first-person cues verified by actual renderer transforms, not first-person raster. Lost original77-79 archive continuity, physical devices, Android APK, current Linux asset runtime, display-refresh and performance remain unverified.",
+  "latestMainIntegration": "parkour-animation-integration.json",
+  "hostedCiObservation": "parkour-animation-ci.json"
+}

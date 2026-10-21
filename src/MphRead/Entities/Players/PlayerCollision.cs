@@ -952,6 +952,7 @@ namespace MphRead.Entities
                         doorResult.Plane.W = doorResult.Plane.X * (lockPos.X + 0.4f * doorResult.Plane.X)
                             + doorResult.Plane.Y * (lockPos.Y + 0.4f * doorResult.Plane.Y)
                             + doorResult.Plane.Z * (lockPos.Z + 0.4f * doorResult.Plane.Z);
+                        ModBlockParkourMantleActorContact();
                         HandleCollision(doorResult);
                         AltAttackHitDoor(door);
                     }
@@ -982,6 +983,7 @@ namespace MphRead.Entities
                         {
                             ffResult.Plane *= -1;
                         }
+                        ModBlockParkourMantleActorContact();
                         HandleCollision(ffResult);
                     }
                 }
@@ -1230,6 +1232,8 @@ namespace MphRead.Entities
             {
                 v164 = true;
             }
+            if (v2 >= -CollisionRecoverySkin)
+                ModObserveParkourContact(result, penetrating: v2 > 0);
             if (v2 > 0)
             {
                 ModMovementShadowNoteContact(result.Plane.Xyz, v2);
@@ -1514,6 +1518,7 @@ namespace MphRead.Entities
                             _modRampSupport = result.Plane.Xyz;
                             _modRampSupportFrame = _scene.FrameCount;
                         }
+                        ModObserveParkourSupport(result);
                         Flags1 |= PlayerFlags1.Standing;
                         _timeSinceStanding = 0;
                         if (!Flags1.TestFlag(PlayerFlags1.StandingPrevious) || Flags1.TestFlag(PlayerFlags1.AltFormPrevious))

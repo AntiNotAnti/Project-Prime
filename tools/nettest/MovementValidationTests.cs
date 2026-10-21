@@ -130,7 +130,7 @@ internal static class MovementValidationTests
         NetMovementValidationShadow.Observe(parkour with { Frame = 2, Position = new(1000, 0, 0) });
         var parkourReport = NetMovementValidationShadow.Capture();
         Check(parkourReport.Hunters.Length == 70 && parkourReport.Hunters[56].MovementModel == MovementModel.Parkour
-            && parkourReport.Hunters[56].ProfileVersion == 1 && parkourReport.Hunters[56].Evaluated == 1
+            && parkourReport.Hunters[56].ProfileVersion == parkour.ProfileVersion && parkourReport.Hunters[56].Evaluated == 1
             && parkourReport.Hunters[56].WouldRefuse == 0 && parkourReport.HardRejections == 0,
             "Parkour has bounded independent counters without indexing beyond prior models");
     }

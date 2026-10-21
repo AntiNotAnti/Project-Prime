@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Explicit seven-Hunter transition evidence; legacy Weavel audit remains unchanged.
+"""Explicit seven-Hunter transition evidence; shared reviewed Weavel audit.
 
 The native-owner parser/provenance contract is derived from the reviewed RML75
 auditor (SHA256 197cf1a613aeee7015c490ff763dbecc1a1c27b3135679643b764abb8816cd71).
@@ -16,7 +16,8 @@ import struct
 from typing import NamedTuple
 
 _legacy_path = Path(__file__).with_name("form-audit.py")
-LEGACY_SHA256 = "6c1f28fc10408a4d2f65d2cc97ab6a89a2aad966c47e538b98a0ad121faedc3d"
+# Reviewed exact authority-terminal/client-receipt body basis; pin canonical LF bytes.
+LEGACY_SHA256 = "9bfec15c107f9e65fd8345b8a185887ddec3b7425f183269e78e0c1cd6f2ea4f"
 if hashlib.sha256(_legacy_path.read_bytes()).hexdigest() != LEGACY_SHA256:
     raise RuntimeError("legacy Weavel auditor changed; review before changing generic audit policy")
 _spec = importlib.util.spec_from_file_location("hunter_form_legacy", _legacy_path)

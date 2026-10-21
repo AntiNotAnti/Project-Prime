@@ -157,7 +157,9 @@ enum class PrimeIntentKind : uint32_t {
     HunterBeamSelect = 280,
     HunterBeamColorSelect = 281,
     HunterSkinSelect = 282, HunterArmorSelect = 283, HunterDeathSelect = 284,
-    HunterCosmeticCategory = 285
+    HunterCosmeticCategory = 285,
+    HunterBodySelect = 286,
+    HunterDroneSelect = 287
 };
 // Navigate arguments: Home=0 Play=1 Offline=2 HunterLicense=3 Community=4
 // Theatre=5 Settings=6 News=7 Adventure=8 Social=9.

@@ -106,11 +106,15 @@ public static class NetProtocol19Check
             Telemetry.ProductionTelemetry.Configure(new Telemetry.NetTelemetryConfig { Enabled = false });
             System.IO.Directory.Delete(studyRoot, recursive: true);
             Prepare(100, 37); answers = 0;
-            uint phase = NetSession.NetFrame + 50;
+            // A native coil pulse has a distinct emitted-shot identity and a
+            // nonzero even firing phase, independent of its world ACK frame.
+            uint phase = 42, continuousShot = 7001;
             var continuous = new BeamProjectileEntity(shooter.OwningScene) { Owner = shooter,
                 Beam = BeamType.ShockCoil, ModHasSharedContinuousPhase = true, ModContinuousPhase = phase,
                 Target = victim.Halfturret, ModContinuousTarget = NetTargetIdentity.ForSlot(victim.SlotIndex) };
             NetPlayerLifecycle.StampProjectile(continuous);
+            continuous.ModShotId = continuousShot;
+            continuous.ModLaunchKey = continuous.ModLaunchKey with { ShotId = continuousShot };
             victim.TakeDamage(10, DamageFlags.Halfturret | DamageFlags.NoDmgInvuln, null, continuous);
             int continuousBody = victim.Health, continuousTurret = victim.Halfturret.Health;
             Check(continuousBody < 100 && continuousTurret < 37, "continuous physical hit records actual split");
@@ -119,9 +123,10 @@ public static class NetProtocol19Check
             claim = new HitClaimPacket { ClaimId = 21, MatchId = 1, AuthorityEpoch = 1,
                 ShooterGeneration = NetPlayerLifecycle.Generation(0), ShooterLifeId = NetPlayerLifecycle.Get(0),
                 VictimSlot = 1, VictimGeneration = NetPlayerLifecycle.Generation(1), VictimLifeId = NetPlayerLifecycle.Get(1),
-                Frame = phase, AckFrame = NetSession.NetFrame, LaunchFrame = NetSession.NetFrame,
+                ShotId = continuousShot, Frame = phase, AckFrame = NetSession.NetFrame, LaunchFrame = NetSession.NetFrame,
                 Damage = 10, Beam = (byte)BeamType.ShockCoil,
-                Flags = HitClaimPacket.FlagHalfturret | HitClaimPacket.FlagContinuousTick, HitPoint = victim.Position };
+                Flags = HitClaimPacket.FlagHalfturret | HitClaimPacket.FlagContinuousTick | HitClaimPacket.FlagDirect, HitPoint = victim.Position };
+            Check(NetHitClaims.ValidContinuousClaimShape(claim), "continuous fixture has a valid native pulse identity and shape");
             claim.Write(packet.AsSpan(1)); NetHitClaims.Receive(0, packet); NetHitClaims.Tick();
             Check(answers == 1 && received.Result == (byte)CombatAckResult.AlreadyResolved
                 && received.HealthAfter == continuousBody && received.HalfturretHealthAfter == continuousTurret,

@@ -48,17 +48,20 @@ public partial class Scene
     // Draws only read this fixed-step value. They cannot advance offline reload,
     // source time, control results or a recipient queue.
     internal CustomWeaponHudState CustomWeaponHud(PlayerEntity player)
-        =>_customHudStates!=null&&(uint)player.SlotIndex<8?_customHudStates[player.SlotIndex]:default;
+        => Services.IsReplica && !TryReplayCustomPresentation(out _, out _) ? default
+            : _customHudStates!=null&&(uint)player.SlotIndex<8?_customHudStates[player.SlotIndex]:default;
     private void ReleaseCustomWeaponPresentation()
     {
         // Constructor-failed scenes can own a partially populated player table.
         // Cleanup must release existing scopes without dereferencing empty slots.
         foreach(var player in Players.Items)player?.ModSetCustomScope(default,false,0);
         ReleaseCustomRifleModel();
+        ReleaseReplayCustomPresentation();
         _customPresentationSlots=null;_customHudStates=null;_customFeedback=null;_customPublicFacts=null;_customPublicFactIndex=0;
     }
     internal void UpdateCustomWeaponPresentation()
     {
+        if (Services.IsReplica) { UpdateReplayCustomWeaponPresentation(); return; }
         if(NetSession.IsAuthority||Services.IsReplica||DemoPlayback.IsActive)
         {
             if(_customHudStates!=null||_customFeedback!=null)ReleaseCustomWeaponPresentation();
@@ -67,7 +70,7 @@ public partial class Scene
         bool online=NetSession.Active,ready=online&&NetSession.CustomWeaponReplicaReady;
         if(OfflineWeapons==null&&!ready)
         {
-            ReleaseCustomRifleModel();
+            if(LocalWeaponPackage==null)ReleaseCustomRifleModel();
             if(_customHudStates==null)return;
         }
         if(OfflineWeapons!=null||ready){PrewarmCustomRifleModel();PrewarmCustomRifleAudio();}

@@ -39,8 +39,8 @@ namespace MphRead.Mods.Network
         // Loading stays frozen, but the countdown is a commitment made ahead of
         // time. Release against that local deadline instead of waiting for the
         // InMatch datagram to reach every client at a different instant.
-        public static bool FreezeGameplay => IsInLobby || !WorldIsReady || (IsStarting && !StartReleaseReached);
-        public static bool ShouldLoadMatch => RequiredMapReady && ServerSession is { } session
+        public static bool FreezeGameplay => IsInLobby || !RequiredWeaponPackagesReady || !WorldIsReady || (IsStarting && !StartReleaseReached);
+        public static bool ShouldLoadMatch => RequiredMapReady && RequiredWeaponPackagesReady && ServerSession is { } session
             && (session.Phase == SessionPhase.InMatch || (session.Phase == SessionPhase.Starting
                 && LocalSlot >= 0 && (session.ExpectedParticipants & (1 << LocalSlot)) != 0));
         public static string LobbyMessage { get; private set; } = "";
@@ -134,6 +134,7 @@ namespace MphRead.Mods.Network
         private static void PumpLobby(double now)
         {
             PumpMapPreparation(now);
+            PumpWeaponPackagePreparation(now);
             foreach (var pair in _pendingLobby)
             {
                 var pending = pair.Value;
@@ -184,7 +185,8 @@ namespace MphRead.Mods.Network
                 && ServerMatch is { } frozenControl && frozenControl.MatchId == state.MatchId
                 && frozenControl.AuthorityEpoch == state.AuthorityEpoch
                 && (Movement.MovementModelRules.FromRules((MatchModifierFlags)frozenControl.RuleBits) != state.Match.MovementModel
-                    || (((MatchModifierFlags)frozenControl.RuleBits & MatchModifierFlags.RiftlineM7Available) != 0) != state.Match.RiftlineM7Available))
+                    || (((MatchModifierFlags)frozenControl.RuleBits & MatchModifierFlags.RiftlineM7Available) != 0) != state.Match.RiftlineM7Available
+                    || (((MatchModifierFlags)frozenControl.RuleBits & MatchModifierFlags.PackagedWeaponAvailable) != 0) != state.Match.PackagedWeaponAvailable))
             {
                 LastError = "The movement model and custom loadout availability are frozen for this match.";
                 return;
@@ -202,7 +204,8 @@ namespace MphRead.Mods.Network
                 if (state.AuthorityEpoch == old.AuthorityEpoch && state.MatchId == old.MatchId
                     && old.Phase != SessionPhase.Lobby && state.Phase != SessionPhase.Lobby
                     && (state.Match.MovementModel != old.Match.MovementModel
-                        || state.Match.RiftlineM7Available != old.Match.RiftlineM7Available))
+                        || state.Match.RiftlineM7Available != old.Match.RiftlineM7Available
+                        || state.Match.PackagedWeaponAvailable != old.Match.PackagedWeaponAvailable))
                 {
                     LastError = "The movement model and custom loadout availability are frozen for this match.";
                     return;
@@ -384,6 +387,8 @@ namespace MphRead.Mods.Network
             }
             var state = ServerSession.Value;
             if (state.Phase is not (SessionPhase.Starting or SessionPhase.InMatch)) return;
+            if (!RequiredWeaponPackagesReady)
+            { _pendingLoadedScene = (state.MatchId, state.AuthorityEpoch); return; }
             if (state.Match.MapIdentity.IsCustom && (!RequiredMapReady || LocalSlot < 0
                 || state.MapAvailability == null || state.MapAvailability[LocalSlot] != MapAvailabilityState.Ready))
             {
@@ -393,6 +398,9 @@ namespace MphRead.Mods.Network
                 return;
             }
             var identity = new MatchStartIdentity(state.MatchId, state.AuthorityEpoch, state.StartGeneration);
+            try { BindPreparedPackageScene(); }
+            catch (Exception error) when (error is InvalidOperationException or System.IO.InvalidDataException)
+            { LastError = error.Message; ReportMatchLoadFailed(error.Message); return; }
             ushort generation = NetPlayerLifecycle.Generation(LocalSlot);
             if (_loadedStart == identity && _loadedSlot == LocalSlot && _loadedSlotGeneration == generation) return;
             NetBombs.Reset();
@@ -448,6 +456,8 @@ namespace MphRead.Mods.Network
         {
             CustomReplayBoundary.ResetMatch();
             ResetMapPreparation(); _lastMapReport = 0;
+            ResetWeaponPackagePreparation();
+            _localClientWeaponPackage = null;
             _appliedBootstrap = _receivingBootstrap = null;
             _bootstrapMask = 0;
             _laneReceiver.Reset(0, 0);

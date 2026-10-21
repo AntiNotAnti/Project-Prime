@@ -65,6 +65,7 @@ namespace MphRead.Mods.Network
         public System.Threading.Tasks.Task<ReplayOpenResult> SaveSelectionAsync(System.Threading.CancellationToken cancellation = default, bool wholeReplay = false)
         {
             LastSavedSelectionPath = null;
+            if (_session.IsCustomInspection) return System.Threading.Tasks.Task.FromResult(ReplayOpenResult.UnsupportedFormat);
             if (_session.CurrentPath == null || (!wholeReplay && (!ClipIn.HasValue || !ClipOut.HasValue || ClipIn >= ClipOut))) return System.Threading.Tasks.Task.FromResult(ReplayOpenResult.Empty);
             string source = _session.CurrentPath; uint start = wholeReplay ? 0 : ClipIn!.Value, end = wholeReplay ? DurationFrames : ClipOut!.Value;
             string output = System.IO.Path.Combine(DemoLibrary.Directory, $"clip_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}_{Guid.NewGuid():N}.ppdemo");
@@ -85,6 +86,8 @@ namespace MphRead.Mods.Network
             NoteInput();
         }
         internal void Stop() { State = ReplayState.Inactive; _steps = 0; _target = null; _rebuild = null; _fraction = 0; _presentationStartFrame = CurrentFrame; }
+        internal void Fail()
+        { State = ReplayState.Error; _steps = 0; _target = null; _rebuild = null; _fraction = 0; _presentationStartFrame = CurrentFrame; }
         public void Play()
         {
             if (State == ReplayState.Error) Restart();

@@ -35,7 +35,10 @@ coalescing contracts are in `.claude/launcher/RMLUI-INPUT.md`.
 
 ## Network modernization
 
-The current wire version is protocol 76. Protocol72 adds explicit private custom-weapon ownership absence; protocol73 carries private acquisition knowledge outside canonical/public Actions. Protocol74 selects Traversal profile v4; protocol75 adds public custom pickup state/ACKs at97/98. Protocol76 selects Quake3 v4 and Traversal v5 for qualified ramp travel and slide slope gravity; native payloads are unchanged. Its transport retains endpoint-bound connection IDs, sequence/ACK
+The current wire version is protocol 85 (`NetConfig.ProtocolVersion` is authoritative). Protocol85 adds accepted wallstrafe/run/kick presentation in reserved visual nibbles, with unchanged192/1299 byte native shapes and1200-byte MTU; see `docs/network/parkour-wall-animation-version-contract.md`. Protocol84 adds accepted mantle animation phase and procedural mantle/grapple presentation; gameplay remains Parkour v5. See `docs/network/parkour-animation-version-contract.md`. Protocol83 adds exact weapon archive selection to hosting requests; native intent, snapshot and replay checkpoint shapes remain those of protocol82. Protocol77 introduced Parkour v1 tuck,
+78 selected v2 wallstrafe, 79 selected v3 wallrun/kick and 80 selects v4 static
+ledge mantle. Protocol81 adds exact weapon package preparation; protocol82 selects v5 grapple, appending accepted slow/canonical state and an input nonce while preserving the fast prefix. See
+`docs/network/parkour-v5-version-contract.md`. Protocol72 adds explicit private custom-weapon ownership absence; protocol73 carries private acquisition knowledge outside canonical/public Actions. Protocol74 selects Traversal profile v4; protocol75 adds public custom pickup state/ACKs at97/98. Protocol76 selects Quake3 v4 and Traversal v5 for qualified ramp travel and slide slope gravity; native payloads are unchanged. Its transport retains endpoint-bound connection IDs, sequence/ACK
 windows, selective reliable control, bounded priority queues and a generation-fenced
 load barrier. The entire migration is one unreleased train. Movement remains
 owner-reported; full snapshots never reconcile the local owner's same-life body.
@@ -949,7 +952,7 @@ MPH_MAP_DOMAIN=maps.rebooty.xyz ./deploy-map-service.sh
 
 The exe is often locked by a running game: write `MphRead.new.exe`, then `mv`.
 
-**The current protocol is `NetConfig.ProtocolVersion = 71`.** Never duplicate
+**The current protocol is `NetConfig.ProtocolVersion = 81`.** Never duplicate
 that number as a design constant elsewhere: read it from `NetProtocol.cs` when
 validating a deployment. Server and clients must match; incompatible builds are
 refused during Hello. Versions 7/8 in the measurement sections below are dated

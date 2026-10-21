@@ -3,7 +3,8 @@ using MphRead.Mods.Multiplayer;
 
 namespace MphRead.Mods.Launcher;
 
-public readonly record struct LauncherHunterChoice(Hunter Hunter, int Suit);
+public readonly record struct LauncherHunterChoice(Hunter Hunter, int Suit,
+    LocalBodyAppearance Body = LocalBodyAppearance.Native, LocalDroneAppearance Drone = LocalDroneAppearance.Native);
 public interface ILauncherHunterChoiceStore
 {
     LauncherHunterChoice Capture();
@@ -35,7 +36,9 @@ public sealed class LauncherHunterChoiceController : IDisposable
         var captured = store.Capture();
         _original = captured;
         _draft = (Array.IndexOf(Playable, captured.Hunter) >= 0 && captured.Suit is >= 0 and <= 3)
-            ? captured : new(Hunter.Samus, Math.Clamp(captured.Suit, 0, 3));
+            ? captured with { Body = LocalBodyAppearanceRules.CanonicalForHunter(captured.Body, captured.Hunter),
+                Drone = LocalDroneAppearanceRules.CanonicalForHunter(captured.Drone, captured.Hunter) }
+            : new(Hunter.Samus, Math.Clamp(captured.Suit, 0, 3));
     }
 
     public readonly record struct Snapshot(long Revision, LauncherHunterChoice Choice,
@@ -51,7 +54,8 @@ public sealed class LauncherHunterChoiceController : IDisposable
     {
         Owner();
         if (index < 0 || index >= Playable.Length) return false;
-        _draft = _draft with { Hunter = Playable[index] };
+        _draft = _draft with { Hunter = Playable[index], Body = LocalBodyAppearanceRules.CanonicalForHunter(_draft.Body, Playable[index]),
+            Drone = LocalDroneAppearanceRules.CanonicalForHunter(_draft.Drone, Playable[index]) };
         Note("HUNTER CHOICE UNSAVED");
         return true;
     }
@@ -65,12 +69,36 @@ public sealed class LauncherHunterChoiceController : IDisposable
         return true;
     }
 
+    public bool SelectBody(int index)
+    {
+        Owner();
+        if (index is < 0 or > 6 || !LocalBodyAppearanceRules.MatchesHunter((LocalBodyAppearance)index, _draft.Hunter)
+            || index != 0 && !LocalBodyAppearanceRules.Available) return false;
+        _draft = _draft with { Body = (LocalBodyAppearance)index };
+        Note("LOCAL OFFLINE BODY UNSAVED");
+        return true;
+    }
+
+    public bool SelectDrone(int index)
+    {
+        Owner();
+        if (index is < 0 or > 2 || !LocalDroneAppearanceRules.MatchesHunter((LocalDroneAppearance)index, _draft.Hunter)
+            || index != 0 && !LocalDroneAppearanceRules.Available) return false;
+        _draft = _draft with { Drone = (LocalDroneAppearance)index };
+        Note("PRACTICE DRONE APPEARANCE UNSAVED");
+        return true;
+    }
+
     /// <summary>Validate without mutating status, revision or persisted identity.</summary>
     public bool CanApply(out string reason)
     {
         Owner();
         reason = "";
-        if (!HunterRules.Allowed(_draft.Hunter, lowTier: false) || _draft.Suit is < 0 or > 3)
+        if (!HunterRules.Allowed(_draft.Hunter, lowTier: false) || _draft.Suit is < 0 or > 3
+            || LocalBodyAppearanceRules.Canonical(_draft.Body) != _draft.Body
+            || !LocalBodyAppearanceRules.MatchesHunter(_draft.Body, _draft.Hunter)
+            || LocalDroneAppearanceRules.Canonical(_draft.Drone) != _draft.Drone
+            || !LocalDroneAppearanceRules.MatchesHunter(_draft.Drone, _draft.Hunter))
             reason = "INVALID HUNTER OR SUIT";
         else if (_draft != _original && _store.Capture() != _original)
             reason = "PROFILE CHANGED ELSEWHERE. DISCARD AND REOPEN.";
@@ -102,7 +130,10 @@ public sealed class LauncherHunterChoiceController : IDisposable
         Owner();
         _original = _store.Capture();
         _draft = Array.IndexOf(Playable, _original.Hunter) >= 0
-            ? _original : new(Hunter.Samus, Math.Clamp(_original.Suit, 0, 3));
+            ? _original with { Suit = Math.Clamp(_original.Suit, 0, 3),
+                Body = LocalBodyAppearanceRules.CanonicalForHunter(_original.Body, _original.Hunter),
+                Drone = LocalDroneAppearanceRules.CanonicalForHunter(_original.Drone, _original.Hunter) }
+            : new(Hunter.Samus, Math.Clamp(_original.Suit, 0, 3));
         Note("HUNTER SELECTION DISCARDED");
     }
 

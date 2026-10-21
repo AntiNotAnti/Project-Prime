@@ -439,9 +439,13 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 1)
     "empty community map category cannot stage missing packages");
 Check(controller.Dispatch(RmlUiIntentKind.LobbyMapCategory, 0)
     && controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0)
-    && !controller.MapPickerOpen && Flag(controller.Tick(), "lobby_rules_open")
-    && services.Submissions == beforeMap,
-    "staging a built-in map opens rules editor without submitting UpdateMatch");
+    && !controller.MapPickerOpen && !Flag(controller.Tick(), "lobby_rules_open")
+    && services.Submissions == beforeMap + 1
+    && services.SubmittedRule.Match.RoomKey == "MP1 SANCTORUS"
+    && services.SubmittedRule.Match.TimeLimitSeconds == sourceRules.Match.TimeLimitSeconds
+    && services.SubmittedRule.Match.PointGoal == sourceRules.Match.PointGoal
+    && services.SubmittedRule.Flags == sourceRules.Flags,
+    "direct map selection submits a map-only request and returns to lobby without opening rules");
 controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
 Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
     && controller.Dispatch(RmlUiIntentKind.LobbyMapClose)
@@ -450,9 +454,20 @@ Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
 services.LobbyView = services.LobbyView with { Owner = false };
 Check(controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
     && !controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0)
-    && services.Submissions == beforeMap,
+    && services.Submissions == beforeMap + 1,
     "non-owner can preview but never select or submit server map updates");
 controller.Dispatch(RmlUiIntentKind.LobbyMapClose);
+
+services.LobbyView = services.LobbyView with { Owner = true };
+int beforeRuleMap = services.Submissions;
+Check(controller.Dispatch(RmlUiIntentKind.LobbyRulesOpen)
+    && controller.Dispatch(RmlUiIntentKind.LobbyRulesToggle, 2)
+    && controller.Dispatch(RmlUiIntentKind.LobbyMapOpen)
+    && controller.Dispatch(RmlUiIntentKind.LobbyMapSelect, 0)
+    && !controller.MapPickerOpen && Flag(controller.Tick(), "lobby_rules_open")
+    && services.Submissions == beforeRuleMap,
+    "picker opened from an existing rules draft preserves unapplied edits without submitting them");
+controller.Dispatch(RmlUiIntentKind.LobbyRulesClose);
 
 // Native Hunter/suit selection shares the live lobby identity epoch and only
 // issues one existing Identify request. No client-side admission is invented.
@@ -645,7 +660,7 @@ var capturedCombat = offlinePager.Current;
 Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharacterMode.TrooperArsenalPractice
     && (int)offlinePager.Current.Character == 4 && offlinePager.Valid && offlinePager.Current.Bots == 1
     && offlinePager.CharacterName == "TROOPER ARSENAL"
-    && offlinePager.CharacterNotice.Contains("Native fallback gun and bolts", StringComparison.Ordinal)
+    && offlinePager.CharacterNotice.Contains("Unsupported states use native fallback.", StringComparison.Ordinal)
     && offlinePager.CharacterNotice.Contains("60 shared UA each life", StringComparison.Ordinal),
     "fourth cycle captures explicit Arsenal with its shared-UA/fallback notice");
 var capturedArsenal = offlinePager.Current;
@@ -1196,6 +1211,7 @@ CommunityHostingAcceptance.Run();
 GameFilesSetupResumeChecks.Run();
 TrainingReturnChecks.Run();
 OfflineReturnChecks.Run();
+MapSelectionPreferenceChecks.Run();
 HostRequestIdentityAcceptance.Run();
 LobbyStartGateAcceptance.Run();
 var stageLobby = new RmlUiLobbyView(true, false, true, false, false,

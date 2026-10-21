@@ -28,10 +28,62 @@ try
         return OwnedSourceSnapshotOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-cannon")
         return CharacterGeneratedCannonOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-generated-cannon")
+        return CharacterGeneratedCannonOwnedProbe.RunTrooper(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-final-generated-cannon")
+        return CharacterGeneratedCannonOwnedProbe.RunFinal(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-normal-ball-source")
+        return CharacterNormalBallSourceOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-final-ball-source")
+        return CharacterFinalBallSourceOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-drone-source")
+        return CharacterDroneSourceOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-drone-runtime")
+        return CharacterDroneRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-drone-burst-runtime")
+        return CharacterDroneRuntimeOwnedProbe.Run(args[1], probeBurst: true);
+    if (args.Length == 2 && args[0] == "--probe-character-drone-laser-runtime")
+        return CharacterDroneRuntimeOwnedProbe.Run(args[1], probeBurst: true, probeLaser: true);
+    if (args.Length == 2 && args[0] == "--probe-character-drone-movement-runtime")
+        return CharacterDroneRuntimeOwnedProbe.Run(args[1], probeBurst: true, probeLaser: true, probeMovement: true);
+    if (args.Length == 2 && args[0] == "--probe-character-drone-hit-runtime")
+        return CharacterDroneRuntimeOwnedProbe.Run(args[1], probeBurst: true, probeLaser: true, probeMovement: true, probeHit: true);
+    if (args.Length == 2 && args[0] == "--probe-character-arsenal-runtime")
+        return CharacterArsenalRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-arsenal-drone-runtime")
+        return CharacterArsenalDroneRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-arsenal-drone-cpu")
+        return CharacterArsenalDroneRuntimeOwnedProbe.Run(args[1], cpuOnly: true);
+    if (args.Length == 2 && args[0] == "--probe-character-drone-baseline")
+        return CharacterDroneSourceOwnedProbe.Run(args[1], captureBaseline: true);
+    if (args.Length == 2 && args[0] == "--probe-character-normal-ball-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true);
+    if (args.Length == 2 && args[0] == "--probe-character-final-ball-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true);
+    if (args.Length == 2 && args[0] == "--probe-character-source-ball-trail-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true,probeTrail:true);
+    if (args.Length == 2 && args[0] == "--probe-character-source-ball-boost-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1],probeBall:true,probeBoost:true);
     if (args.Length == 2 && args[0] == "--probe-character-generated-profile")
         return CharacterGeneratedProfileOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-preview")
         return CharacterGeneratedPreviewOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-generated")
+        return CharacterTrooperGeneratedOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-pose")
+        return CharacterTrooperPoseOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-body-runtime")
+        return CharacterBodyRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-runtime")
+        return CharacterBodyRuntimeOwnedProbe.Run(args[1], trooper: true);
+    if (args.Length == 2 && args[0] == "--probe-character-body-launch")
+        return CharacterBodyLaunchOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-launch")
+        return CharacterBodyLaunchOwnedProbe.Run(args[1], trooper: true);
+    if (args.Length == 2 && args[0] == "--probe-character-cannon-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-cannon-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1], trooper: true);
     if (args.Length == 2 && args[0] == "--probe-character-animations")
         return CharacterAnimationRuntimeOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-world-companions")

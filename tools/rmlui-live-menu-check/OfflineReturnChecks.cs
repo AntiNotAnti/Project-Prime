@@ -67,6 +67,12 @@ internal static class OfflineReturnChecks
 
         // The installed arena catalog may change after a round. A missing
         // arena should be replaced with a valid choice on the same screen.
+        // Force a disappearing last choice: an earlier selector in this same test
+        // process may have saved a different valid arena to launcher preferences.
+        string previousMap = LauncherPrefs.LastSelectedMap;
+        LauncherPrefs.LastSelectedMap = "AD2 ALINOS PERCH";
+        try
+        {
         var changing = new Stub { BuiltInMaps = new[] { "AD2 ALINOS PERCH", "MP1 SANCTORUS" } };
         using var returnController = new RmlUiMenuController(changing);
         Check(returnController.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
@@ -83,6 +89,8 @@ internal static class OfflineReturnChecks
             && Flag(returnController, "offline_can_start")
             && !Disabled(returnController, "offline_start"),
             "bot match return replaces a now-unavailable arena without leaving Offline Battle");
+        }
+        finally { LauncherPrefs.LastSelectedMap = previousMap; }
     }
 
     private static TaskCompletionSource<string> Pending()

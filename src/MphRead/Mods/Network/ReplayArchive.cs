@@ -87,6 +87,10 @@ namespace MphRead.Mods.Network
             using DemoReader? reader = DemoReader.Open(source, out var result);
             if (reader == null) return result;
             if (!ReplayIdentityCompatibility.Supports(reader.ProtocolVersion)) return ReplayOpenResult.ProtocolMismatch;
+            // Range extraction needs to preserve post-world facts at its chosen
+            // origin and end. Keep format7 extraction until that phase-aware
+            // consumer is implemented; never silently downgrade format8 to7.
+            if (reader.FormatVersion == 8) return ReplayOpenResult.UnsupportedFormat;
             ReplayMetadata metadata = reader.Metadata ?? new ReplayMetadata();
             if (reader.FormatVersion <= 2)
             {
@@ -202,6 +206,7 @@ namespace MphRead.Mods.Network
             OriginRecordingFrame = source.OriginRecordingFrame, LeadInFrames = source.LeadInFrames,
             IndexedFireContinuation = source.IndexedFireContinuation,
             TimedShotCertificates = source.TimedShotCertificates,
+            CustomWeapons = source.CustomWeapons,
             ProtocolVersion = source.ProtocolVersion, BuildVersion = source.BuildVersion, BuildId = source.BuildId,
             RecordedAtUtc = source.RecordedAtUtc, Type = type, RoomKey = room, Mode = mode, Players = players,
             MapHash = hash, Bootstrap = bootstrap, Recovered = recovered
@@ -219,8 +224,9 @@ namespace MphRead.Mods.Network
                 bool? continuation = source.Type == ReplayType.FullMatch ? true : source.IndexedFireContinuation;
                 var metadata = new ReplayMetadata
                 {
-                    FormatVersion = source.TimedShotCertificates ? (byte)6 : continuation.HasValue ? (byte)5 : (byte)4,
+                    FormatVersion = source.CustomWeapons != null ? (byte)7 : source.TimedShotCertificates ? (byte)6 : continuation.HasValue ? (byte)5 : (byte)4,
                     TimedShotCertificates = source.TimedShotCertificates, ProtocolVersion = source.ProtocolVersion,
+                    CustomWeapons = source.CustomWeapons,
                     BuildVersion = source.BuildVersion, BuildId = source.BuildId, RecordedAtUtc = source.RecordedAtUtc,
                     Type = ReplayType.Clip, RoomKey = source.RoomKey, Mode = source.Mode, Players = source.Players,
                     MapHash = source.MapHash, Bootstrap = source.Bootstrap, Recovered = source.Recovered,

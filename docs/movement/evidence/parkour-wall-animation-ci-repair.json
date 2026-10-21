@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "producer": "8c4c35d9c37eee3db29ee232fa738ac8d397e124",
+  "fullRuntimeProducer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+  "sourceCommittedFiles": 6678,
+  "sourceOverlayFiles": 0,
+  "changedTestSources": [
+    "src/MphRead/Mods/Network/NetLobbyTest.WeaponPackagePreparation.cs",
+    "tools/group-reservation-check/check_registry.py",
+    "tools/server-browser-party-source-check/PartyProtocolAcceptance.cs"
+  ],
+  "otherSourceFilesByteIdentical": 6675,
+  "poseControllerCodecGameplayAndOtherHarnessSourcesByteIdentical": true,
+  "testSourceSubstitution": false,
+  "targetedTestBuilds": 2,
+  "targetedRuntimeGates": 3,
+  "actualDllPartyChecks": 147,
+  "realUdpPackagePreparationChecks": 146,
+  "historicalRegistryNamesPreserved": 78,
+  "currentProtocol": 85,
+  "prior84AndFuture86LiveEnvelopeRefused": true,
+  "registryGeneratorLocation": "isolated new registry scratch only",
+  "normalRecursiveFilesUnchanged": 700,
+  "sourceBinaryHelperFences": "PASS",
+  "prior03NormalAndAll18ArchivesReadback": "PASS",
+  "coreSha256": "19cf92ecab684fc468d6c936fad1d16b00add07b6be8d3c93ee6a8bfc0b8357d",
+  "nettestSha256": "99fadc82865caf47660fb8e8bcc6686910573d4202d5a27e83078f379233e1c4",
+  "helperSha256": "34e37487fb1b26ac5861da7f8e7be8b47cdb38553495849a6c4a45aef847f3f2",
+  "ownedProcessesRemaining": 0,
+  "scope": "Test-only04 hosted-CI repairs. Full native/GPU/UDP/18-archive qualification remains attributed to03. Actual package-preparation UDP is covered; no online package execution/backend/device claim."
+}

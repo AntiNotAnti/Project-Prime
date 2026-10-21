@@ -24,6 +24,7 @@ internal sealed partial class ReplayRecorder
     {
         Resetting?.Invoke();
         ResetBombFacts(); ResetPickupSeed(); _grantSeed.Reset(); _grantSeedLatestFrame = 0;
+        ResetCustomWeaponFacts();
         _timedShots.Reset();
         _worldWire.Reset();
         _semantic.Begin(0, 0);
@@ -131,9 +132,18 @@ internal sealed partial class ReplayRecorder
         if (header.PlayerCount > RosterPacket.MaxSlots
             || packet.Length < 1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size) return;
         if (_matchId == 0 || header.MatchId != _matchId || header.AuthorityEpoch != _epoch || header.Frame != tick) return;
+        // Live callers have already admitted the canonical snapshot. Keep the
+        // new durable clock bounded to that complete native framing too; a
+        // header-only capture cannot advance custom projectile time.
+        int tail = 1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
+        if (packet.Length >= tail + NetMatchTimeSync.Size + NetHealthSync.HeaderSize
+            && NetMatchTimeSync.Validate(packet.Slice(tail, NetMatchTimeSync.Size))
+            && NetHealthSync.Validate(packet[(tail + NetMatchTimeSync.Size)..])
+            && System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(packet[(tail + NetMatchTimeSync.Size)..]) == header.MatchId)
+            AcceptCustomWeaponClock(tick, frame);
         _snapshot?.Release();
         _snapshot = new(frame, tick, ReplayFactKind.Snapshot, packet);
-        if (!ProducesWorldCheckpoints && (Timeline.NeedsRestorePoint || frame - _lastRestore >= 300))
+        if (!HasCustomWeaponMatch && !ProducesWorldCheckpoints && (Timeline.NeedsRestorePoint || frame - _lastRestore >= 300))
         {
             if (_match != null && _roster != null)
             {
@@ -190,6 +200,11 @@ internal sealed partial class ReplayRecorder
     }
 
     internal void SeedWorld(Action<ReplayTimelineRecord> accept)
+    {
+        if (HasCustomWeaponMatch) throw new InvalidOperationException("Custom world construction requires an explicit historical archive/world contract.");
+        SeedWorldCore(accept);
+    }
+    private void SeedWorldCore(Action<ReplayTimelineRecord> accept)
     {
         if (_match is { } match) accept(match);
         if (_configuration is { } configuration) accept(configuration);
@@ -252,7 +267,7 @@ internal sealed partial class ReplayRecorder
         => AppendWorldCheckpoint(new ReplayTimelineRecord(frame, tick, ReplayFactKind.World, bytes));
     private bool AppendWorldCheckpoint(ReplayTimelineRecord world)
     {
-        if (_match == null || _roster == null || _snapshot == null) { world.Release(); return false; }
+        if (HasCustomWeaponMatch || _match == null || _roster == null || _snapshot == null) { world.Release(); return false; }
         uint frame = world.RecordingFrame, tick = world.ServerTick;
         // Packet baselines remain available to metadata/compatibility tools. Only
         // the World record is allowed to restore a replica scene.
@@ -263,6 +278,23 @@ internal sealed partial class ReplayRecorder
         try
         {
             if (!Timeline.AppendRestorePoint(new(frame, tick, ReplayRestoreKind.ReplicaCheckpoint, records))) return false;
+            CheckpointCaptured?.Invoke(world); return true;
+        }
+        finally { world.Release(); }
+    }
+
+    internal bool AppendCustomWorldCheckpoint(Replay.ReplayWorldCheckpoint checkpoint)
+    {
+        if (!HasCustomWeaponMatch || !CustomFactScope || _roster == null || _snapshot == null
+            || !checkpoint.HasHeadHistoryContract || Timeline.LastRecordingFrame is uint previous && checkpoint.Frame < previous
+            || checkpoint.CustomWeaponDescriptor == null || CustomWeaponContext == null
+            || !checkpoint.CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(ReplayCustomWeaponDescriptor.ForInspection(CustomWeaponContext).CopyBytes()))
+            return false;
+        checkpoint.Payload.Retain();
+        var world = new ReplayTimelineRecord(checkpoint.Frame, _customReplayState!.World, ReplayFactKind.World, checkpoint.Payload);
+        try
+        {
+            if (!Timeline.AppendRestorePoint(new(checkpoint.Frame, world.ServerTick, ReplayRestoreKind.ReplicaCheckpoint, new[] { world }))) return false;
             CheckpointCaptured?.Invoke(world); return true;
         }
         finally { world.Release(); }

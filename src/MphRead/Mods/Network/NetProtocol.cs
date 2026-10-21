@@ -41,6 +41,7 @@ namespace MphRead.Mods.Network
         CustomWeaponInput = 93, // opt-in unreliable wrapper; ordinary native Intent bytes remain unchanged
         CustomWeaponReplicaPage = 94, CustomWeaponReplicaEvent = 95, CustomWeaponReplicaAck = 96,
         CustomWeaponPickupState = 97, CustomWeaponPickupAck = 98,
+        WeaponPackageOffer = 99, WeaponPackageReady = 100, WeaponPackageConfirmed = 101,
         ReplayShotFact = 67, // authority -> recorders, optional accepted shot result
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
@@ -245,6 +246,11 @@ namespace MphRead.Mods.Network
 
         public bool RequiresMapPreparation
             => MapIdentity.IsCustom || (Rotation?.Any(entry => entry.IsCustom) ?? false);
+        // Protocol83 carries only an exact archive hash. Operator/local paths
+        // never cross this boundary; zero bytes mean native-only allocation.
+        public string? WeaponArchiveHash;
+        public bool RequiresWeaponPreparation => !String.IsNullOrEmpty(WeaponArchiveHash);
+        public bool RequiresPreparation => RequiresMapPreparation || RequiresWeaponPreparation;
 
         /// <summary>How many bytes this request takes, tail included.</summary>
         public ServerSessionPolicy Policy;
@@ -255,7 +261,7 @@ namespace MphRead.Mods.Network
         public ulong HostCookie;
         public HostRequestPacket() { RoomKey = ""; ServerName = ""; }
         public int Length => Size + 1 + Math.Min(Rotation?.Count ?? 0, MaxRotation)
-            * RotationEntrySize + 4 + NetworkMapIdentity.Size + 16;
+            * RotationEntrySize + 4 + NetworkMapIdentity.Size + 16 + 32;
 
         public void Write(Span<byte> dest)
         {
@@ -285,13 +291,17 @@ namespace MphRead.Mods.Network
             int proof = tail + 4 + NetworkMapIdentity.Size;
             BinaryPrimitives.WriteUInt64LittleEndian(dest[proof..], HostNonce);
             BinaryPrimitives.WriteUInt64LittleEndian(dest[(proof + 8)..], HostCookie);
+            Span<byte> weapon = dest.Slice(proof + 16, 32);
+            weapon.Clear();
+            if (RequiresWeaponPreparation)
+                CustomWeapons.WeaponDigest.FromHex(WeaponArchiveHash!).Write(weapon);
         }
 
         public static HostRequestPacket Read(ReadOnlySpan<byte> src)
         {
             if (src.Length < Size + 5 || src[Size] > MaxRotation) return default;
             int tail = Size + 1 + src[Size] * RotationEntrySize;
-            if (src.Length != tail + 4 + NetworkMapIdentity.Size + 16 || src[tail] > 1 || src[tail + 1] > 1
+            if (src.Length != tail + 4 + NetworkMapIdentity.Size + 16 + 32 || src[tail] > 1 || src[tail + 1] > 1
                 || src[tail + 2] > 1 || src[tail + 3] > (byte)MatchFormat.TwoVsTwoVsTwoVsTwo
                 || !NetworkMapIdentity.TryRead(src.Slice(tail + 4, NetworkMapIdentity.Size), out var mapIdentity)) return default;
             return new HostRequestPacket
@@ -309,7 +319,9 @@ namespace MphRead.Mods.Network
                 HostNonce = BinaryPrimitives.ReadUInt64LittleEndian(
                     src[(tail + 4 + NetworkMapIdentity.Size)..]),
                 HostCookie = BinaryPrimitives.ReadUInt64LittleEndian(
-                    src[(tail + 12 + NetworkMapIdentity.Size)..])
+                    src[(tail + 12 + NetworkMapIdentity.Size)..]),
+                WeaponArchiveHash = CustomWeapons.WeaponDigest.Read(src[(tail + 20 + NetworkMapIdentity.Size)..]) is { IsValid: true } weapon
+                    ? weapon.ToString() : ""
             };
         }
 
@@ -475,7 +487,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82 or 83 or 84 or 85)
                 status = Read(src);
             else
             {
@@ -494,7 +506,9 @@ namespace MphRead.Mods.Network
                 && (status.Protocol >= 77 || (((uint)status.Rules | status.Match.RuleBits)
                     & (uint)MatchModifierFlags.ParkourMovement) == 0)
                 && (status.Protocol >= 70 || (((uint)status.Rules | status.Match.RuleBits)
-                    & (uint)MatchModifierFlags.RiftlineM7Available) == 0);
+                    & (uint)MatchModifierFlags.RiftlineM7Available) == 0)
+                && (status.Protocol >= 81 || (((uint)status.Rules | status.Match.RuleBits)
+                    & (uint)MatchModifierFlags.PackagedWeaponAvailable) == 0);
         }
 
         public static ServerStatusPacket Read(ReadOnlySpan<byte> src)
@@ -1007,7 +1021,8 @@ namespace MphRead.Mods.Network
         CrouchedState = 1u << 23,
         TuckedState = 1u << 24,
         // Cumulative ground stance-pivot count, not an input action.
-        TuckRebaseMask = 15u << 25
+        TuckRebaseMask = 15u << 25,
+        Grapple = 1u << 29
     }
 
     /// <summary>
@@ -1415,6 +1430,9 @@ namespace MphRead.Mods.Network
     {
         // Live compact-intent extension; historical canonical replay widths are unchanged.
         public Mods.Input.NativeTouchReport NativeTouch;
+        public ushort GrappleRequestNonce;
+        public byte MantleVisualPhase;
+        public byte WallVisualCue;
         public ushort MatchId;
         public ulong AuthorityEpoch;
         public ushort SlotGeneration;
@@ -1465,7 +1483,9 @@ namespace MphRead.Mods.Network
         public const int FullSize = LegacyFullSize + NetFireEvents.WireSize;
         // Protocol 53 canonical replay records append the exact 30 Hz touch
         // report; pre-53 records keep FullSize and decode with no touch contact.
-        public const int TouchCanonicalSize = FullSize + Mods.Input.NativeTouchReport.WireSize;
+        public const int Protocol80TouchSize = FullSize + Mods.Input.NativeTouchReport.WireSize;
+        public const int Protocol82TouchSize = Protocol80TouchSize + 2;
+        public const int TouchCanonicalSize = Protocol82TouchSize + 1;
         public bool HasFireEvents;
         public byte FireEventCount;
         public FireEventHistory FireEvents;
@@ -1663,6 +1683,8 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
+            if (dest.Length >= TouchCanonicalSize && (MantleVisualPhase > 15 || !ParkourWallVisualCodec.Valid(WallVisualCue)))
+                throw new ArgumentException("Invalid mantle visual phase.");
             BinaryPrimitives.WriteUInt16LittleEndian(dest[74..], MatchId);
             BinaryPrimitives.WriteUInt64LittleEndian(dest[76..], AuthorityEpoch);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[84..], SlotGeneration);
@@ -1703,6 +1725,13 @@ namespace MphRead.Mods.Network
             if (dest.Length >= LegacyFullSize)
                 BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 10)..], ContinuousFireTick);
             if (dest.Length >= TouchCanonicalSize)
+            {
+                if (MantleVisualPhase > 15 || !ParkourWallVisualCodec.Valid(WallVisualCue)) throw new ArgumentException("Invalid Parkour visual cue.");
+                dest[Protocol82TouchSize] = ParkourWallVisualCodec.PackIntent(MantleVisualPhase, WallVisualCue);
+            }
+            if (dest.Length >= Protocol82TouchSize)
+                BinaryPrimitives.WriteUInt16LittleEndian(dest[Protocol80TouchSize..], GrappleRequestNonce);
+            if (dest.Length >= Protocol80TouchSize)
                 NativeTouch.Write(dest.Slice(FullSize, Mods.Input.NativeTouchReport.WireSize));
             if (dest.Length >= FullSize)
             {
@@ -1715,6 +1744,8 @@ namespace MphRead.Mods.Network
 
         public static IntentPacket Read(ReadOnlySpan<byte> src)
         {
+            if (src.Length >= TouchCanonicalSize && !ParkourWallVisualCodec.Valid((byte)(src[Protocol82TouchSize] >> 4)))
+                throw new ArgumentException("Invalid mantle visual phase.");
             var presses = new InputEdgeHistory();
             for (int i = 0; i < InputEdgeHistory.Capacity; i++)
             {
@@ -1735,7 +1766,10 @@ namespace MphRead.Mods.Network
             }
             return new IntentPacket
             {
-                NativeTouch = src.Length >= TouchCanonicalSize
+                MantleVisualPhase = src.Length >= TouchCanonicalSize ? (byte)(src[Protocol82TouchSize] & 15) : (byte)0,
+                WallVisualCue = src.Length >= TouchCanonicalSize ? (byte)(src[Protocol82TouchSize] >> 4) : (byte)0,
+                GrappleRequestNonce = src.Length >= Protocol82TouchSize ? BinaryPrimitives.ReadUInt16LittleEndian(src[Protocol80TouchSize..]) : (ushort)0,
+                NativeTouch = src.Length >= Protocol80TouchSize
                     ? Mods.Input.NativeTouchReport.Read(src.Slice(FullSize, Mods.Input.NativeTouchReport.WireSize))
                     : default,
                 HasFireEvents = currentFireEvents || posedFireEvents || legacyFireEvents,
@@ -1849,7 +1883,12 @@ namespace MphRead.Mods.Network
         private const int JumpPadEventOffset = HalfturretOffset + 3;
         public const int LegacySize = JumpPadEventOffset + 2;
         public const int Protocol48Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
-        public const int Size = Protocol48Size + PlayerFormState.Size;
+        public const int Protocol80Size = Protocol48Size + PlayerFormState.Size;
+        public const int Size = Protocol80Size + PlayerGrappleState.Size;
+        public PlayerGrappleState Grapple;
+        public byte MantleVisualPhase;
+        public byte WallVisualCue;
+        internal uint WallVisualRevision;
         public PlayerFormState Form;
         public Mods.EnhancedHunters.EnhancedHunterNetState Enhanced;
         public bool HalfturretActive;
@@ -1948,8 +1987,8 @@ namespace MphRead.Mods.Network
         /// it that was still showing: the disruption is applied inside
         /// <c>TakeDamage</c> from the beam that landed the hit, so on every
         /// machine but the authority's the victim was hit by a charged Volt
-        /// Driver and nothing happened at all -- no aim disruption and, above
-        /// all, none of the screen distortion the weapon is *known* by. The
+        /// Driver and nothing happened at all -- none of the screen
+        /// distortion the weapon is *known* by. The
         /// shooter watched their charge land and the target play on, and the
         /// target had no idea what had hit them. Reported as "the Volt
         /// Driver's charged shot is missing the screen-distortion effect".
@@ -1979,8 +2018,10 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
+            if (MantleVisualPhase > 15 || !ParkourWallVisualCodec.Valid(WallVisualCue)) throw new ArgumentException("Invalid Parkour visual cue.");
             Enhanced.Write(dest[LegacySize..]);
             Form.Write(dest[Protocol48Size..]);
+            if (!ParkourWallVisualCodec.TryWriteGrapple(Grapple, WallVisualCue, dest[Protocol80Size..], out _)) throw new ArgumentException("Invalid grapple state.");
             dest[0] = SlotIndex;
             dest[1] = Flags;
             WriteVec(dest[2..], Position);
@@ -1996,7 +2037,8 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt16LittleEndian(dest[50..], LifeId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[52..], DamageEventId);
             dest[HalfturretOffset] = (byte)((HalfturretActive ? AuxHalfturretActive : 0)
-                | (SpawnProtected ? AuxSpawnProtected : 0) | (Crouched ? AuxCrouched : 0) | (Crouched && Tucked ? AuxTucked : 0));
+                | (SpawnProtected ? AuxSpawnProtected : 0) | (Crouched ? AuxCrouched : 0) | (Crouched && Tucked ? AuxTucked : 0)
+                | ((MantleVisualPhase & 15) << 4));
             BinaryPrimitives.WriteUInt16LittleEndian(dest[(HalfturretOffset + 1)..], HalfturretHealth);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[JumpPadEventOffset..], JumpPadEventId);
             for (int i = 0; i < DamageHistory; i++)
@@ -2005,7 +2047,17 @@ namespace MphRead.Mods.Network
             }
         }
 
-        public static PlayerState Read(ReadOnlySpan<byte> src) => ReadFields(src[..41], src.Slice(41, 7), src[48..], src.Length >= Size && PlayerFormState.TryRead(src.Slice(Protocol48Size, PlayerFormState.Size), out var form) ? form : default);
+        public static PlayerState Read(ReadOnlySpan<byte> src)
+        {
+            var state = ReadFields(src[..41], src.Slice(41, 7), src[48..], src.Length >= Protocol80Size && PlayerFormState.TryRead(src.Slice(Protocol48Size, PlayerFormState.Size), out var form) ? form : default);
+            if (src.Length >= Size)
+            {
+                if (!ParkourWallVisualCodec.TryReadGrapple(src.Slice(Protocol80Size, PlayerGrappleState.Size), out var grapple, out byte wall))
+                    throw new ArgumentException("Invalid grapple state.");
+                state.Grapple = grapple; state.WallVisualCue = wall;
+            }
+            return state;
+        }
         internal static PlayerState ReadFast(ReadOnlySpan<byte> fast, ReadOnlySpan<byte> slow)
             => ReadFields(fast[..41], slow, fast[41..], default);
         private static PlayerState ReadFields(ReadOnlySpan<byte> prefix, ReadOnlySpan<byte> slow, ReadOnlySpan<byte> suffix, PlayerFormState form)
@@ -2029,6 +2081,7 @@ namespace MphRead.Mods.Network
                 SlotGeneration = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(48 - 48)..]),
                 LifeId = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(50 - 48)..]),
                 DamageEventId = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(52 - 48)..]),
+                MantleVisualPhase = (byte)(auxiliary >> 4),
                 HalfturretActive = (auxiliary & AuxHalfturretActive) != 0,
                 SpawnProtected = (auxiliary & AuxSpawnProtected) != 0,
                 Crouched = (auxiliary & AuxCrouched) != 0,
@@ -2629,7 +2682,13 @@ namespace MphRead.Mods.Network
         // Protocol76 selects Quake3 profile v4 and Traversal profile v5 for ramp/slope movement.
         // Native packet widths and the protocol70/72/73/75 custom boundaries are unchanged.
         // Protocol77 adds Parkour profile v1 at model4 / modifier bit19; packet widths remain unchanged.
-        public const int ProtocolVersion = 77;
+        // Protocol78 selects Parkour v2 wall-strafe policy; native packet widths and protocol77 tuck boundaries remain unchanged.
+        // Protocol79 selects Parkour v3; packet widths and historical stance boundaries remain unchanged.
+        // Protocol80 selects Parkour v4 mantle; packet widths and historical stance boundaries remain unchanged.
+        // Protocol81 adds exact package preparation at99/100/101; native layouts and Parkour-v4 attribution remain unchanged.
+        // Protocol82 selects Parkour v5 and accepted grapple state; historical profiles remain frozen.
+        // Protocol83 appends the exact archive hash to HostRequest; native gameplay/replay widths remain unchanged.
+        public const int ProtocolVersion = 85;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

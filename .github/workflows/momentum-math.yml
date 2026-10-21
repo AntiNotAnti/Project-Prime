@@ -7,6 +7,8 @@ on:
       - 'tools/nettest/Momentum*.cs'
       - 'tools/nettest/Quake3*.cs'
       - 'tools/nettest/Traversal*.cs'
+      - 'tools/nettest/Parkour*.cs'
+      - 'src/MphRead/Entities/Players/PlayerParkour*.cs'
       - 'src/MphRead/Entities/Players/PlayerTraversal*.cs'
       - 'maps/traversal-training/**'
       - 'tools/nettest/MomentumSceneTests.cs'
@@ -70,6 +72,8 @@ on:
       - 'tools/nettest/Momentum*.cs'
       - 'tools/nettest/Quake3*.cs'
       - 'tools/nettest/Traversal*.cs'
+      - 'tools/nettest/Parkour*.cs'
+      - 'src/MphRead/Entities/Players/PlayerParkour*.cs'
       - 'src/MphRead/Entities/Players/PlayerTraversal*.cs'
       - 'maps/traversal-training/**'
       - 'tools/nettest/MomentumSceneTests.cs'
@@ -165,10 +169,27 @@ jobs:
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-advanced-rules
       - name: Traversal air control, ramp lift and profile identity
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-rules
+      - name: Parkour tuck dimensions and eligibility
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-stance-rules
+      - name: Parkour version and historical replay boundaries
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-compatibility
+      - name: Parkour wallstrafe equations and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-wallstrafe-rules
+      - name: Parkour wallkick equations and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-wallrun-rules
+      - name: Parkour mantle geometry and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-mantle-rules
+      - name: Parkour grapple velocity and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-grapple-rules
+      - name: Grapple wire, historical widths and passive ownership
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-grapple-wire
       - name: Crouch dimensions, slide equations and allocation contract
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-rules
       - name: Crouch wire and historical checkpoint compatibility
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-network
+      - name: Parkour animation wire, presentation lease and historical contracts
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-animation-wire
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-wall-animation-wire
       - name: Crouch keyboard and saved gamepad binding contract
         run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --crouch-input-check
       - name: Historical replay widths and Quake III identity

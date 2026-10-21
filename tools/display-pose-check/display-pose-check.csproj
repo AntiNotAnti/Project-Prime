@@ -9,6 +9,7 @@
        building the application, loading assets, or creating a GL context. -->
   <ItemGroup>
     <PackageReference Include="OpenTK.Mathematics" Version="4.9.4" />
+    <Compile Include="../native-render-check/DisplayPosePlan.cs" Link="DisplayPosePlan.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/DisplayPoseHistory.cs" Link="DisplayPoseHistory.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/FrameTiming.cs" Link="FrameTiming.cs" />
   </ItemGroup>

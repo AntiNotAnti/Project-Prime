@@ -18,3 +18,9 @@ tools/asset-guard-allow.txt text eol=lf
 src/MphRead/Assets/Weapons/RiftlineM7/*.json text eol=lf
 src/MphRead/Assets/Weapons/RiftlineM7/*.txt text eol=lf
 src/MphRead/Assets/Weapons/RiftlineM7/*.md text eol=lf
+
+# NCX fixtures and the retained auditor have byte-qualified SHA256 contracts.
+tools/nettest/fixtures/ncx-emulated/*.json text eol=lf
+tools/nettest/form-audit.py text eol=lf
+# Embedded shader specialization has exact LF source-shape boundaries.
+src/MphRead/Shaders.cs text eol=lf

@@ -8,8 +8,8 @@ namespace MphRead.Mods.CustomWeapons;
 internal sealed record CustomPeerReadyEvidence(WorldBootstrapIdentity Bootstrap,WeaponDigest Manifest,
     byte Slot,ulong ConnectionId,uint OpenedWorld);
 
-/// <summary>One reviewed built-in definition in this first live handshake. Unknown
-/// packages are never downloaded or interpreted. Exact cached wire comparison
+/// <summary>One frozen built-in or prepared package definition. Unknown
+/// packages are never downloaded by this handshake. Exact cached wire comparison
 /// verifies every row/field without duplicate page allocation.</summary>
 internal sealed class CustomReadinessWire
 {
@@ -17,13 +17,15 @@ internal sealed class CustomReadinessWire
     internal byte Slot { get; }
     internal CustomWeaponManifest Manifest { get; }
     internal WeaponDefinition Definition { get; }
+    internal CustomReplicaValidation Validation { get; }
     internal byte[] ManifestBytes { get; }
     internal byte[] ReadyBytes { get; }
-    internal CustomReadinessWire(WorldBootstrapIdentity bootstrap,byte slot)
+    internal CustomReadinessWire(WorldBootstrapIdentity bootstrap,byte slot,WeaponDefinition? definition=null)
     {
         if (!CustomWeaponProtocol.ValidBootstrap(bootstrap) || slot >= 8) throw new ArgumentException("Exact recipient bootstrap required.");
         Bootstrap = bootstrap; Slot = slot;
-        Definition=RiftlineM7.Create(); Manifest = new(new[] { Definition });
+        Definition=definition??RiftlineM7.Create(); Manifest = new(new[] { Definition });
+        Validation = new(bootstrap.Start, Definition, Manifest);
         var page = new CustomManifestPage(bootstrap,Manifest.Digest,1,0,new[] { Manifest.Rows[0] });
         ManifestBytes = new byte[page.Size]; page.Write(ManifestBytes);
         ReadyBytes = new byte[CustomWeaponReady.Size];
@@ -45,10 +47,10 @@ internal sealed class CustomReadinessPeer
     private CustomPeerReadyEvidence? _evidence;
     internal CustomPeerReadyEvidence? Evidence => System.Threading.Volatile.Read(ref _evidence);
     internal bool Invalidated { get; private set; }
-    internal CustomReadinessPeer(WorldBootstrapIdentity bootstrap,byte slot,ulong connectionId,double now)
+    internal CustomReadinessPeer(WorldBootstrapIdentity bootstrap,byte slot,ulong connectionId,double now,WeaponDefinition? definition=null)
     {
         if (connectionId == 0 || !double.IsFinite(now)) throw new ArgumentException("Live connection and clock required.");
-        Wire = new(bootstrap,slot); ConnectionId = connectionId; _created = _lastTime = _offerWindow = now; _nextSend = now;
+        Wire = new(bootstrap,slot,definition); ConnectionId = connectionId; _created = _lastTime = _offerWindow = now; _nextSend = now;
     }
     internal void Invalidate()
     { Invalidated = true; System.Threading.Volatile.Write(ref _evidence,null); }
@@ -86,10 +88,10 @@ internal sealed class CustomReadinessClient
     internal bool Invalidated { get; private set; }
     private double _nextSend,_lastTime;
     private readonly double _created;
-    internal CustomReadinessClient(WorldBootstrapIdentity bootstrap,byte slot,double now = 0)
+    internal CustomReadinessClient(WorldBootstrapIdentity bootstrap,byte slot,double now = 0,WeaponDefinition? definition=null)
     {
         if (!double.IsFinite(now)) throw new ArgumentException("Finite clock required.");
-        Wire = new(bootstrap,slot); _created = _lastTime = now;
+        Wire = new(bootstrap,slot,definition); _created = _lastTime = now;
     }
     private bool Time(double now)
     {

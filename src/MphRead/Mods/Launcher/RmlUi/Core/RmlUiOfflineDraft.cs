@@ -66,7 +66,7 @@ public sealed class RmlUiOfflineDraft
             .OrderBy(LauncherRoomDisplayName.Get, StringComparer.OrdinalIgnoreCase)
             .ThenBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
         _types = MatchTypeCatalog.GameTypes;
-        Current = new(_rooms.FirstOrDefault() ?? "", GameMode.Battle,
+        Current = new(LauncherPrefs.PreferredMap(_rooms), GameMode.Battle,
             (uint)hunter < 7 ? hunter : Hunter.Samus,
             Math.Clamp(suit, 0, 3), Math.Clamp(bots, 0, 7), Math.Clamp(level, 0, 3));
         EnsureBotRoster();
@@ -81,7 +81,7 @@ public sealed class RmlUiOfflineDraft
         if (_rooms.SequenceEqual(next, StringComparer.OrdinalIgnoreCase)) return;
         _rooms = next;
         if (!_rooms.Contains(Current.RoomKey, StringComparer.OrdinalIgnoreCase))
-            Current = Current with { RoomKey = _rooms.FirstOrDefault() ?? "" };
+            Current = Current with { RoomKey = LauncherPrefs.PreferredMap(_rooms) };
         if (_arenaOpen) SearchArena("");
     }
 
@@ -273,7 +273,7 @@ public sealed class RmlUiOfflineDraft
             ? "Drone combat practice requires Weavel, Battle and zero to seven native opponents."
             : "Trooper practice requires Weavel, Battle and zero bots."
         : Current.Character == OfflineCharacterMode.TrooperArsenalPractice
-            ? "Native fallback gun and bolts. Private Blaster: 60 shared UA each life; Fire for bursts, cycle to reselect. Wall-cling, drone and laser. No replays."
+            ? "Hunters BODY selects your Trooper body and Blaster cannon; DRONE selects its flying appearance. Native keeps native models. Unsupported states use native fallback. Native bolts. Private Blaster: 60 shared UA each life; Fire for bursts, cycle to reselect. Wall-cling, drone and laser. No replays."
         : Current.Character is OfflineCharacterMode.TrooperScoutDronePractice or OfflineCharacterMode.TrooperScoutDroneCombatPractice
             ? "Native fallback models. Morph to split; Jump to hover, Alt Attack for a burst, Zoom for a laser. No blaster or replays."
             : "Weavel model and weapons. Jump into a tall wall to cling; Jump again to kick off. No drone, blaster or replays.";

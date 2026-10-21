@@ -66,11 +66,11 @@ public sealed class TheatrePlaybackController : IDisposable
         return true;
     }
 
-    public void Jump(int frames)
+    public void Jump(int frames, bool? resume = false)
     {
         VerifyOwner();
         if (!_disposed && DemoPlayback.IsActive && !ReplayVideoExporter.Rendering)
-            ReplayController.Seek((uint)Math.Clamp((long)ReplayController.CurrentFrame + frames, 0, ReplayController.DurationFrames), resume: false);
+            ReplayController.Seek((uint)Math.Clamp((long)ReplayController.CurrentFrame + frames, 0, ReplayController.DurationFrames), resume);
     }
     public bool TryTakeEngineCommand(out TheatrePlaybackAction action)
     {

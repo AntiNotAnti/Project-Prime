@@ -1,0 +1,177 @@
+{
+  "status": "PASS",
+  "candidate": "wallstrafe08-targeted-integration",
+  "producerCommit": "587f8972d984f782e83c63927d6875b742d86977",
+  "integrationBaseSha": "b920a13d4545b375ef9bf89fa57b4e2b3b03da72",
+  "protocol": 78,
+  "parkourProfileVersion": 2,
+  "priorFullQualification": {
+    "producerCommit": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+    "candidate07SelectionSha256": "5035390ecfb0b1e1de1c1a4b5497dd6161c01b204bc9c5f05daeea38fa7b207d",
+    "focusedGates": 11,
+    "cleanAndFaultedProtocol78Cohorts": "PASS",
+    "unchangedPlayerMovementNetworkNettestFiles": 765
+  },
+  "source": {
+    "exactCommittedProducer": true,
+    "fullSourceFiles": 6448,
+    "manifestSha256": "110e6278564412a2264ffbeb268ff6b7aa651d465d12142ed2c481e43993c0c6",
+    "fullSourceManifestSha256": "bb1ff15983d748c0c876b415f07155e2a6faa93d9b6c8e8bf4a90da2df2c353c",
+    "emptyOverlay": true,
+    "closureFiles": 39,
+    "assetGuard": "PASS",
+    "bundleSha256": "5566ad507b8d340d7e9ab836e37c0c86ce48574ccb1afe503f988de387d5b31f",
+    "phase3Included": false
+  },
+  "normalReleaseBuild": {
+    "platform": "Windows",
+    "sdk": "10.0.401",
+    "nettestExitCode": 0,
+    "customExitCode": 0,
+    "elapsed": "00:00:55.78",
+    "warnings": 1,
+    "warningCodes": [
+      "CS0649"
+    ],
+    "errors": 0,
+    "binaries": {
+      "ProjectPrime.dll": "e500442a733c7a09bf9c4ea851194fb2eb4b686dd421d4c40a87e567cc0b27dd",
+      "nettest.dll": "335bc8c442e7d5ee1937701f0cd91aa8b99224774f92d9c50a8dafc4608fbe20",
+      "MphRead.CorpsePhysics.dll": "d1cc27913dbdbd1d3e5bce6ee5862a7a777de520094ddaab4d9dac236406f797",
+      "BepuPhysics.dll": "5bbd07c09f058025049e741e136a4e7ab8a68afe56f391f58072429f44262fbe",
+      "BepuUtilities.dll": "4666356f52ed46fce9707786cda72cfb6ba6460f8bcd789d75cb816a744643f6"
+    },
+    "customToolSha256": "1b37633a68645c14fcf54cb5a1af4b7ef483a868d8db836d1e6e8e9913ab6407",
+    "coreUnchangedDuringCustomBuild": true,
+    "buildLogSha256": "7768dfa84a68c52ef2f014226915adcf78f0cdc4d939313f5baf18573a2e995d"
+  },
+  "focusedGates": [
+    {
+      "gate": "parkour-wallstrafe-rules",
+      "status": "PASS",
+      "assertions": 25
+    },
+    {
+      "gate": "parkour-wallstrafe-scene",
+      "status": "PASS",
+      "assertions": 11820
+    },
+    {
+      "gate": "architecture",
+      "status": "PASS"
+    },
+    {
+      "gate": "protocol17",
+      "status": "PASS"
+    }
+  ],
+  "customDefault": {
+    "status": "PASS",
+    "checks": 36962,
+    "logSha256": "62b587187f714e63f93db7f791c9191e8d74b97a660250fa8d84060b4dd881ba"
+  },
+  "retainedActualRecordings": [
+    {
+      "recordedProtocol": 77,
+      "profileVersion": 1,
+      "kind": "clean",
+      "status": "PASS",
+      "recordingProducer": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+      "archiveSha256": "c301c0519b805cd6e10cd4790303a0f21d921d541ee826dfb7c80df891e7497d",
+      "archiveByteIdentical": true,
+      "digestCountsCheckpointsAndSeeksUnchanged": true,
+      "checks": 124319,
+      "frames": 2400,
+      "tuckedSnapshotChecks": 951,
+      "stanceChecks": 6841,
+      "continuedFrames": 2351,
+      "checkpointCount": 11,
+      "memoryCheckpointCount": 8,
+      "seekCount": 89,
+      "gameplayPresentationDigest": "FEDF463796954F8B292AC9807803DB3314C9C9925E8474BCD0E2FC5DE5536190",
+      "resultSha256": "e4cb065e0af1d6227eda3c3a5e3bc543ad7d94293000dafa68091612bd6831c6"
+    },
+    {
+      "recordedProtocol": 77,
+      "profileVersion": 1,
+      "kind": "faulted",
+      "status": "PASS",
+      "recordingProducer": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+      "archiveSha256": "a342438db0091b70f9e495c5251e41bd4eb9fbbe332615918e2b6abb698e7c11",
+      "archiveByteIdentical": true,
+      "digestCountsCheckpointsAndSeeksUnchanged": true,
+      "checks": 126177,
+      "frames": 2404,
+      "tuckedSnapshotChecks": 999,
+      "stanceChecks": 7032,
+      "continuedFrames": 2343,
+      "checkpointCount": 11,
+      "memoryCheckpointCount": 8,
+      "seekCount": 114,
+      "gameplayPresentationDigest": "03498EC7E4BF7AFB145E7FF2AB0729DE57664126D887F47E4E097E6165288255",
+      "resultSha256": "ed012a2705c253f216173339885262543bee8c40c980dd99e9944369845b8025"
+    },
+    {
+      "recordedProtocol": 78,
+      "profileVersion": 2,
+      "kind": "clean",
+      "status": "PASS",
+      "recordingProducer": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+      "archiveSha256": "ab8b697afefdbfd873b5a40fa83ba45b531959717fe9dffdbe82ac6ff9c4a5da",
+      "archiveByteIdentical": true,
+      "digestCountsCheckpointsAndSeeksUnchanged": true,
+      "checks": 126905,
+      "frames": 2399,
+      "tuckedSnapshotChecks": 1068,
+      "stanceChecks": 7197,
+      "continuedFrames": 2350,
+      "checkpointCount": 10,
+      "memoryCheckpointCount": 7,
+      "seekCount": 97,
+      "gameplayPresentationDigest": "A8B440187F8260EDED13EB0FEEEFF49BC7A4CDDA8EC5E99EC0EF051CBAF4F537",
+      "resultSha256": "4d6b4047a8f73f991fefcdbd3016e79d4008ffc1cd767f63ef998247d9166ada"
+    },
+    {
+      "recordedProtocol": 78,
+      "profileVersion": 2,
+      "kind": "faulted",
+      "status": "PASS",
+      "recordingProducer": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+      "archiveSha256": "d84a0a1e02c1ab39770f12294c312f218b8b39669daad80078658f5e7a0afed2",
+      "archiveByteIdentical": true,
+      "digestCountsCheckpointsAndSeeksUnchanged": true,
+      "checks": 124201,
+      "frames": 2405,
+      "tuckedSnapshotChecks": 949,
+      "stanceChecks": 6855,
+      "continuedFrames": 2341,
+      "checkpointCount": 11,
+      "memoryCheckpointCount": 8,
+      "seekCount": 85,
+      "gameplayPresentationDigest": "C3EAB2B9A528780113CCED8AE3A51352C0D4FB36B9FF2E6904B01F7666E47F65",
+      "resultSha256": "dcfa7048e6689cac74bd96d5a33ab37525f325849c41fe69010b8781dbfee48b"
+    }
+  ],
+  "finalReadback": {
+    "status": "PASS",
+    "ownedRuntimeProcessCount": 0,
+    "ownedScheduledTasksCreated": 0,
+    "sourceBinaryLeaseUnchanged": true,
+    "customCoreDependenciesUnchanged": true,
+    "producer07FullSourceAndBinariesUnchanged": true,
+    "retainedFourArchivesByteIdentical": true,
+    "archiveSeedsByteIdentical": true,
+    "freeBytes": 169484095488,
+    "cleanupDeletesPerformed": false,
+    "newCohortsRun": false,
+    "benchmarkRun": false,
+    "glRun": false
+  },
+  "evidence": {
+    "zipSha256": "4699a21fa6a005f7af716edf6ba3487652306c6af4d977e09307bc71a06d7e06",
+    "zipBytes": 415212,
+    "rootEvidenceFiles": 27,
+    "copiedLocallyHashVerified": true
+  },
+  "scope": "Targeted fresh latest-main UI integration build and replay preservation. Candidate07 retains full11-gate, party tool and fresh real78 cohort attribution. No new cohorts, benchmark, historical batch or nativeGL on08; no Mac build, game or UI."
+}

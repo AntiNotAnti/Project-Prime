@@ -10,7 +10,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
     public static class RmlUiMenuPages
     {
         public static readonly RmlUiPageSpec Home = new("home", "pages/home/home.rml", "activity_selector");
-        public static readonly RmlUiPageSpec Play = new("play", "pages/play/browser.rml", "play_quick");
+        public static readonly RmlUiPageSpec Play = new("play", "pages/play/browser.rml", "play_create_open");
         public static readonly RmlUiPageSpec Lobby = new("lobby", "pages/lobby/lobby.rml", "lobby_ready");
         public static readonly RmlUiPageSpec Rules = new("rules", "pages/lobby/rules.rml", "rules_close_top");
         public static readonly RmlUiPageSpec Maps = new("maps", "pages/lobby/maps.rml", "map_close");
@@ -266,6 +266,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "class:lobby_slot7:ready", "slot7_ready"),
             new(RmlUiBindingKind.Text, "lobby_time", "{{lobby_time}}"),
             new(RmlUiBindingKind.Text, "lobby_score", "{{lobby_score}}"),
+            new(RmlUiBindingKind.Text, "lobby_countdown_map", "{{lobby_map}}"),
             new(RmlUiBindingKind.Text, "lobby_countdown_number", "{{lobby_countdown_number}}"),
             new(RmlUiBindingKind.Text, "lobby_countdown_detail", "{{lobby_countdown_detail}}"),
             new(RmlUiBindingKind.Boolean, "visible:lobby_countdown", "lobby_starting"),

@@ -66,10 +66,10 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
         && CustomWeaponMatchPolicy.TryAdmit(_scene,out _);
     private uint Now => NetSession.NetFrame;
     internal CustomAuthorityCombatAdapter(Scene scene, bool developerOptIn, ICustomSourceAdmission sourceAdmission)
-        : this(scene,developerOptIn,sourceAdmission,null,null,false) { }
-    internal CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceReadiness readiness,ICustomCombatDelivery? delivery=null,bool pickupOnly=false)
-        : this(scene,developerOptIn,null,readiness,delivery,pickupOnly) { }
-    private CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceAdmission? sourceAdmission,ICustomSourceReadiness? readiness,ICustomCombatDelivery? delivery,bool pickupOnly)
+        : this(scene,developerOptIn,sourceAdmission,null,null,false,null) { }
+    internal CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceReadiness readiness,ICustomCombatDelivery? delivery=null,bool pickupOnly=false,WeaponDefinition? definition=null)
+        : this(scene,developerOptIn,null,readiness,delivery,pickupOnly,definition) { }
+    private CustomAuthorityCombatAdapter(Scene scene,bool developerOptIn,ICustomSourceAdmission? sourceAdmission,ICustomSourceReadiness? readiness,ICustomCombatDelivery? delivery,bool pickupOnly,WeaponDefinition? definition)
     {
         if (sourceAdmission == null && readiness == null) throw new ArgumentNullException(nameof(sourceAdmission));
         _scene = scene; _match = NetSession.CurrentMatchId; _epoch = NetSession.AuthorityEpoch;
@@ -77,7 +77,7 @@ internal sealed partial class CustomAuthorityCombatAdapter : ICustomSourceAdmiss
             throw new InvalidOperationException("Explicit authority Battle developer fixture and trusted engine source oracle required.");
         foreach (var enemy in scene.GetEnemyInstanceEntities())
             throw new InvalidOperationException("Custom campaign/enemy authority is unavailable.");
-        Definition = RiftlineM7.Create(); Manifest = new(new[] { Definition });
+        Definition = definition ?? RiftlineM7.Create(); Manifest = new(new[] { Definition });
         _registry = scene.FreezeCustomWeaponRegistry(new[] { Definition });
         _sourceBoundary = readiness as ICustomSourceBoundaryReadiness;
         _delivery=delivery;_pickupOnly=pickupOnly;

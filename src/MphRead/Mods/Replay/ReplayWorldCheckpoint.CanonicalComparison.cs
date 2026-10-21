@@ -13,11 +13,14 @@ internal sealed partial class ReplayWorldCheckpoint
     private ComparisonCapsule ComparisonValues()
     {
         using var stream=_data.OpenRead();using var reader=new BinaryReader(stream);
-        ReadWorldHeader(reader);reader.ReadString();reader.ReadString();reader.ReadInt32();reader.ReadUInt64();reader.ReadUInt32();reader.ReadUInt32();reader.ReadUInt32();
+        var (version, declared)=ReadWorldHeader(reader);reader.ReadString();reader.ReadString();reader.ReadInt32();reader.ReadUInt64();reader.ReadUInt32();reader.ReadUInt32();reader.ReadUInt32();
         var sections=new Dictionary<string,byte[]>{{"Header",ReadSlice(reader,0)},{"InitialDecoder",ReadBytes(reader,MaximumBytes)},{"CurrentDecoder",ReadBytes(reader,MaximumBytes)}};
         var nodes=new Node[Count(reader,MaximumObjects)];
         for(int i=0;i<nodes.Length;i++)nodes[i]=new(reader.ReadUInt16(),reader.ReadUInt64(),ReadBytes(reader,MaximumBytes));
         foreach(string name in new[]{"Assets","Cosmetics","BombWorld","Traversal","AuthorityForms","NativeTouch","PickupBindings"})sections[name]=ReadBytes(reader,MaximumBytes);
+        sections["Grapple"]=version>=11?ReadBytes(reader,184):Array.Empty<byte>();
+        sections["CustomWeapons"]=IsCustomWorldVersion(version)?ReadBytes(reader,CustomWorldAppendixSize):Array.Empty<byte>();
+        sections["HeadHistory"]=version==CustomVersion?ReadBytes(reader,ReplayHeadSeedCodec.MaximumBytes):Array.Empty<byte>();
         sections["IndexedFirePresentation"]=new[]{reader.ReadByte()};return new(nodes,sections);
     }
     internal ReplayGraphDifference[] CanonicalGraphDifferences(ReplayWorldCheckpoint other,int maximum=64)

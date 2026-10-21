@@ -558,6 +558,7 @@ namespace MphRead.Entities
 
         public override void Initialize()
         {
+            ModRetireSourceBody();
             _modCharacterGameplayInitializationStarted = true;
             Vector3 prevPos = _position;
             Vector3 prevUp = _upVector;
@@ -567,6 +568,8 @@ namespace MphRead.Entities
             _models.Clear();
             _bipedModelLods[0] = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
             _bipedModelLods[1] = _scene.GetModelInstance(Metadata.HunterModels[Hunter][1]);
+            Mods.Render.ParkourPoseOverlay.Prewarm(_bipedModelLods[0].Model);
+            Mods.Render.ParkourPoseOverlay.Prewarm(_bipedModelLods[1].Model);
             _bipedModel1 = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
             _bipedModel2 = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
             _altModel = _scene.GetModelInstance(Metadata.HunterModels[Hunter][2]);
@@ -655,6 +658,8 @@ namespace MphRead.Entities
             ModResetTraversalStance();
             ModResetGroundTravel();
             ModResetWallClingForLife();
+            ModResetParkourWallrunForLife();
+            ModResetParkourGrappleForLife();
             ScoutDroneResetForLife();
             _abilities = AbilityFlags.None;
             _walkSfxTimer = 0;
@@ -756,6 +761,8 @@ namespace MphRead.Entities
                 Mods.RespawnChoice.ApplyOnSpawn(this);
             }
             ModResetWallClingForLife();
+            ModResetParkourWallrunForLife();
+            ModResetParkourGrappleForLife();
             ScoutDroneResetForLife();
             LoadFlags |= LoadFlags.Spawned;
             if (IsMainPlayer)
@@ -1277,6 +1284,9 @@ namespace MphRead.Entities
             _q3LaunchGravity = 0; _q3LaunchFrames = 0;
             ModCancelTraversalSlide(); _modCrouchWasDown = false;
             ModNoteMovementValidationTeleport();
+            ModCancelParkourWallrun();
+            ModCancelParkourMantle();
+            ModCancelParkourGrapple();
             ModResetWallClingForLife();
             ScoutDroneMerge();
             ScoutDroneRetireFlights();

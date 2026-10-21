@@ -105,6 +105,7 @@ namespace MphRead.Mods.Network
         }
         public void Rewind()
         {
+            CustomWeaponDescriptor = null; CustomWeapons = null;
             ResetTurretOutcomes(); ResetPickupFacts(); TimedGrants.Reset();
             TimedShots.Reset();
             _bombPackets.Clear();
@@ -143,9 +144,20 @@ namespace MphRead.Mods.Network
 
         private bool Matches(ushort match, ulong authority) => Match is MatchStatePacket current
             && current.MatchId == match && current.AuthorityEpoch == authority;
-        public void Accept(ReadOnlySpan<byte> packet, uint frame)
+        public void Accept(ReadOnlySpan<byte> packet, uint frame) => Accept(packet, frame, frame);
+
+        internal void AcceptPostWorld(ReadOnlySpan<byte> packet, uint sourceFrame, uint applicationFrame)
+        {
+            if ((ulong)sourceFrame + 1 != applicationFrame)
+                throw new InvalidDataException("Post-world facts apply before exactly the following fixed step.");
+            Accept(packet, sourceFrame, applicationFrame);
+        }
+
+        private void Accept(ReadOnlySpan<byte> packet, uint frame, uint applicationFrame)
         {
             if (packet.IsEmpty) throw new InvalidDataException("Empty replay packet.");
+            if (packet[0] == ReplayCustomWeaponFact.Tag)
+            { AcceptCustomWeaponRecord(packet, frame); return; }
             if (packet[0] == 253)
             {
                 RestoreCheckpoint(ReplayTimelineArchive.ReadConstruction(packet)); return;
@@ -182,7 +194,7 @@ namespace MphRead.Mods.Network
                 case PacketType.MatchState:
                     if (payload.Length != MatchStatePacket.Size) throw Malformed();
                     var match = MatchStatePacket.Read(payload);
-                    if (((MatchModifierFlags)match.RuleBits & MatchModifierFlags.RiftlineM7Available) != 0
+                    if (!CustomMatchAllowed(match)
                         || !Movement.MovementModelRules.ValidRules((MatchModifierFlags)match.RuleBits)
                         || Movement.MovementModelRules.UsesMomentumSolver(Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits))
                             && ((MatchModifierFlags)match.RuleBits & (MatchModifierFlags.BalancedMode | MatchModifierFlags.EnhancedHunters)) != 0
@@ -203,8 +215,8 @@ namespace MphRead.Mods.Network
                     accepted = true;
                     break;
                 case PacketType.SessionState:
-                    if (!SessionStatePacket.TryReadArchived(payload, out var configuration)
-                        || configuration.Match.RiftlineM7Available) throw Malformed();
+                    if (!ReadReplicaConfiguration(payload, CustomWeaponDescriptor != null, out var configuration)
+                        || !CustomConfigurationAllowed(configuration)) throw Malformed();
                     if (Match.HasValue && !Matches(configuration.MatchId, configuration.AuthorityEpoch)) break;
                     if (Configuration is SessionStatePacket old && configuration.Revision != old.Revision
                         && !SessionStatePacket.IsNewer(configuration.Revision, old.Revision)) break;
@@ -255,10 +267,13 @@ namespace MphRead.Mods.Network
                 case PacketType.ReplayShotFact:
                     if (!ReplayShotFactPacket.TryRead(payload, out var shotFact)) throw Malformed();
                     if (!Matches(shotFact.MatchId, shotFact.AuthorityEpoch)) break;
-                    if (_shotFactsFrame != frame)
+                    // Source clocks still drive input ages and recorded hit
+                    // freshness. Only this transient simulation batch belongs to
+                    // the following application frame for post-world delivery.
+                    if (_shotFactsFrame != applicationFrame)
                     {
                         _shotFacts.Clear();
-                        _shotFactsFrame = frame;
+                        _shotFactsFrame = applicationFrame;
                     }
                     bool duplicateShotFact = false;
                     foreach (var existing in _shotFacts)
@@ -353,6 +368,7 @@ namespace MphRead.Mods.Network
             int seen = 0;
             for (int i = 0; i < header.PlayerCount; i++)
             {
+                if (!ParkourWallVisualCodec.TryReadGrapple(payload.Slice(SnapshotHeader.Size + i * PlayerState.Size + PlayerState.Protocol80Size, PlayerGrappleState.Size), out _, out _)) throw Malformed();
                 var player = PlayerState.Read(payload[(SnapshotHeader.Size + i * PlayerState.Size)..]);
                 if (player.SlotIndex >= _players.Length || (seen & 1 << player.SlotIndex) != 0
                     || !Sane(player.Position) || !Sane(player.Speed) || !Sane(player.Facing)

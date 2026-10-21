@@ -26,19 +26,30 @@ internal sealed class SfxOpenAlBackend : ISfxNativeBackend
     public ALDevice OpenDevice() => ALC.OpenDevice(null);
     public ALContext CreateContext(ALDevice device) => ALC.CreateContext(device, new ALContextAttributes());
     public bool MakeCurrent(ALContext context) => ALC.MakeContextCurrent(context);
-    public void GenBuffers(Span<int> ids) { AL.GenBuffers(ids); CheckError(); }
-    public void GenSources(Span<int> ids) { AL.GenSources(ids); CheckError(); }
-    public void DeleteBuffer(int id) { AL.DeleteBuffer(id); CheckError(); }
-    public void DeleteSource(int id) { AL.DeleteSource(id); CheckError(); }
+    public void GenBuffers(Span<int> ids) { ClearPriorError("generate buffers"); AL.GenBuffers(ids); CheckError("generate buffers"); }
+    public void GenSources(Span<int> ids) { ClearPriorError("generate sources"); AL.GenSources(ids); CheckError("generate sources"); }
+    public void DeleteBuffer(int id) { ClearPriorError($"delete buffer {id}"); AL.DeleteBuffer(id); CheckError($"delete buffer {id}"); }
+    public void DeleteSource(int id) { ClearPriorError($"delete source {id}"); AL.DeleteSource(id); CheckError($"delete source {id}"); }
     public void DestroyContext(ALContext context) => ALC.DestroyContext(context);
     public void CloseDevice(ALDevice device)
     {
         if (!ALC.CloseDevice(device)) throw new InvalidOperationException("OpenAL device did not close.");
     }
-    private static void CheckError()
+    private static void ClearPriorError(string operation)
+    {
+        // OpenAL errors are sticky and scoped to the current context. A
+        // playback failure may leave AL_INVALID_VALUE pending until shutdown.
+        // Attribute only errors produced by this operation to native cleanup.
+        ALError prior = AL.GetError();
+        if (prior != ALError.NoError)
+            Console.Error.WriteLine($"[sound] prior OpenAL error before {operation}: {prior}");
+    }
+
+    private static void CheckError(string operation)
     {
         ALError error = AL.GetError();
-        if (error != ALError.NoError) throw new InvalidOperationException($"OpenAL allocation failed: {error}");
+        if (error != ALError.NoError)
+            throw new InvalidOperationException($"OpenAL {operation} failed: {error}");
     }
 }
 

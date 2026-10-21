@@ -54,12 +54,21 @@ namespace MphRead.Mods.Launcher
                     : "Drone combat practice requires Weavel, a valid suit, zero to seven opponents and a valid difficulty.");
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
                 throw new ArgumentException("MovementModel must be Native, Momentum, Quake3, Traversal or Parkour.", nameof(settings));
+            Hunter resolvedHunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on");
             var plan = new LaunchPlan
             {
                 Kind = LaunchKind.Offline,
                 OfflineCharacter = character,
+                LocalBody = LocalBodyAppearanceRules.Available && character == OfflineCharacterMode.Native
+                    ? LocalBodyAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalBody, resolvedHunter) : LocalBodyAppearance.Native,
+                LocalArsenalBody = LocalArsenalBodyRules.Available && character == OfflineCharacterMode.TrooperArsenalPractice
+                    ? LocalBodyAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalBody, resolvedHunter) : LocalBodyAppearance.Native,
+                LocalArsenalDrone = LocalArsenalDroneRules.Available && character == OfflineCharacterMode.TrooperArsenalPractice
+                    ? LocalDroneAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalDrone, resolvedHunter) : LocalDroneAppearance.Native,
+                LocalDrone = LocalDroneAppearanceRules.Available && character == OfflineCharacterMode.TrooperScoutDronePractice
+                    ? LocalDroneAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalDrone, resolvedHunter) : LocalDroneAppearance.Native,
                 IsPlaytest = character != OfflineCharacterMode.Native,
-                Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
+                Hunter = resolvedHunter,
                 MatchRules = new Network.MatchDefinition
                 {
                     Mode = mode,
@@ -103,6 +112,14 @@ namespace MphRead.Mods.Launcher
             }
             if (!OfflineCharacterGameplay.TryAdmit(plan, out string characterReason))
                 throw new ArgumentException(characterReason);
+            if (!LocalBodyAppearanceRules.TryAdmit(plan, out string bodyReason))
+                throw new ArgumentException(bodyReason);
+            if (!LocalDroneAppearanceRules.TryAdmit(plan, out string droneReason))
+                throw new ArgumentException(droneReason);
+            if (!LocalArsenalBodyRules.TryAdmit(plan, out string arsenalBodyReason))
+                throw new ArgumentException(arsenalBodyReason);
+            if (!LocalArsenalDroneRules.TryAdmit(plan, out string arsenalDroneReason))
+                throw new ArgumentException(arsenalDroneReason);
             return plan;
         }
 
@@ -120,6 +137,7 @@ namespace MphRead.Mods.Launcher
             LauncherPrefs.Bots = Math.Clamp(bots, 0, PlayerEntity.SlotCapacity - 1);
             LauncherPrefs.BotLevel = Math.Clamp(botLevel, 0, 3);
             LauncherPrefs.LastKind = (int)LaunchKind.Offline;
+            LauncherPrefs.LastSelectedMap = roomKey;
             LauncherPrefs.Save();
             return plan;
         }

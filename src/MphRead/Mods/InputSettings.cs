@@ -356,7 +356,8 @@ namespace MphRead.Mods
         {
             nameof(PlayerControls.MoveUp), nameof(PlayerControls.MoveDown),
             nameof(PlayerControls.MoveLeft), nameof(PlayerControls.MoveRight),
-            nameof(PlayerControls.Jump), nameof(PlayerControls.Crouch), nameof(PlayerControls.Boost),
+            nameof(PlayerControls.Jump), nameof(PlayerControls.Crouch), nameof(PlayerControls.Grapple),
+            nameof(PlayerControls.Boost),
             nameof(PlayerControls.Shoot), nameof(PlayerControls.Zoom),
             nameof(PlayerControls.Morph), nameof(PlayerControls.AltAttack),
             nameof(PlayerControls.NextWeapon), nameof(PlayerControls.PrevWeapon),
@@ -526,6 +527,10 @@ namespace MphRead.Mods
         public static void Load()
         {
             Input.GamepadProfiles.Initialize();
+            // A controls file from before Grapple has no visibility key.
+            // Its missing opt-in must stay hidden even when reloading after a live edit.
+            // An explicit touch_grapple=true below still restores the user's choice.
+            Input.TouchSettings.SetEnabled(Input.TouchControl.Grapple, false);
             if (!File.Exists(Path))
             {
                 return;

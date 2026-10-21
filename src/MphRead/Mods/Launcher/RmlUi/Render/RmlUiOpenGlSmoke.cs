@@ -1,6 +1,8 @@
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
 using System;
+using System.Collections.Generic;
 using System.IO;
+using MphRead.Mods.Platform;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.Gui;
@@ -61,7 +63,7 @@ internal static partial class RmlUiOpenGlSmoke
     /// </summary>
     internal static bool BeforeLauncherComposite(RenderWindow window)
     {
-        if (!Requested || _disabled || window.HasScene
+        if (!Requested || _disabled || (window.HasScene && !Shell.RmlUiMatchStartVisible)
             || window.FramebufferSize.X <= 0 || window.FramebufferSize.Y <= 0
             || !Shell.RmlUiCanPresent)
         {
@@ -87,6 +89,8 @@ internal static partial class RmlUiOpenGlSmoke
                 && NetSession.SlotSpectating[NetSession.LocalSlot]) activity = "spectating";
             _presence.Tick(activity, NetSession.ServerSession?.Match.RoomKey ?? "");
         }
+        if (Shell.RmlUiMatchStartVisible) { DrawNativeMatchStart(window); return; }
+        CloseNativeMatchStart();
         if (window.HasScene) { CloseNativeQuit(); CloseNativeVersions(); CloseNativeUpdate(); CloseNativeStartup(teardown: true); CloseNativeGameFiles(); CloseNativeCampaignEnding(); CloseNativeCampaignShip(); DrawGameplayOverlay(window); return; }
         if (_settingsReturnToPause) CloseFullSettings();
         if (GameplayOpen) CloseGameplayOverlays();
@@ -597,7 +601,7 @@ internal static partial class RmlUiOpenGlSmoke
         if (_host is { Active: true }) return true;
         if (_attempted) return false;
         _attempted = true;
-        string root = Path.Combine(AppContext.BaseDirectory, "rmlui");
+        string root = Path.Combine(AppPaths.ResourceDirectory, "rmlui");
         if (!File.Exists(Path.Combine(root, "prime_home.rml")))
         {
             Fail(new FileNotFoundException("Opt-in RmlUi home document is missing.", root));
@@ -652,7 +656,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeNews(RmlUiHost host)
     {
         if (_pages == null || _news != null) return;
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "rmlui",
+        if (!File.Exists(Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "news", "news.rml")))
             throw new FileNotFoundException("The native News page is not packaged.");
         _launcherPages?.Suspend();
@@ -685,7 +689,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeQuickSettings()
     {
         if (_pages == null || _quickSettings != null) return;
-        string page = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string page = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "settings", "quick.rml");
         if (!File.Exists(page))
             throw new FileNotFoundException("Native quick settings page missing.", page);
@@ -714,7 +718,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeHunter()
     {
         if (_pages == null || _hunterChoice != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "hunters", "native-picker.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Hunter picker is not packaged.", path);
@@ -742,7 +746,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeSocial(RmlUiHost host)
     {
         if (_pages == null || _social != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "social", "social.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Social page is not packaged.", path);
@@ -801,7 +805,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeCommunity(RmlUiHost host)
     {
         if (_pages == null || _community != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "community", "native-discover.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Community browser is not packaged.", path);
@@ -831,7 +835,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeLicense(bool overlay = false)
     {
         if (_pages == null || _license != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "license", "native-overview.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Hunter License overview is not packaged.", path);
@@ -860,7 +864,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeStudio(bool showChooser = true)
     {
         if (_pages == null || _studio != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "studio", "native-entry.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Studio entry is not packaged.", path);
@@ -994,14 +998,24 @@ internal static partial class RmlUiOpenGlSmoke
             host.Input.PointerWheel(delta);
         });
 
+    // Track keys claimed by the Studio transport separately from viewport keys
+    // so native menu KeyUp cannot activate a focused button after a shortcut.
+    private static readonly HashSet<Keys> _studioShortcutHeld = new();
+
     private static bool StudioTimelineShortcut(KeyboardKeyEventArgs key)
     {
+        if (key.Control || key.Alt || key.Command) return false;
         string command=key.Key switch
         {
             Keys.Space=>"play", Keys.Left=>key.Shift?"previous-second":"previous-frame",
             Keys.Right=>key.Shift?"next-second":"next-frame",Keys.Home=>"home",Keys.End=>"end",_=>""
         };
-        return command.Length>0 && _playback?.StudioTimelineShortcut(command)==true;
+        if (command.Length == 0) return false;
+        // Key repeat must never flip play/pause back and forth when Space is held.
+        if (key.Key == Keys.Space && _studioShortcutHeld.Contains(key.Key)) return true;
+        if (_playback?.StudioTimelineShortcut(command) != true) return false;
+        _studioShortcutHeld.Add(key.Key);
+        return true;
     }
 
     internal static bool KeyDown(KeyboardKeyEventArgs key)
@@ -1029,7 +1043,8 @@ internal static partial class RmlUiOpenGlSmoke
     internal static bool KeyUp(KeyboardKeyEventArgs key)
         => Forward(host =>
         {
-            if (ReplayKeyUp(key.Key)) return;
+            bool studioShortcut = _studioShortcutHeld.Remove(key.Key);
+            if (ReplayKeyUp(key.Key) || studioShortcut) return;
             if (!RmlUiLinuxDesktopInput.Process(_linuxIme,key,released:true))
                 RmlUiDesktopInput.KeyUp(host,key);
         });
@@ -1047,6 +1062,7 @@ internal static partial class RmlUiOpenGlSmoke
     {
         RmlUiHost? host = _host;
         if (_disabled || !_shown || host is not { Active: true }) return false;
+        if (Shell.RmlUiMatchStartVisible) return true;
         if (_inputWindow is not { IsFocused:true }) return true;
         if (GameplayOpen && !GameplayLeaseCurrent)
         { CloseGameplayOverlays(); _shown = false; return false; }
@@ -1088,6 +1104,7 @@ internal static partial class RmlUiOpenGlSmoke
     internal static void Shutdown()
     {
         DisposeNativeInput();
+        CloseNativeMatchStart();
         CloseNativeQuit();
         CloseNativeVersions();
         CloseFullSettings();

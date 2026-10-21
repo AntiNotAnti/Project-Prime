@@ -38,8 +38,8 @@ public static class RetroAnimationGraphProof
   =>CaptureOptional(source,gameId,resource,characterId,characterName,refs,sourcePart).Graph??throw new InvalidDataException("ANCS graph set absent; graph proof requires a Set");
  public static CaptureResult CaptureOptional(byte[] source,string gameId,uint resource,string characterId,string characterName,RetroCharacterRefs refs,string? sourcePart=null)
  {
-  Require(sourcePart is null or "body" or "ball","Explicit supported source artifact part");
-  sourcePart=sourcePart=="ball"?"ball":null;
+  Require(sourcePart is null or "body" or "ball" or "drone","Explicit supported source artifact part");
+  sourcePart=sourcePart is "ball" or "drone"?sourcePart:null;
   ArgumentNullException.ThrowIfNull(source);ArgumentNullException.ThrowIfNull(gameId);ArgumentNullException.ThrowIfNull(characterId);ArgumentNullException.ThrowIfNull(characterName);Require(source.Length is >=8 and <=RetroAnimationIndex.MaxAncsBytes,"Bounded ANCS source snapshot");
   Require(gameId.Length is >0 and <=16&&characterId.Length is >0 and <=64&&characterId.All(c=>char.IsAsciiLetterOrDigit(c)||c=='-')
    &&characterName.Length is >0 and <=128,"Explicit bounded source identity");
@@ -99,7 +99,7 @@ public static class RetroAnimationGraphProof
   var full=set.Transitions.Select(t=>{Range(t.SourceOffset,t.SourceLength);Require(U32(t.SourceOffset)==t.Id&&U32(t.SourceOffset+4)==t.AnimA&&U32(t.SourceOffset+8)==t.AnimB&&t.Meta.SourceOffset==t.SourceOffset+12&&t.SourceLength==12+t.Meta.SourceLength,"Exact full transition lookup source fields");return new FullTransition(t.Id,t.AnimA,t.AnimB,Trans(t.Meta),t.SourceOffset,t.SourceLength);}).ToArray();
   Require(set.DefaultTransition!=null,"Explicit source default transition");int defaultTransition=Trans(set.DefaultTransition!);
   var half=set.HalfTransitions.Select(t=>{Range(t.SourceOffset,t.SourceLength);Require(U32(t.SourceOffset)==t.Anim&&t.Meta.SourceOffset==t.SourceOffset+4&&t.SourceLength==4+t.Meta.SourceLength,"Exact half transition lookup source fields");return new HalfTransition(t.Anim,Trans(t.Meta),t.SourceOffset,t.SourceLength);}).ToArray();
-  string artifactStem=characterId+(sourcePart==null?"":".ball");
+  string artifactStem=characterId+(sourcePart==null?"":"."+sourcePart);
   var doc=new Document(1,gameId,resource,characterId,characterName,artifactStem+".ancs.bin",snapshot.Length,Sha(snapshot),refs.Cmdl,refs.Cskr,refs.Cinf,
    set.Version,set.SourceOffset,set.SourceLength,roots,nodes.Select(n=>n??throw new InvalidDataException("Incomplete graph node")).ToArray(),transitions.ToArray(),full,defaultTransition,half,
    set.Resources.Select(r=>new ResourceReference(r.Anim,r.Evnt)).ToArray(),true,false,sourcePart);

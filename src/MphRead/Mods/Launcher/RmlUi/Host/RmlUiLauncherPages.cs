@@ -462,7 +462,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                     {
                         Put("play_create_mode", false);
                         Put("play_browser_mode", true);
-                        _pendingFocus = "play_quick";
+                        _pendingFocus = "play_create_open";
                         Flush();
                         forwarded = Forward("play:browse", intent.Sequence);
                         return true;
@@ -568,7 +568,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 Put("play_create_mode", false);
                 Put("play_browser_mode", creating);
                 if (!creating) SwitchMode(RmlUiMenuPage.Home);
-                _pendingFocus = creating ? "play_quick" : "activity_selector";
+                _pendingFocus = creating ? "play_create_open" : "activity_selector";
                 Flush();
                 forwarded = Forward(creating ? "play:browse" : "play:cancel", ++_lastSequence);
                 return true;

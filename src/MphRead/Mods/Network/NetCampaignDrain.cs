@@ -193,7 +193,8 @@ internal static class NetCampaignDrain
         {
             string temp = StatusPath + ".tmp";
             File.WriteAllText(temp, JsonSerializer.Serialize(Capture()));
-            File.Move(temp, StatusPath!, overwrite: true);
+            if (File.Exists(StatusPath!)) File.Replace(temp, StatusPath!, null);
+            else File.Move(temp, StatusPath!);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         { _error = "status publication failed: " + ex.Message; }

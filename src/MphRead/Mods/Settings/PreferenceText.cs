@@ -64,6 +64,7 @@ internal static class PreferenceText
                 "player_outline" => Defined<PlayerOutlineStyle>(value, true),
                 "hunter" => Defined<Hunter>(value, true),
                 "lobby_mode" => Defined<GameMode>(value, true),
+                "last_map" => value.Length <= 256 && !value.Any(char.IsControl),
                 "window_mode" => WindowMode.Parse(value, (WindowStartMode)(-1)) != (WindowStartMode)(-1),
                 "window_size" or "window_pos" => Pair(value),
                 "aim_trainer" => Trainer(value),

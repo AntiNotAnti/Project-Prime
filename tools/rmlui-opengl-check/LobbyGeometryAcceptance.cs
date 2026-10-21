@@ -12,7 +12,7 @@ internal static class LobbyGeometryAcceptance
             checks++;
         }
         foreach (var size in new[] { (1280, 720, 1f), (1920, 1080, 1f),
-            (2560, 1440, 2f), (1920, 1080, 1.5f), (3440, 1440, 1f) })
+            (2560, 1440, 2f), (1920, 1080, 1.5f), (3440, 1440, 1f), (1920, 1080, 2f) })
         foreach (bool accessible in new[] { false, true })
         {
             using var host = new RmlUiHost();
@@ -48,7 +48,7 @@ internal static class LobbyGeometryAcceptance
                 return (x, y, w, h);
             }
             var actions = Bounds("lobby_actions");
-            for (int slot = 0; slot < 8; slot++)
+            for (int slot = 0; slot < 8 && size.Item1 / size.Item3 > 1000; slot++)
             {
                 var plate = Bounds("lobby_slot" + slot);
                 var pad = LauncherLobbyFormation.At(slot);
@@ -76,6 +76,13 @@ internal static class LobbyGeometryAcceptance
                 "chat immediately follows roster with the authored gap");
             Check(Math.Abs(chat.Y + chat.H - rail.Y - rail.H) <= 2,
                 "chat fills the remaining right rail");
+            var start = Bounds("lobby_start");
+            if (size.Item1 / size.Item3 > 1000)
+                Check(Math.Abs(chat.Y + chat.H - start.Y - start.H) <= 2,
+                    "desktop chat bottom aligns with Start Match bottom");
+            else
+                Check(chat.Y + chat.H < actions.Y,
+                    "compact chat stays above its full-width action row");
             if (roster.H >= last.Y + last.H - roster.Y)
                 Check(roster.Y + roster.H - last.Y - last.H <= 12 * size.Item3,
                     "no empty expanding panel beneath eighth roster row");

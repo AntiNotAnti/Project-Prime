@@ -80,7 +80,7 @@ public static partial class NetSession
         {
             using var registry=new WeaponRegistry(true,new[]{ready.Wire.Definition});
             var layout=new CustomPickupLayout(session.Match.MapIdentity.Content(session.Match.RoomKey),ready.Wire.Manifest,registry,
-                StockRiftlinePickups.ForRoom(session.Match.RoomKey));
+                StockRiftlinePickups.ForRoom(session.Match.RoomKey,ready.Wire.Definition));
             _customPickupReceiver=new(ready.Wire.Bootstrap,layout);_customPickupWire=ready.Wire;_customPickupConnection=_customReadinessConnection;
         }
         return _customPickupReceiver;
@@ -92,6 +92,9 @@ public static partial class NetSession
             ||CurrentCustomPickupReplica() is not {} receiver)return;
         if(!receiver.Receive(packet.Payload,out var ack))
         {if(receiver.Closed)_customReadiness?.Invalidate();return;}
+        if(!DemoPlayback.IsActive&&ReplayCapture.Recorder.CustomWeaponContext?.Bootstrap.RecipientBootstrap is {} recorded
+            &&recorded==_customPickupWire?.Bootstrap)
+            CaptureCustomPickupBaseline(receiver);
         Span<byte> bytes=stackalloc byte[CustomPickupReplicaCodec.AckSize];CustomPickupReplicaCodec.Write(ack,bytes);
         _transport.TrySendSemantic(_hostEndPoint,PacketType.CustomWeaponPickupAck,bytes);
     }

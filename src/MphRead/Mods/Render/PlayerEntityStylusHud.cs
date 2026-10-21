@@ -96,7 +96,8 @@ namespace MphRead.Entities
                 // unused rows outside the visible LCD, so cut exactly 32x24
                 // tiles rather than stretching the backing map into the zone.
                 (int texture, _) = HudInfo.CharMapToTexture(path,
-                    startX: 0, startY: 0, tilesX: 32, tilesY: 24, _scene);
+                    startX: 0, startY: 0, tilesX: 32, tilesY: 24, _scene,
+                    padMissingTiles: true);
                 return texture;
             }
             catch (Exception ex)

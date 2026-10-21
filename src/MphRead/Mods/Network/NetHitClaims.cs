@@ -642,6 +642,7 @@ namespace MphRead.Mods.Network
                         NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
                         entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId, entry.ComponentId,
                         NetShotProof.Kind(entry.Flags)), ack);
+                    NetHitPrediction.RememberAcceptedOutcome(ack);
                     RetireReceipt(ref entry, ClaimReceiptRetirement.Delivered);
                     if (NetCampaignEvidence.Enabled)
                         NetCampaignEvidence.Timeline("terminal-delivered", new ShotKey(entry.AuthorityEpoch,
@@ -2020,7 +2021,7 @@ namespace MphRead.Mods.Network
                 return found && outcome.ShotId == claim.ShotId;
             }
             return HasComponentPayment(claim)
-                && NetCombatPayments.TryGet(NetShotProof.PaymentKey(slot, claim), claim.Beam, out outcome);
+                && NetCombatPayments.TryGetClaimOutcome(NetShotProof.PaymentKey(slot, claim), claim.Beam, out outcome);
         }
 
         // A delayed claim still owns a terminal receipt after the authority
@@ -2614,7 +2615,7 @@ namespace MphRead.Mods.Network
             if (!tickPayment.Allowed)
             { ClaimsCapacityRefused++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity); return; }
             using var payment = HasComponentPayment(proofClaim)
-                ? NetCombatPayments.Begin(NetShotProof.PaymentKey(shooterSlot, proofClaim), entry.Beam)
+                ? NetCombatPayments.Begin(NetShotProof.PaymentKey(shooterSlot, proofClaim), entry.Beam, fromClaim: true)
                 : new NetCombatPayments.Reservation(true);
             if (!payment.Allowed)
             {

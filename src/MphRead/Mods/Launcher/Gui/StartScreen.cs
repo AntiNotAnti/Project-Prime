@@ -594,7 +594,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (NetSession.Active) { _prime.Router.Navigate(PrimeRoute.Lobby); return; }
             if (!CanLaunchLocal()) return;
             RefreshRooms();
-            var view = new CreateServerScreen(_rooms, firstMap ?? _settings.RoomKey);
+            var view = new CreateServerScreen(_rooms, firstMap ??
+                (LauncherPrefs.LastSelectedMap.Length > 0 ? LauncherPrefs.LastSelectedMap : _settings.RoomKey));
             if (firstMap != null && !Metadata.IsBuiltInRoom(firstMap)) view.ShowDedicated();
             view.Closed += (_, _) => Pop();
             view.Launched += (_, plan) => { Pop(); ConnectedOrFinished(plan); };
@@ -631,7 +632,17 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _session.Screen = null; _lobby = null;
             _prime.Overlays.Clear();
-            if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
+            if (_prime.Router.Current == PrimeRoute.Lobby)
+            {
+                PrimeRoute destination = PrimeRoute.Play;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+                // The native Play/Home page retains the News shell route.
+                // Play is the legacy workspace and releases native input/rendering.
+                if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeUiRequired)
+                    destination = PrimeRoute.News;
+#endif
+                _prime.Router.Navigate(destination);
+            }
             _prime.Router.Forget(PrimeRoute.Lobby); _prime.Workspaces.Remove(PrimeRoute.Lobby);
             if (_prime.Workspaces.Get(PrimeRoute.Play) is PlayWorkspace play) play.SessionEnded(reason);
             _prime.Refresh();

@@ -113,7 +113,7 @@ public partial class PlayerEntity
         if (groundTravel) horizontal = GroundSlopeMovement.Flatten(before) * NativeVelocityUnitsPerSecond;
         MomentumProfileResult result = practice != null
             ? new MomentumProfileResult(practice.Step(horizontal, input), false, false)
-            : parkour ? ParkourMovementProfileV1.Step(horizontal, input, ModCrouched, ModSliding)
+            : parkour ? ParkourMovementProfileV5.Step(horizontal, input, ModCrouched, ModSliding)
             : traversal ? TraversalMovementProfileV5.Step(horizontal, input, ModCrouched, ModSliding)
             : quake3 ? Quake3MovementProfileV4.Step(horizontal, input) : MomentumProfileV1.Step(horizontal, input);
         // The planar solver preserves native Y bits. Only proven continuing

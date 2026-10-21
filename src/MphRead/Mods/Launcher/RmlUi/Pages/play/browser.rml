@@ -17,8 +17,8 @@
                     <button id="play_cancel_search" class="play_action" data-action="play:cancel">CANCEL SEARCH</button>
                 </div>
                 <div class="play_toolbar">
-                    <button id="play_quick" data-prime-disabled="play_actions_locked" class="play_action primary" data-action="play:quick">RANDOM MATCH</button>
                     <button id="play_create_open" data-prime-disabled="play_actions_locked" class="play_action" data-action="play:create-open">CREATE LOBBY</button>
+                    <button id="play_quick" data-prime-disabled="play_actions_locked" class="play_action primary" data-action="play:quick">RANDOM MATCH</button>
                     <button id="play_refresh" data-prime-disabled="play_actions_locked" class="play_action" data-action="play:browse">REFRESH</button>
                     <button id="play_back" class="play_action" data-action="play:cancel">BACK</button>
                 </div>

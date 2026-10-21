@@ -69,6 +69,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
     private bool _arenaPicking;
     private bool _disposed;
     private string[]? _characterImportIds;
+    private bool _characterImportSameSourceGroup;
     private int _characterPreviewIndex;
     internal string CharacterPreviewLabel => Import.RetroCharacterPreviewExporter.Sources[_characterPreviewIndex].DisplayName;
     internal string CharacterPreviewId => Import.RetroCharacterPreviewExporter.Sources[_characterPreviewIndex].Id;
@@ -80,6 +81,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         if (!ReadyForOperation("Apply or discard changes before importing a preview.")) return;
         var selected=Import.RetroCharacterPreviewExporter.Sources[_characterPreviewIndex];
         _characterImportIds=all ? Import.RetroCharacterPreviewExporter.Sources.Where(s=>s.Game==selected.Game).Select(s=>s.Id).ToArray() : new[]{selected.Id};
+        _characterImportSameSourceGroup=all;
         ArenaImportRequested=true; _arenaPicking=true;
     }
     internal void CheckCharacterPreview()
@@ -114,6 +116,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
     {
         if(_disposed||Closed)return;
         var characterIds=_characterImportIds; _characterImportIds=null;
+        bool characterGroup=_characterImportSameSourceGroup; _characterImportSameSourceGroup=false;
         _arenaPicking=false;if(string.IsNullOrWhiteSpace(path)){Status="Local import cancelled.";return;}
         if(!ReadyForOperation("Apply or discard changes before importing local arenas."))return;
         if (Busy) { Status="Another operation is already running."; return; }
@@ -129,8 +132,10 @@ internal sealed partial class NativeFullSettingsController : IDisposable
                 cancellation.Token.ThrowIfCancellationRequested();
                 if (characterIds != null)
                 {
-                    var files=Import.RetroCharacterPreviewExporter.ExportFromOwnedGame(path,null,cancellation.Token,
-                        new ArenaProgress(stage=>System.Threading.Volatile.Write(ref _arenaStage,(int)stage)),characterIds);
+                    var characterProgress=new ArenaProgress(stage=>System.Threading.Volatile.Write(ref _arenaStage,(int)stage));
+                    var files=characterGroup
+                        ? Import.RetroCharacterPreviewExporter.ExportSourceGroupFromOwnedGame(path,characterIds,null,cancellation.Token,characterProgress)
+                        : Import.RetroCharacterPreviewExporter.ExportFromOwnedGame(path,null,cancellation.Token,characterProgress,characterIds);
                     return files.Count+" private character authoring previews updated. No playable Hunter or online content was installed.";
                 }
                 var definitions = Import.EchoesPrivateMapImport.ReadAllArenas(path);

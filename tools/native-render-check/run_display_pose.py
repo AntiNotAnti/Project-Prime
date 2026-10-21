@@ -17,6 +17,17 @@ def write(path, value):
         stream.write("\n")
 
 
+def campaign_cells(hunters, rates, jitter=False, ncx06_matrix=False):
+    cells = [(h, r, "steady") for h in hunters for r in rates]
+    if jitter:
+        cells += [(h, 144, "jitter144") for h in hunters]
+    if ncx06_matrix:
+        cells = [("Samus", r, "steady") for r in RATES] + [("Samus", 144, "jitter144")] + [(h, 500, "steady") for h in HUNTERS if h != "Samus"]
+    pilot = [cell for cell in [("Samus", 60, "steady"), ("Samus", 144, "steady")] if cell in cells]
+    cells = pilot + [cell for cell in cells if cell not in pilot]
+    return cells
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dotnet", type=Path, required=True)
@@ -25,6 +36,8 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--hunters", nargs="+", choices=HUNTERS, default=HUNTERS)
     parser.add_argument("--rates", nargs="+", type=int, choices=RATES, default=RATES)
+    parser.add_argument("--jitter", action="store_true", help="add bounded jitter144 for each selected Hunter")
+    parser.add_argument("--ncx06-matrix", action="store_true", help="13 arms: Samus six steady rates+jitter144; other six Hunters at 500")
     parser.add_argument("--timeout", type=int, default=180)
     args = parser.parse_args()
     binary = args.binary.resolve(strict=True)
@@ -34,16 +47,15 @@ def main():
                for p in sorted(binary.parent.rglob("*")) if p.is_file()]
     assets = asset_identity(args.user_data_template / "paths.txt")
     # The required Samus 60/144 pilot comes first when present in the request.
-    cells = [(h, r) for h in args.hunters for r in args.rates]
-    pilot = [cell for cell in [("Samus", 60), ("Samus", 144)] if cell in cells]
-    cells = pilot + [cell for cell in cells if cell not in pilot]
+    cells = campaign_cells(args.hunters, args.rates, args.jitter, args.ncx06_matrix)
     write(output / "plan.json", {"schema": 1, "binary": str(binary), "runtime": runtime,
           "assets": assets, "cells": cells, "scenarioId": "native-pose-charge-retreat-v2",
-          "scope": "native correctness/readbacks only; no timing, scanout or OS-focus acceptance"})
+          "scope": "native correctness/readbacks only; no timing, scanout or OS-focus acceptance",
+          "crossScheduleScope": "within Hunter only; single-rate Hunters have no cross-rate acceptance"})
     reports, receipts = [], []
     failed = False
-    for ordinal, (hunter, rate) in enumerate(cells, 1):
-        cell = output / f"{ordinal:02d}-{hunter.lower()}-{rate}"
+    for ordinal, (hunter, rate, schedule) in enumerate(cells, 1):
+        cell = output / f"{ordinal:02d}-{hunter.lower()}-{rate}-{schedule}"
         cell.mkdir()
         user_data, identity = isolate_user_data(args.user_data_template, cell)
         if identity["sha256"] != assets["sha256"]:
@@ -56,7 +68,7 @@ def main():
         command = [str(args.dotnet.resolve()), str(binary), "-posecheck", "-pose-pixels",
                    "-pose-scenario", "native-pose-charge-retreat-v2", "-room", "MP3 PROVING GROUND",
                    "-players", "2", "-hunter", hunter, "-seconds", "24", "-hz", str(rate),
-                   "-size", "1280x720", "-shadows", "Off", "-shots", str(cell / "shots"),
+                   "-pose-schedule", schedule, "-size", "1280x720", "-shadows", "Off", "-shots", str(cell / "shots"),
                    "-output", str(cell / "result.json")]
         environment = dict(os.environ, PROJECT_PRIME_USER_DATA=str(user_data))
         started = time.monotonic()
@@ -71,18 +83,20 @@ def main():
                 timed_out = True
         report = json.loads((cell / "result.json").read_text()) if (cell / "result.json").is_file() else {}
         reports.append(report)
-        analysis = analyze([report], rates=(rate,), hunters=(hunter,), require_pixel_controls=True,
+        analysis = analyze([report], rates=(rate,) if schedule == "steady" else (), hunters=(hunter,),
+                           require_jitter=schedule == "jitter144", require_supplemental=True, require_pixel_controls=True,
                            scenario_id="native-pose-charge-retreat-v2", require_particle_sampling=True)
         write(cell / "analysis.json", analysis)
         passed = code == 0 and not timed_out and not analysis["errors"]
         previous = next((row for row in reports[:-1] if row.get("hunter") == hunter), None)
         if passed and previous is not None:
-            pair = analyze([previous, report], rates=(previous["requestedOutputScheduleHz"], rate),
+            pair = analyze([previous, report], rates=tuple(r["requestedOutputScheduleHz"] for r in (previous, report) if r.get("scheduleId", "steady") == "steady"),
+                           require_jitter=schedule == "jitter144", require_supplemental=True,
                            hunters=(hunter,), require_pixel_controls=True,
                            scenario_id="native-pose-charge-retreat-v2", require_particle_sampling=True)
             write(cell / "cross-rate-analysis.json", pair)
             passed = not pair["errors"]
-        receipt = {"hunter": hunter, "rate": rate, "command": command, "exitCode": code,
+        receipt = {"hunter": hunter, "rate": rate, "scheduleId": schedule, "command": command, "exitCode": code,
                    "timedOut": timed_out, "wallSeconds": time.monotonic() - started,
                    "status": "PASS" if passed else "FAIL", "resultSha256": sha256(cell / "result.json")
                        if (cell / "result.json").is_file() else None}
@@ -95,8 +109,15 @@ def main():
     unchanged = all((binary.parent / row["path"]).is_file() and sha256(binary.parent / row["path"]) == row["sha256"]
                     for row in runtime)
     assets_unchanged = asset_identity(args.user_data_template / "paths.txt")["sha256"] == assets["sha256"]
-    analysis = analyze(reports, rates=tuple(args.rates), hunters=tuple(args.hunters), require_pixel_controls=True,
-                       scenario_id="native-pose-charge-retreat-v2", require_particle_sampling=True)
+    analyses = []
+    for hunter in dict.fromkeys(cell[0] for cell in cells):
+        requested = [cell for cell in cells if cell[0] == hunter]
+        analyses.append(analyze([r for r in reports if r.get("hunter") == hunter],
+            rates=tuple(r for _, r, schedule in requested if schedule == "steady"), hunters=(hunter,),
+            require_jitter=any(schedule == "jitter144" for _, _, schedule in requested), require_supplemental=True,
+            require_pixel_controls=True, scenario_id="native-pose-charge-retreat-v2", require_particle_sampling=True))
+    analysis = {"schema": 1, "status": "PASS" if all(not a["errors"] for a in analyses) else "FAIL_OR_INCOMPLETE",
+                "errors": [e for a in analyses for e in a["errors"]], "hunters": analyses}
     write(output / "analysis.json", analysis)
     write(output / "summary.json", {"status": "PASS" if not failed and unchanged and assets_unchanged and not analysis["errors"] else "FAIL_OR_INCOMPLETE",
           "runtimeUnchanged": unchanged, "assetsUnchanged": assets_unchanged,

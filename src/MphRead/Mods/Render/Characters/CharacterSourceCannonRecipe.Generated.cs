@@ -76,10 +76,11 @@ internal sealed partial class CharacterSourceCannonRecipe
 
     // Pure geometry kernel. It grants no pack/lease capability and accepts own
     // synthetic rigs for testing node order, full joints and physical batches.
-    internal static (IReadOnlyList<CharacterWeightedPrimitive> Primitives, int[][] Selected) SelectGeneratedCut(CharacterWeightedModelData source)
+    internal static bool FinalTrimUv(float u, float v) => MathF.Abs(u - .489f) < .002f && MathF.Abs(v - .764f) < .002f;
+    internal static (IReadOnlyList<CharacterWeightedPrimitive> Primitives, int[][] Selected) SelectGeneratedCut(CharacterWeightedModelData source, int elbowId = 24, bool finalTrim = false)
     {
         var rig = source.SourceRig ?? throw new InvalidDataException("Complete source cut rig required.");
-        int elbow = NamedNode(rig, "source_bone_24_R_elbow");
+        int elbow = NamedNode(rig, "source_bone_" + elbowId + "_R_elbow");
         var result = new List<CharacterWeightedPrimitive>(); var groups = new SortedDictionary<int, List<int>>(); var allIds = new HashSet<int>();
         foreach (var p in source.Primitives)
         {
@@ -95,6 +96,11 @@ internal sealed partial class CharacterSourceCannonRecipe
                 int id = p.SourceTriangleIds[t]; Require(id >= 0 && allIds.Add(id), "Every original source triangle ID must be unique.");
                 bool on = true;
                 for (int c = 0; c < 3; c++) on &= On(p.Vertices[p.Indices[t * 3 + c]], p, rig, elbow);
+                if (finalTrim && p.SourceMaterialOrdinal == 5
+                    && Enumerable.Range(0,3).Any(c => {
+                        var uv = p.Vertices[p.Indices[t * 3 + c]].Texcoord;
+                        return FinalTrimUv(uv.X,uv.Y);
+                    })) continue;
                 if (!on) continue;
                 selected.Add(id); ids.Add(id); indices.AddRange(p.Indices.AsSpan(t * 3, 3).ToArray());
             }
@@ -109,10 +115,11 @@ internal sealed partial class CharacterSourceCannonRecipe
         int[] found = Enumerable.Range(0, rig.Nodes.Count).Where(n => rig.Nodes[n].Name == name).ToArray();
         Require(found.Length == 1 && rig.JointNodes.Contains(found[0]), "Exact named source locator joint required."); return found[0];
     }
-    internal static Matrix4 GeneratedBasis(CharacterWeightedModelData source, IReadOnlyList<Matrix4> pose)
+    internal static Matrix4 GeneratedBasis(CharacterWeightedModelData source, IReadOnlyList<Matrix4> pose,
+        int elbowId = 24, int tipId = 32, string tipName = "GUN_Particle_LCTR")
     {
         var rig = source.SourceRig ?? throw new InvalidDataException("Complete source frame rig required.");
-        int elbow = NamedNode(rig, "source_bone_24_R_elbow"), tip = NamedNode(rig, "source_bone_32_GUN_Particle_LCTR");
+        int elbow = NamedNode(rig, "source_bone_" + elbowId + "_R_elbow"), tip = NamedNode(rig, "source_bone_" + tipId + "_" + tipName);
         Require(Under(rig, tip, elbow), "Source muzzle locator must descend from elbow.");
         Matrix4[] skin = rig.Evaluate(pose, source.Joints);
         Vector3 World(int node) { int joint = rig.JointNodes.IndexOf(node); return (source.Joints[joint].InverseBind.Inverted() * skin[joint]).Row3.Xyz; }

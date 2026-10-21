@@ -1,6 +1,7 @@
 using System;
 using System.Buffers;
 using System.Diagnostics;
+using MphRead.Effects;
 using MphRead.Formats;
 using MphRead.Mods.Render;
 using MphRead.Mods.Render.Characters;
@@ -30,6 +31,7 @@ namespace MphRead.Entities
 
         private static readonly bool HunterAnimationBlendEnabled =
             AnimationRollout.Enabled("PROJECT_PRIME_PLAYER_ANIMATION_BLEND");
+        private static readonly Vector3 SourceBallTint = new(90 / 255f, 200 / 255f, 1);
         // Draw-only rollback for the local third-person body. First-person
         // input and the 60 Hz authoritative gameplay pose remain immediate.
         private static readonly bool ThirdPersonBodyBlendEnabled =
@@ -108,6 +110,32 @@ namespace MphRead.Entities
 
         public void Draw()
         {
+            if (!_scene.Services.IsReplica)
+            {
+                DrawCore();
+                return;
+            }
+            // Retail drawing selects a view-dependent LOD and remembers the
+            // visible ice skeleton for thaw effects. A private replay must keep
+            // its recorded simulation state independent of pictures and cameras.
+            // Consumers inside DrawCore still see this picture's selected LOD.
+            const PlayerFlags2 drawFlags = PlayerFlags2.Lod1 | PlayerFlags2.DrawnThirdPerson;
+            PlayerFlags2 canonicalFlags = Flags2 & drawFlags;
+            Model canonicalLower = _bipedModel1.Model, canonicalUpper = _bipedModel2.Model;
+            Span<Matrix4> canonicalIce = stackalloc Matrix4[_bipedIceTransforms.Length];
+            _bipedIceTransforms.AsSpan().CopyTo(canonicalIce);
+            try { DrawCore(); }
+            finally
+            {
+                Flags2 = (Flags2 & ~drawFlags) | canonicalFlags;
+                _bipedModel1.SetModel(canonicalLower);
+                _bipedModel2.SetModel(canonicalUpper);
+                canonicalIce.CopyTo(_bipedIceTransforms);
+            }
+        }
+
+        private void DrawCore()
+        {
             // Player entities bypass GetDrawInfo() in Renderer; emit replay-only
             // transient impact particles from the guaranteed player draw path.
             if (_scene.Services.IsReplica && IsMainPlayer)
@@ -122,6 +150,7 @@ namespace MphRead.Entities
             ModGetDrawActorPose(out Vector3 drawPosition, out Vector3 drawFacing);
             if (networkPresented)
                 drawPosition = Mods.Network.NetPlayerBridge.InFormFor(this, presentedPosition, presentedAlt);
+            ModDrawGrapple(drawPosition);
             bool drawAltForm = IsAltForm;
             bool drawAlive = _health > 0;
             // This is the newly enabled consumer. Preserve preexisting live
@@ -248,6 +277,7 @@ namespace MphRead.Entities
                 }
                 else if (drawAltForm)
                 {
+                    bool sourceBallDrawn = false;
                     Matrix4 canonicalAlt = _modelTransform;
                     canonicalAlt.Row3.Xyz = Position;
                     _modelTransform = ModGetAlternateFormDrawPose(drawPosition, out bool specializedAltSample);
@@ -277,7 +307,11 @@ namespace MphRead.Entities
                         {
                             if (altSample)
                                 ApplyHunterNodePose(_altModel, _modelTransform, altPresentation);
-                            if (!TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
+                            sourceBallDrawn = ModTryDrawSourceBall(_modelTransform,_curAlpha,brightSkin,outlineColor);
+                            if (sourceBallDrawn && _boostEffect is { EffectId: 136 } boost)
+                                _scene.SetPresentationEffectTint(boost, SourceBallTint);
+                            if (!sourceBallDrawn
+                                && !TryDrawModernCharacter(_altModel, CharacterModelPart.AlternateForm,
                                 _curAlpha, overrideColor: brightSkin, outlineColor: outlineColor))
                                 GetDrawItems(_altModel, _altModel.Model.Nodes[0], _curAlpha,
                                     overrideColor: brightSkin, outlineColor: outlineColor);
@@ -300,7 +334,7 @@ namespace MphRead.Entities
                     if (Hunter == Hunter.Samus
                         && !Flags2.TestFlag(PlayerFlags2.Cloaking))
                     {
-                        DrawMorphBallTrail();
+                        DrawMorphBallTrail(sourceBallDrawn ? SourceBallTint : null);
                     }
                     DrawCosmeticArmor(_altModel.Model, true);
                     Flags2 |= PlayerFlags2.DrawnThirdPerson;
@@ -406,9 +440,11 @@ namespace MphRead.Entities
                         // The replacement pack may provide the same LOD tier
                         // the native player draw already selected. Missing HD
                         // LOD1 falls through to the native LOD1 automatically.
+                        using (ParkourPoseOverlay.Begin(model, transform, ModGetParkourAnimationPose()))
                         using (Mods.Render.HeadHitPoseOverlay.Begin(_bipedModel2.Model, _scene.ModHeadHitPose(this)))
                         {
-                        if (!TryDrawModernCharacter(_bipedModel2,
+                        if (!ModTryDrawSourceBody(drawPosition, drawFacing, alpha, brightSkin, outlineColor, lod)
+                            && !TryDrawModernCharacter(_bipedModel2,
                             CharacterModelPart.Biped, alpha, lod: lod,
                             overrideColor: brightSkin, outlineColor: outlineColor))
                             GetDrawItems(_bipedModel2, _bipedModel2.Model.Nodes[0], alpha,
@@ -447,8 +483,8 @@ namespace MphRead.Entities
                                 && presentationOnlyMainEffect ? displayMuzzle : muzzlePos;
                             if (_chargeEffect != null)
                             {
-                                _chargeEffect.SetDrawEnabled(true);
-                                if (presentationOnlyMainEffect)
+                                ModSetPlayerEffectDrawEnabled(_chargeEffect, true);
+                                if (presentationOnlyMainEffect || _scene.Services.IsReplica)
                                     _scene.SetPresentationEffectTransform(_chargeEffect,
                                         GetTransformMatrix(_gunVec2, _gunVec1, effectDrawMuzzle), viewModel: false);
                                 else
@@ -456,8 +492,8 @@ namespace MphRead.Entities
                             }
                             if (_muzzleEffect != null)
                             {
-                                _muzzleEffect.SetDrawEnabled(true);
-                                if (presentationOnlyMainEffect)
+                                ModSetPlayerEffectDrawEnabled(_muzzleEffect, true);
+                                if (presentationOnlyMainEffect || _scene.Services.IsReplica)
                                     _scene.SetPresentationEffectTransform(_muzzleEffect,
                                         GetTransformMatrix(_gunVec2, _gunVec1, effectDrawMuzzle), viewModel: false);
                                 else
@@ -482,7 +518,10 @@ namespace MphRead.Entities
                             GetDrawItems(_bipedIceModel, _bipedIceModel.Model.Nodes[0], alpha: 1, recolor: 0);
                         }
                     }
-                    DrawCosmeticArmor(_bipedModel1.Model, false);
+                    using (ParkourPoseOverlay.Begin(model, transform, ModGetParkourAnimationPose()))
+                    {
+                        DrawCosmeticArmor(_bipedModel1.Model, false);
+                    }
                     _modelTransform = isolateBipedAnchors ? canonicalBody : transform;
                     if (_health == 0)
                     {
@@ -545,7 +584,8 @@ namespace MphRead.Entities
                         {
                             if (gunSample)
                                 ApplyHunterNodePose(_gunModel, transform, gunPresentation);
-                            if (!TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
+                            if (!ModTryDrawSourceCannon(transform)
+                                && !TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModel, _curAlpha))
                                 GetDrawItems(_gunModel, _gunModel.Model.Nodes[0], _curAlpha);
                             TryDrawModernCharacter(_gunModel, CharacterModelPart.ViewModelArms, _curAlpha);
                         }
@@ -592,11 +632,11 @@ namespace MphRead.Entities
             {
                 if (_chargeEffect != null)
                 {
-                    _chargeEffect.SetDrawEnabled(false);
+                    ModSetPlayerEffectDrawEnabled(_chargeEffect, false);
                 }
                 if (_muzzleEffect != null)
                 {
-                    _muzzleEffect.SetDrawEnabled(false);
+                    ModSetPlayerEffectDrawEnabled(_muzzleEffect, false);
                 }
             }
             if (_scene.GameState.SinglePlayer && IsMainPlayer && _deathCountdown > 0 && _deathCountdown <= 119 / 30f
@@ -608,6 +648,12 @@ namespace MphRead.Entities
                 GetDrawItems(_octolithSimpleModel, _octolithSimpleModel.Model.Nodes[0], alpha: 1, recolor: 0);
             }
             DrawVolumes();
+        }
+
+        private void ModSetPlayerEffectDrawEnabled(EffectEntry entry, bool enabled)
+        {
+            if (_scene.Services.IsReplica) _scene.SetPresentationEffectDrawEnabled(entry, enabled);
+            else entry.SetDrawEnabled(enabled);
         }
 
         /// <summary>
@@ -1086,7 +1132,7 @@ namespace MphRead.Entities
             }
         }
 
-        private void DrawMorphBallTrail()
+        private void DrawMorphBallTrail(Vector3? sourceTint = null)
         {
             Debug.Assert(_trailModel != null);
             Material material = _trailModel.Model.Materials[0];
@@ -1139,7 +1185,7 @@ namespace MphRead.Entities
             }
             if (count > 0)
             {
-                var color = new Vector3(1, 27 / 31f, 11 / 31f);
+                var color = sourceTint ?? new Vector3(1, 27 / 31f, 11 / 31f);
                 _scene.AddRenderItem(RenderItemType.TrailStack, _scene.GetNextPolygonId(), color, material.XRepeat, material.YRepeat,
                     material.ScaleS, material.ScaleT, _mbTrailSegments, matrixStack, uvsAndVerts, count, _trailBindingId1);
             }

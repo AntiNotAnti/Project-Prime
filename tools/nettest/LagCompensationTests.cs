@@ -26,6 +26,22 @@ internal static class LagCompensationTests
                 LagCompensationPolicy.SetTiming(1, timing);
                 LagCompensationPolicy.Record(1, 0, result, ShadowOutcome.HistoricalDataUnavailable); shots++;
             }
+            // Child ricochets must share the exact admitted shot key. A root,
+            // a different launch, or a component without ancestry cannot
+            // enter another projectile's historical catch-up.
+            var launch = new ShotKey(1, 1, 0, 1, 1, 123);
+            uint childComponent = NetShotProof.ComponentId(1, 1);
+            NetArchitectureTests.Check(childComponent == 17
+                && NetUnlagged.CatchUpDerivedFrom(launch, launch, childComponent),
+                "ricochet child inherits historical catch-up eligibility");
+            NetArchitectureTests.Check(NetUnlagged.CatchUpDerivedFrom(
+                launch, launch, NetShotProof.ComponentId(childComponent, 2)),
+                "nested ricochet descendants remain eligible");
+            NetArchitectureTests.Check(!NetUnlagged.CatchUpDerivedFrom(launch, launch, 1)
+                && !NetUnlagged.CatchUpDerivedFrom(launch, launch with { ShotId = 124 }, childComponent)
+                && !NetUnlagged.CatchUpDerivedFrom(launch, launch with { LifeId = 2 }, childComponent)
+                && !NetUnlagged.CatchUpDerivedFrom(default, default, childComponent),
+                "roots and unrelated/old-life flights cannot enter historical child catch-up");
             var normal = LagCompensationPolicy.Evaluate(30, new(100, 0, 100, 2), 0);
             NetArchitectureTests.Check(normal.ShadowAllowedFrames == 10, "full RTT plus actual delay and scheduling");
             NetArchitectureTests.Check(LagCompensationPolicy.Evaluate(40, new(1000, 5, 100, 2), 0).ShadowAllowedFrames < 15,

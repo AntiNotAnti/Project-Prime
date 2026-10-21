@@ -183,6 +183,15 @@ namespace MphRead.Mods.Network
         public bool CanHost => _last >= _first && _first > 0;
 
         public int Count => _hosted.Count;
+        public string? WeaponStoreDirectory { get; private set; }
+        public void SetWeaponStore(string? directory)
+        {
+            if (directory == null) { WeaponStoreDirectory = null; return; }
+            if (String.IsNullOrWhiteSpace(directory) || directory.Length > 4096 || System.Linq.Enumerable.Any(directory, char.IsControl))
+                throw new ArgumentException("Expected a bounded approved weapon store directory.", nameof(directory));
+            _ = new CustomWeapons.Packages.WeaponPackageStore(directory);
+            WeaponStoreDirectory = System.IO.Path.GetFullPath(directory);
+        }
 
         public string Describe() => CanHost
             ? $"can start games on ports {_first}-{_last} for players who cannot open one of their own"
@@ -192,7 +201,25 @@ namespace MphRead.Mods.Network
         /// Start a match for somebody, and say where it is listening.
         /// </summary>
         public HostReplyPacket Start(HostRequestPacket request, IPEndPoint asker, double now, HostedMapPreparation? hostedMaps = null)
+            => StartCore(request, asker, now, hostedMaps, null);
+
+        internal HostReplyPacket StartPrepared(HostRequestPacket request, IPEndPoint asker, double now, PreparedHostRequest prepared)
+            => StartCore(request, asker, now, prepared.Maps, prepared.Weapon);
+
+        private HostReplyPacket StartCore(HostRequestPacket request, IPEndPoint asker, double now,
+            HostedMapPreparation? hostedMaps, PreparedLocalWeaponPackage? weapon)
         {
+            if (request.RequiresWeaponPreparation
+                && (weapon == null || !weapon.Matches(WeaponStoreDirectory, request.WeaponArchiveHash)))
+                return new() { Reason = "The exact weapon package has not been prepared by this host." };
+            if (!request.RequiresWeaponPreparation && weapon != null)
+                return new() { Reason = "Unexpected weapon package preparation." };
+            // No filesystem access. Verify that the worker's lease is still active
+            // before reaping or selecting a port; keep it across child creation.
+            CustomWeapons.Packages.WeaponPackageLease? launchLease;
+            try { launchLease = weapon?.Retain(); }
+            catch (ObjectDisposedException) { return new() { Reason = "Weapon package preparation expired." }; }
+            using var retained = launchLease;
             // A child can die between regular server-loop reaps and this
             // request. Drop those dead reservations before choosing a port so
             // a retry is not refused by a process that no longer exists.
@@ -216,14 +243,14 @@ namespace MphRead.Mods.Network
                 ? (GameMode)request.Mode
                 : GameMode.Battle;
             string name = request.ServerName.Length > 0 ? request.ServerName : "Hosted game";
-            Guid ownerToken = request.Policy == ServerSessionPolicy.Lobby
+            Guid ownerToken = request.Policy == ServerSessionPolicy.Lobby || request.RequiresWeaponPreparation
                 ? new Guid(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16))
                 : Guid.Empty;
             (string Host, int Port)? listing = ListingTarget?.Invoke();
             HostedServerProcess? process = HostedServerProcess.Start(port, request, name,
                 listing?.Host ?? NetMasterConfig.DefaultHost,
                 listing?.Port ?? NetMasterConfig.DefaultPort,
-                listed: listing.HasValue, ownerToken, out string reason, hostedMaps);
+                listed: listing.HasValue, ownerToken, out string reason, hostedMaps, weapon);
             if (process == null)
             {
                 return new HostReplyPacket { Reason = reason };

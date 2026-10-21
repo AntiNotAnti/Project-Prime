@@ -424,7 +424,7 @@ public sealed class RmlUiMenuController : IDisposable
                     Status("NO MPH ARENAS AVAILABLE // SET UP GAME FILES OR HOST AN INSTALLED COMMUNITY MAP");
                     return false;
                 }
-                _createMap = maps.Contains(_createMap) ? _createMap : maps[0];
+                _createMap = LauncherPrefs.PreferredMap(maps);
                 _createCommunity = null; _createMaxPlayers = 8;
                 _createOpen = true;
                 _browsing = true;
@@ -436,6 +436,7 @@ public sealed class RmlUiMenuController : IDisposable
                 if (available.Length == 0) { Status("NO BUILT-IN ARENAS AVAILABLE"); return false; }
                 int at = Array.IndexOf(available, _createMap);
                 _createMap = available[(at + (kind == RmlUiIntentKind.PlayPreviousMap ? available.Length-1 : 1)) % available.Length];
+                LauncherPrefs.RememberMap(_createMap);
                 _createCommunity = null; _createMaxPlayers = 8;
                 Dirty();
                 return true;
@@ -636,8 +637,14 @@ public sealed class RmlUiMenuController : IDisposable
                     if (changed) Dirty();
                     return changed;
                 }
+                string previousMap = _offline.Map;
                 bool offlineChanged = _offline.Change(argument, kind == RmlUiIntentKind.OfflineChoicePrevious);
-                if (offlineChanged) Dirty();
+                if (offlineChanged)
+                {
+                    if (!String.Equals(previousMap, _offline.Map, StringComparison.OrdinalIgnoreCase))
+                        LauncherPrefs.RememberMap(_offline.Map);
+                    Dirty();
+                }
                 return offlineChanged;
             case RmlUiIntentKind.OfflineOpenArena:
                 if (_offline == null || _trainingRoute || _busy || _trainingOptionsOpen) return false;
@@ -655,6 +662,7 @@ public sealed class RmlUiMenuController : IDisposable
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineSelectArena:
                 if (_offline == null || _trainingRoute || !_offline.SelectArena(argument)) return false;
+                LauncherPrefs.RememberMap(_offline.Map);
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineLaunchMatch:
                 if (_offline == null || _trainingRoute || _busy || _offlineLaunched || _offline.ArenaOpen || _trainingOptionsOpen || !_offline.Valid) return false;
@@ -795,6 +803,24 @@ public sealed class RmlUiMenuController : IDisposable
                 {
                     if (mapError.Length > 0) { _rulesStatus = mapError; Dirty(); }
                     return false;
+                }
+                // Save an intentional map choice separately from the server-managed rotation.
+                LauncherPrefs.RememberMap(room);
+                if (_mapOpenedRules)
+                {
+                    // A picker opened from the lobby is a map-only operation.
+                    // Keep the authoritative limits/flags intact and submit via
+                    // the existing revision-fenced UpdateMatch service.
+                    if (!_rules.Validate(out mapError) || !_services.SubmitRules(_rules.Draft, out mapError))
+                    {
+                        _rulesStatus = String.IsNullOrEmpty(mapError)
+                            ? "SERVER CANNOT ACCEPT THIS MAP RIGHT NOW." : mapError;
+                        Dirty();
+                        return false;
+                    }
+                    CloseRules();
+                    Status("MAP CHANGE REQUEST SENT // WAITING FOR SERVER CONFIRMATION");
+                    return true;
                 }
                 RetireMapPicker();
                 _mapOpenedRules = false;
@@ -1122,6 +1148,9 @@ public sealed class RmlUiMenuController : IDisposable
             {
                 if (live.Value.Match == editor.Draft.Match && live.Value.Flags == editor.Draft.Flags)
                 {
+                    if (!String.Equals(editor.Source.Match.RoomKey, live.Value.Match.RoomKey,
+                        StringComparison.OrdinalIgnoreCase))
+                        LauncherPrefs.RememberMap(live.Value.Match.RoomKey);
                     CloseRules();
                     Status("RULE CHANGES CONFIRMED BY SERVER");
                 }
@@ -1501,7 +1530,7 @@ public sealed class RmlUiMenuController : IDisposable
             if (!live.HasValue) return false;
             _rules = new(live.Value);
             _rulesStatus = lobby.Owner
-                ? "SELECT A MAP // APPLY RULES TO SUBMIT TO SERVER"
+                ? "CHOOSE A MAP // SELECT TO SEND TO SERVER"
                 : "VIEW ONLY // THE LOBBY OWNER CONTROLS MAP SELECTION";
         }
         RetireMapPicker();
@@ -2204,6 +2233,7 @@ public sealed class RmlUiMenuController : IDisposable
         Text("map_page", _mapPicker == null ? "" : $"{_mapPicker.Page + 1} / {_mapPicker.Pages}");
         Text("map_status", !lobby.Owner ? "VIEW ONLY // THE LOBBY OWNER SELECTS MAPS"
             : _rulesSubmitted ? "WAITING FOR SERVER CONFIRMATION"
+            : _mapOpenedRules ? _rulesStatus
             : "CHOOSE AN INSTALLED MAP // APPLY IN THE RULES PANEL");
         string categoryName = (_mapPicker?.Category ?? 0) switch { 0 => "MPH", 2 => "ECHOES", 3 => "HALO", 4 => "QUAKE", _ => "COMMUNITY" };
         Text("map_empty_text", _mapCatalogStatus.Length > 0 && _mapPicker?.Category != 0

@@ -17,6 +17,22 @@ internal static class DynamicGeometryTests
         public NetGeometryState CaptureNetworkCollisionState() => State;
         public void ApplyNetworkCollisionState(in NetGeometryState state) => State = state;
     }
+    // The original large Run loop allocates during tiered on-stack replacement
+    // on the preserved Windows binary; disabling only OSR removes that failure.
+    // Measure the same warmed production calls in a fixed optimized helper,
+    // retaining strict zero bytes, exact call counts and state restoration.
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    private static long MeasureRewind(NetDynamicGeometryHistory history, out int applied)
+    {
+        applied = 0;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 10000; i++)
+        {
+            using var scope = history.Begin(149);
+            if (scope.Applied) applied++;
+        }
+        return GC.GetAllocatedBytesForCurrentThread() - before;
+    }
     public static int Run()
     {
         try
@@ -60,10 +76,19 @@ internal static class DynamicGeometryTests
             history.Record(148); // overwrite frame 20 at exactly 128 history cells
             using (var scope = history.Begin(20)) NetArchitectureTests.Check(!scope.Applied, "ring wrap cannot use another frame");
             history.Record(149);
-            for (int i = 0; i < 100; i++) { using var scope = history.Begin(149); }
-            long allocation = GC.GetAllocatedBytesForCurrentThread();
-            for (int i = 0; i < 10000; i++) { using var scope = history.Begin(149); }
-            NetArchitectureTests.Check(allocation == GC.GetAllocatedBytesForCurrentThread(), "warmed rewind has no allocations");
+            long warmupBytes = MeasureRewind(history, out int warmupApplied);
+            Console.WriteLine($"[dynamic-geometry] fixed measurement helper warmup: {warmupBytes} bytes");
+            var measuredDoor = door.State; var measuredField = field.State; var measuredPlatform = platform.State;
+            long framesBefore = NetDynamicGeometryHistory.RewindFrames;
+            long objectsBefore = NetDynamicGeometryHistory.GeometryObjectsConsidered;
+            long allocated = MeasureRewind(history, out int measuredApplied);
+            NetArchitectureTests.Check(warmupApplied == 10000 && measuredApplied == 10000
+                && NetDynamicGeometryHistory.RewindFrames - framesBefore == 10000
+                && NetDynamicGeometryHistory.GeometryObjectsConsidered - objectsBefore == 30000,
+                "measured rewind executes all 10000 Begin/Dispose calls over three geometry objects");
+            NetArchitectureTests.Check(door.State == measuredDoor && field.State == measuredField && platform.State == measuredPlatform,
+                "measured rewind restores all current geometry exactly");
+            NetArchitectureTests.Check(allocated == 0, $"warmed rewind has no allocations (actual {allocated} bytes)");
             // Exercise the production adapters with engine collision objects,
             // including exact cached-inverse restoration and discrete door bits.
             INetRewindableGeometry Adapter(string name, int id, object entity) => (INetRewindableGeometry)Activator.CreateInstance(

@@ -227,6 +227,7 @@ namespace MphRead.Mods.Network
                 _hasLatch = false;
                 return;
             }
+            player.ModSampleGrappleControl();
             PlayerControls c = player.Controls;
             IntentButtons pressed = IntentButtons.None;
             if (c.MoveLeft.IsPressed) pressed |= IntentButtons.MoveLeft;
@@ -281,6 +282,7 @@ namespace MphRead.Mods.Network
         public IntentPacket CaptureIntent(PlayerEntity player)
         {
             if (_host.IsReplica) throw new InvalidOperationException("A replay replica cannot author gameplay input.");
+            player.ModSampleGrappleControl();
             PlayerControls c = player.Controls;
             IntentButtons buttons = IntentButtons.None;
             if (c.MoveLeft.IsDown) buttons |= IntentButtons.MoveLeft;
@@ -290,6 +292,7 @@ namespace MphRead.Mods.Network
             if (c.Shoot.IsDown) buttons |= IntentButtons.Shoot;
             if (c.Zoom.IsDown) buttons |= IntentButtons.Zoom;
             if (c.Jump.IsDown) buttons |= IntentButtons.Jump;
+            if (c.Grapple.IsDown && player.OwningScene.GameState.MovementModel == Mods.Movement.MovementModel.Parkour) buttons |= IntentButtons.Grapple;
             if (c.Crouch.IsDown) buttons |= IntentButtons.Crouch;
             if (player.ModCrouched) buttons |= IntentButtons.CrouchedState;
             if (player.ModTucked) buttons |= IntentButtons.TuckedState;
@@ -332,6 +335,9 @@ namespace MphRead.Mods.Network
             var intent = new IntentPacket
             {
                 Buttons = buttons,
+                GrappleRequestNonce = player.OwningScene.GameState.MovementModel == Mods.Movement.MovementModel.Parkour ? player.ModGrappleRequestNonce : (ushort)0,
+                MantleVisualPhase = player.ModLocalMantleVisualPhase,
+                WallVisualCue = player.ModLocalWallVisualCue,
                 // Digital keyboard/touch movement remains represented solely by
                 // Buttons. Only a real analogue source spends these two bytes,
                 // which lets the receiver distinguish full digital diagonals from
@@ -484,6 +490,7 @@ namespace MphRead.Mods.Network
                 Log($"slot {player.SlotIndex} intent rejected: aim={intent.Aim}");
                 return false;
             }
+            player.ModSampleGrappleControl();
             PlayerControls c = player.Controls;
             int aimSlot = player.SlotIndex;
             if (aimSlot >= 0 && aimSlot < _aimHeld.Length && _aimHeld[aimSlot]
@@ -553,7 +560,7 @@ namespace MphRead.Mods.Network
             // start a transition here. Preserve older reconstruction contracts.
             if (_host.IsReplica && _authorityForms[player.SlotIndex].Known
                 && player.OwningScene.Services is ReplaySceneServices replay
-                && replay.Session.Metadata?.ProtocolVersion >= 77)
+                && replay.Session.SourceProtocolVersion >= 77)
                 Set(c.Morph, false, false);
             if (c.Morph.IsPressed)
             {
@@ -828,7 +835,7 @@ namespace MphRead.Mods.Network
             int slot = player.SlotIndex;
             // Validate before scores, damage, position, or presentation can change.
             if (slot != state.SlotIndex || !_host.Matches(slot, state.SlotGeneration, state.LifeId)) return;
-            if (!Sane(state.Position) || !Sane(state.Speed) || !Sane(state.Facing))
+            if (!Sane(state.Position) || !Sane(state.Speed) || !Sane(state.Facing) || !state.Grapple.IsValid)
             {
                 RejectedUpdates++;
                 return;
@@ -859,6 +866,9 @@ namespace MphRead.Mods.Network
             _host.ReplayDamage(player, state);
             if (!spawned)
             {
+                player.ModApplyReplicatedGrapple(state.Grapple, state.SlotGeneration, state.LifeId);
+                player.ModApplyReplicatedMantleVisual(state.Health > 0 ? state.MantleVisualPhase : (byte)0, _host.IsReplica ? _host.Frame : NetSession.LastSnapshotFrame, isLocal);
+                player.ModApplyReplicatedWallVisual(state.Health > 0 ? state.WallVisualCue : (byte)0, _host.IsReplica ? _host.Frame : NetSession.LastSnapshotFrame, isLocal, state.WallVisualRevision);
                 player.ModResetTraversalStance();
                 if (state.Health == 0 && player.Health > 0) _host.ReplayDeath(player);
                 player.Health = state.Health;
@@ -908,6 +918,9 @@ namespace MphRead.Mods.Network
             player.ModSetFrozen((state.Flags & PlayerState.FlagFrozen) != 0);
             player.ModApplyReplicatedCrouch(state.Crouched, isLocal && !fresh, state.Tucked);
             ApplyAfflictions(player, state);
+            player.ModApplyReplicatedGrapple(state.Grapple, state.SlotGeneration, state.LifeId);
+            player.ModApplyReplicatedMantleVisual(state.Health > 0 ? state.MantleVisualPhase : (byte)0, _host.IsReplica ? _host.Frame : NetSession.LastSnapshotFrame, isLocal);
+                player.ModApplyReplicatedWallVisual(state.Health > 0 ? state.WallVisualCue : (byte)0, _host.IsReplica ? _host.Frame : NetSession.LastSnapshotFrame, isLocal, state.WallVisualRevision);
             if (formWasNew && !waitingForForm && _authorityForms[slot].Known
                 && _authorityForms[slot].State.Frame == state.Form.Frame)
                 NetCampaignEvidence.Form(state, player, isLocal);
