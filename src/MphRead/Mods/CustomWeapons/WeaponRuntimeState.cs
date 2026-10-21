@@ -36,6 +36,8 @@ public sealed class WeaponRuntimeState
     public WeaponRuntimeState(WeaponDefinition definition, WeaponOwnerContext owner, uint tick)
     {
         ArgumentNullException.ThrowIfNull(definition);
+        if (definition.Mechanics.Behavior != WeaponBehavior.SemiAutoPrecision)
+            throw new ArgumentException("The precision state cannot own a private burst profile.", nameof(definition));
         if (!owner.IsValid) throw new ArgumentException("Valid owner required.", nameof(owner));
         Definition = definition; Owner = owner; _tick = tick;
         _magazine = definition.Mechanics.MagazineCapacity; _reserve = definition.Mechanics.InitialReserve;
@@ -126,6 +128,9 @@ public sealed class WeaponRuntimeState
     }
     internal static WeaponStateSnapshot Project(in WeaponStateSnapshot value, WeaponMechanics mechanics, uint tick)
     {
+        ArgumentNullException.ThrowIfNull(mechanics);
+        if (mechanics.Behavior != WeaponBehavior.SemiAutoPrecision)
+            throw new ArgumentException("Precision projection requires precision mechanics.", nameof(mechanics));
         if (value.Phase == CustomWeaponPhase.Invalid || !Reached(tick,value.Tick)) return value;
         bool reloading = value.Phase == CustomWeaponPhase.Reloading;
         int magazine = value.Magazine, reserve = value.Reserve;

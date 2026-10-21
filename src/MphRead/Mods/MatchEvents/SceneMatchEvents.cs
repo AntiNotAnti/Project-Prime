@@ -46,6 +46,25 @@ internal sealed class SceneMatchEvents
         return NetSession.Active ? NetPlayerLifecycle.Generation(identity.Slot) == identity.SlotGeneration
             : _occupants[identity.Slot] == player && _generations[identity.Slot] == identity.SlotGeneration;
     }
+    internal bool TryReadOfflineLife(Scene scene, PlayerEntity player, out ushort match, out MatchSemanticActor actor)
+    {
+        match = 0; actor = MatchSemanticActor.None;
+        // Reuse only identity already advanced by native Spawn. Reading a life
+        // must never allocate an occupant, prepare the bus, or emit an event.
+        if (scene == null || player == null || scene.Services.IsReplica || NetSession.Active
+            || !scene.GameState.Multiplayer || scene.FrameCount > uint.MaxValue || _identityExhausted
+            || _offlineMatch == 0 || !ReferenceEquals(scene.MatchEvents, this)
+            || !ReferenceEquals(player.OwningScene, scene)) return false;
+        int slot = player.SlotIndex;
+        if ((uint)slot >= _occupants.Length || (uint)slot >= scene.Players.Items.Count
+            || !ReferenceEquals(scene.Players.Items[slot], player) || !ReferenceEquals(_occupants[slot], player)
+            || _generations[slot] == 0 || _lives[slot] == 0) return false;
+        // Identity remains readable after lethal damage for outcome settlement;
+        // callers separately require a living spawned target before a debit.
+        match = _offlineMatch;
+        actor = new((byte)slot, _generations[slot], _lives[slot]);
+        return true;
+    }
     private MatchSemanticActor Actor(PlayerEntity? player)
     {
         if (player == null || (uint)player.SlotIndex >= 8) return MatchSemanticActor.None;
@@ -133,6 +152,14 @@ internal sealed class SceneMatchEvents
         else RejectedEvents++;
     }
     internal void Death(Scene scene, PlayerEntity? attacker, PlayerEntity victim, BeamType weapon, DamageFlags damage, ShotKey? launch = null, bool bomb = false, bool turret = false)
+        => DeathCore(scene, attacker, victim, weapon, damage, launch, bomb, turret, false);
+    internal void PirateDeath(Scene scene, PlayerEntity? attacker, PlayerEntity victim, BeamProjectileEntity beam, DamageFlags damage)
+    {
+        if (NetSession.Active || scene.PirateBlaster?.OwnsDamage(victim, beam) != true) return;
+        DeathCore(scene, attacker, victim, BeamType.None, damage, null, false, false, true);
+    }
+    private void DeathCore(Scene scene, PlayerEntity? attacker, PlayerEntity victim, BeamType weapon, DamageFlags damage,
+        ShotKey? launch, bool bomb, bool turret, bool privateWeapon)
     {
         if (!Prepare(scene)) return;
         DeathTransitions++;
@@ -141,7 +168,7 @@ internal sealed class SceneMatchEvents
         if (turret) flags |= MatchSemanticEventFlags.Turret;
         var details = new MatchDeathDetails(MatchDeathDetails.Classify(attacker == null, attacker == victim,
             damage.TestFlag(DamageFlags.Deathalt), damage.TestFlag(DamageFlags.Burn),
-            weapon >= BeamType.PowerBeam && weapon <= BeamType.OmegaCannon, bomb), attacker?.TeamIndex ?? -1, victim.TeamIndex);
+            privateWeapon || weapon >= BeamType.PowerBeam && weapon <= BeamType.OmegaCannon, bomb), attacker?.TeamIndex ?? -1, victim.TeamIndex);
         if (victim.IsPrimeHunter) flags |= MatchSemanticEventFlags.Prime;
         if (victim.OctolithFlag != null) flags |= MatchSemanticEventFlags.Carrier;
         if (attacker == null) flags |= MatchSemanticEventFlags.Environment;

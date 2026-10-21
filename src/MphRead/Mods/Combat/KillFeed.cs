@@ -54,6 +54,14 @@ namespace MphRead.Mods.Combat
 
         internal void Record(Scene scene, PlayerEntity? attacker, PlayerEntity victim,
             BeamType beam, DamageFlags flags, bool fromHalfturret, BombEntity? bomb)
+            => RecordCore(scene, attacker, victim, beam, flags, fromHalfturret, bomb, false);
+        internal void RecordPirate(Scene scene, PlayerEntity? attacker, PlayerEntity victim, BeamProjectileEntity beam, DamageFlags flags)
+        {
+            if (scene.PirateBlaster?.OwnsDamage(victim, beam) != true) return;
+            RecordCore(scene, attacker, victim, BeamType.None, flags, false, null, true);
+        }
+        private void RecordCore(Scene scene, PlayerEntity? attacker, PlayerEntity victim,
+            BeamType beam, DamageFlags flags, bool fromHalfturret, BombEntity? bomb, bool privateWeapon)
         {
             if (MatchEvents.MatchSemanticPresentation.Enabled(scene) || !Features.KillFeedEnabled || MphRead.Mods.Headless.Active
                 || MphRead.Mods.ThumbnailMode.Active || !scene.GameState.Multiplayer)
@@ -86,7 +94,7 @@ namespace MphRead.Mods.Combat
             {
                 kind = KillFeedKind.Burn;
             }
-            else if (beam >= BeamType.PowerBeam && beam <= BeamType.OmegaCannon)
+            else if (privateWeapon || beam >= BeamType.PowerBeam && beam <= BeamType.OmegaCannon)
             {
                 kind = KillFeedKind.Weapon;
             }

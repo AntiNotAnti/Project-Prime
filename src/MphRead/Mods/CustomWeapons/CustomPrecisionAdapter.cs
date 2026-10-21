@@ -6,6 +6,9 @@ internal static class CustomPrecisionAdapter
 {
     internal static WeaponInfo Build(WeaponMechanics r)
     {
+        System.ArgumentNullException.ThrowIfNull(r);
+        if (r.Behavior != WeaponBehavior.SemiAutoPrecision)
+            throw new System.ArgumentException("Precision equipment requires precision mechanics.", nameof(r));
         return new WeaponInfo(
                 description: "Custom precision developer adapter",
                 beam: BeamType.None,

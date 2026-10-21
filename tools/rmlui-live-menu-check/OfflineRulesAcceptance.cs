@@ -109,13 +109,17 @@ internal static class OfflineRulesAcceptance
             && Text("offline_rule13_label") == "MOVEMENT // TRAVERSAL"
             && controller.OfflineRuleInputs?.MovementModel == "Traversal"
             && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
+            && Text("offline_rule13_label") == "MOVEMENT // PARKOUR"
+            && controller.OfflineRuleInputs?.MovementModel == "Parkour"
+            && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
             && Text("offline_rule13_label") == "MOVEMENT // CLASSIC"
+            && controller.OfflineRuleInputs?.MovementModel == "Native"
             && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 13)
             && controller.Dispatch(RmlUiIntentKind.OfflineRuleToggle, 12)
             && controller.Dispatch(RmlUiIntentKind.OfflineDamage)
             && controller.OfflineRuleInputs?.MovementModel == "Momentum"
             && services.OfflineRules?.MovementModel == "Native" && services.OfflineRulesSaveAttempts == 0,
-            "the four-way movement cycle and unrelated draft edits stay private before Apply");
+            "the five-way movement cycle including Parkour and unrelated draft edits stay private before Apply");
         Check(controller.Dispatch(RmlUiIntentKind.OfflineCancelRules)
             && services.OfflineRules?.MovementModel == "Native", "Cancel preserves authoritative saved Classic");
         controller.Dispatch(RmlUiIntentKind.OfflineOpenRules);

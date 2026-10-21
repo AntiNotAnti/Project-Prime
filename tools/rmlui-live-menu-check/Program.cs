@@ -242,8 +242,11 @@ for (int i = 0; i < RmlUiRuleEditor.ChoiceCount; i++)
         Check(editor.Toggle(i) && editor.MovementLabel == "Momentum"
             && editor.Toggle(i) && editor.MovementLabel == "Quake III"
             && editor.Toggle(i) && editor.MovementLabel == "Traversal"
+            && editor.Toggle(i) && editor.MovementLabel == "Parkour"
+            && editor.Draft.Match.MovementModel == MovementModel.Parkour
             && editor.Toggle(i) && editor.Draft.Match.MovementModel == beforeMovement
-            && editor.MovementLabel == "Classic", "movement choice completes its four-way cycle");
+            && editor.Draft.Match.MovementModel == MovementModel.Native
+            && editor.MovementLabel == "Classic", "movement choice completes its five-way cycle with explicit Parkour then Classic");
     }
     else
     {
@@ -269,9 +272,14 @@ Check(movementEditor.Toggle(17) && movementEditor.IsOn(17)
     && movementEditor.MovementLabel == "Traversal"
     && movementEditor.Draft.Match.MovementModel == MovementModel.Traversal
     && movementEditor.Validate(out _)
+    && movementEditor.Toggle(17) && movementEditor.IsOn(17)
+    && movementEditor.MovementLabel == "Parkour"
+    && movementEditor.Draft.Match.MovementModel == MovementModel.Parkour
+    && movementEditor.Validate(out _)
     && movementEditor.Toggle(17) && !movementEditor.IsOn(17)
+    && movementEditor.Draft.Match.MovementModel == MovementModel.Native
     && movementEditor.MovementLabel == "Classic"
-    && movementEditor.Toggle(17), "movement editor cycles all four choices with valid Quake III draft");
+    && movementEditor.Toggle(17), "movement editor cycles all five choices with valid Quake III, Traversal and Parkour drafts");
 Check(movementEditor.NextMode() && movementEditor.NextFormat()
     && movementEditor.TrySelectMap("MP2 HARVESTER", out _)
     && movementEditor.TrySetLimits("8:20", "10", out _)
@@ -620,11 +628,19 @@ Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharac
     && offlinePager.CharacterName == "DRONE COMBAT PRACTICE",
     "third cycle explicitly captures combat practice with one native opponent");
 var capturedCombat = offlinePager.Current;
+Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharacterMode.TrooperArsenalPractice
+    && (int)offlinePager.Current.Character == 4 && offlinePager.Valid && offlinePager.Current.Bots == 1
+    && offlinePager.CharacterName == "TROOPER ARSENAL"
+    && offlinePager.CharacterNotice.Contains("Native fallback gun and bolts", StringComparison.Ordinal)
+    && offlinePager.CharacterNotice.Contains("60 shared UA each life", StringComparison.Ordinal),
+    "fourth cycle captures explicit Arsenal with its shared-UA/fallback notice");
+var capturedArsenal = offlinePager.Current;
 Check(offlinePager.Change(16) && offlinePager.Current.Character == OfflineCharacterMode.Native
     && offlinePager.CharacterNotice == "" && capturedWall.Character == OfflineCharacterMode.TrooperWallClingPractice
     && capturedDrone.Character == OfflineCharacterMode.TrooperScoutDronePractice
-    && capturedCombat.Character == OfflineCharacterMode.TrooperScoutDroneCombatPractice && capturedCombat.Bots == 1,
-    "fourth cycle restores Native while all earlier immutable captures retain their identities");
+    && capturedCombat.Character == OfflineCharacterMode.TrooperScoutDroneCombatPractice && capturedCombat.Bots == 1
+    && capturedArsenal.Character == OfflineCharacterMode.TrooperArsenalPractice && capturedArsenal.Bots == 1,
+    "fifth cycle restores Native while all four immutable private captures retain their identities");
 Check(new RmlUiOfflineDraft(new[] { "Arena 00" }, Hunter.Weavel, 0, 0, 0).Current.Character == OfflineCharacterMode.Native
     && !(capturedDrone with { Character = (OfflineCharacterMode)77 }).ValidateForm(new[] { capturedDrone.RoomKey }),
     "fresh drafts never inherit mechanics and unknown values remain refused");

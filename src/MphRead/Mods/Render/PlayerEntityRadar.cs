@@ -69,9 +69,11 @@ public partial class PlayerEntity
             if(other==this || other.Health<=0 || !other.LoadFlags.TestFlag(LoadFlags.Spawned) || !style.Hunters) continue;
             var color=_scene.GameState.Teams ? other.TeamIndex >= 0
                 ? TeamVisuals.Get(other.TeamIndex).RadarColor.AsVector4()*new Vector4(255f/31,255f/31,255f/31,1) : palette.Hunter : palette.Hunter;
+            bool pirateMarked = _scene.PirateBlaster?.IsMarked(this, other) == true;
+            if (pirateMarked) color = new Vector4(255, 99, 33, 1);
             _radarContacts[count++]=new(RadarContactKind.Hunter,RadarVector(other.RadarPresentedPosition()),
                 MathF.Atan2(other.FacingVector.X,other.FacingVector.Z),other.SlotIndex,other.TeamIndex,
-                _scene.GameState.Teams && other.TeamIndex==TeamIndex ? RadarContactRelation.Friendly : RadarContactRelation.Enemy,RadarColor(color));
+                _scene.GameState.Teams && other.TeamIndex==TeamIndex ? RadarContactRelation.Friendly : RadarContactRelation.Enemy,RadarColor(color), 1, pirateMarked ? RadarContactFlags.Revealed : RadarContactFlags.None);
             _radarTrails[other.SlotIndex]=other._radarHistory;
         }
         if(style.Objectives && _scene.Services.IsReplica) RebuildRadarObjectiveLocators();

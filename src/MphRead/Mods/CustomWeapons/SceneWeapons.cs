@@ -12,9 +12,16 @@ public partial class Scene
     // No native-only allocation. No input, UI, save, replay or wire entry point
     // activates this foundation; gameplay admission is a later explicit gate.
     internal OfflineCustomWeaponRuntime? OfflineWeapons { get; private set; }
+    internal TrooperPirateBlasterRuntime? PirateBlaster { get; private set; }
+    internal void EnablePirateBlaster(Entities.PlayerEntity player)
+    {
+        if (PirateBlaster != null || OfflineWeapons != null || CustomCombat != null)
+            throw new InvalidOperationException("Custom combat already enabled.");
+        PirateBlaster = new(this, player);
+    }
     internal OfflineCustomWeaponRuntime EnableDeveloperRifle(bool optIn)
     {
-        if (OfflineWeapons != null) throw new InvalidOperationException("Developer rifle already enabled.");
+        if (OfflineWeapons != null || PirateBlaster != null) throw new InvalidOperationException("Developer rifle already enabled.");
         if (optIn) Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
         return OfflineWeapons = new(this,optIn);
     }
@@ -23,20 +30,20 @@ public partial class Scene
     internal OfflineCustomWeaponRuntime EnableOfflineRifleAvailability(bool optIn)
     {
         if (!optIn) throw new InvalidOperationException("Explicit Riftline M7 availability is required.");
-        if (OfflineWeapons != null || CustomCombat != null) throw new InvalidOperationException("Custom combat already enabled.");
+        if (OfflineWeapons != null || CustomCombat != null || PirateBlaster != null) throw new InvalidOperationException("Custom combat already enabled.");
         Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
         return OfflineWeapons = new(this,optIn,publicAvailability:true);
     }
     internal CustomAuthorityCombatAdapter? CustomCombat { get; private set; }
     internal CustomAuthorityCombatAdapter EnableDeveloperCustomCombat(bool optIn, ICustomSourceAdmission sourceAdmission)
     {
-        if (OfflineWeapons != null || CustomCombat != null) throw new InvalidOperationException("Custom combat already enabled.");
+        if (OfflineWeapons != null || CustomCombat != null || PirateBlaster != null) throw new InvalidOperationException("Custom combat already enabled.");
         if (optIn) Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
         return CustomCombat = new(this,optIn,sourceAdmission);
     }
     internal CustomAuthorityCombatAdapter EnableDeveloperEngineCustomCombat(bool optIn,ICustomSourceReadiness readiness,ICustomCombatDelivery? delivery=null,bool pickupOnly=false)
     {
-        if (OfflineWeapons != null || CustomCombat != null) throw new InvalidOperationException("Custom combat already enabled.");
+        if (OfflineWeapons != null || CustomCombat != null || PirateBlaster != null) throw new InvalidOperationException("Custom combat already enabled.");
         if (optIn) Mods.Network.CustomReplayBoundary.RequireActivationAllowed();
         return CustomCombat = new(this,optIn,readiness,delivery,pickupOnly);
     }
@@ -51,6 +58,7 @@ public partial class Scene
     {
         ReleaseCustomWeaponPresentation();
         ReleaseCustomWeaponInput();
+        PirateBlaster?.Dispose(); PirateBlaster = null;
         OfflineWeapons?.Dispose(); OfflineWeapons = null;
         CustomCombat?.Dispose(); CustomCombat = null;
         CustomWeapons?.Dispose();
