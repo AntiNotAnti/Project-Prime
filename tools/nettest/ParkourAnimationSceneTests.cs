@@ -30,7 +30,9 @@ internal static class ParkourAnimationSceneTests
     private static readonly FieldInfo Contacts = typeof(PlayerEntity).GetField("_collisionScratch", Hidden)!;
     private static readonly FieldInfo[] Controllers = typeof(PlayerEntity).GetFields(Hidden)
         .Where(f => f.Name.StartsWith("_modMantle", StringComparison.Ordinal)
-            || f.Name.StartsWith("_modGrapple", StringComparison.Ordinal)).ToArray();
+            || f.Name.StartsWith("_modGrapple", StringComparison.Ordinal)
+            || f.Name.StartsWith("_modWall", StringComparison.Ordinal)
+            || f.Name.StartsWith("_modParkour", StringComparison.Ordinal)).ToArray();
     private static int _checks;
     private static string _scenario = "";
     private static readonly List<object> Rows = new();
@@ -97,8 +99,10 @@ internal static class ParkourAnimationSceneTests
         internal readonly PlayerEntity Player;
         internal readonly KeyboardState Keyboard;
         internal readonly ModelInstance[] Lods;
+        private readonly bool _ownsScene;
         internal Fixture(Hunter hunter, MovementModel model, bool mantle)
         {
+            _ownsScene = true;
             object?[] args = { hunter, model, null };
             Scene = (Scene)typeof(TraversalSceneTests).GetMethod("Load", BindingFlags.Static | BindingFlags.NonPublic)!
                 .Invoke(null, args)!;
@@ -118,6 +122,11 @@ internal static class ParkourAnimationSceneTests
             }
             catch { MomentumSceneTests.Release(Scene); throw; }
         }
+        internal Fixture(Scene scene, PlayerEntity player, KeyboardState keyboard)
+        {
+            Scene = scene; Player = player; Keyboard = keyboard;
+            Lods = (ModelInstance[])Field(player, "_bipedModelLods")!;
+        }
         internal ulong Tick(bool forward = false, bool jump = false, bool grapple = false)
         {
             SetKey(Keyboard, Keys.W, forward); SetKey(Keyboard, Keys.Space, jump); SetKey(Keyboard, Keys.G, grapple);
@@ -128,7 +137,33 @@ internal static class ParkourAnimationSceneTests
                 "living genuine offline biped owns the keyboard movement");
             return frame;
         }
-        public void Dispose() => MomentumSceneTests.Release(Scene);
+        public void Dispose() { if (_ownsScene) MomentumSceneTests.Release(Scene); }
+    }
+
+    // Shared CPU assertions only. The standalone wall suite owns loading,
+    // physical keyboard trajectories and disposal; this bridge cannot create
+    // a movement state or advance a Scene.
+    internal static void BeginWallProbes()
+    { _checks = 0; Rows.Clear(); AllocationSamples.Clear(); OwnerCues.Clear(); }
+    internal static int WallProbeChecks => _checks;
+    internal static int WallAllocationProbeCount => AllocationSamples.Count;
+    internal static object[] WallProbeRows => Rows.ToArray();
+    internal static bool[] InspectWallFrame(Scene scene, PlayerEntity player, KeyboardState keyboard,
+        ParkourAnimationPose pose, string label, int tick)
+    {
+        _scenario = player.Hunter + "/" + label;
+        using var borrowed = new Fixture(scene, player, keyboard);
+        ParkourAnimationPose sampled = Sample(borrowed);
+        Check(sampled == pose, "wall scene probes the actual accepted production picture without a state substitute");
+        FirstPersonPicture(borrowed, pose, label, tick);
+        var changed = new bool[2];
+        for (int lod = 0; lod < 2; lod++)
+        {
+            bool allocation = label == "wallstrafe" && lod == 0 || label == "wallrun" && lod == 1
+                || label == "wallkick" && lod == 0 || label == "tuck-wallstrafe" && lod == 1;
+            changed[lod] = Picture(borrowed, lod, pose, label, tick, allocation);
+        }
+        return changed;
     }
 
     private static void Mantle(Hunter hunter)
@@ -283,11 +318,12 @@ internal static class ParkourAnimationSceneTests
         unchanged();
         Rows.Add(new { probe = "owner-first-person", hunter = p.Hunter.ToString(), move, tick,
             mantle = pose.MantleProgress, grapple = pose.GrappleAmount,
+            pose.WallCue, pose.WallAmount, pose.WallTucked,
             offsetX = measured.X, offsetY = measured.Y, offsetZ = measured.Z,
             expectedX = expected.X, expectedY = expected.Y, expectedZ = expected.Z });
     }
 
-    private static bool Picture(Fixture f, int lod, ParkourAnimationPose pose, string move, int tick)
+    private static bool Picture(Fixture f, int lod, ParkourAnimationPose pose, string move, int tick, bool allowAllocation = true)
     {
         PlayerEntity p = f.Player; Model model = f.Lods[lod].Model;
         Matrix4[] entry = Nodes(model); float[] entryPalette = model.MatrixStackValues.ToArray();
@@ -303,8 +339,8 @@ internal static class ParkourAnimationSceneTests
             new[] { Find("R_hip"), Find("R_knee"), Find("R_ankle") },
             new[] { Find("L_shoulder"), Find("L_elbow") },
             new[] { Find("R_shoulder"), cannon } };
-        Matrix4 world = PlayerEntity.ModBuildBipedDrawTransform(p.Position, p.FacingVector,
-            p.FacingVector.WithY(0), Metadata.HunterScales[p.Hunter], p.ModBipedBottom, out float pitch);
+        Matrix4 world = PlayerEntity.ModBuildBipedDrawTransform(p.Position.AddY(p.ModTucked ? p.ModTuckRise : 0), p.FacingVector,
+            p.FacingVector.WithY(0), Metadata.HunterScales[p.Hunter], Fixed.ToFloat(p.Values.MinPickupHeight), out float pitch);
         Action unchanged = Guard(f);
         try
         {
@@ -333,6 +369,9 @@ internal static class ParkourAnimationSceneTests
                         Near((posed[chain[i]].Row3.Xyz - posed[chain[i - 1]].Row3.Xyz).Length,
                             (baseline[chain[i]].Row3.Xyz - baseline[chain[i - 1]].Row3.Xyz).Length,
                             "posed limb preserves native joint segment length");
+                if (pose.WallTucked)
+                    foreach (int index in chains[0].Concat(chains[1]))
+                        Check(posed[index] == baseline[index], "wall cue preserves each actual native tucked hip/knee/ankle matrix exactly");
                 for (int i = 0; i < posed.Length; i++)
                 {
                     Near(posed[i].Row0.Xyz.Length, baseline[i].Row0.Xyz.Length, "native first axis scale preserved");
@@ -367,11 +406,13 @@ internal static class ParkourAnimationSceneTests
                 Model gun = ((ModelInstance)Field(p, "_gunModel")!).Model;
                 ParkourPoseOverlay.Prewarm(gun);
                 Noop(gun, world, pose, "unsupported native gun skeleton");
-                if (p.Hunter == Hunter.Samus && AllocationSamples.Add(move + "/" + lod))
+                if (allowAllocation && p.Hunter == Hunter.Samus && AllocationSamples.Add(move + "/" + lod))
                     WarmedAllocation(model, world, pose, baseline, palette);
             }
             Rows.Add(new { hunter = p.Hunter.ToString(), lod, move, tick, frame = f.Scene.FrameCount,
                 mantle = pose.MantleProgress, grapple = pose.GrappleAmount, pose.Seconds,
+                pose.WallCue, pose.WallAmount, pose.WallTucked,
+                wallNormalX = pose.WallNormal.X, wallNormalY = pose.WallNormal.Y, wallNormalZ = pose.WallNormal.Z,
                 ropeX = pose.RopeDirection.X, ropeY = pose.RopeDirection.Y, ropeZ = pose.RopeDirection.Z,
                 weightedChanged, changedWeightedNodes = model.NodeMatrixIds.Count(index => posed[index] != baseline[index]),
                 nodeCount = model.Nodes.Count, paletteMatrices = palette.Length / 16 });
@@ -453,7 +494,8 @@ internal static class ParkourAnimationSceneTests
         object?[] controller = Controllers.Select(field => field.GetValue(p)).ToArray();
         var rope = p.ModGrappleState;
         var controls = (p.Controls.MoveUp.IsDown, p.Controls.Jump.IsDown, p.Controls.Jump.IsPressed,
-            p.Controls.Grapple.IsDown, p.Controls.Grapple.IsPressed);
+            p.Controls.Grapple.IsDown, p.Controls.Grapple.IsPressed, p.Controls.MoveLeft.IsDown, p.Controls.MoveRight.IsDown,
+            p.Controls.Crouch.IsDown, p.Controls.Crouch.IsPressed);
         Check(p.ModTryCaptureCustomPrecombatFacts(p.ModGunVector, out var facts), "native precombat source facts available");
         var infos = new[] { ((ModelInstance)Field(p, "_bipedModel1")!).AnimInfo,
             ((ModelInstance)Field(p, "_bipedModel2")!).AnimInfo, ((ModelInstance)Field(p, "_gunModel")!).AnimInfo };
@@ -473,7 +515,8 @@ internal static class ParkourAnimationSceneTests
             Check(clocks == (scene.FrameCount, FrameTiming.TotalSteps, FrameTiming.TotalFrames, FrameTiming.PresentationGeneration, FrameTiming.PresentationAlpha)
                 && controller.SequenceEqual(Controllers.Select(field => field.GetValue(p))) && rope.Equals(p.ModGrappleState)
                 && controls == (p.Controls.MoveUp.IsDown, p.Controls.Jump.IsDown, p.Controls.Jump.IsPressed,
-                    p.Controls.Grapple.IsDown, p.Controls.Grapple.IsPressed),
+                    p.Controls.Grapple.IsDown, p.Controls.Grapple.IsPressed, p.Controls.MoveLeft.IsDown, p.Controls.MoveRight.IsDown,
+                    p.Controls.Crouch.IsDown, p.Controls.Crouch.IsPressed),
                 "draw-only sample leaves simulation/presentation clocks, accepted controllers, rope and keyboard state exact");
             for (int index = 0; index < infos.Length; index++)
             {

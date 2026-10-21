@@ -91,7 +91,7 @@ public sealed class NetReplicationLanes
             NetContinuousPresentation.Capture(state).Write(slow[(at + 10)..]);
             BinaryPrimitives.WriteUInt16LittleEndian(slow[(at + FormLifeOffset)..], state.LifeId);
             state.Form.Write(slow[(at + FormOffset)..]);
-            state.Grapple.TryWrite(slow[(at + GrappleOffset)..], out _); at += SlowEntry;
+            ParkourWallVisualCodec.TryWriteGrapple(state.Grapple, state.WallVisualCue, slow[(at + GrappleOffset)..], out _); at += SlowEntry;
         }
         int timeAt = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
         int slowLength = at + NetMatchTimeSync.Size;
@@ -205,7 +205,7 @@ public sealed class NetReplicationReceiver
                 if (slot >= 8 || (seen & (1 << slot)) != 0
                     || !ContinuousPresentation.WellFormed(data.Slice(at + 10, ContinuousPresentation.Size))
                     || !PlayerFormState.TryRead(data.Slice(at + NetReplicationLanes.FormOffset, PlayerFormState.Size), out _)
-                    || !PlayerGrappleState.TryRead(data.Slice(at + NetReplicationLanes.GrappleOffset, PlayerGrappleState.Size), out _)) return false;
+                    || !ParkourWallVisualCodec.TryReadGrapple(data.Slice(at + NetReplicationLanes.GrappleOffset, PlayerGrappleState.Size), out _, out _)) return false;
                 seen |= 1 << slot; }
             if (!sameStream) Reset(match, epoch);
             Array.Fill(_slowOffsetBySlot, (short)-1);
@@ -252,19 +252,21 @@ public sealed class NetReplicationReceiver
             || BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + NetReplicationLanes.FormLifeOffset)) != state.LifeId) return default;
         return PlayerFormState.TryRead(_slow.AsSpan(at + NetReplicationLanes.FormOffset, PlayerFormState.Size), out var form) && !NetLifecycleTracker.Newer(form.Frame, frame) ? form : default;
     }
-    private PlayerGrappleState SlowGrapple(in PlayerState state)
+    private void ApplySlowGrapple(ref PlayerState state)
     {
+        state.Grapple = default; state.WallVisualCue = 0; state.WallVisualRevision = 0;
         int at = _slowOffsetBySlot[state.SlotIndex];
         if (at < 0 || BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + 1)) != state.SlotGeneration
-            || BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + NetReplicationLanes.FormLifeOffset)) != state.LifeId) return default;
-        return PlayerGrappleState.TryRead(_slow.AsSpan(at + NetReplicationLanes.GrappleOffset, PlayerGrappleState.Size), out var grapple) ? grapple : default;
+            || BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + NetReplicationLanes.FormLifeOffset)) != state.LifeId) return;
+        if (ParkourWallVisualCodec.TryReadGrapple(_slow.AsSpan(at + NetReplicationLanes.GrappleOffset, PlayerGrappleState.Size), out var grapple, out byte wall))
+        { state.Grapple = grapple; state.WallVisualCue = wall; state.WallVisualRevision = SlowRevision; }
     }
     internal PlayerState DecodeValidatedPlayer(ReadOnlySpan<byte> fast, int index)
     {
         var player = fast.Slice(SnapshotHeader.Size + index * SnapshotFast.PlayerSize, SnapshotFast.PlayerSize);
         var state = PlayerState.ReadFast(player, SlowPlayer(player));
         state.Form = SlowForm(state, SnapshotHeader.Read(fast).Frame);
-        state.Grapple = SlowGrapple(state);
+        ApplySlowGrapple(ref state);
         var receipt = fast[^SnapshotFast.ReceiptSize..];
         if (receipt[0] == state.SlotIndex)
         {
@@ -300,7 +302,8 @@ public sealed class NetReplicationReceiver
             SlowPlayer(source).CopyTo(target[41..]);
             var state = PlayerState.ReadFast(source, SlowPlayer(source));
             SlowForm(state, header.Frame).Write(target[PlayerState.Protocol48Size..]);
-            SlowGrapple(state).TryWrite(target[PlayerState.Protocol80Size..], out _);
+            ApplySlowGrapple(ref state);
+            ParkourWallVisualCodec.TryWriteGrapple(state.Grapple, state.WallVisualCue, target[PlayerState.Protocol80Size..], out _);
         }
         int timeAt = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
         if (_slowLength != 0) _slow.AsSpan(_slowLength - NetMatchTimeSync.Size, NetMatchTimeSync.Size).CopyTo(canonical[timeAt..]);

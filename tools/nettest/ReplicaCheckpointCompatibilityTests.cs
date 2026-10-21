@@ -14,7 +14,7 @@ internal static class ReplicaCheckpointCompatibilityTests
     // Literal frozen widths keep this oracle independent of future writers.
     internal static byte[] Protocol80Rows(byte[] current)
     {
-        if (current[4] != 16 || current[6] != 84 || PlayerState.Size != 192
+        if (current[4] != 16 || current[6] != 85 || PlayerState.Size != 192
             || IntentPacket.TouchCanonicalSize != 1299)
             throw new InvalidOperationException("Unexpected current checkpoint fixture contract.");
         using var input = new MemoryStream(current, writable: false);
@@ -185,8 +185,8 @@ internal static class ReplicaCheckpointCompatibilityTests
             && restored.PickupVerdicts[claim.Key] == verdict,
             "actual staged A2 v10/protocol53 layout restores populated claim/verdict/item tail without invented touch");
         var checkpoint = state.CaptureCheckpoint();
-        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 16 && checkpoint.Bytes[6] == 84 && checkpoint.Bytes[7] == 87,
-            "current v16/protocol84 explicitly declares native touch, pickup, grant, grapple and Parkour pose features");
+        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 16 && checkpoint.Bytes[6] == 85 && checkpoint.Bytes[7] == 87,
+            "current v16/protocol85 explicitly declares native touch, pickup, grant, grapple and Parkour pose features");
         restored.RestoreCheckpoint(checkpoint);
         check(restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
             "v16 roundtrip preserves both nonzero touch and complete pickup state");

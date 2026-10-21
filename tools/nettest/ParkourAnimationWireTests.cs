@@ -52,7 +52,7 @@ internal static class ParkourAnimationWireTests
 
     private static void IntentCodecs()
     {
-        Check(NetConfig.ProtocolVersion == 84 && IntentPacket.Protocol80TouchSize == 1296
+        Check(NetConfig.ProtocolVersion == 85 && IntentPacket.Protocol80TouchSize == 1296
             && IntentPacket.Protocol82TouchSize == 1298 && IntentPacket.TouchCanonicalSize == 1299
             && CompactIntentCodec.HeaderSize == 136 && FireEvent.Size == 74,
             "literal84 phase extension preserves published touch/nonce/fire widths");
@@ -117,6 +117,7 @@ internal static class ParkourAnimationWireTests
                 && Refused(() => CompactIntentCodec.Size(invalid)), "compact invalid phase preflight is atomic " + phase);
             Check(Refused(() => new PlayerState { MantleVisualPhase = (byte)phase }.Write(destination))
                 && destination.All(b => b == 0xa5), "canonical player invalid phase write is atomic " + phase);
+            if (phase < 208) continue; // packed0..12 wall cues are valid;13..15 are reserved
             byte[] bad = good.ToArray(); bad[1298] = (byte)phase; var read = valid;
             Check(Refused(() => read = IntentPacket.Read(bad)) && read.MantleVisualPhase == 7
                 && read.Frame == valid.Frame && bad.AsSpan(0, 1298).SequenceEqual(good.AsSpan(0, 1298)),
@@ -131,14 +132,14 @@ internal static class ParkourAnimationWireTests
             "compact short write preflight leaves destination unchanged");
     }
 
-    private static byte[] Snapshot(byte phase, byte count = 1)
+    internal static byte[] Snapshot(byte phase, byte count = 1, byte wall = 0)
     {
         byte[] bytes = new byte[23 + count * 192 + NetMatchTimeSync.Size + NetHealthSync.HeaderSize];
         new SnapshotHeader { MatchId = 7, AuthorityEpoch = 8, Frame = 100, PlayerCount = count }.Write(bytes);
         for (byte slot = 0; slot < count; slot++)
             new PlayerState { SlotIndex = slot, SlotGeneration = 2, LifeId = 3, Flags = PlayerState.FlagSpawned,
                 Health = 80, Facing = Vector3.UnitZ, Crouched = true, Tucked = true, SpawnProtected = true,
-                HalfturretActive = true, MantleVisualPhase = phase }.Write(bytes.AsSpan(23 + slot * 192));
+                HalfturretActive = true, MantleVisualPhase = phase, WallVisualCue = wall }.Write(bytes.AsSpan(23 + slot * 192));
         BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(bytes.Length - NetHealthSync.HeaderSize), 7);
         return bytes;
     }
@@ -197,11 +198,11 @@ internal static class ParkourAnimationWireTests
             for (int slot = 0; slot < 8; slot++) expected[24 + slot * stride + auxiliary] &= 15;
             Check(ReplayIdentityCompatibility.Convert(packet, protocol).SequenceEqual(expected) && packet.SequenceEqual(original),
                 "old82/83 reserved auxiliary nibble is cleared in full/fast without mutating archive");
-            Check(ReplayIdentityCompatibility.Convert(packet, 84).SequenceEqual(original), "current84 accepted phase survives exact packet boundary");
+            Check(ReplayIdentityCompatibility.Convert(packet, 84).SequenceEqual(original), "retained84 accepted mantle survives exact packet boundary");
         }
     }
 
-    private static ReplayReplicaState Seed(byte phase, ReplayCustomWeaponContext? custom)
+    internal static ReplayReplicaState Seed(byte phase, ReplayCustomWeaponContext? custom, byte wall = 0)
     {
         var state = new ReplayReplicaState();
         if (custom != null) state.EnableCustomInspection(ReplayCustomWeaponDescriptor.ForInspection(custom));
@@ -221,8 +222,8 @@ internal static class ParkourAnimationWireTests
         var roster = RosterPacket.Create(); roster.MatchId = 7; roster.AuthorityEpoch = 8; roster.Revision = 1;
         roster.Count = 1; roster.Slots[0] = 0; roster.Generations[0] = 2; roster.Names[0] = "phase-owner";
         packet = new byte[1 + RosterPacket.Size]; packet[0] = (byte)PacketType.Roster; roster.Write(packet.AsSpan(1)); state.Accept(packet, 13);
-        byte[] snapshot = Snapshot(phase); packet = new byte[1 + snapshot.Length]; packet[0] = (byte)PacketType.Snapshot; snapshot.CopyTo(packet, 1); state.Accept(packet, 14);
-        packet = new byte[2 + 1299]; packet[0] = (byte)PacketType.SlotIntent; Intent(phase).Write(packet.AsSpan(2)); state.Accept(packet, 15);
+        byte[] snapshot = Snapshot(phase, wall: wall); packet = new byte[1 + snapshot.Length]; packet[0] = (byte)PacketType.Snapshot; snapshot.CopyTo(packet, 1); state.Accept(packet, 14);
+        packet = new byte[2 + 1299]; packet[0] = (byte)PacketType.SlotIntent; var held = Intent(phase); held.WallVisualCue = wall; held.Write(packet.AsSpan(2)); state.Accept(packet, 15);
         return state;
     }
 
@@ -242,7 +243,7 @@ internal static class ParkourAnimationWireTests
             for (byte phase = 0; phase <= 15; phase++)
             {
                 var state = Seed(phase, custom ? context : null); byte[] bytes = state.CaptureCheckpoint().Bytes.ToArray();
-                Check(bytes[4] == (custom ? 17 : 16) && bytes[6] == 84 && bytes[7] == (custom ? 119 : 87), "current checkpoint explicit16/17 phase64 contract");
+                Check(bytes[4] == (custom ? 17 : 16) && bytes[6] == 85 && bytes[7] == (custom ? 119 : 87), "current checkpoint explicit16/17 phase64 contract");
                 var restored = new ReplayReplicaState(); Restore(restored, bytes);
                 Check(restored.CaptureCheckpoint().Bytes.SequenceEqual(bytes) && restored.TryGetPlayer(0, out var player)
                     && player.MantleVisualPhase == phase && restored.TryGetIntent(0, out var intent) && intent.MantleVisualPhase == phase
@@ -258,7 +259,7 @@ internal static class ParkourAnimationWireTests
                         && old.TryGetIntent(0, out intent) && intent.MantleVisualPhase == 0 && intent.GrappleRequestNonce == 0xbeef
                         && old.CaptureCheckpoint().Bytes.SequenceEqual(bytes), "native14/custom15 clears reserved auxiliary while retaining all archived facts");
                 }
-                for (int invalid = 16; invalid <= 255; invalid++)
+                for (int invalid = 208; invalid <= 255; invalid++)
                 {
                     byte[] bad = bytes.ToArray(); bad[phaseAt] = (byte)invalid;
                     Check(Refused(() => Restore(restored, bad)) && restored.CaptureCheckpoint().Bytes.SequenceEqual(bytes),

@@ -337,6 +337,7 @@ namespace MphRead.Mods.Network
                 Buttons = buttons,
                 GrappleRequestNonce = player.OwningScene.GameState.MovementModel == Mods.Movement.MovementModel.Parkour ? player.ModGrappleRequestNonce : (ushort)0,
                 MantleVisualPhase = player.ModLocalMantleVisualPhase,
+                WallVisualCue = player.ModLocalWallVisualCue,
                 // Digital keyboard/touch movement remains represented solely by
                 // Buttons. Only a real analogue source spends these two bytes,
                 // which lets the receiver distinguish full digital diagonals from
@@ -867,6 +868,7 @@ namespace MphRead.Mods.Network
             {
                 player.ModApplyReplicatedGrapple(state.Grapple, state.SlotGeneration, state.LifeId);
                 player.ModApplyReplicatedMantleVisual(state.Health > 0 ? state.MantleVisualPhase : (byte)0, _host.IsReplica ? _host.Frame : NetSession.LastSnapshotFrame, isLocal);
+                player.ModApplyReplicatedWallVisual(state.Health > 0 ? state.WallVisualCue : (byte)0, _host.IsReplica ? _host.Frame : NetSession.LastSnapshotFrame, isLocal, state.WallVisualRevision);
                 player.ModResetTraversalStance();
                 if (state.Health == 0 && player.Health > 0) _host.ReplayDeath(player);
                 player.Health = state.Health;
@@ -918,6 +920,7 @@ namespace MphRead.Mods.Network
             ApplyAfflictions(player, state);
             player.ModApplyReplicatedGrapple(state.Grapple, state.SlotGeneration, state.LifeId);
             player.ModApplyReplicatedMantleVisual(state.Health > 0 ? state.MantleVisualPhase : (byte)0, _host.IsReplica ? _host.Frame : NetSession.LastSnapshotFrame, isLocal);
+                player.ModApplyReplicatedWallVisual(state.Health > 0 ? state.WallVisualCue : (byte)0, _host.IsReplica ? _host.Frame : NetSession.LastSnapshotFrame, isLocal, state.WallVisualRevision);
             if (formWasNew && !waitingForForm && _authorityForms[slot].Known
                 && _authorityForms[slot].State.Frame == state.Form.Frame)
                 NetCampaignEvidence.Form(state, player, isLocal);

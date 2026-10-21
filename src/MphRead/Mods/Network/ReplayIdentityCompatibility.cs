@@ -25,14 +25,14 @@ internal static class ReplayIdentityCompatibility
 
     internal static ReadOnlySpan<byte> NormalizeLegacyParkourPose(ReadOnlySpan<byte> packet, int protocol)
     {
-        if (protocol >= 84 || packet.IsEmpty) return packet;
+        if (protocol >= 85 || packet.IsEmpty) return packet;
         PacketType type = (PacketType)packet[0];
         if (type is PacketType.Intent or PacketType.SlotIntent)
         {
             int prefix = type == PacketType.Intent ? 1 : 2;
             Require(packet.Length >= prefix + IntentPacket.Size && packet.Length <= prefix + IntentPacket.TouchCanonicalSize);
             byte[] result = new byte[prefix + IntentPacket.TouchCanonicalSize];
-            packet.CopyTo(result); result[^1] = 0;
+            packet.CopyTo(result); result[^1] = protocol < 84 ? (byte)0 : (byte)(result[^1] & 15);
             return result;
         }
         if (type is PacketType.Snapshot or PacketType.SnapshotFast)
@@ -45,11 +45,15 @@ internal static class ReplayIdentityCompatibility
             Require(packet.Length >= 1 + SnapshotHeader.Size + header.PlayerCount * stride);
             bool reserved = false;
             for (int slot = 0; slot < header.PlayerCount; slot++)
-                reserved |= (packet[1 + SnapshotHeader.Size + slot * stride + auxiliary] & 0xf0) != 0;
+                reserved |= (protocol < 84 && (packet[1 + SnapshotHeader.Size + slot * stride + auxiliary] & 0xf0) != 0)
+                    || (type == PacketType.Snapshot && (packet[1 + SnapshotHeader.Size + slot * stride + PlayerState.Protocol80Size] & 0xf0) != 0);
             if (!reserved) return packet;
             byte[] result = packet.ToArray();
             for (int slot = 0; slot < header.PlayerCount; slot++)
-                result[1 + SnapshotHeader.Size + slot * stride + auxiliary] &= 15;
+            {
+                if (protocol < 84) result[1 + SnapshotHeader.Size + slot * stride + auxiliary] &= 15;
+                if (type == PacketType.Snapshot) result[1 + SnapshotHeader.Size + slot * stride + PlayerState.Protocol80Size] &= 15;
+            }
             return result;
         }
         return packet;

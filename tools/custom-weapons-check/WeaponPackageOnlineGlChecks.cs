@@ -323,7 +323,7 @@ var fileBaseline=capturedWorlds.First(item=>item.Name=="before-pickup");
                     {
                         uint fileOrigin=fileSource.Session.RecordingFrame;string filePath=Path.Combine(output,"actual-full-custom"+DemoFile.Extension);
                         var fileMetadata=baselineWorld.ClipMetadata(0,Array.Empty<ReplayPlayerInfo>());
-                        Check(fileMetadata.ProtocolVersion==84&&baselineWorld.DecoderState().Bytes[4]==17,"new full custom file records current84/checkpoint17 while world12 appendix15 remains unchanged");
+                        Check(fileMetadata.ProtocolVersion==85&&baselineWorld.DecoderState().Bytes[4]==17,"new full custom file records current85/checkpoint17 while world12 appendix15 remains unchanged");
                         uint betweenFrame=checked(namedFileFrames.Single(item=>item.Name=="accepted-launch").Frame+5);
                         while(betweenFrame<fullInspection.RecordingFrame&&namedFileFrames.Any(item=>item.Frame==betweenFrame))betweenFrame++;
                         Check(betweenFrame>fileOrigin&&betweenFrame<fullInspection.RecordingFrame&&!namedFileFrames.Any(item=>item.Frame==betweenFrame),"genuine non-indexed between target fits accepted stream");
@@ -429,12 +429,12 @@ var fileBaseline=capturedWorlds.First(item=>item.Name=="before-pickup");
                     var replicaBytes=replicaPrefix.CaptureCheckpoint();
                     if(!backwards&&index==completePoints[0])
                     {
-                      foreach(byte archiveProtocol in new byte[]{84,83})
+                      foreach(byte archiveProtocol in new byte[]{85,84,83})
                       {
-                        string archivePath=Path.Combine(output,(archiveProtocol==84?"actual-custom":"actual-custom-retained83")+DemoFile.Extension);
+                        string archivePath=Path.Combine(output,(archiveProtocol==85?"actual-custom":"actual-custom-retained"+archiveProtocol)+DemoFile.Extension);
                         var match=replicaPrefix.Match!.Value;uint origin=replicaPrefix.RecordingFrame;
-                        var archiveCheckpoint=archiveProtocol==84?replicaBytes:new ReplayReplicaCheckpoint(Protocol83CheckpointFixtures.ToProtocol83(replicaBytes.Bytes));
-                        Check(archiveCheckpoint.Bytes[6]==archiveProtocol&&BinaryPrimitives.ReadUInt16LittleEndian(archiveCheckpoint.Bytes[4..])==(archiveProtocol==84?17:15),"actual suffix archive uses exact current17 or authentic retained83/15 construction rows");
+                        var archiveCheckpoint=archiveProtocol==85?replicaBytes:new ReplayReplicaCheckpoint(archiveProtocol==84?Protocol84CheckpointFixtures.ToProtocol84(replicaBytes.Bytes):Protocol83CheckpointFixtures.ToProtocol83(replicaBytes.Bytes));
+                        Check(archiveCheckpoint.Bytes[6]==archiveProtocol&&BinaryPrimitives.ReadUInt16LittleEndian(archiveCheckpoint.Bytes[4..])==(archiveProtocol>=84?17:15),"actual suffix archive uses exact current17 or authentic retained83/15 construction rows");
                         var metadata=new ReplayMetadata{FormatVersion=7,ProtocolVersion=archiveProtocol,CustomWeapons=inspectionDescriptor,
                             RoomKey=match.RoomKey,Mode=(GameMode)match.Mode,OriginRecordingFrame=origin,
                             Bootstrap=new ReplayBootstrap{Packets=new[]{ReplayTimelineArchive.Construction(archiveCheckpoint)}}};
