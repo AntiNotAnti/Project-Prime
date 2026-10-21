@@ -1,5 +1,9 @@
 # Normal Dark Samus source ball in local matches
 
+Merged in [PR955](https://github.com/AntiNotAnti/Project-Prime/pull/955) at
+`b8b0cd84a4da5a28bad8380af623b53660aef1ef`. Its tree exactly matches qualified
+head `710e6a8e040aa06d436976dbf3381ef0705bb238`.
+
 The normal Echoes appearance selected through Hunters now uses its own source
 ball in local offline Samus matches. It reuses the existing transactional import,
 full source-rig loader, per-player appearance owner, Scene GX graph and native

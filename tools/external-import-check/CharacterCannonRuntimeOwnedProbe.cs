@@ -157,11 +157,11 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     if(probeBall)
                     {
                         Check(expectsBall?owner is {BallCurrent:true}&&sourceBall!=null:sourceBall==null,
-                            "only normal local-body selection owns the original source ball; Final keeps its native ball");
+                            "each local Echoes selection owns its exact original or composite source ball; native has no source ball");
                         if(expectsBall)
                         {
-                            Check(sourceBall!.Joints.Count==2&&sourceBall.IndexCount==2220*3&&sourceBall.SourceCannon==null,
-                                "original source ball retains full two-joint geometry without cannon cut");
+                            Check(sourceBall!.Joints.Count==2&&sourceBall.IndexCount==(final?8170:2220)*3&&sourceBall.SourceCannon==null
+                                &&sourceBall.IsFinalSourceBall==final,"each source ball retains its own complete two-joint geometry without cannon cut");
                             ballGeometry=(CharacterWeightedModelData)typeof(CharacterWeightedRenderModel).GetField("_sourceGeometry",Hidden)!.GetValue(sourceBall)!;
                             Check(selection!.Pack.TryResolvePrivate(Hunter.Samus,selection.SelectedAppearance,CharacterModelPart.AlternateForm,0,out var ballAsset)
                                 &&selection.Pack.TryCreateSourcePreviewLease(ballAsset,out _),"actual ball has its own admitted load-boundary lease");
@@ -169,7 +169,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             var ready=CharacterSourceClip.Load(ballLease,ballAsset,ballGeometry.SourceRig!,1).Sample(0);
                             ballSkin=ballGeometry.SourceRig!.Evaluate(ready,ballGeometry.Joints);
                             var posed=new List<Vector3>();var minimum=new Vector3(float.PositiveInfinity);var maximum=new Vector3(float.NegativeInfinity);
-                            foreach(var primitive in ballGeometry.Primitives)foreach(var vertex in primitive.Vertices)
+                            foreach(var primitive in ballGeometry.Primitives.Where(p=>!final||p.SourceMaterialOrdinal==0))foreach(var vertex in primitive.Vertices)
                             {
                                 var point=Vector3.Zero;var position=new Vector3(vertex.Position.X,vertex.Position.Y,vertex.Position.Z);
                                 for(int influence=0;influence<4;influence++)if(vertex.Weights[influence]>0)
@@ -181,8 +181,14 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             ballRadiusError=Math.Abs(fittedRadius-Fixed.ToFloat(player.Values.AltColRadius));
                             Check(Vector3.TransformPosition(ballCenter,owner!.BallFit).Length<.00001&&ballRadiusError<.00001,
                                 "all original ready-pose vertices fit the unchanged native collision sphere radius and centre");
-                            Check(sourceBall.Segments.All(s=>s.SourceGx is {} gx&&gx.Program.DrawPass==CharacterSourceGxProgram.Pass.Opaque),
-                                "normal ball compiles its own complete opaque source material");
+                            Check(final?sourceBall.Segments.Count==6
+                                &&sourceBall.Segments.Select(s=>s.SourceGx!.Program.DrawPass).SequenceEqual(new[]{CharacterSourceGxProgram.Pass.Alpha,
+                                    CharacterSourceGxProgram.Pass.Additive,CharacterSourceGxProgram.Pass.Opaque,CharacterSourceGxProgram.Pass.Additive,
+                                    CharacterSourceGxProgram.Pass.Additive,CharacterSourceGxProgram.Pass.Opaque})
+                                &&sourceBall.Segments.Select(s=>s.SourceGx!.Program.DrawCopies).SequenceEqual(new[]{1,2,1,2,2,1})
+                                &&sourceBall.Segments.Select(s=>s.SourceGx!.Program.FrontFacesOnly).SequenceEqual(new[]{false,true,false,false,false,false})
+                                :sourceBall.Segments.All(s=>s.SourceGx is {} gx&&gx.Program.DrawPass==CharacterSourceGxProgram.Pass.Opaque),
+                                "normal opaque and Final six-batch shell/vent/vessel/line/heart material policies remain distinct and complete");
                         }
                     }
                     var canonicalMaterials=expectsCannon?canonicalByAppearance[selection!.SelectedAppearance]:null;
@@ -489,13 +495,20 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                 var expected=owner!.BallFit*roll;var center=drawPosition.AddY(Fixed.ToFloat(player.Values.AltColYPos));
                                 foreach(var item in balls)
                                 {
+                                    var segment=sourceBall!.Segments.Single(s=>s.ListId==item.ListId);
+                                    Check(owner.BallMaterialSeconds==owner.BallCompletedSteps/60d,"ball material time and heartbeat share completed source step authority");
+                                    double phase=(owner.BallCompletedSteps%48)/48d;
+                                    double G(double c,double w)=>Math.Exp(-Math.Pow((phase-c)/w,2));
+                                    float beat=(float)(1+.3*G(.26,.07)+.15*G(.55,.06)-.3*G(.10,.05)-.18*G(.42,.045));
+                                    var heart=final&&segment.SourcePrimitiveOrdinal==5
+                                        ?Matrix4.CreateTranslation(-ballCenter)*Matrix4.CreateScale(beat)*Matrix4.CreateTranslation(ballCenter):Matrix4.Identity;
+                                    var expectedPart=heart*expected;
                                     double error=(Vector3.TransformPosition(ballCenter,item.Transform)-center).Length;
                                     maxBallError=Math.Max(maxBallError,error);
-                                    Check(error<.0001&&Distance(item.Transform,expected)<.0001,"original ready ball follows native interpolated roll and unchanged collision centre");
-                                    var segment=sourceBall!.Segments.Single(s=>s.ListId==item.ListId);
+                                    Check(error<.0001&&Distance(item.Transform,expectedPart)<.0001,"source ball follows native roll and sphere centre; only Final heart receives independently evaluated pulse");
                                     for(int slot=0;slot<segment.SourceJointPalette!.Count;slot++)
                                     {
-                                        var raw=ballSkin![segment.SourceJointPalette[slot]];double delta=Distance(ReadMatrix(item.MatrixStack,slot*16),raw*expected);
+                                        var raw=ballSkin![segment.SourceJointPalette[slot]];double delta=Distance(ReadMatrix(item.MatrixStack,slot*16),raw*expectedPart);
                                         maxBallError=Math.Max(maxBallError,delta);
                                         Check(delta<.0001&&Distance(ReadMatrix(segment.SourceMatrixPalette!,slot*16),raw)<.00002,
                                             "fixed original two-joint source skin composes with native roll once without raw travel or native palette substitution");
@@ -505,7 +518,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                             }
                             else if(player.IsAltForm)ballFallback++;
                             if(player.IsMorphing||player.IsUnmorphing||!player.IsAltForm||!expectsBall)
-                                Check(balls.Count==0,"both morph transitions, Final and native choices retain complete native ball presentation");
+                                Check(balls.Count==0,"both morph transitions and native choices retain complete native ball presentation");
                         }
                         Check(items.All(item=>item.ViewModel),"first-person source collection contains only viewmodel geometry");
                         if(items.Count>0)
@@ -552,6 +565,19 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         if(player.IsAltForm||player.IsMorphing||player.IsUnmorphing||player.CurrentWeapon!=BeamType.PowerBeam)
                             Check(items.Count==0,"native form/weapon transitions have zero partial source cannon submissions");
                         Check(scene.OnRenderFrame(),"actual native Scene renders first-person cannon frame");
+                        if(probeBall&&BallItems(scene).Count>0)
+                        {
+                            var worldProjection=(Matrix4)typeof(Scene).GetField("_perspectiveMatrix",Hidden)!.GetValue(scene)!;
+                            foreach(var group in BallItems(scene).GroupBy(i=>i.SourceGx!.Binding.ProgramId))
+                            {
+                                int program=group.Key;float[] projectionValues=new float[16],skinValues=new float[16];
+                                GL.GetUniform(program,GL.GetUniformLocation(program,"gx_projection"),projectionValues);
+                                GL.GetUniform(program,GL.GetUniformLocation(program,"gx_skin[0]"),skinValues);
+                                Check(Distance(ReadMatrix(projectionValues,0),worldProjection)<.00002
+                                    &&Distance(ReadMatrix(skinValues,0),ReadMatrix(group.Last().MatrixStack,0))<.00002,
+                                    "actual source-ball GPU uniforms retain world projection and latest part palette, including heart pulse");
+                            }
+                        }
                         if(probeBall&&BallItems(scene).Count>0)
                         {
                             Matrix4 projection=(Matrix4)typeof(Scene).GetField("_perspectiveMatrix",Hidden)!.GetValue(scene)!;
@@ -624,7 +650,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                 NativeSha256Before=nativeBefore,NativeSha256After=nativeAfter,TemporaryDerivedDataDeleted=cleaned,Captures=captures,
                 Runs=runs.Select(run=>new{run.Identity,Frames=run.Trace.Length,GameplayTraceSha256=Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.Trace))),
                     run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError,run.FractionalSchedules,run.Ball}),
-                Scope="Actual owned offline input/Scene/GX; fixed "+(trooper?"Weavel/four Trooper206tri/35joint/three-material":"Samus/normal392tri+Final793tri/39joint/own source materials+Final shell alpha")+" source cannon; "+(probeBall?"normal2220tri/2joint source ball and native Final ball,1415-step parity trace with native roll/bomb/injected death/native respawn plus separately counted ball pause/guards/fractional schedules/retirement;":"675-step parity trace;")+" native muzzle/effect/weapon authority plus separately counted source-cannon simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
+                Scope="Actual owned offline input/Scene/GX; fixed "+(trooper?"Weavel/four Trooper206tri/35joint/three-material":"Samus/normal392tri+Final793tri/39joint/own source materials+Final shell alpha")+" source cannon; "+(probeBall?"normal2220tri and Final8170tri two-joint source balls with independent material/heart policy,1415-step parity trace with native roll/bomb/injected death/native respawn plus separately counted ball pause/guards/fractional schedules/retirement;":"675-step parity trace;")+" native muzzle/effect/weapon authority plus separately counted source-cannon simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
                 Unqualified=new[]{"physical controls","Android/macOS","online/replay","source cannon skeletal animation","other weapons","achieved refresh rate","visual art completeness"}}));
         }
         return error==null?0:1;
