@@ -231,7 +231,7 @@ internal static class CharacterDroneSourceOwnedProbe
             check(separate.Files.Count==12&&state.Files.All(f=>HashFile(f)==HashFile(separate.Files.Single(g=>Path.GetFileName(g)==Path.GetFileName(f)))),"group and individual source-authority exports produce byte-identical12 components");
             foreach(string path in state.Files)
             {byte[] saved=File.ReadAllBytes(path),changed=saved.ToArray();changed[^1]^=1;try{File.WriteAllBytes(path,changed);check(RetroCharacterPreviewExporter.InspectBundle(imports,id).State!=ImportBundleState.Ready,"any changed own component refuses complete authoring admission");}finally{File.WriteAllBytes(path,saved);}}
-            result.Add(new{Id=id,Triangles=1390,Joints=33,Programs=2,ExactGeometry=geometry,RequiredClipSamples=samples,MaterialSha256=Sha(materialBytes),BankSha256=Sha(bankBytes),GraphSha256=Sha(descriptor),Components=state.Files.OrderBy(Path.GetFileName).Select(f=>new{Name=Path.GetFileName(f),Sha256=HashFile(f)})});
+            result.Add(new{Id=id,Triangles=1390,Joints=33,Programs=2,ExactGeometry=geometry,RequiredClipSamples=samples,MaterialSha256=Sha(materialBytes),BankSha256=Sha(bankBytes),GraphSha256=Sha(descriptor),Components=state.Files.OrderBy(Path.GetFileName).Select(f=>new{Name=Path.GetFileName(f),Sha256=HashFile(f)}).ToArray()});
         }
         CheckOldTroopers(imports,check);
         string mixed=Path.Combine(temporary,"mixed");var allIds=TrooperIds.Concat(DroneIds).ToArray();
