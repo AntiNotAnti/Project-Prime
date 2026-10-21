@@ -55,7 +55,7 @@ internal static partial class RmlUiOpenGlSmoke
     {
         if (!CapturesInput || _host is not { Active:true } host
             || _inputWindow is not { IsFocused:true } || GameplayOpen && !GameplayLeaseCurrent) return;
-        if (_fullSettings?.ControllerBindingCaptureActive == true) return;
+        if (MphRead.Mods.Launcher.Gui.Shell.RmlUiMatchStartVisible || _fullSettings?.ControllerBindingCaptureActive == true) return;
         if (action == UiAction.Back) { BackNativeMenu(); return; }
         if (host.TryGetTextInputState(out var composition) && composition.Composing) return;
         if (_hudEditor?.HandleController(action, host.FocusedElement() == "hud_canvas") == true) return;

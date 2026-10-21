@@ -91,9 +91,21 @@
 .lobby_action.primary:hover, .lobby_action.primary:focus, .lobby_action.start:hover, .lobby_action.start:focus { border-top-color:#d3efff; }
 #lobby_leave { position:absolute; bottom:12dp; left:24dp; min-width:96dp; height:48dp; }
 .lobby_action.danger:hover, .lobby_action.danger:focus { background-color:#6b2631; border-color:#ff8794; }
-#lobby_countdown { position:absolute; left:0; top:0; width:100%; height:100%; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; background-color:rgba(3,12,22,96%); }
-#lobby_countdown_number { color:#d3efff; font-size:90dp; }
-#lobby_countdown_detail { color:#deefff; font-size:24dp; }
+#lobby_countdown { position:absolute; left:0; top:0; width:100%; height:100%; z-index:100; display:flex; align-items:center; justify-content:center; background-color:#020d17; }
+#lobby_countdown_card { position:relative; width:460dp; max-width:92%; padding:28dp; text-align:center; background-color:#061c2c; border:1dp #426983; border-top:3dp #49caff; }
+#lobby_countdown_card .eyebrow { margin-bottom:10dp; }
+#lobby_countdown_map { color:#eaf6ff; font-size:20dp; line-height:24dp; font-weight:bold; word-break:break-word; }
+#lobby_countdown_number { margin:16dp 0; color:#d3efff; font-size:84dp; line-height:92dp; font-weight:bold; }
+.lobby_countdown_rule { height:2dp; width:64dp; margin:0 auto 16dp; background-color:#49caff; }
+#lobby_countdown_detail { color:#deefff; font-size:16dp; line-height:22dp; white-space:normal; }
+.lobby_countdown_hint { margin-top:16dp; color:#8eafc7; font-size:12dp; line-height:16dp; letter-spacing:1dp; }
+@media (max-height:500dp) {
+    #lobby_countdown_card { padding:12dp; }
+    #lobby_countdown_number { margin:6dp 0; font-size:48dp; line-height:52dp; }
+    #lobby_countdown_map { font-size:16dp; line-height:20dp; }
+    .lobby_countdown_rule { margin-bottom:8dp; }
+    .lobby_countdown_hint { margin-top:8dp; }
+}
 #lobby_social_access { nav-up:#nav_play; nav-down:#lobby_player0; }
 #lobby_ready { nav-left:#lobby_leave; nav-right:#lobby_hunter; nav-up:#lobby_chat_input; }
 #lobby_hunter { nav-left:#lobby_ready; nav-right:#lobby_suit; }

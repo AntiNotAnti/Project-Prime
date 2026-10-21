@@ -141,11 +141,18 @@ namespace MphRead.Mods.Launcher.Gui
         // handoff and gameplay. It must never create a second NetSession owner.
         private static bool _rmlUiPreferLegacyLobby;
         private static bool _rmlUiPreferLegacyNews;
+        // Keep the native surface through the existing server-owned start
+        // barrier, even after MatchStart has installed its frozen Scene.
+        internal static bool RmlUiMatchStartVisible => Active && _window != null && _front != null
+            && _front.Prime.Router.Current == PrimeRoute.Lobby
+            && NetSession.Active && NetSession.PersistentLobby
+            && (_window.HasScene ? _matchLoading : NetSession.IsStarting);
+
         internal static bool RmlUiCanPresent
         {
             get
             {
-                if (!Active || _window == null || _window.HasScene || _front == null) return false;
+                if (!Active || _window == null || (_window.HasScene && !RmlUiMatchStartVisible) || _front == null) return false;
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
                 if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeStartupOpen) return true;
                 if (MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.NativeGameFilesOpen) return true;

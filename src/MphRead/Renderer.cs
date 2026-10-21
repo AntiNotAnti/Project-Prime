@@ -9478,12 +9478,17 @@ localCenter *= _profileHudScale;
 #if MPHREAD_SHELL
             using (Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.Ui))
             {
-            Mods.Render.UiOverlay.Draw(PixelSize.X, PixelSize.Y);
+            bool nativeMatchStart = false;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            nativeMatchStart = Mods.Launcher.Gui.Shell.RmlUiMatchStartVisible
+                && Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.BeforeLauncherComposite(this);
+#endif
+            if (!nativeMatchStart) Mods.Render.UiOverlay.Draw(PixelSize.X, PixelSize.Y);
             // The real hunter, over the screens, when a screen is asking for
             // one during a match -- which is the results panel. Under the
             // texture is where the world's own pass would put it, and the
             // panel it goes in is opaque, so under is behind a card.
-            Mods.Render.LauncherHunter.Draw(this, PixelSize.X, PixelSize.Y);
+            if (!nativeMatchStart) Mods.Render.LauncherHunter.Draw(this, PixelSize.X, PixelSize.Y);
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.Draw(this);
 #endif

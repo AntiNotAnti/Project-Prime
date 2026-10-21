@@ -536,7 +536,8 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
 
     public RmlUiLobbyChrome ReadLobbyChrome()
     {
-        if (!NetSession.IsInLobby || NetSession.ServerSession is not { } session)
+        if (!NetSession.Active || !NetSession.PersistentLobby || NetSession.ServerSession is not { } session
+            || session.Phase is not (SessionPhase.Lobby or SessionPhase.Starting))
         {
             RetireMapPreview();
             _mapPreviews.Read("");
@@ -557,15 +558,14 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
             : session.Phase == SessionPhase.Starting ? "STARTING MATCH" : "MAP READY";
         string preview = _mapPreviews.Read(ThumbnailGenerator.PathFor(match.RoomKey));
         bool generatingPreview = preview.Length == 0 && EnsureMapPreview(match.RoomKey);
+        var start = RmlUiLobbyStartPresentation.Read(session, NetSession.StartCountdownRemainingSeconds);
         return new(time, score, history, status, field,
             preview.Length != 0 ? "MAP: " + match.RoomKey
             : generatingPreview ? "MAP: " + match.RoomKey + " // GENERATING PREVIEW"
             : String.IsNullOrWhiteSpace(NetSession.MapPreparationMessage)
                 ? "MAP: " + match.RoomKey + " // PREVIEW NOT AVAILABLE"
                 : NetSession.MapPreparationMessage,
-            session.Phase == SessionPhase.Starting ? "STARTING" : "",
-            session.Phase == SessionPhase.Starting
-                ? NetSession.LobbyMessage : "") { MapPreviewPath = preview };
+            start.Number, start.Detail) { MapPreviewPath = preview };
     }
 
     public bool SendLobbyChat(string message)
