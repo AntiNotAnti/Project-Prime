@@ -99,7 +99,7 @@ BEGIN
       jsonb_set(sample.payload, '{match_id}', to_jsonb(test_match::text)),
       array['participants', guest_index::text, 'player_id'], 'null'::jsonb);
     result := public.ingest_project_prime_career_match(
-      report, sample.server_id, sample.trust_class, repeat('G',64), report::text);
+      report, sample.server_id, sample.trust_class, repeat('D',64), report::text);
     select count(*) into tx_count from prime.rating_transactions
      where "MatchId" = test_match;
     if result->>'rating_status' <> 'ineligible' or tx_count <> 0 then
