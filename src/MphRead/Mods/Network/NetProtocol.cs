@@ -2634,6 +2634,7 @@ namespace MphRead.Mods.Network
         // Protocol77 adds Parkour profile v1 at model4 / modifier bit19; packet widths remain unchanged.
         // Protocol78 selects Parkour v2 wall-strafe policy; native packet widths and protocol77 tuck boundaries remain unchanged.
         // Protocol79 selects Parkour v3; packet widths and historical stance boundaries remain unchanged.
+        // Protocol80 selects Parkour v4 mantle; packet widths and historical stance boundaries remain unchanged.
         public const int ProtocolVersion = 80;
         /// <summary>
         /// Frames between intent packets. One, so every frame.

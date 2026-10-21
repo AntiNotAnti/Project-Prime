@@ -63,6 +63,7 @@ internal static class PartyProtocolAcceptance
         Check(!QueueHelloPacket.TryRead(Convert.FromHexString("3951040302010807060504030201"),out _),"literal future81 QueueHello refused by protocol80 live admission");
         Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394A040302010807060504030201"),out _),"literal protocol74 QueueHello refused by protocol80 live admission");
         Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394B040302010807060504030201"),out _),"literal protocol75 QueueHello refused by protocol80 live admission");
+        Check(!QueueHelloPacket.TryRead(Convert.FromHexString("394F040302010807060504030201"),out _),"literal protocol79 QueueHello refused by protocol80 live admission");
         var hello=new QueueHelloPacket(NetConfig.ProtocolVersion,0x01020304,0x0102030405060708);var h=new byte[QueueHelloPacket.Size];hello.Write(h);
         Check(Convert.ToHexString(h)=="39"+NetConfig.ProtocolVersion.ToString("X2")+"040302010807060504030201"&&h.AsSpan(2).SequenceEqual(legacyHello.AsSpan(2))&&QueueHelloPacket.TryRead(h,out _),"current QueueHello preserves historical payload bytes and changes only its version byte");
         var join=new QueueJoinPacket(0x0102030405060708);var j=new byte[QueueJoinPacket.Size];join.Write(j);

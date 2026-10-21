@@ -44,4 +44,32 @@ internal sealed partial class CharacterModelPack
         if (path != captured.Path || CharacterSourceProofIO.HashFile(path, RetroCharacterMaterialArchive.MaxArchiveBytes) != captured.Materials.Archive.Sha256)
             throw new InvalidDataException("Captured source material generation changed.");
     }
+
+    // The generated normal cannon is a whole-triangle cut of this exact body,
+    // not a second CMDL/material edition. Publish both before issuing live leases.
+    internal void CaptureGeneratedNormalCannonMaterials(CharacterModelAsset body, CharacterModelAsset cannon)
+    {
+        if (!_sourceMaterials.TryGetValue(body, out var captured)
+            || !_sourceProofs.TryGetValue(body, out var bodyProof)
+            || !_sourceProofs.TryGetValue(cannon, out var cannonProof)
+            || body.Part != CharacterModelPart.Biped || cannon.Part != CharacterModelPart.ViewModel
+            || body.PrivateAppearance != CharacterSourcePreviewSelection.Appearance
+            || cannon.PrivateAppearance != body.PrivateAppearance || cannon.ModelPath != body.ModelPath
+            || bodyProof.SourceCharacter != "darksamus-echoes" || cannonProof.SourceCharacter != bodyProof.SourceCharacter
+            || bodyProof.ModelSha != GeneratedNormalSourceGlbSha256 || cannonProof.ModelSha != bodyProof.ModelSha
+            || !_sourceCannons.TryGetValue(cannon, out var recipe) || !recipe.IsGenerated)
+            throw new InvalidDataException("Same-generation generated normal body/cannon material authority required.");
+        ValidateAtGeneration(body, bodyProof.ModelSha, _sourceGeneration);
+        ValidateAtGeneration(cannon, cannonProof.ModelSha, _sourceGeneration);
+        lock (_sourceProofLock)
+        {
+            if (_sourceMaterials.TryGetValue(cannon, out var previous))
+            {
+                if (!ReferenceEquals(previous, captured)) throw new InvalidDataException("Cannon material identity changed.");
+                return;
+            }
+            _sourceMaterials.Add(cannon, captured);
+            _sourceGeneration++;
+        }
+    }
 }

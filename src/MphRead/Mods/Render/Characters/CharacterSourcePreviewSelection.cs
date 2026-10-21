@@ -21,11 +21,16 @@ internal sealed class CharacterSourcePreviewSelection
     internal IReadOnlyList<CharacterSourcePreviewClipChoice> Clips { get; }
     internal PrivateCharacterAppearance SelectedAppearance { get; }
     internal bool HasCannon { get; }
+    internal bool RuntimeCannon { get; }
     internal static readonly PrivateCharacterAppearance Appearance = new("darksamus", "MP2DarkSamus");
-    private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon)
-        => (Pack, Generation, Clips, SelectedAppearance, HasCannon) = (pack, generation, Array.AsReadOnly(clips), appearance, hasCannon);
+    private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon, bool runtimeCannon)
+        => (Pack, Generation, Clips, SelectedAppearance, HasCannon, RuntimeCannon) = (pack, generation, Array.AsReadOnly(clips), appearance, hasCannon, runtimeCannon);
 
     internal static CharacterSourcePreviewSelection Load(string id, CancellationToken cancellation, string? root = null)
+        => LoadCore(id, cancellation, root, runtimeCannon: false);
+    internal static CharacterSourcePreviewSelection LoadForLocalBody(string id, CancellationToken cancellation, string? root = null)
+        => LoadCore(id, cancellation, root, runtimeCannon: true);
+    private static CharacterSourcePreviewSelection LoadCore(string id, CancellationToken cancellation, string? root, bool runtimeCannon)
     {
         bool final = id == "darksamus-overcharged-echoes";
         if (!final && id != "darksamus-echoes") throw new NotSupportedException("Body source programs currently support normal and Overcharged Echoes. Other bundles remain available for authoring.");
@@ -45,6 +50,12 @@ internal sealed class CharacterSourcePreviewSelection
         if (!pack.TryResolvePrivate(Hunter.Samus, appearance, CharacterModelPart.Biped, 0, out var asset))
             throw new InvalidDataException("Generated source preview asset is unavailable.");
         pack.CaptureSourceMaterials(asset, id);
+        if (runtimeCannon && !final)
+        {
+            if (!pack.TryResolvePrivate(Hunter.Samus, appearance, CharacterModelPart.ViewModel, 0, out var cannonAsset))
+                throw new InvalidDataException("The generated normal source cannon is unavailable.");
+            pack.CaptureGeneratedNormalCannonMaterials(asset, cannonAsset);
+        }
         if (!pack.TryCreateSourcePreviewLease(asset, out var lease) || lease.SourceAnimations == null)
             throw new InvalidDataException("Generated source preview owner is unavailable.");
         // This product viewer admits the generated importer profile only.
@@ -79,6 +90,6 @@ internal sealed class CharacterSourcePreviewSelection
         }
         if (clips.Count == 0) throw new InvalidDataException("No qualified strict source clips are available.");
         lease.Require(asset); cancellation.ThrowIfCancellationRequested();
-        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, !final);
+        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, !final, runtimeCannon && !final);
     }
 }

@@ -576,6 +576,19 @@ namespace MphRead.NetTest
                 return TraversalStanceNetworkTests.RunScene(output);
             }
             if (args.Length > 0 && args[0] == "--traversal-stance-rules") return TraversalStanceTests.Run();
+            if (args.Length > 0 && args[0] == "--parkour-mantle-rules") return ParkourMantleTests.Run();
+            if (args.Length > 1 && args[0] == "--parkour-mantle-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-mantle";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourMantleSceneTests.Run(output);
+            }
             if (args.Length > 1 && args[0] == "--parkour-wallrun-scene")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;

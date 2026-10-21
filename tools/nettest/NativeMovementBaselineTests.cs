@@ -193,6 +193,15 @@ internal static class NativeMovementBaselineTests
 
     private static string SourceSha()
     {
+        string? frozenSha = Environment.GetEnvironmentVariable("PRIME_TEST_SOURCE_SHA");
+        if (frozenSha != null)
+        {
+            Require(frozenSha.Length == 40, "PRIME_TEST_SOURCE_SHA must be an exact committed 40-digit hexadecimal SHA");
+            foreach (char value in frozenSha)
+                Require(value is >= '0' and <= '9' or >= 'a' and <= 'f' or >= 'A' and <= 'F',
+                    "PRIME_TEST_SOURCE_SHA must be an exact committed 40-digit hexadecimal SHA");
+            return frozenSha.ToLowerInvariant();
+        }
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory != null && !File.Exists(Path.Combine(directory.FullName, ".git"))
             && !Directory.Exists(Path.Combine(directory.FullName, ".git"))) directory = directory.Parent;

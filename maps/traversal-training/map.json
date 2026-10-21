@@ -3,7 +3,7 @@
   "mapId": "5921dc1f-d901-4f4a-8368-cd1bb47d1000",
   "name": "TRAVERSAL TRAINING",
   "inGameName": "Traversal Training",
-  "description": "Original authored movement course with no imported assets. Uphill ramp: x=-30, z=-8..8, y=0..4. Surf and ordinary control: x=-10 and x=10, z=0..8, y=8..0; entry decks extend to z=-24. Tunnel: x=26..34, z=-10..10, clearance 1.2. Main floor is y=0; upright floor position is y=0.5.",
+  "description": "Original authored movement course with no imported assets. Uphill ramp: x=-30, z=-8..8, y=0..4. Surf and ordinary control: x=-10 and x=10, z=0..8, y=8..0; entry decks extend to z=-24. Tunnel: x=26..34, z=-10..10, clearance 1.2. Mantle lanes face +Z at z=17..21: x=-30 safe, -18 blocked roof, -6 excessive height, 6 narrow support, 18 thin side rail. Main floor is y=0; upright floor position is y=0.5.",
   "traversalTraining": true,
   "scaleFactor": 4,
   "killHeight": -12,
@@ -111,6 +111,55 @@
       "label": "Thin standing-clearance side rail",
       "transform": { "position": [38.75, 1.25, 27], "scale": [0.56, 0.02, 2] },
       "shade": 0.8
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1015",
+      "label": "Mantle broad safe ledge",
+      "transform": { "position": [-30, 0.5, 19], "scale": [6, 1, 4] },
+      "shade": 0.9
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1016",
+      "label": "Mantle blocked ledge",
+      "transform": { "position": [-18, 0.5, 19], "scale": [6, 1, 4] },
+      "shade": 0.7
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1017",
+      "label": "Mantle blocked route roof",
+      "transform": { "position": [-18, 2.2, 18], "scale": [6, 0.2, 6] },
+      "shade": 0.5
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1018",
+      "label": "Mantle excessive rise ledge",
+      "transform": { "position": [-6, 1, 19], "scale": [6, 2, 4] },
+      "shade": 0.6
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1019",
+      "label": "Mantle insufficient footprint ledge",
+      "transform": { "position": [6, 0.5, 19], "scale": [0.6, 1, 4] },
+      "shade": 0.6
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1020",
+      "label": "Mantle side rail ledge",
+      "transform": { "position": [18, 0.5, 19], "scale": [6, 1, 4] },
+      "shade": 0.7
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1021",
+      "label": "Mantle thin raised route side rail",
+      "transform": { "position": [18.49, 2, 17.5], "scale": [0.08, 0.02, 3] },
+      "shade": 0.5
     }
   ],
   "spawns": [

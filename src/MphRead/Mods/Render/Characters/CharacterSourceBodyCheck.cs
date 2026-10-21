@@ -27,6 +27,7 @@ internal static class CharacterSourceBodyCheck
             CheckRuntimeFences();
             CheckDrafts();
             CheckPosePolicy();
+            CheckCannonPolicy();
             CheckRetainedBarrier();
         }
         catch (Exception exception)
@@ -297,6 +298,16 @@ internal static class CharacterSourceBodyCheck
                 && !CharacterSourceBodyPose.Supports(invalid, PlayerAnimation.Idle)
                 && !CharacterSourceBodyPose.Supports(PlayerAnimation.Idle, invalid),
                 "unknown animation state never inherits imported pose authority");
+    }
+
+    private static void CheckCannonPolicy()
+    {
+        foreach (GunAnimation animation in Enum.GetValues<GunAnimation>())
+            Check(PlayerEntity.SourceCannonAnimationSupported(animation)
+                == (animation is GunAnimation.Idle or GunAnimation.Shot or GunAnimation.Charging
+                    or GunAnimation.FullCharge or GunAnimation.ChargeShot),
+                "fixed normal source cannon preserves native switch/raise/missile animations: " + animation);
+        Check(!PlayerEntity.SourceCannonAnimationSupported((GunAnimation)255), "unknown gun animation selects native presentation");
     }
 
     private static void CheckRetainedBarrier()

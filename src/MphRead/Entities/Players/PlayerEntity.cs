@@ -1281,6 +1281,7 @@ namespace MphRead.Entities
             ModCancelTraversalSlide(); _modCrouchWasDown = false;
             ModNoteMovementValidationTeleport();
             ModCancelParkourWallrun();
+            ModCancelParkourMantle();
             ModResetWallClingForLife();
             ScoutDroneMerge();
             ScoutDroneRetireFlights();
