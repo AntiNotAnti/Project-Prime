@@ -85,10 +85,10 @@ internal sealed class CharacterSourceDroneOwner : IDisposable, ICharacterSourceP
         _step=step;
         if(!Current){Ready=false;_pose.Suspend();return;}
         if(_life!=life){_life=life;CompletedSteps=0;_pose.Reset();}
-        Ready=supported&&CharacterSourceDronePose.Supports(_player.DroneFireState,_player.DroneFireFrame);
+        Ready=supported&&CharacterSourceDronePose.Supports(_player.ModSourceDroneState,_player.ModSourceDroneFrame);
         if(!Ready){_pose.Suspend();return;}
         CompletedSteps++;
-        _model.UpdateSourcePreviewPalette(_pose.Sample(_player.DroneFireState,_player.DroneFireFrame));
+        _model.UpdateSourcePreviewPalette(_pose.Sample(_player.ModSourceDroneState,_player.ModSourceDroneFrame));
     }
     internal bool Prepare(Matrix4 nativeFacing,out Matrix4 presentation)
     {

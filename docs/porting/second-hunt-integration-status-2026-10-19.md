@@ -75,6 +75,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [965](https://github.com/AntiNotAnti/Project-Prime/pull/965) | Current-picture own boost136 blue tint at native sampled brightness; transient Scene/packet ownership, reference/pool/guard isolation and combined main964 Windows gameplay/effect/trail parity; GL color state without visible-pixel claim | `11c94e1342129784d0d20cbb08801cdcbd02693a` |
 | [966](https://github.com/AntiNotAnti/Project-Prime/pull/966) | Independent Alpha/Gamma Rev2 source drone v1 bundles, full33-rig/raw materials/strict banks, unchanged52 Trooper components and edition-aware group import; Windows CPU/transaction qualification, no imported drone renderer/gameplay activation | `5927946086ea4dd0a97b0a935608c487bfc5cda7` |
 | [967](https://github.com/AntiNotAnti/Project-Prime/pull/967) | Explicit solo imported Alpha/Gamma Ready owners/full33 rig/two GX groups, private pinned-root loop, Hunters persistence, native attack/status fallback; Windows actual176324 checks/1418-step native trace parity, shader/clock/lifecycle and inspected/deleted captures | `76a8b84d1e6b5333981049e1a2b3818ca2ee4c76` |
+| [968](https://github.com/AntiNotAnti/Project-Prime/pull/968) | Source drone unfold/fire/fold driven by native phase and held Ready return; Windows244385 runtime checks, unchanged1418-step gameplay and separate420-step recovery trace, full rig/selected GPU uniforms and inspected/deleted captures | `72ff875c2443d8527f7bafd1a3c8f52ab68512e2` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -82,6 +83,15 @@ records its exact source and test scope. Merges follow local verification;
 this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
+
+The [Scout Drone laser runtime slice](second-hunt-scout-drone-laser-2026-10-21.md)
+adds the pinned source laser body pose across native windup/sweep/recovery while
+retaining the native cached beam and all gameplay. Windows364571 runtime checks
+pass with unchanged1418-step/420-step traces and a new3083-step trace across all
+four patterns, native cooldown, cloak recovery and near-wall collision. All26
+captured views were inspected and individually deleted; no beam/fit change was
+needed for the selected views. Source movement/hit and broader character work
+remain unfinished.
 
 The [Scout Drone burst runtime slice](second-hunt-scout-drone-burst-2026-10-21.md)
 adds source unfold/fire/fold driven by native counters, Snap entries and held

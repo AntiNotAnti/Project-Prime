@@ -130,8 +130,8 @@ Final qualification passes244,385 checks; the optional local capture run passes
 `7c760fc1f45cd04b62a7a2e7c8fae382b28c59f1f2de4b8ed27201453723736a`;
 compact receipt `source-drone-burst-qualified-receipt.json` SHA256 is
 `c02863bbaffe16204b99cf670b4702afe88d3bb5e6f4989eebad0551c0f27cdb`.
-Per source appearance the combined fixture observes4,316 source draw packets,
-300 native packets,2,845 repeated draws,2,158 complete33-joint CPU pose checks,
+Per source appearance the combined fixture observes4,316 source pictures,
+300 native pictures,2,845 repeated draws,2,158 complete33-joint CPU pose checks,
 1,405 phase checks and24 held-return fade steps. Counts include separately
 labeled guards and schedules, not just the canonical1,418-step trace.
 Alpha/Gamma source firing

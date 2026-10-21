@@ -16,9 +16,13 @@ public partial class PlayerEntity
         ModRetireSourceDrone();_sourceDrone=new(_scene,this,selection);
     }
     private void ModRetireSourceDrone(){_sourceDrone?.Dispose();_sourceDrone=null;}
+    // Presentation state4 is derived from the existing next laser counter.
+    // It has no authority over native attack state, cached ray or source events.
+    internal int ModSourceDroneState => _droneLaserFrame>=0?4:_droneFireState;
+    internal int ModSourceDroneFrame => _droneLaserFrame>=0?_droneLaserFrame:_droneFireFrame;
     private bool SourceDroneStateSupported => SourcePresentationStateSupported&&ScoutDroneEnabled
-        &&IsAltForm&&!IsMorphing&&!IsUnmorphing&&_droneLaserFrame<0
-        &&CharacterSourceDronePose.Supports(_droneFireState,_droneFireFrame);
+        &&IsAltForm&&!IsMorphing&&!IsUnmorphing
+        &&CharacterSourceDronePose.Supports(ModSourceDroneState,ModSourceDroneFrame);
     private bool ModTryDrawSourceDrone(Vector3 drawPosition,Vector3 drawFacing,Vector4? color,Vector4? outline)
     {
         if(_sourceDrone is not { } owner||!SourceDroneStateSupported||color!=null||outline!=null

@@ -7,12 +7,12 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render.Characters;
 
-// Presentation over native post-step burst state/frame. No gameplay events or clock.
+// Presentation over native post-step burst/laser state/frame. No gameplay events or clock.
 // Clip choices/Snap/held return fade adapted from SecondHunt DroneBody and
 // NativeBodyAnimator, 41452f2d (MIT, Copyright2020 NoneGiven; LICENSE retained).
 internal sealed class CharacterSourceDronePose
 {
-    internal static IReadOnlyList<int> RequiredOrdinals {get;}=Array.AsReadOnly(new[]{13,75,73,74});
+    internal static IReadOnlyList<int> RequiredOrdinals {get;}=Array.AsReadOnly(new[]{13,75,73,74,29});
     internal const double ReturnBlendSeconds=.12d;
     private readonly IReadOnlyDictionary<int,CharacterSourceClip> _clips;
     private Matrix4[]? _last,_from;
@@ -26,16 +26,17 @@ internal sealed class CharacterSourceDronePose
     internal IReadOnlyDictionary<int,CharacterSourceClip> Clips => _clips;
     internal CharacterSourceDronePose(IReadOnlyDictionary<int,CharacterSourceClip> clips)
     {
-        if(clips.Count!=4||RequiredOrdinals.Any(i=>!clips.TryGetValue(i,out var clip)||clip.Ordinal!=i
+        if(clips.Count!=5||RequiredOrdinals.Any(i=>!clips.TryGetValue(i,out var clip)||clip.Ordinal!=i
             ||clip.MotionPolicy!="drone-pinned-root-pelvis-v1"
             ||!CharacterGeneratedDroneProfile.MatchesClip(i,clip.ResourceId,clip.ContentSha256)))
-            throw new InvalidDataException("Exact four independently derived drone primitives required.");
+            throw new InvalidDataException("Exact five independently derived drone primitives required.");
         _clips=new ReadOnlyDictionary<int,CharacterSourceClip>(clips.ToDictionary(p=>p.Key,p=>p.Value));
     }
     internal static bool Supports(int state,int frame) => state switch
-    {0=>frame==0,1=>frame is >=0 and <32,2=>frame is >=0 and <150,3=>frame is >=0 and <24,_=>false};
+    {0=>frame==0,1=>frame is >=0 and <32,2=>frame is >=0 and <150,3=>frame is >=0 and <24,
+        4=>frame is >=0 and <134,_=>false};
     internal static int OrdinalForState(int state) => state switch
-    {0=>13,1=>75,2=>73,3=>74,_=>throw new ArgumentOutOfRangeException(nameof(state))};
+    {0=>13,1=>75,2=>73,3=>74,4=>29,_=>throw new ArgumentOutOfRangeException(nameof(state))};
     internal void Reset()
     {
         _last=_from=null;_previousState=-1;_fadeSteps=0;ReadyCompletedSteps=0;
@@ -54,7 +55,7 @@ internal sealed class CharacterSourceDronePose
                 if(_previousState>0)ReadyCompletedSteps=0;
                 _from=_last?.ToArray();_fadeSteps=0;
             }
-            else {_from=null;_fadeSteps=0;} // Snap all three authored burst entries.
+            else {_from=null;_fadeSteps=0;} // Snap authored burst and laser entries.
         }
         CurrentOrdinal=OrdinalForState(state);var clip=CurrentClip;
         // Native counters describe the post-step state. Advance the first
@@ -66,6 +67,9 @@ internal sealed class CharacterSourceDronePose
             1=>clip.Duration*Math.Min((nativeFrame+1)/32d,1),
             2=>((nativeFrame+1)/60d)%clip.Duration,
             3=>clip.Duration*Math.Min((nativeFrame+1)/24d,1),
+            // Public laser frame is the next native frame, including windup and
+            // recovery. Body pose never consumes source damage/sound events.
+            4=>clip.Duration*Math.Min((nativeFrame+1)/134d,1),
             _=>throw new InvalidOperationException()
         };
         var pose=clip.Sample(ClipSeconds).ToArray();BlendAmount=1;
