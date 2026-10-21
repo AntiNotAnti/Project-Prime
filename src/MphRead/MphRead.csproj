@@ -444,7 +444,7 @@
     </GetFileHash>
     <PropertyGroup>
       <_PrimeGeneratorSourceHashes>@(_PrimeGeneratorHashedSource->'%(FileHash)', '|')</_PrimeGeneratorSourceHashes>
-      <_PrimeGeneratorStamp>$([MSBuild]::GetHash('SHA256', '$(_PrimeGeneratorSourceHashes)'))</_PrimeGeneratorStamp>
+      <_PrimeGeneratorStamp>$([MSBuild]::StableStringHash('$(_PrimeGeneratorSourceHashes)', 'Sha256'))</_PrimeGeneratorStamp>
     </PropertyGroup>
     <ItemGroup>
       <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
