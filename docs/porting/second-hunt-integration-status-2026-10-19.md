@@ -66,6 +66,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [944](https://github.com/AntiNotAnti/Project-Prime/pull/944) | Normal imported first-person Power Beam cannon, exact body/cut material generation, native muzzle/effect alignment and authored ViewModel projection; fractional late-aim and Parkour-state native fallback checks | `67fc370548c7fec4b59327e37208bedd1f07fcac` |
 | [945](https://github.com/AntiNotAnti/Project-Prime/pull/945) | Complete raw Prime Rev2 Trooper material/TXTR authoring in existing transactions; exact actual v3 upgrade/cancellation and all forty prior files preserved | `648c847d6182d0e6ddc0fd9f1f2739e2209a8231` |
 | [948](https://github.com/AntiNotAnti/Project-Prime/pull/948) | Four exact generated Trooper source-program body viewers on the full35-joint rig,113 strict clips, Power C1 and post-slot1; Windows actual all-six switching/retirement and old-file migration preservation | `123df20e3737f672048309310f18c8c7f9428cd9` |
+| [950](https://github.com/AntiNotAnti/Project-Prime/pull/950) | Four real local offline Weavel source bodies, grounded full35-joint poses and Hunters persistence; Windows actual native gameplay parity, import/launch lifecycle and protocol82 grapple presentation fallback | `73f5ebf62b111de4321183296c51d11166e7e397` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -75,6 +76,7 @@ this ledger makes no green-CI or external-review claim.
 ## Recent merged slices
 
 The [Trooper offline body runtime](second-hunt-trooper-offline-body-runtime-2026-10-21.md)
+merged in PR950 at `73f5ebf62b111de4321183296c51d11166e7e397` and
 extends Hunters with four local Weavel body appearances, complete35-joint
 source poses and existing Scene source programs. Windows actual match checks
 pass68,143 protocol82 assertions with all four1,011-step native gameplay traces identical;
