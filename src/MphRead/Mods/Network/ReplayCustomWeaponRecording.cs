@@ -106,6 +106,25 @@ internal sealed partial class ReplayRecorder
         catch (Exception error) when (error is InvalidDataException or ArgumentException)
         { CustomWeaponCaptureFailed = true; return false; }
     }
+    // Trusted committed authority observations, independent of recipient retry
+    // tokens and ACKs. Fact construction still validates exact start/source scope.
+    internal bool AcceptAuthorityCustomLaunch(in CustomReplicaLaunch launch, uint recordingFrame)
+    {
+        if (!CustomFactScope || CustomWeaponContext!.Bootstrap.OriginKind != ReplayCustomWeaponOriginKind.Authority
+            || _customFactSequence == ulong.MaxValue) return false;
+        try { return PublishCustom(ReplayCustomWeaponFact.Launch(CustomWeaponContext, _customFactSequence + 1, launch), recordingFrame); }
+        catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+        { CustomWeaponCaptureFailed = true; return false; }
+    }
+    internal bool AcceptAuthorityCustomContact(WorldBootstrapIdentity source, in CustomContactOutcome outcome, uint recordingFrame)
+    {
+        if (!CustomFactScope || CustomWeaponContext!.Bootstrap.OriginKind != ReplayCustomWeaponOriginKind.Authority
+            || _customFactSequence == ulong.MaxValue) return false;
+        try { return PublishCustom(ReplayCustomWeaponFact.Contact(CustomWeaponContext, _customFactSequence + 1,
+            source, outcome), recordingFrame); }
+        catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+        { CustomWeaponCaptureFailed = true; return false; }
+    }
     private void AcceptCustomWeaponClock(uint world, uint recordingFrame)
     {
         if (!CustomFactScope || _customReplayState is not { HasBaseline: true } state || _customFactSequence == ulong.MaxValue
