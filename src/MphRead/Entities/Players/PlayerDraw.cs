@@ -488,7 +488,10 @@ namespace MphRead.Entities
                             GetDrawItems(_bipedIceModel, _bipedIceModel.Model.Nodes[0], alpha: 1, recolor: 0);
                         }
                     }
-                    DrawCosmeticArmor(_bipedModel1.Model, false);
+                    using (ParkourPoseOverlay.Begin(model, transform, ModGetParkourAnimationPose()))
+                    {
+                        DrawCosmeticArmor(_bipedModel1.Model, false);
+                    }
                     _modelTransform = isolateBipedAnchors ? canonicalBody : transform;
                     if (_health == 0)
                     {

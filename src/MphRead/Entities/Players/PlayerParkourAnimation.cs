@@ -1,5 +1,6 @@
 using System;
 using MphRead.Mods.Movement;
+using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Network;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
@@ -14,6 +15,8 @@ public partial class PlayerEntity
     private bool _modMantleVisualHasSource;
 
     private bool ModParkourAnimationBodyAllowed => _scene.GameState.MovementModel == MovementModel.Parkour
+        // Rendering must not invoke the retiring gameplay getter for a private rig.
+        && _modCharacterGameplay.Variant == CharacterGameplayVariant.Native
         && ModMomentumBodyEligible && !ModCrouched && !IsAltForm && !IsMorphing && !IsUnmorphing
         && LoadFlags.TestFlag(LoadFlags.Spawned) && Hunter is >= Hunter.Samus and <= Hunter.Weavel;
 

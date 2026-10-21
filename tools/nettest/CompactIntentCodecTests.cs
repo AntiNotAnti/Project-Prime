@@ -22,10 +22,10 @@ internal static class CompactIntentCodecTests
                 MoveX = -127, MoveY = 127, ChargeLevel = 17, ContinuousFireTick = 91 };
             bytes.Fill(0xCC);
             int idle = CompactIntentCodec.Write(packet, bytes);
-            Check(idle == 138 && bytes[idle] == 0xCC, "idle uses frozen136-byte prefix plus2-byte nonce and leaves unused capacity untouched");
+            Check(idle == 139 && bytes[idle] == 0xCC, "idle uses frozen136-byte prefix plus2-byte nonce and1-byte visual phase and leaves unused capacity untouched");
             packet.NativeTouch = new NativeTouchReport(true, true, true, 100, -25, 7, false);
             int touchIdle = CompactIntentCodec.Write(packet, bytes);
-            Check(touchIdle == 138 + NativeTouchReport.WireSize
+            Check(touchIdle == 139 + NativeTouchReport.WireSize
                 && (bytes[CompactIntentCodec.ShotInputOffset] & CompactIntentCodec.TouchPresent) != 0
                 && CompactIntentCodec.TryRead(bytes[..touchIdle], out var touchDecoded)
                 && touchDecoded.NativeTouch == packet.NativeTouch,
@@ -45,9 +45,9 @@ internal static class CompactIntentCodecTests
             int size = CompactIntentCodec.Write(packet, bytes);
             packet.Write(canonical);
             Check(bytes[..(IntentPacket.LegacyFullSize + 1)].SequenceEqual(canonical[..(IntentPacket.LegacyFullSize + 1)])
-                && bytes.Slice(CompactIntentCodec.HeaderSize, size - CompactIntentCodec.HeaderSize - 2)
-                    .SequenceEqual(canonical.Slice(IntentPacket.LegacyFullSize + 1, size - CompactIntentCodec.HeaderSize - 2))
-                && BinaryPrimitives.ReadUInt16LittleEndian(bytes[(size - 2)..]) == packet.GrappleRequestNonce,
+                && bytes.Slice(CompactIntentCodec.HeaderSize, size - CompactIntentCodec.HeaderSize - 3)
+                    .SequenceEqual(canonical.Slice(IntentPacket.LegacyFullSize + 1, size - CompactIntentCodec.HeaderSize - 3))
+                && BinaryPrimitives.ReadUInt16LittleEndian(bytes[(size - 3)..]) == packet.GrappleRequestNonce && bytes[size - 1] == packet.MantleVisualPhase,
                 "compact posed shots preserve canonical base and event bytes around live-only input extension");
             Check(CompactIntentCodec.TryRead(bytes[..size], out decoded)
                 && decoded.FireEventCount == 2 && decoded.FireEvents[0].ShotId == uint.MaxValue
@@ -120,7 +120,7 @@ internal static class CompactIntentCodecTests
                 var upgraded = ReplayIdentityCompatibility.Convert(historicalPacket, protocol);
                 Check(upgraded.Length == 2 + IntentPacket.TouchCanonicalSize
                     && IntentPacket.Read(upgraded[2..]).FireEvents[1] == oldRead.FireEvents[1]
-                    && upgraded[^2..].IndexOfAnyExcept((byte)0) < 0,
+                    && upgraded[^3..].IndexOfAnyExcept((byte)0) < 0,
                     $"protocol {protocol} replay expands posed intent without changing old event");
             }
             Span<byte> old38 = stackalloc byte[IntentPacket.Protocol38FullSize];

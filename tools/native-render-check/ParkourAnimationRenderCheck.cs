@@ -181,7 +181,7 @@ internal static class ParkourAnimationRenderCheck
             ?? throw new InvalidDataException("Hidden GL scene framebuffer readback unavailable");
         Require(width > 0 && height > 0 && pixels.Length == width * height * 3, "valid offscreen RGB framebuffer");
         Require(!File.Exists(file) && ScreenCapture.Save(fixture.Scene, file), "fresh native PNG capture");
-        Require(GL.GetError() == ErrorCode.NoError, "native draw has no GL error"); HiddenWindow(window);
+        Require(GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, "native draw has no GL error"); HiddenWindow(window);
         return new(pixels, new(file, Convert.ToHexString(SHA256.HashData(pixels)).ToLowerInvariant(),
             Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file))).ToLowerInvariant(), width, height));
     }

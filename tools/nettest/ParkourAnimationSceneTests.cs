@@ -35,6 +35,7 @@ internal static class ParkourAnimationSceneTests
     private static string _scenario = "";
     private static readonly List<object> Rows = new();
     private static readonly HashSet<string> AllocationSamples = new();
+    private static readonly HashSet<string> OwnerCues = new();
 
     private static void Check(bool condition, string label)
     { _checks++; if (!condition) throw new InvalidOperationException(_scenario + ": " + label); }
@@ -49,7 +50,7 @@ internal static class ParkourAnimationSceneTests
 
     internal static int Run(string? output = null)
     {
-        _checks = 0; Rows.Clear(); AllocationSamples.Clear(); var failures = new List<string>();
+        _checks = 0; Rows.Clear(); AllocationSamples.Clear(); OwnerCues.Clear(); var failures = new List<string>();
         int priorCap = FrameTiming.FrameRateCap;
         try
         {
@@ -74,6 +75,7 @@ internal static class ParkourAnimationSceneTests
                 MovementModel.Quake3, MovementModel.Traversal })
                 Case(model + "/excluded-profile", () => Grapple(Hunter.Samus, model));
             Check(AllocationSamples.Count == 4, "both native LODs run actual mantle and grapple warmed allocation probes");
+            Check(OwnerCues.Count == 14, "all seven native Hunters show real owner first-person cannon cues for mantle and grapple");
         }
         catch (Exception error) { failures.Add(error.ToString()); }
         finally { FrameTiming.FrameRateCap = priorCap; }
@@ -147,6 +149,7 @@ internal static class ParkourAnimationSceneTests
                 active++;
                 Check(pose.MantleProgress is >= 0 and <= 1 && pose.GrappleAmount == 0,
                     "accepted W/fresh-Space mantle exposes its bounded actual mantle pose");
+                FirstPersonPicture(f, pose, "mantle", tick);
                 for (int lod = 0; lod < 2; lod++) changed[lod] |= Picture(f, lod, pose, "mantle", tick);
             }
         }
@@ -185,6 +188,7 @@ internal static class ParkourAnimationSceneTests
                     "accepted grapple supplies a real finite rope direction");
             }
             else Check(!pose.Active && !f.Player.ModGrappleState.Active, "excluded native/historical movement yields no parkour picture");
+            FirstPersonPicture(f, pose, "grapple", tick);
             for (int lod = 0; lod < 2; lod++) changed[lod] |= Picture(f, lod, pose, "grapple", tick);
         }
         if (movement == MovementModel.Parkour)
@@ -210,8 +214,75 @@ internal static class ParkourAnimationSceneTests
     {
         ParkourAnimationPose pose = Sample(f);
         Check(!pose.Active, label + " has no live parkour animation");
+        FirstPersonPicture(f, pose, label, 0);
         for (int lod = 0; lod < 2; lod++)
             Check(!Picture(f, lod, pose, label, 0), label + " leaves the native weighted palette exact");
+    }
+
+    // The same accepted owner state is rendered twice without a simulation
+    // tick. The explicitly presentation-only suppression seam removes just
+    // the new pose, so this measures the actual owner renderer composition
+    // instead of inferring a visible cue from helper offset math alone.
+    private static void FirstPersonPicture(Fixture f, ParkourAnimationPose pose, string move, int tick)
+    {
+        PlayerEntity p = f.Player;
+        Check(!ParkourPoseOverlay.SuppressForCheck, "real owner pose was not suppressed before the paired render probe");
+        Action unchanged = Guard(f);
+        var native = default(PlayerEntity.FirstPersonRenderPose);
+        Matrix4 nativeView = default, nativeGun = default, nativeEffect = default;
+        Vector3 nativeEye = default; float nativeFov = 0;
+        try
+        {
+            ParkourPoseOverlay.SuppressForCheck = true;
+            Check(p.ModGetParkourAnimationPose().GunOffset == Vector3.Zero,
+                "paired suppression removes only the parkour render cue without changing accepted movement");
+            Check(p.ModPrepareFirstPersonRenderPose(1, 0, 0, 0, 0, out nativeView, out nativeEye, out nativeFov)
+                && p.ModTryOwnerRenderPose(out native)
+                && p.ModGetFirstPersonGunTransform(out nativeGun)
+                && p.ModGetFirstPersonEffectTransform(out nativeEffect) && Finite(nativeGun) && Finite(nativeEffect),
+                "actual owner first-person renderer supplies a native counterfactual cannon/effect picture");
+            unchanged();
+        }
+        finally { ParkourPoseOverlay.SuppressForCheck = false; }
+        Check(p.ModPrepareFirstPersonRenderPose(1, 0, 0, 0, 0, out var view, out var eye, out var fov)
+            && p.ModTryOwnerRenderPose(out var actual), "actual accepted owner prepares the live first-person parkour picture");
+        // Assign separately because a short-circuit assertion is not a C#
+        // definite-assignment guarantee for the pose used below.
+        Check(p.ModTryOwnerRenderPose(out actual), "accepted owner render pose remains available");
+        Check(view == nativeView && eye == nativeEye && fov == nativeFov,
+            "parkour cannon cue leaves the rendered camera, view and FOV exact");
+        Check(actual.GunFacing == native.GunFacing && actual.GunUp == native.GunUp,
+            "owner cannon cue preserves native rendered weapon aim orientation");
+        Matrix4 camera = Matrix4.Invert(view);
+        Vector3 expected = camera.Row0.Xyz * pose.GunOffset.X + camera.Row1.Xyz * pose.GunOffset.Y
+            - camera.Row2.Xyz * pose.GunOffset.Z;
+        Vector3 measured = actual.GunPosition - native.GunPosition;
+        Near((measured - expected).Length, 0, "actual owner cannon receives the declared camera-local parkour offset", .00003f);
+        if (pose.GunOffset.LengthSquared > 1e-8f)
+        {
+            Check(measured.LengthSquared > 1e-8f, "earned accepted movement visibly displaces the actual first-person cannon");
+            OwnerCues.Add(p.Hunter + "/" + move);
+        }
+        else Check(actual.GunPosition == native.GunPosition, "inactive or excluded movement leaves the owner cannon exactly native");
+        bool gunReady = p.ModGetFirstPersonGunTransform(out var gun);
+        bool effectReady = p.ModGetFirstPersonEffectTransform(out var effect);
+        Check(gunReady && effectReady && Finite(gun) && Finite(effect),
+            "actual shifted cannon and linked presentation effect transforms remain finite");
+        Near((gun.Row3.Xyz - actual.GunPosition).Length, 0, "native cannon submission uses the prepared render-only gun origin");
+        Near((effect.Row3.Xyz - nativeEffect.Row3.Xyz - measured).Length, 0,
+            "linked muzzle/charge picture follows exactly the same render-only cannon translation", .00003f);
+        Near((effect.Row3.Xyz - actual.GunPosition - actual.GunFacing * Fixed.ToFloat(p.Values.MuzzleOffset)).Length, 0,
+            "linked effect remains at the rendered native barrel tip", .00003f);
+        unchanged();
+        Check(p.ModPrepareFirstPersonRenderPose(1, 0, 0, 0, 0, out var repeatView, out var repeatEye, out var repeatFov)
+            && p.ModTryOwnerRenderPose(out var repeat) && repeatView == view && repeatEye == eye && repeatFov == fov
+            && repeat.GunPosition == actual.GunPosition && repeat.GunFacing == actual.GunFacing && repeat.GunUp == actual.GunUp,
+            "repeated actual owner picture cannot accumulate cannon displacement or advance a native clock");
+        unchanged();
+        Rows.Add(new { probe = "owner-first-person", hunter = p.Hunter.ToString(), move, tick,
+            mantle = pose.MantleProgress, grapple = pose.GrappleAmount,
+            offsetX = measured.X, offsetY = measured.Y, offsetZ = measured.Z,
+            expectedX = expected.X, expectedY = expected.Y, expectedZ = expected.Z });
     }
 
     private static bool Picture(Fixture f, int lod, ParkourAnimationPose pose, string move, int tick)

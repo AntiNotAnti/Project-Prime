@@ -185,11 +185,11 @@ internal static class ReplicaCheckpointCompatibilityTests
             && restored.PickupVerdicts[claim.Key] == verdict,
             "actual staged A2 v10/protocol53 layout restores populated claim/verdict/item tail without invented touch");
         var checkpoint = state.CaptureCheckpoint();
-        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 14 && checkpoint.Bytes[6] == 83 && checkpoint.Bytes[7] == 23,
-            "current v14/protocol83 explicitly declares native touch, pickup, grant and grapple features");
+        check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 16 && checkpoint.Bytes[6] == 84 && checkpoint.Bytes[7] == 87,
+            "current v16/protocol84 explicitly declares native touch, pickup, grant, grapple and Parkour pose features");
         restored.RestoreCheckpoint(checkpoint);
         check(restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
-            "v14 roundtrip preserves both nonzero touch and complete pickup state");
+            "v16 roundtrip preserves both nonzero touch and complete pickup state");
         byte[] before = restored.CaptureCheckpoint().Bytes.ToArray();
         void Reject(byte[] bad, string label)
         {

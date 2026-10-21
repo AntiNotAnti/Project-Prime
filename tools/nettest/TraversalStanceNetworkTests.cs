@@ -32,9 +32,9 @@ internal static class TraversalStanceNetworkTests
     }
     private static byte[] Intent(IntentPacket intent, bool slotted, bool historical = false)
     {
-        if (historical && (intent.GrappleRequestNonce != 0 || (intent.Buttons & IntentButtons.Grapple) != 0))
+        if (historical && (intent.MantleVisualPhase != 0 || intent.GrappleRequestNonce != 0 || (intent.Buttons & IntentButtons.Grapple) != 0))
             throw new InvalidOperationException("Historical stance fixture cannot discard grapple request.");
-        var bytes = new byte[(slotted ? 2 : 1) + (historical ? 1296 : 1298)];
+        var bytes = new byte[(slotted ? 2 : 1) + (historical ? 1296 : 1299)];
         bytes[0] = (byte)(slotted ? PacketType.SlotIntent : PacketType.Intent);
         intent.Write(bytes.AsSpan(slotted ? 2 : 1)); return bytes;
     }
@@ -92,11 +92,17 @@ internal static class TraversalStanceNetworkTests
             byte[] currentPacket = Intent(intent, slotted), packet = Intent(intent, slotted, historical: true);
             int at = slotted ? 2 : 1;
             Check(IntentPacket.Read(currentPacket.AsSpan(at)).Buttons == intent.Buttons
-                && ReplayIdentityCompatibility.Convert(currentPacket, 82).SequenceEqual(currentPacket),
-                "current82 intent preserves exact held and canonical stance bytes");
+                && ReplayIdentityCompatibility.Convert(currentPacket, 84).SequenceEqual(currentPacket),
+                "current84 intent preserves exact held and canonical stance bytes");
+            foreach (int protocol in new[] { 82, 83 })
+            {
+                byte[] oldGrapple = currentPacket.AsSpan(0, currentPacket.Length - 1).ToArray();
+                Check(ReplayIdentityCompatibility.Convert(oldGrapple, protocol).SequenceEqual(currentPacket),
+                    "historical1298-byte intent preserves stance and nonce while adding zero visual phase: " + protocol);
+            }
             foreach (int protocol in new[] { 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81 })
                 Check(ReplayIdentityCompatibility.Convert(packet, protocol).SequenceEqual(currentPacket),
-                    "historical1296-byte intent preserves original stance bytes with zero nonce: " + protocol);
+                    "historical1296-byte intent preserves original stance bytes with zero nonce and visual phase: " + protocol);
             foreach (int protocol in new[] { 60, 61, 62, 63, 64, 65, 66, 67, 68 })
             {
                 var old = IntentPacket.Read(ReplayIdentityCompatibility.Convert(packet, protocol)[at..]);
