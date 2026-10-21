@@ -245,6 +245,8 @@ jobs:
       # Publication still requires that separate suite to pass.
       - name: updater handoff and rollback regressions
         run: dotnet run --project tools/updatecheck -c Release
+      - name: release workflow dependency and safety gate regression
+        run: python3 -m unittest discover -s tools -p 'test_release_parallel_gates.py'
       - name: release manifest portability regression
         run: python3 -m unittest discover -s tools -p 'test_release_manifest_writer.py'
       - name: delivered server archive regressions
