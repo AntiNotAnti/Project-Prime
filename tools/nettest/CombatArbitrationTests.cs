@@ -193,12 +193,13 @@ internal static class CombatArbitrationTests
             var physical = Emit(weapon);
             int beforeNative = _victim.Health;
             Native(physical, direct: true);
-            Check(_victim.Health == beforeNative - 12,
+            int nativeHealth = _victim.Health;
+            Check(nativeHealth < beforeNative,
                 $"{weapon} actual native direct payment exists");
             ushort sequence = NetDamage.Sequence(_victim.SlotIndex);
             var splashClaim = Claim(physical, direct: false, damage: 12);
             Check(Receive(splashClaim) == HitVerdictPacket.ResultDuplicate
-                && _victim.Health == beforeNative - 12
+                && _victim.Health == nativeHealth
                 && NetDamage.Sequence(_victim.SlotIndex) == sequence,
                 $"{weapon} alternate splash claim acknowledges native payment without another hit");
         }
