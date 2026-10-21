@@ -22,6 +22,7 @@
                 <div class="eyebrow">MULTIPLAYER // LIVE LOBBY</div>
                 <div class="lobby_title" data-prime-text="{{lobby_name}}" id="text_lobby_name_1" />
                 <div class="lobby_status_line" data-prime-text="{{lobby_status}}" id="text_lobby_status_1" />
+                <button id="lobby_required_weapon" data-action="weapons:refresh">REVIEW REQUIRED WEAPON / ACCEPT DOWNLOAD</button>
             </div>
 
             <div id="lobby_brief" class="enter_top" role="status">

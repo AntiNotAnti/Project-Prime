@@ -79,7 +79,7 @@ public readonly record struct RmlUiHunterDraft(
 public readonly record struct RmlUiLobbyView(
     bool Active, bool Starting, bool Owner, bool RequireReady, bool LocalReady,
     bool CanReady, bool CanStart, string Name, string Map, string Mode, string Format,
-    string Status, int MaxPlayers, RmlUiLobbyPlayer[] Players);
+    string Status, int MaxPlayers, RmlUiLobbyPlayer[] Players, bool PackageReviewRequired = false);
 
 /// <summary>
 /// Presentation-neutral seam. Only the established launcher/session services implement
@@ -2220,6 +2220,8 @@ public sealed class RmlUiMenuController : IDisposable
         Flag("lobby_require_ready", lobby.Active && lobby.RequireReady);
         Flag("lobby_local_ready", lobby.Active && lobby.LocalReady);
         Flag("lobby_starting", lobby.Active && lobby.Starting);
+        Flag("lobby_countdown_visible", lobby.Active && lobby.Starting && !lobby.PackageReviewRequired);
+        Flag("lobby_weapon_required", lobby.Active && lobby.PackageReviewRequired);
         Flag("lobby_rules_open", lobby.Active && _rules != null);
         Flag("lobby_map_open", lobby.Active && _mapPicker != null);
         Flag("lobby_hunter_open", lobby.Active && _hunterDraft.HasValue);

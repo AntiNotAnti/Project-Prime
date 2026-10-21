@@ -4,6 +4,7 @@ using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Launcher.RmlUi.Pages.Studio;
 using MphRead.Mods.StudioIntegration;
+using MphRead.Mods.Network;
 using ProjectPrime.Studio.Protocol;
 
 namespace MphRead.Mods.Launcher.RmlUi.Render;
@@ -83,12 +84,15 @@ internal static partial class RmlUiOpenGlSmoke
         }
         RmlUiHeaderTab active = _studio != null || _weaponStudio != null ? RmlUiHeaderTab.Studio
             : _hunterChoice != null || _license is { IsOverlay: false } ? RmlUiHeaderTab.Hunters
-            : _community != null ? RmlUiHeaderTab.Community
+            : _community != null || _communityWeapons != null ? RmlUiHeaderTab.Community
             : _quickSettings != null || _fullSettings != null || _hudEditor != null || _social != null || _party != null ? RmlUiHeaderTab.None
             : _news != null ? RmlUiHeaderTab.Play
             : _launcherPages?.Page == RmlUiMenuPage.Theatre ? RmlUiHeaderTab.Theatre
             : RmlUiHeaderTab.Play;
         RmlUiApplicationHeader.Apply(host, pages.Page, Shell.StudioWindow, active);
+        host.SetBool(pages.Page, "visible:header_required_weapon", !Shell.StudioWindow
+            && _communityWeapons == null && _quickSettings == null && _fullSettings == null && _hunterChoice == null
+            && !NetSession.RequiredWeaponPackagesReady && NetSession.TryRequiredWeaponPackage(out _, out _));
     }
 }
 #endif
