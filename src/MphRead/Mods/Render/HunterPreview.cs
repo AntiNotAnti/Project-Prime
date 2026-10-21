@@ -174,8 +174,8 @@ namespace MphRead.Mods.Render
             { if (_sourceStageOwner != null || _sourceStageAttemptOwner != null) ClearSourceRigPreview(); return true; }
             if (!double.IsFinite(request.MaterialSeconds) || request.MaterialSeconds < 0
                 || !double.IsFinite(request.Seconds) || request.Seconds < 0 || _model == null
-                || !PrivateCharacterAppearance.TryCreate(Hunter.Samus, request.Appearance.CharacterId, request.Appearance.SkinSource, out _, out _, generatedSource: true)
-                || _hunter != Hunter.Samus || request.Part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)
+                || !PrivateCharacterAppearance.TryCreate(_hunter, request.Appearance.CharacterId, request.Appearance.SkinSource, out _, out _, generatedSource: true)
+                || _hunter != request.NativeHunter || request.Part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)
                 || Mode != (request.Part == CharacterModelPart.Biped ? Mods.Cosmetics.SkinContext.Biped : Mods.Cosmetics.SkinContext.ViewModel)
                 || request.Part == CharacterModelPart.ViewModel && (request.ClipOrdinal != 32 || request.Seconds != 0)) return false;
             if (!ReferenceEquals(_sourceStageOwner, request.Owner) || !ReferenceEquals(_sourceStagePack, request.Pack) || _sourceStagePart != request.Part || _sourceStageAppearance != request.Appearance)

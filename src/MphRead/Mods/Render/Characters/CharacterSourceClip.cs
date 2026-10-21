@@ -73,17 +73,17 @@ internal sealed class CharacterSourceClip
   var clip=imported.Open(ordinal);
   if(asset.Part==CharacterModelPart.ViewModel)Require(clip.Source.Id==0xd12fdfa3&&clip.RigidScale,"Exact fixed original cannon primitive required");
   var anim=clip.CaptureAnimation();var source=imported.Skeleton.Bones;
-  Require(source.Count==39&&rig.Nodes.Count==40,"Complete imported skeleton and source rig required");
+  Require(source.Count==(imported.RootBoneId==0?39:35)&&rig.Nodes.Count==source.Count+1,"Complete imported skeleton and source rig required");
   var bindings=new List<(uint,int,double[])>();
   foreach(var bone in source.Values.OrderBy(b=>b.Id))
   {
-   Require(bone.Id==0?bone.Parent==97&&bone.Name=="root":source.ContainsKey(bone.Parent),"Exact source root/parent policy");
+   Require(bone.Id==imported.RootBoneId?bone.Parent==imported.ExternalParentId&&bone.Name=="root":source.ContainsKey(bone.Parent),"Exact source root/parent policy");
    double[] p={bone.X,bone.Y,bone.Z};
    if(source.TryGetValue(bone.Parent,out var parent)){p[0]-=parent.X;p[1]-=parent.Y;p[2]-=parent.Z;}
    int node=Enumerable.Range(0,rig.Nodes.Count).Single(i=>rig.Nodes[i].Name=="source_bone_"+bone.Id+"_"+bone.Name);
    M bind=M.CreateTranslation((float)-p[0],(float)p[2],(float)p[1]);
    Require(MatrixDistance(bind,rig.Nodes[node].Local)<.00001f,"Imported CINF must match the complete loaded source bind hierarchy");
-   int expectedParent=bone.Id==0?-1:Enumerable.Range(0,rig.Nodes.Count).Single(i=>rig.Nodes[i].Name=="source_bone_"+parent!.Id+"_"+parent.Name);
+   int expectedParent=bone.Id==imported.RootBoneId?-1:Enumerable.Range(0,rig.Nodes.Count).Single(i=>rig.Nodes[i].Name=="source_bone_"+parent!.Id+"_"+parent.Name);
    Require(rig.Nodes[node].Parent==expectedParent,"Imported CINF parent identity must match the loaded hierarchy");
    bindings.Add((bone.Id,node,p));
   }

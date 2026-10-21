@@ -155,7 +155,7 @@ internal static class RmlUiHunterStageRenderer
 
     internal static bool DrawSourcePicker(RenderWindow window, RmlUiHost host, RmlUiDocumentToken document,
         LauncherHunterPreviewSnapshot preview, CharacterSourceStageRequest request, int width, int height)
-        => DrawPickerCore(window, host, document, Hunter.Samus, 0, CosmeticLoadout.Default, preview, width, height,
+        => DrawPickerCore(window, host, document, request.NativeHunter, 0, CosmeticLoadout.Default, preview, width, height,
             "source_preview", "source_panel", "source_stage", null, -1, request);
 
     private static RmlUiHost? _pickerHost;

@@ -93,7 +93,7 @@ namespace MphRead
                 foreach (var texture in materials.Archive.Textures)
                 {
                     var image = materials.Images[texture.ResourceId];
-                    string key = CharacterSourceGxProgram.Policy + "/" + texture.RgbaSha256 + "/" + texture.Width + "x" + texture.Height;
+                    string key = materials.Policy + "/" + texture.RgbaSha256 + "/" + texture.Width + "x" + texture.Height;
                     int binding = CharacterTextureAssets.UploadRgba(key, texture.Width, texture.Height, image.Pixels.ToArray(), SourceGxSampling);
                     if (binding == 0) throw new InvalidOperationException("Complete body source texture upload failed.");
                     bindings.Add(texture.ResourceId, binding); _characterPinnedBindings.Add(binding);
