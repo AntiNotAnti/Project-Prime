@@ -1,5 +1,7 @@
 # Local Scout Drone Ready presentation
 
+Delivered in [PR967](https://github.com/AntiNotAnti/Project-Prime/pull/967).
+
 Alpha and Gamma imported drones have a separate local presentation owner in
 explicit solo Scout Drone practice. Hunters saves Native/Alpha/Gamma independently
 of its local body choice. The preference is captured only for Weavel's solo
@@ -153,6 +155,11 @@ normal and Final1,507-step gameplay trace remains
 
 The final actual raw log SHA256 is
 `4a956904442b79351a60ee09dae2bc5730f86f50b01d08ef9a880aa9e110395f`.
+The compact runtime receipt SHA256 is
+`ff180cdb03db4afae5adb38ec81f55e076bdbef2a6759f04c79addbed649f31c`;
+regression receipt `3f68fec7d286059adbec23ff19af9d88ef68a89fed682f44f988a49a9fb17844`,
+final UI receipt `09990f7dd2aa4d9abca55ceb17917396f2e487ac9738c5077a3166768ecb75a2`,
+and local capture inspection `c5faced43ff65423ee6d19da01a227ae5a516e2522ca51e74e2ec3bc2d88111f`.
 The earlier capture run passes176,327 checks; the final run removes five
 capture-only checks and adds two direct native-rule retirement checks. Its
 runtime observations and native-state trace stay identical.
