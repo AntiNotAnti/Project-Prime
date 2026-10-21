@@ -216,7 +216,7 @@ internal static class CharacterDroneSourceOwnedProbe
             }
             var detached=materials.ReadProgram(0);detached.Stages[0].ColorIn[0]^=1;
             check(materials.ReadProgram(0).Stages[0].ColorIn[0]!=detached.Stages[0].ColorIn[0],"mutable program copies cannot alter original captured raw material authority");
-            var firstTexture=materials.Textures[0];var pixelCopy=materials.DecodeTexture(firstTexture.ResourceId);pixelCopy.Pixels[0]^=1;
+            var firstTexture=materials.Textures[0];var pixelCopy=materials.DecodeTexture(firstTexture.ResourceId).Pixels.ToArray();pixelCopy[0]^=1;
             check(Sha(materials.DecodeTexture(firstTexture.ResourceId).Pixels)==firstTexture.RgbaSha256,"mutable decoded RGBA copies do not alter immutable original TXTR archive");
             var locks=new List<FileStream>();
             try
