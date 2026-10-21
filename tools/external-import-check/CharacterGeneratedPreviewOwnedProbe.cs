@@ -12,7 +12,7 @@ using MphRead.Mods.Render;
 using MphRead.Mods.Render.Characters;
 using OpenTK.Graphics.OpenGL;
 
-// Explicit Mac GPU transport/presentation probe. The product importer and
+// Explicit qualified desktop GPU transport/presentation probe. The product importer and
 // LauncherHunter side Scene are exercised; no source picture/pose is retained.
 internal static class CharacterGeneratedPreviewOwnedProbe
 {
@@ -45,21 +45,26 @@ internal static class CharacterGeneratedPreviewOwnedProbe
         var materialFrames = new List<object>();
         var finalFrames = new List<object>();
         var admissionFailures = new List<object>();
-        void Check(bool value, string why) { if (!value) { failedCheck = why; throw new InvalidDataException(why); } checks++; }
+        void Check(bool value, string why) { if (!value) { failedCheck ??= why; throw new InvalidDataException(why); } checks++; }
         try
         {
-            Check(OperatingSystem.IsMacOS() && System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture
-                == System.Runtime.InteropServices.Architecture.Arm64, "This actual GPU proof requires the qualified macOS arm64 source profile.");
+            Check(CharacterSourceRootWitness.QualifiedForCurrentProcess,
+                "This actual GPU proof requires a qualified Windows x64 or macOS arm64 source profile.");
             rvz = Path.GetFullPath(rvz); rvzBefore = HashFile(rvz);
             // Read only the existing configured path. Never copy original MPH
             // companions into the derived root or change the user's paths.txt.
-            string config = Path.Combine(cwd, "paths.txt");
-            if (!File.Exists(config)) config = AppPaths.PathsFile;
-            Check(new FileInfo(config).Length is > 0 and <= 65536, "A bounded existing paths.txt is required.");
-            string[] matches = File.ReadAllLines(config).Select(l => l.Split('=', 2))
-                .Where(p => p.Length == 2 && p[0].Trim() == Ver.AMHE1).Select(p => p[1].Trim()).ToArray();
-            Check(matches.Length == 1 && matches[0].Length > 0, "Exactly one configured owned AMHE1 root is required.");
-            nativeRoot = Path.GetFullPath(matches[0], Path.GetDirectoryName(Path.GetFullPath(config))!);
+            string? explicitNative = Environment.GetEnvironmentVariable("PRIME_BODY_TEST_ASSETS");
+            if (!string.IsNullOrWhiteSpace(explicitNative)) nativeRoot = Path.GetFullPath(explicitNative);
+            else
+            {
+                string config = Path.Combine(cwd, "paths.txt");
+                if (!File.Exists(config)) config = AppPaths.PathsFile;
+                Check(new FileInfo(config).Length is > 0 and <= 65536, "A bounded existing paths.txt is required.");
+                string[] matches = File.ReadAllLines(config).Select(l => l.Split('=', 2))
+                    .Where(p => p.Length == 2 && p[0].Trim() == Ver.AMHE1).Select(p => p[1].Trim()).ToArray();
+                Check(matches.Length == 1 && matches[0].Length > 0, "Exactly one configured owned AMHE1 root is required.");
+                nativeRoot = Path.GetFullPath(matches[0], Path.GetDirectoryName(Path.GetFullPath(config))!);
+            }
             nativeBefore = NativeInventory(nativeRoot);
             Directory.CreateDirectory(temporary);
             string user = Path.Combine(temporary, "user-data"), imports = Path.Combine(temporary, "imports");
@@ -518,12 +523,12 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                 cleaned = !Directory.Exists(temporary);
                 if (rvzBefore != null) rvzAfter = HashFile(rvz);
                 if (nativeRoot != null && nativeBefore != null) nativeAfter = NativeInventory(nativeRoot);
-                Check(cleaned && rvzBefore != null && rvzBefore == rvzAfter && nativeBefore != null && nativeBefore == nativeAfter,
+                Check(cleaned && (rvzBefore == null || rvzBefore == rvzAfter) && (nativeBefore == null || nativeBefore == nativeAfter),
                     "All derived data deleted and both owned sources unchanged.");
                 Check(coreBefore == HashFile(core) && toolBefore == HashFile(tool), "Core/tool assemblies unchanged during GPU proof.");
             }
             catch (Exception ex) { error ??= ex.GetType().Name; errorSha ??= Sha(Encoding.UTF8.GetBytes(ex.Message)); }
-            Console.WriteLine(JsonSerializer.Serialize(new { Scope = "Actual normal and Final Echoes source-program bodies plus normal diagnostic cannon in LauncherHunter sideScene; no gameplay/UI-intent/hardware-parity claim",
+            Console.WriteLine(JsonSerializer.Serialize(new { Scope = "Actual normal and Final Echoes source-program bodies, normal diagnostic cannon and Final private-alpha source GX cannon in LauncherHunter sideScene; no gameplay/UI-intent/hardware-parity claim",
                 Pass = error == null, Checks = checks, Frames = frames, Generation = generation, ChosenClipOrdinal = chosen,
                 SourceSha256Before = rvzBefore, SourceSha256After = rvzAfter, NativeInventorySha256Before = nativeBefore,
                 NativeInventorySha256After = nativeAfter, CoreSha256 = coreBefore, ToolSha256 = toolBefore,
