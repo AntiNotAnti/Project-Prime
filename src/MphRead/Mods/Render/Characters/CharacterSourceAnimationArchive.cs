@@ -13,7 +13,7 @@ internal sealed partial class CharacterModelPack
 }
 
 // Optional temporal input to the existing private source-rig owner. Exact
-// generated Echoes and Prime bodies own separate immutable profiles. This
+// generated Echoes/Prime bodies and their fixed cannons own immutable profiles. This
 // grants no ball, selection, actor, retargeting or network authority.
 internal sealed class CharacterSourceAnimationArchive
 {
@@ -40,7 +40,8 @@ internal sealed class CharacterSourceAnimationArchive
         bool echoes = trooper == null;
         string Stem = trooper?.Id ?? (final ? "darksamus-overcharged-echoes" : "darksamus-echoes");
         string archivePin = trooper?.AnimationSha ?? (final ? "15f102868334b98e271050493bbfdd996ca3d7121a6f4b04d54f6308b5d07b0d" : QualifiedArchiveSha256);
-        Require((entry.Part == CharacterModelPart.Biped || echoes && CharacterSourceCannonRecipe.IsGeneratedEntry(entry, modelSha)) && entry.PoseSource == CharacterPoseSource.SourceRigPreview
+        Require((entry.Part == CharacterModelPart.Biped || echoes && CharacterSourceCannonRecipe.IsGeneratedEntry(entry, modelSha)
+                || trooper != null && CharacterSourceCannonRecipe.IsGeneratedTrooperEntry(entry, modelSha, trooper)) && entry.PoseSource == CharacterPoseSource.SourceRigPreview
             && entry.SourceAnimationArchive == Stem + ".animations.bin" && entry.SourceAnimationArchiveSha256 == archivePin
             && modelSha.Length == 64 && (trooper != null
                 ? entry.Hunter == "Weavel" && entry.CharacterId == "trooper" && modelSha == trooper.ModelSha

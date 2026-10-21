@@ -28,6 +28,8 @@ try
         return OwnedSourceSnapshotOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-cannon")
         return CharacterGeneratedCannonOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-generated-cannon")
+        return CharacterGeneratedCannonOwnedProbe.RunTrooper(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-profile")
         return CharacterGeneratedProfileOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-preview")
@@ -46,6 +48,8 @@ try
         return CharacterBodyLaunchOwnedProbe.Run(args[1], trooper: true);
     if (args.Length == 2 && args[0] == "--probe-character-cannon-runtime")
         return CharacterCannonRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-cannon-runtime")
+        return CharacterCannonRuntimeOwnedProbe.Run(args[1], trooper: true);
     if (args.Length == 2 && args[0] == "--probe-character-animations")
         return CharacterAnimationRuntimeOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-world-companions")

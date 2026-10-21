@@ -53,6 +53,8 @@ internal static class GeneratedCannonAcceptance
             && first.Indices.SequenceEqual(new uint[] { 2, 0, 1 }), "returned source-ID groups and index subsets detach from later caller mutations");
         Frames(); Failures();
         Console.WriteLine($"PASS: generated cannon source IDs, descendant cut and fixed frame ({_checks} checks)");
+        int normalChecks = _checks; Trooper();
+        Console.WriteLine($"PASS: Trooper full35 source cut, local palettes and fixed frame ({_checks - normalChecks} checks)");
     }
 
     private static void Frames()
@@ -107,13 +109,65 @@ internal static class GeneratedCannonAcceptance
         Throws<InvalidDataException>(() => Fixture(cycle: true), "malformed ancestry rejected by actual rig reader");
     }
 
-    private static CharacterWeightedModelData Fixture(bool reordered = false, bool tipOutside = false, bool wrongElbow = false, bool cycle = false)
+    private static void Trooper()
+    {
+        var source = Fixture(trooper: true); var reordered = Fixture(reordered: true, trooper: true);
+        string original = Fingerprint(source), otherOriginal = Fingerprint(reordered);
+        Check(source.Joints.Count == 35 && source.SourceRig!.Nodes.Count == 36 && reordered.Joints.Count == 35,
+            "Trooper kernel fixture keeps all35 joints and an independent mesh node");
+        Check(source.Primitives.All(p => p.JointPalette!.Any(j => j >= 32)),
+            "physical palettes map5bit local slots to full joint ordinals beyond31");
+        var cut = CharacterSourceCannonRecipe.SelectGeneratedCut(source, 23);
+        var recut = CharacterSourceCannonRecipe.SelectGeneratedCut(reordered, 23);
+        Check(cut.Selected[2].SequenceEqual(new[] { 44 }) && cut.Selected[5].SequenceEqual(new[] { 7, 1200 })
+            && cut.Selected.Sum(a => a.Length) == 3 && cut.Selected.Zip(recut.Selected).All(p => p.First.SequenceEqual(p.Second)),
+            "Trooper named23 elbow selects literal whole IDs independent of physical batch, full joint and node ordering");
+        Check(cut.Primitives.Sum(p => p.Indices.Length) == 9 && !cut.Selected.SelectMany(a => a).Contains(404)
+            && !cut.Selected.SelectMany(a => a).Contains(901),
+            "Trooper any-positive influence still requires all3 corners and rejects zero-only descendant weight");
+        foreach (var p in cut.Primitives)
+        {
+            var raw = source.Primitives.Single(q => p.SourceTriangleIds!.All(id => q.SourceTriangleIds!.Contains(id)));
+            Check(ReferenceEquals(raw.Vertices, p.Vertices) && ReferenceEquals(raw.JointPalette, p.JointPalette)
+                && raw.SourcePrimitiveOrdinal == p.SourcePrimitiveOrdinal && raw.SourceMaterialOrdinal == p.SourceMaterialOrdinal,
+                "Trooper cut changes only complete index and sourceID subsets, preserving attributes and physical palettes");
+        }
+        M basis = CharacterSourceCannonRecipe.GeneratedBasis(source, source.SourceRig!.Nodes.Select(n => n.Local).ToArray(), 23, 34, "R_gun_LCTR");
+        M reorderedBasis = CharacterSourceCannonRecipe.GeneratedBasis(reordered, reordered.SourceRig!.Nodes.Select(n => n.Local).ToArray(), 23, 34, "R_gun_LCTR");
+        Check(basis == M.CreateTranslation(-1, -2, -5) && basis == reorderedBasis,
+            "Trooper locator34 frame uses full inversebind hierarchy and has independent literal muzzle oracle");
+        Check(Fingerprint(source) == original && Fingerprint(reordered) == otherOriginal,
+            "Trooper selection and basis leave both complete source fixtures unchanged");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(source), "Trooper never borrows default Echoes elbow24");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, source.SourceRig.Nodes.Select(n => n.Local).ToArray()), "Trooper never borrows default Echoes locators");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(source, -1), "negative named elbow ID");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, source.SourceRig.Nodes.Select(n => n.Local).ToArray(), 23, 34), "same locatorID wrong source name");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, source.SourceRig.Nodes.Select(n => n.Local).ToArray(), 23, 33, "R_gun_LCTR"), "same source name wrong locatorID");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(Fixture(trooper: true, wrongElbow: true), 23), "Trooper wrong elbow sourceID");
+        var outside = Fixture(trooper: true, tipOutside: true);
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(outside, outside.SourceRig!.Nodes.Select(n => n.Local).ToArray(), 23, 34, "R_gun_LCTR"), "Trooper tip must descend from elbow23");
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.GeneratedBasis(source, new M[35], 23, 34, "R_gun_LCTR"), "full35 joints still require all36 local node matrices");
+        var badParts = source.Primitives.ToArray(); badParts[0] = badParts[0] with { JointPalette = new[] { 35, 0, 1, 2 } };
+        Throws<InvalidDataException>(() => CharacterSourceCannonRecipe.SelectGeneratedCut(source with { Primitives = badParts }, 23), "local palette cannot escape full35 joints");
+    }
+
+    private static CharacterWeightedModelData Fixture(bool reordered = false, bool tipOutside = false, bool wrongElbow = false, bool cycle = false, bool trooper = false)
     {
         string[] order = reordered ? new[] { "mesh", "child", "elbow", "outside", "root", "tip" } : new[] { "outside", "tip", "mesh", "root", "elbow", "child" };
         var index = order.Select((name, i) => (name, i)).ToDictionary(p => p.name, p => p.i);
         var parent = new Dictionary<string, string?> { ["root"] = cycle ? "child" : null, ["mesh"] = null, ["outside"] = "root", ["elbow"] = "root", ["tip"] = tipOutside ? "root" : "elbow", ["child"] = "elbow" };
         var names = new Dictionary<string, string> { ["root"] = "source_bone_0_root", ["mesh"] = "own_identity_mesh", ["outside"] = "source_bone_99_outside", ["elbow"] = wrongElbow ? "source_bone_99_R_elbow" : "source_bone_24_R_elbow", ["tip"] = "source_bone_32_GUN_Particle_LCTR", ["child"] = "source_bone_25_child" };
         var local = new Dictionary<string, V> { ["root"] = V.Zero, ["mesh"] = V.Zero, ["outside"] = new(-2, 0, 0), ["elbow"] = new(1, 2, 3), ["tip"] = new(0, 0, 2), ["child"] = new(0, 1, 0) };
+        string[] extras = trooper ? Enumerable.Range(0, 35).Where(id => id is not (0 or 3 or 23 or 24 or 34)).Select(id => "extra" + id).ToArray() : [];
+        if (trooper)
+        {
+            names["root"] = "source_bone_3_Root"; names["outside"] = "source_bone_0_outside";
+            names["elbow"] = wrongElbow ? "source_bone_99_R_elbow" : "source_bone_23_R_elbow";
+            names["tip"] = "source_bone_34_R_gun_LCTR"; names["child"] = "source_bone_24_child";
+            foreach (string role in extras) { parent[role] = "root"; names[role] = "source_bone_" + role[5..] + "_own"; local[role] = V.Zero; }
+            order = reordered ? extras.Reverse().Concat(order).ToArray() : order.Concat(extras).ToArray();
+            index = order.Select((name, i) => (name, i)).ToDictionary(p => p.name, p => p.i);
+        }
         var nodes = new JsonArray();
         foreach (string role in order)
         {
@@ -122,6 +176,7 @@ internal static class GeneratedCannonAcceptance
             if (role == "mesh") { n["mesh"] = 0; n["skin"] = 0; } nodes.Add(n);
         }
         string[] jointOrder = reordered ? new[] { "root", "tip", "outside", "child", "elbow" } : new[] { "child", "outside", "elbow", "tip", "root" };
+        if (trooper) jointOrder = extras.Concat(jointOrder).ToArray();
         using var json = JsonDocument.Parse(new JsonObject { ["nodes"] = nodes, ["joints"] = new JsonArray(jointOrder.Select(n => JsonValue.Create(index[n])).ToArray()) }.ToJsonString());
         var nodeElements = json.RootElement.GetProperty("nodes").EnumerateArray().ToArray();
         var rig = CharacterSourceRig.Read(nodeElements, json.RootElement.GetProperty("joints").EnumerateArray().ToArray(), new() { nodeElements[index["mesh"]] });
