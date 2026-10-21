@@ -24,7 +24,7 @@ using MphRead.Mods.Launcher.RmlUi.Host;
 // The tests-first admission check intentionally runs before any owned media I/O.
 internal static class CharacterDroneRuntimeOwnedProbe
 {
-    internal static int Run(string source,bool probeBurst=false,bool probeLaser=false,bool probeMovement=false)
+    internal static int Run(string source,bool probeBurst=false,bool probeLaser=false,bool probeMovement=false,bool probeHit=false)
     {
         int checks=0;string? failed=null,error=null;var milestones=new Milestones();object? runtime=null;
         string core=typeof(Scene).Assembly.Location,tool=typeof(CharacterDroneRuntimeOwnedProbe).Assembly.Location;
@@ -33,6 +33,22 @@ internal static class CharacterDroneRuntimeOwnedProbe
         {if(!condition){failed=why;throw new InvalidDataException(why);}checks++;}
         try
         {
+            if(probeHit)
+            {
+                var pose=typeof(Scene).Assembly.GetType("MphRead.Mods.Render.Characters.CharacterSourceDronePose");
+                var statics=BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+                var required=pose?.GetProperty("RequiredOrdinals",statics)?.GetValue(null);
+                Check(required is IEnumerable<int> ordinals&&ordinals.SequenceEqual(new[]{13,75,73,74,29,4,3,2,5,6,1,18}),
+                    "source drone hit contract captures exact twelfth original ordinal18 before any owned-source/native-asset IO");
+                var supports=pose!.GetMethod("Supports",statics,null,[typeof(int),typeof(int)],null);
+                var ordinal=pose.GetMethod("OrdinalForState",statics,null,[typeof(int)],null);
+                Check(supports!=null&&ordinal!=null&&(int)ordinal.Invoke(null,[11])! ==18
+                    &&Enumerable.Range(4,68).All(age=>(bool)supports.Invoke(null,[11,age])!)
+                    &&new[]{-1,0,1,2,3,72,73,int.MaxValue}.All(age=>!(bool)supports.Invoke(null,[11,age])!),
+                    "presentation hit state11 admits native damage ages4through71 while original flash ages0through3 retain full native fallback");
+                Check(new[]{"ModSourceDroneState","ModSourceDroneFrame"}.All(name=>typeof(PlayerEntity).GetProperty(name,Hidden) is{PropertyType:var type,CanRead:true,CanWrite:false}&&type==typeof(int)),
+                    "hit presentation derives read-only state and damage age without adding native event or counter authority");
+            }
             if(probeMovement)
             {
                 var motion=typeof(Scene).Assembly.GetType("MphRead.Mods.Render.Characters.CharacterSourceDroneMotion");
@@ -104,7 +120,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
         {
             try{Check(HashFile(core)==coreBefore&&HashFile(tool)==toolBefore,"test-first runtime contract check preserves core/tool bytes");}
             catch(Exception ex){error??=ex.GetType().Name;}
-            Console.WriteLine(JsonSerializer.Serialize(new{Pass=error==null,Checks=checks,FailedCheck=failed,ErrorType=error,BurstProbe=probeBurst,LaserProbe=probeLaser,MovementProbe=probeMovement,
+            Console.WriteLine(JsonSerializer.Serialize(new{Pass=error==null,Checks=checks,FailedCheck=failed,ErrorType=error,BurstProbe=probeBurst,LaserProbe=probeLaser,MovementProbe=probeMovement,HitProbe=probeHit,
                 CoreSha256=coreBefore,ToolSha256=toolBefore,SourceIoAttempted=milestones.SourceIo,SourceSha256Before=milestones.SourceBefore,SourceSha256After=milestones.SourceAfter,
                 NativeSha256Before=milestones.NativeBefore,NativeSha256After=milestones.NativeAfter,TemporaryDerivedDataDeleted=milestones.Cleaned,
                 Runtime=runtime,NativeAssetIoAttempted=milestones.NativeIo,GraphicsContextActivated=milestones.Context,RenderingActivated=milestones.Rendering,GameplayActivated=milestones.Gameplay,
