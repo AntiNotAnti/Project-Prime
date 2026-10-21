@@ -50,7 +50,8 @@ internal sealed class CustomPickupLayout
                 || placement.Z4096 < -limit || placement.Z4096 > limit
                 || placement.InitialDelayTicks > MaximumDelayTicks || placement.RespawnTicks is 0 or > MaximumDelayTicks
                 || !registry.TryResolve(placement.Weapon,out var entry) || entry?.Custom is not { } definition
-                || placement.ReserveRefill <= 0 || placement.ReserveRefill > definition.Mechanics.MaximumReserve)
+                || placement.ReserveRefill < 0 || placement.ReserveRefill > definition.Mechanics.MaximumReserve
+                || placement.ReserveRefill == 0 && definition.Mechanics.MaximumReserve != 0)
                 throw new ArgumentException("Invalid or excessive custom pickup placement.",nameof(placements));
             list.Add(placement);
         }

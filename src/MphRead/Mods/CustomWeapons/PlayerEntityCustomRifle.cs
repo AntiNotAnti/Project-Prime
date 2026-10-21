@@ -19,7 +19,7 @@ public partial class PlayerEntity
             ||_scene.GameState.ThirdPersonCamera||_scene.ModThirdPersonCameraActive||_scene.Services.IsReplica
             ||Mods.SpectatorMode.IsSpectating||Mods.KillCam.Active||Mods.Network.DemoPlayback.IsActive
             ||ModCustomScopeBlend>0||!hud.Ready||!hud.Visible||hud.State.Owner!=owner||hud.State.Weapon!=weapon
-            ||weapon.Kind!=WeaponIdentityKind.Custom||weapon.ContentId!=RiftlineM7.ContentId
+            ||weapon.Kind!=WeaponIdentityKind.Custom
             ||!ModGetFirstPersonGunTransform(out _)||!ModTryCustomRifleTransform(true,0,out _,out var muzzle))return false;
         point=_scene.ModWorldSpaceViewModelPoint(muzzle);
         return float.IsFinite(point.X)&&float.IsFinite(point.Y)&&float.IsFinite(point.Z);
