@@ -58,6 +58,7 @@ internal static class ReplayKillcamCheck
             var hashes = new Dictionary<uint, string>();
             const uint death = 1602;
             PlayerState? fixtureAttackerAtDeath = null;
+            ReplayReplicaCheckpoint? fixtureStateAtDeath = null;
             DemoRecord? pending = reader.ReadNext(); uint frame = 0;
             while (pending != null)
             {
@@ -68,7 +69,11 @@ internal static class ReplayKillcamCheck
                 if (capture.World is { } world)
                 {
                     hashes[frame] = ReplayStateHash.Compute(world.Scene, frame);
-                    if (frame == death && world.State.TryGetPlayer(1, out var historicalAttacker)) fixtureAttackerAtDeath = historicalAttacker;
+                    if (frame == death && world.State.TryGetPlayer(1, out var historicalAttacker))
+                    {
+                        fixtureAttackerAtDeath = historicalAttacker;
+                        fixtureStateAtDeath = world.State.CaptureCheckpoint();
+                    }
                 }
                 frame++;
             }
@@ -81,13 +86,13 @@ internal static class ReplayKillcamCheck
                 throw new InvalidDataException("Killcam fixture has no attacker life at its declared death frame.");
             var identity = new ReplayKillIdentity(match.MatchId, match.AuthorityEpoch, death, 2,
                 1, fixtureAttacker.SlotGeneration, 0, state.Occupant(0).Generation, 1, fixtureAttacker.LifeId);
-            if (!state.TryGetPlayer(1, out var attackerState) || attackerState.LifeId == 0)
-                throw new InvalidDataException("Killcam fixture has no attacker snapshot.");
             var strictIdentity = identity;
-            Require(KillcamController.ResolveAttackerSlot(strictIdentity, state) == 1,
+            if (fixtureStateAtDeath == null) throw new InvalidDataException("Killcam fixture has no exact death decoder.");
+            var deathState = new ReplayReplicaState(); deathState.RestoreCheckpoint(fixtureStateAtDeath);
+            Require(KillcamController.ResolveAttackerSlot(strictIdentity, deathState) == 1,
                 "Exact attacker life did not resolve.");
             Require(KillcamController.ResolveAttackerSlot(strictIdentity with
-                { KillerLifeId = NetLifecycleTracker.Next(attackerState.LifeId) }, state) == -1,
+                { KillerLifeId = NetLifecycleTracker.Next(fixtureAttacker.LifeId) }, deathState) == -1,
                 "Respawned attacker slot bypassed its life fence or fell back to victim.");
             var marker = new ReplayMarker(ReplayMarkerKind.Kill, 1, 0, Kill: identity, Weapon: 1, DamageFlags: (byte)DamageFlags.Headshot);
             var context = new KillcamContext(match.MatchId, match.AuthorityEpoch, death, 0,

@@ -25,6 +25,7 @@ internal static class KillcamIdentityTests
         internal uint Frontier = Death + 90;
         internal int Freezes;
         internal int ProtocolVersion = 79;
+        internal bool FreezeAvailable = true;
         internal uint? FrozenStart;
         public uint? FirstRecordingFrame => 0;
         public uint? LastRecordingFrame => Frontier;
@@ -34,6 +35,7 @@ internal static class KillcamIdentityTests
         public bool TryFreeze(uint start, uint end, out ReplayTimelineClip? clip)
         {
             Freezes++; FrozenStart = start;
+            if (!FreezeAvailable) { clip = null; return false; }
             using var restore = new ReplayRestorePoint(0, 0, ReplayRestoreKind.ReplicaCheckpoint,
                 [new(0, 0, ReplayFactKind.World, ReadOnlySpan<byte>.Empty)]);
             clip = new(restore, [], start, end, ProtocolVersion); return true;
@@ -139,51 +141,100 @@ internal static class KillcamIdentityTests
                     : opens == 0 && timeline.Freezes == 0 && controller.EndReason == KillcamEndReason.Unavailable,
                     "Personal admission failed the inclusive150/exclusive151 original pending deadline.");
             }
+            // Exercise the real native GameOver transition. It schedules a
+            // five-second winner camera before the first eligible final attempt.
+            MphRead.Sound.Sfx.Load(live); // Headless native stub; no assets/device.
+            live.GameState.ConfigureMatchMode(GameMode.Battle, applyDefaults: false);
+            live.GameState.MatchTime = 0;
+            live.GameState.ProcessFrame(live);
+            Check(live.GameState.MatchState == MatchState.GameOver
+                && live.GameState.MatchTime == SceneGameState.MatchFinalCameraSeconds,
+                "Native GameOver did not establish its winner-camera delay.");
+            uint firstEligible = 390 + (uint)Math.Ceiling(live.GameState.MatchTime * 60);
+            Check(firstEligible - 390 == 300, "Winner-camera regression did not use the actual five-second native delay.");
+            live.GameState.MatchTime = 0;
+            KillCam.Reset();
             foreach (bool factFirst in new[] { true, false })
             {
                 var accepted = new List<MatchSemanticEventPacket>(); if (factFirst) accepted.Add(Fact);
-                using var timeline = new Timeline(); int opens = 0;
+                using var timeline = new Timeline(); int opens = 0; uint? wait = null;
                 using var controller = new KillcamController(timeline, (_, _) => { opens++; throw new InvalidDataException("final admission probe"); },
                     () => accepted, 79);
                 controller.NoteKill(Marker, Death, context);
                 if (!factFirst)
                 {
-                    Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = 391 }, Raw.ServerTick,
-                        false, true, 390) && opens == 0 && timeline.Freezes == 0 && controller.CandidateFrame == Death,
-                        "Foreground final-request boundary discarded a request before late canonical life proof.");
+                    Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible }, Raw.ServerTick,
+                        false, true, ref wait) && wait == firstEligible && opens == 0 && timeline.Freezes == 0
+                        && controller.CandidateFrame == Death,
+                        "First eligible final identity failure did not begin its own bounded wait.");
                     accepted.Add(Fact);
                 }
-                Check(KillCam.CompleteFinalRequest(controller, live, context with { Frame = 392 }, Raw.ServerTick,
-                    false, true, 390) && opens == 1 && timeline.FrozenStart == Death - 210
+                Check(KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible + 1 }, Raw.ServerTick,
+                    false, true, ref wait) && opens == 1 && timeline.FrozenStart == Death - 210 && wait == null
                     && controller.Candidate?.Kill?.KillerLifeId == 5 && controller.CandidateFrame == Death,
-                    "Foreground final-request delivery order changed exact identity/range.");
+                    "Native winner-camera delay or packet order prevented an exact final identity/range.");
                 Check(!controller.Active, "Controlled final opener failure retained a snapshot/player.");
+            }
+            using (var timeline = new Timeline())
+            {
+                int opens = 0; uint? wait = null;
+                using var controller = new KillcamController(timeline, (_, _) => { opens++; throw new InvalidDataException("fenced final admission probe"); },
+                    sourceProtocolVersion: 79);
+                controller.NoteKill(Marker with { Kill = Raw with { KillerLifeId = 5 } }, Death, context);
+                Check(KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible }, Raw.ServerTick,
+                    false, true, ref wait) && opens == 1 && wait == null,
+                    "First fully fenced final attempt was timed out during the native winner camera.");
             }
             foreach (bool conflict in new[] { false, true })
             {
-                var accepted = new List<MatchSemanticEventPacket>();
+                var accepted = new List<MatchSemanticEventPacket>(); uint? wait = null;
                 if (conflict) { accepted.Add(Fact); accepted.Add(Fact with { EventId = 101, ActorSlot = 2 }); }
                 using var timeline = new Timeline();
                 using var controller = new KillcamController(timeline, (_, _) => throw new InvalidDataException("must not open final"), () => accepted, 79);
                 controller.NoteKill(Marker, Death, context);
-                Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = 419 }, Raw.ServerTick,
-                    false, true, 390), "Proof-specific final retry ended before its existing 30-frame boundary.");
-                Check(KillCam.CompleteFinalRequest(controller, live, context with { Frame = 420 }, Raw.ServerTick,
-                    false, true, 390) && !controller.Active && timeline.Freezes == 0
+                Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible }, Raw.ServerTick,
+                    false, true, ref wait) && wait == firstEligible,
+                    "Missing/conflicting proof did not start at the first actual eligible attempt.");
+                Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible + 29 }, Raw.ServerTick,
+                    false, true, ref wait), "Proof-specific retry ended before its own 30-frame boundary.");
+                Check(KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible + 30 }, Raw.ServerTick,
+                    false, true, ref wait) && !controller.Active && timeline.Freezes == 0 && wait == null
                     && controller.EndReason == KillcamEndReason.Unavailable,
                     "Missing/conflicting final proof escaped bounded expiry or froze a snapshot.");
             }
+            foreach (uint gap in new uint[] { 29, 30, 31 })
+            {
+                var accepted = new List<MatchSemanticEventPacket>(); int opens = 0; uint? wait = null;
+                using var timeline = new Timeline();
+                using var controller = new KillcamController(timeline, (_, _) => { opens++; throw new InvalidDataException("late final admission probe"); }, () => accepted, 79);
+                controller.NoteKill(Marker, Death, context);
+                Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible }, Raw.ServerTick,
+                    false, true, ref wait), "First unknown final attempt failed to wait.");
+                Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible + 29 }, Raw.ServerTick,
+                    false, true, ref wait), "Unknown proof did not remain pending through elapsed29.");
+                accepted.Add(Fact);
+                Check(KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible + gap }, Raw.ServerTick,
+                    false, true, ref wait) && wait == null && (gap <= 30 ? opens == 1 && timeline.Freezes == 1 : opens == 0 && timeline.Freezes == 0),
+                    "Final proof admission failed its inclusive30/exclusive31 clock started after the winner camera.");
+            }
             using (var timeline = new Timeline())
             {
-                var accepted = new List<MatchSemanticEventPacket>(); int opens = 0;
-                using var controller = new KillcamController(timeline, (_, _) => { opens++; throw new InvalidDataException("late final must not open"); }, () => accepted, 79);
+                var accepted = new List<MatchSemanticEventPacket>(); uint? wait = null;
+                using var controller = new KillcamController(timeline, (_, _) => throw new InvalidDataException("unavailable clip must not open"), () => accepted, 79);
                 controller.NoteKill(Marker, Death, context);
-                Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = 419 }, Raw.ServerTick,
-                    false, true, 390), "Final retry did not remain pending before its boundary.");
-                accepted.Add(Fact);
-                Check(KillCam.CompleteFinalRequest(controller, live, context with { Frame = 421 }, Raw.ServerTick,
-                    false, true, 390) && opens == 0 && timeline.Freezes == 0,
-                    "A skipped host frame admitted a late final identity after its bounded window.");
+                Check(!KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible }, Raw.ServerTick,
+                    false, true, ref wait), "Stale-reason control failed to establish an earlier missing-proof attempt.");
+                accepted.Add(Fact); timeline.FreezeAvailable = false;
+                Check(KillCam.CompleteFinalRequest(controller, live, context with { Frame = firstEligible + 1 }, Raw.ServerTick,
+                    false, true, ref wait) && wait == null && controller.IdentityResolution == ReplayKillLifeStatus.VerifiedSemanticFact,
+                    "A nonidentity clip failure incorrectly reused prior missing-proof state.");
+            }
+            var waitField = typeof(KillCam).GetField("_finalIdentityWaitStarted",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+            foreach (Action clear in new Action[] { () => { KillCam.BeginFinal(333); }, KillCam.EndFinal, KillCam.Reset })
+            {
+                waitField.SetValue(null, (uint?)firstEligible); clear();
+                Check(waitField.GetValue(null) == null, "New request/end/reset retained a previous final identity wait.");
             }
             using (var timeline = new Timeline())
             {

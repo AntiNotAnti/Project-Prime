@@ -188,16 +188,22 @@ internal sealed class KillcamController : IDisposable
     }
 
     internal bool BeginFinal(Scene live, KillcamContext context, uint endFrame, bool timedEnd, bool causalEnd)
+        => BeginFinal(live, context, endFrame, timedEnd, causalEnd, out _);
+
+    internal bool BeginFinal(Scene live, KillcamContext context, uint endFrame, bool timedEnd, bool causalEnd,
+        out bool missingIdentity)
     {
+        missingIdentity = false;
         AuthorityEndCause = causalEnd ? "kill" : timedEnd ? "time" : "non-causal";
         Stop(KillcamEndReason.None); _pending = null;
         if (!context.FinalEnabled || _candidate is not { Kill: { } kill } marker || !Matches(kill, context)
             || !FinalEligible(kill.ServerTick, endFrame, timedEnd, causalEnd)) return false;
-        if (!PrepareIdentity(marker, out var prepared)) { EndReason = KillcamEndReason.Unavailable; return false; }
+        if (!PrepareIdentity(marker, out var prepared))
+        { missingIdentity = true; EndReason = KillcamEndReason.Unavailable; return false; }
         var clip = Freeze(_candidateFrame);
         if (clip == null) { EndReason = KillcamEndReason.Unavailable; return false; }
         if (!PrepareIdentity(marker, out prepared, clip.PresentationProtocolVersion))
-        { clip.Dispose(); EndReason = KillcamEndReason.Unavailable; return false; }
+        { clip.Dispose(); missingIdentity = true; EndReason = KillcamEndReason.Unavailable; return false; }
         try { _candidate = prepared; Start(live, clip, prepared, KillCamKind.Final, _candidateFrame); return true; }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         { LastError = ex.Message; Stop(KillcamEndReason.Failed); return false; }
