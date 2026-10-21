@@ -27,6 +27,7 @@ internal sealed record CharacterGeneratedDroneProfile(string Id, string Skin, ui
         (5,0xe87fa8e3,"891ed408224bee08beeae347dc527c68028bfe694add7a861b5fcf6ae33680e3") => true,
         (6,0xab7bdfeb,"b1c6873384fe362de16cbd8c8df1e90b7c4612c8f613852729d713d536c8bbc8") => true,
         (1,0x28e34205,"bfa409602fa9b4858f2aded40ca7b81257b209d117b12a99305e7c10f9203c86") => true,
+        (18,0x944ca609,"eb5947bc1a81463b51b0ea2f0bd8039eec594ed0f2afaaf8e2ad7d00ef7f0ec1") => true,
         _ => false
     };
     private static readonly CharacterGeneratedDroneProfile Alpha = new("trooper-drone-alpha", "MP1AlphaDrone", 0xef920604, 0x84bda9d2,

@@ -16,10 +16,12 @@ public partial class PlayerEntity
         ModRetireSourceDrone();_sourceDrone=new(_scene,this,selection);
     }
     private void ModRetireSourceDrone(){_sourceDrone?.Dispose();_sourceDrone=null;}
-    // Presentation state4 is derived from the existing next laser counter.
-    // It has no authority over native attack state, cached ray or source events.
-    internal int ModSourceDroneState => _droneLaserFrame>=0?4:_droneFireState;
-    internal int ModSourceDroneFrame => _droneLaserFrame>=0?_droneLaserFrame:_droneFireFrame;
+    // Presentation reads existing native clocks; it never owns attack or damage.
+    // Native Weavel flash remains complete fallback at ages0..3. Source hit
+    // tail ends before72, matching the original float1.2f duration boundary.
+    private bool SourceDroneHitTail => _timeSinceDamage is >=4 and <72;
+    internal int ModSourceDroneState => _droneLaserFrame>=0?4:SourceDroneHitTail?11:_droneFireState;
+    internal int ModSourceDroneFrame => _droneLaserFrame>=0?_droneLaserFrame:SourceDroneHitTail?_timeSinceDamage:_droneFireFrame;
     private bool SourceDroneStateSupported => SourcePresentationStateSupported&&ScoutDroneEnabled
         &&IsAltForm&&!IsMorphing&&!IsUnmorphing
         // Scout Drone clears Morphing immediately; its native camera still

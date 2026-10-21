@@ -12,7 +12,7 @@ namespace MphRead.Mods.Render.Characters;
 // NativeBodyAnimator, 41452f2d (MIT, Copyright2020 NoneGiven; LICENSE retained).
 internal sealed class CharacterSourceDronePose
 {
-    internal static IReadOnlyList<int> RequiredOrdinals {get;}=Array.AsReadOnly(new[]{13,75,73,74,29,4,3,2,5,6,1});
+    internal static IReadOnlyList<int> RequiredOrdinals {get;}=Array.AsReadOnly(new[]{13,75,73,74,29,4,3,2,5,6,1,18});
     internal const double ReturnBlendSeconds=.12d;
     private readonly IReadOnlyDictionary<int,CharacterSourceClip> _clips;
     private Matrix4[]? _last,_from;
@@ -27,17 +27,17 @@ internal sealed class CharacterSourceDronePose
     internal IReadOnlyDictionary<int,CharacterSourceClip> Clips => _clips;
     internal CharacterSourceDronePose(IReadOnlyDictionary<int,CharacterSourceClip> clips)
     {
-        if(clips.Count!=11||RequiredOrdinals.Any(i=>!clips.TryGetValue(i,out var clip)||clip.Ordinal!=i
+        if(clips.Count!=12||RequiredOrdinals.Any(i=>!clips.TryGetValue(i,out var clip)||clip.Ordinal!=i
             ||clip.MotionPolicy!="drone-pinned-root-pelvis-v1"
             ||!CharacterGeneratedDroneProfile.MatchesClip(i,clip.ResourceId,clip.ContentSha256)))
-            throw new InvalidDataException("Exact eleven independently derived drone primitives required.");
+            throw new InvalidDataException("Exact twelve independently derived drone primitives required.");
         _clips=new ReadOnlyDictionary<int,CharacterSourceClip>(clips.ToDictionary(p=>p.Key,p=>p.Value));
     }
     internal static bool Supports(int state,int frame) => state switch
     {0=>frame==0,1=>frame is >=0 and <32,2=>frame is >=0 and <150,3=>frame is >=0 and <24,
-        4=>frame is >=0 and <134,>=5 and <=10=>frame==0,_=>false};
+        4=>frame is >=0 and <134,>=5 and <=10=>frame==0,11=>frame is >=4 and <72,_=>false};
     internal static int OrdinalForState(int state) => state switch
-    {0=>13,1=>75,2=>73,3=>74,4=>29,5=>4,6=>3,7=>2,8=>5,9=>6,10=>1,
+    {0=>13,1=>75,2=>73,3=>74,4=>29,5=>4,6=>3,7=>2,8=>5,9=>6,10=>1,11=>18,
         _=>throw new ArgumentOutOfRangeException(nameof(state))};
     internal static int StateForFreeOrdinal(int ordinal) => ordinal switch
     {13=>0,4=>5,3=>6,2=>7,5=>8,6=>9,1=>10,_=>throw new ArgumentOutOfRangeException(nameof(ordinal))};
@@ -61,7 +61,7 @@ internal sealed class CharacterSourceDronePose
                 FreeCompletedSteps=0;
                 _from=_last?.ToArray();_fadeSteps=0;
             }
-            else {_from=null;_fadeSteps=0;} // Snap authored burst and laser entries.
+            else {_from=null;_fadeSteps=0;} // Snap burst/laser and post-flash hit entry.
         }
         CurrentOrdinal=OrdinalForState(state);var clip=CurrentClip;
         if(IsFree(state))FreeCompletedSteps++;
@@ -78,6 +78,9 @@ internal sealed class CharacterSourceDronePose
             // recovery. Body pose never consumes source damage/sound events.
             4=>clip.Duration*Math.Min((nativeFrame+1)/134d,1),
             >=5 and <=10=>(FreeCompletedSteps/60d)%clip.Duration,
+            // The native damage age already includes the hidden flash steps.
+            // Never restart a hit at zero after fallback or emit source events.
+            11=>nativeFrame/60d,
             _=>throw new InvalidOperationException()
         };
         var pose=clip.Sample(ClipSeconds).ToArray();BlendAmount=1;
