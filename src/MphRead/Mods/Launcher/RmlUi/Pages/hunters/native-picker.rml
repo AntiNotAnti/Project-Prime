@@ -33,12 +33,16 @@
                     <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
                 </div>
                 <div id="hunter_local_body" style="display:none">
-                    <div class="section-title">LOCAL OFFLINE SAMUS BODY</div>
-                    <div class="hint">Requires your local Echoes import. Normal includes a first-person Power Beam cannon. Preview, ball and Overcharged gun stay native. Jumps, morphing, status effects and dynamic shadows use native presentation. Online uses your native loadout.</div>
+                    <div class="section-title">LOCAL OFFLINE BODY</div>
+                    <div class="hint">Requires the matching local import. Dark Samus includes a Power Beam cannon; Trooper and Overcharged guns stay native. Jumps, morphing, status effects and dynamic shadows use native presentation. Online uses your native loadout.</div>
                     <div class="hunter-suits">
                         <button id="hunter_body0" data-action="hunter:body-select:0">NATIVE</button>
                         <button id="hunter_body1" data-action="hunter:body-select:1">DARK SAMUS</button>
                         <button id="hunter_body2" data-action="hunter:body-select:2">OVERCHARGED</button>
+                        <button id="hunter_body3" data-action="hunter:body-select:3">POWER TROOPER</button>
+                        <button id="hunter_body4" data-action="hunter:body-select:4">ICE TROOPER</button>
+                        <button id="hunter_body5" data-action="hunter:body-select:5">WAVE TROOPER</button>
+                        <button id="hunter_body6" data-action="hunter:body-select:6">PLASMA TROOPER</button>
                     </div>
                 </div>
                 <div class="section-title">CUSTOMIZE LOADOUT</div>

@@ -53,8 +53,9 @@ namespace MphRead.Mods.Launcher
             {
                 Kind = LaunchKind.Offline,
                 OfflineCharacter = character,
-                LocalBody = LocalBodyAppearanceRules.Available && hunter == Hunter.Samus && character == OfflineCharacterMode.Native
-                    ? LocalBodyAppearanceRules.Canonical(LauncherPrefs.LocalBody) : LocalBodyAppearance.Native,
+                LocalBody = LocalBodyAppearanceRules.Available && character == OfflineCharacterMode.Native
+                    ? LocalBodyAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalBody,
+                        Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on")) : LocalBodyAppearance.Native,
                 IsPlaytest = character != OfflineCharacterMode.Native,
                 Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
                 MatchRules = new Network.MatchDefinition

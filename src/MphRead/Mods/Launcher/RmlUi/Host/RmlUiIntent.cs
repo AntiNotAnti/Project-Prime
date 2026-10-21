@@ -339,7 +339,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             RmlUiIntentKind.LobbyRulesToggle => argument is >= 0 and < LobbyRuleChoiceCount,
             RmlUiIntentKind.LobbyPlayerSelect or RmlUiIntentKind.LobbySlotTeamNext => argument is >= 0 and < 8,
             RmlUiIntentKind.HunterSelect => argument is >= 0 and < 7,
-            RmlUiIntentKind.HunterBodySelect => argument is >= 0 and < 3,
+            RmlUiIntentKind.HunterBodySelect => argument is >= 0 and < 7,
             RmlUiIntentKind.HunterBeamSelect => argument is >= 0 and < 9,
             RmlUiIntentKind.HunterBeamColorSelect => argument is >= 0 and < 9,
             RmlUiIntentKind.HunterSkinSelect => argument is >= 0 and < 7,
@@ -423,7 +423,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
                 intent = new(RmlUiIntentKind.HunterBeamColorSelect, argument, document, sequence);
             else if (TryIndex(action, "hunter:skin-select:", 7, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterSkinSelect, argument, document, sequence);
-            else if (TryIndex(action, "hunter:body-select:", 3, out argument) && argument >= 0)
+            else if (TryIndex(action, "hunter:body-select:", 7, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterBodySelect, argument, document, sequence);
             else if (TryIndex(action, "hunter:armor-select:", 21, out argument) && argument >= 0)
                 intent = new(RmlUiIntentKind.HunterArmorSelect, argument, document, sequence);

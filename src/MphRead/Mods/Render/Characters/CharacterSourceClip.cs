@@ -26,6 +26,9 @@ internal sealed class CharacterSourceClip
  internal readonly uint ResourceId;
  internal readonly string ContentSha256;
  internal double Duration=>_anim.Duration;
+ internal int KeyCount=>_anim.Keys;
+ internal double TickSeconds=>_anim.Tick;
+ internal string MotionPolicy {get;private init;}="source-raw-v1";
  internal static int CapturedFileReads {get;private set;}
  private static readonly M Basis=new(-1,0,0,0,0,0,1,0,0,1,0,0,0,0,0,1);
  private CharacterSourceClip(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,CharacterSourceRig rig,Anim anim,(uint,int,double[])[] bones,int ordinal,string name,uint id,string sha)
@@ -104,6 +107,42 @@ internal sealed class CharacterSourceClip
  }
  internal bool Matches(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,CharacterSourceRig rig)
   =>ReferenceEquals(_lease,lease)&&ReferenceEquals(_asset,asset)&&ReferenceEquals(_rig,rig);
+ // Private actor derivation over captured keys, using the same temporal sampler.
+ // RootPin from SecondHunt 41452f2d (MIT, NoneGiven 2020). The raw archive,
+ // viewer clip and shared rig stay unchanged; only this actor's copy is pinned.
+ internal CharacterSourceClip WithPinnedTrooperRootMotion()
+ {
+  _lease.RequireCurrent(_asset);
+  var profile=CharacterGeneratedTrooperProfile.FromSkin(_asset.PrivateAppearance?.SkinSource);
+  Require(MotionPolicy=="source-raw-v1"&&profile!=null&&_asset.Hunter==Hunter.Weavel
+   &&_asset.Part==CharacterModelPart.Biped&&_lease.SourceAnimations?.RootBoneId==3
+   &&_rig.Nodes.Count==36&&_rig.JointNodes.Count==35&&_rig.ContentSha256==profile.ModelSha,
+   "Only the complete qualified Trooper actor rig supports root pinning");
+  var root=_bones.Single(b=>b.Id==3);var pelvis=_bones.Single(b=>b.Id==4);
+  Require(_rig.Nodes[pelvis.Node].Parent==root.Node,"Exact Trooper root/pelvis hierarchy required");
+  var copy=new Anim{Duration=_anim.Duration,Tick=_anim.Tick,Keys=_anim.Keys};
+  foreach(var (input,output) in new[]{(_anim.Rot,copy.Rot),(_anim.Trans,copy.Trans),(_anim.Scale,copy.Scale)})
+   foreach(var channel in input)output.Add(channel.Key,channel.Value.Select(v=>v.ToArray()).ToList());
+  var travel=new double[_anim.Keys][];var height=new double[_anim.Keys];
+  for(int k=0;k<_anim.Keys;k++)
+  {
+   _anim.Sample(k*_anim.Tick,out _,out var t);
+   var r=t.GetValueOrDefault(3u)??root.Bind;var p=t.GetValueOrDefault(4u)??pelvis.Bind;
+   travel[k]=[p[0]+r[0],p[1]+r[1]];height[k]=p[2];
+  }
+  var sway=new double[_anim.Keys][];
+  for(int k=0;k<_anim.Keys;k++)
+  {
+   double f=(double)k/(_anim.Keys-1);
+   sway[k]=Enumerable.Range(0,2).Select(i=>travel[k][i]-(travel[0][i]+(travel[^1][i]-travel[0][i])*f)).ToArray();
+  }
+  double mx=sway.Average(p=>p[0]),my=sway.Average(p=>p[1]);
+  copy.Rot[3]=Enumerable.Range(0,_anim.Keys).Select(_=>new double[]{0,0,0,1}).ToList();
+  copy.Trans[3]=Enumerable.Range(0,_anim.Keys).Select(_=>root.Bind.ToArray()).ToList();
+  copy.Trans[4]=Enumerable.Range(0,_anim.Keys).Select(k=>new[]{pelvis.Bind[0]+sway[k][0]-mx,pelvis.Bind[1]+sway[k][1]-my,height[k]}).ToList();
+  return new(_lease,_asset,_rig,copy,_bones,Ordinal,Name,ResourceId,ContentSha256)
+   {MotionPolicy="trooper-pinned-root-pelvis-v1"};
+ }
  internal ReadOnlyCollection<M> Sample(double seconds)
  {
   if(_lease.SourceCannon!=null&&seconds!=0)throw new NotSupportedException("Source cannon holds its reviewed authoring phase; no FP clock/state semantics");

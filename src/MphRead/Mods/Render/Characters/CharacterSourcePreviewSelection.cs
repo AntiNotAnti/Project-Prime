@@ -40,8 +40,6 @@ internal sealed class CharacterSourcePreviewSelection
         var trooper = CharacterGeneratedTrooperProfile.Find(id);
         if (!final && id != "darksamus-echoes" && trooper == null)
             throw new NotSupportedException("Unknown source body appearance.");
-        if (runtimeCannon && trooper != null)
-            throw new NotSupportedException("Trooper source programs currently support the body viewer only.");
         var appearance = trooper != null ? new PrivateCharacterAppearance("trooper", trooper.Skin)
             : final ? new PrivateCharacterAppearance("darksamus", "MP2DarkSamusFinal") : Appearance;
         Hunter hunter = trooper != null ? Hunter.Weavel : Hunter.Samus;
@@ -61,7 +59,7 @@ internal sealed class CharacterSourcePreviewSelection
         if (!pack.TryResolvePrivate(hunter, appearance, CharacterModelPart.Biped, 0, out var asset))
             throw new InvalidDataException("Generated source preview asset is unavailable.");
         pack.CaptureSourceMaterials(asset, id);
-        if (runtimeCannon && !final)
+        if (runtimeCannon && !final && trooper == null)
         {
             if (!pack.TryResolvePrivate(Hunter.Samus, appearance, CharacterModelPart.ViewModel, 0, out var cannonAsset))
                 throw new InvalidDataException("The generated normal source cannon is unavailable.");
