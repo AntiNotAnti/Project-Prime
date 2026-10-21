@@ -53,11 +53,13 @@ internal sealed partial class PassiveReplayPlayer
     {
         if (Environment.CurrentManagedThreadId != _customThread)
             throw new InvalidOperationException("Custom archive stepping and replacement require their Scene thread.");
+        Current.Scene.PrepareReplayCustomAudio(Ready && Transport.State == ReplayState.Playing);
         try { return _customClip != null ? UpdateCustomClip(maximumSteps, maximumMilliseconds)
             : UpdateCustomCore(maximumSteps, maximumMilliseconds); }
         catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
         {
             LastCheckpointError = error.Message; _customGoal = null; _customNeedsPreparation = false;
+            Current.Scene.PrepareReplayCustomAudio(false);
             RetireCustomPreparation(); Current.Session.FailVerification("Custom archive player stopped: " + error.Message);
             Transport.Fail(); throw;
         }
@@ -125,6 +127,7 @@ internal sealed partial class PassiveReplayPlayer
         while (steps < due && (!seeking || steps == 0 || Stopwatch.GetElapsedTime(began).TotalMilliseconds < maximumMilliseconds))
         {
             if (!Current.StepCustomArchiveInspection()) { Transport.AfterFrame(); break; }
+            Current.Scene.StepReplayCustomAudio();
             Transport.AfterFrame(); steps++;
             if (seeking) SeekSimulationSteps++;
             Stepped?.Invoke(Current.Scene);

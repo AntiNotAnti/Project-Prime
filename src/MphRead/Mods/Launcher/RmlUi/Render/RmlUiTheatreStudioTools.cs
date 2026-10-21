@@ -131,7 +131,7 @@ internal static partial class RmlUiOpenGlSmoke
                         case TheatreStudioTool.PortableBundle:
                             path=Path.Combine(directory,RmlUiReplayFileNames.PortableBundleName);
                             ReplayPortableBundle.Export(path,source,annotations.Bytes,ReplayReels.ReadReviewed(reel,context.LogicalPath,context.Duration),portableCamera!,mapIdentity,portableMap,cancellation);
-                            summary=portableMap!=null?"Saved old-format portable replay with exact custom-map package and camera authoring state.":"Saved old-format portable replay and camera state. Exact custom-map identity is referenced if no installed package was available.";break;
+                            summary="Saved portable replay and camera state. Custom weapon recordings include the exact weapon package; custom maps are included when available.";break;
                         default:
                             path=Path.Combine(directory,options.Tool==TheatreStudioTool.PortableBundle?RmlUiReplayFileNames.PortableBundleName:"diagnostics.zip");
                             using(var archive=ZipFile.Open(path,ZipArchiveMode.Create))
@@ -146,7 +146,7 @@ internal static partial class RmlUiOpenGlSmoke
                     }
                     cancellation.ThrowIfCancellationRequested();return new TheatreStudioToolResult(summary,path);
                 }
-                catch{try{Directory.Delete(directory,true);}catch(IOException){}throw;}
+                catch(Exception error){if(error is not ReplayPortableWeaponInstallationRequiredException){try{Directory.Delete(directory,true);}catch(IOException){}}throw;}
             },cancellation);
         }
         private static string FileFacts(string path){var info=new FileInfo(path);return info.Length+":"+info.LastWriteTimeUtc.Ticks;}

@@ -48,7 +48,7 @@ internal sealed class KillcamController : IDisposable
     private KillcamHud? _hud;
     private readonly Stopwatch _startup = new();
     private KillcamCameraSnapshot? _lastKillerCamera;
-    private string? _killerName;
+    private string? _killerName, _customWeaponName;
     internal double StartupMilliseconds { get; private set; }
     internal long ClipBytes { get; private set; }
     internal KillcamState State { get; private set; }
@@ -167,7 +167,7 @@ internal sealed class KillcamController : IDisposable
             _player.Update();
             if (!_player.Ready) { State = KillcamState.Preparing; return; }
             if (_startup.IsRunning) { _startup.Stop(); StartupMilliseconds = _startup.Elapsed.TotalMilliseconds; }
-            if (_audio == 0 && _player.Current.State.CustomWeapons == null)
+            if (_audio == 0)
                 _audio = ReplayAudioOwner.Acquire(_player.Current.Scene, live);
             State = _player.Current.Session.AtEnd ? KillcamState.AwaitCompletion : KillcamState.Replay;
             if (State == KillcamState.AwaitCompletion && Kind == KillCamKind.Personal && ++_hold >= 15)
@@ -220,6 +220,7 @@ internal sealed class KillcamController : IDisposable
         _playingClip = clip; // Transfer the single frozen lease to this playback.
         _killFrame = killFrame;
         _player = _open(_playingClip, live.Size); _playing = marker; Kind = kind; _live = live;
+        _customWeaponName = null;
         _player.Current.Scene.ReplayPresentationHud = DrawHud;
         _start = clip.StartRecordingFrame; _end = clip.EndRecordingFrame; _hold = 0; _skipArmed = false;
         _player.Transport.SetPlaybackRate(PlaybackRate);
@@ -330,6 +331,11 @@ internal sealed class KillcamController : IDisposable
         string killer = PlayerNameCodec.Clamp(_killerName ?? "ATTACKER");
         string victim = PlayerNameCodec.Clamp(scene.GameState.Nicknames[kill.VictimSlot]);
         string weapon = KillCam.WeaponName(marker.Weapon);
+        if (scene.Services is ReplaySceneServices customServices && customServices.State.CustomWeapons is { } custom)
+        {
+            if (custom.TryKillWeaponName(kill, out var name)) _customWeaponName = name;
+            if (_customWeaponName != null) weapon = _customWeaponName;
+        }
         bool headshot = ((DamageFlags)marker.DamageFlags & DamageFlags.Headshot) != 0;
         int killerHealth = scene.Services is ReplaySceneServices services
             && services.State.Occupant(kill.KillerSlot).Generation == kill.KillerGeneration
