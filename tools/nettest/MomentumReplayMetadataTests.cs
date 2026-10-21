@@ -64,9 +64,20 @@ internal static class MomentumReplayMetadataTests
         foreach (byte[][] packets in new[] { new[] { Match(MovementModel.Parkour) }, new[] { Session(MovementModel.Parkour) },
             new[] { Match(MovementModel.Parkour), Session(MovementModel.Parkour) } })
         {
-            Check(Metadata(77, packets).RecordedMovementModel == MovementModel.Parkour
-                && Metadata(77, packets).RecordedMovementProfileVersion == 1,
-                "explicit protocol77 Parkour bootstrap retains its frozen profile");
+            foreach (byte protocol in new byte[] { 77, 78, 79, 80 })
+            {
+                int profile = protocol - 76;
+                var metadata = Metadata(protocol, packets);
+                Check(metadata.RecordedMovementModel == MovementModel.Parkour
+                    && metadata.RecordedMovementProfileVersion == profile,
+                    $"explicit protocol{protocol} Parkour bootstrap retains frozen profile{profile}");
+                var entry = new ReplayLibraryIndexEntry { HasMetadata = true, Room = Room,
+                    ProtocolVersion = protocol, RecordedUtcTicks = DateTime.UtcNow.Ticks,
+                    RecordedMovementModel = MovementModel.Parkour };
+                var cached = JsonSerializer.Deserialize<ReplayLibraryIndexEntry>(JsonSerializer.Serialize(entry))!;
+                Check(cached.ToRecording("unused.ppdemo").Metadata!.RecordedMovementProfileVersion == profile,
+                    $"cached protocol{protocol} Parkour retains frozen profile{profile}");
+            }
             Check(Metadata(76, packets).RecordedMovementModel == null,
                 "formerly reserved Parkour rule cannot attribute historical metadata");
         }

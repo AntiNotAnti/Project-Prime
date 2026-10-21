@@ -314,3 +314,14 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Preserve room-then-entity reverse traversal, face order, strict distance tie-breaks
   and collision floating-point evaluation order. This refactor does not change
   simulation timing, protocol layouts or replay schemas.
+
+## Parkour static ledges
+
+- Protocol80 selects Parkour v4; 77/78/79 recordings retain v1/v2/v3 attribution.
+  Classic remains default; model4/bit19 and packet widths remain unchanged.
+- Fresh Forward+Jump mantle admission requires current safe native static face
+  contact, continuous full standing-body route clearance and an entire supported
+  landing footprint. At most 24 velocity-driven native collision steps assist it;
+  no position/previous-position snap or native jump/ability ownership migration.
+- Owner humans/native authority bots run the controller. Remote puppets/passive
+  replay consume accepted state. The passive checkpoint is not an active save.

@@ -34,6 +34,7 @@ public partial class PlayerEntity
         _modWallkickFrame = _modWallrunGravityFrame = ulong.MaxValue;
     }
     private bool ModWallrunBodyAllowed => ModParkourActive && !ModCrouched && !ModSliding
+        && !_modMantling && !_modMantlePending
         && !Controls.Crouch.IsDown && !Flags1.TestFlag(PlayerFlags1.Standing);
 
     private bool ModWallrunInput(Vector3 normal)

@@ -848,7 +848,8 @@ namespace MphRead.Entities
                     }
                 }
                 ModPrepareParkourWallrun();
-                bool jumping = WallClingInput() || _modWallkickPending;
+                ModPrepareParkourMantle();
+                bool jumping = WallClingInput() || _modWallkickPending || _modMantlePending || _modMantling;
                 if (!Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck) && !WallClingHeld)
                 {
                     // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
@@ -962,7 +963,7 @@ namespace MphRead.Entities
                     }
                     // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
                     // unimpl-controls: the aim input disable flag is also checked by the game
-                    if (!_modWallkickPending && _jumpPadControlLockMin == 0 && (Controls.Jump.IsPressed || ModQuake3HeldJumpRequested)
+                    if (!_modWallkickPending && !_modMantlePending && !_modMantling && _jumpPadControlLockMin == 0 && (Controls.Jump.IsPressed || ModQuake3HeldJumpRequested)
                         && !Flags1.TestFlag(PlayerFlags1.UsedJump))
                     {
                         // unimpl-controls: double tap jump is hard coded as an alternate condition to the jump input
@@ -2932,6 +2933,7 @@ namespace MphRead.Entities
                     ModMovementShadowNoteGravity(appliedGravity);
                     Speed = Speed.AddY(appliedGravity / 2); // todo: FPS stuff
                 }
+                ModApplyParkourMantle(momentumAllowed);
                 Vector3 position = Position + Speed / 2; // todo: FPS stuff
                 if (AttachedEnemy?.EnemyType == EnemyType.Quadtroid)
                 {
@@ -3065,6 +3067,7 @@ namespace MphRead.Entities
                 }
             }
             ModCompleteTuckContact();
+            ModCompleteParkourMantle();
             ModCompleteParkourWallrun(nativeJumpAccepted);
             WallClingAfterCollision();
             bool burning = false;

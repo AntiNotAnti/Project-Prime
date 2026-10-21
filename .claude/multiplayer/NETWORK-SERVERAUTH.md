@@ -301,3 +301,12 @@ participants are ready and the 1.5-second countdown expires. Missing participant
 are removed at 15 seconds. Late joins have individual readiness. Owner-reported
 position remains the collision position; no movement commands or reconciliation
 were introduced. Same-life owner snapshot corrections were removed separately.
+
+## Parkour v4
+
+Protocol80 adds the selected Parkour static-ledge mantle semantics without new
+wire fields. Human trajectories remain owner-reported; authority bots use native
+input/integration. Admission proves standing-body route clearance and static
+footprint support before taking a fresh Forward+Jump request. Passive replay
+restores accepted positions rather than rerunning the controller. Historical
+77/78/79 retain v1/v2/v3. See `docs/network/parkour-v4-version-contract.md`.

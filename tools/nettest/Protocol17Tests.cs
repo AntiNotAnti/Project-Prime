@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 79, "current protocol train is 79");
+            Check(NetConfig.ProtocolVersion == 80, "current protocol train is 80");
             var readinessRefusal=new RefusedPacket{Reason=RefusedPacket.ReasonCustomWeaponReadiness,Players=2,MaxPlayers=8};
             var refusalBytes=new byte[RefusedPacket.Size];readinessRefusal.Write(refusalBytes);
             var decodedRefusal=RefusedPacket.Read(refusalBytes);
@@ -72,14 +72,14 @@ internal static class Protocol17Tests
             Check(!a.Accepts(new IPEndPoint(IPAddress.Loopback, 4321), sent)
                 && !a.Accepts(endpoint, sent with { ConnectionId = 8 }), "endpoint and incarnation fence");
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
-            Check(bytes[3] == 79 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol79 envelope round trip");
-            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78 })
+            Check(bytes[3] == 80 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol80 envelope round trip");
+            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79 })
             {
                 bytes[3] = oldProtocol;
                 Check(!NetHeader.TryRead(bytes,out _),"old live envelope rejected despite preserved native payload contract: "+oldProtocol);
             }
-            bytes[3] = 80;
-            Check(!NetHeader.TryRead(bytes,out _),"unreviewed future80 live envelope rejected");
+            bytes[3] = 81;
+            Check(!NetHeader.TryRead(bytes,out _),"unreviewed future81 live envelope rejected");
             Check(SplitSnapshotBudgets(), "eight-player canonical state and actual split live/bootstrap lanes remain bounded");
             using var server = new NetTransport(0);
             using var client = new NetTransport(0);
