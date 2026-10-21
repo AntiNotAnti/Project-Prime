@@ -68,6 +68,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [948](https://github.com/AntiNotAnti/Project-Prime/pull/948) | Four exact generated Trooper source-program body viewers on the full35-joint rig,113 strict clips, Power C1 and post-slot1; Windows actual all-six switching/retirement and old-file migration preservation | `123df20e3737f672048309310f18c8c7f9428cd9` |
 | [950](https://github.com/AntiNotAnti/Project-Prime/pull/950) | Four real local offline Weavel source bodies, grounded full35-joint poses and Hunters persistence; Windows actual native gameplay parity, import/launch lifecycle and protocol82 grapple presentation fallback | `73f5ebf62b111de4321183296c51d11166e7e397` |
 | [952](https://github.com/AntiNotAnti/Project-Prime/pull/952) | Four own fixed Trooper cannons and source-program viewers, full35 rig/206-triangle cuts, native Power Beam/muzzle/gameplay parity, v6 migration and combined main951 Windows acceptance | `65d30788c1af5064041dd3f709b8803e77151641` |
+| [953](https://github.com/AntiNotAnti/Project-Prime/pull/953) | Independent Overcharged fixed cannon,793-triangle shell cut/full39 rig/cannon-only alpha variant; actual Windows native parity/viewer/launch, v6 migration and Trooper regressions | `5eae078120972911e006696dcb39f65558a1b191` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document

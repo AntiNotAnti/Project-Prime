@@ -1,5 +1,9 @@
 # Overcharged Dark Samus fixed source cannon
 
+Merged in [PR953](https://github.com/AntiNotAnti/Project-Prime/pull/953) at
+`5eae078120972911e006696dcb39f65558a1b191`. The merge tree exactly matches
+qualified head `85bf8cab73aeb7b09da2acb8f222c3d6c25c3b4f`.
+
 The selected Overcharged Echoes local offline Samus appearance now uses its
 own fixed source cannon with native Power Beam. It shares the existing body
 owner, source-rig loader, material compiler, Scene graph and native first-person
