@@ -8,8 +8,9 @@ public partial class Scene
 {
     internal PreparedReplayWeaponPackage RetainOnlineReplayPackage(ReplayCustomWeaponDescriptor descriptor)
     {
-        if (Services.IsReplica || PrivateCharacterGameplayUnsupported || OfflineWeapons != null || CustomCombat != null
-            || !HasOnlineWeaponPackage(descriptor.Bootstrap.World.Start, descriptor.Bootstrap.Packages.Digest))
+        if (descriptor.Bootstrap.OriginKind != ReplayCustomWeaponOriginKind.Recipient
+            || Services.IsReplica || PrivateCharacterGameplayUnsupported || OfflineWeapons != null || CustomCombat != null
+            || !HasOnlineWeaponPackage(descriptor.Bootstrap.Start, descriptor.Bootstrap.Packages.Digest))
             throw new InvalidOperationException("Recording requires the current ordinary client's exact prepared package.");
         return PreparedReplayWeaponPackage.RetainPrepared(descriptor, _onlineWeaponPackage!);
     }

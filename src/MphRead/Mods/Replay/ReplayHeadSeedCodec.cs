@@ -103,7 +103,7 @@ internal sealed class ReplayHeadSeedCodec
             || domain == 2 && (custom.Action.Owner.MatchId != victim.Match || custom.Action.Owner.AuthorityEpoch != victim.Epoch
                 || custom.Victim.Slot != victim.Slot || custom.Victim.Generation != victim.Generation || custom.Victim.Life != victim.Life
                 || custom.Action.Manifest != _state.CustomWeapons!.Context.Bootstrap.Packages.MechanicsDigest
-                || bootstrap.Start != _state.CustomWeapons.Context.Bootstrap.World.Start
+                || bootstrap.Start != _state.CustomWeapons.Context.Bootstrap.Start
                 || custom.Action.Weapon != _state.CustomWeapons.Context.Validation.Manifest.Rows[0].RuntimeId))
             throw new InvalidDataException("Head-history event differs from its victim or manifest.");
         return value;

@@ -57,7 +57,7 @@ internal sealed partial class ReplayCustomWeaponState
     private readonly ulong[] _seen = new ulong[SeenCapacity];
     private readonly WeaponDigest[] _digests = new WeaponDigest[SeenCapacity];
     internal ReplayCustomWeaponState(ReplayCustomWeaponContext context)
-    { ArgumentNullException.ThrowIfNull(context); Context = context; World = context.Bootstrap.World.AuthorityFrame; }
+    { ArgumentNullException.ThrowIfNull(context); Context = context; World = context.Bootstrap.AuthorityFrame; }
     private static bool Before(uint a, uint b) => unchecked((int)(a - b)) < 0;
     internal ReplayCustomWeaponState Copy(ReplayCustomWeaponContext? replacement = null)
     {

@@ -33,17 +33,17 @@ internal sealed partial class ReplayReplicaState
         var bits = (MatchModifierFlags)match.RuleBits & CustomRuleBits;
         if (CustomWeaponDescriptor == null) return bits == 0;
         var bootstrap = CustomWeaponDescriptor.Bootstrap;
-        return bits == CustomRuleBits && match.MatchId == bootstrap.World.Start.MatchId
-            && match.AuthorityEpoch == bootstrap.World.Start.AuthorityEpoch
+        return bits == CustomRuleBits && match.MatchId == bootstrap.Start.MatchId
+            && match.AuthorityEpoch == bootstrap.Start.AuthorityEpoch
             && StringComparer.OrdinalIgnoreCase.Equals(match.RoomKey, CustomWeaponDescriptor.Map.RoomKey);
     }
     private bool CustomConfigurationAllowed(in SessionStatePacket configuration)
     {
         bool custom = configuration.Match.RiftlineM7Available || configuration.Match.PackagedWeaponAvailable;
         return CustomWeaponDescriptor == null ? !custom : configuration.Match.RiftlineM7Available && configuration.Match.PackagedWeaponAvailable
-            && configuration.MatchId == CustomWeaponDescriptor.Bootstrap.World.Start.MatchId
-            && configuration.AuthorityEpoch == CustomWeaponDescriptor.Bootstrap.World.Start.AuthorityEpoch
-            && configuration.StartGeneration == CustomWeaponDescriptor.Bootstrap.World.Start.StartGeneration
+            && configuration.MatchId == CustomWeaponDescriptor.Bootstrap.Start.MatchId
+            && configuration.AuthorityEpoch == CustomWeaponDescriptor.Bootstrap.Start.AuthorityEpoch
+            && configuration.StartGeneration == CustomWeaponDescriptor.Bootstrap.Start.StartGeneration
             && configuration.Match.MapIdentity.Content(configuration.Match.RoomKey).Matches(CustomWeaponDescriptor.Map);
     }
     private static bool ReadReplicaConfiguration(ReadOnlySpan<byte> bytes, bool custom, out SessionStatePacket value)

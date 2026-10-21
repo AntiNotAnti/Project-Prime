@@ -17,6 +17,7 @@ internal sealed class CustomReadinessWire
     internal byte Slot { get; }
     internal CustomWeaponManifest Manifest { get; }
     internal WeaponDefinition Definition { get; }
+    internal CustomReplicaValidation Validation { get; }
     internal byte[] ManifestBytes { get; }
     internal byte[] ReadyBytes { get; }
     internal CustomReadinessWire(WorldBootstrapIdentity bootstrap,byte slot,WeaponDefinition? definition=null)
@@ -24,6 +25,7 @@ internal sealed class CustomReadinessWire
         if (!CustomWeaponProtocol.ValidBootstrap(bootstrap) || slot >= 8) throw new ArgumentException("Exact recipient bootstrap required.");
         Bootstrap = bootstrap; Slot = slot;
         Definition=definition??RiftlineM7.Create(); Manifest = new(new[] { Definition });
+        Validation = new(bootstrap.Start, Definition, Manifest);
         var page = new CustomManifestPage(bootstrap,Manifest.Digest,1,0,new[] { Manifest.Rows[0] });
         ManifestBytes = new byte[page.Size]; page.Write(ManifestBytes);
         ReadyBytes = new byte[CustomWeaponReady.Size];

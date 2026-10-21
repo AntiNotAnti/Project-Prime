@@ -13,7 +13,7 @@ internal sealed class ReplayCustomWeaponContext
     internal WeaponDefinition Definition { get; }
     internal CustomPickupLayout Layout { get; }
     internal WeaponDigest Digest { get; }
-    internal CustomReadinessWire Validation { get; }
+    internal CustomReplicaValidation Validation { get; }
     internal ReplayCustomWeaponContext(ReplayCustomWeaponBootstrap bootstrap, WeaponDefinition definition,
         CustomPickupLayout layout)
     {
@@ -25,11 +25,10 @@ internal sealed class ReplayCustomWeaponContext
             throw new InvalidDataException("Replay weapon definition or pickup layout contradicts its exact bootstrap.");
         Bootstrap = bootstrap; Definition = definition; Layout = layout;
         Digest = WeaponDigest.Read(SHA256.HashData(bootstrap.CopyBytes()));
-        // Slot is unused by the shared row/source validators. No Ready message
-        // or recipient ACK is consumed or emitted by this validation context.
-        Validation = new(bootstrap.World, 0, definition);
+        // Shared projection validation has no recipient, Ready message or ACK.
+        Validation = new(bootstrap.Start, definition, mechanics);
     }
-    internal CustomPickupWorld PickupWorld => new(Bootstrap.World.Start, Bootstrap.Packages.MechanicsDigest, Layout.Digest);
+    internal CustomPickupWorld PickupWorld => new(Bootstrap.Start, Bootstrap.Packages.MechanicsDigest, Layout.Digest);
 }
 
 internal enum ReplayCustomWeaponFactKind : byte { Bootstrap = 1, Baseline, State, Launch, Contact, Pickup, Clock }
@@ -67,13 +66,13 @@ internal sealed class ReplayCustomWeaponFact
         return fact!;
     }
     internal static ReplayCustomWeaponFact Bootstrap(ReplayCustomWeaponContext context)
-        => Make(context, ReplayCustomWeaponFactKind.Bootstrap, 1, context.Bootstrap.World.AuthorityFrame, context.Bootstrap.CopyBytes());
+        => Make(context, ReplayCustomWeaponFactKind.Bootstrap, 1, context.Bootstrap.AuthorityFrame, context.Bootstrap.CopyBytes());
     internal static ReplayCustomWeaponFact Clock(ReplayCustomWeaponContext context, ulong sequence, uint world)
         => Make(context, ReplayCustomWeaponFactKind.Clock, sequence, world, ReadOnlySpan<byte>.Empty);
     internal static ReplayCustomWeaponFact Baseline(ReplayCustomWeaponContext context, ulong sequence,
         in CustomReplicaCapture capture, ReadOnlySpan<CustomReplicaSlot> slots, ReadOnlySpan<CustomReplicaFlight> flights)
     {
-        if (capture.MatchId != context.Bootstrap.World.Start.MatchId || capture.AuthorityEpoch != context.Bootstrap.World.Start.AuthorityEpoch
+        if (capture.MatchId != context.Bootstrap.Start.MatchId || capture.AuthorityEpoch != context.Bootstrap.Start.AuthorityEpoch
             || capture.Manifest != context.Bootstrap.Packages.MechanicsDigest || capture.SlotCount != 8
             || capture.FlightCount is < 0 or > 64 || slots.Length < 8 || flights.Length < capture.FlightCount)
             throw new InvalidDataException("Custom replay baseline has a different world or exceeds its bounds.");
@@ -134,10 +133,10 @@ internal sealed class ReplayCustomWeaponFact
         var kind = (ReplayCustomWeaponFactKind)bytes[2]; ulong sequence = BinaryPrimitives.ReadUInt64LittleEndian(bytes[5..]);
         if ((bytes[1] == ClockVersion) != (kind == ReplayCustomWeaponFactKind.Clock)) return false;
         uint world = BinaryPrimitives.ReadUInt32LittleEndian(bytes[13..]); var body = bytes[HeaderSize..];
-        if (sequence == 0 || Before(world, context.Bootstrap.World.AuthorityFrame)) return false;
+        if (sequence == 0 || Before(world, context.Bootstrap.AuthorityFrame)) return false;
         if (kind == ReplayCustomWeaponFactKind.Bootstrap)
         {
-            if (sequence != 1 || world != context.Bootstrap.World.AuthorityFrame || !body.SequenceEqual(context.Bootstrap.CopyBytes())) return false;
+            if (sequence != 1 || world != context.Bootstrap.AuthorityFrame || !body.SequenceEqual(context.Bootstrap.CopyBytes())) return false;
         }
         else
         {
@@ -153,7 +152,7 @@ internal sealed class ReplayCustomWeaponFact
                     break;
                 case ReplayCustomWeaponFactKind.Contact:
                     if (!CustomCombatResults.TryReadOutcome(body, context.Validation.Manifest, context.Definition, out var source, out var outcome)
-                        || source.Start != context.Bootstrap.World.Start || outcome.AuthorityFrame != world) return false;
+                        || source.Start != context.Bootstrap.Start || outcome.AuthorityFrame != world) return false;
                     break;
                 case ReplayCustomWeaponFactKind.Pickup:
                     if (body.Length != PickupSize || body[0] >= context.Layout.Count || body[1] != context.Layout.Count || body[16] > 1
@@ -200,7 +199,7 @@ internal sealed class ReplayCustomWeaponFact
         if (flights.Length < count) return false;
         for (int i = 0; i < 8; i++) CustomReplicaCodec.ReadSlot(body.Slice(i * CustomReplicaCodec.SlotSize, CustomReplicaCodec.SlotSize), i, context.Validation, out slots[i]);
         for (int i = 0; i < count; i++) CustomReplicaCodec.ReadFlight(body.Slice(8 * CustomReplicaCodec.SlotSize + 1 + i * CustomReplicaCodec.FlightSize, CustomReplicaCodec.FlightSize), context.Validation, World, out flights[i]);
-        capture = new(context.Bootstrap.World.Start.MatchId, context.Bootstrap.World.Start.AuthorityEpoch, context.Bootstrap.Packages.MechanicsDigest, World, 8, count); return true;
+        capture = new(context.Bootstrap.Start.MatchId, context.Bootstrap.Start.AuthorityEpoch, context.Bootstrap.Packages.MechanicsDigest, World, 8, count); return true;
     }
     internal bool TryLaunch(ReplayCustomWeaponContext context, out CustomReplicaLaunch launch)
     { launch = default; return Context == context.Digest && Kind == ReplayCustomWeaponFactKind.Launch && CustomReplicaCodec.ReadLaunch(_bytes.AsSpan(HeaderSize), context.Validation, World, out launch); }
