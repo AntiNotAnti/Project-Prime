@@ -5,6 +5,12 @@
 .lobby_title { color:#ffffff; font-size:24dp; line-height:26dp; font-weight:bold; }
 .lobby_status_line { margin-top:4dp; color:#a0b9cb; font-size:12dp; line-height:15dp; }
 .lobby_side_panel { padding:8dp; color:#b8cadd; background-color:rgba(3,13,23,90%); border:1dp rgba(114,199,255,25%); }
+#lobby_match_panel, #lobby_roster_panel, #lobby_chat_panel { position:relative; }
+/* These seams share the chamber's light without covering or moving content. */
+.chamber_corner { position:absolute; display:block; pointer-events:none; }
+.chamber_corner_top { right:0; top:0; width:28dp; height:6dp; border-top:1dp rgba(114,199,255,55%); border-right:1dp rgba(114,199,255,55%); }
+.chamber_corner_bottom { left:0; bottom:0; width:14dp; height:4dp; border-bottom:1dp rgba(114,199,255,30%); border-left:1dp rgba(114,199,255,30%); }
+.high-contrast .chamber_corner { display:none; }
 #lobby_left_panels { position:absolute; left:24dp; top:92dp; bottom:76dp; width:20%; max-width:280dp; overflow-y:auto; overflow-x:hidden; }
 #lobby_match_panel { display:flex; flex-wrap:wrap; width:100%; }
 #lobby_match_panel > .eyebrow, .lobby_panel_title, .lobby_field_status { width:100%; }
@@ -32,10 +38,10 @@
 .lobby_roster_social:hover, .lobby_roster_social:focus { background-color:#1c4b68; border-color:#78caff; }
 .lobby_roster_row { flex:0 0 auto; display:flex; align-items:center; min-height:38dp; padding:2dp; border-left:3dp #426983; border-bottom:1dp rgba(114,199,255,12%); background-color:rgba(11,35,53,80%); }
 .lobby_roster_index { flex-shrink:0; width:14dp; color:#8eafc7; text-align:center; font-size:12dp; }
-.lobby_roster_copy { display:block; flex:1; min-width:0; padding:2dp 4dp; text-align:left; }
+.lobby_roster_copy { display:block; flex:1; width:0; min-width:0; padding:2dp 4dp; text-align:left; }
 .lobby_roster_copy b { display:block; color:#eaf6ff; font-size:14dp; line-height:16dp; overflow:hidden; white-space:nowrap; }
 .lobby_roster_hunter { display:block; color:#a0b9cb; font-size:12dp; line-height:14dp; }
-.lobby_roster_meta { flex-shrink:0; max-width:38%; text-align:right; }
+.lobby_roster_meta { flex-shrink:0; width:72dp; max-width:38%; min-width:0; text-align:right; }
 .lobby_roster_state { display:block; color:#a0b9cb; font-size:12dp; line-height:14dp; }
 .lobby_team { display:block; margin-top:2dp; padding:1dp 4dp; color:#deefff; font-size:12dp; line-height:14dp; border:1dp #426983; background-color:#12364b; }
 .lobby_roster_copy:hover, .lobby_roster_copy:focus, .lobby_team:hover, .lobby_team:focus { background-color:#1c4b68; }
@@ -80,6 +86,7 @@
 #lobby_actions .lobby_action { flex:1; pointer-events:auto; }
 .lobby_action:hover, .lobby_action:focus { background-color:#1c4b68; border-color:#78caff; }
 .lobby_action.primary, .lobby_action.start { color:#ffffff; background-color:#145c84; border-color:#78caff; border-bottom:3dp #49caff; }
+.lobby_action.primary:hover, .lobby_action.primary:focus, .lobby_action.start:hover, .lobby_action.start:focus { border-top-color:#d3efff; }
 #lobby_leave { position:absolute; bottom:12dp; left:24dp; min-width:96dp; height:48dp; }
 .lobby_action.danger:hover, .lobby_action.danger:focus { background-color:#6b2631; border-color:#ff8794; }
 #lobby_countdown { position:absolute; left:0; top:0; width:100%; height:100%; z-index:100; display:flex; flex-direction:column; align-items:center; justify-content:center; background-color:rgba(3,12,22,96%); }

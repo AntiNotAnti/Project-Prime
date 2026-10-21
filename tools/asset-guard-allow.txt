@@ -92,3 +92,13 @@ docs/implementation/rmlui-refinement-2-2026-10-20/license-before.png
 docs/implementation/rmlui-refinement-2-2026-10-20/license-after.png
 docs/implementation/rmlui-refinement-2-2026-10-20/hunters-before.png
 docs/implementation/rmlui-refinement-2-2026-10-20/hunters-after.png
+
+# VFX 3: original procedural chamber and synthetic native UI only; no cartridge/world/model imagery.
+docs/implementation/rmlui-vfx-3-2026-10-20/home-before.png
+docs/implementation/rmlui-vfx-3-2026-10-20/lobby-before.png
+docs/implementation/rmlui-vfx-3-2026-10-20/home-after.png
+docs/implementation/rmlui-vfx-3-2026-10-20/lobby-after.png
+docs/implementation/rmlui-vfx-3-2026-10-20/home-minimal.png
+docs/implementation/rmlui-vfx-3-2026-10-20/weavel-theme.png
+docs/implementation/rmlui-vfx-3-2026-10-20/home-holographic-ui.png
+docs/implementation/rmlui-vfx-3-2026-10-20/lobby-holographic-ui.png

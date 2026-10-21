@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using MphRead;
 using MphRead.Mods;
@@ -34,7 +35,8 @@ internal static class MenuEnvironmentGlAcceptance
         var hardware = new { gpu = GL.GetString(StringName.Renderer), vendor = GL.GetString(StringName.Vendor),
             version = GL.GetString(StringName.Version), width, height,
             timerQueriesSupported = TimerSupported(),
-            gpuTiming = TimerSupported() ? "GL_TIME_ELAPSED query around the same procedural draw; 30 warmed samples per scene/quality." : "Required ARB/core timer-query support/entry points unavailable; GPU-only duration remains null." };
+            timerQueryExtAdvertised = (GL.GetString(StringName.Extensions) ?? "").Split(' ').Contains("GL_EXT_timer_query"),
+            gpuTiming = TimerSupported() ? "GL_TIME_ELAPSED query (core/ARB or EXT) around the same procedural draw; 30 warmed samples per scene/quality." : "Required core/ARB/EXT timer-query support/entry points unavailable; GPU-only duration remains null." };
         try
         {
             Check(host.Active && width > 0 && height > 0, "existing native context and host are active");
@@ -151,24 +153,33 @@ internal static class MenuEnvironmentGlAcceptance
         finally { Scene.LauncherPreview = preview; Scene.LauncherPreviewCinematicLighting = cinematic; }
     }
 
-    private static bool TimerSupported()
+    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+    private delegate void QueryResult64(uint query, uint parameter, out ulong value);
+    private static IntPtr TimerResultProcedure()
     {
         string version = (GL.GetString(StringName.Version) ?? "").Split(' ')[0];
         bool core = Version.TryParse(version, out Version? parsed) && parsed >= new Version(3, 3);
-        bool arb = (GL.GetString(StringName.Extensions) ?? "").Split(' ').Contains("GL_ARB_timer_query");
-        return (core || arb) && new[] { "glBeginQuery", "glEndQuery", "glGetQueryObjectui64v" }
-            .All(name => GLFW.GetProcAddress(name) != IntPtr.Zero);
+        string[] extensions = (GL.GetString(StringName.Extensions) ?? "").Split(' ');
+        if (core || extensions.Contains("GL_ARB_timer_query"))
+        {
+            IntPtr result = GLFW.GetProcAddress("glGetQueryObjectui64v");
+            if (result != IntPtr.Zero) return result;
+        }
+        return extensions.Contains("GL_EXT_timer_query") ? GLFW.GetProcAddress("glGetQueryObjectui64vEXT") : IntPtr.Zero;
     }
+    private static bool TimerSupported() => TimerResultProcedure() != IntPtr.Zero
+        && GLFW.GetProcAddress("glBeginQuery") != IntPtr.Zero && GLFW.GetProcAddress("glEndQuery") != IntPtr.Zero;
     private static object? GpuSamples(int width, int height)
     {
         if (!TimerSupported()) return null;
         int query = GL.GenQuery(); var samples = new double[30];
+        var result = Marshal.GetDelegateForFunctionPointer<QueryResult64>(TimerResultProcedure());
         try
         {
             for (int i = 0; i < samples.Length; i++)
             {
                 GL.BeginQuery(QueryTarget.TimeElapsed, query); Draw(width, height); GL.EndQuery(QueryTarget.TimeElapsed);
-                GL.Finish(); GL.GetQueryObject((uint)query, GetQueryObjectParam.QueryResult, out ulong ns);
+                GL.Finish(); result((uint)query, (uint)GetQueryObjectParam.QueryResult, out ulong ns);
                 samples[i] = ns / 1_000_000.0;
             }
             Check(GL.GetError() == ErrorCode.NoError, "elapsed GPU queries are valid");

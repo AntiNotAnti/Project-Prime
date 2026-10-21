@@ -239,6 +239,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NcsfPlay\NcsfPlay.csproj" />
+    <ProjectReference Include="../MphRead.CorpsePhysics/MphRead.CorpsePhysics.csproj" />
+    <AndroidAsset Include="../MphRead.CorpsePhysics/THIRD-PARTY-NOTICES.md" LogicalName="corpse-physics/THIRD-PARTY-NOTICES.md" />
   </ItemGroup>
 
   <ItemGroup>

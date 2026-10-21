@@ -265,6 +265,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NcsfPlay\NcsfPlay.csproj" />
+    <ProjectReference Include="../MphRead.CorpsePhysics/MphRead.CorpsePhysics.csproj" Condition="'$(MphReadServer)' != 'true'" />
   </ItemGroup>
 
   <!-- The in-repo network regression harness intentionally exercises a few

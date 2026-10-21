@@ -5680,6 +5680,7 @@ namespace MphRead
 
         public void DoCleanup()
         {
+            ModReleasePhysicalCorpseWorlds();
             foreach (var player in Players.Items) player?.RetirePauseMapDetail();
             ReleaseCustomWeaponRegistry();
             if (AimTrainer?.Completed == true && this.GameState.MenuPause) this.GameState.UnpauseMenu();

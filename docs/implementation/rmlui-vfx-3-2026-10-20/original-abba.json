@@ -1,0 +1,28 @@
+{
+  "order": [
+    "a1-before",
+    "b1-after",
+    "b2-after",
+    "a2-before"
+  ],
+  "same_runner_binary": true,
+  "same_external_dependencies": true,
+  "switched_only": "ProjectPrime.dll",
+  "framebuffer": [
+    1920,
+    1080
+  ],
+  "client": [
+    960,
+    540
+  ],
+  "warmup_draws": 50,
+  "samples_per_scene": 300,
+  "gpu_query_samples_per_scene": 30,
+  "cosmetic_quality": "Medium",
+  "fixture": "Original identical runner: Home then full lobby; explicit 8 synthetic hunter identities, occupied=255, ready=0x55; same 144Hz one-second fixture timelines, same clear pattern, no model/assets/UI/network.",
+  "limitations": "Serialized CPU Draw+glFinish and legal EXT timer query; no swap/input/UI/model/frame-pacing claim. A1 CPU tail noisy. Compare GPU sample ranges across both arms, no claimed performance improvement.",
+  "runner_source_sha256": "fd21a26d5436cef5a6574e45140dbe47460b8e69932e5d1fd80ad4e3fd06c4de",
+  "old_shader_sha256": "257e4221ef9745d2a4fec1b46f0f996ebed17f1f9d1f103b891907a6bff90064",
+  "new_shader_sha256": "ef711710aaee1983e5d99fb6860bd6a4ac878db3313f7ee3553eedd937f89adc"
+}

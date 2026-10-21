@@ -589,6 +589,21 @@ def geometry_checks(bridge, doc, path, width, height, density, touch=False, larg
         container = stage or viewport
         horizontal = bool(box) and box[0] >= container[0]-2 and box[0]+box[2] <= container[0]+container[2]+2
         assertion(checks, 'content_horizontal_bounds:' + element, horizontal, bounds=box, container=container)
+    if path == 'pages/lobby/lobby.rml':
+        # Checking the column and row boxes alone misses an auto-width status
+        # column collapsing while the flex name button consumes the whole row.
+        # Rows may scroll on short/touch surfaces, but their children must still
+        # fit their own row in every density and accessibility configuration.
+        for i in range(8):
+            row = bridge.bounds(doc, f'visible_slot{i}_occupied_1')
+            copy = bridge.bounds(doc, f'lobby_player{i}')
+            state = bridge.bounds(doc, f'text_slot{i}_state_1')
+            team = bridge.bounds(doc, f'lobby_team{i}')
+            assertion(checks, f'roster_ready_state_inside_row:{i}', inside(state, row), bounds=state, row=row)
+            assertion(checks, f'roster_team_inside_row:{i}', inside(team, row), bounds=team, row=row)
+            assertion(checks, f'roster_name_before_team:{i}',
+                      bool(copy and team) and copy[0]+copy[2] <= team[0]+2,
+                      name_button=copy, team_button=team)
     if path == 'pages/lobby/lobby.rml' and width / density >= 1280 and height / density >= 720 and not touch:
         roster = bridge.bounds(doc, 'lobby_roster_panel')
         for i in range(8):

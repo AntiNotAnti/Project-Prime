@@ -1,0 +1,93 @@
+{
+  "scope": "Mac Apple M4 Pro, actual existing OpenGL 2.1 context; synthetic services; private owned-asset model test; no physical Windows/Linux/Android qualification or whole-app frame/input latency claim.",
+  "client_base_commit": "cc8babc0ddb0a4ab0492589f74b1415a49dc8131",
+  "production_sha256": {
+    "src/MphRead/Mods/Launcher/Portable/LauncherEnvironmentBudget.cs": "a23be8e5d656348d25f4ff0f1e201f1e941caf6d86beeb318f8d07e519afa1a8",
+    "src/MphRead/Mods/Launcher/Portable/LauncherPresentation.cs": "0d0b0dae9b7ccbbc8ed27c258f5807dc7c2b6eee677cf29376c62fb66563107b",
+    "src/MphRead/Mods/Launcher/Portable/LauncherMenuVisuals.cs": "f183ddac344eb3d56d28629b3a3b72d53005ad3d8aa1ad82433d5a1b6ad126ed",
+    "src/MphRead/Mods/Launcher/RmlUi/Core/RmlUiHunterStagePlan.cs": "dbb8e83b71a9b14b2468ac8e6b0495331d58fd04b589d27379d72c6e94a782b7",
+    "src/MphRead/Mods/Launcher/RmlUi/Core/RmlUiHunterStagePlanCache.cs": "7a2082a9a04a4daca04e9d27521b88f0f91b7946ae26e8f9e9f7ac46d834a327",
+    "src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiHunterStageRenderer.cs": "30ca62d67dfae46cf92d563bfcfe87786797e7fe8e46a40fa388e6baf824959b",
+    "src/MphRead/Mods/Render/LauncherChamberShader.cs": "87a53626ee377bb60d107c7f8519704d08ffba7c89ca536e669b140645c2044c",
+    "src/MphRead/Mods/Render/LauncherBackdropComposer.cs": "9a5461526c82022ef2770d6735b55c3847172b9b421c5450ecdf06bf2fd39b4e",
+    "src/MphRead/Mods/Render/MenuGraphicsStateScope.cs": "70a6110bfb626f02af1bc36e752a000f311b35e8e165aad47c2a74dcef8e14b9",
+    "src/MphRead/Mods/Render/HunterPreview.cs": "ae8c788ee5e9112eb971512418ee4fdac260b63e05c1d620c8abfd351df649a9",
+    "src/MphRead/Mods/Render/LauncherStageFx.cs": "fcbdb32404cdffdaf885fde41b9054abfb39391d3074c3fba743d88cabb1160e",
+    "src/MphRead/Mods/Launcher/RmlUi/Pages/home/home.rml": "e75220f01005c42d8f3a7780a03bfaa7ae5531f9c4ac05fea4f92dd6e90be89b",
+    "src/MphRead/Mods/Launcher/RmlUi/Pages/home/home.rcss": "a2f3eafa281ec88673862102b6f4f2c3b9a37d7752ae6996f3347ebcc9799d7a",
+    "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rml": "afd0371cc9cc6f3a19f9bd306a57079d7b1835558719d5167ea7bda61ef3415b",
+    "src/MphRead/Mods/Launcher/RmlUi/Pages/lobby/lobby.rcss": "82d67f17d91c62983e0ac81782bb6e17e72eff139a629dc4f909083bae70c100",
+    "src/MphRead/Mods/Launcher/Portable/NativeFullSettingsController.cs": "2d50cfbd062682e361d6380ec1f18b0d569e204ad2490c1ef8a1ad8eb4bc95c7"
+  },
+  "native_library_sha256": "f87c927f8799083fc5ccaccce1aaaca537d5fbc063de0b2c7fbe99b3ea810953",
+  "client_dll_sha256": "2b66657ed70855ab90c4f9c94f0fb1925ac86271764ed2625a33e6bc58e8e3cb",
+  "client_build": {
+    "errors": 0,
+    "warnings": 1,
+    "existing_warning": "CS0649 CustomReadinessProbe.DiscardPickupAcks"
+  },
+  "dedicated_server_build": {
+    "errors": 0,
+    "warnings": 1,
+    "output_scope": "Separate temporary MSBuild output/obj paths; no client output replaced"
+  },
+  "native_layout": {
+    "documents": 87,
+    "fixtures": 35,
+    "alternate_states": 9,
+    "cases": 14,
+    "checks": 21394,
+    "failures": 0,
+    "initialization_failures": 0,
+    "page_errors": 0,
+    "document_leaks": 0,
+    "open_failures": 0,
+    "close_failures": 0
+  },
+  "portable_state_checks": 63,
+  "stage_plan_cache_checks": 344,
+  "motion_allocated_bytes_per_24000_warmed_updates": 0,
+  "cache_allocated_bytes_per_24000_warmed_lookups": 0,
+  "procedural_gl_checks": 66,
+  "owned_asset_native_hunter_stage_checks": 1205116,
+  "hunter_presenter_publications": 197,
+  "android_capabilities_source_only_checks": 735,
+  "android_apk_inventory_checks": 42,
+  "roster_child_geometry": {
+    "cases": 28,
+    "actors_per_case": 8,
+    "baseline_contained": 0,
+    "candidate_contained": 224,
+    "panel_and_rows_unchanged": true,
+    "targeted_permanent_guard_baseline_failures": 16,
+    "targeted_permanent_guard_candidate_failures": 0
+  },
+  "asset_guard": "passed; only explicitly allowlisted original procedural/synthetic UI PNGs are tracked",
+  "limits": [
+    "Windows SSH authentication unavailable; used authorized Mac fallback.",
+    "Physical Linux/Android not tested; Android desktop-renderer exclusions unchanged.",
+    "GPU EXT time-elapsed measured isolated procedural pass; no device FPS or input latency claim.",
+    "CPU timing tails were noisy during concurrent build work; no high-refresh frame pacing guarantee.",
+    "Culling comparisons are not strictly bit-identical: 8 exact; remaining 8 differ by 1-4 pixels max one 8-bit channel step.",
+    "CI/review completion not awaited per user instruction."
+  ],
+  "native_lobby_workflow": {
+    "checks": 229,
+    "logical_size": [
+      1280,
+      720
+    ],
+    "framebuffer": [
+      2560,
+      1440
+    ],
+    "scope": "Native pointer/keyboard + synthetic server authority; no live network/account"
+  },
+  "quality_receipt": "Final idle-build rerun; 66 GL checks; per-quality GPU query measurements in quality-measurements.json",
+  "implementation_commit": "899875d23b248e75d7fb6a52302cf3af7467ec6f",
+  "delivery_pull_requests": [
+    918,
+    920,
+    922
+  ]
+}
