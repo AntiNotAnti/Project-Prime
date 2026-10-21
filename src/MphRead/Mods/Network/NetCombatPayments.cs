@@ -88,7 +88,8 @@ internal static class NetCombatPayments
             int existingKind = entry.Key.Kind & 3, newKind = key.Kind & 3;
             bool oppositeCollisionKind = entry.Key.Component == key.Component
                 && ((existingKind == 1 && newKind == 2) || (existingKind == 2 && newKind == 1));
-            bool mutuallyExclusiveRicochet = weapon is (byte)BeamType.Judicator or (byte)BeamType.Magmaul
+            bool bouncedWeapon = weapon == (byte)BeamType.Judicator || weapon == (byte)BeamType.Magmaul;
+            bool mutuallyExclusiveRicochet = bouncedWeapon
                 && (existingKind == 1 && DescendsFrom(key.Component, entry.Key.Component)
                     || newKind == 1 && DescendsFrom(entry.Key.Component, key.Component));
             if (oppositeCollisionKind || mutuallyExclusiveRicochet) return i;
