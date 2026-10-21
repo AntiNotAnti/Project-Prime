@@ -1,6 +1,7 @@
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
 using System;
 using System.IO;
+using MphRead.Mods.Platform;
 using MphRead.Mods.Launcher.RmlUi.Host;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.Gui;
@@ -599,7 +600,7 @@ internal static partial class RmlUiOpenGlSmoke
         if (_host is { Active: true }) return true;
         if (_attempted) return false;
         _attempted = true;
-        string root = Path.Combine(AppContext.BaseDirectory, "rmlui");
+        string root = Path.Combine(AppPaths.ResourceDirectory, "rmlui");
         if (!File.Exists(Path.Combine(root, "prime_home.rml")))
         {
             Fail(new FileNotFoundException("Opt-in RmlUi home document is missing.", root));
@@ -654,7 +655,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeNews(RmlUiHost host)
     {
         if (_pages == null || _news != null) return;
-        if (!File.Exists(Path.Combine(AppContext.BaseDirectory, "rmlui",
+        if (!File.Exists(Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "news", "news.rml")))
             throw new FileNotFoundException("The native News page is not packaged.");
         _launcherPages?.Suspend();
@@ -687,7 +688,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeQuickSettings()
     {
         if (_pages == null || _quickSettings != null) return;
-        string page = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string page = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "settings", "quick.rml");
         if (!File.Exists(page))
             throw new FileNotFoundException("Native quick settings page missing.", page);
@@ -716,7 +717,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeHunter()
     {
         if (_pages == null || _hunterChoice != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "hunters", "native-picker.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Hunter picker is not packaged.", path);
@@ -744,7 +745,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeSocial(RmlUiHost host)
     {
         if (_pages == null || _social != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "social", "social.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Social page is not packaged.", path);
@@ -803,7 +804,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeCommunity(RmlUiHost host)
     {
         if (_pages == null || _community != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "community", "native-discover.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Community browser is not packaged.", path);
@@ -833,7 +834,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeLicense(bool overlay = false)
     {
         if (_pages == null || _license != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "license", "native-overview.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Hunter License overview is not packaged.", path);
@@ -862,7 +863,7 @@ internal static partial class RmlUiOpenGlSmoke
     private static void OpenNativeStudio(bool showChooser = true)
     {
         if (_pages == null || _studio != null) return;
-        string path = Path.Combine(AppContext.BaseDirectory, "rmlui",
+        string path = Path.Combine(AppPaths.ResourceDirectory, "rmlui",
             "pages", "studio", "native-entry.rml");
         if (!File.Exists(path))
             throw new FileNotFoundException("Native Studio entry is not packaged.", path);
