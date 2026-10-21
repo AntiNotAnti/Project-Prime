@@ -87,4 +87,13 @@ public partial class Scene
     }
     private void ReleaseReplayCustomPresentation()
     { _replayCustomContacts = null; _replayCustomFlights = null; _replayCustomContactCount = _replayCustomFlightCount = 0; }
+    internal void RebuildReplayCustomPresentation()
+    {
+        // A fresh unpublished Scene only: rebuild derived cosmetics without a
+        // simulation tick, input, world clock, RNG or health advance.
+        ReleaseCustomWeaponPresentation();
+        ReleaseHeadHitPresentation(); ReleaseHeadDeathPresentation();
+        UpdateReplayCustomWeaponPresentation();
+        StepHeadHitPresentation(); StepHeadDeathPresentation();
+    }
 }
