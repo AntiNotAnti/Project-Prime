@@ -74,7 +74,7 @@ whole native body before any imported segment is submitted.
 
 ## Verification scope
 
-Production freezes at `d8e5a593f`, rebased on main `f4ea73c35` (PR937).
+The first production freeze is `d8e5a593f`, rebased on main `f4ea73c35` (PR937).
 The overlapping CRLF shader startup repair uses main's implementation; this
 slice also exercises it in actual GPU testing. Later fixture/documentation
 commits do not change production bytes. Builds use a private, official
@@ -82,7 +82,7 @@ SHA512-verified .NET SDK 10.0.401, isolated from other chats' SDK directories.
 Local receipts live under ignored `artifacts/sh-integration`; protected source
 or derived assets are not committed. No CI or external-review pass is claimed.
 
-| Final local check | Result |
+| Local check (also repeated at the combined freeze below) | Result |
 | --- | --- |
 | Desktop and Windows x64 dedicated Release | Pass; one existing CS0649 warning, zero errors each |
 | Source body CPU policy/draft/retained barrier | 927 assertions |
@@ -97,7 +97,7 @@ or derived assets are not committed. No CI or external-review pass is claimed.
 | Actual desktop shader newline fixture | Seven checks |
 | Asset-free external-import suite | Pass; actual Windows junction ancestry negatives; file-symlink negative case unavailable under privilege1314 |
 
-Final desktop core SHA256:
+First-freeze desktop core SHA256:
 `29b47eb7ca447fb62d94f3443b3d2f8b3eaefdd67c3837df3267e05710336901`.
 Dedicated SHA256:
 `676d548f6c3d252190ebf4608c1f4f89f326547818c555b6b3986fbf90095801`.
@@ -164,6 +164,31 @@ multi-seat, physical devices, achieved refresh/performance, source first-person
 cannon and ball, imported Trooper presentation, multiplayer/replay character
 identity and authority. These remain engineering or acceptance work, rather
 than implied completion from the body slice.
+
+## Combined main qualification
+
+Before merge, main advanced through custom-weapon package play PR938/939 to
+`8b8c9b121`. The clean rebase freezes combined production/test source at
+`043e12fd72ec2b20bafa256f5308b89799b4ad98`. It preserves both CLI dispatches;
+the source-body policy still refuses custom-weapon availability. This final
+combined build repeats every table entry above, including both owned probes,
+full asset-free importer suite and actual native Hunters contract. It also
+passes all 36,965 source-free custom-weapon contracts. Dedicated/desktop builds
+retain the same one existing warning and zero errors each. Android is deferred.
+
+| Combined output | SHA256 |
+| --- | --- |
+| Desktop core (also copied into each fixture output) | `1c7c9606b92ab9fd3d5ada151869e0ac0c701992c8b7a5899b97ebcdbebed989` |
+| Owned importer/runtime/launcher tool | `b8af59423f6028c3c58d6cd39acce49b38e9e071dbe44402f5daacc3acff53dc` |
+| Windows x64 dedicated core | `4564b4a9f33551cf4fa16ff45e0b13257802871b440c971bcb60929bdc2998a3` |
+
+The exact gameplay trace remains identical across all three appearances.
+Local `body-combined-final-receipt.json` pins source, binaries and each owned
+probe log, including unchanged owned inputs and deleted temporary derivatives.
+Earlier binaries/receipts remain separately retained under `body-first-freeze`.
+Subsequent documentation-only changes do not alter qualified production or
+fixture bytes. No green-CI, external-review or later-main qualification is
+implied by these exact identities.
 
 ## Rollback
 

@@ -156,7 +156,7 @@
   ],
   "offlineBodyRuntime": {
     "date": "2026-10-20",
-    "status": "implemented-local-verification",
+    "status": "qualified-windows-offline-slice",
     "evidence": "second-hunt-offline-body-runtime-2026-10-20.md",
     "donorCommit": "41452f2d053fcfa679e33c00a73d120a53f59e61",
     "default": "native",
