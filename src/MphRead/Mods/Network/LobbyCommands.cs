@@ -177,6 +177,7 @@ namespace MphRead.Mods.Network
             peer.LastSeen = now;
             if (!peer.Commands.TryGetValue(command.CommandId, out var result))
             {
+                CancelPendingLobbyMapFor(peer, command);
                 if (TryPrepareLobbyMap(peer, command)) return;
                 var code = ExecuteLobbyCommand(peer, command, now, out string reason);
                 result = CacheLobbyResult(peer, command, code, reason);
@@ -306,10 +307,15 @@ namespace MphRead.Mods.Network
                     catch (Exception ex) { reason = ex.Message; return LobbyResultCode.MapUnavailable; }
                     if (proposed.MapIdentity.IsCustom && proposed.MapIdentity != required)
                     { reason = "The server does not have the requested package version."; return LobbyResultCode.MapUnavailable; }
-                    if (_bots.Count > 0 && !BotMapAvailable(proposed with { RoomKey = room, MapIdentity = required }, out reason))
-                        return LobbyResultCode.MapUnavailable;
+                    if (_bots.Count > 0)
+                    {
+                        LobbyResultCode navigation = BotMapAvailable(
+                            proposed with { RoomKey = room, MapIdentity = required }, out reason);
+                        if (navigation != LobbyResultCode.Ok) return navigation;
+                    }
                     if (_lobbyMatch.MapIdentity != required || _lobbyMatch.RoomKey != room) InvalidateMapReadiness();
                     _lobbyMatch = proposed with { RoomKey = room, MapIdentity = required };
+                    PrimeBotNavigation(_lobbyMatch);
                     if (!_controlPlaneOnlyForTests) Mods.RoomPrewarm.Begin(_lobbyMatch.RoomKey);
                     RequireReady = command.Configuration.RequireReady;
                     AllowJoinInProgress = command.Configuration.AllowJoinInProgress;
