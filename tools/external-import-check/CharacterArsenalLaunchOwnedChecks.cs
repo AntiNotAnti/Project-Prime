@@ -295,4 +295,3 @@ internal static class CharacterArsenalLaunchOwnedChecks
     private sealed class InlineProgress(Action<ImportPublishStage> action) : IProgress<ImportPublishStage>
     { public void Report(ImportPublishStage stage) => action(stage); }
 }
-
