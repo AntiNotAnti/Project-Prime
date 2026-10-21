@@ -19,7 +19,9 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 namespace MphRead.NetTest;
 
 // Parkour v3 controller acceptance through production keyboard and collision.
-// Real keyboard/native collision; no midflight placement, speed, flags or timers.
+// Real keyboard/native collision; only initial fixture placement. One labeled
+// lifecycle case invokes native Teleport at the unchanged current origin; no
+// direct midflight body, speed, flags, contact or timer writes.
 internal static class ParkourWallrunSceneTests
 {
     private const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
@@ -32,7 +34,7 @@ internal static class ParkourWallrunSceneTests
     private sealed record Command(bool Forward = true, int Strafe = 1, bool Jump = false, bool Crouch = false);
     private sealed record Tick(int Index, float X, float Y, float Z, float Vx, float Vy, float Vz,
         bool Standing, bool Active, int Remaining, bool Kick, bool JumpPressed, bool NativeJump,
-        bool EastFace, bool FrontFace, bool SafeFloor, float Gravity, float NativeGravity);
+        bool EastFace, bool FrontFace, bool SafeFloor, float Gravity, float NativeGravity, float StoredGravity);
     private sealed record Capture(string Scenario, string Model, Command[] Commands, Tick[] Ticks);
     private static void Check(bool condition, string label)
     { _checks++; if (!condition) throw new InvalidOperationException(label); }
@@ -54,6 +56,7 @@ internal static class ParkourWallrunSceneTests
             }
             Case("earned-airborne-run-and-fixed-budget", () => BudgetAndGravity(rows));
             Case("release-loss-and-corner-cancel", () => Cancellation(rows));
+            Case("native-Teleport-API-cancels-run-without-budget-refill", () => TeleportCancellation(rows));
             Case("fresh-kick-versus-held-jump-and-static-refill", () => KickAndRefill(rows));
             foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum,
                 MovementModel.Quake3, MovementModel.Traversal })
@@ -71,7 +74,7 @@ internal static class ParkourWallrunSceneTests
         {
             string path = Path.GetFullPath(output); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { status = failures.Count == 0 ? "PASS" : "FAIL",
-                checks = _checks, failures, scope = "Windows CPU keyboard and static authored training collision; initial placement only; no renderer or multiplayer qualification", rows },
+                checks = _checks, failures, scope = "Windows CPU keyboard and static authored training collision; initial placement plus one same-origin native Teleport API lifecycle check (not a map trigger); no renderer or multiplayer qualification", rows },
                 new JsonSerializerOptions { WriteIndented = true }));
         }
         Console.WriteLine($"PARKOUR WALLRUN SCENE {(failures.Count == 0 ? "PASS" : "FAIL")} {_checks} assertions; {failures.Count} failed cases");
@@ -101,6 +104,7 @@ internal static class ParkourWallrunSceneTests
             {
                 spent++;
                 Near(t.Gravity, t.NativeGravity * .35f, "spent tick applies exactly 0.35 native gravity", .000001f);
+                Near(t.StoredGravity, t.NativeGravity, "wallrun leaves the persistent native gravity owner unchanged", .000001f);
             }
             Check(t.Remaining is >= 0 and <= Budget, "budget stays within fixed profile window");
             Check(!t.Kick, "single released takeoff edge does not produce automatic kick");
@@ -154,6 +158,50 @@ internal static class ParkourWallrunSceneTests
         Tick[] corners = corner.Ticks.Where(t => t.EastFace && t.FrontFace && !t.Standing).ToArray();
         Check(corners.Length > 0, "native airborne motion reaches two perpendicular boundary faces");
         Check(corners.All(t => !t.Active && !t.Kick), "actual corner cannot retain run or emit kick");
+    }
+
+    private static void TeleportCancellation(List<object> rows)
+    {
+        // API lifecycle regression, not a real teleport-map-trigger test. The
+        // native controller earns the run and spends its budget before this
+        // one production API call. Destination is the unchanged current origin.
+        int teleport = -1, remainingAtTeleport = -1, calls = 0;
+        Capture capture = Trace("same-origin-native-Teleport-API-lifecycle", MovementModel.Parkour,
+            180, new(46, .5f, 10), (i, p) =>
+            {
+                if (teleport < 0 && p.ModParkourWallrunActive
+                    && p.ModParkourWallrunRemaining <= Budget - 3)
+                {
+                    Check(!p.Flags1.TestFlag(PlayerFlags1.Standing)
+                        && p.ModParkourWallrunRemaining > 0,
+                        "native Teleport API begins during a real active run with at least three spent ticks");
+                    teleport = i; remainingAtTeleport = p.ModParkourWallrunRemaining;
+                    Vector3 origin = p.Position;
+                    p.Teleport(p.Position, p.FacingVector, NodeRef.None);
+                    calls++;
+                    Check(p.Position == origin, "same-origin production Teleport does not relocate test body");
+                    Check(!p.ModParkourWallrunActive,
+                        "native Teleport API immediately cancels active wallrun");
+                    Check(p.ModParkourWallrunRemaining == remainingAtTeleport,
+                        "native Teleport cancellation preserves the actually spent airborne budget");
+                }
+                // Release forward in the first post-API input sample so this
+                // lifecycle test cannot immediately earn a fresh wall attach.
+                return teleport >= 0 ? new(Forward: false, Strafe: 0)
+                    : new(Jump: i == JumpTick);
+            });
+        rows.Add(new { scenario = "native-Teleport-API-lifecycle-not-map-trigger", teleport,
+            remainingAtTeleport, calls, capture });
+        Check(calls == 1 && teleport > JumpTick && remainingAtTeleport is > 0 and <= Budget - 3,
+            "exactly one native API call follows physically earned budget expenditure");
+        Check(capture.Ticks.Take(teleport).Any(t => t.Active && t.Remaining <= Budget - 3),
+            "pre-API trace independently witnesses earned run and spent budget");
+        Tick[] airborne = capture.Ticks.Skip(teleport).TakeWhile(t => !t.Standing).ToArray();
+        Check(airborne.Length > 5, "native API cancellation leaves a measurable genuine airborne interval");
+        Check(airborne.All(t => !t.Active && !t.Kick && t.Remaining == remainingAtTeleport),
+            "native Teleport cannot refill spent budget or retain run/kick during the remaining flight");
+        Check(capture.Commands.Skip(teleport).All(c => !c.Forward && !c.Jump),
+            "real keyboard forward and Jump stay released after API cancellation");
     }
 
     private static void KickAndRefill(List<object> rows)
@@ -235,7 +283,7 @@ internal static class ParkourWallrunSceneTests
                 ticks[i] = new(i, p.Position.X, p.Position.Y, p.Position.Z, p.Speed.X, p.Speed.Y, p.Speed.Z,
                     p.Flags1.TestFlag(PlayerFlags1.Standing), p.ModParkourWallrunActive, p.ModParkourWallrunRemaining,
                     p.ModParkourWallkickApplied(frame), p.Controls.Jump.IsPressed, nativeJump, east, front, floor,
-                    (float)Gravity.GetValue(p)!, Fixed.ToFloat(p.Values.BipedGravity));
+                    p.ModParkourAppliedGravity, Fixed.ToFloat(p.Values.BipedGravity), (float)Gravity.GetValue(p)!);
             }
             return new(scenario, model.ToString(), commands, ticks);
         }

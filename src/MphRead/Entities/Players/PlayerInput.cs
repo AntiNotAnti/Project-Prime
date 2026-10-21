@@ -2892,7 +2892,8 @@ namespace MphRead.Entities
                 if (_jumpPadControlLock == 0 && !Flags2.TestFlag(PlayerFlags2.BipedStuck) && !WallClingHeld
                     && !ScoutDroneHover())
                 {
-                    if (Flags2.TestFlag(PlayerFlags2.GravityOverride))
+                    bool nativeGravityOverride = Flags2.TestFlag(PlayerFlags2.GravityOverride);
+                    if (nativeGravityOverride)
                     {
                         Flags2 &= ~PlayerFlags2.GravityOverride;
                     }
@@ -2927,9 +2928,9 @@ namespace MphRead.Entities
                         }
                     }
                     if (_q3LaunchGravity != 0) _gravity = _q3LaunchGravity;
-                    _gravity = ModParkourGravity(_gravity);
-                    ModMovementShadowNoteGravity(_gravity);
-                    Speed = Speed.AddY(_gravity / 2); // todo: FPS stuff
+                    float appliedGravity = ModParkourGravity(_gravity, nativeGravityOverride);
+                    ModMovementShadowNoteGravity(appliedGravity);
+                    Speed = Speed.AddY(appliedGravity / 2); // todo: FPS stuff
                 }
                 Vector3 position = Position + Speed / 2; // todo: FPS stuff
                 if (AttachedEnemy?.EnemyType == EnemyType.Quadtroid)

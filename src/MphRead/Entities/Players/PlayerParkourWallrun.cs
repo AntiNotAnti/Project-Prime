@@ -10,6 +10,9 @@ public partial class PlayerEntity
 {
     private Vector3 _modWallrunNormal, _modWallkickNormal, _modParkourIncomingContactSpeed;
     private int _modWallrunTicks = WallrunMovementV1.AirborneTicks;
+    private float _modWallrunAppliedGravity;
+    internal float ModParkourAppliedGravity => _scene.GameState.MovementModel == MovementModel.Parkour
+        ? _modWallrunAppliedGravity : _gravity;
     private bool _modWallrunning, _modWallkickPending, _modParkourSafeSupport;
     private ulong _modWallkickFrame = ulong.MaxValue, _modWallrunGravityFrame = ulong.MaxValue;
     private readonly CollisionResult[] _modWallrunProbe = new CollisionResult[16];
@@ -141,15 +144,20 @@ public partial class PlayerEntity
         PlayHunterSfx(HunterSfx.Jump);
     }
 
-    private float ModParkourGravity(float gravity)
+    private float ModParkourGravity(float gravity, bool nativeOverride)
     {
-        if (_scene.GameState.MovementModel != MovementModel.Parkour || !_modWallrunning) return gravity;
+        if (_scene.GameState.MovementModel != MovementModel.Parkour) return gravity;
+        _modWallrunAppliedGravity = gravity;
+        // Native messages own the persistent field and override tick. Observe
+        // their flag before integration clears it; never scale scripted gravity.
+        if (nativeOverride) { ModCancelParkourWallrun(); return gravity; }
+        if (!_modWallrunning) return gravity;
         if (_modWallrunTicks <= 0 || !ModWallrunBodyAllowed || !ModWallrunInput(_modWallrunNormal)
             || !ModProbeWallrun(_modWallrunNormal))
         { _modWallrunning = false; return gravity; }
         if (_modWallrunGravityFrame != _scene.FrameCount)
         { _modWallrunGravityFrame = _scene.FrameCount; _modWallrunTicks--; }
-        return gravity < 0 ? gravity * WallrunMovementV1.GravityScale : gravity;
+        return _modWallrunAppliedGravity = gravity < 0 ? gravity * WallrunMovementV1.GravityScale : gravity;
     }
 
     // Called in the native standing-acceptance branch, including its small
