@@ -680,6 +680,7 @@ namespace MphRead
                     MatchState = MatchState.GameOver;
                     scene.MatchEvents.Transition(scene, Mods.MatchEvents.MatchSemanticEventType.MatchEnded);
                     MatchTime = MatchFinalCameraSeconds;
+                    Mods.DebugLog.Line("endgame", $"cinematic-v2 winner-phase={MatchFinalCameraSeconds:0}s net={Mods.Network.NetSession.Active}");
                     scene.SetFade(FadeType.None, length: 0, overwrite: true);
                     _stateChanged = true;
                     _matchEndTime = scene.GlobalElapsedTime;
@@ -736,6 +737,7 @@ namespace MphRead
                     // servers return everyone together, while continuous servers
                     // retain their existing rotation policy.
                     MatchTime = MatchEndingSeconds;
+                    Mods.DebugLog.Line("endgame", $"scoreboard-v2 duration={MatchEndingSeconds:0}s");
                     // todo: update license info, stop SFX
                 }
             }
