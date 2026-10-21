@@ -16,20 +16,26 @@ namespace MphRead.Mods.Import;
 internal static class RetroCharacterCannonSource
 {
     internal static byte[] Author(Cmdl model, RetroNativeSkeleton skeleton,
-        RetroCharacterAnimationArchive.Snapshot archive, Dictionary<string, string> inputs)
+        RetroCharacterAnimationArchive.Snapshot archive, Dictionary<string, string> inputs,
+        string sourceCharacter = "darksamus-echoes")
     {
         void Require(bool value, string why) { if (!value) throw new InvalidDataException(why); }
+        bool trooper = sourceCharacter is "trooper-power" or "trooper-ice" or "trooper-wave" or "trooper-plasma";
+        Require(trooper || sourceCharacter == "darksamus-echoes", "Closed generated cannon source profile required.");
+        uint elbowId = trooper ? 23u : 24u, tipId = trooper ? 34u : 32u, externalParent = trooper ? 2u : 97u;
+        int ordinal = trooper ? 1 : 32;
+        string tipName = trooper ? "R_gun_LCTR" : "GUN_Particle_LCTR";
         var bones = skeleton.Bones;
-        Require(bones.Count == 39 && bones.TryGetValue(24, out var elbow) && elbow.Name == "R_elbow"
-            && bones.TryGetValue(32, out var locator) && locator.Name == "GUN_Particle_LCTR", "Exact normal cannon source locators required.");
+        Require(bones.Count == (trooper ? 35 : 39) && bones.TryGetValue(elbowId, out var elbow) && elbow.Name == "R_elbow"
+            && bones.TryGetValue(tipId, out var locator) && locator.Name == tipName, "Exact generated cannon source locators required.");
         bool Under(uint id)
         {
             var seen = new HashSet<uint>();
             while (bones.TryGetValue(id, out var bone))
-            { Require(seen.Add(id), "Source cut ancestry cycle."); if (id == 24) return true; id = bone.Parent; }
-            Require(id == 97, "Source cut requires complete original ancestry."); return false;
+            { Require(seen.Add(id), "Source cut ancestry cycle."); if (id == elbowId) return true; id = bone.Parent; }
+            Require(id == externalParent, "Source cut requires complete original ancestry."); return false;
         }
-        Require(Under(32) && model.Materials.Length == 7 && model.Skin?.Count == model.PositionCount, "Complete original normal source cut required.");
+        Require(Under(tipId) && model.Materials.Length == (trooper ? 3 : 7) && model.Skin?.Count == model.PositionCount, "Complete original source cut required.");
         var selected = Enumerable.Range(0, model.Materials.Length).Select(_ => new List<int>()).ToArray();
         for (int face = 0; face < model.TriangleCount; face++)
         {
@@ -43,10 +49,13 @@ internal static class RetroCharacterCannonSource
             }
             if (on) selected[model.TriangleMaterial[face]].Add(face);
         }
-        Require(selected.Sum(a => a.Count) == 392 && selected[2].Count == 66 && selected[5].Count == 326,
-            "Original normal elbow cut must retain all 392 complete source triangles.");
-        var root = archive.Roots[32]; var clip = archive.OpenStrictPrimitive(32);
-        Require(root.CharacterDeclared && clip.Source.Id == 0xd12fdfa3 && clip.RigidScale, "Exact rigid zero-phase Missile Barrage source primitive required.");
+        Require(trooper ? selected.Sum(a => a.Count) == 206 && selected[0].Count == 10 && selected[1].Count == 32 && selected[2].Count == 164
+            : selected.Sum(a => a.Count) == 392 && selected[2].Count == 66 && selected[5].Count == 326,
+            "Original elbow cut must retain the complete pinned whole-triangle inventory.");
+        var root = archive.Roots[ordinal]; var clip = archive.OpenStrictPrimitive(ordinal);
+        Require(root.CharacterDeclared && clip.Source.Id == (trooper ? 0x5528972bu : 0xd12fdfa3u) && clip.RigidScale
+            && (!trooper || root.Name == "A_gunloop_pirate" && clip.Source.Sha256 == "5b6540fbfdcbf37edd24133b4475468e0f0199a744e3159df2f0b942c498ccc7"),
+            "Exact rigid zero-phase cannon source primitive required.");
         var animation = clip.CaptureAnimation(); animation.Sample(0, out var rotations, out var translations);
         Require(animation.Rot.Keys.Concat(animation.Trans.Keys).Concat(animation.Scale.Keys).All(bones.ContainsKey), "Foreign cannon animation channel.");
         var globals = new Dictionary<uint, Matrix4>();
@@ -55,7 +64,7 @@ internal static class RetroCharacterCannonSource
             var chain = new Stack<uint>(); var seen = new HashSet<uint>(); uint current = id;
             while (bones.ContainsKey(current) && !globals.ContainsKey(current))
             { Require(seen.Add(current), "Source pose ancestry cycle."); chain.Push(current); current = bones[current].Parent; }
-            Require(globals.ContainsKey(current) || current == 97, "Complete source root97 pose required.");
+            Require(globals.ContainsKey(current) || current == externalParent, "Complete original source root pose required.");
             while (chain.TryPop(out uint node))
             {
                 var bone = bones[node]; double[] bind = { bone.X, bone.Y, bone.Z };
@@ -64,14 +73,14 @@ internal static class RetroCharacterCannonSource
                 globals.Add(node, globals.TryGetValue(bone.Parent, out var global) ? local * global : local);
             }
         }
-        Matrix4 m = CharacterSourceCannonRecipe.SourceFrame(globals[24].Row3.Xyz, globals[32].Row3.Xyz);
+        Matrix4 m = CharacterSourceCannonRecipe.SourceFrame(globals[elbowId].Row3.Xyz, globals[tipId].Row3.Xyz);
         float[] matrix = { m.M11,m.M12,m.M13,m.M14,m.M21,m.M22,m.M23,m.M24,m.M31,m.M32,m.M33,m.M34,m.M41,m.M42,m.M43,m.M44 };
         return JsonSerializer.SerializeToUtf8Bytes(new
         {
-            format = 2, mode = "generatedSourceCannonAuthoring", presentationPart = "viewModel", sourceCharacter = "darksamus-echoes",
+            format = 2, mode = "generatedSourceCannonAuthoring", presentationPart = "viewModel", sourceCharacter,
             writerVersion = RetroCharacterSourceGlbWriter.Version, materialPolicy = RetroCharacterSourceGlbWriter.MaterialPolicy, sourceBasis = "(-x,z,y)",
-            sourceInputs = inputs, sourceElbowId = 24, sourceElbowName = "R_elbow", sourceParticleLocatorId = 32, sourceParticleLocatorName = "GUN_Particle_LCTR",
-            clipOrdinal = 32, clipResourceId = 0xd12fdfa3u, clipSeconds = 0, toCannon = matrix, triangles = selected,
+            sourceInputs = inputs, sourceElbowId = elbowId, sourceElbowName = "R_elbow", sourceParticleLocatorId = tipId, sourceParticleLocatorName = tipName,
+            clipOrdinal = ordinal, clipResourceId = clip.Source.Id, clipSeconds = 0, toCannon = matrix, triangles = selected,
             sourceUnitsUnscaled = true, calibrationOnly = true, gameplayMuzzleChanged = false, publicSelectionEnabled = false,
             networkReplayEnabled = false, firstPersonVerified = false
         });

@@ -177,7 +177,7 @@ namespace MphRead.Mods.Render
                 || !PrivateCharacterAppearance.TryCreate(_hunter, request.Appearance.CharacterId, request.Appearance.SkinSource, out _, out _, generatedSource: true)
                 || _hunter != request.NativeHunter || request.Part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)
                 || Mode != (request.Part == CharacterModelPart.Biped ? Mods.Cosmetics.SkinContext.Biped : Mods.Cosmetics.SkinContext.ViewModel)
-                || request.Part == CharacterModelPart.ViewModel && (request.ClipOrdinal != 32 || request.Seconds != 0)) return false;
+                || request.Part == CharacterModelPart.ViewModel && (request.ClipOrdinal != request.FixedCannonOrdinal || request.Seconds != 0)) return false;
             if (!ReferenceEquals(_sourceStageOwner, request.Owner) || !ReferenceEquals(_sourceStagePack, request.Pack) || _sourceStagePart != request.Part || _sourceStageAppearance != request.Appearance)
             {
                 // A refused publication must not rehash/recompile the same
@@ -206,7 +206,11 @@ namespace MphRead.Mods.Render
             }
             _sourceMaterialSeconds = request.MaterialSeconds;
             if (request.Part == CharacterModelPart.ViewModel)
-            { _sourceStageFit = _sourceStageRestFit; return true; }
+            {
+                if (!TryGetSourceRigPreview(out var fixedCannon) || fixedCannon.SourceCannon?.ClipOrdinal != request.ClipOrdinal)
+                    return RefuseSourceStage(request);
+                _sourceStageFit = _sourceStageRestFit; return true;
+            }
             if (SelectedSourceRigClip?.Ordinal != request.ClipOrdinal && !TrySelectSourceRigClip(request.ClipOrdinal)) return RefuseSourceStage(request);
             if (!TrySetSourceRigTime(request.Seconds)) return RefuseSourceStage(request);
             // The diagnostic camera follows the source root. Raw source keys,

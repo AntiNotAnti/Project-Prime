@@ -82,10 +82,10 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
                 _cannonInstance = new(cannonAnchor, CharacterModelPart.ViewModel, bodyOwner: this);
                 if (!CharacterModelRuntime.TryGetSourcePreview(scene, player.Hunter, CharacterModelPart.ViewModel,
                     _nativeCannon, selection.Pack, selection.SelectedAppearance, _cannonInstance, true, out _cannonModel)
-                    || _cannonModel.SourceCannon?.IsGenerated != true || _cannonModel.IndexCount != 392 * 3
+                    || _cannonModel.SourceCannon?.IsGenerated != true || _cannonModel.IndexCount != _cannonModel.SourceCannon.TriangleCount * 3
                     || _cannonModel.Segments.Count == 0 || _cannonModel.Segments.Any(s => s.SourceGx == null
                         || s.SourceJointPalette is not { Count: > 0 and <= 32 } || s.SourcePresentationPalette == null))
-                    throw new InvalidDataException("The selected normal source cannon could not bind completely.");
+                    throw new InvalidDataException("The selected source cannon could not bind completely.");
             }
         }
         catch

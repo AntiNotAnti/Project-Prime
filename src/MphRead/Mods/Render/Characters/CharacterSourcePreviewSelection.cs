@@ -13,6 +13,7 @@ internal sealed record CharacterSourceStageRequest(object Owner, CharacterModelP
     PrivateCharacterAppearance Appearance, int ClipOrdinal, double Seconds, CharacterModelPart Part = CharacterModelPart.Biped, double MaterialSeconds = 0)
 {
     internal Hunter NativeHunter => ExternalCharacterCatalog.Find(Appearance.CharacterId)?.BaseHunter ?? (Hunter)255;
+    internal int FixedCannonOrdinal => Appearance.CharacterId == "trooper" ? 1 : 32;
 }
 
 // CPU-only capture at one explicit Preview boundary. A retained generation is
@@ -25,6 +26,7 @@ internal sealed class CharacterSourcePreviewSelection
     internal PrivateCharacterAppearance SelectedAppearance { get; }
     internal bool HasCannon { get; }
     internal bool RuntimeCannon { get; }
+    internal int FixedCannonOrdinal => NativeHunter == Hunter.Weavel ? 1 : 32;
     internal Hunter NativeHunter => SelectedAppearance.CharacterId == "trooper" ? Hunter.Weavel : Hunter.Samus;
     internal static readonly PrivateCharacterAppearance Appearance = new("darksamus", "MP2DarkSamus");
     private CharacterSourcePreviewSelection(CharacterModelPack pack, string generation, CharacterSourcePreviewClipChoice[] clips, PrivateCharacterAppearance appearance, bool hasCannon, bool runtimeCannon)
@@ -59,11 +61,11 @@ internal sealed class CharacterSourcePreviewSelection
         if (!pack.TryResolvePrivate(hunter, appearance, CharacterModelPart.Biped, 0, out var asset))
             throw new InvalidDataException("Generated source preview asset is unavailable.");
         pack.CaptureSourceMaterials(asset, id);
-        if (runtimeCannon && !final && trooper == null)
+        if (!final && (runtimeCannon || trooper != null))
         {
-            if (!pack.TryResolvePrivate(Hunter.Samus, appearance, CharacterModelPart.ViewModel, 0, out var cannonAsset))
-                throw new InvalidDataException("The generated normal source cannon is unavailable.");
-            pack.CaptureGeneratedNormalCannonMaterials(asset, cannonAsset);
+            if (!pack.TryResolvePrivate(hunter, appearance, CharacterModelPart.ViewModel, 0, out var cannonAsset))
+                throw new InvalidDataException("The generated source cannon is unavailable.");
+            pack.CaptureGeneratedCannonMaterials(asset, cannonAsset);
         }
         if (!pack.TryCreateSourcePreviewLease(asset, out var lease) || lease.SourceAnimations == null)
             throw new InvalidDataException("Generated source preview owner is unavailable.");
@@ -88,19 +90,18 @@ internal sealed class CharacterSourcePreviewSelection
             _ = clip.Sample(0);
             clips.Add(new(rootClip.Ordinal, rootClip.Name, temporal.Duration));
         }
-        // Normal keeps its separate fixed diagnostic cannon. Final has no
-        // cannon capability and never borrows normal's cut or source binding.
-        if (!final && trooper == null)
+        // Normal's viewer retains its diagnostic cannon colors; Troopers use
+        // their shared source programs. Final never borrows a cannon capability.
+        if (!final)
         {
-            if (!pack.TryResolvePrivate(Hunter.Samus, appearance, CharacterModelPart.ViewModel, 0, out var cannon)
+            if (!pack.TryResolvePrivate(hunter, appearance, CharacterModelPart.ViewModel, 0, out var cannon)
                 || !pack.TryCreateSourcePreviewLease(cannon, out var cannonLease) || cannonLease.SourceCannon?.IsGenerated != true)
                 throw new InvalidDataException("Update the import to include its qualified generated cannon recipe.");
             var cannonGeometry = CharacterWeightedModelLoader.LoadSourcePreview(cannon, cannonLease);
-            _ = CharacterSourceClip.Load(cannonLease, cannon, cannonGeometry.SourceRig!, 32).Sample(0);
+            _ = CharacterSourceClip.Load(cannonLease, cannon, cannonGeometry.SourceRig!, cannonLease.SourceCannon.ClipOrdinal).Sample(0);
         }
         if (clips.Count == 0) throw new InvalidDataException("No qualified strict source clips are available.");
         lease.Require(asset); cancellation.ThrowIfCancellationRequested();
-        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, !final && trooper == null,
-            runtimeCannon && !final && trooper == null);
+        return new(pack, state.Receipt.Generation, clips.ToArray(), appearance, !final, runtimeCannon && !final);
     }
 }

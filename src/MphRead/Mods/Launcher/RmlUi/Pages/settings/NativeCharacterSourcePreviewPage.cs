@@ -35,7 +35,7 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
     internal LauncherHunterPreviewSnapshot Preview => _preview.Current();
     private bool Cannon => _preview.Current().Mode == Mods.Cosmetics.SkinContext.ViewModel;
     internal CharacterSourceStageRequest? Request => OwnsForeground && _selection != null
-        ? new(_owner, _selection.Pack, _selection.SelectedAppearance, Cannon ? 32 : _selection.Clips[_clip].Ordinal, Cannon ? 0 : _seconds,
+        ? new(_owner, _selection.Pack, _selection.SelectedAppearance, Cannon ? _selection.FixedCannonOrdinal : _selection.Clips[_clip].Ordinal, Cannon ? 0 : _seconds,
             Cannon ? CharacterModelPart.ViewModel : CharacterModelPart.Biped, _materialSeconds) : null;
 
     internal NativeCharacterSourcePreviewPage(RmlUiHost host, RmlUiPageManager pages, string id, bool asModal)
@@ -105,14 +105,17 @@ internal sealed class NativeCharacterSourcePreviewPage : IDisposable
     internal void ReportDraw(bool drawn)
     {
         if (_selection != null) _host.SetText(Document, "source_render_status", drawn
-            ? Cannon ? "FIXED SOURCE CANNON CUT // DIAGNOSTIC MATERIAL COLORS" : "ANIMATED BODY // SOURCE MATERIAL PROGRAMS"
+            ? Cannon ? _selection.NativeHunter == Hunter.Weavel ? "FIXED SOURCE CANNON CUT // SOURCE MATERIAL PROGRAMS"
+                : "FIXED SOURCE CANNON CUT // DIAGNOSTIC MATERIAL COLORS" : "ANIMATED BODY // SOURCE MATERIAL PROGRAMS"
             : GameFiles.Ready ? "Source render unavailable. Reopen this viewer to retry; Back remains usable." : "Configure original game files to use the shared 3D preview.");
     }
     internal void Back() { if (!OwnsForeground) return; Closed = true; LauncherHunter.ReleaseSourcePreview(_owner); }
     private void Refresh()
     {
         if (!_host.IsAlive(Document)) return;
-        string clip = _selection == null ? "No source clip loaded" : Cannon ? "CANNON // MISSILE BARRAGE // FIXED FRAME ZERO" : "CLIP " + (_clip + 1) + "/" + _selection.Clips.Count + " // " + _selection.Clips[_clip].Name;
+        string clip = _selection == null ? "No source clip loaded" : Cannon ? _selection.FixedCannonOrdinal == 1
+            ? "CANNON // GUN LOOP // FIXED FRAME ZERO" : "CANNON // MISSILE BARRAGE // FIXED FRAME ZERO"
+            : "CLIP " + (_clip + 1) + "/" + _selection.Clips.Count + " // " + _selection.Clips[_clip].Name;
         _pages.Present(Document, ++_revision, new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal)
         {
             ["source_status"] = RmlUiBindingValue.FromText(_status), ["source_clip"] = RmlUiBindingValue.FromText(clip),
