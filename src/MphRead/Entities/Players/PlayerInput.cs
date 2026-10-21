@@ -1369,18 +1369,11 @@ namespace MphRead.Entities
                 // their rejection branches and appear to hit the whole map.
                 return NetShotDiagnostics.Finish(this, ShotAttemptResult.InvalidSpatialState);
             }
-            // Preserve what the shooter actually aimed at before disruption
-            // adds weapon spread. Replay POV anchors to this ray, while the
-            // projectile itself follows the final post-spread shotVec below.
+            // Charged Volt Driver disruption is visual-only. Do not introduce
+            // random shot spread or move the fire ray while its HUD effect is
+            // active. Replays and authoritative hits use the same aimed ray.
             Vector3 shotAim = NormalizeSpatialOr(shotVec, _gunVec1);
             shotVec = shotAim;
-            if (_disruptedTimer > 0)
-            {
-                // random values between -3 and 3
-                shotVec.X += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
-                shotVec.Y += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
-                shotVec.Z += Fixed.ToFloat((int)_scene.Random.GetRandomInt2(24576) - 12288);
-            }
             if (!SpatialDirection(shotVec))
                 return NetShotDiagnostics.Finish(this, ShotAttemptResult.InvalidSpatialState);
             shotVec = NormalizeSpatialOr(shotVec, shotAim);
