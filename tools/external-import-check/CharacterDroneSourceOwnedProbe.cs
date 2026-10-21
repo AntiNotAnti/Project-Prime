@@ -235,7 +235,7 @@ internal static class CharacterDroneSourceOwnedProbe
         }
         CheckOldTroopers(imports,check);
         string mixed=Path.Combine(temporary,"mixed");var allIds=TrooperIds.Concat(DroneIds).ToArray();
-        check(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,mixed,selectedIds:allIds,sameSourceGroup:true).Count==6,"owned Rev2 full same-source group publishes all six independent Prime bundles");
+        check(RetroCharacterPreviewExporter.ExportSourceGroupFromOwnedGame(source,allIds,mixed).Count==6,"owned Rev2 full same-source group publishes all six independent Prime bundles");
         foreach(string id in allIds)
         {
             var own=RetroCharacterPreviewExporter.InspectBundle(imports,id);var together=RetroCharacterPreviewExporter.InspectBundle(mixed,id);
@@ -256,6 +256,8 @@ internal static class CharacterDroneSourceOwnedProbe
         // Pure catalog/edition checks. No claim of running an original-edition
         // disc: only the verified owned Rev2 RVZ is opened by this fixture.
         string[] all=TrooperIds.Concat(DroneIds).ToArray();
+        var originalExport=typeof(RetroCharacterPreviewExporter).GetMethods().Where(m=>m.Name==nameof(RetroCharacterPreviewExporter.ExportFromOwnedGame)).ToArray();
+        check(originalExport.Length==1&&originalExport[0].GetParameters().Length==5,"original public five-parameter exporter remains unambiguous for frozen reflection callers");
         string[] Select(ExternalSourceEdition edition,IReadOnlyCollection<string>? ids=null,bool group=false)
             =>RetroCharacterPreviewExporter.SelectSourcesForEdition(ExternalGameKind.MetroidPrime,edition,ids,group).Select(s=>s.Id).Order(StringComparer.Ordinal).ToArray();
         void Equal(string[] actual,IEnumerable<string> expected,string why)=>check(actual.SequenceEqual(expected.Order(StringComparer.Ordinal)),why);
