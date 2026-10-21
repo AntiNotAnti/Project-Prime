@@ -354,4 +354,111 @@ internal static class PirateBlasterSceneTests
         return new{actualShots=9,actualHits=9,paidDamage=99,kills=1,deaths=1,points=1,nativeBeamAlias=false};
     }
 
+    internal static int RunNativeBot(string assets,string output,string room="MP3 PROVING GROUND")
+    {
+        try
+        {
+            _checks=0;Check(!NetSession.Active&&!DemoPlayback.IsActive,"fresh native-bot offline process");
+            Paths.SetPath(Ver.AMHE1,Path.GetFullPath(assets));Paths.MphKey=Ver.AMHE1;
+            Check(ServerSim.Available(out var reason),"owned native-bot AMHE1 available "+reason);Headless.Enter();
+            using var f=new Fixture(room,bots:1);var p=f.Player;var bot=f.Scene.Players.Items[1];var r=f.Runtime;var state=f.Scene.GameState;
+            Check(bot.IsBot&&bot.ModCharacterGameplay==CharacterGameplayRules.Native&&bot.BotLevel==0
+                &&p.ModCharacterGameplay==CharacterGameplayRules.TrooperArsenalV1&&!state.Teams,
+                "actual mode4 one-native-bot population owns no private AI capability");
+            // Synthetic placement ONCE through native Spawn, not a fabricated
+            // actor or frozen target. Spawn initializes the real bot AI itself;
+            // all later position, form, pickups and controls belong to that AI.
+            Check(p.ModTryPirateAim(out var origin,out var direction),"actual native muzzle supplies bot placement axis");
+            Vector3 forward=new(direction.X,0,direction.Z);forward.Normalize();Vector3 position=p.Position+forward*5;
+            var floor=new CollisionResult();Check(CollisionDetection.CheckBetweenPoints(position.AddY(5),position.AddY(-20),TestFlags.Players,f.Scene,ref floor)
+                &&floor.Plane.Y>.5f,"actual bot fixture has native standing floor");
+            position.Y=floor.Position.Y-bot.ModBipedBottom+.05f;var wall=new CollisionResult();
+            Check(!CollisionDetection.CheckBetweenPoints(origin,position.AddY(.1f),TestFlags.Beams,f.Scene,ref wall),"actual bot fixture begins in room LOS");
+            bot.Spawn(position,-forward,Vector3.UnitY,p.NodeRef,respawn:true);
+            Check(bot.IsBot&&bot.ModIsInPlay&&bot.Health>0&&bot.TeamIndex!=p.TeamIndex&&!bot.ModMatchSpawnProtectionActive,
+                "public native Spawn preserves live unmodified opposing bot AI");
+            int nativeDealt=state.MatchDamageDealt[1],humanTaken=state.MatchDamageTaken[0],nativeHits=state.ShotsHit[1];
+            int privateDealt=state.MatchDamageDealt[0],botTaken=state.MatchDamageTaken[1],humanKills=state.Kills[0],botDeaths=state.Deaths[1];
+            ulong privateHits=r.Hits;bool nativeBeamSeen=false;int receiveSteps=0,returnSteps=0;
+            void ObserveNativeBeam()
+            {
+                foreach(var beam in bot.EquipInfo.Beams)
+                    if(ReferenceEquals(beam.Owner,bot)&&beam.ModCustomShot==null&&beam.Lifespan>0&&Contains(f.Scene,beam))nativeBeamSeen=true;
+            }
+            bool PaidNativeBeam()=>nativeBeamSeen&&state.ShotsHit[1]>nativeHits
+                &&state.MatchDamageDealt[1]>nativeDealt&&state.MatchDamageTaken[0]>humanTaken;
+            for(;receiveSteps<900&&!PaidNativeBeam()&&p.Health>0&&bot.Health>0;receiveSteps++)
+            {f.Step(alive:false);ObserveNativeBeam();}
+            bool receivedNativeBeamDamage=PaidNativeBeam();
+            var trace=new List<object>();
+            if(receivedNativeBeamDamage&&p.Health>0&&bot.Health>0)
+            {
+                var tracker=new NativeMouseTracker(f);
+                for(;returnSteps<600&&p.Health>0&&bot.Health>0&&(p.ModPirateUa>0||r.Snapshot.Tails);returnSteps++)
+                {
+                    tracker.Track(bot);f.Step(new Input(Shoot:true),alive:false);ObserveNativeBeam();
+                    if(returnSteps%60==0)trace.Add(new{step=returnSteps,humanHp=p.Health,botHp=bot.Health,ua=p.ModPirateUa,shots=r.Shots,hits=r.Hits,
+                        humanPosition=new[]{p.Position.X,p.Position.Y,p.Position.Z},botPosition=new[]{bot.Position.X,bot.Position.Y,bot.Position.Z},botAlt=bot.IsAltForm});
+                }
+            }
+            bool paidPrivateDamage=r.Hits>privateHits&&r.LastImpact is {} impact&&impact.VictimSlot==bot.SlotIndex
+                &&state.MatchDamageDealt[0]>privateDealt&&state.MatchDamageTaken[1]>botTaken;
+            bool botKill=state.Kills[0]==humanKills+1&&state.Deaths[1]==botDeaths+1;
+            var result=new {checks=_checks,room,scope="separate actual reciprocal native AI combat; real admitted bot; one synthetic native Spawn placement; human keyboard/raw-mouse controls",
+                receiveBound=900,returnBound=600,receiveSteps,returnSteps,nativeBeamSeen,receivedNativeBeamDamage,paidPrivateDamage,botKill,
+                nativeBeamHits=state.ShotsHit[1]-nativeHits,nativeDamage=state.MatchDamageDealt[1]-nativeDealt,humanDamageTaken=state.MatchDamageTaken[0]-humanTaken,
+                privateDamage=state.MatchDamageDealt[0]-privateDealt,botDamageTaken=state.MatchDamageTaken[1]-botTaken,
+                privateShots=r.Shots,privateHits=r.Hits-privateHits,humanHp=p.Health,botHp=bot.Health,
+                kills=state.Kills[0]-humanKills,deaths=state.Deaths[1]-botDeaths,impact=ImpactView(r.LastImpact),trace,
+                botAiOverridden=false,botControlsOverridden=false,healthWritten=false,privateCountersWritten=false,
+                syntheticPlacement=true,subsequentPositionPinned=false};
+            Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);File.WriteAllText(output,JsonSerializer.Serialize(result,new JsonSerializerOptions{WriteIndented=true}));
+            Console.WriteLine("PIRATE BLASTER NATIVE BOT TRACE "+JsonSerializer.Serialize(result));
+            Check(receivedNativeBeamDamage,"actual untagged native bot beam pays attributed human damage within bound");
+            Check(paidPrivateDamage,"actual private Blaster projectile pays attributed damage to the unmodified native bot");
+            Check(botKill,"bounded real mouse/keyboard return fire earns actual native bot kill/death totals");
+            Check(bot.IsBot&&bot.ModCharacterGameplay==CharacterGameplayRules.Native&&!r.Available(bot),"reciprocal combat preserves native bot capability fence");
+            File.WriteAllText(output,JsonSerializer.Serialize(new {checks=_checks,completed=true,evidence=result},new JsonSerializerOptions{WriteIndented=true}));
+            Console.WriteLine($"PIRATE BLASTER NATIVE BOT PASS {_checks} assertions; reciprocal actual damage and native bot kill.");return 0;
+        }
+        catch(Exception error){Console.Error.WriteLine("PIRATE BLASTER NATIVE BOT FAIL "+error);return 1;}
+    }
+    private sealed class NativeMouseTracker
+    {
+        private readonly Fixture _fixture;
+        private readonly MouseState _mouse;
+        private readonly Action<MouseState,Vector2> _set;
+        private readonly FieldInfo _canonical=typeof(PlayerEntity).GetField("_gunVec1",Hidden)!;
+        private readonly float _yawPerPixel,_pitchPerPixel;
+        private static float Yaw(Vector3 v)=>MathF.Atan2(v.X,v.Z);
+        private static float Pitch(Vector3 v)=>MathF.Atan2(v.Y,MathF.Sqrt(v.X*v.X+v.Z*v.Z));
+        private static float Wrap(float angle){while(angle>MathF.PI)angle-=MathF.Tau;while(angle<-MathF.PI)angle+=MathF.Tau;return angle;}
+        private Vector3 Aim=>(Vector3)_canonical.GetValue(_fixture.Player)!;
+        private void Move(float x,float y)=>_set(_mouse,_mouse.Position+new Vector2(x,y));
+        internal NativeMouseTracker(Fixture fixture)
+        {
+            _fixture=fixture;var p=fixture.Player;PointerInput.StylusMode=false;PointerInput.Reset();PointerDevice.Reset();
+            p.Controls.MouseAim=true;p.Controls.KeyboardAim=false;
+            _mouse=(MouseState)typeof(Scene).GetField("_mouseState",Hidden)!.GetValue(fixture.Scene)!;
+            _set=typeof(MouseState).GetProperty("Position",Hidden|BindingFlags.Public)!.SetMethod!.CreateDelegate<Action<MouseState,Vector2>>();
+            Vector3 before=Aim;Move(2,0);fixture.Step(alive:false);_yawPerPixel=Wrap(Yaw(Aim)-Yaw(before))/2;
+            before=Aim;Move(0,2);fixture.Step(alive:false);_pitchPerPixel=(Pitch(Aim)-Pitch(before))/2;
+            Check(float.IsFinite(_yawPerPixel)&&float.IsFinite(_pitchPerPixel)&&MathF.Abs(_yawPerPixel)>.00001f&&MathF.Abs(_pitchPerPixel)>.00001f,
+                "tracking calibrates actual two-axis raw mouse response without writing aim");
+        }
+        internal void Track(PlayerEntity target)
+        {
+            var body=NetHistoricalTrace.CurrentBody(target);Vector3 point=body.Type==HistoricalBodyType.BipedCylinder
+                ?body.Position.AddY((body.Bottom+body.Top)/2):body.Position;
+            Check(_fixture.Player.ModTryPirateAim(out var origin,out _),"tracking reads actual native muzzle",false);
+            // Bounded aiming heuristic only, not a damage oracle. Native target
+            // velocity supplies lead; all hit/death proof comes from real contact.
+            point+=target.Speed*Math.Clamp((point-origin).Length/2,0,4);
+            Vector3 desired=(point-origin).Normalized(),current=Aim;
+            float x=Math.Clamp(MathF.Round(Wrap(Yaw(desired)-Yaw(current))/_yawPerPixel),-16,16);
+            float y=Math.Clamp(MathF.Round((Pitch(desired)-Pitch(current))/_pitchPerPixel),-16,16);
+            Move(x,y);
+        }
+    }
+
 }
