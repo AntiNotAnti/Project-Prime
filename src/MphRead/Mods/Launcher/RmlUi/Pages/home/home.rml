@@ -7,6 +7,8 @@
     <body template="prime-shell">
         <div id="home_left_rail">
         <div id="home_feature_rail" class="enter_left" data-prime-class-hidden="activity_selector_open" data-prime-class-empty="!home_feature_available">
+            <div class="chamber_corner chamber_corner_top" aria-hidden="true" />
+            <div class="chamber_corner chamber_corner_bottom" aria-hidden="true" />
             <div class="home_rail_heading">
                 <span class="eyebrow">DISPATCH</span>
                 <span class="home_rail_tag" id="home_feature_category">NEWS</span>
@@ -101,6 +103,8 @@
             </div>
         </div>
         <div id="home_right_rail">
+        <div class="chamber_corner chamber_corner_top" aria-hidden="true" />
+        <div class="chamber_corner chamber_corner_bottom" aria-hidden="true" />
         <div id="home_right_scroll">
         <div id="session_panel" class="enter_right">
             <div class="session_header">

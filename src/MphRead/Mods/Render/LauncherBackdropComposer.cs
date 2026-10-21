@@ -273,6 +273,8 @@ namespace MphRead.Mods.Render
                 Mods.DebugLog.Line("rmlui",
                     "deployment chamber renderer failed: " + ex.Message);
                 if (program != 0) GL.DeleteProgram(program);
+                _program = 0;
+                ResetLocations();
                 return false;
             }
             finally
