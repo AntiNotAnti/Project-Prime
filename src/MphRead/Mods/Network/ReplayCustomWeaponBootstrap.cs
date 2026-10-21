@@ -26,6 +26,8 @@ internal sealed class ReplayCustomWeaponBootstrap
     internal WeaponDigest PickupLayout { get; }
     internal CustomWeaponPackageManifest Packages { get; }
     internal ReplayCustomWeaponCapabilities Capabilities => ReplayCustomWeaponCapabilities.ExactPackages;
+    private static bool ValidStart(MatchStartIdentity start)
+        => start.MatchId != 0 && start.AuthorityEpoch != 0 && start.StartGeneration != 0;
 
     internal ReplayCustomWeaponBootstrap(WorldBootstrapIdentity world, ulong packageConfiguration,
         WeaponDigest pickupLayout, CustomWeaponPackageManifest packages)
@@ -33,7 +35,7 @@ internal sealed class ReplayCustomWeaponBootstrap
         ArgumentNullException.ThrowIfNull(packages);
         Span<byte> identity = stackalloc byte[WorldBootstrapIdentity.Size];
         world.Write(identity);
-        if (!WorldBootstrapIdentity.TryRead(identity, out var validated) || validated != world
+        if (!WorldBootstrapIdentity.TryRead(identity, out var validated) || validated != world || !ValidStart(world.Start)
             || packageConfiguration == 0 || !pickupLayout.IsValid
             || packages.Rows.Count != 1 || packages.Rows[0].Weapon.RuntimeId.Value != 10
             || packages.Size > MaximumBytes - HeaderSize)
@@ -60,7 +62,8 @@ internal sealed class ReplayCustomWeaponBootstrap
         if (bytes.Length is < HeaderSize or > MaximumBytes || !bytes[..4].SequenceEqual("CWRB"u8)
             || BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]) != Version
             || BinaryPrimitives.ReadUInt16LittleEndian(bytes[6..]) != (ushort)ReplayCustomWeaponCapabilities.ExactPackages
-            || !WorldBootstrapIdentity.TryRead(bytes.Slice(8, WorldBootstrapIdentity.Size), out var world)) return false;
+            || !WorldBootstrapIdentity.TryRead(bytes.Slice(8, WorldBootstrapIdentity.Size), out var world)
+            || !ValidStart(world.Start)) return false;
         ulong configuration = BinaryPrimitives.ReadUInt64LittleEndian(bytes[40..]);
         var layout = WeaponDigest.Read(bytes[48..80]);
         int size = BinaryPrimitives.ReadUInt16LittleEndian(bytes[144..]);
