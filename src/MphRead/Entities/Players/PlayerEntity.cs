@@ -991,6 +991,7 @@ namespace MphRead.Entities
             AttachedEnemy = null;
             _field35C = null;
             _timeSinceShot = 255;
+            _voltTapBuffer.Reset();
             _timeSinceDamage = 255;
             _timeSincePickup = 255;
             _timeSinceHeal = 255;
