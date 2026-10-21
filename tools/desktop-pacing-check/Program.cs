@@ -2,6 +2,20 @@ using MphRead.Mods.Render;
 
 int failures = 0;
 CheckDisplaySentinel();
+// Dropped or stalled simulation steps advance FrameTiming.PresentationGeneration.
+// They must not reprogram VSync or OpenTK's frame deadline every draw.
+Check(!DesktopFramePacing.SourceChanged(false, -1, -1, 144, 144),
+    "unlimited pacing remains stable across simulation catch-up fences");
+Check(!DesktopFramePacing.SourceChanged(false, 0, 0, 120, 120),
+    "display pacing remains stable across simulation catch-up fences");
+Check(DesktopFramePacing.SourceChanged(true, -1, -1, 144, 144),
+    "focus and context transitions invalidate pacing");
+Check(DesktopFramePacing.SourceChanged(false, 144, 60, 144, 144),
+    "numeric cap change invalidates pacing");
+Check(DesktopFramePacing.SourceChanged(false, -1, -1, 120, 144),
+    "monitor refresh change invalidates pacing");
+Check(!DesktopFramePacing.SourceChanged(false, -1, -1, 144.4, 144),
+    "minor monitor refresh jitter does not invalidate pacing");
 void CheckDisplaySentinel()
 {
     if (DesktopFramePacing.DisplayRateCap != 0)
