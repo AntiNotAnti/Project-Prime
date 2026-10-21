@@ -34,6 +34,16 @@ for resource in PRIME-RMLUI.json gamecontrollerdb.txt gamecontrollerdb.LICENSE; 
         mv "$contents/MacOS/$resource" "$contents/Resources/$resource"
     fi
 done
+# Project references may also publish loose documentation at the flat root,
+# including the corpse-physics THIRD-PARTY-NOTICES.md. Apple's code signer
+# treats any document inside Contents/MacOS as an unsigned code component.
+# Move root-level text/Markdown notices into the signed Resources seal, but
+# leave managed .deps.json/.runtimeconfig.json and native libraries adjacent
+# to the executable so normal .NET/native runtime probing is unchanged.
+for notice in "$contents/MacOS"/*.md "$contents/MacOS"/*.txt; do
+    [[ -f "$notice" ]] || continue
+    mv "$notice" "$contents/Resources/"
+done
 # Additional project references can publish loose managed PDBs even when the
 # apphost uses embedded symbols. They are optional debug data, not Mach-O code;
 # leaving them under MacOS causes the entire app signature to fail.
