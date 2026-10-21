@@ -50,10 +50,11 @@ internal static class ReplayStudioAudioMix
             }
         }
     }
-    internal static void Write(string output,TheatreStudioToolOptions options,IReadOnlyList<ReplayEvent> events,IReadOnlyList<ReplayPlayerInfo> players,CancellationToken cancellation,long? videoFrames=null,int videoFps=60,double musicOffsetSeconds=0)
+    internal static void Write(string output,TheatreStudioToolOptions options,IReadOnlyList<ReplayEvent> events,IReadOnlyList<ReplayPlayerInfo> players,CancellationToken cancellation,long? videoFrames=null,int videoFps=60,double musicOffsetSeconds=0,string? replaySource=null)
     {
         var clips=new List<StudioAudioClip>();
         bool Overlaps(StudioAudioClip clip)=>clip.Frame<=options.End&&(clip.Loop||clip.Frame+clip.Audio.Frames*60d/clip.Audio.SampleRate/clip.Pitch>options.Start);
+        bool customWeaponAudio=options.GameEvents&&replaySource!=null&&ReplayCustomOfflineAudio.Append(replaySource,clips,options.Start,options.End,cancellation);
         using var game=options.GameEvents?new StudioOfflineGameSounds(players,cancellation):null;
         StudioPcmAudio? headshot=null;
         if(options.CombatFeedback)
@@ -66,7 +67,8 @@ internal static class ReplayStudioAudioMix
         foreach(var marker in events)
         {
             cancellation.ThrowIfCancellationRequested();if(marker.Frame>options.End)continue;
-            int first=clips.Count;game?.Append(marker,clips);
+            int first=clips.Count;
+            if(!(customWeaponAudio&&marker.Type==ReplayEventType.WeaponFired&&marker.Value==10))game?.Append(marker,clips);
             for(int i=clips.Count-1;i>=first;i--)if(!Overlaps(clips[i]))clips.RemoveAt(i);
             if(marker.Type==ReplayEventType.Headshot&&headshot!=null)
             {var clip=new StudioAudioClip(marker.Frame,StudioAudioBus.Combat,headshot);if(Overlaps(clip))clips.Add(clip);}

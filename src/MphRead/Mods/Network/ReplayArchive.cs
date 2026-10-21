@@ -104,14 +104,14 @@ namespace MphRead.Mods.Network
                     RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
                     MapHash = ReplayMapIdentity.Compute(match.RoomKey), Players = players,
                     Bootstrap = new ReplayBootstrap { Packets = new[] { ReplayTimelineArchive.Construction(state) } } };
-                return ExtractRange(reader, metadata, start, end, output, probe.LastFrame, cancellation);
+                return ExtractRange(reader, metadata, start, end, output, probe.LastFrame, cancellation, source);
             }
             // Preserve the initial world and every required warmup fact. Lead-in
             // is hidden by the session and advanced in bounded owner updates.
             // This is also how a legacy packet recording gets a faithful range:
             // reconstruct from its original bootstrap, not a mid-flight snapshot.
             if (reader.Metadata != null && (metadata.FormatVersion >= 4 || metadata.MapHash != 0))
-                return ExtractRange(reader, metadata, start, end, output, cancellation: cancellation);
+                return ExtractRange(reader, metadata, start, end, output, cancellation: cancellation, sourcePath: source);
             var bootstrap = new Dictionary<PacketType, byte[]>();
             foreach (byte[] packet in metadata.Bootstrap.Packets) Remember(bootstrap, packet, metadata.ProtocolVersion);
             ReplayWriterV3? writer = null;
@@ -208,7 +208,7 @@ namespace MphRead.Mods.Network
             MapHash = hash, Bootstrap = bootstrap, Recovered = recovered
         };
 
-        private static ReplayOpenResult ExtractRange(DemoReader reader, ReplayMetadata source, uint start, uint end, string output, uint? legacyDuration = null, CancellationToken cancellation = default)
+        private static ReplayOpenResult ExtractRange(DemoReader reader, ReplayMetadata source, uint start, uint end, string output, uint? legacyDuration = null, CancellationToken cancellation = default, string? sourcePath = null)
         {
             ReplayWriterV3? writer = null;
             try
@@ -248,7 +248,10 @@ namespace MphRead.Mods.Network
                         writer.WriteEvent(value with { Frame = value.Frame + source.LeadInFrames });
                 CopyCheckpoints(reader, writer, last, cancellation: cancellation);
                 cancellation.ThrowIfCancellationRequested();
-                writer.Dispose(); return ReplayOpenResult.Success;
+                writer.Dispose();
+                if(sourcePath!=null) Replay.ReplayOwnerTrack.CopyRange(sourcePath,output,
+                    checked(source.OriginRecordingFrame+lead),checked(source.OriginRecordingFrame+last),cancellation);
+                return ReplayOpenResult.Success;
             }
             catch (OperationCanceledException) { writer?.Abort(); throw; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or OverflowException)

@@ -85,11 +85,11 @@ internal static partial class RmlUiOpenGlSmoke
                     switch(options.Tool)
                     {
                         case TheatreStudioTool.AudioMix:
-                            path=Path.Combine(directory,"audio.wav");ReplayStudioAudioMix.Write(path,options,files.Events,players,cancellation);
+                            path=Path.Combine(directory,"audio.wav");ReplayStudioAudioMix.Write(path,options,files.Events,players,cancellation,replaySource:source);
                             summary=$"Offline stereo PCM16 mix: {options.Start}–{options.End} at 48 kHz. Event cues use canonical game assets; continuous in-world sound is not reconstructed.";break;
                         case TheatreStudioTool.MuxVideo:
                             string video=Path.GetFullPath(options.InputPath);RequireRegular(video);string videoFacts=FileFacts(video);
-                            string audio=Path.Combine(directory,"audio.wav");ReplayStudioAudioMix.Write(audio,options with{InputPath=""},files.Events,players,cancellation);
+                            string audio=Path.Combine(directory,"audio.wav");ReplayStudioAudioMix.Write(audio,options with{InputPath=""},files.Events,players,cancellation,replaySource:source);
                             path=Path.Combine(directory,"replay-with-audio.mp4");
                             var startInfo=new ProcessStartInfo("ffmpeg"){UseShellExecute=false,RedirectStandardError=true,RedirectStandardOutput=true,CreateNoWindow=true};
                             foreach(string argument in new[]{"-v","error","-nostdin","-i",video,"-i",audio,"-map","0:v:0","-map","1:a:0","-c:v","copy","-c:a","aac","-shortest",path})startInfo.ArgumentList.Add(argument);
