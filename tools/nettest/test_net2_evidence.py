@@ -937,6 +937,11 @@ class EvidenceTests(unittest.TestCase):
         for report in (self.server, self.client):
             report["Protocol"] = 83
             report["SlowStates"] = [self.slow(1, 6, protocol=83), self.slow(2, 180, kills=1, protocol=83)]
+            report["TurretOutcomes"] = []
+        self.server["CombatPayments"] = {
+            "EvidenceOverflow": 0,
+            "PaidShotKeys": [row["Key"] for row in self.server["Shots"] if row["Stage"] == "committed"],
+        }
         self.write()
         result = adjudicate(self.out, self.processes, expected_protocol=83)
         self.assertEqual(result["status"], "PASS")
