@@ -638,7 +638,8 @@ internal static class CharacterCannonRuntimeOwnedProbe
                                 float[] actual=new float[16];GL.GetUniform(program,GL.GetUniformLocation(program,"gx_projection"),actual);
                                 Check(Distance(ReadMatrix(actual,0),projection)<.00002,"actual source sphere uses world camera projection");
                             }
-                            if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "ball-roll" or "ball-bomb"&&captured.Add(label))
+                            if(!string.IsNullOrWhiteSpace(capturesRoot)&&label is "ball-roll" or "ball-bomb"
+                                &&(!probeTrail||TrailItems(scene).Count>0)&&captured.Add(label))
                             {
                                 string path=Path.Combine(capturesRoot,selection!.SelectedAppearance.SkinSource+"-"+label+".png");
                                 Check(ScreenCapture.SaveWindow(scene,path),"optional actual source ball frame saved");captures.Add(new{Path=path,Sha256=HashFile(path),SourcePackets=BallItems(scene).Count});
