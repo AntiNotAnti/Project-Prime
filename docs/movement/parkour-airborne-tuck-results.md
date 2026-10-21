@@ -114,3 +114,15 @@ physical keyboard/controller/touch playtesting and a complete transport/platform
 matrix remain unverified; CPU fixtures do not establish visual or physical-input
 acceptance. The remaining ordered slices are wallstrafe, wallrun/kick, short
 ledge scramble, and optional grapple traversal.
+
+Latest-main integration subsequently merged main
+`ee9da10f912f9175a092ed5d12d2a2e80743a263` at producer
+`ce3d36e24a861d9639abbd905b8bf2f7a7eae1b8` after the upstream corpse-rendering
+and menu changes. All 758 movement/network/player/nettest files are byte-identical
+to the full functional producer. [Integration evidence](evidence/parkour-airborne-tuck-integration.json)
+records fresh normal Windows builds with the new upstream dependency graph,
+custom defaults, tuck/compatibility/bootstrap gates, and both retained recordings
+replayed with exactly unchanged digests and key counts. Source, dependency and
+archive fences pass with zero owned runtime processes. This targeted integration
+did not rerun cohorts, historical batches, benchmarks or GL lifecycle checks;
+those retain their original producer attribution above.
