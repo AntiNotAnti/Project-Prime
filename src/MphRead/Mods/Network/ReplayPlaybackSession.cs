@@ -43,7 +43,9 @@ namespace MphRead.Mods.Network
         internal int SourceProtocolVersion => _reader is { } reader ? reader.ProtocolVersion
             : _clip is { } clip ? clip.PresentationProtocolVersion : _liveMetadata?.ProtocolVersion ?? 0;
         private uint LeadInFrames => _reader?.Metadata?.LeadInFrames ?? 0;
-        public uint CurrentFrame => _customArchiveRequest ? 0 : IsCustomArchiveInspection ? checked(_frame - _reader!.Metadata!.OriginRecordingFrame)
+        public uint CurrentFrame => _customArchiveRequest ? 0 : IsCustomArchiveInspection
+            ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LeadInFrames
+                ? checked(_frame - _reader.Metadata.OriginRecordingFrame - LeadInFrames) : 0
             : _frame >= LeadInFrames ? _frame - LeadInFrames : 0;
         internal uint RecordingFrame => _customInspection ? _frame : checked(_frame + (_reader?.Metadata?.OriginRecordingFrame ?? 0));
         internal double RecordingPresentationFrame(double visibleFrame) => _clip != null
@@ -81,7 +83,8 @@ namespace MphRead.Mods.Network
             { checkpoint.Dispose(); throw new InvalidDataException("Durable checkpoint clock differs from its index."); }
             return checkpoint;
         }
-        internal bool IsWarming => LeadInFrames > 0 && (!_started || _frame < LeadInFrames);
+        internal bool IsWarming => LeadInFrames > 0 && (!_started || (ulong)_frame < (ulong)LeadInFrames
+            + (IsCustomArchiveInspection ? _reader!.Metadata!.OriginRecordingFrame : 0));
         internal bool HasSimulatedFrame => _started && !IsWarming;
         public uint LastFrame { get; private set; }
         public ReplayOpenResult LastResult { get; private set; }
@@ -96,7 +99,7 @@ namespace MphRead.Mods.Network
             Stop(); LastResult = ReplayOpenResult.Corrupt;
             LastError = "Custom presentation stopped: " + error;
         }
-        public bool AtEnd => IsActive && !_customArchiveRequest && !_live && (IsCustomArchiveInspection ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LastFrame
+        public bool AtEnd => IsActive && !_customArchiveRequest && !_live && (IsCustomArchiveInspection ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LeadInFrames + LastFrame
             : _clip != null ? _started && _frame >= LastFrame : _pending == null);
 
         internal void JoinCustomArchiveRequest(ReplayMetadata metadata, string path, uint duration)
@@ -104,10 +107,10 @@ namespace MphRead.Mods.Network
             if (_host is not PassiveReplaySessionHost passive)
                 throw new InvalidOperationException("Custom archive requests require a private passive host.");
             ArgumentNullException.ThrowIfNull(metadata);
-            if (metadata.FormatVersion != 7 || metadata.LeadInFrames != 0 || metadata.WorldCheckpoint.Length == 0
-                || duration > ReplayFormatV3.MaxFrame || (ulong)metadata.OriginRecordingFrame + duration > uint.MaxValue
+            if (metadata.FormatVersion is not (7 or 8) || metadata.WorldCheckpoint.Length == 0
+                || duration > ReplayFormatV3.MaxFrame || (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames + duration > uint.MaxValue
                 || ReplayFormatV3.ValidateCustomArchiveMetadata(metadata) == null)
-                throw new InvalidDataException("Custom archive request requires a validated complete-world format7 baseline.");
+                throw new InvalidDataException("Custom archive request requires a validated complete-world format7 or format8 baseline.");
             var baseline = ReplayTimelineArchive.ReadConstruction(metadata.Bootstrap.Packets[0], custom: true);
             Stop(); _host.Start();
             try
@@ -202,7 +205,7 @@ namespace MphRead.Mods.Network
                 var metadata = reader.Metadata ?? throw new InvalidDataException("Custom archive metadata is unavailable.");
                 if (metadata.CustomWeapons == null || _liveMetadata?.CustomWeapons is not { } descriptor
                     || !metadata.CustomWeapons.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes())
-                    || _frame < metadata.OriginRecordingFrame || _frame > (ulong)metadata.OriginRecordingFrame + reader.DurationFrames)
+                    || _frame < metadata.OriginRecordingFrame || _frame > (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames + reader.DurationFrames)
                     throw new InvalidDataException("Custom file differs from its retained historical world scope.");
                 uint relative = checked(_frame - metadata.OriginRecordingFrame);
                 var pending = metadata.FormatVersion == 8 ? reader.SeekAtOrAfter(relative) : reader.SeekAfter(relative);
@@ -211,7 +214,7 @@ namespace MphRead.Mods.Network
                 while (metadata.FormatVersion == 8 && pending is { } atBaseline && atBaseline.Frame == relative
                     && atBaseline.Data[0] != ReplayPostWorldRecord.Tag)
                     pending = reader.ReadNext();
-                if (metadata.FormatVersion == 8 && relative == reader.DurationFrames)
+                if (metadata.FormatVersion == 8 && (ulong)relative == (ulong)metadata.LeadInFrames + reader.DurationFrames)
                     ConsumePostWorldEnd(reader, ref pending, _frame);
                 if (reader.LastResult != ReplayOpenResult.Success) throw new InvalidDataException("Custom archive seek failed: " + reader.LastResult);
                 _reader = reader; _pending = pending; CurrentPath = prepared.Path; _live = false;
@@ -234,7 +237,7 @@ namespace MphRead.Mods.Network
                         throw new InvalidDataException("Custom file records regress or exceed the bounded per-frame budget.");
                     if (record.Data.Length == 0 || record.Data[0] == 253)
                         throw new InvalidDataException("Construction records cannot replace an active custom file world.");
-                    if (record.Data[0] == 255 && (record.Data.Length != 1 || record.Frame != _reader.DurationFrames))
+                    if (record.Data[0] == 255 && (record.Data.Length != 1 || (ulong)record.Frame != (ulong)LeadInFrames + _reader.DurationFrames))
                         throw new InvalidDataException("Custom file end markers must close their declared final frame.");
                     if ((record.Data[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag) && !_reader.Metadata!.TimedShotCertificates)
                         throw new InvalidDataException("Timed shot facts lack their recording capability.");

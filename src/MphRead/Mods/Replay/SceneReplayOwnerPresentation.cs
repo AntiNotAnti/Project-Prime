@@ -14,6 +14,21 @@ public partial class Scene
     private CancellationTokenSource? _ownerPresentationCancellation;
     internal string ReplayOwnerProvenance { get; private set; } = "Authority reconstructed";
     internal bool OwnerExportPreparedForDraw { get; private set; }
+    internal float ReplayCustomScopeBlend(PlayerEntity player)
+    {
+        if (!TryReplayCustomPresentation(out var services, out _) || !CustomWeaponHud(player).Visible) return 0;
+        var track = ReplayVideoExporter.Rendering ? ReplayOwnerExport.Track
+            : _ownerPresentation?.IsCompletedSuccessfully == true ? _ownerPresentation.Result : null;
+        if (OwnerExportPreparedForDraw && services.State.Match is { } match
+            && services.State.TryGetPlayer(player.SlotIndex, out var state) && state.Health > 0)
+        {
+            double frame = services.Session.RecordingPresentationFrame(double.IsFinite(ReplayPresentationFrame)
+                ? ReplayPresentationFrame : services.Session.CurrentFrame);
+            if (track?.Sample(frame, match.MatchId, match.AuthorityEpoch, player.SlotIndex,
+                state.SlotGeneration, state.LifeId, out var pose) == true && pose.CustomScopeBlend is { } blend) return blend;
+        }
+        return CustomWeaponHud(player).State.Optic > 0 ? 1 : 0;
+    }
     private void PrepareOwnerPresentationDraw()
     {
         OwnerExportPreparedForDraw = !ReplayVideoExporter.Rendering || ReplayOwnerExport.Ready;

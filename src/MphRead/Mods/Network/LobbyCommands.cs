@@ -177,6 +177,7 @@ namespace MphRead.Mods.Network
             peer.LastSeen = now;
             if (!peer.Commands.TryGetValue(command.CommandId, out var result))
             {
+                CancelPendingLobbyMapFor(peer, command);
                 if (TryPrepareLobbyMap(peer, command)) return;
                 var code = ExecuteLobbyCommand(peer, command, now, out string reason);
                 result = CacheLobbyResult(peer, command, code, reason);
@@ -292,7 +293,7 @@ namespace MphRead.Mods.Network
                     { reason = "The operator's exact package selection cannot be changed by a lobby command."; return LobbyResultCode.InvalidConfiguration; }
                     var valid = LobbyRules.ValidateDefinition(proposed, out reason);
                     if (valid != LobbyResultCode.Ok) return valid;
-                    if (proposed.RiftlineM7Available && _bots.Count > 0)
+                    if (proposed.RiftlineM7Available && _bots.Count > 0&&!CustomWeapons.CustomAuthorityCombatAdapter.AuthorityBotsEnabled)
                     { reason = "Remove bots before enabling Riftline M7 availability."; return LobbyResultCode.InvalidConfiguration; }
                     string? room = ResolveRoomKey(proposed.RoomKey);
                     if (room == null) { reason = "The server does not have that map."; return LobbyResultCode.MapUnavailable; }
@@ -306,10 +307,15 @@ namespace MphRead.Mods.Network
                     catch (Exception ex) { reason = ex.Message; return LobbyResultCode.MapUnavailable; }
                     if (proposed.MapIdentity.IsCustom && proposed.MapIdentity != required)
                     { reason = "The server does not have the requested package version."; return LobbyResultCode.MapUnavailable; }
-                    if (_bots.Count > 0 && !BotMapAvailable(proposed with { RoomKey = room, MapIdentity = required }, out reason))
-                        return LobbyResultCode.MapUnavailable;
+                    if (_bots.Count > 0)
+                    {
+                        LobbyResultCode navigation = BotMapAvailable(
+                            proposed with { RoomKey = room, MapIdentity = required }, out reason);
+                        if (navigation != LobbyResultCode.Ok) return navigation;
+                    }
                     if (_lobbyMatch.MapIdentity != required || _lobbyMatch.RoomKey != room) InvalidateMapReadiness();
                     _lobbyMatch = proposed with { RoomKey = room, MapIdentity = required };
+                    PrimeBotNavigation(_lobbyMatch);
                     if (!_controlPlaneOnlyForTests) Mods.RoomPrewarm.Begin(_lobbyMatch.RoomKey);
                     RequireReady = command.Configuration.RequireReady;
                     AllowJoinInProgress = command.Configuration.AllowJoinInProgress;

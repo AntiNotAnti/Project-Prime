@@ -7,6 +7,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
+using MphRead.Mods.CustomWeapons.Packages;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
@@ -27,8 +28,22 @@ internal static class ReplayDetachedExportWorker
             if (!Path.IsPathFullyQualified(path)) throw new InvalidDataException("The export ticket path must be absolute.");
             ticket = ReplayDetachedExportTicket.Read(path);
             using (var reader = DemoReader.Open(ticket.Manifest.Replay, out _))
-                if (reader?.Metadata?.CustomWeapons != null)
-                    throw new InvalidOperationException("Custom replay export is not supported.");
+                if (reader?.Metadata?.CustomWeapons is { } custom)
+                {
+                    string archive=Path.Combine(ticket.WorkDirectory,"weapon.ppweapon");
+                    var info=new FileInfo(archive);
+                    if(!ticket.InputHashes.ContainsKey(archive)||!info.Exists||info.LinkTarget!=null
+                        ||info.Length is <1 or >WeaponPackageLimits.MaximumArchiveBytes)
+                        throw new InvalidDataException("Custom export requires its retained exact package.");
+                    var package=WeaponPackage.Parse(File.ReadAllBytes(archive));
+                    var row=custom.Bootstrap.Packages.Rows[0];
+                    if(CustomPackageManifestRow.For(row.Weapon.RuntimeId,package)!=row)
+                        throw new InvalidDataException("The export package differs from the recording.");
+                    string store=Path.Combine(ticket.WorkDirectory,"weapon-store");
+                    new WeaponPackageStore(store).Install(package.CopyArchive());
+                    Environment.SetEnvironmentVariable("PROJECT_PRIME_WEAPON_STORE",store);
+                    Environment.SetEnvironmentVariable("PROJECT_PRIME_CUSTOM_WEAPON_PLAYBACK","1");
+                }
             log = new StreamWriter(new FileStream(ticket.LogPath, FileMode.Append, FileAccess.Write, FileShare.Read)) { AutoFlush = true };
             Console.SetOut(TextWriter.Synchronized(log)); Console.SetError(Console.Out);
             Directory.SetCurrentDirectory(ticket.WorkDirectory);

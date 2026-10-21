@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.Mods.Multiplayer;
 
 namespace MphRead.Mods.Network;
 
@@ -115,11 +116,40 @@ internal static class NetShotInputProof
         }
         if (!charged)
         {
-            if ((current & ShotInputHistory.ShootBit) == 0
-                || fire.Kind is not (FireEventKind.PressFire or FireEventKind.AutomaticFire))
+            if (fire.Kind is not (FireEventKind.PressFire or FireEventKind.AutomaticFire))
                 return ShotProofReason.InvalidCharge;
             if (!Read(life, fire.SourceFrame - 1, out byte previous)) return ShotProofReason.SourceInputUnavailable;
-            if (fire.Kind == FireEventKind.PressFire && (previous & ShotInputHistory.ShootBit) != 0
+            if (fire.Weapon == (byte)BeamType.VoltDriver && fire.Kind == FireEventKind.PressFire)
+            {
+                // Native buffered taps fire on the first legal cooldown frame,
+                // when the trigger may already be up. Prove a real rising edge
+                // in the bounded window rather than trusting a delayed press
+                // marker. The independent source journal still enforces ammo
+                // and the full cooldown between committed shots.
+                if ((current & ShotInputHistory.ShootBit) != 0)
+                    return (previous & ShotInputHistory.ShootBit) == 0
+                        ? ShotProofReason.Verified : ShotProofReason.InvalidCharge;
+                int weapon = (int)BeamType.VoltDriver;
+                if (NetShotSourceJournal.TryState(key, fire.SourceFrame, out var source)
+                    && Weapons.GetAffinityBeam(source.Hunter) == BeamType.VoltDriver)
+                    weapon += 9;
+                int maxDelay = VoltDriverTapBuffer.MaxDelayFrames(
+                    player.OwningScene.WeaponRules[weapon].ShotCooldown * 2);
+                for (int age = 1; age <= maxDelay; age++)
+                {
+                    uint frame = unchecked(fire.SourceFrame - (uint)age);
+                    if (!Read(life, frame, out byte past) || !Read(life, frame - 1, out byte before))
+                        return ShotProofReason.SourceInputUnavailable;
+                    if ((past & 15) != fire.Weapon || (past & ShotInputHistory.EligibleBit) == 0)
+                        return ShotProofReason.InvalidCharge;
+                    if ((past & ShotInputHistory.ShootBit) != 0
+                        && (before & ShotInputHistory.ShootBit) == 0)
+                        return ShotProofReason.Verified;
+                }
+                return ShotProofReason.InvalidCharge;
+            }
+            if ((current & ShotInputHistory.ShootBit) == 0
+                || fire.Kind == FireEventKind.PressFire && (previous & ShotInputHistory.ShootBit) != 0
                 || fire.Kind == FireEventKind.AutomaticFire && (previous & ShotInputHistory.ShootBit) == 0)
                 return ShotProofReason.InvalidCharge;
             return ShotProofReason.Verified;

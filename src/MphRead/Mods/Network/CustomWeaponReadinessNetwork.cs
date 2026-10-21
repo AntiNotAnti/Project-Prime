@@ -165,6 +165,18 @@ public sealed partial class DedicatedServer
         var root=scene.EnableDeveloperEngineCustomCombat(true,new LiveCustomSourceReadiness(this,scene),new LiveCustomCombatDelivery(this,scene),
             pickupOnly:PublicCustomWeaponMatch,definition:CurrentDefinition.PackagedWeaponAvailable ? _weaponPackages!.Definition(new(10)) : null);
         if(PublicCustomWeaponMatch)root.ConfigurePickups(CurrentStartIdentity,CurrentDefinition.MapIdentity.Content(CurrentDefinition.RoomKey));
+        if(PublicCustomWeaponMatch&&CustomAuthorityCombatAdapter.AuthorityBotsEnabled)
+            root.ConfigureAuthorityBots(owner=>
+            {
+                if(!_running||_sim?.EvidenceScene!=scene||!NetSession.SlotIsBot[owner.Slot]
+                    ||_lastSnapshotLength==0||!NetPlayerLifecycle.Matches(owner.Slot,owner.Generation,owner.Life))return null;
+                var header=SnapshotHeader.Read(_lastSnapshot);
+                if(header.Frame==0||header.MatchId!=_matchId||header.AuthorityEpoch!=_authorityEpoch)return null;
+                _replication.Prepare(_lastSnapshot.AsSpan(0,_lastSnapshotLength));
+                if(++_bootstrapRevision==0)++_bootstrapRevision;
+                return new WorldBootstrapIdentity(CurrentStartIdentity,_bootstrapRevision,owner.Generation,header.Frame,
+                    _replication.SlowRevision,_replication.WorldRevision);
+            });
         _customAudience?.Close();_customAudience=new(root.Definition.Mechanics.LifetimeTicks);_customAudienceStart=CurrentStartIdentity;
     }
 }

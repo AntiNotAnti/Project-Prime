@@ -87,10 +87,6 @@ namespace MphRead.Mods.Network
             using DemoReader? reader = DemoReader.Open(source, out var result);
             if (reader == null) return result;
             if (!ReplayIdentityCompatibility.Supports(reader.ProtocolVersion)) return ReplayOpenResult.ProtocolMismatch;
-            // Range extraction needs to preserve post-world facts at its chosen
-            // origin and end. Keep format7 extraction until that phase-aware
-            // consumer is implemented; never silently downgrade format8 to7.
-            if (reader.FormatVersion == 8) return ReplayOpenResult.UnsupportedFormat;
             ReplayMetadata metadata = reader.Metadata ?? new ReplayMetadata();
             if (reader.FormatVersion <= 2)
             {
@@ -108,14 +104,14 @@ namespace MphRead.Mods.Network
                     RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
                     MapHash = ReplayMapIdentity.Compute(match.RoomKey), Players = players,
                     Bootstrap = new ReplayBootstrap { Packets = new[] { ReplayTimelineArchive.Construction(state) } } };
-                return ExtractRange(reader, metadata, start, end, output, probe.LastFrame, cancellation);
+                return ExtractRange(reader, metadata, start, end, output, probe.LastFrame, cancellation, source);
             }
             // Preserve the initial world and every required warmup fact. Lead-in
             // is hidden by the session and advanced in bounded owner updates.
             // This is also how a legacy packet recording gets a faithful range:
             // reconstruct from its original bootstrap, not a mid-flight snapshot.
             if (reader.Metadata != null && (metadata.FormatVersion >= 4 || metadata.MapHash != 0))
-                return ExtractRange(reader, metadata, start, end, output, cancellation: cancellation);
+                return ExtractRange(reader, metadata, start, end, output, cancellation: cancellation, sourcePath: source);
             var bootstrap = new Dictionary<PacketType, byte[]>();
             foreach (byte[] packet in metadata.Bootstrap.Packets) Remember(bootstrap, packet, metadata.ProtocolVersion);
             ReplayWriterV3? writer = null;
@@ -212,7 +208,7 @@ namespace MphRead.Mods.Network
             MapHash = hash, Bootstrap = bootstrap, Recovered = recovered
         };
 
-        private static ReplayOpenResult ExtractRange(DemoReader reader, ReplayMetadata source, uint start, uint end, string output, uint? legacyDuration = null, CancellationToken cancellation = default)
+        private static ReplayOpenResult ExtractRange(DemoReader reader, ReplayMetadata source, uint start, uint end, string output, uint? legacyDuration = null, CancellationToken cancellation = default, string? sourcePath = null)
         {
             ReplayWriterV3? writer = null;
             try
@@ -221,10 +217,11 @@ namespace MphRead.Mods.Network
                 if (start > duration || start > end) return ReplayOpenResult.Empty;
                 end = Math.Min(end, duration);
                 uint lead = checked(source.LeadInFrames + start), last = checked(source.LeadInFrames + end);
-                bool? continuation = source.Type == ReplayType.FullMatch ? true : source.IndexedFireContinuation;
+                bool? continuation = source.CustomWeapons != null ? source.IndexedFireContinuation
+                    : source.Type == ReplayType.FullMatch ? true : source.IndexedFireContinuation;
                 var metadata = new ReplayMetadata
                 {
-                    FormatVersion = source.CustomWeapons != null ? (byte)7 : source.TimedShotCertificates ? (byte)6 : continuation.HasValue ? (byte)5 : (byte)4,
+                    FormatVersion = source.CustomWeapons != null ? source.FormatVersion : source.TimedShotCertificates ? (byte)6 : continuation.HasValue ? (byte)5 : (byte)4,
                     TimedShotCertificates = source.TimedShotCertificates, ProtocolVersion = source.ProtocolVersion,
                     CustomWeapons = source.CustomWeapons,
                     BuildVersion = source.BuildVersion, BuildId = source.BuildId, RecordedAtUtc = source.RecordedAtUtc,
@@ -241,6 +238,7 @@ namespace MphRead.Mods.Network
                 {
                     cancellation.ThrowIfCancellationRequested();
                     if (record.Frame > last) break;
+                    if (source.CustomWeapons != null && record.Data.Length == 1 && record.Data[0] == 255) continue;
                     writer.WriteRecord(record.Frame, record.Data);
                 }
                 if (reader.LastResult != ReplayOpenResult.Success) { writer.Abort(); return reader.LastResult; }
@@ -250,7 +248,10 @@ namespace MphRead.Mods.Network
                         writer.WriteEvent(value with { Frame = value.Frame + source.LeadInFrames });
                 CopyCheckpoints(reader, writer, last, cancellation: cancellation);
                 cancellation.ThrowIfCancellationRequested();
-                writer.Dispose(); return ReplayOpenResult.Success;
+                writer.Dispose();
+                if(sourcePath!=null) Replay.ReplayOwnerTrack.CopyRange(sourcePath,output,
+                    checked(source.OriginRecordingFrame+lead),checked(source.OriginRecordingFrame+last),cancellation);
+                return ReplayOpenResult.Success;
             }
             catch (OperationCanceledException) { writer?.Abort(); throw; }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException or OverflowException)

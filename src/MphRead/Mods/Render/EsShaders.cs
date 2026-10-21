@@ -491,6 +491,10 @@ void main()
 precision highp float;
 
 uniform float alpha;
+uniform vec4 hud_ink;
+uniform bool native_reticle_field;
+uniform float native_reticle_thickness;
+uniform vec2 native_reticle_extent;
 uniform bool use_mask;
 uniform bool hud_zero_alpha_discard;
 uniform float view_width;
@@ -510,7 +514,15 @@ void main()
         frag_color = fade_color;
     }
     else {
-        frag_color = texture(tex, texcoord);
+        frag_color = texture(tex, texcoord) * hud_ink;
+        if (native_reticle_field) {
+            float distance = texture(tex, texcoord).a;
+            vec2 footprint = vec2(length(vec2(dFdx(texcoord.x), dFdy(texcoord.x))),
+                                  length(vec2(dFdx(texcoord.y), dFdy(texcoord.y)))) * native_reticle_extent;
+            float pixel = max(max(footprint.x, footprint.y), 0.0001);
+            frag_color.a = smoothstep(-0.5 * pixel, 0.5 * pixel,
+                distance + native_reticle_thickness * pixel) * hud_ink.a;
+        }
         if (use_mask) {
             vec2 localCoord = gl_FragCoord.xy - view_origin;
             float maskY = localCoord.y + (view_width - view_height) / 2.0;
@@ -813,11 +825,11 @@ void main()
             Check("LegacyVertexShader", Shaders.LegacyVertexShader, "10d6837ed1a7531c81f5ec6d5f39473c03efc0266541b66a79de89eb268d63db");
             Check("LegacyEsVertexShader", LegacyVertexShader, "7a496438c2700e57515923d54035dff2092829831dc5fe7e395f2a6410d89db8");
             Check("FragmentShader", Shaders.FragmentShader,
-                "0220aba401751fab2300184a0a0b61490347753fae17393b16f00cd618d27ae3");
+                "f62c71f4cfa109331aa85f70d1bb9d8689ca743f576ffc7698a22189737af43a");
             Check("RttVertexShader", Shaders.RttVertexShader,
                 "af070f447840bf1fc51d6bba88a339fab067a4e3a01e460351a2549ca9107f4f");
             Check("RttFragmentShader", Shaders.RttFragmentShader,
-                "e2d19241b220426ac18bb3c74acc7195e4de947168020c979f9cd2a053399b31");
+                "a795f8f8a04cd6d28b87c0fb5c805344eae9ddba85b7323d3cb41ddac66437e6");
             Check("CelFragmentShader", Shaders.CelFragmentShader,
                 "0fcb40630809a0e5b2d78448ed8b9518686fb6a5fc3b1a69914a37fecf28f7d5");
             Check("ShiftFragmentShader", Shaders.ShiftFragmentShader,

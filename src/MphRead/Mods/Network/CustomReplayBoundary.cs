@@ -40,7 +40,8 @@ internal static class CustomReplayBoundary
         if (DemoRecorder.IsCustomRecording && !DemoRecorder.HasCurrentCustomScope)
             DemoRecorder.InterruptCustomRecording();
         if (ReplayCapture.LiveRecordingActive && !(DemoRecorder.HasCurrentCustomScope
-            && !ServerReplayRecorder.IsRecording && !DemoClip.IsSaving)) { error = Error; return false; }
+            && !ServerReplayRecorder.IsRecording && !DemoClip.IsSaving)
+            && !ReplayCapture.CustomClientRollingScope() && !DemoClip.IsCustomSaving) { error = Error; return false; }
         if (GameState.Current.Owner is { } owner)
         {
             if (!owner.CustomReplayUnsupported) Mods.KillCam.Reset();

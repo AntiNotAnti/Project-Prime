@@ -17,6 +17,7 @@ internal readonly record struct ReplayOwnerPose(double Frame, double RenderSecon
 {
     internal float Aspect { get; init; }
     internal ReplayOwnerVisual Visual { get; init; }
+    internal float? CustomScopeBlend { get; init; }
 }
 
 internal sealed class ReplayOwnerTrack
@@ -25,8 +26,10 @@ internal sealed class ReplayOwnerTrack
     internal const int MaximumSamples = 65536;
     private const uint Magic = 0x31504F50; // POP1, independent of replay schema
     internal const int LegacyRecordBytes = 139;
-    internal const int RecordBytes = LegacyRecordBytes + 4 + ReplayOwnerVisual.Bytes;
+    internal const int Version2RecordBytes = LegacyRecordBytes + 4 + ReplayOwnerVisual.Bytes;
+    internal const int RecordBytes = Version2RecordBytes + 5;
     private const int HeaderBytes = 4 + 2 + 2 + 4 + 32;
+    internal const long MaximumFileBytes = HeaderBytes + (long)MaximumSamples * RecordBytes + 32;
     private readonly ReplayOwnerPose[] _samples;
     internal int Count { get; private set; }
     internal int Dropped { get; private set; }
@@ -52,7 +55,7 @@ internal sealed class ReplayOwnerTrack
             || !Finite(value.GunPosition) || !Unit(value.GunFacing) || !Unit(value.GunUp)
             || MathF.Abs(Vector3.Dot(value.GunFacing, value.GunUp)) > .01f
             || !float.IsFinite(value.Aspect) || value.Aspect != 0 && value.Aspect is < .2f or > 8
-            || !value.Visual.Valid) return false;
+            || !value.Visual.Valid || value.CustomScopeBlend is { } blend && (!float.IsFinite(blend) || blend is <0 or >1)) return false;
         for (int r = 0; r < 4; r++) for (int c = 0; c < 4; c++)
             if (!float.IsFinite(value.View[r, c])) return false;
         // Require a rigid affine camera; determinant alone accepts shears/scales.
@@ -95,7 +98,7 @@ internal sealed class ReplayOwnerTrack
             using (var stream = new FileStream(temporary, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None))
             using (var writer = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true))
             {
-                writer.Write(Magic); writer.Write((ushort)2); writer.Write((ushort)60);
+                writer.Write(Magic); writer.Write((ushort)3); writer.Write((ushort)60);
                 writer.Write(Count); writer.Write(identity);
                 for (int i = 0; i < Count; i++)
                 {
@@ -106,6 +109,7 @@ internal sealed class ReplayOwnerTrack
                     writer.Write(v.WorldFov); writer.Write(v.GunFov);
                     Write(writer, v.GunPosition); Write(writer, v.GunFacing); Write(writer, v.GunUp);
                     writer.Write(v.Aspect); v.Visual.Write(writer);
+                    writer.Write(v.CustomScopeBlend.HasValue); writer.Write(v.CustomScopeBlend ?? 0);
                 }
                 writer.Flush(); stream.Position = 0;
                 byte[] checksum = SHA256.HashData(stream);
@@ -117,6 +121,21 @@ internal sealed class ReplayOwnerTrack
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
     private static int _activeLoads;
+    internal static void CopyRange(string source, string output, uint first, uint last, CancellationToken cancellation)
+    {
+        var original = Load(source, cancellation);
+        if(original == null) return;
+        var selected = new ReplayOwnerTrack(Math.Max(1, original.Count));
+        for(int i=0;i<original.Count;i++)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            var sample=original._samples[i];
+            if(sample.Frame>=first&&sample.Frame<=last)selected.Add(sample);
+        }
+        try { selected.Save(output, cancellation); }
+        catch(Exception error) when(error is IOException or UnauthorizedAccessException)
+        { DebugLog.Line("replay", "Optional owner presentation range could not be saved: "+error.GetType().Name); }
+    }
     internal static Task<ReplayOwnerTrack?> LoadAsyncBounded(string replay, CancellationToken cancellation = default,
         Action? beforeLoadForCheck = null)
     {
@@ -141,8 +160,8 @@ internal sealed class ReplayOwnerTrack
             using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: true);
             if (reader.ReadUInt32() != Magic) return null;
             ushort schema = reader.ReadUInt16();
-            if (schema is not (1 or 2) || reader.ReadUInt16() != 60) return null;
-            int recordBytes = schema == 1 ? LegacyRecordBytes : RecordBytes;
+            if (schema is not (1 or 2 or 3) || reader.ReadUInt16() != 60) return null;
+            int recordBytes = schema == 1 ? LegacyRecordBytes : schema == 2 ? Version2RecordBytes : RecordBytes;
             int count = reader.ReadInt32();
             if (count is < 1 or > MaximumSamples || stream.Length != HeaderBytes + (long)count * recordBytes + 32) return null;
             byte[] identity = reader.ReadBytes(32);
@@ -158,7 +177,13 @@ internal sealed class ReplayOwnerTrack
                 for (int r = 0; r < 4; r++) for (int c = 0; c < 4; c++) view[r, c] = reader.ReadSingle();
                 var sample = new ReplayOwnerPose(frame, seconds, match, epoch, slot, generation, life,
                     view, reader.ReadSingle(), reader.ReadSingle(), Read(reader), Read(reader), Read(reader));
-                if (schema == 2) sample = sample with { Aspect = reader.ReadSingle(), Visual = ReplayOwnerVisual.Read(reader) };
+                if (schema >= 2) sample = sample with { Aspect = reader.ReadSingle(), Visual = ReplayOwnerVisual.Read(reader) };
+                if (schema == 3)
+                {
+                    byte present = reader.ReadByte(); float blend = reader.ReadSingle();
+                    if(present > 1 || !float.IsFinite(blend) || blend is <0 or >1 || present == 0 && blend != 0) return null;
+                    sample = sample with { CustomScopeBlend = present == 1 ? blend : null };
+                }
                 if (!track.Add(sample)) return null;
             }
             long length = stream.Length - 32;
@@ -214,7 +239,8 @@ internal static class ReplayOwnerCapture
             NetSession.CurrentMatchId, NetSession.AuthorityEpoch, (byte)player.SlotIndex,
             NetPlayerLifecycle.Generation(player.SlotIndex), NetPlayerLifecycle.Get(player.SlotIndex),
             view, worldFov, gunFov, gun.GunPosition, gun.GunFacing, gun.GunUp)
-            { Aspect = scene.Size.Y > 0 ? scene.Size.X / (float)scene.Size.Y : 0, Visual = player.ModCaptureOwnerVisual() });
+            { Aspect = scene.Size.Y > 0 ? scene.Size.X / (float)scene.Size.Y : 0, Visual = player.ModCaptureOwnerVisual(),
+                CustomScopeBlend = player.ModCapturedCustomScopeBlend });
     }
     internal static void Finish(string path, Task canonicalCompletion, Func<bool> canonicalSucceeded)
     {

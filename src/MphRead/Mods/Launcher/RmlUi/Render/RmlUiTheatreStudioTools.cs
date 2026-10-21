@@ -85,11 +85,11 @@ internal static partial class RmlUiOpenGlSmoke
                     switch(options.Tool)
                     {
                         case TheatreStudioTool.AudioMix:
-                            path=Path.Combine(directory,"audio.wav");ReplayStudioAudioMix.Write(path,options,files.Events,players,cancellation);
+                            path=Path.Combine(directory,"audio.wav");ReplayStudioAudioMix.Write(path,options,files.Events,players,cancellation,replaySource:source);
                             summary=$"Offline stereo PCM16 mix: {options.Start}–{options.End} at 48 kHz. Event cues use canonical game assets; continuous in-world sound is not reconstructed.";break;
                         case TheatreStudioTool.MuxVideo:
                             string video=Path.GetFullPath(options.InputPath);RequireRegular(video);string videoFacts=FileFacts(video);
-                            string audio=Path.Combine(directory,"audio.wav");ReplayStudioAudioMix.Write(audio,options with{InputPath=""},files.Events,players,cancellation);
+                            string audio=Path.Combine(directory,"audio.wav");ReplayStudioAudioMix.Write(audio,options with{InputPath=""},files.Events,players,cancellation,replaySource:source);
                             path=Path.Combine(directory,"replay-with-audio.mp4");
                             var startInfo=new ProcessStartInfo("ffmpeg"){UseShellExecute=false,RedirectStandardError=true,RedirectStandardOutput=true,CreateNoWindow=true};
                             foreach(string argument in new[]{"-v","error","-nostdin","-i",video,"-i",audio,"-map","0:v:0","-map","1:a:0","-c:v","copy","-c:a","aac","-shortest",path})startInfo.ArgumentList.Add(argument);
@@ -131,7 +131,7 @@ internal static partial class RmlUiOpenGlSmoke
                         case TheatreStudioTool.PortableBundle:
                             path=Path.Combine(directory,RmlUiReplayFileNames.PortableBundleName);
                             ReplayPortableBundle.Export(path,source,annotations.Bytes,ReplayReels.ReadReviewed(reel,context.LogicalPath,context.Duration),portableCamera!,mapIdentity,portableMap,cancellation);
-                            summary=portableMap!=null?"Saved old-format portable replay with exact custom-map package and camera authoring state.":"Saved old-format portable replay and camera state. Exact custom-map identity is referenced if no installed package was available.";break;
+                            summary="Saved portable replay and camera state. Custom weapon recordings include the exact weapon package; custom maps are included when available.";break;
                         default:
                             path=Path.Combine(directory,options.Tool==TheatreStudioTool.PortableBundle?RmlUiReplayFileNames.PortableBundleName:"diagnostics.zip");
                             using(var archive=ZipFile.Open(path,ZipArchiveMode.Create))
@@ -146,7 +146,7 @@ internal static partial class RmlUiOpenGlSmoke
                     }
                     cancellation.ThrowIfCancellationRequested();return new TheatreStudioToolResult(summary,path);
                 }
-                catch{try{Directory.Delete(directory,true);}catch(IOException){}throw;}
+                catch(Exception error){if(error is not ReplayPortableWeaponInstallationRequiredException){try{Directory.Delete(directory,true);}catch(IOException){}}throw;}
             },cancellation);
         }
         private static string FileFacts(string path){var info=new FileInfo(path);return info.Length+":"+info.LastWriteTimeUtc.Ticks;}

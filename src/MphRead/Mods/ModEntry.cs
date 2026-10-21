@@ -1268,6 +1268,14 @@ namespace MphRead.Mods
             }
             server.SetSessionOptions(HasFlag(args, "requireready"),
                 !HasFlag(args, "nojoininprogress"));
+            if (HasFlag(args,"weaponbots"))
+            {
+                if (!int.TryParse(ValueAfter(args,"weaponbots"),out int bots) || bots is <1 or >8)
+                { Console.Error.WriteLine("[server] -weaponbots requires a count from 1 to 8."); Environment.ExitCode=2; return true; }
+                try { server.ConfigureAuthorityWeaponBots(bots); }
+                catch (InvalidOperationException)
+                { Console.Error.WriteLine("[server] -weaponbots requires an exact installed package and PROJECT_PRIME_CUSTOM_WEAPON_BOTS=1."); Environment.ExitCode=2; return true; }
+            }
             // Whether this server will also open *extra* matches, on ports of
             // its own, for players who ask. Off unless an admin says a range,
             // because it is their bandwidth and their ports -- and unlike the

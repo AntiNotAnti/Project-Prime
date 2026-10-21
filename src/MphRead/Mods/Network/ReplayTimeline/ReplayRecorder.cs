@@ -10,6 +10,7 @@ internal sealed partial class ReplayRecorder
     public RollingReplayTimeline Timeline { get; } = new(presentationProtocolVersion: NetConfig.ProtocolVersion);
     internal bool ProducesWorldCheckpoints { get; set; }
     internal event Action<ReplayTimelineRecord>? Accepted;
+    internal Func<ReplayTimelineRecord, ReplayTimelineRecord>? StampCaptureRecord { get; set; }
     internal event Action? Resetting;
     internal event Action<ReplayTimelineRecord>? CheckpointCaptured;
     private readonly ReplayAuthorityWire _worldWire = new();
@@ -253,6 +254,7 @@ internal sealed partial class ReplayRecorder
 
     private void Publish(ReplayTimelineRecord record)
     {
+        record = StampCaptureRecord?.Invoke(record) ?? record;
         using (ReplayPerfTelemetry.Measure(ReplayPerfOperation.Timeline))
             if (!Timeline.NeedsRestorePoint) Timeline.Append(record);
         Accepted?.Invoke(record);

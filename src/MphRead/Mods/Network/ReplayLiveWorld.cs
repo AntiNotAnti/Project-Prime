@@ -21,6 +21,7 @@ internal sealed class ReplayLiveWorld : IDisposable
     private readonly List<ReplayCaptureRecord> _phasePending = new(512);
     private ReplayCapturePhaseClock? _phaseClock;
     private bool _authorityCustom;
+    private bool _phaseCustom;
     private PassiveReplayScene? _world;
     private PreparedReplayWeaponPackage? _customPackage;
     private int _ownerThread, _retireCustom;
@@ -37,6 +38,7 @@ internal sealed class ReplayLiveWorld : IDisposable
     internal ReplayLiveWorld(ReplayRecorder recorder)
     {
         _recorder = recorder; recorder.ProducesWorldCheckpoints = true;
+        recorder.StampCaptureRecord = StampCaptureRecord;
         recorder.Accepted += Accept; recorder.Resetting += Reset;
     }
     private void ClearPending()
@@ -49,7 +51,7 @@ internal sealed class ReplayLiveWorld : IDisposable
     private void Reset()
     {
         ClearPending(); _bootstrap.Reset();
-        _phaseClock = null; _authorityCustom = false;
+        _phaseClock = null; _authorityCustom = _phaseCustom = false;
         _reset = true; _failed = false; LastError = null; _lastCheckpoint = 0;
     }
     private bool _enabled = true;
@@ -66,7 +68,8 @@ internal sealed class ReplayLiveWorld : IDisposable
         {
             try
             {
-                var item = new ReplayCaptureRecord(record, _phaseClock.Classify(record.RecordingFrame));
+                var item = new ReplayCaptureRecord(record, record.CapturePhase
+                    ?? throw new InvalidDataException("The shared capture phase was not stamped before timeline publication."));
                 // Replica rendering can publish semantic markers reentrantly in
                 // StepReplica. They are metadata in both consumers, so only the
                 // disk sink needs them; never append to the applied live batch.
@@ -78,7 +81,7 @@ internal sealed class ReplayLiveWorld : IDisposable
                         throw new InvalidDataException("Authority replay facts exceeded the pending phase budget.");
                     item.Retain(); _phasePending.Add(item); _pendingBytes += cost;
                 }
-                ReplayCapture.AcceptedAuthorityPhase(item);
+                if (_authorityCustom) ReplayCapture.AcceptedAuthorityPhase(item);
             }
             catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
             {
@@ -90,6 +93,16 @@ internal sealed class ReplayLiveWorld : IDisposable
         if (_pending.Count >= MaximumPendingRecords || _pendingBytes + record.PayloadBytes > MaximumPendingBytes)
         { Fail("Accepted replay facts exceeded the pending budget."); return; }
         record.Retain(); _pending.Add(record); _pendingBytes += record.PayloadBytes;
+    }
+    private ReplayTimelineRecord StampCaptureRecord(ReplayTimelineRecord record)
+    {
+        if (_phaseClock == null || _failed || !_enabled) return record;
+        try { return record.WithCapturePhase(_phaseClock.Classify(record.RecordingFrame)); }
+        catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+        {
+            Fail(error.Message); ServerReplayRecorder.InterruptCustomRecording(error.Message);
+            return record;
+        }
     }
     internal void Advance(uint frame, Vector2i size)
     {
@@ -110,6 +123,7 @@ internal sealed class ReplayLiveWorld : IDisposable
                     var seed = _recorder.CaptureCustomLiveSeed(frame);
                     var state = new ReplayReplicaState(); state.RestoreCustomCheckpoint(seed);
                     _authorityCustom = state.CustomWeaponDescriptor!.Bootstrap.OriginKind == ReplayCustomWeaponOriginKind.Authority;
+                    _phaseCustom = _authorityCustom || ReplayCapture.CustomClientRollingScope();
                     if (_authorityCustom)
                     {
                         if (!ServerReplayRecorder.IsCustomRecording || !ReplayCapture.CustomAuthorityRecordingScope())
@@ -118,15 +132,17 @@ internal sealed class ReplayLiveWorld : IDisposable
                     }
                     else
                     {
-                        if (!DemoRecorder.HasCurrentCustomScope || GameState.Current.Owner is not { } owner)
+                        if ((!DemoRecorder.HasCurrentCustomScope && !ReplayCapture.CustomClientRollingScope())
+                            || GameState.Current.Owner is not { } owner)
                             throw new InvalidOperationException("The accepted custom recording scope is no longer available.");
                         _customPackage = owner.RetainOnlineReplayPackage(state.CustomWeaponDescriptor);
                     }
                     _ownerThread = Environment.CurrentManagedThreadId;
                     ulong hash = ReplayMapIdentity.Compute(state.Match!.Value.RoomKey);
-                    _world = _authorityCustom ? PassiveReplayScene.CreatePostWorldInspection(seed, _customPackage, hash, size)
+                    _world = _phaseCustom ? PassiveReplayScene.CreatePostWorldInspection(seed, _customPackage, hash, size)
                         : PassiveReplayScene.CreateCustomInspection(seed, _customPackage, hash, size);
                     _world.BeginCustomHeadHistory();
+                    _recorder.Timeline.CustomArchiveFormat = _phaseCustom ? (byte)8 : (byte)7;
                 }
                 else SeedBootstrap(_bootstrap, _pending, frame);
                 ClearPending();
@@ -149,7 +165,7 @@ internal sealed class ReplayLiveWorld : IDisposable
             long started = Stopwatch.GetTimestamp();
             using (ReplayPerfTelemetry.Measure(ReplayPerfOperation.Step))
             {
-                if (_authorityCustom)
+                if (_phaseCustom)
                 {
                     _world.StepPostWorldInspection(frame, _phasePending);
                     if (_phaseClock == null) _phaseClock = new(frame);
@@ -206,7 +222,7 @@ internal sealed class ReplayLiveWorld : IDisposable
     private void ReleaseWorld()
     {
         try { _world?.Dispose(); }
-        finally { _world = null; _customPackage?.Dispose(); _customPackage = null; _phaseClock = null; _authorityCustom = false; _ownerThread = 0; System.Threading.Interlocked.Exchange(ref _retireCustom, 0); }
+        finally { _world = null; _customPackage?.Dispose(); _customPackage = null; _phaseClock = null; _authorityCustom = _phaseCustom = false; _ownerThread = 0; System.Threading.Interlocked.Exchange(ref _retireCustom, 0); }
     }
     internal void RetireCustomRecording()
     {
@@ -235,6 +251,7 @@ internal sealed class ReplayLiveWorld : IDisposable
     public void Dispose()
     {
         _recorder.Accepted -= Accept; _recorder.Resetting -= Reset;
+        if (_recorder.StampCaptureRecord == StampCaptureRecord) _recorder.StampCaptureRecord = null;
         ReleaseWorld(); ClearPending();
     }
 }

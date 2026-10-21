@@ -697,7 +697,8 @@ public static class NetFireEvents
     }
     internal static void Begin(PlayerEntity player, Vector3 origin = default,
         Vector3 direction = default, Vector3 aim = default, Vector3 view = default,
-        Vector2 reticle = default, bool hasReticle = false, bool turret = false, EquipInfo? firedEquip = null)
+        Vector2 reticle = default, bool hasReticle = false, bool turret = false,
+        EquipInfo? firedEquip = null, bool bufferedPress = false)
     {
         if (player.SceneServices.IsReplica)
         {
@@ -720,7 +721,8 @@ public static class NetFireEvents
         var kind = turret ? FireEventKind.TurretFire : player.EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.Continuous)
             ? FireEventKind.ContinuousTick : player.EquipInfo.ChargeLevel >= player.EquipInfo.Weapon.MinCharge * 2
                 && player.EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.CanCharge) ? FireEventKind.ReleaseFire
-            : player.Controls.Shoot.IsPressed ? FireEventKind.PressFire : FireEventKind.AutomaticFire;
+            : (player.Controls.Shoot.IsPressed || bufferedPress && player.CurrentWeapon == BeamType.VoltDriver)
+                ? FireEventKind.PressFire : FireEventKind.AutomaticFire;
         uint ack = NetUnlagged.LaunchFrameFor(player); byte sub = 0;
         if (NetSmoothing.AckPoint(out uint read, out byte fraction)) { ack = read; sub = fraction; }
         // A continuous pulse exists even when its muzzle hits a wall before the

@@ -126,6 +126,8 @@ internal sealed class ReplayPoseStream : IDisposable
     internal ReplayPoseStream(PassiveReplayScene world, ReplayTimelineClip clip, bool? indexedFirePresentation = null) : this(world)
     {
         _clip = clip; _indexedFirePresentation = indexedFirePresentation;
+        _customInspection = clip.CustomArchiveFormat is 7 or 8;
+        _postWorld = clip.CustomArchiveFormat == 8;
         SetClipCapabilities();
     }
     private void SetClipCapabilities()
@@ -1086,10 +1088,11 @@ internal sealed class ReplayPoseStream : IDisposable
             {
                 var record = _clip.Records[_index]; next = record.RecordingFrame;
                 if (next > (ulong)frame + FireLookaheadFrames) break;
+                var payload = ClipPresentationPayload(record, ref _poseAvailability);
                 if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster
                     or ReplayFactKind.Snapshot or ReplayFactKind.Intent)
                 {
-                    Accept(next, record.Payload);
+                    Accept(next, payload, _poseAvailability);
                 }
                 _index++;
             }
@@ -1102,7 +1105,7 @@ internal sealed class ReplayPoseStream : IDisposable
             && (ulong)oldestTurret.Carrier + ShotFactLookaheadFrames + PresentationHistoryFrames < frame)
         { _turretOutcomeOrder.Dequeue(); _seenTurretOutcomes.Remove(oldestTurret.Key); }
         AdvanceShotFactLookahead(frame, origin);
-        if (_customInspection && (_reader?.LastResult != ReplayOpenResult.Success
+        if (_customInspection && (_reader is { LastResult: not ReplayOpenResult.Success }
             || _shotReader is { LastResult: not ReplayOpenResult.Success }))
             throw new InvalidDataException("Custom presentation archive reader failed integrity validation.");
         ScheduleShotFacts(frame);
@@ -1179,10 +1182,17 @@ internal sealed class ReplayPoseStream : IDisposable
         if (!_postWorld || packet.IsEmpty || packet[0] != ReplayPostWorldRecord.Tag) return packet;
         var inner = ReplayPostWorldRecord.ValidateAndGetPayload(packet,
             _world.State.CustomWeapons?.Context);
-        if ((ulong)sourceFrame == (ulong)reader.Metadata!.OriginRecordingFrame + reader.DurationFrames)
+        if ((ulong)sourceFrame == (ulong)reader.Metadata!.OriginRecordingFrame + reader.Metadata.LeadInFrames + reader.DurationFrames)
             return ReadOnlySpan<byte>.Empty; // No following world: permanently inert.
         availability = checked(sourceFrame + 1);
         return inner;
+    }
+    private ReadOnlySpan<byte> ClipPresentationPayload(ReplayTimelineRecord record, ref uint availability)
+    {
+        if (!_postWorld || record.CapturePhase != ReplayCapturePhase.PostWorld) return record.Payload;
+        ReplayPostWorldRecord.ValidatePayload(ReplayTimelineArchive.PhasePayload(record), _world.State.CustomWeapons?.Context);
+        if (record.RecordingFrame == _clip!.EndRecordingFrame) return ReadOnlySpan<byte>.Empty;
+        availability = checked(record.RecordingFrame + 1); return record.Payload;
     }
 
     internal void Accept(uint frame, ReadOnlySpan<byte> packet) => Accept(frame, packet, 0);
@@ -1311,7 +1321,7 @@ internal sealed class ReplayPoseStream : IDisposable
                 var clipRecord = _clip.Records[_shotIndex];
                 at = clipRecord.RecordingFrame;
                 if ((ulong)at > horizon) break;
-                packet = clipRecord.Payload;
+                packet = ClipPresentationPayload(clipRecord, ref _shotAvailability);
                 _shotIndex++;
             }
             else break;

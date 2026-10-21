@@ -71,7 +71,9 @@ internal static class CompactIntentReplayTests
 
             Type replicaType = assembly.GetType("MphRead.Mods.Network.ReplayReplicaState", true)!;
             object replica = Activator.CreateInstance(replicaType, true)!;
-            var replicaAccept = replicaType.GetMethod("Accept", All)!.CreateDelegate<ReplicaAccept>(replica);
+            var replicaAccept = replicaType.GetMethod("Accept", All, binder: null,
+                types: new[] { typeof(ReadOnlySpan<byte>), typeof(uint) }, modifiers: null)!
+                .CreateDelegate<ReplicaAccept>(replica);
             byte[] matchBytes = new byte[1 + MatchStatePacket.Size]; matchBytes[0] = (byte)PacketType.MatchState;
             new MatchStatePacket { MatchId = 7, AuthorityEpoch = 9, RoomKey = "MP1 SANCTORUS",
                 NextRoomKey = "", Mode = (byte)GameMode.Battle }.Write(matchBytes.AsSpan(1));

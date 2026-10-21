@@ -39,8 +39,8 @@ internal sealed partial class PassiveReplayPlayer
             Transport.Begin(); Transport.AfterFrame();
             SeekRestoreFrame = Current.Session.CurrentFrame;
             CheckpointSource = SeekRestoreFrame == 0 ? "initial world" : "file";
-            uint target = checked(prepared.TargetFrame - _customBaseline.OriginRecordingFrame);
-            if (target > Current.Session.CurrentFrame)
+            uint target = checked(prepared.TargetFrame - _customBaseline.OriginRecordingFrame - _customBaseline.LeadInFrames);
+            if (target > Current.Session.CurrentFrame || Current.Session.IsWarming)
             {
                 _customGoal = target; _customResume = true;
                 Transport.ContinueSeek(target, resume: true);
@@ -53,10 +53,13 @@ internal sealed partial class PassiveReplayPlayer
     {
         if (Environment.CurrentManagedThreadId != _customThread)
             throw new InvalidOperationException("Custom archive stepping and replacement require their Scene thread.");
-        try { return UpdateCustomCore(maximumSteps, maximumMilliseconds); }
+        Current.Scene.PrepareReplayCustomAudio(Ready && Transport.State == ReplayState.Playing);
+        try { return _customClip != null ? UpdateCustomClip(maximumSteps, maximumMilliseconds)
+            : UpdateCustomCore(maximumSteps, maximumMilliseconds); }
         catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
         {
             LastCheckpointError = error.Message; _customGoal = null; _customNeedsPreparation = false;
+            Current.Scene.PrepareReplayCustomAudio(false);
             RetireCustomPreparation(); Current.Session.FailVerification("Custom archive player stopped: " + error.Message);
             Transport.Fail(); throw;
         }
@@ -109,7 +112,7 @@ internal sealed partial class PassiveReplayPlayer
         if (_customNeedsPreparation && _customGoal is uint prepareTarget)
         {
             string path = _customPath!, store = _customStore!;
-            uint absolute = checked(_customBaseline!.OriginRecordingFrame + prepareTarget);
+            uint absolute = checked(_customBaseline!.OriginRecordingFrame + _customBaseline.LeadInFrames + prepareTarget);
             _customWorkTarget = prepareTarget;
             var cancellation = _customCancellation = new CancellationTokenSource();
             CancellationToken token = cancellation.Token;
@@ -124,9 +127,11 @@ internal sealed partial class PassiveReplayPlayer
         while (steps < due && (!seeking || steps == 0 || Stopwatch.GetElapsedTime(began).TotalMilliseconds < maximumMilliseconds))
         {
             if (!Current.StepCustomArchiveInspection()) { Transport.AfterFrame(); break; }
+            Current.Scene.StepReplayCustomAudio();
             Transport.AfterFrame(); steps++;
             if (seeking) SeekSimulationSteps++;
             Stepped?.Invoke(Current.Scene);
+            if (seeking && !Transport.IsSeeking) break;
         }
         if (!Transport.IsSeeking)
         {

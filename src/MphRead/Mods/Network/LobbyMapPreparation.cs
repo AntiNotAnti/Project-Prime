@@ -77,6 +77,25 @@ public sealed partial class DedicatedServer
         ReplyLobbyCommand(peer, pending.Command, CacheLobbyResult(peer, pending.Command, code, reason));
     }
 
+    // A map acquisition may legitimately take minutes. A later administrative
+    // action from its owner must not leave the entire lobby captive to the old
+    // download. Retire the map request before validating and executing the new
+    // command; its worker is canceled and can never publish the stale package.
+    private void CancelPendingLobbyMapFor(Peer peer, LobbyCommandPacket command)
+    {
+        if (_pendingLobbyMap is not { } pending || pending.Peer != peer
+            || pending.Command.CommandId == command.CommandId
+            || command.Type is not (LobbyCommandType.AddBot or LobbyCommandType.RemoveBot
+                or LobbyCommandType.UpdateBot or LobbyCommandType.SetTeam
+                or LobbyCommandType.SetHandicap or LobbyCommandType.KickPlayer
+                or LobbyCommandType.TransferOwner or LobbyCommandType.CloseLobby)
+            || ValidateLobbyCommandAccess(peer, command, out _) != LobbyResultCode.Ok)
+            return;
+        CancelLobbyMapPreparation();
+        ReplyLobbyCommand(peer, pending.Command, CacheLobbyResult(peer, pending.Command,
+            LobbyResultCode.ServerBusy, "Community map change cancelled by a newer lobby action."));
+    }
+
     private void CancelLobbyMapPreparation()
     {
         if (_pendingLobbyMap is not { } pending) return;

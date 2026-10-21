@@ -13,6 +13,7 @@ namespace MphRead.Entities
         public PlayerAiData AiData { get; init; }
         public NodeData3? ClosestNode { get; set; } = null;
         public int BotLevel { get; set; } = 0;
+        internal bool CustomBotWantsFire => AiData != null && AiData.CustomBotWantsFire;
 
         public partial class PlayerAiData
         {
@@ -908,6 +909,7 @@ namespace MphRead.Entities
                 // The removed Enhanced Hunters variant no longer participates in
                 // bot decisions. All supported rulesets use the native Hunter AI.
                 ApplyCompetitiveHunterCombat();
+                ApplyCustomWeaponPickupGoal();
                 // The legacy tree and tactical/hunter layers only submit desired inputs.
                 // The final motor resolves one legal, rate-limited player command.
                 ApplyBotMotor();
@@ -918,6 +920,27 @@ namespace MphRead.Entities
                 Flags2 &= ~AiFlags2.Bit16;
                 Flags2 &= ~AiFlags2.Bit17;
                 Flags2 &= ~AiFlags2.Bit21;
+            }
+
+            internal bool CustomBotWantsFire => _player.IsBot && _player.Health > 0 && _player.ModInPlay
+                && !_player.IsAltForm && !_player.IsMorphing && !_player.IsUnmorphing
+                && !_botSuppressFireThisTick && _buttons.R.IsDown
+                && Flags2.TestFlag(AiFlags2.TargetPlayer) && _targetPlayer is { Health: > 0 } target
+                && target.ModInPlay && (!_scene.GameState.Teams || target.TeamIndex != _player.TeamIndex) && IsPlayerVisible(_player, target);
+
+            private void ApplyCustomWeaponPickupGoal()
+            {
+                if (Environment.GetEnvironmentVariable("PROJECT_PRIME_CUSTOM_WEAPON_BOTS") != "1"
+                    || !_player.IsBot || !Mods.Network.NetSession.Active || !Mods.Network.NetSession.IsAuthority
+                    || _scene.Services.IsReplica || _player.Health <= 0 || !_player.ModInPlay
+                    || _player.IsAltForm || _player.IsMorphing || _player.IsUnmorphing)
+                    return;
+                // Preserve the native emergency health goal. The custom authority
+                // chooses only genuinely available weapon/ammo pickup positions.
+                if (_player.Health < HealthThreshold && ((_itemC8 != null && IsHealth(_itemC8))
+                    || (_itemSpawnC4 != null && IsHealth(_itemSpawnC4)))) return;
+                if (_scene.CustomCombat is { } custom && custom.TryBotPickupTarget(_player, out Vector3 position))
+                    BotTryFollowStrategicGoal(position);
             }
 
             private void ApplyCombatEnhancements()

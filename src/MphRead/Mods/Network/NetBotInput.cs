@@ -7,17 +7,18 @@ namespace MphRead.Mods.Network
     internal static class NetBotInput
     {
         private static readonly PlayerReplicationBridge?[] Bridges = new PlayerReplicationBridge[PlayerEntity.SlotCapacity];
+        private static readonly PlayerReplicationBridge?[] CustomSourceBridges = new PlayerReplicationBridge[PlayerEntity.SlotCapacity];
         private static readonly IntentPacket[] Pending = new IntentPacket[PlayerEntity.SlotCapacity];
         private static readonly bool[] Ready = new bool[PlayerEntity.SlotCapacity];
         internal static Action<int, IntentPacket>? Sink;
 
         internal static void Reset()
         {
-            Array.Clear(Bridges); Array.Clear(Ready); Sink = null;
+            Array.Clear(Bridges); Array.Clear(CustomSourceBridges); Array.Clear(Ready); Sink = null;
         }
         internal static void ForgetSlot(int slot)
         {
-            Bridges[slot] = null; Ready[slot] = false;
+            Bridges[slot] = null; CustomSourceBridges[slot] = null; Ready[slot] = false;
         }
         internal static void Capture(PlayerEntity player)
         {
@@ -27,6 +28,14 @@ namespace MphRead.Mods.Network
             bridge.RecordPresses(player);
             player.ModContinuousNetworkTarget = NetTargetIdentity.None;
             player.ModContinuousFireTick = 0;
+            if (CustomWeapons.CustomAuthorityCombatAdapter.AuthorityBotsEnabled && player.OwningScene.CustomCombat is { } combat)
+            {
+                var sourceBridge = CustomSourceBridges[slot] ??= new PlayerReplicationBridge(LivePlayerReplicationHost.Instance);
+                var source = sourceBridge.CaptureIntent(player);
+                source.Frame=NetSession.NetFrame;source.MatchId=NetSession.CurrentMatchId;source.AuthorityEpoch=NetSession.AuthorityEpoch;
+                source.SlotGeneration=NetPlayerLifecycle.Generation(slot);source.LifeId=NetPlayerLifecycle.Get(slot);
+                combat.RecordAuthorityBotInput(player,source);
+            }
             if (NetSession.NetFrame % NetConfig.IntentSendInterval != 0) return;
             var intent = bridge.CaptureIntent(player);
             intent.Frame = NetSession.NetFrame;

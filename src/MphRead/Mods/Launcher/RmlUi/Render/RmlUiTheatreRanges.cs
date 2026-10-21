@@ -13,7 +13,7 @@ internal static partial class RmlUiOpenGlSmoke
 {
     private sealed class CurrentReplayRanges : ITheatreRangeBackend
     {
-        public bool MaterializedClipsAvailable => !DemoPlayback.IsCustomPlayback;
+        public bool MaterializedClipsAvailable => true;
         public TheatreRangeContext Capture()
             => new(ReplayAnnotationWitness.Capture(), ReplayController.ClipIn, ReplayController.ClipOut);
         public bool IsCurrent(TheatreRangeContext context) => ReplayAnnotationWitness.IsCurrent(context.Replay);
@@ -43,7 +43,6 @@ internal static partial class RmlUiOpenGlSmoke
         }
         public string CreateVirtualClip(TheatreRangeContext context, string name)
         {
-            if (DemoPlayback.IsCustomPlayback) throw new InvalidOperationException("Custom replay clips are not qualified.");
             lock (ReplayAnnotationWitness.Gate)
             {
                 ValidateRange(context);

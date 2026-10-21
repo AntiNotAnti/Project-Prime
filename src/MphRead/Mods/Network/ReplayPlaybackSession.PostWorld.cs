@@ -10,7 +10,7 @@ internal sealed partial class ReplayPlaybackSession
     // records for the following step and retains/releases every queued payload.
     internal void AdvancePostWorldInspection(uint frame, IReadOnlyList<ReplayCaptureRecord> records)
     {
-        if (!_live || !_customInspection || _liveMetadata?.FormatVersion != 8)
+        if ((!_live && _clip == null) || !_customInspection || _liveMetadata?.FormatVersion != 8)
             throw new InvalidOperationException("No explicit live post-world inspection is active.");
         try
         {
@@ -49,7 +49,9 @@ internal sealed partial class ReplayPlaybackSession
                     state.AcceptPostWorld(packet, item.Record.RecordingFrame, frame);
                 else _host.Inject(packet, item.Record.RecordingFrame);
             }
-            _frame = LastFrame = frame; _started = true;
+            _frame = frame;
+            if (_clip == null) LastFrame = frame;
+            _started = true;
         }
         catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
         {
@@ -83,7 +85,7 @@ internal sealed partial class ReplayPlaybackSession
                 throw new InvalidDataException("Construction cannot replace an active post-world inspection.");
             if (packet[0] == 255)
             {
-                if (packet.Length != 1 || record.Frame != _reader.DurationFrames)
+                if (packet.Length != 1 || (ulong)record.Frame != (ulong)LeadInFrames + _reader.DurationFrames)
                     throw new InvalidDataException("Post-world quiet markers must close the declared final frame.");
             }
             else if (packet[0] == 254)
@@ -102,7 +104,7 @@ internal sealed partial class ReplayPlaybackSession
             }
             _pending = _reader.ReadNext();
         }
-        if ((ulong)next == (ulong)origin + _reader.DurationFrames)
+        if ((ulong)next == (ulong)origin + LeadInFrames + _reader.DurationFrames)
             ConsumePostWorldEnd(_reader, ref _pending, next, count, bytes);
         if (_reader.LastResult != ReplayOpenResult.Success)
             throw new InvalidDataException("Post-world inspection reader failed: " + _reader.LastResult);

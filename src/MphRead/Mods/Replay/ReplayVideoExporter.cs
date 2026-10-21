@@ -64,7 +64,6 @@ namespace MphRead.Mods.Replay
 
         public static bool Start(ReplayVideoExportManifest job)
         {
-            if (DemoPlayback.IsCustomPlayback) { Status = "Custom replay export is not qualified."; return false; }
             if (ReplayExportQueue.ValidateOwnedStart(job) is { } ownerError)
             { Status = ownerError; return false; }
             if (!ReplayExportRates.IsSupported(job.Fps) || job.Width is < 64 or > 3840 || job.Height is < 64 or > 2160)
