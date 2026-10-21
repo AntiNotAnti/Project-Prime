@@ -323,18 +323,20 @@ internal sealed class CharacterSourceGxMaterials
     internal static CharacterSourceGxMaterials Read(byte[] bytes, string modelSha, string character)
     {
         var trooper = CharacterGeneratedTrooperProfile.Find(character);
+        var drone = CharacterGeneratedDroneProfile.Find(character);
         string expected = character switch {
             "darksamus-echoes" => "6a5666bfb14ee989658c7543543429d8de824820bee2531f0051a21a42be86d7",
             "darksamus-overcharged-echoes" => "69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d",
             "darksamus-echoes-ball" => CharacterGeneratedNormalBallProfile.MaterialSha,
             "darksamus-overcharged-echoes-ball" => CharacterGeneratedFinalBallProfile.MaterialSha,
-            _ => trooper?.MaterialSha ?? throw new InvalidDataException("No qualified source body material profile.") };
+            _ => trooper?.MaterialSha ?? drone?.MaterialSha ?? throw new InvalidDataException("No qualified source body material profile.") };
         CharacterSourceGxProgram.Require(bytes.Length is > RetroCharacterMaterialArchive.HeaderBytes and <= RetroCharacterMaterialArchive.MaxArchiveBytes
             && Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)) == expected,
             "Exact source body material archive required before semantic decode.");
         var a = RetroCharacterMaterialArchive.Read(bytes);
         CharacterSourceGxProgram.Require(a.Sha256 == expected && a.Binding.CharacterId == character
             && a.GeometrySha256 == modelSha && (trooper == null || modelSha == trooper.ModelSha)
+            && (drone == null || modelSha == drone.ModelSha && a.Programs.Count == 2)
             && (character != CharacterGeneratedNormalBallProfile.MaterialId || modelSha == CharacterGeneratedNormalBallProfile.ModelSha
                 && a.Programs.Count == 1 && a.Textures.Count == 4)
             && (character != CharacterGeneratedFinalBallProfile.MaterialId || modelSha == CharacterGeneratedFinalBallProfile.ModelSha

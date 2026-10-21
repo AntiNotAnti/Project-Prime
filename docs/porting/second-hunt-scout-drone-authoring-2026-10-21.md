@@ -1,5 +1,9 @@
 # Independent Scout Drone source bundles
 
+Merged in [PR966](https://github.com/AntiNotAnti/Project-Prime/pull/966) at
+`5927946086ea4dd0a97b0a935608c487bfc5cda7`; the complete merge tree equals
+qualified head `855264b1791bb06d763d2ee953ad994420bdccf2`.
+
 Alpha and Gamma Scout Drone authoring now use independent private v1 bundles:
 `trooper-drone-alpha` and `trooper-drone-gamma`. Each captures original whole
 geometry, all33 source joints, raw materials/textures and a strict animation

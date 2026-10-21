@@ -355,6 +355,9 @@ bool TranslateAction(const std::string& action, PrimeIntent& intent)
     for (int index = 0; index < 7; ++index) if (action == "hunter:body-select:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterBodySelect); intent.argument = index; return true;
     }
+    for (int index = 0; index < 3; ++index) if (action == "hunter:drone-select:" + std::to_string(index)) {
+        intent.kind = uint32_t(PrimeIntentKind::HunterDroneSelect); intent.argument = index; return true;
+    }
     for (int index = 0; index < 21; ++index) if (action == "hunter:armor-select:" + std::to_string(index)) {
         intent.kind = uint32_t(PrimeIntentKind::HunterArmorSelect); intent.argument = index; return true;
     }

@@ -18,7 +18,7 @@ public static class RmlUiPageCommandRouting
         or RmlUiIntentKind.CommunityTransferAction;
 
     public static bool Hunter(RmlUiIntentKind kind) => kind is
-        RmlUiIntentKind.HunterSelect or RmlUiIntentKind.HunterSuit or RmlUiIntentKind.HunterBodySelect
+        RmlUiIntentKind.HunterSelect or RmlUiIntentKind.HunterSuit or RmlUiIntentKind.HunterBodySelect or RmlUiIntentKind.HunterDroneSelect
         or RmlUiIntentKind.HunterApply or RmlUiIntentKind.HunterCancel
         or RmlUiIntentKind.HunterResetPreview or RmlUiIntentKind.HunterOpen
         or RmlUiIntentKind.HunterSkinNext or RmlUiIntentKind.HunterArmorNext

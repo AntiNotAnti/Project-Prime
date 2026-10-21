@@ -10,7 +10,7 @@ namespace MphRead.Mods.Render.Characters;
 
 // A single initialized actor owns its mutable pose/palettes. Import/proof/clip IO
 // happens only at the explicit match load barrier, never from Step or Draw.
-internal sealed class CharacterSourceBodyOwner : IDisposable
+internal sealed class CharacterSourceBodyOwner : IDisposable, ICharacterSourcePresentationOwner
 {
     private readonly Scene _scene;
     private readonly PlayerEntity _player;
@@ -139,6 +139,11 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
 
     internal bool Current => Owns(_scene, _native, _selection.Pack, _selection.SelectedAppearance, _instance)
         && CharacterModelRuntime.IsSourceBodyCurrent(_scene, _instance, _model);
+    bool ICharacterSourcePresentationOwner.Owns(Scene scene, Model native, CharacterModelPack pack,
+        PrivateCharacterAppearance appearance, CharacterSourcePreviewInstance instance) => Owns(scene,native,pack,appearance,instance);
+    bool ICharacterSourcePresentationOwner.IsCurrent(CharacterModelPart part) => part switch
+    { CharacterModelPart.Biped => Current, CharacterModelPart.ViewModel => CannonCurrent,
+        CharacterModelPart.AlternateForm => BallCurrent, _ => false };
     internal bool CannonCurrent => Current && _cannonInstance != null && _cannonModel != null
         && Owns(_scene, _nativeCannon!, _selection.Pack, _selection.SelectedAppearance, _cannonInstance)
         && CharacterModelRuntime.IsSourceBodyCurrent(_scene, _cannonInstance, _cannonModel);

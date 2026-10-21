@@ -19,11 +19,11 @@ namespace MphRead.Mods.Render.Characters
     internal sealed record CharacterSourceGxBinding(Scene Owner, CharacterSourceGxProgram Program,
         int ProgramId, IReadOnlyList<int> Textures);
     internal sealed record CharacterSourceGxDraw(CharacterSourceGxBinding Binding, double Seconds,
-        CharacterSourceBodyOwner? BodyOwner = null, bool ViewModel = false, bool AlternateForm = false)
+        ICharacterSourcePresentationOwner? BodyOwner = null, bool ViewModel = false, bool AlternateForm = false)
     {
         internal CharacterModelPart Part => ViewModel ? CharacterModelPart.ViewModel : AlternateForm ? CharacterModelPart.AlternateForm : CharacterModelPart.Biped;
         internal bool ActorCurrent => BodyOwner is { } owner && !(ViewModel && AlternateForm)
-            && (AlternateForm ? owner.BallCurrent : ViewModel ? owner.CannonCurrent : owner.Current);
+            && owner.IsCurrent(Part);
     }
 }
 

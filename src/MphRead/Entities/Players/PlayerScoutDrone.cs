@@ -87,6 +87,7 @@ public partial class PlayerEntity
 
     private void ScoutDroneRetire()
     {
+        ModRetireSourceDrone();
         ScoutDroneResetForLife();
         if (_droneEquip != null && _halfturret != null && Flags2.TestFlag(PlayerFlags2.Halfturret))
         {
@@ -261,7 +262,8 @@ public partial class PlayerEntity
         Matrix4 transform = Matrix4.CreateScale(.45f)
             * GetTransformMatrix(facing, Vector3.UnitY, drawPosition.AddY(Fixed.ToFloat(Values.AltColYPos)));
         UpdateTransforms(_droneModel, transform, 0);
-        GetDrawItems(_droneModel, _droneModel.Model.Nodes[0], _curAlpha, 0, overrideColor: brightSkin, outlineColor: outline);
+        if(!ModTryDrawSourceDrone(drawPosition,drawFacing,brightSkin,outline))
+            GetDrawItems(_droneModel, _droneModel.Model.Nodes[0], _curAlpha, 0, overrideColor: brightSkin, outlineColor: outline);
         DrawScoutDroneLaser();
     }
 
