@@ -838,7 +838,7 @@ namespace MphRead.Mods.Launcher.Gui
             _ownerControls.IsEnabled = NetSession.CanEditLobby && !NetSession.LobbyCommandPending;
             _manageSelected.IsVisible = NetSession.LocalIsLobbyOwner;
             _manageSelected.IsEnabled = NetSession.LocalIsLobbyOwner
-                && NetSession.IsInLobby && !NetSession.LobbyCommandPending && roster.Count > 0;
+                && NetSession.IsInLobby && !NetSession.LobbyAdministrationPending && roster.Count > 0;
             string selectedPlayerName = "";
             for (int i = 0; i < roster.Count; i++)
                 if (roster.Slots[i] == selectedTargetSlot)
