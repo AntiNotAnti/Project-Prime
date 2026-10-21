@@ -85,6 +85,16 @@ this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
 
+The [Scout Drone directional flight slice](second-hunt-scout-drone-movement-2026-10-21.md)
+adds six full-rig source loops from completed native movement, eight-step choice
+holds, source free-phase clocks and held-current transitions. A real camera
+handoff gap found during captures is fixed with complete native fallback through
+native camera progress0–39. Final Windows640884 runtime checks retain all four
+Native/Alpha/Gamma gameplay traces, including a new2793-step directional/moving
+attack sequence. All18 captures were inspected/deleted; the final settled Down
+pairs pass exact same-camera comparison with HUD detail limits. Source hit,
+combat/arsenal admission and broader character engineering remain unfinished.
+
 The [Scout Drone laser runtime slice](second-hunt-scout-drone-laser-2026-10-21.md)
 adds the pinned source laser body pose across native windup/sweep/recovery while
 retaining the native cached beam and all gameplay. Windows364571 runtime checks
