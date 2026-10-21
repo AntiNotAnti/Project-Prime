@@ -1569,5 +1569,51 @@
     "note": "Index closure is not a full replay, release, physical input, performance or superiority claim. Raw nonpasses remain unchanged."
   },
   "evidenceIndexReceiptSha256": "1d420d77db8cb89f4b16e6ba3a9c08c7daec59a2206ba99d69dfdd0335b66367",
-  "publicationScope": "Exact beac production, 73f5 reference and separately linked 63ee tools; later main changes are outside this frozen runtime qualification"
+  "publicationScope": "Exact beac production, 73f5 reference and separately linked 63ee tools; later main changes are outside this frozen runtime qualification",
+  "postPublicationIntegration83": {
+    "status": "PASS_BOUNDED_INTEGRATION",
+    "mainCommit": "8f5c63ec88b20078b5f3c5bfdb4987adab5031df",
+    "productionAndCSharpTestCommit": "321a583960f3fa0ed7ffff7842453e10d55948f1",
+    "finalPythonFixtureCommit": "63b5b1eba94fed3e6835da15111a1782e9d61190",
+    "protocol": 83,
+    "engineSha256": "4767aecdda2d741901b544d43633f0e080643ecf6886e0f3fd4f98d0344e386a",
+    "nettestSha256": "6544552e4027e69b8ea99c9da33fc61ba79b13772867dd3cdfccfda6bc1dc847",
+    "build": "PASS; one existing CS0649 optional custom-readiness fixture warning",
+    "headless": {
+      "completed": 210,
+      "passed": 210,
+      "modes": [
+        "off",
+        "shadow",
+        "paid"
+      ]
+    },
+    "python": {
+      "discovered": 783,
+      "passed": 777,
+      "skipped": 6,
+      "exitCode": 0
+    },
+    "nativeSmoke": {
+      "hunter": "Samus",
+      "requestedRate": 144,
+      "arms": 1,
+      "decodedPngs": 53,
+      "runtimeAndAssetsUnchanged": true
+    },
+    "actualProtocol82Recordings": {
+      "runs": 2,
+      "strictFramesEach": 301,
+      "status": "PASS"
+    },
+    "independentSourceReview": "PASS; exact beac prediction/reconciliation sources unchanged; disjoint custom reset/hosting hooks preserved",
+    "evidenceManifest": {
+      "path": "artifacts/ncx/NCX-06-recovery/integration83-01/publication-evidence-manifest.json",
+      "sha256": "817d23e9bbed61f356ff1f921fb4d47e32c6347575d4e182fbd846655e103df1",
+      "artifacts": 415
+    },
+    "limits": "Fresh combined protocol83 build/headless/replay and one native smoke only. The frozen protocol82 full matrix, real UDP, canonical parity and retained failures keep their original exact source scope. No latest-main full native/UDP/release or performance qualification.",
+    "originalNewPythonFixtureFailure": "Retained: first positive protocol83 fixture omitted mandatory empty turret outcome and source-paid-key fields. Production parser unchanged by fixture completion.",
+    "originalRecordedRuntimeClosureFailure": "Retained: first two strict routes pass but their portable map-catalog cache regenerated in the runtime directory. A new explicit private user-data profile separates normal cache output; repeat strict routes must preserve all359 current runtime files. No old receipt is upgraded."
+  }
 }

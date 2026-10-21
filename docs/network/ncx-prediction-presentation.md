@@ -1,7 +1,7 @@
 # NCX-06 prediction and confirmation presentation
 
 The missing Mac-only NCX-06 source and captures were unavailable. The user
-authorized rebuilding it on Windows. This implementation integrates pinned main
+authorized rebuilding it on Windows. The initial reconstruction integrates pinned main
 `73f5ebf62b111de4321183296c51d11166e7e397` at protocol82. Production qualification
 uses `beac2cbc596e41d6a58596ce89ee52f0ea8f0bbe`; separately linked test/auditor
 source is `63ee6152c24e983ecf848e9b8fe7c33a9a861234`. Historical handoff results
@@ -161,3 +161,27 @@ NCX-07 visual threshold, whole replay compatibility, physical-input/OS-focus,
 restored-framebuffer, achievedFPS/scanout, performance, cross-platform release or
 Fruity-superiority claim is made. Rollback retains the matching source/package
 and original failure reproduction; `-nohitprediction` remains a diagnostic control.
+
+## Protocol83 integration supplement
+
+Before merge, main advanced to `8f5c63ec88b20078b5f3c5bfdb4987adab5031df`.
+It was integrated at `6690300e`; protocol83 adds an exact archive hash to host
+allocation requests while retaining protocol82 gameplay and checkpoint14 layouts.
+The strict slow-lane auditor explicitly accepts83 at77 bytes and rejects84.
+The checkpoint fixture explicitly asserts83. Prediction, health projection and
+form reconciliation production sources remain byte-identical to `beac2cbc`.
+
+Fresh combined source `321a5839` builds successfully and passes210/210 routes
+across Off/Shadow/Paid. The final Python component passes777 with six skips out
+of783 discovered. A Samus144 native smoke passes with53 independently decoded
+PNGs and unchanged runtime/assets; both actual82 recordings pass301 exact
+killcam frames under83. A separate source review preserves the custom-mode
+reset and host allocation hooks. The first new Python positive fixture failure
+is retained; completing its mandatory authority fields changes no parser.
+The first strict recording pair also retains a failed runtime-closure wrapper:
+normal map-catalog output used the portable runtime directory. A second pair
+sets an explicit private user-data profile and preserves all359 runtime files.
+
+This supplement has its own source/runtime/evidence hashes. It does not expand
+the frozen82 full native matrix, canonical parity or real UDP qualification to
+the combined83 package. Original campaign/golden failures remain unchanged.
