@@ -633,6 +633,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
                 replay.State.TryGetPlayer(slot, out var recorded) ? recorded.MantleVisualPhase : (byte)0);
         }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
+        ((ReplaySceneServices)replay.Scene.Services).RebindCompletedPresentationLives();
         if (custom)
         {
             replay.Scene.RebuildReplayCustomPresentation();

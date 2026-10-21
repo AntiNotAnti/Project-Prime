@@ -7,6 +7,7 @@ public partial class Scene
     // Replicas never borrow the mutable model left in Read's foreground cache.
     // One copy per asset per scene keeps the existing within-scene batching.
     private readonly Dictionary<(string Name, bool FirstHunt), Model> _replicaModels = new();
+    private readonly Dictionary<(string Name, bool FirstHunt), Model> _singleParticleDrawModels = new();
     internal IReadOnlyDictionary<(string Name, bool FirstHunt), Model> ReplicaModels => _replicaModels;
 
     internal Model OwnModel(Model asset)
@@ -15,6 +16,18 @@ public partial class Scene
         var key = (asset.Name, asset.FirstHunt);
         if (!_replicaModels.TryGetValue(key, out Model? owned))
             _replicaModels.Add(key, owned = asset.CreateSceneCopy());
+        return owned;
+    }
+    internal Model OwnSingleParticleDrawModel(Model asset)
+    {
+        if (!Services.IsReplica) return asset;
+        var key = (asset.Name, asset.FirstHunt);
+        if (_replicaModels.TryGetValue(key, out Model? canonical)) return canonical;
+        // Native single-particle sprites are read-only during submission.
+        // A first picture may need a sprite absent from the saved world; its
+        // private resource binding must not enlarge the canonical asset set.
+        if (!_singleParticleDrawModels.TryGetValue(key, out Model? owned))
+            _singleParticleDrawModels.Add(key, owned = asset.CreateSceneCopy());
         return owned;
     }
     internal ModelInstance GetModelInstance(string name, bool firstHunt = false,

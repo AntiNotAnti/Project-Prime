@@ -79,7 +79,7 @@ namespace MphRead.Effects
             uvsAndVerts[5] = Vertex2;
             uvsAndVerts[6] = new Vector3(Texcoord3);
             uvsAndVerts[7] = Vertex3;
-            Model model = scene.OwnModel(ParticleDefinition.Model);
+            Model model = scene.OwnSingleParticleDrawModel(ParticleDefinition.Model);
             Material material = model.Materials[ParticleDefinition.MaterialId];
             // should already be bound
             int bindingId = scene.BindGetTexture(model, material.TextureId, material.PaletteId, 0);

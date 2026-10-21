@@ -5,7 +5,10 @@ using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-file") return CustomReplayFileChecks.Run(args.Length==2?args[1]:null);
+if (args.Length == 4 && args[0] == "--weapon-package-contact-gl") return WeaponPackageContactGlChecks.Source(args[1],args[2],args[3]);
+if (args.Length == 2 && args[0] == "--weapon-package-contact-target") return WeaponPackageContactGlChecks.Target(args[1]);
 if (args.Length == 3 && args[0] == "--custom-replay-file-reopen") return CustomReplayFileReopenChecks.Run(args[1],args[2]);
+if (args.Length == 3 && args[0] == "--custom-replay-contact-bundle") return CustomReplayContactBundleChecks.Run(args[1],args[2]);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-visuals") return CustomReplayVisualChecks.Run(args.Length==2?args[1]:null);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-resources") return CustomReplayResourceChecks.Run(args.Length==2?args[1]:null);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-world") return CustomReplayWorldChecks.Run(args.Length==2?args[1]:null);

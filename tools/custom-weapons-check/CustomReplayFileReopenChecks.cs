@@ -70,7 +70,12 @@ internal static class CustomReplayFileReopenChecks
                 // Synthetic adversarial presentation is isolated from genuine accepted facts and suffix owners.
                 using(var adversarialPrepared=Task.Run(()=>PreparedCustomReplayArchive.Prepare(archive,store,target)).GetAwaiter().GetResult())
                 using(var adversarialScene=PassiveReplayScene.OpenCustomArchiveInspection(adversarialPrepared,new Vector2i(640,480)))
+                {
+                    // Only this independent synthetic owner waits for a genuine accepted live-biped frame.
+                    while((adversarialScene.Scene.Players.Items[0].Health==0||adversarialScene.Scene.Players.Items[0].IsAltForm)&&!adversarialScene.Session.AtEnd)
+                        if(!adversarialScene.StepCustomArchiveInspection())break;
                     syntheticDrawChecks+=CustomReplayDrawFlagChecks.Run(adversarialScene,window,Path.Combine(output,name+"-synthetic"));
+                }
                 // A fresh picture owner may draw, but is never advanced or used for canonical suffix comparisons afterward.
                 using var picturePrepared=Task.Run(()=>PreparedCustomReplayArchive.Prepare(archive,store,target)).GetAwaiter().GetResult();
                 using var pictureScene=PassiveReplayScene.OpenCustomArchiveInspection(picturePrepared,new Vector2i(640,480));picturePrepared.Dispose();

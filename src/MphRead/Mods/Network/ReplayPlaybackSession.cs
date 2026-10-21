@@ -191,7 +191,9 @@ namespace MphRead.Mods.Network
                         throw new InvalidDataException("Custom file end markers must close their declared final frame.");
                     if ((record.Data[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag) && !_reader.Metadata!.TimedShotCertificates)
                         throw new InvalidDataException("Timed shot facts lack their recording capability.");
-                    if (record.Data[0] != 255)
+                    if (record.Data[0] == 254)
+                        _ = ReplayTimelineArchive.DecodeMarker(next, record.Data); // Semantic metadata, never a gameplay packet.
+                    else if (record.Data[0] != 255)
                     {
                         // This explicitly admitted custom archive retains its custom
                         // rules/facts; only the old83 presentation bytes need upgrading.
