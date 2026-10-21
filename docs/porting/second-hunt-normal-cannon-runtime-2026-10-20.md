@@ -178,6 +178,14 @@ source and binaries; earlier binaries remain separately retained in
 qualified production bytes. This is not a qualification of arbitrary later
 main changes, CI, external review or other platforms.
 
+## Merge confirmation
+
+[PR944](https://github.com/AntiNotAnti/Project-Prime/pull/944) merged at
+`67fc370548c7fec4b59327e37208bedd1f07fcac`. Its tree exactly matches head
+`f8ea46dad1e7abc65d74e5df6e9356de0f5bffcc`. Production matches freeze
+`0eacfd135` exactly; later commits contain only the explicit guard fixtures
+and documentation. This confirms source identity, not a new build of later main.
+
 ## Rollback and remaining work
 
 Equip **Native** in Hunters. Other gun states already use native fallback.

@@ -63,6 +63,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [916](https://github.com/AntiNotAnti/Project-Prime/pull/916) | Offline native-fallback Scout Drone laser and distinct0–7 native-bot combat route; exact Scene/GL/UI and default/optional Android Release qualification | `67bface0f2f360f70283d849633d141fa247f675` |
 | [925](https://github.com/AntiNotAnti/Project-Prime/pull/925) | Offline Trooper Arsenal private three-bolt Blaster, shared UA, native collision/damage/marks and reciprocal native-bot kill; combined desktop/dedicated/GL/menu checks; further Android testing skipped | `939765d825e0a7a8fd2ba19098e114a18cc9c560` |
 | [940](https://github.com/AntiNotAnti/Project-Prime/pull/940) | Opt-in normal/Overcharged source bodies in actual offline Samus matches, Hunters loadout draft, Windows physical source identity, full39-joint poses and explicit native fallbacks; real Windows gameplay parity and launcher/import lifecycle | `ff522877ec16e065ec7e0782928f5f2448ff5b70` |
+| [944](https://github.com/AntiNotAnti/Project-Prime/pull/944) | Normal imported first-person Power Beam cannon, exact body/cut material generation, native muzzle/effect alignment and authored ViewModel projection; fractional late-aim and Parkour-state native fallback checks | `67fc370548c7fec4b59327e37208bedd1f07fcac` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -70,6 +71,16 @@ records its exact source and test scope. Merges follow local verification;
 this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
+
+The [normal first-person cannon](second-hunt-normal-cannon-runtime-2026-10-20.md)
+merged in PR944 at `67fc370548c7fec4b59327e37208bedd1f07fcac`. The merged tree
+exactly matches qualified head `f8ea46dad`; production freeze `0eacfd135`
+passed desktop/dedicated Release, 77,124 actual cannon assertions (including
+675-step three-way native gameplay parity and 990 fractional pictures), 54
+real launcher lifecycle assertions and relevant native UI/GPU/rig/replay/
+network/custom-weapon regressions. Protocol80 is inherited from concurrent
+Parkour main; this slice adds no wire/replay fields. Other weapons, source
+gun animation, Overcharged cannon, ball and Trooper integration remain work.
 
 The [offline body runtime](second-hunt-offline-body-runtime-2026-10-20.md)
 merged in PR940 at `ff522877ec16e065ec7e0782928f5f2448ff5b70`.
