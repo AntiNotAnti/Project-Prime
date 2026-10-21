@@ -160,9 +160,8 @@ internal static class CombatArbitrationTests
             "rescue retains 24-72 frame arbitration grace");
         Unchanged(beam, true, "rescued exact direct suppresses late native damage/effects/impulse");
         Unchanged(beam, true, "rescued exact direct remains protected after first native arrival");
-        before = _victim.Health; Native(beam, direct: false);
-        Check(_victim.Health < before, "same component separate splash kind still pays");
-        Unchanged(beam, false, "same component splash pays only once");
+        Unchanged(beam, false,
+            "rescued direct refuses alternate splash for the same projectile/victim");
         var spawned = BeamProjectileEntity.Spawn(_shooter, beam.Equip!, beam.Position, _direction,
             BeamSpawnFlags.NoMuzzle, _shooter.NodeRef, _shooter.OwningScene, parent: beam);
         var child = _shooter.EquipInfo.Beams.FirstOrDefault(b => b != beam && b.Lifespan > 0
@@ -172,6 +171,74 @@ internal static class CombatArbitrationTests
         Check(_victim.Health < before, "rescued parent does not suppress distinct native child");
         Unchanged(child!, true, "native child component pays only once");
     }
+    private static void RicochetAlternateDamage()
+    {
+        foreach (BeamType weapon in new[] { BeamType.Judicator, BeamType.Magmaul })
+        {
+            foreach (bool rescuedDirect in new[] { true, false })
+            {
+                NetShotProof.Mode = ShotProofMode.Shadow; Prepare();
+                var beam = Emit(weapon);
+                var claim = Claim(beam, direct: rescuedDirect, damage: 12);
+                int before = _victim.Health;
+                Check(Receive(claim) == HitVerdictPacket.ResultApplied
+                    && _victim.Health == before - 12,
+                    $"{weapon} {(rescuedDirect ? "direct" : "splash")} rescue settles once");
+                Unchanged(beam, !rescuedDirect,
+                    $"{weapon} late native opposite kind cannot double rescued damage");
+                Unchanged(beam, rescuedDirect,
+                    $"{weapon} late native same kind remains idempotent");
+            }
+            NetShotProof.Mode = ShotProofMode.Shadow; Prepare();
+            var physical = Emit(weapon);
+            int beforeNative = _victim.Health;
+            Native(physical, direct: true);
+            Check(_victim.Health == beforeNative - 12,
+                $"{weapon} actual native direct payment exists");
+            ushort sequence = NetDamage.Sequence(_victim.SlotIndex);
+            var splashClaim = Claim(physical, direct: false, damage: 12);
+            Check(Receive(splashClaim) == HitVerdictPacket.ResultDuplicate
+                && _victim.Health == beforeNative - 12
+                && NetDamage.Sequence(_victim.SlotIndex) == sequence,
+                $"{weapon} alternate splash claim acknowledges native payment without another hit");
+        }
+    }
+
+    private static void DerivedCatchUpPool()
+    {
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare();
+        var preExisting = Emit(BeamType.Missile);
+        Frame(_frame + 100); Record();
+        var pool = _shooter.EquipInfo.Beams;
+        typeof(NetUnlagged).GetMethod("CaptureShotPool", BindingFlags.NonPublic | BindingFlags.Static)!
+            .Invoke(null, new object[] { pool });
+        var root = Emit(BeamType.Judicator, preserve: true);
+        int roots = NetUnlagged.MarkNewCatchUpFlights(pool, out var launched);
+        Check(roots == 1 && launched == root.ModLaunchKey,
+            "catch-up captures only the admitted new flight and leaves old missiles alone");
+        Check(!NetUnlagged.CatchUpDerivedFrom(launched, launched, root.ModComponentId)
+            && !NetUnlagged.CatchUpDerivedFrom(launched, preExisting.ModLaunchKey,
+                NetShotProof.ComponentId(preExisting.ModComponentId, 1)),
+            "catch-up descendants require an actual child and the exact originating shot");
+        var spawn = BeamProjectileEntity.Spawn(_shooter, root.Equip!, root.Position, _direction,
+            BeamSpawnFlags.NoMuzzle, _shooter.NodeRef, _shooter.OwningScene, parent: root);
+        var child = pool.FirstOrDefault(b => b != root && b.Lifespan > 0
+            && b.ModLaunchKey == launched && b.ModComponentId >> 4 == root.ModComponentId);
+        Check(spawn != BeamResultFlags.NoSpawn && child != null,
+            "actual native ricochet child inherits the shot key and hierarchical component");
+        long beforeAdoption = NetUnlagged.DerivedCatchUpSpawns;
+        Check(NetUnlagged.AdoptDerivedCatchUp(pool, launched) == 1
+            && NetUnlagged.DerivedCatchUpSpawns == beforeAdoption + 1
+            && NetUnlagged.AdoptDerivedCatchUp(pool, launched) == 0,
+            "child enters catch-up exactly once after its spawning frame");
+        var active = (bool[])typeof(NetUnlagged)
+            .GetField("_beamsBefore", BindingFlags.NonPublic | BindingFlags.Static)!.GetValue(null)!;
+        Check(active[Array.IndexOf(pool, child!)]
+            && !active[Array.IndexOf(pool, preExisting)],
+            "catch-up excludes the previous shot even when it remains alive");
+        NetUnlagged.AbortShot();
+    }
+
     private static void PhysicalOnce()
     {
         Prepare(); var beam = Emit(BeamType.Judicator); Collide(beam);
@@ -413,7 +480,7 @@ internal static class CombatArbitrationTests
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
 
-            RescueFirst(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); TerminalRefusalCacheChurn(); TerminalReceiptCapacity(); PosthumousFlight(); NativeSameFrameTrade();
+            RescueFirst(); RicochetAlternateDamage(); DerivedCatchUpPool(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); TerminalRefusalCacheChurn(); TerminalReceiptCapacity(); PosthumousFlight(); NativeSameFrameTrade();
             long lifetimePayments = NetCombatPayments.LifetimePayments;
             long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;
             Check(lifetimePayments > 0 && lifetimeSuppressed > 0, "process evidence captures actual payments and suppressed repeats");
