@@ -71,6 +71,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [953](https://github.com/AntiNotAnti/Project-Prime/pull/953) | Independent Overcharged fixed cannon,793-triangle shell cut/full39 rig/cannon-only alpha variant; actual Windows native parity/viewer/launch, v6 migration and Trooper regressions | `5eae078120972911e006696dcb39f65558a1b191` |
 | [955](https://github.com/AntiNotAnti/Project-Prime/pull/955) | Normal source ball/full two-joint ready pose/own raw material following native rolling and bombs; v7 migration, Windows actual pause/respawn/retirement/native parity and combined main954 launch/Trooper regressions | `b8b0cd84a4da5a28bad8380af623b53660aef1ef` |
 | [961](https://github.com/AntiNotAnti/Project-Prime/pull/961) | Independent Overcharged shell/vent/vein/line/heart ball, original full39-joint bake/8170 triangles, exact48-step heart clock and private material variants; Windows actual native parity/launch, v8 migration and combined main957/959/960 acceptance | `967a6f7a2d71413d9fe488fef1486d0f5fa3f29b` |
+| [963](https://github.com/AntiNotAnti/Project-Prime/pull/963) | Normal/Overcharged blue native ball-trail tint with unchanged18-slot history/geometry/timing; Windows actual gameplay/trail/RNG trace parity, native fallback and launcher checks; axial screenshots remain visibility-limited | `734b7544e3679ac9d6e0e6a47aa80c156a04de9b` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
