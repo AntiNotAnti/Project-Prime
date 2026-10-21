@@ -75,7 +75,7 @@ internal static class CharacterGeneratedPreviewOwnedProbe
             RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz, imports, selectedIds: new[] { Id, FinalId });
             var normalSelection = CharacterSourcePreviewSelection.Load(Id, CancellationToken.None, imports);
             var finalSelection = CharacterSourcePreviewSelection.Load(FinalId, CancellationToken.None, imports);
-            Check(normalSelection.HasCannon && !finalSelection.HasCannon
+            Check(normalSelection.HasCannon && finalSelection.HasCannon && !normalSelection.RuntimeCannon && !finalSelection.RuntimeCannon
                 && normalSelection.SelectedAppearance != finalSelection.SelectedAppearance,
                 "Normal and Final selections retain distinct body identities and cannon capability.");
             var capturedMaterials = new Dictionary<CharacterSourcePreviewSelection, CharacterSourceGxMaterials>();
@@ -168,6 +168,23 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                         PixelSha256=finalA.Pixels,RotatedPixelSha256=finalB.Pixels,PaletteSha256=finalA.Palette,
                         DisplayLists=finalA.Lists.Length,TextureBindings=finalA.Textures.Distinct().Count(),HasCannon=selection.HasCannon});
                     MaterialClock(finalClip.Ordinal,finalClip.Duration*.5,"Final");
+                    var finalCannonA=Draw(32,0,0,CharacterModelPart.ViewModel);
+                    var finalCannonB=Draw(32,0,90,CharacterModelPart.ViewModel);
+                    var finalCannonAgain=Draw(32,0,0,CharacterModelPart.ViewModel);
+                    Check(finalCannonA.Visible&&finalCannonB.Visible&&finalCannonAgain.Visible&&finalCannonA.Pixels!=finalCannonB.Pixels
+                        &&finalCannonA.Pixels==finalCannonAgain.Pixels&&finalCannonA.Palette==finalCannonB.Palette&&finalCannonA.Palette==finalCannonAgain.Palette
+                        &&finalCannonA.Lists.SequenceEqual(finalCannonB.Lists)&&finalCannonA.Lists.SequenceEqual(finalCannonAgain.Lists)
+                        &&finalCannonA.Textures.SequenceEqual(finalCannonB.Textures)&&finalCannonA.Programs.SequenceEqual(finalCannonB.Programs),
+                        "Final's own four-material cannon is visible and rotatable with fixed source pose and stable private GX resources.");
+                    var finalBodyRestored=Draw(finalClip.Ordinal,finalClip.Duration*.5,0);
+                    Check(finalBodyRestored.Visible&&finalBodyRestored.Model.SourceCannon==null
+                        &&finalBodyRestored.Palette==finalA.Palette&&finalBodyRestored.Pixels==finalA.Pixels
+                        &&capturedMaterials[finalSelection].Programs.All(p=>p.PresentationAlphaScale==1),
+                        "Returning from Final cannon restores its exact nine-program body without shell alpha mutation.");
+                    cannonFrames.Add(new{Context=context,Character=FinalId,Triangles=793,Indices=2379,
+                        MaterialOrdinals=new[]{3,4,5,7},MaterialTriangles=new[]{392,66,314,21},ClipOrdinal=32,Seconds=0,
+                        PixelSha256=finalCannonA.Pixels,RotatedPixelSha256=finalCannonB.Pixels,
+                        FixedPaletteSha256=finalCannonA.Palette,PrivateShellAlpha=.55f,ReturnedBody=true});
                     selection=normalSelection;
                     var restoredNormal=Draw(chosen,0,0);
                     Check(restoredNormal.Visible&&restoredNormal.Palette==a.Palette&&restoredNormal.Pixels==a.Pixels,
@@ -367,8 +384,10 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                             part, 0, out var asset) ? asset : null), "GPU model belongs to the captured generated pack and part.");
                         if (part == CharacterModelPart.ViewModel)
                         {
-                            Check(ReferenceEquals(selection,normalSelection)&&selection.HasCannon&&model.Segments.All(s=>s.SourceGx==null),
-                                "Only normal's fixed cannon uses diagnostic albedo; Final never receives a borrowed cannon or body program.");
+                            bool finalCannon=ReferenceEquals(selection,finalSelection);
+                            Check(selection.HasCannon&&(finalCannon?model.Segments.All(s=>s.SourceGx!=null&&s.AlbedoBinding==null)
+                                :ReferenceEquals(selection,normalSelection)&&model.Segments.All(s=>s.SourceGx==null)),
+                                "Final cannon uses its own source GX while normal retains its unchanged diagnostic cannon materials.");
                             var nativeMaterials = ((ModelInstance)Get(preview, "_model")!).Model.Materials;
                             Check(model.Segments.All(s => (uint)s.NativeMaterialIndex < nativeMaterials.Count
                                 && nativeMaterials[s.NativeMaterialIndex].Alpha == 31
@@ -381,12 +400,30 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                             Check(ordinal == 32 && seconds == 0 && model.SourceCannon?.IsGenerated == true && source != null
                                 && source.SourceAuthoringPose is { Count: 40 } && source.SourceRig?.Nodes.Count == 40,
                                 "Cannon uses the complete generated fixed source pose at root32/framezero.");
-                            Check(source != null && source.Primitives.Sum(p => p.Indices.Length) == 1176
-                                && source.Primitives.All(p => p.SourceMaterialOrdinal is 2 or 5)
-                                && source.Primitives.Where(p => p.SourceMaterialOrdinal == 2).Sum(p => p.Indices.Length / 3) == 66
-                                && source.Primitives.Where(p => p.SourceMaterialOrdinal == 5).Sum(p => p.Indices.Length / 3) == 326
-                                && source.Primitives.SelectMany(p => p.SourceTriangleIds ?? Array.Empty<int>()).Distinct().Count() == 392,
-                                "GPU cannon retains exactly392 whole source triangles in material2/5 only.");
+                            int[] ordinals=finalCannon?new[]{3,4,5,7}:new[]{2,5};
+                            int[] counts=finalCannon?new[]{392,66,314,21}:new[]{66,326};
+                            Check(source!=null&&source.Primitives.Sum(p=>p.Indices.Length)==(finalCannon?2379:1176)
+                                &&source.Primitives.Select(p=>p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(ordinals)
+                                &&ordinals.Select(m=>source.Primitives.Where(p=>p.SourceMaterialOrdinal==m).Sum(p=>p.Indices.Length/3)).SequenceEqual(counts)
+                                &&source.Primitives.SelectMany(p=>p.SourceTriangleIds??Array.Empty<int>()).Distinct().Count()==(finalCannon?793:392),
+                                "GPU cannon retains its own exact complete source triangle/material inventory.");
+                            if(finalCannon)
+                            {
+                                var materials=capturedMaterials[finalSelection];var variant=materials.ForFinalCannon();
+                                Check(ReferenceEquals(variant.Archive,materials.Archive)&&ReferenceEquals(variant.Images,materials.Images)
+                                    &&materials.Programs.All(p=>p.PresentationAlphaScale==1)
+                                    &&model.Segments.Select((segment,i)=>segment.SourceGx is{} gx&&ReferenceEquals(gx.Owner,current)
+                                        &&gx.Program.Vertex120==materials.Programs[source!.Primitives[i].SourceMaterialOrdinal].Vertex120
+                                        &&gx.Program.Fragment120==variant.Programs[source!.Primitives[i].SourceMaterialOrdinal].Fragment120
+                                        &&gx.Program.PresentationAlphaScale==(gx.Program.DrawPass==CharacterSourceGxProgram.Pass.Alpha?.55f:1f)
+                                        &&GL.IsProgram(gx.ProgramId)&&gx.Textures.Count==gx.Program.Textures.Count&&gx.Textures.All(GL.IsTexture)).All(v=>v)
+                                    &&model.Segments.Any(s=>s.SourceGx!.Program.PresentationAlphaScale==.55f),
+                                    "Final cannon submits own four source GX bindings with alpha055 only on alpha passes and unchanged body archive/images/programs.");
+                                int[][] cut=Enumerable.Range(0,9).Select(m=>source!.Primitives.Where(p=>p.SourceMaterialOrdinal==m)
+                                    .SelectMany(p=>p.SourceTriangleIds??Array.Empty<int>()).Order().ToArray()).ToArray();
+                                Check(Sha(JsonSerializer.SerializeToUtf8Bytes(cut))=="7a91aae9dbe748d23143b8c2ea655435df1db1403ec59fb84a43242577cdd594",
+                                    "Actual Final GPU cannon reproduces independently frozen nine-array793-triangle identity after twelve raw-UV trim removals.");
+                            }
                         }
                         else
                         {
@@ -415,12 +452,13 @@ internal static class CharacterGeneratedPreviewOwnedProbe
                                 MaterialArchiveSha256=materials.Archive.Sha256,Complete=true});
                         }
                         int[] lists = model.Segments.Select(s => s.ListId).ToArray();
-                        int[] textures = part==CharacterModelPart.Biped?model.Segments.SelectMany(s=>s.SourceGx!.Textures).ToArray()
+                        bool sourcePrograms=part==CharacterModelPart.Biped||ReferenceEquals(selection,finalSelection);
+                        int[] textures = sourcePrograms?model.Segments.SelectMany(s=>s.SourceGx!.Textures).ToArray()
                             :model.Segments.Select(s=>s.AlbedoBinding??0).ToArray();
-                        int[] programs = part==CharacterModelPart.Biped?model.Segments.Select(s=>s.SourceGx!.ProgramId).ToArray():Array.Empty<int>();
+                        int[] programs = sourcePrograms?model.Segments.Select(s=>s.SourceGx!.ProgramId).ToArray():Array.Empty<int>();
                         Check(model.IsSourcePreview && model.Joints.Count == 39 && lists.All(GL.IsList)
                             && textures.Length>0&&textures.All(t => t != 0 && GL.IsTexture(t)), "Complete source rig and live source-program or diagnostic-cannon GPU resources required.");
-                        if(part==CharacterModelPart.Biped)
+                        if(sourcePrograms)
                         {
                             foreach(int program in programs)contextPrograms.Add(program);
                             foreach(int texture in textures)contextTextures.Add(texture);
