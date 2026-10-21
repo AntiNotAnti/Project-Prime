@@ -276,13 +276,16 @@ internal sealed class CharacterSourceGxMaterials
         string expected = character switch {
             "darksamus-echoes" => "6a5666bfb14ee989658c7543543429d8de824820bee2531f0051a21a42be86d7",
             "darksamus-overcharged-echoes" => "69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d",
+            "darksamus-echoes-ball" => CharacterGeneratedNormalBallProfile.MaterialSha,
             _ => trooper?.MaterialSha ?? throw new InvalidDataException("No qualified source body material profile.") };
         CharacterSourceGxProgram.Require(bytes.Length is > RetroCharacterMaterialArchive.HeaderBytes and <= RetroCharacterMaterialArchive.MaxArchiveBytes
             && Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)) == expected,
             "Exact source body material archive required before semantic decode.");
         var a = RetroCharacterMaterialArchive.Read(bytes);
         CharacterSourceGxProgram.Require(a.Sha256 == expected && a.Binding.CharacterId == character
-            && a.GeometrySha256 == modelSha && (trooper == null || modelSha == trooper.ModelSha),
+            && a.GeometrySha256 == modelSha && (trooper == null || modelSha == trooper.ModelSha)
+            && (character != CharacterGeneratedNormalBallProfile.MaterialId || modelSha == CharacterGeneratedNormalBallProfile.ModelSha
+                && a.Programs.Count == 1 && a.Textures.Count == 4),
             "Source body archive/appearance/geometry identity mismatch.");
         return new(a);
     }

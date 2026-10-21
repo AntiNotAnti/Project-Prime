@@ -19,7 +19,12 @@ namespace MphRead.Mods.Render.Characters
     internal sealed record CharacterSourceGxBinding(Scene Owner, CharacterSourceGxProgram Program,
         int ProgramId, IReadOnlyList<int> Textures);
     internal sealed record CharacterSourceGxDraw(CharacterSourceGxBinding Binding, double Seconds,
-        CharacterSourceBodyOwner? BodyOwner = null, bool ViewModel = false);
+        CharacterSourceBodyOwner? BodyOwner = null, bool ViewModel = false, bool AlternateForm = false)
+    {
+        internal CharacterModelPart Part => ViewModel ? CharacterModelPart.ViewModel : AlternateForm ? CharacterModelPart.AlternateForm : CharacterModelPart.Biped;
+        internal bool ActorCurrent => BodyOwner is { } owner && !(ViewModel && AlternateForm)
+            && (AlternateForm ? owner.BallCurrent : ViewModel ? owner.CannonCurrent : owner.Current);
+    }
 }
 
 namespace MphRead
@@ -56,7 +61,7 @@ namespace MphRead
             {
                 foreach (var item in _sourceBodyItems)
                     if (item.SourceGx is { BodyOwner: { } owner } draw
-                        && (draw.ViewModel ? owner.CannonCurrent : owner.Current)
+                        && draw.ActorCurrent
                         && (draw.Binding.Program.DrawPass == CharacterSourceGxProgram.Pass.Opaque) == opaque)
                         DrawSourceGxRenderItem(item);
             }
@@ -157,7 +162,7 @@ namespace MphRead
         {
             if (SourceGxSubmission is not { } draw) return;
             bool body = !_collectingPreview && draw.ViewModel == _collectingViewModelItems
-                && (draw.ViewModel ? draw.BodyOwner?.CannonCurrent == true : draw.BodyOwner?.Current == true);
+                && draw.ActorCurrent;
             if ((!_collectingPreview && !body) || !item.WeightedSkinning || item.Type != RenderItemType.Mesh
                 || !ReferenceEquals(draw.Binding.Owner, this)) throw new InvalidOperationException("Source GX requires its existing weighted preview owner.");
             _ = CharacterSourceGxProgram.Clock(draw.Seconds);
@@ -179,7 +184,7 @@ namespace MphRead
 #else
             var draw = item.SourceGx!; var binding = draw.Binding;
             bool body = draw.BodyOwner != null;
-            bool current = draw.ViewModel ? draw.BodyOwner?.CannonCurrent == true : draw.BodyOwner?.Current == true;
+            bool current = draw.ActorCurrent;
             Matrix4? selectedView = body ? _drawingSourceBody && current ? _viewMatrix : null : _sourceGxPreviewView;
             Matrix4? selectedProjection = body ? _drawingSourceBody && draw.ViewModel == item.ViewModel
                 ? item.ViewModel ? _viewModelPerspectiveMatrix : _perspectiveMatrix : null : _sourceGxPreviewProjection;

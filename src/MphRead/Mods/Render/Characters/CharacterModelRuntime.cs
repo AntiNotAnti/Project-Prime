@@ -127,6 +127,8 @@ namespace MphRead.Mods.Render.Characters
             // are fitted, once at load; launcher camera/zoom never participate.
             return Matrix4.CreateTranslation(0, -minimum, 0) * Matrix4.CreateScale(nativeHeight / sourceHeight);
         }
+        internal Matrix4 FitSourceBall(IReadOnlyList<Matrix4> readyPose,float nativeRadius)
+            => CharacterSourceBallPose.Fit(_sourceGeometry ?? throw new InvalidDataException("Captured source ball required."),readyPose,nativeRadius);
         internal void UpdateSourcePreviewPalette(IReadOnlyList<Matrix4>? localPose = null)
         {
             if (_sourceGeometry?.SourceRig is not { } rig) throw new InvalidOperationException("Model is not a source preview.");
@@ -498,9 +500,10 @@ namespace MphRead.Mods.Render.Characters
             diagnosticStage = instance?.StageOwner is { } stageOwner && LauncherHunter.OwnsSourcePreview(scene,stageOwner);
 #endif
             if(instance==null||Headless.Active||(!RenderOptions.CharacterModelReplacements&&!diagnosticStage&&!localBody)||!allowSourcePreview
-                ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
+                ||part!=instance.Part||part is not (CharacterModelPart.Biped or CharacterModelPart.ViewModel or CharacterModelPart.AlternateForm)||scene.Services.IsReplica||Mods.Network.NetSession.Active||Mods.Network.DemoPlayback.IsActive
                 ||!privatePack.TryResolvePrivate(hunter,appearance,part,0,out var asset)||asset.PoseSource!=CharacterPoseSource.SourceRigPreview
-                ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset))
+                ||part==CharacterModelPart.ViewModel&&!privatePack.HasSourceCannon(asset)
+                ||part==CharacterModelPart.AlternateForm&&(!localBody||!privatePack.HasSourceBall(asset)))
             {if(instance!=null)ReleaseSourcePreview(scene,instance);return false;}
             var resources=_scenes.GetValue(scene,_=>new SceneResources());
             if(resources.TextureQuality!=RenderOptions.TextureQuality||resources.SamplingKey!=TextureSamplingPolicy.RuntimeKey)
@@ -761,7 +764,14 @@ namespace MphRead.Mods.Render.Characters
                     && sourceMaterials.Archive.Binding.CharacterId == "darksamus-overcharged-echoes"
                     && sourceMaterials.Programs.Count == 9 && geometry.IndexCount == 793 * 3
                     && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[]{3,4,5,7});
-                if (attachment == null || !(generatedCannonCut || trooperCannonCut || finalCannonCut || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
+                bool normalBall=asset.Part==CharacterModelPart.AlternateForm && sourceLease.SourceAnimations?.IsNormalBall==true
+                    && asset.PrivateAppearance==CharacterSourcePreviewSelection.Appearance && asset.Hunter==Hunter.Samus
+                    && sourceLease.ModelSha256==CharacterGeneratedNormalBallProfile.ModelSha
+                    && sourceMaterials.Archive.Binding.CharacterId==CharacterGeneratedNormalBallProfile.MaterialId
+                    && sourceMaterials.Archive.Sha256==CharacterGeneratedNormalBallProfile.MaterialSha
+                    && sourceMaterials.Programs.Count==1 && geometry.IndexCount==2220*3 && geometry.Joints.Count==2
+                    && geometry.Primitives.All(p=>p.SourceMaterialOrdinal==0);
+                if (attachment == null || !(generatedCannonCut || trooperCannonCut || finalCannonCut || normalBall || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
                         && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() == sourceMaterials.Programs.Count)
                     || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count))
                     throw new InvalidDataException("Complete original body material ordinals required.");
