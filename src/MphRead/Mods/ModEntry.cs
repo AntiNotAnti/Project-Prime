@@ -34,6 +34,32 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            if (HasFlag(args, "weaponplay"))
+            {
+#if ANDROID || MPHREAD_SERVER
+                Console.Error.WriteLine("Package play requires the desktop client.");
+                Environment.ExitCode = 2;
+                return true;
+#else
+                // Refuse mixed server/replay/character modes before any other
+                // early command can take ownership of this invocation.
+                if (args.Length is not (4 or 6)
+                    || !args[0].Equals("-weaponplay", StringComparison.OrdinalIgnoreCase)
+                    || args.Skip(1).Any(value => value.StartsWith('-')
+                        && !value.Equals("-seconds", StringComparison.OrdinalIgnoreCase)))
+                {
+                    Console.Error.WriteLine("Usage: -weaponplay <store> <exact-lowercase-package-sha256> <stock-room> [-seconds 1..600]");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+#endif
+            }
+            int weaponIndex = Array.FindIndex(args, value => value.Equals("-weapon", StringComparison.OrdinalIgnoreCase));
+            if (weaponIndex >= 0)
+            {
+                Environment.ExitCode = CustomWeapons.Packages.WeaponPackageCli.Run(args.Skip(weaponIndex + 1).ToArray());
+                return true;
+            }
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             if (HasFlag(args, "replayexportworker"))
             {
@@ -434,6 +460,11 @@ namespace MphRead.Mods
             if (HasFlag(args, "charactermodelcheck"))
             {
                 Environment.ExitCode = Render.Characters.CharacterModelAssetCheck.Run();
+                return true;
+            }
+            if (HasFlag(args, "sourcebodycheck"))
+            {
+                Environment.ExitCode = Render.Characters.CharacterSourceBodyCheck.Run();
                 return true;
             }
             if (HasFlag(args, "hudmetrics")) Render.Hud.HudDrawMetrics.Enable();
@@ -1470,6 +1501,13 @@ namespace MphRead.Mods
 
         public static bool TryHandle(string[] args)
         {
+#if !ANDROID && !MPHREAD_SERVER
+            if (HasFlag(args, "weaponplay"))
+            {
+                Environment.ExitCode = CustomWeapons.Packages.WeaponPackageDeveloperLaunch.Run(args);
+                return true;
+            }
+#endif
             if (HasFlag(args, "respawnrendercheck"))
             {
                 Environment.ExitCode = Render.RespawnRenderCheck.Run(

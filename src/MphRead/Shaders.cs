@@ -150,11 +150,15 @@ void main()
 
         internal static string WithoutDepthVertexSpecialization(string source)
         {
+            // Verbatim shader literals inherit checkout line endings. Keep the
+            // specialization grammar identical on Windows and LF checkouts.
+            source = source.Replace("\r\n", "\n");
             foreach (string declaration in new[] { "uniform bool depth_vertex_fast;", "uniform bool depth_only;",
                 "uniform bool use_override;", "uniform bool player_outline_mask;", "uniform int cosmetic_skin;",
                 "uniform int cosmetic_effect;", "uniform float cosmetic_dissolve;" })
                 source = source.Replace(declaration + "\n", "");
             int start = source.IndexOf("    if (depth_vertex_fast && depth_only", System.StringComparison.Ordinal);
+            if (start < 0) throw new System.InvalidOperationException("Depth vertex source shape changed.");
             int body = source.IndexOf("    vec4 vtx_color =", start, System.StringComparison.Ordinal);
             if (start < 0 || body < 0)
                 throw new System.InvalidOperationException("Depth vertex source shape changed.");

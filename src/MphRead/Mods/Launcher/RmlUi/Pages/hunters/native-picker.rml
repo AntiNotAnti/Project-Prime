@@ -32,6 +32,15 @@
                     <button id="hunter_suit2" data-action="hunter:suit:2">SUIT 3</button>
                     <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
                 </div>
+                <div id="hunter_local_body" style="display:none">
+                    <div class="section-title">LOCAL OFFLINE SAMUS BODY</div>
+                    <div class="hint">Requires your local Echoes import. Preview, gun and ball stay native. Jumps, morphing, status effects and dynamic shadows use native presentation. Online uses your native loadout.</div>
+                    <div class="hunter-suits">
+                        <button id="hunter_body0" data-action="hunter:body-select:0">NATIVE</button>
+                        <button id="hunter_body1" data-action="hunter:body-select:1">DARK SAMUS</button>
+                        <button id="hunter_body2" data-action="hunter:body-select:2">OVERCHARGED</button>
+                    </div>
+                </div>
                 <div class="section-title">CUSTOMIZE LOADOUT</div>
                 <div class="hunter-categories" role="group" aria-label="Cosmetic category">
                     <button id="hunter_category0" data-action="hunter:category:0">SKIN</button>

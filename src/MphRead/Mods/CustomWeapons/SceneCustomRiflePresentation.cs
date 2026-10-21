@@ -14,6 +14,9 @@ public partial class Scene
     private CustomRifleTrack?[]? _customRifleTracks;
     private CustomRifleAudio? _customRifleAudio;
     private object? _customRifleAudioFailedDevice;
+    private float[][]? _customRifleAudioWaves;
+    internal ReadOnlySpan<float> CustomRifleWave(int cue)
+        =>_customRifleAudioWaves!=null&&(uint)cue<4?_customRifleAudioWaves[cue]:ReadOnlySpan<float>.Empty;
     internal CustomRiflePose CustomRiflePose(PlayerEntity player)
         =>_customRifleTracks!=null&&(uint)player.SlotIndex<8&&_customRifleTracks[player.SlotIndex] is {} track
             ?track.Sample(FrameTiming.Active&&FrameTiming.HighRefreshPresentation?(float)FrameTiming.PresentationAlpha:0):default;
@@ -24,13 +27,16 @@ public partial class Scene
         _customRifleAudio?.Dispose();_customRifleAudio=null;
         var device=MusicPlayer.PlaybackDevice;
         if(device==null||ReferenceEquals(device,_customRifleAudioFailedDevice))return;
-        try{_customRifleAudio=CustomRifleAudio.Prewarm();}
+        // Package waves were decoded at activation. A device change only rebuilds
+        // callback voices, never reads package bytes or decodes on a game tick.
+        if(LocalWeaponPackage!=null&&_customRifleAudioWaves==null)return;
+        try{_customRifleAudio=CustomRifleAudio.Prewarm(_customRifleAudioWaves);}
         catch(Exception error) when(error is not OutOfMemoryException and not StackOverflowException)
         {_customRifleAudioFailedDevice=device;DebugLog.Line("custom-weapons","Original M7 audio unavailable; native fallback: "+error.GetType().Name);}
     }
     internal void StopCustomRifleAudio()=>_customRifleAudio?.StopAll();
     private void ReleaseCustomRifleAudio()
-    {_customRifleAudio?.Dispose();_customRifleAudio=null;_customRifleAudioFailedDevice=null;_customRifleTracks=null;}
+    {_customRifleAudio?.Dispose();_customRifleAudio=null;_customRifleAudioFailedDevice=null;_customRifleTracks=null;_customRifleAudioWaves=null;}
     internal void PlayCustomRifleCue(PlayerEntity player,CustomRifleCue cue,Vector3? origin=null)
     {
         if(Headless.Active||Services.IsReplica||DemoPlayback.IsActive||ThumbnailMode.Active

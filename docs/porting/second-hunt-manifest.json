@@ -154,6 +154,30 @@
       ]
     }
   ],
+  "offlineBodyRuntime": {
+    "date": "2026-10-20",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-offline-body-runtime-2026-10-20.md",
+    "donorCommit": "41452f2d053fcfa679e33c00a73d120a53f59e61",
+    "default": "native",
+    "selectionOwner": "Hunters loadout draft",
+    "baseHunter": "Samus",
+    "localAppearanceIds": ["Native", "DarkSamusEchoes", "DarkSamusOvercharged"],
+    "bundles": ["darksamus-echoes", "darksamus-overcharged-echoes"],
+    "admittedPlatforms": ["win-x64", "osx-arm64"],
+    "currentHardwareAcceptance": "win-x64 NVIDIA RTX 5080 OpenGL 4.6",
+    "sourceRigJoints": 39,
+    "maximumDrawPaletteJoints": 32,
+    "gameplayChanges": [],
+    "wireChanges": false,
+    "replayChanges": false,
+    "sourceFirstPersonCannon": false,
+    "sourceBall": false,
+    "online": false,
+    "dynamicShadowPolicy": "complete-native-body-fallback",
+    "otherPlatformAcceptance": "not requalified; Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
   "integrationAudit": {
     "date": "2026-10-19",
     "status": "source-audit-only",

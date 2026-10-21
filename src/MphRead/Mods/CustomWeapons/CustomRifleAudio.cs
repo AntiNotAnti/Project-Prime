@@ -77,15 +77,15 @@ internal sealed class CustomRifleAudio : IDisposable
     internal bool MatchesDevice=>!_disposed&&ReferenceEquals(_device,MusicPlayer.PlaybackDevice);
     internal int VoiceCount { get; private set; }
     private CustomRifleAudio(AudioPlaybackDevice device)=>_device=device;
-    internal static CustomRifleAudio? Prewarm()
+    internal static CustomRifleAudio? Prewarm(float[][]? preparedWaves=null)
     {
         if(Mods.Headless.Active||Mods.ThumbnailMode.Active||!MusicPlayer.Available
             ||MusicPlayer.Engine is not {} engine||MusicPlayer.PlaybackDevice is not {} device)return null;
         var audio=new CustomRifleAudio(device);
         try
         {
-            var waves=new float[4][];
-            for(int cue=0;cue<4;cue++)
+            var waves=preparedWaves??new float[4][];
+            for(int cue=0;preparedWaves==null&&cue<4;cue++)
             {
                 byte[] wave=CustomRifleCues.BuildWave((CustomRifleCue)cue);waves[cue]=new float[(wave.Length-44)/2];
                 for(int i=0;i<waves[cue].Length;i++)waves[cue][i]=BinaryPrimitives.ReadInt16LittleEndian(wave.AsSpan(44+i*2))/32768f;
