@@ -77,6 +77,15 @@ this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
 
+The [normal source ball slice](second-hunt-normal-ball-runtime-2026-10-21.md)
+adds the complete2220-triangle/two-joint raw ball and its own source material to
+local offline normal Dark Samus. Its fixed ready pose follows native rolling,
+position, collision and bombs. Normal bundle7/body5/ball4 preserves22 prior
+components; Overcharged retains native ball presentation. Windows original-source,
+actual native gameplay parity, pause/respawn/retirement and transactional upgrade
+checks pass. Normal's procedural core/trail, Final's composite vein/heart ball,
+source gun animation, drones, abilities and multiplayer remain engineering.
+
 The [Overcharged fixed cannon slice](second-hunt-final-cannon-runtime-2026-10-21.md)
 adds its own793-triangle shell cut on the complete39-joint rig, original
 material groups3/4/5/7, and cannon-only Alpha-pass multiplier0.55. Its receipt
@@ -84,7 +93,7 @@ binds the distinct Final geometry and source generation; equal ANIM/basis
 does not alias normal's capability. Final bundle7/body6 preserves the raw
 body/ball/material files and normal/Trooper recipes. Windows actual native
 gameplay parity, muzzle/viewmodel alignment and Trooper regressions pass.
-Animated source guns, other weapons, source balls and imported abilities,
+Animated source guns, other weapons, remaining source balls and imported abilities,
 drones and multiplayer remain engineering.
 
 The [Trooper fixed cannon slice](second-hunt-trooper-cannon-runtime-2026-10-21.md)
