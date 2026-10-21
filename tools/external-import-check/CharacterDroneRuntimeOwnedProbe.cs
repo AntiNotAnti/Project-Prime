@@ -59,14 +59,14 @@ internal static class CharacterDroneRuntimeOwnedProbe
             Console.WriteLine(JsonSerializer.Serialize(new{Pass=error==null,Checks=checks,FailedCheck=failed,ErrorType=error,
                 CoreSha256=coreBefore,ToolSha256=toolBefore,SourceIoAttempted=milestones.SourceIo,SourceSha256Before=milestones.SourceBefore,SourceSha256After=milestones.SourceAfter,
                 NativeSha256Before=milestones.NativeBefore,NativeSha256After=milestones.NativeAfter,TemporaryDerivedDataDeleted=milestones.Cleaned,
-                Runtime=runtime,NativeAssetIoAttempted=milestones.NativeIo,RenderingActivated=milestones.Rendering,GameplayActivated=milestones.Gameplay,
+                Runtime=runtime,NativeAssetIoAttempted=milestones.NativeIo,GraphicsContextActivated=milestones.Context,RenderingActivated=milestones.Rendering,GameplayActivated=milestones.Gameplay,
                 Scope="actual MatchStart/LoadScene/keyboard native vs Alpha/Gamma fixed trace, complete own33rig/1390tri/twoGX Ready-only presentation and full native burst/laser fallback; separate guard/fractional/lifecycle fixtures; native death and accepted presentation status injections labeled",
                 Unqualified=new[]{"physical controls","native menu clicks","Android/macOS","online/replay","source burst/laser clips","opponent combat balance","achieved refresh rate","visual art completeness"}}));
         }
         return error==null?0:1;
     }
     private const BindingFlags Hidden=BindingFlags.Instance|BindingFlags.NonPublic;
-    private sealed class Milestones{internal bool SourceIo,NativeIo,Rendering,Gameplay,Cleaned;internal string? SourceBefore,SourceAfter,NativeBefore,NativeAfter;}
+    private sealed class Milestones{internal bool SourceIo,NativeIo,Context,Rendering,Gameplay,Cleaned;internal string? SourceBefore,SourceAfter,NativeBefore,NativeAfter;}
     private static readonly Action<KeyboardState,Keys,bool> Key=typeof(KeyboardState).GetMethod("SetKeyState",Hidden|BindingFlags.Public)!.CreateDelegate<Action<KeyboardState,Keys,bool>>();
     private static object Smoke(string source,Action<bool,string> check,Milestones milestones)
     {
@@ -93,7 +93,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
             }
             var settings=new MenuSettings{TeamPlay="off",ThirdPersonCamera="on",SpawnProtection="off",MovementModel="Native"};
             CheckPolicies(settings,check);
-            window=new RenderWindow(shell:true);window.ClientSize=new(640,480);window.Context.MakeCurrent();milestones.Rendering=true;GLFW.SwapInterval(0);
+            window=new RenderWindow(shell:true);window.ClientSize=new(640,480);window.Context.MakeCurrent();milestones.Context=true;GLFW.SwapInterval(0);
             foreach(var appearance in new[]{LocalDroneAppearance.Native,LocalDroneAppearance.Alpha,LocalDroneAppearance.Gamma})
             {
                 LauncherPrefs.LocalDrone=appearance;LauncherPrefs.LocalBody=LocalBodyAppearance.Native;var plan=OfflineLaunch.Preview(settings,"MP3 PROVING GROUND",GameMode.Battle,Hunter.Weavel,0,0,0,OfflineCharacterMode.TrooperScoutDronePractice);LauncherPrefs.LocalDrone=LocalDroneAppearance.Native;
@@ -107,7 +107,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
                 foreach(var button in player.Controls.All){button.Type=ButtonType.Key;button.Key=Keys.Unknown;}player.Controls.Shoot.Key=Keys.Enter;player.Controls.Morph.Key=Keys.B;player.Controls.AltAttack.Key=Keys.F;player.Controls.Jump.Key=Keys.Space;player.Controls.Zoom.Key=Keys.Z;player.Controls.MoveUp.Key=player.Controls.RollUp.Key=Keys.W;player.Controls.MouseAim=false;player.Controls.KeyboardAim=false;
                 Key(window.KeyboardState,Keys.Enter,true);for(int n=0;n<600&&!player.LoadFlags.TestFlag(LoadFlags.Spawned);n++)scene.OnSimulationFrame();Key(window.KeyboardState,Keys.Enter,false);scene.CameraSequences.Current?.End();for(int n=0;n<240;n++)scene.OnSimulationFrame();scene.CameraSequences.Current?.End();
                 check(player.Health>0&&!player.IsAltForm,"actual native spawn reaches living biped");
-                var result=Trace(window,scene,player,owner,appearance,imports,check,captureRoot,captures);traces.Add(result.Trace);
+                var result=Trace(window,scene,player,owner,appearance,imports,check,captureRoot,captures,()=>milestones.Rendering=true);traces.Add(result.Trace);
                 if(traces.Count>1){check(result.Trace.Length==traces[0].Length,"native/source trace lengths match");int mismatch=Enumerable.Range(0,result.Trace.Length).FirstOrDefault(i=>result.Trace[i]!=traces[0][i],-1);check(mismatch<0,"native gameplay/body/beams/laser/animation/RNG exact parity: "+appearance+" first mismatch="+mismatch);}
                 cases.Add(new{Appearance=appearance.ToString(),Frames=result.Trace.Length,GameplayTraceSha256=Sha(Encoding.UTF8.GetBytes(string.Join("\n",result.Trace))),result.Metadata});int[] lists=owner?.Model.Segments.Select(s=>s.ListId).ToArray()??[];
                 window.EndScene();check(owner==null||!owner.Current&&!owner.Ready&&lists.All(id=>!GL.IsList(id)),"actual EndScene retires complete source drone");
@@ -127,7 +127,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
     private sealed record Stage(string Name,int Steps);
     private static readonly Stage[] Script=[new("biped",20),new("split",91),new("flight",90),new("hover",90),new("sink",60),new("burst",220),new("burst-rest",30),new("laser",135),new("laser-rest",20),new("merge",91),new("death-respawn",420),new("new-life-split",91),new("new-life-flight",60)];
     private sealed record TraceResult(string[] Trace,object Metadata);
-    private static TraceResult Trace(RenderWindow window,Scene scene,PlayerEntity player,CharacterSourceDroneOwner? owner,LocalDroneAppearance appearance,string imports,Action<bool,string> check,string? captureRoot,List<object> captures)
+    private static TraceResult Trace(RenderWindow window,Scene scene,PlayerEntity player,CharacterSourceDroneOwner? owner,LocalDroneAppearance appearance,string imports,Action<bool,string> check,string? captureRoot,List<object> captures,Action rendered)
     {
         var watch=Stopwatch.StartNew();var native=player.ModSourceNativeDrone!;int sourcePictures=0,nativePictures=0,repeats=0,burstFallback=0,laserFallback=0,laserPictures=0,beamPictures=0,poseChecks=0,maxShots=0;bool died=false,respawn=false,moved=false,guards=false;
         var start=player.Position;var rows=new List<string>();var programs=new HashSet<int>();var schedules=new List<object>();bool captured=false;
@@ -175,7 +175,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
             int[] lists=owner.Model.Segments.Select(s=>s.ListId).ToArray();CharacterModelRuntime.Release(scene);check(!owner.Current&&lists.All(id=>!GL.IsList(id)),"context retirement destroys source geometry and authority");Picture("context-retired",true);check(Items(scene).Count==0&&NativePackets(scene,native)>0,"retired source draws complete native drone without resurrection");
         }
         check(CharacterSourceClip.CapturedFileReads==reads,"no source proof/clip file IO occurs during locked native simulation/GPU pictures");
-        return new(rows.ToArray(),new{SourcePictures=sourcePictures,NativePictures=nativePictures,RepeatedDraws=repeats,BurstFallbackPictures=burstFallback,LaserFallbackPictures=laserFallback,NativeLaserPictures=laserPictures,NativeBeamTrailPictures=beamPictures,MaximumShots=maxShots,SourcePoseChecks=poseChecks,ActualShaderPrograms=programs.Count,FractionalSchedules=schedules.ToArray(),TraceGrain="one record after each fixed script completed simulation step and its repeated picture; scene/global RNG, actor+planted body,40 native beam states, every native drone/laser counter and endpoint, native registered animation frames; posttrace fractionals/guards/context pictures separately counted"});
+        return new(rows.ToArray(),new{SourcePictures=sourcePictures,NativePictures=nativePictures,RepeatedDraws=repeats,BurstFallbackPictures=burstFallback,LaserFallbackPictures=laserFallback,NativeLaserPictures=laserPictures,NativeBeamTrailPictures=beamPictures,MaximumShots=maxShots,SourcePoseChecks=poseChecks,ActualShaderPrograms=programs.Count,FractionalSchedules=schedules.ToArray(),TraceGrain="one record after each fixed script completed simulation step and its repeated picture; scene/global RNG, actor+planted body, selected native drone/laser counters and cached origin/end,40 beam lifespan/age/position/direction/flags/ownership columns, native registered animation frames; separate guards/fractional/context pictures counted outside trace"});
 
         void Step()
         {
@@ -193,7 +193,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
         }
         void Picture(string label,bool repeat)
         {
-            long clock=owner?.CompletedSteps??0;string palette=owner==null?"":Palette(owner.Model);scene.OnDrawFrame();Observe();check(scene.OnRenderFrame()&&GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"actual Scene world source/native render is GL-clean: "+label);
+            long clock=owner?.CompletedSteps??0;string palette=owner==null?"":Palette(owner.Model);scene.OnDrawFrame();Observe();check(scene.OnRenderFrame()&&GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"actual Scene world source/native render is GL-clean: "+label);rendered();
             if(Items(scene).Count>0&&owner!=null)
             {
                 foreach(var segment in owner.Model.Segments)check(segment.SourceGx is{} binding&&ReferenceEquals(binding.Owner,scene)&&binding.Program.DrawPass==CharacterSourceGxProgram.Pass.Opaque&&GL.IsProgram(binding.ProgramId)&&binding.Textures.All(GL.IsTexture),"own opaque source material and all original textures are resident in actual Scene");
@@ -262,10 +262,15 @@ internal static class CharacterDroneRuntimeOwnedProbe
         check(MatchStart.Begin(window,settings,plan),"actual lifecycle begins captured Alpha");var live=window.Scene.Players.Main.ModSourceDrone!;string generation=live.Generation;
         RetroCharacterPreviewExporter.ExportFromOwnedGame(source,selectedIds:["trooper-drone-alpha"]);check(live.Current&&live.Generation==generation,"Update never retargets active generation");
         check(LocalImportBundle.Remove(imports,"trooper-drone-alpha")&&live.Current,"Remove withdraws discovery and preserves captured active owner");window.EndScene();check(!live.Current&&!live.Ready,"actual EndScene retires removed generation");Refused("removed-alpha");
-        RetroCharacterPreviewExporter.ExportFromOwnedGame(source,selectedIds:["trooper-drone-alpha"]);check(MatchStart.Begin(window,settings,plan),"actual reinstall/relaunch binds fresh complete owner");var fresh=window.Scene.Players.Main.ModSourceDrone!;check(fresh.Current&&!ReferenceEquals(fresh,live)&&!live.Current,"old owner never resurrects on reinstall");window.EndScene();check(!fresh.Current,"reinstalled owner also retires");
+        RetroCharacterPreviewExporter.ExportFromOwnedGame(source,selectedIds:["trooper-drone-alpha"]);check(MatchStart.Begin(window,settings,plan),"actual reinstall/relaunch binds fresh complete owner");var fresh=window.Scene.Players.Main.ModSourceDrone!;check(fresh.Current&&!ReferenceEquals(fresh,live)&&!live.Current,"old owner never resurrects on reinstall");
+        var player=window.Scene.Players.Main;int[] lists=fresh.Model.Segments.Select(s=>s.ListId).ToArray();player.ModRetireCharacterGameplay();
+        check(!fresh.Current&&!fresh.Ready&&player.ModSourceDrone==null&&player.ModSourceNativeDrone==null&&!player.ScoutDroneEnabled&&player.ModCharacterGameplay==CharacterGameplayRules.Native&&lists.All(id=>!GL.IsList(id)),"actual native gameplay retirement disposes source owner/lists before native drone model removal");window.EndScene();
+        check(MatchStart.Begin(window,settings,plan),"fresh actual owner can test declared native rule-loss fixture");player=window.Scene.Players.Main;var lost=player.ModSourceDrone!;int[] lostLists=lost.Model.Segments.Select(s=>s.ListId).ToArray();window.Scene.GameState.EnhancedHunters=true;
+        try{check(player.ModCharacterGameplay==CharacterGameplayRules.Native&&player.ModSourceDrone==null&&player.ModSourceNativeDrone==null&&!lost.Current&&!lost.Ready&&lostLists.All(id=>!GL.IsList(id)),"injected accepted incompatible native rule is observed by real gameplay getter and retires both presentation owners");}
+        finally{window.Scene.GameState.EnhancedHunters=false;window.EndScene();}
         var native=plan with{LocalDrone=LocalDroneAppearance.Native};check(MatchStart.Begin(window,settings,native)&&window.Scene.Players.Main.ModSourceDrone==null&&window.Scene.Players.Main.ScoutDroneEnabled,"same actual launcher recovers native practice independently of source");window.EndScene();
         var forged=plan with{OfflineCharacter=OfflineCharacterMode.Native};check(!MatchStart.Begin(window,settings,forged)&&!window.HasScene,"actual MatchStart rejects forged ordinary source-drone plan before Scene creation");
-        Console.WriteLine(JsonSerializer.Serialize(new{Probe="source-drone-product-lifecycle",CorruptRefused=true,RemovedRefused=true,UpdatePreservedGeneration=true,RetiredNoResurrection=true,NativeRecovery=true,ForgedPlanRefused=true}));
+        Console.WriteLine(JsonSerializer.Serialize(new{Probe="source-drone-product-lifecycle",CorruptRefused=true,RemovedRefused=true,UpdatePreservedGeneration=true,RetiredNoResurrection=true,DirectNativeRuleRetirement=true,DeclaredIncompatibleNativeRuleRetirement=true,NativeRecovery=true,ForgedPlanRefused=true}));
         void Refused(string label){check(!window.HasScene&&!MatchStart.Begin(window,settings,plan)&&!window.HasScene&&!string.IsNullOrWhiteSpace(MatchStart.LastError),"real source failure refuses before Scene creation: "+label);}
     }
     private static void CheckPoseOracle(CharacterSourceDroneOwner owner,Action<bool,string> check)
