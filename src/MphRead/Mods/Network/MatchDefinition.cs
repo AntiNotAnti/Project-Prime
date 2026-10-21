@@ -53,7 +53,8 @@ namespace MphRead.Mods.Network
         MomentumMovement = 32768, Quake3Movement = 65536, TraversalMovement = 131072,
         // Protocol70: frozen availability; selection stays a per-life action.
         RiftlineM7Available = 262144,
-        ParkourMovement = 524288
+        ParkourMovement = 524288,
+        PackagedWeaponAvailable = 1048576
     }
 
     public readonly record struct MatchDefinition
@@ -82,6 +83,7 @@ namespace MphRead.Mods.Network
         // Frozen availability; personal selection remains a per-life custom action.
         // Default false keeps ordinary matches on the native-only path.
         public bool RiftlineM7Available { get; init; }
+        public bool PackagedWeaponAvailable { get; init; }
         // Rendering-only choice, owned by the match host and shared with every client.
         public bool ThirdPersonCamera { get; init; }
         public MovementModel MovementModel { get; init; }
@@ -145,6 +147,7 @@ namespace MphRead.Mods.Network
             | (NoImperialist ? MatchModifierFlags.NoImperialist : 0)
             | (BalancedMode ? MatchModifierFlags.BalancedMode : 0)
             | (RiftlineM7Available ? MatchModifierFlags.RiftlineM7Available : 0)
+            | (PackagedWeaponAvailable ? MatchModifierFlags.PackagedWeaponAvailable : 0)
             | (ThirdPersonCamera ? MatchModifierFlags.ThirdPersonCamera : 0)
             | (OctolithAutoReset ? MatchModifierFlags.OctolithAutoReset : 0)
             | MovementModelRules.Modifier(MovementModel);

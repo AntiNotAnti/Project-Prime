@@ -340,12 +340,12 @@ internal static class ReplayIdentityCompatibility
         if (type == PacketType.MatchState)
         {
             Require(converted.Length == 1 + MatchStatePacket.Size);
-            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & 262144u) == 0);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[104..]) & (262144u | 1048576u)) == 0);
         }
         if (type == PacketType.SessionState)
         {
             Require(converted.Length == 1 + SessionStatePacket.Size);
-            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & 262144u) == 0);
+            Require((BinaryPrimitives.ReadUInt32LittleEndian(converted[(1 + SessionStatePacket.Protocol28Size)..]) & (262144u | 1048576u)) == 0);
         }
         return converted;
     }
