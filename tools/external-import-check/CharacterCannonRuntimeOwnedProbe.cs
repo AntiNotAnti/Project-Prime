@@ -74,6 +74,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
             var valid=new Vector3(.25f,.5f,1);
             try
             {
+                entry.EffectId=136;
                 scene.SetPresentationEffectTint(entry,valid);
                 Check(scene.GetPresentationEffectTint(entry)==valid&&scene.GetPresentationEffectTint(foreign)==null&&scene.GetPresentationEffectTint(furl)==null&&scene.GetPresentationEffectTint(null)==null,
                     "transient tint uses exact entry reference and leaves foreign136/furl30/null untouched");
@@ -370,7 +371,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     if(probeTrail)Check(rollingTrailPictures>0&&trailPictures>0&&morphTrailGuards>0
                         &&(expectsBall?blueTrailPictures>0:nativeTrailPictures>0),
                         "actual native W rolling emits real TrailStack packets, with selected source tint and guarded native morph presentation");
-                    if(probeBoost)Check(boostPictures>0&&boostPackets>0&&furlPictures>0&&(!expectsBall||tintedBoostPackets>0&&boostGuards),
+                    if(probeBoost)Check(boostPictures>0&&boostPackets>0&&furlPictures>0&&boostGlModes.Contains(expectsBall)&&(!expectsBall||tintedBoostPackets>0&&boostGuards&&boostGlModes.Contains(false)),
                         "genuine boost key charge/release earns effect136 and morph earns native furl30; admitted source boosts receive bounded packet-only tint");
                     var ballSchedules=new List<object>();
                     if(probeBall&&expectsBall)
