@@ -246,7 +246,7 @@ namespace MphRead.Mods.Render.Characters
         }
         private void RevalidateSource(CharacterModelAsset asset,string? expectedSha)
         {
-            if(!OperatingSystem.IsMacOS()||_sourceRoot==null||_sourceManifestSha==null||_sourceRootWitness==null
+            if(!CharacterSourceRootWitness.QualifiedForCurrentProcess||_sourceRoot==null||_sourceManifestSha==null||_sourceRootWitness==null
                 ||asset.PoseSource!=CharacterPoseSource.SourceRigPreview||asset.PrivateAppearance is not { } appearance
                 ||!(asset.Part==CharacterModelPart.Biped || asset.Part==CharacterModelPart.ViewModel&&_sourceCannons.ContainsKey(asset))||asset.Lod!=0||asset.Skinning!=CharacterSkinningMode.Weighted4
                 ||!_sourceProofs.TryGetValue(asset,out var proof))throw new InvalidDataException("No verified private source preview ownership.");

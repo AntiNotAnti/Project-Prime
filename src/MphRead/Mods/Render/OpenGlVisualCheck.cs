@@ -443,6 +443,12 @@ internal static partial class OpenGlVisualCheck
 
     private static void CheckDepthVertexSpecialization()
     {
+        Require(Shaders.WithoutDepthVertexSpecialization(Shaders.VertexShader.ReplaceLineEndings("\n"))
+            == Shaders.WithoutDepthVertexSpecialization(Shaders.VertexShader.ReplaceLineEndings("\r\n")),
+            "desktop legacy specialization is independent of checkout line endings");
+        Require(Shaders.WithoutDepthVertexSpecialization(EsShaders.VertexShader.ReplaceLineEndings("\n"))
+            == Shaders.WithoutDepthVertexSpecialization(EsShaders.VertexShader.ReplaceLineEndings("\r\n")),
+            "shared source specialization accepts LF and CRLF shader text");
         ResetPass();
         int vertex = GraphicsApi.CreateShader(ShaderType.VertexShader);
         int fragment = GraphicsApi.CreateShader(ShaderType.FragmentShader);

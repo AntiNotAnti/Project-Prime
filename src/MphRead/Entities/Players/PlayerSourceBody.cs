@@ -21,6 +21,7 @@ public partial class PlayerEntity
     internal void ModResetSourceBodyLife() { unchecked { _sourceBodyLife++; } }
 
     private bool SourceBodyStateSupported => Health > 0 && !IsAltForm && !IsMorphing && !IsUnmorphing
+        && RenderOptions.Shadows == ShadowQuality.Off
         && !ModCrouched && !ModTucked && ModCrouchVisualAmount == 0
         && _frozenTimer == 0 && _frozenGfxTimer == 0 && _burnTimer == 0
         && _doubleDmgTimer == 0 && _disruptedTimer == 0 && _shockCoilTimer == 0
