@@ -28,6 +28,16 @@ sealed partial class CheckWindow
     private readonly bool _poseCheck;
     private readonly bool _posePixels;
     private readonly string _poseScenario;
+    private readonly string _poseScheduleId;
+    private double PoseElapsed => DisplayPosePlan.Elapsed(_poseScheduleId, _cap, _poseOutput);
+    private bool _poseInputIsolationInitialized, _posePriorGamepadFocused;
+    private string? _posePreviousSupplemental;
+    internal void RestoreDisplayPoseInputIsolation()
+    {
+        if (!_poseInputIsolationInitialized) return;
+        GamepadContexts.Focused = _posePriorGamepadFocused;
+        _poseInputIsolationInitialized = false;
+    }
     private readonly string _poseFocusControl;
     private bool _poseFocusInjected, _poseInjectingFocus;
     private readonly List<object> _poseFocusEvents = new();
@@ -77,6 +87,45 @@ sealed partial class CheckWindow
         string presentation = (string)typeof(Scene).GetMethod("ReplayPresentationHash", PosePrivate)!.Invoke(Scene, new object[] { tick })!;
         return gameplay + ":" + presentation;
     }
+    // Fixture-local observations, independent of the archival hash contract.
+    // These never add fields to ReplayStateHash or ReplayPresentationHash.
+    private string PoseCombatWitness() => PoseDigest(JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        players = Scene.Players.Items.Where(p => p != null).Select(p => new
+        {
+            p.SlotIndex, p.Health, weapon = (int)p.CurrentWeapon, p.TimeSinceShot,
+            p.RespawnTimer, p.DeathCountdown, p.IsAltForm, p.IsMorphing, p.IsUnmorphing,
+            points = Scene.GameState.Points[p.SlotIndex], kills = Scene.GameState.Kills[p.SlotIndex],
+            deaths = Scene.GameState.Deaths[p.SlotIndex]
+        }).ToArray(),
+        projectiles = Scene.Entities.WhereEnumerable().OfType<BeamProjectileEntity>().Select(b => new
+        {
+            owner = b.Owner is PlayerEntity owner ? owner.SlotIndex : (b.Owner as HalfturretEntity)?.Owner.SlotIndex,
+            beam = (int)b.Beam, flags = (int)b.Flags,
+            position = PoseVector(b.Position), origin = PoseVector(b.SpawnPosition),
+            direction = PoseVector(b.Direction), velocity = PoseVector(b.Velocity),
+            b.Damage, b.HeadshotDamage, b.SplashDamage, b.Age, b.Lifespan
+        }).ToArray(),
+        bombs = Scene.Entities.WhereEnumerable().OfType<BombEntity>().Select(b => new
+        {
+            owner = b.Owner?.SlotIndex, kind = (int)b.BombType, flags = (int)b.Flags,
+            position = PoseVector(b.Position), b.Countdown, b.BombIndex, b.Damage, b.EnemyDamage
+        }).ToArray()
+    }));
+    private string PoseSourceWitness() => PoseDigest(JsonSerializer.SerializeToUtf8Bytes(
+        Scene.Players.Items.Take(2).Select(p => new
+        {
+            p.SlotIndex, position = PoseVector(p.Position), facing = PoseVector(p.FacingVector),
+            gunVector = PoseVector((Vector3)PoseGet(p, "ModGunVector")!),
+            muzzle = PoseVector((Vector3)PoseGet(p, "ModMuzzlePos")!),
+            controls = p.Controls.All.Select(b => new { b.IsDown, b.IsPressed, b.IsReleased }).ToArray()
+        }).ToArray()));
+    private string PoseRngWitness() => PoseDigest(JsonSerializer.SerializeToUtf8Bytes(new
+    {
+        sceneRng1 = Scene.Random.Rng1, sceneRng2 = Scene.Random.Rng2,
+        globalRng1 = Rng.Rng1, globalRng2 = Rng.Rng2
+    }));
+    private string PoseSupplementalWitness() => PoseCombatWitness() + ":" + PoseSourceWitness() + ":" + PoseRngWitness();
     private static float[] PoseMatrix(Matrix4 value)
         => Enumerable.Range(0, 16).Select(i => value[i / 4, i % 4]).ToArray();
     private object PoseAnchorObservation()
@@ -128,6 +177,8 @@ sealed partial class CheckWindow
         _poseSetButton = (Action<MouseState, MouseButton, bool>)typeof(MouseState).GetProperty("Item", PosePrivate)!.SetMethod!
             .CreateDelegate(typeof(Action<MouseState, MouseButton, bool>));
         NetTestScript.Reset();
+        _posePriorGamepadFocused = GamepadContexts.Focused;
+        _poseInputIsolationInitialized = true;
     }
     private void BeforeDisplayPoseFrame()
     {
@@ -166,7 +217,7 @@ sealed partial class CheckWindow
             PoseRequire(drawFov == camera.Fov, "responsive scope reused FOV before clock reset");
         }
         double accumulator = (double)typeof(FrameTiming).GetField("_accumulator", PosePrivate)!.GetValue(null)!;
-        _poseExpectedSteps = DisplayPosePlan.PreviewSteps(accumulator, 1.0 / _cap, FrameTiming.StepSeconds);
+        _poseExpectedSteps = DisplayPosePlan.PreviewSteps(accumulator, PoseElapsed, FrameTiming.StepSeconds);
         _poseStepsBefore = FrameTiming.TotalSteps; _poseFrameBefore = Scene.FrameCount;
         if (_poseExpectedSteps == 1) PrepareDisplayPoseInput(next);
         _poseProjectionBeforeRender = PoseProjection();
@@ -267,6 +318,7 @@ sealed partial class CheckWindow
     }
     private void AfterDisplayPoseFrame()
     {
+        double scheduledElapsed = PoseElapsed;
         _poseOutput++;
         long actualSteps = FrameTiming.TotalSteps - _poseStepsBefore;
         PoseRequire(actualSteps == _poseExpectedSteps && Scene.FrameCount - _poseFrameBefore == (ulong)actualSteps,
@@ -275,17 +327,19 @@ sealed partial class CheckWindow
         PoseRequire(Scene.CheckRenderInvariants() && GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, "native frame invariant/GL failure");
         ObserveDisplayParticleSamples();
         string projection = PoseProjection();
+        string supplemental = PoseSupplementalWitness();
         if (actualSteps == 0 && _posePreviousProjection != null)
         {
             if (projection != _posePreviousProjection) RecordPoseCanonicalFailure(projection, actualSteps);
             PoseRequire(projection == _posePreviousProjection, "zero-step draw changed established canonical simulation/replay projection");
+            PoseRequire(supplemental == _posePreviousSupplemental, "zero-step draw changed combat/source-input/RNG witness");
             _poseZeroStepChecks++;
         }
         var target = Scene.Players.Items[1];
         var pose = SampleActor(target);
         if (pose.Position != target.Position) _poseCarryFrames++;
         int tick = checked((int)Scene.FrameCount);
-        _poseSchedule.Add(new { outputFrame = _poseOutput, scheduledElapsed = 1.0 / _cap,
+        _poseSchedule.Add(new { outputFrame = _poseOutput, scheduledElapsed,
             sceneFrame = tick, actualSteps, alpha = FrameTiming.Alpha,
             presentationAlpha = FrameTiming.PresentationAlpha, active = FrameTiming.Active,
             drawAnchorDiagnosticSha256 = PoseAnchorHash() });
@@ -320,11 +374,13 @@ sealed partial class CheckWindow
                 position = PoseVector(target.Position), facing = PoseVector(target.FacingVector),
                 alt = target.IsAltForm, morphing = target.IsMorphing, unmorphing = target.IsUnmorphing,
                 zoomed = Scene.Players.Main.EquipInfo.Zoomed, fov = Scene.Players.Main.CameraInfo.Fov,
-                rng1 = Scene.Random.Rng1, rng2 = Scene.Random.Rng2 });
+                rng1 = Scene.Random.Rng1, rng2 = Scene.Random.Rng2,
+                combatWitness = PoseCombatWitness(), sourceInputWitness = PoseSourceWitness(), rngWitness = PoseRngWitness() });
         }
         if (DisplayPosePlan.Captures.TryGetValue(tick, out string? label) && _poseCaptured.Add(tick))
             CaptureDisplayPose(label, tick);
         _posePreviousProjection = PoseProjection();
+        _posePreviousSupplemental = PoseSupplementalWitness();
         if (tick >= DisplayPosePlan.TotalTicks)
         {
             PoseRequire(_poseCaptured.Count == DisplayPosePlan.Captures.Count && _poseDied && _poseRespawned
@@ -344,6 +400,7 @@ sealed partial class CheckWindow
     private void DrawPoseRepeated(string label)
     {
         string before = PoseProjection(); ulong tick = Scene.FrameCount;
+        string supplementalBefore = PoseSupplementalWitness();
         object anchorBefore = PoseAnchorObservation();
         Scene.OnDrawFrame(); PoseRequire(Scene.OnRenderFrame(), "repeat renderer stopped");
         object anchorAfter = PoseAnchorObservation();
@@ -353,6 +410,7 @@ sealed partial class CheckWindow
                 == PoseDigest(JsonSerializer.SerializeToUtf8Bytes(anchorAfter)) });
         PoseRequire(Scene.FrameCount == tick && PoseProjection() == before,
             label + " repeated draw changed established canonical simulation/replay projection");
+        PoseRequire(PoseSupplementalWitness() == supplementalBefore, label + " repeated draw changed combat/source-input/RNG witness");
         PoseRequire(Scene.CheckRenderInvariants() && GL.GetError() == OpenTK.Graphics.OpenGL.ErrorCode.NoError, label + " repeat GL invariant");
         _poseRepeatedChecks++;
     }
@@ -376,6 +434,7 @@ sealed partial class CheckWindow
     private void CaptureDisplayPose(string label, int tick)
     {
         string transactionEntryProjection = PoseProjection();
+        string transactionEntrySupplemental = PoseSupplementalWitness();
         var transactionEntryFields = PosePresentationFields();
         string prefix = tick + "-" + label;
         DrawPoseRepeated(prefix + "-first-person");
@@ -439,16 +498,20 @@ sealed partial class CheckWindow
             for (int i = 0; i < PoseCameraFields.Length; i++) PoseSet(Scene, PoseCameraFields[i], saved[i]!);
             Scene.OnDrawFrame(); PoseRequire(Scene.OnRenderFrame(), "restored first-person renderer stopped");
             string transactionExitProjection = PoseProjection();
+            string transactionExitSupplemental = PoseSupplementalWitness();
             var transactionExitFields = PosePresentationFields();
             _poseCameraTransactions.Add(new { label, tick, outputFrame = _poseOutput,
                 entryProjection = transactionEntryProjection, exitProjection = transactionExitProjection,
                 exactEstablishedProjectionMatch = transactionEntryProjection == transactionExitProjection,
+                supplementalEntry = transactionEntrySupplemental, supplementalExit = transactionExitSupplemental,
                 differences = transactionEntryFields.Keys.Union(transactionExitFields.Keys)
                     .Where(key => transactionEntryFields.GetValueOrDefault(key) != transactionExitFields.GetValueOrDefault(key))
                     .Select(key => new { field = key, before = transactionEntryFields.GetValueOrDefault(key),
                         after = transactionExitFields.GetValueOrDefault(key) }).ToArray() });
             PoseRequire(transactionEntryProjection == transactionExitProjection,
                 prefix + " camera transaction changed established canonical simulation/replay projection");
+            PoseRequire(transactionEntrySupplemental == transactionExitSupplemental,
+                prefix + " camera transaction changed combat/source-input/RNG witness");
         }
         _posePictures.Add(new { label, tick, outputFrame = _poseOutput, alpha = FrameTiming.PresentationAlpha,
             hunter = target.Hunter.ToString(), targetHealth = target.Health, alt = target.IsAltForm,
@@ -474,10 +537,11 @@ sealed partial class CheckWindow
     }
     internal object DisplayPoseResult() => new
     {
-        schema = 1, mode = "full-world-display-pose", platform = "Mac", scenarioId = _poseScenario,
+        schema = 1, mode = "full-world-display-pose", platform = OperatingSystem.IsWindows() ? "Windows" : "Mac", scenarioId = _poseScenario,
         status = Complete ? "PASS" : "FAIL_OR_INCOMPLETE", complete = Complete,
         room = _room, hunter = Scene.Players.Main.Hunter.ToString(), requestedOutputScheduleHz = _cap,
-        scheduledElapsedSeconds = 1.0 / _cap, simulationHz = 60, sampleScope = "normal RenderWindow FrameTiming loop with deterministic elapsed; existing scripted controls; native world draws",
+        scheduleId = _poseScheduleId, scheduledElapsedSeconds = _poseScheduleId == "steady" ? (double?)(1.0 / _cap) : null,
+        simulationHz = 60, sampleScope = "normal RenderWindow FrameTiming loop with deterministic elapsed; existing scripted controls; native world draws",
         primaryDisplayRefreshHz = PosePrimaryDisplayHz(), panelIdentityScope = "GLFW primary monitor mode; actual panel scanout not measured",
         panelScanoutAcceptance = "NOT_CLAIMED", performanceAcceptance = "NOT_CLAIMED_READBACK_FIXTURE",
         actualWallSeconds = _wall.Elapsed.TotalSeconds, outputFrames = _poseOutput,
@@ -489,6 +553,7 @@ sealed partial class CheckWindow
             injected = _poseFocusInjected, qualificationEligible = _poseFocusControl != "legacy",
             events = _poseFocusEvents },
         canonicalWitness = "unchanged production ReplayStateHash/schema4 + Scene.ReplayPresentationHash only",
+        supplementalWitness = "fixture-local exact combat/source-input/scene-and-global-RNG; no archival schema changes",
         cameraControlAcceptance = "STRICT_ENTRY_EXIT_CANONICAL_REQUIRED",
         pixelControlAcceptance = _posePixels ? "ISOLATED_NATIVE_GUN_AND_CHARGE_REQUIRED" : "NOT_REQUESTED",
         pixelControlDiagnostics = _posePixelDiagnostics,

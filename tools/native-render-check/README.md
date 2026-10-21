@@ -99,6 +99,35 @@ python3 tools/native-render-check/run_display_pose.py \
   --output /absolute/new/matrix
 ```
 
+The current harness admits steady schedules 60/120/144/240/360/500 on Windows
+and macOS. `-pose-schedule jitter144 -hz 144` instead supplies the repeating
+elapsed sequence `(0.5, 1.5, 0.75, 1.25) / 144` seconds. Its mean is 144 outputs
+per simulated second and every interval is below one 60 Hz simulation step.
+Both the input preview and ordinary `RenderWindow` callback use the same
+declared elapsed value; the production frame clock remains the only scheduler.
+The sequence uses no simulation RNG. A requested schedule does not measure
+physical display refresh, scanout, input-device polling or performance.
+
+The bounded NCX-06 recovery plan is thirteen serial arms: Samus at all six
+steady rates plus jitter144, then Kanden/Trace/Sylux/Noxus/Spire/Weavel at 500.
+Select it with `--ncx06-matrix` on the command above. Other Hunters have
+single-rate coverage in that plan; only Samus has cross-schedule qualification.
+Use `--jitter` to add a jitter144 arm per requested Hunter in an ordinary matrix.
+
+New native reports retain the exact established gameplay/presentation hashes
+and additionally record independent, fixture-local combat, canonical source
+input/shot pose, and scene/global RNG witnesses per simulation tick. The runner
+requires exact agreement for these witnesses across requested schedules,
+including input edge states, and requires unchanged witnesses on zero-step
+draws, repeated draws and temporary external-camera captures. These observations
+do not change replay hash schemas, stored recordings or scheduling. The analyzer
+can require them explicitly with `--require-supplemental`; `--require-jitter`
+requires a jitter144 result per requested Hunter. Reports identify the actual
+Windows or Mac platform, and cross-schedule comparisons reject mixed platforms.
+The fixture rejects a connected physical controller and restores its temporary
+gamepad-focus override on completion or failure. Native OS focus and physical
+mouse/controller behavior remain separate acceptance work.
+
 `--require-particle-sampling` additionally requires both particle and beam
 consumed-value counters (current at 60, positive history samples above 60).
 Those counters do not substitute for isolated beam/free-particle pixels.
@@ -119,8 +148,9 @@ dotnet /absolute/immutable/native-render-check.dll \
   -shots /absolute/fresh/samus-60-shots -output /absolute/fresh/samus-60.json
 ```
 
-Run a Samus 60/144 pilot first. The bounded matrix is Samus, Kanden, Trace,
-Sylux, Noxus, Spire and Weavel at each output schedule 60/120/144/240. Every
+Run a Samus 60/144 pilot first. The default matrix is Samus, Kanden, Trace,
+Sylux, Noxus, Spire and Weavel at each steady output schedule
+60/120/144/240/360/500. Every
 process needs fresh asset-only user data, working directory, JSON and capture
 directory. The existing `campaign_identity.isolate_user_data` copies only a
 normalized `paths.txt` referencing the operator's read-only assets. Keep the
@@ -199,7 +229,7 @@ Neither is a world-render acceptance run. Native captures include repeated
 draws/readbacks, so this mode supplies no performance comparison. Requested
 output schedules are distinct from panel refresh or scanout, and the reported
 GLFW primary-monitor mode does not measure panel scanout. Replay playback,
-OS focus behavior, network behavior and non-Mac platforms remain separate gates.
+OS focus behavior, network behavior and physical-device acceptance remain separate gates.
 
 For combat HUD parity, add `-stablehud` to both capture arms. The fixture runs
 simulation faster than wall time, while the kill feed normally expires/fades

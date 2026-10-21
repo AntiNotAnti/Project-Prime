@@ -18,6 +18,7 @@ import subprocess
 import time
 import uuid
 from net2_evidence import adjudicate, drain_barrier, drain_prepared, DrainStability
+from net2_status import read_drain_status
 
 PROFILES = {"lan": (0, 0, 0, 0, 0), "moderate": (100, 20, 1, 0, 0),
             "poor": (250, 40, 2, 0, 0), "extreme": (400, 80, 5, 3, 1)}
@@ -856,9 +857,10 @@ def run(args):
                 for name in ("server", *(record["name"] for _, record, _ in clients)):
                     path = args.out / f"{name}.drain.json"
                     try:
-                        # Atomic publication makes partial JSON impossible; stale processes cannot pass.
-                        if time.time() - path.stat().st_mtime <= 1:
-                            statuses[name] = json.loads(path.read_text(encoding="utf-8"))
+                        # Metadata and payload come from one replace-shareable handle.
+                        status = read_drain_status(path)
+                        if status is not None:
+                            statuses[name] = status
                     except (OSError, ValueError):
                         pass
                 peers = {name: row for name, row in statuses.items() if name != "server"}

@@ -17,7 +17,7 @@ Refresh main and list overlapping PRs before every slice. Preserve failed eviden
 | NCX-03 | Bounded shadow fast-decision layer | Complete scoped shadow; 30 routes, 95 Python checks, 10 native controls and 131 final-source UDP paid comparisons; retained shutdown failure |
 | NCX-04 | Certified narrow-family fast settlement | Complete exact paid receipts; 51 routes, 109 Python checks, six native controls, matched UDP189/172 samples with p95 zero ticks; no fresh fast damage |
 | NCX-05 | Independently certified family extensions and explicit fallbacks | Complete scoped capability/fallback inventory; 90 routes, 109 Python checks, 163 delivered UDP receipts and 149 exact paid comparisons; zero fresh promotions |
-| NCX-06 | Prediction retirement and confirmation presentation | Ready after NCX-05 merge |
+| NCX-06 | Prediction retirement and confirmation presentation | Reconstruction in progress at protocol79; fresh qualification required, historical artifacts unavailable |
 | NCX-07 | Same-shot victim and observer confirmed-impact fidelity | Pending NCX-06 |
 | NCX-08 | Continuous fire, multi-entity and death boundaries | Pending NCX-07 |
 | NCX-09 | Demonstrated transport/recovery faults and measured improvements | Pending NCX-08 |

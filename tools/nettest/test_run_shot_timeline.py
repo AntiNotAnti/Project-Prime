@@ -25,7 +25,7 @@ class ShotTimelineDispatchTests(unittest.TestCase):
     def test_explicit_opt_in_is_the_only_timeline_dispatch(self):
         env = runner.child_environment(self.args(True), 'peer-0', Path('/private/profile'), {})
         self.assertEqual(env['PRIME_NCX_TIMELINE'], '1')
-        self.assertEqual(env['PRIME_NET2_EVIDENCE'], '/private/fixture/peer-0.json')
+        self.assertEqual(env['PRIME_NET2_EVIDENCE'], str(Path('/private/fixture/peer-0.json')))
         self.assertNotIn('PRIME_TIMED_GRANT_PROOF', env)
 
     def test_command_line_defaults_off(self):

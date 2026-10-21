@@ -31,6 +31,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && (args[0] == "--help" || args[0] == "-h"))
             {
                 Console.WriteLine("Usage: nettest [host] [port]\n"
+                    + "  --prediction-health-projection    Test bounded snapshot/prediction overlap without settlement.\n"
                     + "  --ncx-timeline off|on              Test bounded opt-in shot timeline and clock identity.\n"
                     + "  --ncx-visibility                  Test exact pixel differences and restoration controls.\n"
                     + "  --ncx-hit-oracle                  Test frozen independent native contact inputs.\n"
@@ -494,6 +495,7 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return ContinuousCombatTests.Run(args[1], args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 0 && args[0] == "--prediction-health-projection") return PredictionHealthProjectionTests.Run();
             if (args.Length > 0 && args[0] == "--combat-reconciliation") return CombatReconciliationTests.Run();
             if (args.Length > 0 && args[0] == "--self-prediction") return SelfPredictionTests.Run();
             if (args.Length > 1 && args[0] == "--bomb-scene")

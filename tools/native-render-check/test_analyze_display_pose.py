@@ -2,7 +2,8 @@
 import copy
 import unittest
 
-from analyze_display_pose import CAPTURES, analyze
+from analyze_display_pose import CAPTURES, analyze, scheduled_elapsed, RATES
+from run_display_pose import campaign_cells
 
 
 def synthetic_result(rate):
@@ -52,6 +53,54 @@ class DisplayPoseAnalysisTests(unittest.TestCase):
 
     def report(self):
         return analyze(self.results, rates=(60, 144), hunters=("Samus",))
+
+    def supplemental(self, result):
+        result["supplementalWitness"] = "fixture-local exact combat/source-input/scene-and-global-RNG; no archival schema changes"
+        for transaction in result["cameraControlTransactions"]:
+            transaction.update(supplementalEntry="d" * 64 + ":" + "e" * 64 + ":" + "f" * 64, supplementalExit="d" * 64 + ":" + "e" * 64 + ":" + "f" * 64)
+        for row in result["steps"]:
+            row.update(combatWitness="d" * 64, sourceInputWitness="e" * 64, rngWitness="f" * 64, rng1=1, rng2=2)
+        return result
+
+    def test_six_rates_and_jitter_exact_independent_witnesses(self):
+        results = [self.supplemental(synthetic_result(rate)) for rate in RATES]
+        jitter = self.supplemental(synthetic_result(144))
+        jitter.update(scheduleId="jitter144", scheduledElapsedSeconds=None)
+        for index, row in enumerate(jitter["schedule"]):
+            row["scheduledElapsed"] = scheduled_elapsed("jitter144", 144, index)
+        results.append(jitter)
+        def report():
+            return analyze(results, rates=RATES, hunters=("Samus",), require_jitter=True, require_supplemental=True)
+        self.assertEqual(report()["errors"], [])
+        for field in ("combatWitness", "sourceInputWitness", "rngWitness", "rng1", "rng2"):
+            old = jitter["steps"][300][field]
+            jitter["steps"][300][field] = "0" * 64 if isinstance(old, str) else old + 1
+            self.assertEqual(report()["comparisons"][-1]["firstDifference"], {"tick": 301, "field": field})
+            jitter["steps"][300][field] = old
+        jitter["schedule"][0]["scheduledElapsed"] = 1 / 144
+        self.assertTrue(any("schedule" in error for error in report()["errors"]))
+        results.pop()
+        self.assertTrue(any("incomplete" in error for error in report()["errors"]))
+
+    def test_platform_truth_and_missing_supplemental_fail_closed(self):
+        for result in self.results:
+            result["platform"] = "Windows"
+            self.supplemental(result)
+        self.assertEqual(self.report()["errors"], [])
+        self.results[1]["platform"] = "Mac"
+        self.assertTrue(any("platform" in error for error in self.report()["errors"]))
+        self.results[1]["platform"] = "Windows"
+        self.results[1]["steps"][2].pop("sourceInputWitness")
+        report = analyze(self.results, rates=(60,144), hunters=("Samus",), require_supplemental=True)
+        self.assertTrue(any("witness missing" in error for error in report["errors"]))
+
+    def test_ncx06_plan_has_exactly_thirteen_declared_arms(self):
+        cells = campaign_cells(("Samus",), (60,), ncx06_matrix=True)
+        self.assertEqual(len(cells), 13)
+        self.assertEqual(cells[:2], [("Samus",60,"steady"),("Samus",144,"steady")])
+        self.assertEqual({r for h,r,s in cells if h == "Samus" and s == "steady"}, set(RATES))
+        self.assertEqual([c for c in cells if c[2] == "jitter144"], [("Samus",144,"jitter144")])
+        self.assertEqual(len([c for c in cells if c[0] != "Samus" and c[1:] == (500,"steady")]), 6)
 
     def test_synthetic_protocol_success(self):
         report = self.report()
