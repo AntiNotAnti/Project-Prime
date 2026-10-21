@@ -18,7 +18,7 @@ public static class CustomWeaponMatchPolicy
         else if((modifiers&MatchModifierFlags.NoImperialist)!=0)reason="Riftline M7 cannot be combined with No Imp.";
         else if((modifiers&MatchModifierFlags.BalancedMode)!=0)reason="Riftline M7 cannot be combined with Balanced Mode.";
         else if((modifiers&MatchModifierFlags.EnhancedHunters)!=0)reason="Riftline M7 cannot be combined with Enhanced Hunters.";
-        else if(online&&bots>0)reason="Online Riftline M7 matches require human players without bots.";
+        else if(online&&bots>0&&!CustomAuthorityCombatAdapter.AuthorityBotsEnabled)reason="Custom weapon bots require the experimental authority-bot feature gate.";
         return reason.Length==0;
     }
 

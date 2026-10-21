@@ -12,7 +12,8 @@ public partial class PlayerEntity
         &&!Controls.WeaponMenu.IsDown&&!Input.StylusWeaponMenuDown&&WeaponSelection!=BeamType.None;
     internal bool ModCustomOwnsBipedControls=>!IsAltForm && (_scene.Services.IsReplica
         ? _scene.ReplayCustomOwnsBipedPresentation(this)
-        : (!NetSession.Active||NetSession.IsClient&&!NetSession.IsAuthority&&SlotIndex==NetSession.LocalSlot)
+        : (NetSession.IsAuthority&&IsBot&&_scene.CustomCombat?.AuthorityBotSelected(this)==true)
+            ||(!NetSession.Active||NetSession.IsClient&&!NetSession.IsAuthority&&SlotIndex==NetSession.LocalSlot)
             &&_scene.CustomInputSuppressesNative(this));
     internal void ModSynchronizeCustomNativeSuppression()
     {

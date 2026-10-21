@@ -85,7 +85,7 @@ namespace MphRead.Mods.Network
         private LobbyResultCode ConfigureBot(LobbyCommandPacket command, bool update, out string reason)
         {
             reason = "";
-            if (CurrentDefinition.RiftlineM7Available)
+            if (CurrentDefinition.RiftlineM7Available&&!CustomWeapons.CustomAuthorityCombatAdapter.AuthorityBotsEnabled)
             { reason = "Disable Riftline M7 availability before configuring bots."; return LobbyResultCode.InvalidConfiguration; }
             var bot = update ? FindBot(command.TargetSlot) : null;
             if (update && bot == null) { reason = "That bot has left."; return LobbyResultCode.TargetNotFound; }
