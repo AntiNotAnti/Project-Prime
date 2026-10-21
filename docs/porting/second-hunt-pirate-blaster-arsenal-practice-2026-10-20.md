@@ -164,8 +164,16 @@ inherited CS0649 warning, all6,430source hashes unchanged. Dedicated core:
 The first combined live-menu run stopped at the old four-choice movement
 fixture. Its raw failure is retained. Main PR923 adds a fifth Parkour choice;
 test-only corrections explicitly visit Parkour before returning to Classic,
-without weakening the assertions or changing production behavior. Final menu
-results are recorded after that correction. Receipts are under
+without weakening the assertions or changing production behavior. The corrected full live-menu suite passed at test-only
+`a65238a833900908b631a31cba1fa4569a7a8b9d`, against the exact04ec desktop core.
+Actual native offline setup passed **519 checks/54 translated intents at each
+960×600 and640×480**, including explicit Parkour refusal. Both tool builds had
+zero warnings/errors. All6,430tracked sources,159individually source-matched
+runtime assets and pinned binaries remained unchanged during these runs.
+The four changed paths since04ec are three acceptance files and this evidence
+document; production sources are byte-identical. The native UI tool SHA256 is
+`8b6c21f7401e5e22c1f85583dc6cc659732742c4c6956d92359f27b19099f82e`.
+No screenshots, owned payloads or save data were retained. Receipts are under
 `artifacts/sh-integration/pirate-blaster-final-04ecacaca`.
 Android testing remains skipped for this integration.
 

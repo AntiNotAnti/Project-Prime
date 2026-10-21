@@ -122,11 +122,11 @@ pass at its recorded freeze; native bot accepted fire is established, with bot
 damage/kill unqualified in that earlier freeze. The subsequent explicit
 [Arsenal practice](second-hunt-pirate-blaster-arsenal-practice-2026-10-20.md) adds
 private three-bolt Blaster/shared UA, native damage and240-step marks. Its exact
-Scene/GL/menu/platform checks pass, including reciprocal actual native-bot damage
+desktop Scene/GL/menu and dedicated checks pass, including reciprocal actual native-bot damage
 and a Blaster kill with untouched native AI. Imported Trooper actors/cannons,
 Overcharged runtime cosmetics, online/replay and full character integration
 remain unfinished. Android package checks had finished before the user requested
-skipping further Android testing; Android runtime acceptance remains unqualified.
+skipping further Android testing. Later main PR921/923 integration received desktop-only requalification; its Android dependency/runtime acceptance remains unqualified.
 
 ## Plan coverage and remaining work
 
