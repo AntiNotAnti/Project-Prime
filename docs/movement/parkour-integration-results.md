@@ -32,6 +32,12 @@ Grapple's earlier `2a4f008af59dd167e4824672bf330356a2306f19` failed an incorrect
 
 The hosted build job named “no game assets” subsequently fails later in native Settings acceptance on the integration head: its fixture still expects the Trooper preview to be unsupported after main#948 added support. The actual asset check is not the failing step. This final integration PR changes only that fixture's missing-bundle expectation, including deferred adoption, and retains its no-render-request, ownership and retirement assertions. Isolated Settings verification is separately attributed below; full live-menu remains blocked by the Windows theatre symlink fixture. Production code and qualified movement/network/replay bytes do not change.
 
+## Final fixture qualification
+
+Exact committed producer `9868bfeec772e75dbf33a9ffd34e70670879853d` contains 6,520 files with an empty overlay, based on grapple merge `830fa8407530a003b8eecd3c7eec8b7ac86c31ee`. All 2,228 production `src/` files match the qualified integration producer byte-for-byte. The repaired tool builds from a separate exact source scratch copy against a byte-identical copy of that normal engine, without rebuilding project references. Its supported `--native-settings-acceptance-isolated` child exits0 with 263 logged assertions: 152 Settings and111 character preview, including both missing-Trooper-bundle refusal and deferred adoption. Frozen/scratch source fences pass; all16,650 files in the original producer05 candidate remain unchanged. Exact archive, manifest, tool/engine hashes and log hashes are in the [CI/qualification receipt](evidence/parkour-integration-ci.json). No scratch attempt failed. Publication adds this verification record only.
+
+This isolated Settings result qualifies the repaired fixture. The complete live-menu invocation remains blocked by the unrelated Windows theatre symbolic-link requirement; no complete-menu pass or GL/device coverage follows. [PR #949](https://github.com/AntiNotAnti/Project-Prime/pull/949) contains this final audit and fixture repair; its hosted results are separate from the local qualification and earlier PR heads.
+
 ## Remaining acceptance ledger
 
 | Item | Status and next acceptance action |
