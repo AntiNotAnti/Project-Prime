@@ -30,7 +30,8 @@
 #lobby_map_preview_status { margin-top:4dp; color:#a0b9cb; font-size:12dp; line-height:14dp; white-space:normal; }
 #lobby_map_preview:hover, #lobby_map_preview:focus { border-color:#78caff; background-color:#12364b; }
 #lobby_right_panels { position:absolute; right:24dp; top:16dp; bottom:76dp; width:21%; max-width:320dp; display:flex; flex-direction:column; }
-#lobby_roster_panel { flex:1; min-height:0; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; }
+/* Fit the eight rows; let chat use the remaining right-rail height. */
+#lobby_roster_panel { flex:0 1 auto; min-height:0; display:flex; flex-direction:column; overflow-y:auto; overflow-x:hidden; }
 .lobby_roster_header { flex-shrink:0; display:flex; align-items:center; justify-content:space-between; min-height:24dp; }
 .lobby_roster_header .eyebrow { margin:0; font-size:12dp; letter-spacing:0.5dp; }
 .lobby_roster_count { color:#78caff; font-size:12dp; }
@@ -55,7 +56,7 @@
 .lobby_roster_add_bot:hover, .lobby_roster_add_bot:focus { background-color:#1c4b68; }
 .lobby_roster_row.empty .lobby_roster_copy, .lobby_roster_row.empty .lobby_roster_meta { display:none; }
 .lobby_team:disabled { opacity:1; background-color:transparent; border-color:transparent; }
-#lobby_chat_panel { display:flex; flex-direction:column; flex:0 0 auto; height:124dp; min-height:0; margin-top:12dp; }
+#lobby_chat_panel { display:flex; flex-direction:column; flex:1; min-height:124dp; margin-top:12dp; }
 #lobby_chat_panel > .eyebrow { flex-shrink:0; margin-bottom:4dp; font-size:12dp; }
 #lobby_chat_history { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; white-space:pre-wrap; word-break:break-word; font-size:12dp; line-height:16dp; }
 #lobby_chat_status { flex-shrink:0; color:#ffd18b; font-size:12dp; line-height:14dp; }
@@ -73,10 +74,11 @@
 .lobby_brief_slot.ready { background-color:#25845b; border-color:#8af0ad; }
 .lobby_brief_slot.local { border-top:2dp #ffffff; }
 .lobby_brief_detail { display:none; }
-.lobby_nameplate { position:absolute; width:128dp; min-height:32dp; margin-left:-64dp; padding:4dp; color:#d9efff; text-align:center; background-color:rgba(4,20,31,85%); border-top:2dp #426983; }
+/* Native PositionLobbyNameplates already subtracts half the measured width. */
+.lobby_nameplate { position:absolute; width:128dp; min-height:32dp; margin-left:0; padding:4dp; color:#d9efff; text-align:center; background-color:rgba(4,20,31,85%); border-top:2dp #426983; }
 .lobby_nameplate b { display:block; font-size:12dp; line-height:14dp; overflow:hidden; white-space:nowrap; }
 .lobby_nameplate span { display:block; color:#9ac9dc; font-size:12dp; line-height:14dp; }
-.lobby_nameplate.local { width:152dp; margin-left:-76dp; border-color:#d3efff; }
+.lobby_nameplate.local { width:152dp; border-color:#d3efff; }
 .lobby_nameplate.ready { border-color:#55e18c; }
 .lobby_nameplate:hover, .lobby_nameplate:focus { background-color:#1c4b68; border-color:#78caff; }
 .team0 .lobby_team { color:#ffb647; }.team1 .lobby_team { color:#74ec8c; }.team2 .lobby_team { color:#71c0ff; }.team3 .lobby_team { color:#e69aff; }
@@ -114,7 +116,7 @@
     #lobby_right_panels { top:12dp; }
     #lobby_brief { display:none; }
     #lobby_map_image { height:72dp; }
-    #lobby_chat_panel { height:104dp; margin-top:8dp; }
+    #lobby_chat_panel { min-height:104dp; margin-top:8dp; }
     .lobby_roster_row { min-height:34dp; }
 }
 @media (max-width:560dp) {
@@ -125,13 +127,13 @@
     #lobby_leave { left:8dp; width:20%; min-width:0; font-size:14dp; }
 }
 body.touch-targets .lobby_roster_row { min-height:52dp; }
-body.touch-targets #lobby_chat_panel { height:148dp; }
+body.touch-targets #lobby_chat_panel { min-height:148dp; }
 body.touch-targets .lobby_chat_compose, body.touch-targets #lobby_chat_input, body.touch-targets #lobby_chat_send { height:48dp; }
 /* Fractional UI scales round roster text upward. Budget for all eight rows at
    standard 720dp height by giving history less space, preserving compose size. */
 @media (min-height:601dp) and (max-height:760dp) {
-    #lobby_chat_panel { height:112dp; }
-    body.touch-targets #lobby_chat_panel { height:148dp; }
+    #lobby_chat_panel { min-height:112dp; }
+    body.touch-targets #lobby_chat_panel { min-height:148dp; }
 }
 /* On very short surfaces the roster header and chat can exceed the available
    column height. Scroll the whole column rather than shrinking rows to zero. */

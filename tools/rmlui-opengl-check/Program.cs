@@ -13,6 +13,9 @@ static void Check(bool condition, string name)
     Console.WriteLine("RMLUI GL PASS " + name);
 }
 
+if (args.Length == 2 && args[0] == "--lobby-geometry")
+    return LobbyGeometryAcceptance.Run(args[1]);
+
 if (args.Length == 2 && args[0] == "--hunter-presenter-contract")
     return HunterPresenterContractAcceptance.Run(args[1]);
 
