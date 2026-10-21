@@ -15,7 +15,7 @@ public partial class PlayerEntity
     {
         ModRetireSourceDrone();_sourceDrone=new(_scene,this,selection);
     }
-    private void ModRetireSourceDrone(){_sourceDrone?.Dispose();_sourceDrone=null;}
+    private void ModRetireSourceDrone(){_sourceDrone?.Dispose();_sourceDrone=null;ModRetireSourceArsenalDrone();}
     // Presentation reads existing native clocks; it never owns attack or damage.
     // Native Weavel flash remains complete fallback at ages0..3. Source hit
     // tail ends before72, matching the original float1.2f duration boundary.
@@ -30,20 +30,32 @@ public partial class PlayerEntity
         &&CharacterSourceDronePose.Supports(ModSourceDroneState,ModSourceDroneFrame);
     private bool ModTryDrawSourceDrone(Vector3 drawPosition,Vector3 drawFacing,Vector4? color,Vector4? outline)
     {
-        if(_sourceDrone is not { } owner||!SourceDroneStateSupported||color!=null||outline!=null
+        if((_sourceDrone==null&&_sourceArsenalDrone==null)||!SourceDroneStateSupported||color!=null||outline!=null
             ||_curAlpha!=1||!RenderOptions.ShowCustomCosmetics)return false;
         // Source-only clamped aim from SecondHunt DroneBody (MIT, NoneGiven 2020).
         // Keep the native fallback transform and gameplay aim untouched.
         Vector3 lateral=NormalizeSpatialOr(new Vector3(drawFacing.X,0,drawFacing.Z),Vector3.UnitZ);
         float sine=Math.Clamp(drawFacing.Y,-Fixed.ToFloat(2896),Fixed.ToFloat(2896));
         Vector3 facing=lateral*MathF.Sqrt(1-sine*sine)+Vector3.UnitY*sine;
-        if(!owner.Prepare(GetTransformMatrix(facing,Vector3.UnitY,drawPosition.AddY(Fixed.ToFloat(Values.AltColYPos))),out var presentation))return false;
-        var model=owner.Model;int polygonId=_scene.GetNextPolygonId();var previous=_scene.SourceGxSubmission;
+        Matrix4 nativeFacing=GetTransformMatrix(facing,Vector3.UnitY,drawPosition.AddY(Fixed.ToFloat(Values.AltColYPos)));
+        CharacterWeightedRenderModel model;ICharacterSourcePresentationOwner owner;double seconds;Matrix4 presentation;
+        if(_sourceArsenalDrone is { } arsenal)
+        {
+            if(!arsenal.Prepare(nativeFacing,out presentation))return false;
+            model=arsenal.Model;owner=arsenal;seconds=arsenal.MaterialSeconds;
+        }
+        else if(_sourceDrone is { } solo)
+        {
+            if(!solo.Prepare(nativeFacing,out presentation))return false;
+            model=solo.Model;owner=solo;seconds=solo.MaterialSeconds;
+        }
+        else return false;
+        int polygonId=_scene.GetNextPolygonId();var previous=_scene.SourceGxSubmission;
         try
         {
             foreach(var segment in model.Segments)
             {
-                _scene.SourceGxSubmission=new(segment.SourceGx!,owner.MaterialSeconds,owner,AlternateForm:true);
+                _scene.SourceGxSubmission=new(segment.SourceGx!,seconds,owner,AlternateForm:true);
                 _scene.AddRenderItem(_droneModel!.Model.Materials[segment.NativeMaterialIndex],polygonId,1,Vector3.Zero,
                     GetLightInfo(),Matrix4.Identity,presentation,segment.ListId,segment.SourceJointPalette!.Count,
                     segment.SourcePresentationPalette!,null,null,SelectionType.None,BillboardMode.None,1,segment.AlbedoBinding,

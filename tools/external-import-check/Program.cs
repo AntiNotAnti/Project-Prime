@@ -50,6 +50,10 @@ try
         return CharacterDroneRuntimeOwnedProbe.Run(args[1], probeBurst: true, probeLaser: true, probeMovement: true, probeHit: true);
     if (args.Length == 2 && args[0] == "--probe-character-arsenal-runtime")
         return CharacterArsenalRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-arsenal-drone-runtime")
+        return CharacterArsenalDroneRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-arsenal-drone-cpu")
+        return CharacterArsenalDroneRuntimeOwnedProbe.Run(args[1], cpuOnly: true);
     if (args.Length == 2 && args[0] == "--probe-character-drone-baseline")
         return CharacterDroneSourceOwnedProbe.Run(args[1], captureBaseline: true);
     if (args.Length == 2 && args[0] == "--probe-character-normal-ball-runtime")

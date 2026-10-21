@@ -101,6 +101,8 @@ namespace MphRead.Mods.Launcher
             { LastError = droneReason; return false; }
             if (!LocalArsenalBodyRules.TryAdmit(plan, out string arsenalBodyReason))
             { LastError = arsenalBodyReason; return false; }
+            if (!LocalArsenalDroneRules.TryAdmit(plan, out string arsenalDroneReason))
+            { LastError = arsenalDroneReason; return false; }
             Chat.ChatBox.Clear();
             if (plan.Kind == LaunchKind.Online)
             {
@@ -219,6 +221,18 @@ namespace MphRead.Mods.Launcher
                 catch (Exception ex) when (ex is not (OutOfMemoryException or AccessViolationException))
                 { LastError = "Update the selected Arsenal body import before launching: " + ex.Message; return false; }
             }
+            Render.Characters.CharacterSourceArsenalDroneSelection? arsenalDrone = null;
+            if (LocalDroneAppearanceRules.BundleId(plan.LocalArsenalDrone) is { } arsenalDroneId)
+            {
+                try
+                {
+                    arsenalDrone = System.Threading.Tasks.Task.Run(() =>
+                        Render.Characters.CharacterSourceArsenalDroneSelection.Load(
+                            arsenalDroneId, System.Threading.CancellationToken.None)).GetAwaiter().GetResult();
+                }
+                catch (Exception ex) when (ex is not (OutOfMemoryException or AccessViolationException))
+                { LastError = "Update the selected Arsenal drone import before launching: " + ex.Message; return false; }
+            }
             EnsureScene(window);
             // The server's rotation decides the mode as well as the map; a
             // client that kept its own menu choice would score a different
@@ -277,9 +291,9 @@ namespace MphRead.Mods.Launcher
             if (plan.Kind == LaunchKind.AimTrainer)
                 Training.AimTrainerSession.Attach(window.Scene, plan);
             window.LoadScene();
-            if (arsenalBody != null)
+            if (arsenalBody != null || arsenalDrone != null)
             {
-                try { window.Scene.Players.Main.ModBindSourceArsenalBody(arsenalBody, plan.Bots); }
+                try { window.Scene.Players.Main.ModBindSourceArsenalPresentation(arsenalBody, arsenalDrone, plan.Bots); }
                 catch (Exception ex) when (ex is not (OutOfMemoryException or AccessViolationException))
                 { LastError = ex.Message; window.EndScene(); return false; }
             }

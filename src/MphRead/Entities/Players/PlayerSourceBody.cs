@@ -41,6 +41,7 @@ public partial class PlayerEntity
     internal void ModStepSourceBody()
     {
         _sourceDrone?.Step(_scene.FrameCount,_sourceBodyLife,SourceDroneStateSupported);
+        _sourceArsenalDrone?.Step(_scene.FrameCount, _sourceBodyLife, SourceDroneStateSupported);
         ModStepSourceArsenalBody();
         if (_sourceBody == null) return;
         _sourceBody.Step(_scene.FrameCount, _sourceBodyLife, Biped1Anim, _bipedModel1.AnimInfo.Frame[0],
