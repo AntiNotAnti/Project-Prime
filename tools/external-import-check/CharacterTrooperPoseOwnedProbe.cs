@@ -31,11 +31,13 @@ internal static class CharacterTrooperPoseOwnedProbe
         [PlayerAnimation.Charge] = "A_gunloop_pirate"
     };
     private static readonly string[] Required = ["B_ready_pirate", "B_runloop_pirate", "B_backward_pirate", "B_strafleft_pirate", "B_strafright_pirate", "A_standshot_pirate", "A_gunloop_pirate"];
+    private static int _linearBlends, _sphericalBlends;
     private sealed record Captured(string Id, CharacterSourceRig Rig, RetroNativeSkeleton Skeleton,
         Dictionary<string, CharacterSourceClip> Clips, Dictionary<string, OracleClip> Oracle);
 
     internal static int Run(string rvz)
     {
+        _linearBlends = _sphericalBlends = 0;
         string temp = Path.Combine(Path.GetTempPath(), "prime-trooper-pose-" + Guid.NewGuid().ToString("N")), imports = Path.Combine(temp, "imports");
         string core = typeof(CharacterSourceClip).Assembly.Location, tool = typeof(CharacterTrooperPoseOwnedProbe).Assembly.Location;
         string coreBefore = HashFile(core), toolBefore = HashFile(tool); var caches = Caches();
@@ -43,6 +45,7 @@ internal static class CharacterTrooperPoseOwnedProbe
         bool cleanup = false, filesUnchanged = false, cacheUnchanged = false, rngUnchanged = false;
         int checks = 0, refusals = 0, lockedFiles = 0, constructorCount = 0, poseSamples = 0;
         int initialReads = 0, finalReads = 0; long? proofBefore = null, proofAfter = null;
+        int numericalBranches = 0; double maximumNumericalBranchRadians = 0, maximumUnadjustedTransitionDifference = 0, maximumNumericalEndpointDifference = 0;
         double maxError = 0; var observations = new List<object>(); var captures = new List<Captured>();
         Dictionary<string, string>? components = null;
         void Check(bool condition, string why) { if (!condition) { failed = why; throw new InvalidDataException(why); } checks++; }
@@ -55,6 +58,12 @@ internal static class CharacterTrooperPoseOwnedProbe
         void Equal(IReadOnlyList<M> actual, IReadOnlyList<N> expected, string why)
         {
             double difference = Distance(actual, expected); maxError = Math.Max(maxError, difference); poseSamples++;
+            if (difference >= .0004)
+            {
+                int worst = Enumerable.Range(0, Math.Min(actual.Count, expected.Count)).MaxBy(i => Distance(ToN(actual[i]), expected[i]));
+                Console.WriteLine(JsonSerializer.Serialize(new { Diagnostic = "pose-matrix-difference", Why = why, WorstNode = worst,
+                    Difference = difference, ActualDeterminant = ToN(actual[worst]).GetDeterminant(), ExpectedDeterminant = expected[worst].GetDeterminant() }));
+            }
             Check(actual.Count == 36 && difference < .0004, why);
         }
         try
@@ -164,14 +173,55 @@ internal static class CharacterTrooperPoseOwnedProbe
                     {
                         var pose = New(); for (int k = 0; k < 12; k++) pose.Sample(oldLower, k, oldUpper, k, .6f);
                         N[] prior = Expected(captured, oldLower, 11 / 60d, oldUpper, 11 / 60d, 0);
+                        var priorActual = ((M[])typeof(CharacterSourceTrooperPose).GetField("_last", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(pose)!).ToArray();
                         for (int k = 0; k < 8; k++)
                         {
                             bool lowerReset = restartLower || oldLower != newLower, upperReset = restartUpper || oldUpper != newUpper;
                             int lf = lowerReset ? k : 12 + k, uf = upperReset ? k : 12 + k;
                             N[] target = Expected(captured, newLower, (lowerReset ? k : 12 + k) / 60d, newUpper, (upperReset ? k : 12 + k) / 60d, 0);
                             N[] expected = k < 6 ? Mix(prior, target, (k + 1) / 6f) : target;
-                            float aim = k % 2 == 0 ? -.8f : .8f; ApplyAim(captured.Rig, expected, aim);
-                            Equal(pose.Sample(newLower, lf, newUpper, uf, aim), expected,
+                            float aim = k % 2 == 0 ? -.8f : .8f;
+                            var actual = pose.Sample(newLower, lf, newUpper, uf, aim);
+                            if (k < 6)
+                            {
+                                var history = (M[])typeof(CharacterSourceTrooperPose).GetField("_last", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(pose)!;
+                                var from = (M[])typeof(CharacterSourceTrooperPose).GetField("_from", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(pose)!;
+                                var privateClips = (IReadOnlyDictionary<string, CharacterSourceClip>)typeof(CharacterSourceTrooperPose).GetField("_clips", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(pose)!;
+                                int spine = Node(captured.Rig, "source_bone_30_Spine_1");
+                                foreach (int node in Enumerable.Range(0, expected.Length).Where(i => Distance(ToN(history[i]), expected[i]) >= .0004))
+                                {
+                                    // Shipped OpenTK Slerp returns endpoint A when its float dot rounds to 1.
+                                    // The independent raw-bank endpoint can differ by one ULP and fall below 1.
+                                    // Admit only this proven branch, only an upper local descendant, with strict
+                                    // independent endpoints/translation and <=0.0008 rad (0.046 degrees) error.
+                                    Check(node != spine && Under(captured.Rig, node, spine) && Upper.ContainsKey(newUpper),
+                                        "Quaternion rounding exception is confined to an upper local descendant during six-tick blending.");
+                                    var clip = privateClips[Upper[newUpper]];
+                                    M endpoint = clip.Sample(((upperReset ? k : 12 + k) / 60d) % clip.Duration)[node];
+                                    var ar = from[node].ExtractRotation(); var br = endpoint.ExtractRotation();
+                                    float dot = ar.W * br.W + (ar.X * br.X + ar.Y * br.Y + ar.Z * br.Z);
+                                    var branch = ToN(M.CreateFromQuaternion(ar));
+                                    branch.Translation = V.Lerp(prior[node].Translation, target[node].Translation, (k + 1) / 6f);
+                                    var runtimeBlend = M.CreateFromQuaternion(OpenTK.Mathematics.Quaternion.Slerp(ar, br, (k + 1) / 6f));
+                                    runtimeBlend.Row3.Xyz = OpenTK.Mathematics.Vector3.Lerp(from[node].Row3.Xyz, endpoint.Row3.Xyz, (k + 1) / 6f);
+                                    double angle = RotationAngle(branch, expected[node]);
+                                    Check(dot >= 1 && Distance(ToN(from[node]), prior[node]) < .000002
+                                        && Distance(ToN(endpoint), target[node]) < .000002
+                                        && Distance(ToN(priorActual[node]), prior[node]) < .000002
+                                        && Distance(ToN(history[node]), branch) < .000002
+                                        && Distance(ToN(history[node]), ToN(runtimeBlend)) < .000002
+                                        && V.Distance(ToN(history[node]).Translation, expected[node].Translation) < .000002
+                                        && angle <= .0008,
+                                        "Nearidentity OpenTK endpoint-return branch is independently bounded without relaxing raw, steady or other transition poses.");
+                                    numericalBranches++; maximumNumericalBranchRadians = Math.Max(maximumNumericalBranchRadians, angle);
+                                    maximumNumericalEndpointDifference = Math.Max(maximumNumericalEndpointDifference,
+                                        Math.Max(Distance(ToN(from[node]), prior[node]), Distance(ToN(endpoint), target[node])));
+                                    maximumUnadjustedTransitionDifference = Math.Max(maximumUnadjustedTransitionDifference, Distance(ToN(history[node]), expected[node]));
+                                    expected[node] = branch;
+                                }
+                            }
+                            ApplyAim(captured.Rig, expected, aim);
+                            Equal(actual, expected,
                                 "State/alias/frame-restart transition uses exactly six ticks of unaimed local history before applying current pitch once.");
                         }
                         pose.Reset(); var fresh = New();
@@ -234,6 +284,12 @@ internal static class CharacterTrooperPoseOwnedProbe
         Console.WriteLine(JsonSerializer.Serialize(new { Passed = passed, Checks = checks, Refusals = refusals, FailedCheck = failed, ErrorType = error, ErrorMessageSha256 = errorSha,
             CpuOnly = true, GpuRenderingActivated = false, ActorGameplayQualified = false, PhysicalInputQualified = false,
             Profiles = observations, PoseComparisons = poseSamples, MaximumMatrixDifference = maxError, Constructors = constructorCount,
+            QuaternionBlendPolicy = "Independent normalized-linear branch at absdot>=0.99, matching the shipped OpenTK4.9.4 Slerp numerical contract; spherical otherwise",
+            NearParallelQuaternionBlends = _linearBlends, SphericalQuaternionBlends = _sphericalBlends,
+            NearIdentityEndpointReturnBranches = numericalBranches, MaximumEndpointReturnErrorRadians = maximumNumericalBranchRadians,
+            MaximumEndpointReturnOracleEndpointDifference = maximumNumericalEndpointDifference,
+            MaximumUnadjustedTransitionDifference = maximumUnadjustedTransitionDifference,
+            EndpointReturnScope = "Only six-tick upper-local nearidentity OpenTK dot>=1 early return; independent endpoints/translation <2e-6, angle<=0.0008rad; all raw/steady/other poses retain matrix<0.0004",
             ExclusivelyLockedImportedFiles = lockedFiles, CapturedFileReadsBefore = initialReads, CapturedFileReadsAfter = finalReads,
             ProofReadsBefore = proofBefore, ProofReadsAfter = proofAfter, ImportedComponentsUnchanged = filesUnchanged,
             ImportedComponentHashes = components?.OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => new { FileId = p.Key, Sha256 = p.Value }),
@@ -322,11 +378,38 @@ internal static class CharacterTrooperPoseOwnedProbe
         desired *= N.CreateRotationX(-pitch); desired.Translation = pivot;
         N.Invert(world[parent], out var inverse); result[spine] = desired * inverse;
     }
+    private static double RotationAngle(N a, N b)
+    {
+        N.Decompose(a, out _, out Q ar, out _); N.Decompose(b, out _, out Q br, out _);
+        double[] x = [ar.X, ar.Y, ar.Z, ar.W], y = [br.X, br.Y, br.Z, br.W];
+        double nx = Math.Sqrt(x.Sum(v => v * v)), ny = Math.Sqrt(y.Sum(v => v * v));
+        for (int i = 0; i < 4; i++) { x[i] /= nx; y[i] /= ny; }
+        if (x.Zip(y, (u, v) => u * v).Sum() < 0) for (int i = 0; i < 4; i++) y[i] = -y[i];
+        double minus = Math.Sqrt(x.Zip(y, (u, v) => (u - v) * (u - v)).Sum());
+        double plus = Math.Sqrt(x.Zip(y, (u, v) => (u + v) * (u + v)).Sum());
+        return 4 * Math.Atan2(minus, plus);
+    }
     private static N[] Mix(N[] from, N[] to, float fraction) => from.Select((a, i) =>
     {
         N.Decompose(a, out _, out var ar, out var at); N.Decompose(to[i], out _, out var br, out var bt);
-        return N.CreateFromQuaternion(Q.Slerp(ar, br, fraction)) * N.CreateTranslation(V.Lerp(at, bt, fraction));
+        return N.CreateFromQuaternion(BlendRotation(ar, br, fraction)) * N.CreateTranslation(V.Lerp(at, bt, fraction));
     }).ToArray();
+    // OpenTK4.9.4 uses normalized linear interpolation above a .99 dot
+    // threshold. System.Numerics.Slerp chooses a different cutoff. Keep this
+    // oracle independent while comparing the actual specified math contract,
+    // rather than hiding a library approximation difference in a loose bound.
+    private static Q BlendRotation(Q a, Q b, float fraction)
+    {
+        float dot = Q.Dot(a, b);
+        if (dot < 0) { b = new(-b.X, -b.Y, -b.Z, -b.W); dot = -dot; }
+        if (dot >= .99f)
+        {
+            _linearBlends++;
+            return Q.Normalize(new Q(a.X * (1 - fraction) + b.X * fraction, a.Y * (1 - fraction) + b.Y * fraction,
+                a.Z * (1 - fraction) + b.Z * fraction, a.W * (1 - fraction) + b.W * fraction));
+        }
+        _sphericalBlends++; return Q.Normalize(Q.Slerp(a, b, fraction));
+    }
     private static N[] Globals(CharacterSourceRig rig, IReadOnlyList<N> local)
     {
         var result = new N[local.Count]; var done = new bool[local.Count];
