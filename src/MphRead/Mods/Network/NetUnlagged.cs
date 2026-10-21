@@ -1229,6 +1229,56 @@ namespace MphRead.Mods.Network
         public static long CatchUpTruncations { get; private set; }
         public static int MaximumCatchUpSteps { get; private set; }
 
+        // These two helpers are also used by native asset regressions to
+        // exercise pool reuse and child adoption without changing live timing.
+        internal static int MarkNewCatchUpFlights(BeamProjectileEntity[] beams, out ShotKey launchedKey)
+        {
+            int newCount = 0;
+            launchedKey = default;
+            for (int i = 0; i < beams.Length; i++)
+            {
+                BeamProjectileEntity beam = beams[i];
+                bool oldFlight = _beamsBefore[i] && _beamPriorKeys[i] == beam.ModLaunchKey
+                    && _beamPriorComponents[i] == beam.ModComponentId;
+                if (!oldFlight && beam.Lifespan > 0)
+                {
+                    _beamsBefore[i] = true;
+                    _beamTrackedKeys[i] = beam.ModLaunchKey;
+                    _beamTrackedComponents[i] = beam.ModComponentId;
+                    if (launchedKey.ShotId == 0 && beam.ModLaunchKey.ShotId != 0)
+                        launchedKey = beam.ModLaunchKey;
+                    newCount++;
+                }
+                else _beamsBefore[i] = false;
+            }
+            return newCount;
+        }
+
+        internal static int AdoptDerivedCatchUp(BeamProjectileEntity[] beams, in ShotKey launchedKey)
+        {
+            if (launchedKey.ShotId == 0) return 0;
+            int adopted = 0;
+            for (int i = 0; i < beams.Length; i++)
+            {
+                if (_beamsBefore[i]) continue;
+                BeamProjectileEntity child = beams[i];
+                bool oldFlight = _beamPriorKeys[i] == child.ModLaunchKey
+                    && _beamPriorComponents[i] == child.ModComponentId;
+                bool alreadyProcessed = _beamTrackedKeys[i] == child.ModLaunchKey
+                    && _beamTrackedComponents[i] == child.ModComponentId;
+                if (child.Lifespan <= 0 || child.Flags.TestFlag(BeamFlags.Collided)
+                    || oldFlight || alreadyProcessed
+                    || !CatchUpDerivedFrom(launchedKey, child.ModLaunchKey, child.ModComponentId))
+                    continue;
+                _beamsBefore[i] = true;
+                _beamTrackedKeys[i] = child.ModLaunchKey;
+                _beamTrackedComponents[i] = child.ModComponentId;
+                adopted++;
+                DerivedCatchUpSpawns++;
+            }
+            return adopted;
+        }
+
         public static void AbortShot()
         {
             try { Restore(); }
@@ -1254,27 +1304,7 @@ namespace MphRead.Mods.Network
             }
             int slot = shooter.SlotIndex;
             BeamProjectileEntity[] beams = _shotBeams ?? shooter.EquipInfo.Beams;
-            int newCount = 0;
-            ShotKey launchedKey = default;
-            for (int i = 0; i < beams.Length; i++)
-            {
-                BeamProjectileEntity beam = beams[i];
-                bool oldFlight = _beamsBefore[i] && _beamPriorKeys[i] == beam.ModLaunchKey
-                    && _beamPriorComponents[i] == beam.ModComponentId;
-                if (!oldFlight && beam.Lifespan > 0)
-                {
-                    _beamsBefore[i] = true; // reused as "this one is ours, and still going"
-                    _beamTrackedKeys[i] = beam.ModLaunchKey;
-                    _beamTrackedComponents[i] = beam.ModComponentId;
-                    if (launchedKey.ShotId == 0 && beam.ModLaunchKey.ShotId != 0)
-                        launchedKey = beam.ModLaunchKey;
-                    newCount++;
-                }
-                else
-                {
-                    _beamsBefore[i] = false;
-                }
-            }
+            int newCount = MarkNewCatchUpFlights(beams, out ShotKey launchedKey);
             if (newCount == 0)
             {
                 // Nothing spawned: out of ammo, or a continuous beam being
@@ -1349,27 +1379,7 @@ namespace MphRead.Mods.Network
                 // step so no child can be advanced in its birth frame. They
                 // receive every remaining historical frame on the next pass.
                 // Never pull in pre-existing shots or unrelated pool occupants.
-                if (launchedKey.ShotId != 0)
-                {
-                    for (int i = 0; i < beams.Length; i++)
-                    {
-                        if (_beamsBefore[i]) continue;
-                        BeamProjectileEntity child = beams[i];
-                        bool oldFlight = _beamPriorKeys[i] == child.ModLaunchKey
-                            && _beamPriorComponents[i] == child.ModComponentId;
-                        bool alreadyProcessed = _beamTrackedKeys[i] == child.ModLaunchKey
-                            && _beamTrackedComponents[i] == child.ModComponentId;
-                        if (child.Lifespan <= 0 || child.Flags.TestFlag(BeamFlags.Collided)
-                            || oldFlight || alreadyProcessed
-                            || !CatchUpDerivedFrom(launchedKey, child.ModLaunchKey, child.ModComponentId))
-                            continue;
-                        _beamsBefore[i] = true;
-                        _beamTrackedKeys[i] = child.ModLaunchKey;
-                        _beamTrackedComponents[i] = child.ModComponentId;
-                        newCount++;
-                        DerivedCatchUpSpawns++;
-                    }
-                }
+                newCount += AdoptDerivedCatchUp(beams, launchedKey);
             }
             MaximumCatchUpSteps = Math.Max(MaximumCatchUpSteps, completed);
             Restore();
