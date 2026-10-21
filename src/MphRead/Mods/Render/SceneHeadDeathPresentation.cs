@@ -13,7 +13,8 @@ public partial class Scene
 {
     private sealed class HeadDeathSlot
     {
-        internal readonly HeadDeathTrack Track=new();
+        internal readonly HeadDeathTrack Track;
+        internal HeadDeathSlot(HeadDeathTrack? track=null) => Track=track??new();
         internal HeadHitFact Pending;
         internal uint PendingAt;
         internal bool PendingHead,PendingEligible,AliveSeen,WasFrozen,WasAlt,Anchored,DeadBlocked,PhysicalAttempted;

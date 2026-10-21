@@ -74,7 +74,7 @@ internal readonly record struct HeadHitPose(float Amount,Vector3 Direction);
 
 // Fixed-step cosmetic state. Dedupe consumes even suppressed events; a quality
 // toggle cannot replay a head hit. A full bounded ledger refuses new events.
-internal sealed class HeadHitTrack
+internal sealed partial class HeadHitTrack
 {
     internal const uint MaximumAge=18, Retention=120;
     internal const int Capacity=32, Duration=18;

@@ -1504,18 +1504,25 @@ namespace MphRead.Effects
                 bool sampled = _drawPoseActive && _drawPose != CanonicalDrawPose;
                 Vector3 canonicalDiffuse = material.CurrentDiffuse;
                 float canonicalAlpha = material.CurrentAlpha;
-                Debug.Assert(model.NodeMatrixIds.Count == 0);
-                if (!sampled || _canonicalDrawCache.Visible)
-                {
-                    material.CurrentDiffuse = new Vector3(Red, Green, Blue);
-                    material.CurrentAlpha = Alpha;
-                    scene.UpdateMaterials(model, 0);
-                    canonicalDiffuse = material.CurrentDiffuse;
-                    canonicalAlpha = material.CurrentAlpha;
-                }
                 RenderMode canonicalMode = material.RenderMode;
+                Debug.Assert(model.NodeMatrixIds.Count == 0);
                 try
                 {
+                    if (!sampled || _canonicalDrawCache.Visible)
+                    {
+                        material.CurrentDiffuse = new Vector3(Red, Green, Blue);
+                        material.CurrentAlpha = Alpha;
+                        scene.UpdateMaterials(model, 0);
+                        // Live rendering retains its existing canonical surface.
+                        // A private replica must return the shared effect model
+                        // to its pre-picture values even for an unsampled draw.
+                        if (!scene.Services.IsReplica)
+                        {
+                            canonicalDiffuse = material.CurrentDiffuse;
+                            canonicalAlpha = material.CurrentAlpha;
+                            canonicalMode = material.RenderMode;
+                        }
+                    }
                     if (sampled)
                     {
                         material.CurrentDiffuse = Color;
@@ -1528,7 +1535,7 @@ namespace MphRead.Effects
                 }
                 finally
                 {
-                    if (sampled)
+                    if (sampled || scene.Services.IsReplica)
                     {
                         material.CurrentDiffuse = canonicalDiffuse;
                         material.CurrentAlpha = canonicalAlpha;

@@ -23,7 +23,7 @@ public partial class Scene
             || replay.State.CustomWeaponDescriptor is not { } descriptor || !HasReplayWeaponPackage(descriptor)) return false;
         custom = state; return true;
     }
-    private void UpdateReplayCustomWeaponPresentation()
+    private void UpdateReplayCustomWeaponPresentation(bool offerContacts = true)
     {
         if (_customHudStates != null) Array.Clear(_customHudStates);
         _replayCustomContactCount = _replayCustomFlightCount = 0;
@@ -45,7 +45,7 @@ public partial class Scene
         uint frame = replay.Session.RecordingFrame;
         _replayCustomContactCount = custom.CopyContacts(_replayCustomContacts,
             frame > HeadDeathTrack.MaximumDuration ? frame - HeadDeathTrack.MaximumDuration : 0, frame);
-        for (int i = 0; i < _replayCustomContactCount; i++)
+        for (int i = 0; offerContacts && i < _replayCustomContactCount; i++)
         {
             var contact = _replayCustomContacts[i]; var hit = contact.Outcome; var victim = hit.Contact.Key.Victim;
             if (victim.Slot >= Players.Items.Count || !replay.State.MatchesLife(victim.Slot, victim.Generation, victim.Life)) continue;
@@ -87,13 +87,13 @@ public partial class Scene
     }
     private void ReleaseReplayCustomPresentation()
     { _replayCustomContacts = null; _replayCustomFlights = null; _replayCustomContactCount = _replayCustomFlightCount = 0; }
-    internal void RebuildReplayCustomPresentation()
+    internal void RebuildReplayCustomPresentation(bool retainHeadHistory = false)
     {
         // A fresh unpublished Scene only: rebuild derived cosmetics without a
         // simulation tick, input, world clock, RNG or health advance.
         ReleaseCustomWeaponPresentation();
-        ReleaseHeadHitPresentation(); ReleaseHeadDeathPresentation();
-        UpdateReplayCustomWeaponPresentation();
-        StepHeadHitPresentation(); StepHeadDeathPresentation();
+        if (!retainHeadHistory) { ReleaseHeadHitPresentation(); ReleaseHeadDeathPresentation(); }
+        UpdateReplayCustomWeaponPresentation(offerContacts: !retainHeadHistory);
+        if (!retainHeadHistory) { StepHeadHitPresentation(); StepHeadDeathPresentation(); }
     }
 }

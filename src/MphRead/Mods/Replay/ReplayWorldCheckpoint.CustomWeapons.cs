@@ -38,7 +38,7 @@ internal sealed partial class ReplayWorldCheckpoint
     private static byte[] CustomWorldAppendix(ReplayReplicaState state)
     {
         if (state.CustomWeaponDescriptor == null || state.CustomWeapons is not { CompleteForRestore: true } custom)
-            throw new InvalidDataException("A complete custom decoder is required by world12.");
+            throw new InvalidDataException("A complete custom decoder is required by custom saved worlds.");
         byte[] bytes = new byte[CustomWorldAppendixSize]; "CWW1"u8.CopyTo(bytes);
         BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(4), 1);
         SHA256.HashData(state.CustomWeaponDescriptor.CopyBytes(), bytes.AsSpan(8, 32));
@@ -57,7 +57,14 @@ internal sealed partial class ReplayWorldCheckpoint
             || !CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(metadata.CustomWeapons.CopyBytes())
             || HasTimedShotContract != metadata.TimedShotCertificates
             || metadata.IndexedFireContinuation is { } indexed && indexed != IndexedFirePresentation)
-            throw new InvalidDataException("World12 differs from its custom archive capability.");
+            throw new InvalidDataException("Custom world differs from its archive capability.");
+        if (metadata.WorldCheckpoint.Length != 0)
+        {
+            using var baseline = FromCustomBytes(metadata.WorldCheckpoint, metadata.BuildId);
+            if (HasHeadHistoryContract != baseline.HasHeadHistoryContract || HeadHistoryOrigin != baseline.HeadHistoryOrigin)
+                throw new InvalidDataException("Custom checkpoint head-history contract differs from its archive baseline.");
+        }
+        else if (HasHeadHistoryContract) throw new InvalidDataException("Head-history worlds require an explicit archive baseline.");
         if (ReplayReplicaState.InspectCustomCheckpointLayout(ConstructionState()).Protocol != metadata.ProtocolVersion
             || ReplayReplicaState.InspectCustomCheckpointLayout(DecoderState()).Protocol != metadata.ProtocolVersion)
             throw new InvalidDataException("Custom world decoder protocol differs from its archive.");
