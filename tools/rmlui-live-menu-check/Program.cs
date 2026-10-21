@@ -242,8 +242,11 @@ for (int i = 0; i < RmlUiRuleEditor.ChoiceCount; i++)
         Check(editor.Toggle(i) && editor.MovementLabel == "Momentum"
             && editor.Toggle(i) && editor.MovementLabel == "Quake III"
             && editor.Toggle(i) && editor.MovementLabel == "Traversal"
+            && editor.Toggle(i) && editor.MovementLabel == "Parkour"
+            && editor.Draft.Match.MovementModel == MovementModel.Parkour
             && editor.Toggle(i) && editor.Draft.Match.MovementModel == beforeMovement
-            && editor.MovementLabel == "Classic", "movement choice completes its four-way cycle");
+            && editor.Draft.Match.MovementModel == MovementModel.Native
+            && editor.MovementLabel == "Classic", "movement choice completes its five-way cycle with explicit Parkour then Classic");
     }
     else
     {
@@ -269,9 +272,14 @@ Check(movementEditor.Toggle(17) && movementEditor.IsOn(17)
     && movementEditor.MovementLabel == "Traversal"
     && movementEditor.Draft.Match.MovementModel == MovementModel.Traversal
     && movementEditor.Validate(out _)
+    && movementEditor.Toggle(17) && movementEditor.IsOn(17)
+    && movementEditor.MovementLabel == "Parkour"
+    && movementEditor.Draft.Match.MovementModel == MovementModel.Parkour
+    && movementEditor.Validate(out _)
     && movementEditor.Toggle(17) && !movementEditor.IsOn(17)
+    && movementEditor.Draft.Match.MovementModel == MovementModel.Native
     && movementEditor.MovementLabel == "Classic"
-    && movementEditor.Toggle(17), "movement editor cycles all four choices with valid Quake III draft");
+    && movementEditor.Toggle(17), "movement editor cycles all five choices with valid Quake III, Traversal and Parkour drafts");
 Check(movementEditor.NextMode() && movementEditor.NextFormat()
     && movementEditor.TrySelectMap("MP2 HARVESTER", out _)
     && movementEditor.TrySetLimits("8:20", "10", out _)

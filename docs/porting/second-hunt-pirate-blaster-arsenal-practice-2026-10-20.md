@@ -84,16 +84,19 @@ it does not copy the donor’s live-pool eviction hazard.
 
 ## Frozen verification
 
-Production is frozen at `c3e39ac76ab72f36f94407ebc6e84e83d56ede90`, including main
-through PR920. Later commits change acceptance tests and documentation only.
-Production source equality is independently checked; a later test-only HEAD
-is not presented as the source of an earlier whole binary. Receipts retain
+The initial feature freeze was `c3e39ac76ab72f36f94407ebc6e84e83d56ede90`,
+including main through PR920. Subsequent acceptance fixes did not change its
+production owners. Main PR921/922 were then integrated at
+`67bf7cef968db50e890e9763a0ea717964a8deae`; that combined desktop binary was
+rebuilt and requalified separately below. Source equality is independently
+checked; no earlier binary is presented as qualifying later main changes. Receipts retain
 commands, source projections, exact tool hashes, failures and temporary-context
 cleanup. The original dirty checkout is untouched.
 
-Desktop Release core:
+Initial desktop Release core:
 `bf8186997fc99e625ea2adf690c85c1082251376e91d5f518fa3c8ff0a4a85ee`.
-Build passed with one inherited CS0649 warning and zero errors.
+Build passed with one inherited CS0649 warning and zero errors. The following
+table records that initial qualification; the final desktop rerun follows it.
 
 | Qualification | Actual result |
 | --- | --- |
@@ -106,6 +109,65 @@ Build passed with one inherited CS0649 warning and zero errors.
 | Native offline setup UI | 475 checks/50translated intents **at each** 960×600 and640×480; exact Arsenal capture and fifth Native cycle. Full live-menu suite passed. All159runtime assets matched tracked source individually |
 | Portable/Android handoff and hosts | Handoff629; full touch suite including29Zoom ownership checks; capabilities735; runtime canvas197/scheduler28/IME31/Cocoa35/full owner100reinitializations. All builds zero warnings/errors, core unchanged |
 | Dedicated Release | SDK10.0.401, zero errors/one inherited warning,46.079seconds. Exact6,395Git inputs verified unchanged. Core `f977132bcc1e57f117dd25b74bd4927d5f8fa68f5d6361fbdea6f2724ce02da9` |
+
+### Main PR921/922 combined desktop verification
+
+At `67bf7cef968db50e890e9763a0ea717964a8deae`, all **6,422 tracked inputs**
+matched the frozen Git source and remained unchanged. Desktop Release passed
+with zero errors/one inherited CS0649 warning. Its core SHA256 is
+`115f14b814a884f85413b866d85ce7b39bd7d2efa1e8bbc9d819c6446b16e424`;
+the nettest tool is
+`bd60265cad70c040b06d327ca525fdb637c1afad514307fe4faea84099428acc`.
+
+The exact combined binary passed 36,971 custom-weapon CPU assertions, 947 offline
+policy assertions, 3,473 Blaster Scene assertions, 571 native-bot assertions,
+1,403 wall Scene assertions, 11,949 Scout Drone assertions and 572 actual GL
+assertions. The reciprocal bot outcome and visible GL deltas matched the
+initial qualification above. Fresh contexts were removed and all owned-source
+hashes remained unchanged. The full live-menu suite and native UI passed; each native size passed475 checks/50translated intents. All159runtime assets matched tracked source. Complete independently hashed outputs are retained as APFS clones (359live-menu/358native-UI files).
+
+The exact 6,422-input dedicated Release build passed in 56.114 seconds with zero
+errors/one inherited warning; dedicated core SHA256 is
+`69f9a3c32c4c5e0e3fb4f9c1dbb516e5af7407dbdce731ae3f144a95b6eee6fd`.
+Its evaluated project references, restored libraries and runtime dependencies
+exclude the experimental `MphRead.CorpsePhysics` client dependency.
+Receipts are under
+`artifacts/sh-integration/pirate-blaster-final-67bf7cef9`.
+
+Android was **not rerun** for the final integration, following the user's
+instruction. Earlier package checks below do not qualify the new main PR921
+Android dependency or this final combined source.
+
+### Main PR923 integration and shipping desktop verification
+
+Main PR923 subsequently added Parkour and protocol77. It merged cleanly at
+`65f7ded55d8008ab0e2854e610816e4639f092ea`; test-only commit
+`04ecacaca010d10b28402167efa004a821936a16` adds explicit Traversal/Parkour
+refusals for the Native-only Trooper choices. All **6,430 tracked inputs**
+matched that frozen Git source and remained unchanged during qualification.
+No new native weapon/Hunter or protocol identity is introduced by Arsenal.
+
+The combined desktop Release and nettest builds passed. Desktop core SHA256:
+`f52e8f132d07bb270fb0035b9028a40a86de50f167c67ee7c855bfb6733ce0d9`;
+nettest SHA256:
+`24b578ed1863f1749b6a3dc9b7c0bdd0eef8510855b59e688cd6bd3975ca133f`.
+It passed **36,962 CPU contracts**, **971 offline policy assertions**, the same
+**3,473 Blaster**, **571 native-bot**, **1,403 wall**, **11,949 Scout Drone** and
+**572 actual GL** checks. The CPU total changes with upstream protocol77's
+recognized bits and new stance contracts; the private Blaster goldens/admission
+checks remain present. Owned files and exact binaries stayed unchanged.
+
+The exact dedicated Release build passed in56.086seconds with zero errors/one
+inherited CS0649 warning, all6,430source hashes unchanged. Dedicated core:
+`b128f2e045f5e0590e9067da5f49d1fbbae507ad94a1714d72ee91090f7fc481`.
+
+The first combined live-menu run stopped at the old four-choice movement
+fixture. Its raw failure is retained. Main PR923 adds a fifth Parkour choice;
+test-only corrections explicitly visit Parkour before returning to Classic,
+without weakening the assertions or changing production behavior. Final menu
+results are recorded after that correction. Receipts are under
+`artifacts/sh-integration/pirate-blaster-final-04ecacaca`.
+Android testing remains skipped for this integration.
 
 The owned Scene/GL runs read AMHE1 in place: **3,970 files / 845,958,857 bytes**,
 aggregate hash `76aa905095567286e4c5f65603c7b4cacc16ba53ca7f9730d16c563be499728e`,

@@ -142,6 +142,7 @@ internal static class OfflineCharacterGlAcceptance
                 new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Momentum"},
                 new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Quake3"},
                 new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Traversal"},
+                new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="Parkour"},
                 new RmlUiOfflineRules("7","7:00","3:00","medium",0){MovementModel="UnknownFixture"}})
             {
                 services.Rules=conflict;int validations=services.Validations,launches=services.Launches;
@@ -149,7 +150,7 @@ internal static class OfflineCharacterGlAcceptance
                 Check(services.Validations==validations&&services.Launches==launches,"conflicting current rule snapshot refuses before async map validation or launch service");
                 string error=controller.Tick().Bindings["offline_error"].Text;
                 string expectedReason=conflict.MovementModel=="UnknownFixture"
-                    ? "MovementModel must be Native, Momentum or Quake3." : "native movement";
+                    ? "MovementModel must be Native, Momentum, Quake3, Traversal or Parkour." : "native movement";
                 Check(error.Contains(expectedReason,StringComparison.OrdinalIgnoreCase),"refusal provides the specific policy or unknown-model parse reason");
                 Focus("offline_start");
                 Check(NativeSemanticReadback.Read(host,offline).ContainsText(expectedReason),"actual native page exposes the same refusal text");
