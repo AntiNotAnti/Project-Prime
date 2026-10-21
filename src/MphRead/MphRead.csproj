@@ -431,4 +431,26 @@
     <None Include="$(_RmlUiNativeRoot)/licenses/*.txt"
           Link="licenses/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
+  <!-- Bounded, deterministic source stamp for generated map output. A collision
+       compiler update must invalidate old .ppmap room/collision files on both
+       clients and dedicated servers, without rebuilding maps on every release.
+       GetFileHash is supplied by the .NET SDK; no git or shell dependency. -->
+  <Target Name="StampProjectPrimeMapGenerator" BeforeTargets="GetAssemblyAttributes">
+    <ItemGroup>
+      <_PrimeGeneratorSource Include="$(MSBuildProjectDirectory)/Mods/MapGen/**/*.cs;$(MSBuildProjectDirectory)/Formats/Collision.cs;$(MSBuildProjectDirectory)/Formats/CollisionDetection.cs;$(MSBuildProjectDirectory)/Utility/RepackCollision.cs" />
+    </ItemGroup>
+    <GetFileHash Files="@(_PrimeGeneratorSource)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_PrimeGeneratorHashedSource" />
+    </GetFileHash>
+    <PropertyGroup>
+      <_PrimeGeneratorSourceHashes>@(_PrimeGeneratorHashedSource->'%(FileHash)', '|')</_PrimeGeneratorSourceHashes>
+      <_PrimeGeneratorStamp>$([MSBuild]::GetHash('SHA256', '$(_PrimeGeneratorSourceHashes)'))</_PrimeGeneratorStamp>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>ProjectPrimeMapGeneratorHash</_Parameter1>
+        <_Parameter2>$(_PrimeGeneratorStamp)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
 </Project>
