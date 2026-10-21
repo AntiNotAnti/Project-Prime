@@ -677,3 +677,38 @@ Compare its exact canonical timeline with `none` on the same frozen binary.
 path to reproduce suppression. It cannot complete/qualify normal pose acceptance.
 All three values require `-posecheck`; these are diagnostic controls, not player
 settings or hardware latency tests.
+
+The analyzer explicitly rejects `legacy`, including a forged completed/PASS
+report. `isolated` requires the labelled loss/gain pair at simulation frame244,
+immediately before tick245. Compare a baseline `none` arm and an `isolated` arm
+with the same binary, schedule and FOV; the exact canonical/input/combat/RNG
+timelines remain the acceptance gates. The negative control must remain failed
+or incomplete and must never fill a positive matrix cell.
+
+`-pose-fov 60|78|120` selects a world-FOV setting for that opt-in native pose arm.
+Omitting it preserves the existing setting. Reports distinguish the requested
+and selected setting, camera-authored degrees, and actual world/viewmodel
+projection radians. Scope changes preserve the authored magnification policy;
+the world angle during a scope is not asserted to equal the selected setting.
+The fixture restores the prior FOV when it releases its input isolation. Use
+the same explicit setting for all rates in a cross-schedule comparison.
+
+For a bounded native cartridge-gun FOV sweep without an HD replacement pack,
+the existing client diagnostic has a separate explicit mode:
+
+```sh
+PROJECT_PRIME_USER_DATA='/absolute/fresh/asset-only-user-data' \
+dotnet /absolute/immutable/ProjectPrime.dll \
+  -viewmodelacceptancecheck 'MP3 PROVING GROUND' -hunter Samus \
+  -nativeprojectiononly -output /absolute/fresh/native-projection
+```
+
+That mode raises the gun through the existing movement-input helper, freezes
+simulation, requires actual native weapon-mesh packets at each selected FOV
+60/78/120, and captures three PNGs. It requires an unchanged weapon projection,
+three distinct actual world projections, the camera-authored scaling policy,
+and unchanged established canonical hashes. It writes
+`native-projection-acceptance.json`. This supplies fixed-pose OpenGL evidence;
+scope/high-refresh/physical-input/latency acceptance remains separate. Existing
+HD `-projectiononly`, animation and material checks retain their pack requirement
+and behavior.

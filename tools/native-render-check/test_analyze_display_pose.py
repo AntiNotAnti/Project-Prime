@@ -1,5 +1,6 @@
 """Synthetic report-protocol tests; no renderer/world/panel acceptance data."""
 import copy
+import math
 import unittest
 
 from analyze_display_pose import CAPTURES, analyze, scheduled_elapsed, RATES
@@ -22,6 +23,7 @@ def synthetic_result(rate):
         "scheduledElapsedSeconds": 1 / rate, "assemblyMvid": "SYNTHETIC-NOT-A-BINARY",
         "room": "SYNTHETIC-NOT-A-WORLD", "framebuffer": [1280, 720], "renderSize": [1280, 720],
         "responsiveCamera": True, "fixedWeapon": False,
+        "focusControl": {"mode":"none", "injected":False, "injectionTick":245, "qualificationEligible":True, "events":[]},
         "performanceAcceptance": "NOT_CLAIMED_READBACK_FIXTURE", "panelScanoutAcceptance": "NOT_CLAIMED",
         "steps": [{"tick": i, "canonicalProjection": "a" * 64 + ":" + "b" * 64,
                    "preparedInput": str(i), "consumedInput": str(i)} for i in range(1, 1441)],
@@ -101,6 +103,35 @@ class DisplayPoseAnalysisTests(unittest.TestCase):
         self.assertEqual({r for h,r,s in cells if h == "Samus" and s == "steady"}, set(RATES))
         self.assertEqual([c for c in cells if c[2] == "jitter144"], [("Samus",144,"jitter144")])
         self.assertEqual(len([c for c in cells if c[0] != "Samus" and c[1:] == (500,"steady")]), 6)
+
+    def test_isolated_focus_requires_real_paired_injection_and_legacy_fails_even_forged_pass(self):
+        focus = {"mode":"isolated", "injected":True, "injectionTick":245, "qualificationEligible":True,
+                 "events":[{"source":"injected-isolated", "focused":value, "sceneFrame":244,
+                            "outputFrame":585, "wallSeconds":1.5} for value in (False,True)]}
+        self.results[1]["focusControl"] = focus
+        self.assertEqual(self.report()["errors"], [])
+        for bad in ({**focus,"injected":False}, {**focus,"events":focus["events"][:1]},
+                    {**focus,"mode":"legacy"}, {**focus,"qualificationEligible":False},
+                    {**focus,"events":[{**row,"sceneFrame":245} for row in focus["events"]]}):
+            self.results[1]["focusControl"] = bad
+            self.assertTrue(any("focus" in error for error in self.report()["errors"]))
+        self.results[1]["focusControl"] = {"mode":"none","injected":True,"qualificationEligible":True,"events":[]}
+        self.assertTrue(any("focus" in error for error in self.report()["errors"]))
+
+    def test_fov_records_actual_authored_projection_and_preserves_default_identity(self):
+        for result in self.results:
+            result.update(selectedFieldOfView=90, requestedFieldOfView=None)
+            for row in result["steps"]:
+                row["fovObservation"] = {"selectedDegrees":90, "authoredCameraDegrees":30,
+                    "worldRadians":2*math.atan(math.tan(.25)/math.tan(math.radians(39))), "viewmodelRadians":.5, "scaledWorldPolicyMatch":True}
+        self.assertEqual(self.report()["errors"], [])
+        self.results[1]["steps"][300]["fovObservation"]["scaledWorldPolicyMatch"] = False
+        self.assertTrue(any("FOV" in error for error in self.report()["errors"]))
+        self.results[1]["steps"][300]["fovObservation"]["scaledWorldPolicyMatch"] = True
+        self.results[1]["steps"][300]["fovObservation"]["worldRadians"] = 1.0
+        self.assertTrue(any("FOV" in error for error in self.report()["errors"]))
+        self.results[1]["requestedFieldOfView"] = 60
+        self.assertTrue(any("FOV" in error for error in self.report()["errors"]))
 
     def test_synthetic_protocol_success(self):
         report = self.report()

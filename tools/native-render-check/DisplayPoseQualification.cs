@@ -29,6 +29,9 @@ sealed partial class CheckWindow
     private readonly bool _posePixels;
     private readonly string _poseScenario;
     private readonly string _poseScheduleId;
+    private readonly int? _poseRequestedFov;
+    private int _posePriorFieldOfView;
+    private int? _poseSelectedFieldOfView;
     private double PoseElapsed => DisplayPosePlan.Elapsed(_poseScheduleId, _cap, _poseOutput);
     private bool _poseInputIsolationInitialized, _posePriorGamepadFocused;
     private string? _posePreviousSupplemental;
@@ -36,6 +39,7 @@ sealed partial class CheckWindow
     {
         if (!_poseInputIsolationInitialized) return;
         GamepadContexts.Focused = _posePriorGamepadFocused;
+        RenderOptions.FieldOfView = _posePriorFieldOfView;
         _poseInputIsolationInitialized = false;
     }
     private readonly string _poseFocusControl;
@@ -178,7 +182,21 @@ sealed partial class CheckWindow
             .CreateDelegate(typeof(Action<MouseState, MouseButton, bool>));
         NetTestScript.Reset();
         _posePriorGamepadFocused = GamepadContexts.Focused;
+        _posePriorFieldOfView = RenderOptions.FieldOfView;
+        if (_poseRequestedFov.HasValue) RenderOptions.FieldOfView = _poseRequestedFov.Value;
+        _poseSelectedFieldOfView = RenderOptions.FieldOfView;
         _poseInputIsolationInitialized = true;
+    }
+    private object PoseFovObservation()
+    {
+        float world = (float)PoseGet(Scene, "_cameraFov")!;
+        float viewmodel = (float)PoseGet(Scene, "_viewModelFov")!;
+        bool policyMatch = MathF.Abs(world - MathHelper.DegreesToRadians(
+            RenderOptions.ScaleCameraFov(MathHelper.RadiansToDegrees(viewmodel)))) < .00001f;
+        if (Scene.FrameCount > DisplayPosePlan.WarmupTicks)
+            PoseRequire(policyMatch, "world/viewmodel FOV scaling policy changed");
+        return new { selectedDegrees = RenderOptions.FieldOfView, authoredCameraDegrees = Scene.Players.Main.CameraInfo.Fov,
+            worldRadians = world, viewmodelRadians = viewmodel, scaledWorldPolicyMatch = policyMatch };
     }
     private void BeforeDisplayPoseFrame()
     {
@@ -375,7 +393,8 @@ sealed partial class CheckWindow
                 alt = target.IsAltForm, morphing = target.IsMorphing, unmorphing = target.IsUnmorphing,
                 zoomed = Scene.Players.Main.EquipInfo.Zoomed, fov = Scene.Players.Main.CameraInfo.Fov,
                 rng1 = Scene.Random.Rng1, rng2 = Scene.Random.Rng2,
-                combatWitness = PoseCombatWitness(), sourceInputWitness = PoseSourceWitness(), rngWitness = PoseRngWitness() });
+                combatWitness = PoseCombatWitness(), sourceInputWitness = PoseSourceWitness(), rngWitness = PoseRngWitness(),
+                fovObservation = PoseFovObservation() });
         }
         if (DisplayPosePlan.Captures.TryGetValue(tick, out string? label) && _poseCaptured.Add(tick))
             CaptureDisplayPose(label, tick);
@@ -548,6 +567,7 @@ sealed partial class CheckWindow
         assemblyMvid = typeof(Scene).Module.ModuleVersionId, vendor = _glVendor, renderer = _glRenderer, glVersion = _glVersion,
         framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y }, renderSize = new[] { Scene.RenderSize.X, Scene.RenderSize.Y },
         responsiveCamera = Features.ResponsiveAimCamera, fixedWeapon = Features.FixedWeapon,
+        requestedFieldOfView = _poseRequestedFov, selectedFieldOfView = _poseSelectedFieldOfView,
         syntheticInput = true, physicalControllerRejected = true, osFocusAcceptance = "NOT_CLAIMED",
         focusControl = new { mode = _poseFocusControl, injectionTick = 245,
             injected = _poseFocusInjected, qualificationEligible = _poseFocusControl != "legacy",

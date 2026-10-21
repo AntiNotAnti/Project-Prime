@@ -100,6 +100,30 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                 "schedule/simulation contract differs")
         require(result.get("performanceAcceptance") == "NOT_CLAIMED_READBACK_FIXTURE"
                 and result.get("panelScanoutAcceptance") == "NOT_CLAIMED", "invalid timing/panel acceptance claim")
+        focus = result.get("focusControl")
+        if focus is not None or require_supplemental:
+            focus = focus if isinstance(focus, dict) else {}
+            focus_mode = focus.get("mode")
+            require(focus_mode in ("none", "isolated") and focus.get("qualificationEligible") is True,
+                    "legacy/unknown focus control is ineligible for qualification")
+            injected = [row for row in rows(focus.get("events")) if str(row.get("source", "")).startswith("injected-")]
+            if focus_mode == "isolated":
+                require(focus.get("injected") is True and focus.get("injectionTick") == 245
+                        and len(injected) == 2 and [row.get("focused") for row in injected] == [False, True]
+                        and all(type(row.get("focused")) is bool and row.get("source") == "injected-isolated"
+                                and type(row.get("sceneFrame")) is int and row["sceneFrame"] == 244
+                                and type(row.get("outputFrame")) is int and row["outputFrame"] >= 0
+                                and finite_number(row.get("wallSeconds")) and row["wallSeconds"] >= 0 for row in injected)
+                        and injected[0].get("outputFrame") == injected[1].get("outputFrame"),
+                        "isolated focus loss/gain injection witness missing or malformed")
+            elif focus_mode == "none":
+                require(focus.get("injected") is False and not injected, "none focus control contains an injection")
+        selected_fov = result.get("selectedFieldOfView")
+        if "selectedFieldOfView" in result:
+            requested_fov = result.get("requestedFieldOfView")
+            require(type(selected_fov) is int and 60 <= selected_fov <= 120
+                    and (requested_fov is None or type(requested_fov) is int and requested_fov in (60,78,120)
+                         and selected_fov == requested_fov), "selected/requested FOV identity differs")
         steps = rows(result.get("steps"))
         require([row.get("tick") for row in steps] == list(range(1, 1441)), "missing or reordered canonical step")
         require(all(isinstance(row.get("canonicalProjection"), str)
@@ -114,6 +138,23 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                             for key in ("combatWitness", "sourceInputWitness", "rngWitness"))
                         and all(type(row.get(key)) is int and 0 <= row[key] <= 0xffffffff for key in ("rng1", "rng2"))
                         for row in steps), "combat/source-input/RNG witness missing or malformed")
+        if "selectedFieldOfView" in result:
+            for step in steps:
+                observation = step.get("fovObservation")
+                observation = observation if isinstance(observation, dict) else {}
+                require(observation.get("selectedDegrees") == selected_fov
+                        and all(finite_number(observation.get(key)) for key in
+                                ("authoredCameraDegrees", "worldRadians", "viewmodelRadians"))
+                        and (step.get("tick", 0) <= 240 or observation.get("scaledWorldPolicyMatch") is True),
+                        "actual camera/world/viewmodel FOV observation missing or policy failed")
+                if step.get("tick", 0) > 240 and all(finite_number(observation.get(key)) for key in ("worldRadians", "viewmodelRadians")) and type(selected_fov) is int:
+                    authored_radians = observation["viewmodelRadians"]
+                    scaled = 2 * math.atan(math.tan(authored_radians / 2)
+                        * math.tan(math.radians(selected_fov) / 2) / math.tan(math.radians(78) / 2))
+                    scaled = min(math.radians(175), max(math.radians(1), scaled))
+                    require(0 < authored_radians < math.pi
+                            and abs(observation["worldRadians"] - scaled) < .00001,
+                            "actual world FOV values contradict selected/authored projection policy")
         schedule = rows(result.get("schedule"))
         expected_tick = 0
         for output, row in enumerate(schedule, 1):
@@ -221,7 +262,7 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                                     "exactCanonicalAndInputMatch": False, "scenarioIdentityMatch": False,
                                     "firstDifference": {"tick": None, "field": "scenarioId"}})
                 continue
-            for key in ("platform", "assemblyMvid", "room", "framebuffer", "renderSize", "responsiveCamera", "fixedWeapon", "pixelControlAcceptance"):
+            for key in ("platform", "selectedFieldOfView", "requestedFieldOfView", "assemblyMvid", "room", "framebuffer", "renderSize", "responsiveCamera", "fixedWeapon", "pixelControlAcceptance"):
                 if reference.get(key) != candidate.get(key):
                     errors.append(f"{hunter}/{rate}: fixture identity differs for {key}")
             reference_steps, candidate_steps = rows(reference.get("steps")), rows(candidate.get("steps"))

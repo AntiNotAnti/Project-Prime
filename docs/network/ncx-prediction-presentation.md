@@ -65,6 +65,17 @@ with a reason. The opt-in drain publisher replaces existing status files
 atomically; the reader must retain same-handle freshness and bounded sharing32
 recovery without weakening drain/queue predicates.
 
+The explicit `-nativeprojectiononly` mode on `-viewmodelacceptancecheck` requires
+real cartridge weapon mesh packets at selected FOV60/78/120, a fixed canonical
+tick and unchanged gun projection, while checking the actual world scaling
+policy. It needs no replacement pack. Native pose also supports explicit
+`-pose-fov`; omitted values preserve existing behavior. Paired isolated-focus
+controls require observed synthetic loss/gain; the legacy path is deliberately
+ineligible. A first Windows pilot exposed CRLF in the embedded shader literal
+breaking its existing LF source-shape boundary; pinning `Shaders.cs` to LF fixes
+checkout portability without changing logical shader code. The failed pilot is
+retained and does not count as rendered acceptance.
+
 Acceptance is INCOMPLETE until the final source-qualified baseline is published.
 No NCX-07 visual threshold, broad resilience, cross-platform release or Fruity
 superiority is claimed. Previously unavailable historical raw artifacts remain
