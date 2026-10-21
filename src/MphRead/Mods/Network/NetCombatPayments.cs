@@ -59,6 +59,20 @@ internal static class NetCombatPayments
     // collision on a different rewind timeline. Only that cross-timeline pair
     // is exclusive. Two independent native contacts and different child
     // components/victims are deliberately not collapsed.
+    // A direct player impact ends a Judicator/Magmaul parent; a later child
+    // cannot be another outcome for that same victim if the parent already
+    // paid a rescued direct claim. The inverse arrival order is identical.
+    // Parent wall splash followed by child direct is legal and stays payable.
+    private static bool DescendsFrom(uint child, uint parent)
+    {
+        if (child == 0 || parent == 0 || child == parent) return false;
+        for (int depth = 0; depth < 8 && child != 0; depth++)
+        {
+            child >>= 4;
+            if (child == parent) return true;
+        }
+        return false;
+    }
     private static int FindAlternative(in ShotPaymentKey key, byte weapon, bool incomingClaim)
     {
         if (!Valid(key) || !incomingClaim && !MayHaveRescuedClaim[key.Shot.ShooterSlot]) return -1;
@@ -72,8 +86,12 @@ internal static class NetCombatPayments
                 || entry.Key.Component != key.Component || entry.Key.Phase != key.Phase
                 || (entry.Key.Kind & 4) != (key.Kind & 4)) continue;
             int existingKind = entry.Key.Kind & 3, newKind = key.Kind & 3;
-            if ((existingKind == 1 && newKind == 2) || (existingKind == 2 && newKind == 1))
-                return i;
+            bool oppositeCollisionKind = entry.Key.Component == key.Component
+                && ((existingKind == 1 && newKind == 2) || (existingKind == 2 && newKind == 1));
+            bool mutuallyExclusiveRicochet = weapon is (byte)BeamType.Judicator or (byte)BeamType.Magmaul
+                && (existingKind == 1 && DescendsFrom(key.Component, entry.Key.Component)
+                    || newKind == 1 && DescendsFrom(entry.Key.Component, key.Component));
+            if (oppositeCollisionKind || mutuallyExclusiveRicochet) return i;
         }
         return -1;
     }
