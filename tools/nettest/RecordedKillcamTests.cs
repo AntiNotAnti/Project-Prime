@@ -93,6 +93,9 @@ internal static class RecordedKillcamTests
             report["lifecycleStatus"] = identity.KillerLifeId == 0 ? "NOT_QUALIFIED: recorded marker has no attacker launch-life fence" : "PENDING";
 
             using var source = new PassiveReplayScene(path, size);
+            Require(source.Session.SourceProtocolVersion == reader.ProtocolVersion, "Linear playback lost the actual recording protocol.");
+            using (var unknownSession = new ReplayPlaybackSession(new PassiveReplaySessionHost()))
+                Require(unknownSession.SourceProtocolVersion == 0, "Unknown replay source assumed a current protocol.");
             Advance(source, baseline);
             using var checkpoint = ReplayWorldCheckpoint.Capture(source, baseline);
             report["checkpointSha256"] = Convert.ToHexString(SHA256.HashData(checkpoint.Bytes));
@@ -134,8 +137,15 @@ internal static class RecordedKillcamTests
                 report["retainedRecords"] = timeline.RecordCount; report["retainedBytes"] = timeline.PayloadBytes;
                 using var frozen = new PassiveReplayPlayer(exactClip, size, ReplayPlayerOptions.Linear);
                 using var lookahead = new PassiveReplayPlayer(lookaheadClip, size, ReplayPlayerOptions.Linear);
+                report["sourceProtocols"] = new { actualHeader = reader.ProtocolVersion,
+                    linearFile = source.Session.SourceProtocolVersion, exactClip = frozen.Current.Session.SourceProtocolVersion,
+                    lookaheadClip = lookahead.Current.Session.SourceProtocolVersion };
+                Require(frozen.Current.Session.SourceProtocolVersion == reader.ProtocolVersion
+                    && lookahead.Current.Session.SourceProtocolVersion == reader.ProtocolVersion,
+                    "Frozen playback lost the actual recording protocol.");
                 Warm(frozen, start); Warm(lookahead, start); Advance(source, start);
                 bool mismatch = false, markerObserved = false; int compared = 0;
+                ReplayReplicaCheckpoint? deathState = null;
                 bool exactFailed = false, lookaheadFailed = false;
                 for (uint frame = start; frame <= end; frame++)
                 {
@@ -162,21 +172,7 @@ internal static class RecordedKillcamTests
                             && match.AuthorityEpoch == identity.AuthorityEpoch && source.State.TryGetPlayer(victimSlot, out var victim)
                             && victim.SlotGeneration == identity.VictimGeneration && victim.LifeId == identity.VictimLifeId && victim.Health == 0;
                         report["sourceAtMarkerMatchesVictimDeath"] = markerObserved;
-                        if (identity.KillerLifeId != 0)
-                        {
-                            int resolved = KillcamController.ResolveAttackerSlot(identity, source.State);
-                            // Mutate away from the actual source occupant, since a
-                            // legitimate post-launch respawn could already equal
-                            // Next(recorded launch life) at this death frame.
-                            ushort currentLife = source.State.TryGetPlayer(identity.KillerSlot, out var actor) ? actor.LifeId : identity.KillerLifeId;
-                            int wrongLife = KillcamController.ResolveAttackerSlot(identity with { KillerLifeId = NetLifecycleTracker.Next(currentLife) }, source.State);
-                            ushort currentGeneration = source.State.Occupant(identity.KillerSlot).Generation;
-                            int wrongGeneration = KillcamController.ResolveAttackerSlot(identity with { KillerGeneration = NetLifecycleTracker.Next(currentGeneration) }, source.State);
-                            report["attackerAtDeath"] = new { resolved, wrongLife, wrongGeneration };
-                            Require(wrongLife == -1 && wrongGeneration == -1, "Wrong recorded attacker lifecycle resolved.");
-                            // A dead/absent attacker may legitimately fail exact resolution; no victim fallback.
-                            Require(resolved == -1 || resolved == identity.KillerSlot, "Attacker resolution fell back to another actor.");
-                        }
+                        deathState = source.State.CaptureCheckpoint();
                     }
                     compared++;
                     if (frame < end)
@@ -187,26 +183,64 @@ internal static class RecordedKillcamTests
                 report["comparedFrames"] = compared;
                 report["actualKillcamFidelity"] = exactFailed ? "FAIL" : "PASS";
                 report["boundedLookaheadControl"] = lookaheadFailed ? "FAIL" : "PASS";
-                using (var controller = new KillcamController(timeline))
+                // Only facts already accepted at the exact startup boundary are
+                // proof. The full-file facts above are explanatory raw evidence,
+                // never a future oracle or an unbounded replacement history.
+                var lifeProof = ReplayKillLifeResolver.Resolve(identity, source.State.SemanticEvents.Events);
+                bool lifecycleKnown = reader.ProtocolVersion >= 79 && lifeProof.Known;
+                var verifiedIdentity = lifecycleKnown ? lifeProof.Identity : identity;
+                report["rawMarkerKillerLife"] = identity.KillerLifeId;
+                report["verifiedFactSourceLife"] = lifeProof.Status == ReplayKillLifeStatus.VerifiedSemanticFact ? lifeProof.Identity.KillerLifeId : 0;
+                report["identityProofStatus"] = lifeProof.Status.ToString(); report["identityProofSemanticEventId"] = lifeProof.FactEventId;
+                report["lifecycleStatus"] = lifecycleKnown ? "PASS" : "NOT_QUALIFIED: no exact current-source death-life proof";
+                report["proofAvailableAtRecordingFrame"] = source.Session.RecordingFrame;
+                report["proofBoundedAcceptedHistoryCount"] = source.State.SemanticEvents.Events.Count;
+                report["verifiedPlayingIdentity"] = verifiedIdentity;
+                if (lifecycleKnown && deathState != null)
+                {
+                    var atDeath = new ReplayReplicaState(); atDeath.RestoreCheckpoint(deathState);
+                    int resolved = KillcamController.ResolveAttackerSlot(verifiedIdentity, atDeath);
+                    // Negative controls mutate away from the actual source
+                    // occupant. Its life never supplies the positive proof.
+                    ushort currentLife = atDeath.TryGetPlayer(identity.KillerSlot, out var actor) ? actor.LifeId : verifiedIdentity.KillerLifeId;
+                    int wrongLife = KillcamController.ResolveAttackerSlot(verifiedIdentity with { KillerLifeId = NetLifecycleTracker.Next(currentLife) }, atDeath);
+                    ushort currentGeneration = atDeath.Occupant(identity.KillerSlot).Generation;
+                    int wrongGeneration = KillcamController.ResolveAttackerSlot(verifiedIdentity with { KillerGeneration = NetLifecycleTracker.Next(currentGeneration) }, atDeath);
+                    report["attackerAtDeath"] = new { resolved, wrongLife, wrongGeneration };
+                    Require(wrongLife == -1 && wrongGeneration == -1, "Wrong recorded attacker lifecycle resolved.");
+                    Require(resolved == -1 || resolved == identity.KillerSlot, "Attacker resolution fell back to another actor.");
+                }
+                using (var controller = new KillcamController(timeline,
+                    acceptedDeaths: () => source.State.SemanticEvents.Events, sourceProtocolVersion: reader.ProtocolVersion))
                 {
                     var context = new KillcamContext(identity.MatchId, identity.AuthorityEpoch, end, victimSlot,
                         identity.VictimGeneration, identity.VictimLifeId, false, true, true, true);
                     Require(!KillcamController.IsValidIdentity(identity with { VictimLifeId = 0 }, context), "Unfenced victim admitted.");
                     controller.NoteKill(markerValue, death, context);
                     for (int warm = 0; warm < 10 && !controller.Visible; warm++) controller.Update(foreground, context);
-                    Require(controller.Visible && controller.Playing == markerValue && controller.PlayingFrame == death,
-                        "Actual recorded marker failed controller startup: " + controller.LastError);
-                    Require(controller.CheckpointCount == 0 && controller.CheckpointBytes == 0, "Linear killcam retained seek checkpoints.");
-                    controller.Update(foreground, context with { LocalLife = NetLifecycleTracker.Next(identity.VictimLifeId), LocalAlive = true });
-                    Require(!controller.Active && controller.EndReason == KillcamEndReason.Respawn, "Victim respawn retained recorded killcam.");
-                    report["controllerMarkerAndRespawn"] = "PASS";
+                    if (lifecycleKnown || reader.ProtocolVersion < 79)
+                    {
+                        Require(controller.Visible && controller.Playing == (markerValue with { Kill = verifiedIdentity }) && controller.PlayingFrame == death,
+                            "Actual recorded marker failed controller startup: " + controller.LastError);
+                        Require(controller.CheckpointCount == 0 && controller.CheckpointBytes == 0, "Linear killcam retained seek checkpoints.");
+                        controller.Update(foreground, context with { LocalLife = NetLifecycleTracker.Next(identity.VictimLifeId), LocalAlive = true });
+                        Require(!controller.Active && controller.EndReason == KillcamEndReason.Respawn, "Victim respawn retained recorded killcam.");
+                        report["controllerMarkerAndRespawn"] = "PASS";
+                    }
+                    else
+                    {
+                        Require(!controller.Active, "Unresolved current identity started via a wildcard.");
+                        controller.Update(foreground, context with { Frame = death + 151 });
+                        Require(controller.EndReason == KillcamEndReason.Unavailable, "Unknown identity escaped bounded expiry.");
+                        report["controllerMarkerAndRespawn"] = "NOT_QUALIFIED: unavailable exact attacker life";
+                    }
                 }
                 Require(ReplayStateHash.Compute(foreground, 0) == sentinel && foreground.Random.Rng1 == rng1
                     && foreground.Random.Rng2 == rng2, "Private replay changed foreground gameplay/RNG.");
                 report["foregroundGameplayAndRng"] = "PASS";
                 if (mismatch) { report["status"] = "FAIL"; return Finish(1); }
-                if (!markerObserved || identity.KillerLifeId == 0)
-                { report["reason"] = !markerObserved ? "Recorded marker does not expose the exact dead victim at its source frame." : "Actual client marker lacks attacker launch-life fence; no enrichment performed."; return Finish(2); }
+                if (!markerObserved || !lifecycleKnown)
+                { report["reason"] = !markerObserved ? "Recorded marker does not expose the exact dead victim at its source frame." : "No unique accepted exact death-life proof at startup, or legacy source remains unqualified."; return Finish(2); }
                 report["lifecycleStatus"] = "PASS"; report["status"] = "PASS"; return Finish(0);
             }
             finally { timeline.Reset(); }

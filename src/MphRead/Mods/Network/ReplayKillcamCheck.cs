@@ -56,6 +56,8 @@ internal static class ReplayKillcamCheck
                 foreach (var packet in metadata.Bootstrap.Packets.OrderBy(p => p[0] == (byte)PacketType.MatchState ? 0 : 1))
                     ReplayLiveCaptureCheck.Accept(recorder, packet, 0);
             var hashes = new Dictionary<uint, string>();
+            const uint death = 1602;
+            PlayerState? fixtureAttackerAtDeath = null;
             DemoRecord? pending = reader.ReadNext(); uint frame = 0;
             while (pending != null)
             {
@@ -63,7 +65,11 @@ internal static class ReplayKillcamCheck
                 { ReplayLiveCaptureCheck.Accept(recorder, record.Data, frame); pending = reader.ReadNext(); }
                 capture.Advance(frame, live.Size);
                 if (capture.LastError != null) throw new InvalidDataException(capture.LastError);
-                if (capture.World is { } world) hashes[frame] = ReplayStateHash.Compute(world.Scene, frame);
+                if (capture.World is { } world)
+                {
+                    hashes[frame] = ReplayStateHash.Compute(world.Scene, frame);
+                    if (frame == death && world.State.TryGetPlayer(1, out var historicalAttacker)) fixtureAttackerAtDeath = historicalAttacker;
+                }
                 frame++;
             }
             var state = capture.World!.State;
@@ -71,12 +77,13 @@ internal static class ReplayKillcamCheck
                 throw new InvalidDataException("Use the eight-actor world-coverage fixture for killcam lifecycle checks.");
             int checks = 0;
             void Require(bool value, string message) { if (!value) throw new InvalidDataException(message); checks++; }
-            const uint death = 1602;
+            if (fixtureAttackerAtDeath is not { LifeId: > 0 } fixtureAttacker)
+                throw new InvalidDataException("Killcam fixture has no attacker life at its declared death frame.");
             var identity = new ReplayKillIdentity(match.MatchId, match.AuthorityEpoch, death, 2,
-                1, state.Occupant(1).Generation, 0, state.Occupant(0).Generation, 1);
+                1, fixtureAttacker.SlotGeneration, 0, state.Occupant(0).Generation, 1, fixtureAttacker.LifeId);
             if (!state.TryGetPlayer(1, out var attackerState) || attackerState.LifeId == 0)
                 throw new InvalidDataException("Killcam fixture has no attacker snapshot.");
-            var strictIdentity = identity with { KillerLifeId = attackerState.LifeId };
+            var strictIdentity = identity;
             Require(KillcamController.ResolveAttackerSlot(strictIdentity, state) == 1,
                 "Exact attacker life did not resolve.");
             Require(KillcamController.ResolveAttackerSlot(strictIdentity with

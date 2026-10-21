@@ -34,6 +34,10 @@ namespace MphRead.Mods.Network
         public string? CurrentPath { get; private set; }
         public IReadOnlyList<ReplayEvent> Events => _reader?.Metadata?.Events ?? Array.Empty<ReplayEvent>();
         internal ReplayMetadata? Metadata => _reader?.Metadata ?? _liveMetadata;
+        // Canonical clip packets retain the source recording's presentation
+        // contract even when the in-memory clip has no file metadata.
+        internal int SourceProtocolVersion => _reader is { } reader ? reader.ProtocolVersion
+            : _clip is { } clip ? clip.PresentationProtocolVersion : _liveMetadata?.ProtocolVersion ?? 0;
         private uint LeadInFrames => _reader?.Metadata?.LeadInFrames ?? 0;
         public uint CurrentFrame => _frame >= LeadInFrames ? _frame - LeadInFrames : 0;
         internal uint RecordingFrame => checked(_frame + (_reader?.Metadata?.OriginRecordingFrame ?? 0));

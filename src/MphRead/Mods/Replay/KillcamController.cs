@@ -2,8 +2,10 @@ using System;
 using System.IO;
 using System.Diagnostics;
 using System.Linq;
+using System.Collections.Generic;
 using MphRead.Entities;
 using MphRead.Formats;
+using MphRead.Mods.MatchEvents;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
@@ -28,6 +30,10 @@ internal sealed class KillcamController : IDisposable
     internal const float PlaybackRate = 1f;
     private readonly IReplayTimeline _timeline;
     private readonly Func<ReplayTimelineClip, Vector2i, PassiveReplayPlayer> _open;
+    private readonly Func<IReadOnlyCollection<MatchSemanticEventPacket>>? _acceptedDeaths;
+    private readonly int _sourceProtocolVersion;
+    internal ReplayKillLifeStatus IdentityResolution { get; private set; } = ReplayKillLifeStatus.Unknown;
+    internal uint IdentityFactEventId { get; private set; }
     private PassiveReplayPlayer? _player;
     private ReplayMarker? _candidate, _pending, _playing;
     private uint _candidateFrame, _pendingFrame, _start, _end;
@@ -80,8 +86,24 @@ internal sealed class KillcamController : IDisposable
                 kill.KillerGeneration, kill.KillerLifeId)) ? kill.KillerSlot : -1;
     internal PassiveReplayScene? Replica => _player?.Current;
 
-    internal KillcamController(IReplayTimeline timeline, Func<ReplayTimelineClip, Vector2i, PassiveReplayPlayer>? open = null)
-    { _timeline = timeline; _open = open ?? ((clip, size) => new PassiveReplayPlayer(clip, size, ReplayPlayerOptions.Linear)); }
+    internal KillcamController(IReplayTimeline timeline, Func<ReplayTimelineClip, Vector2i, PassiveReplayPlayer>? open = null,
+        Func<IReadOnlyCollection<MatchSemanticEventPacket>>? acceptedDeaths = null, int sourceProtocolVersion = 0)
+    {
+        _timeline = timeline; _open = open ?? ((clip, size) => new PassiveReplayPlayer(clip, size, ReplayPlayerOptions.Linear));
+        _acceptedDeaths = acceptedDeaths; _sourceProtocolVersion = sourceProtocolVersion;
+    }
+
+    private bool PrepareIdentity(ReplayMarker marker, out ReplayMarker prepared, int clipProtocolVersion = 0)
+    {
+        prepared = marker; IdentityFactEventId = 0;
+        if (Math.Max(_sourceProtocolVersion, clipProtocolVersion) < 79)
+        { IdentityResolution = ReplayKillLifeStatus.LegacyUnqualified; return true; }
+        if (marker.Kill is not { } kill) { IdentityResolution = ReplayKillLifeStatus.Unknown; return false; }
+        var result = ReplayKillLifeResolver.Resolve(kill, _acceptedDeaths?.Invoke() ?? Array.Empty<MatchSemanticEventPacket>());
+        IdentityResolution = result.Status; IdentityFactEventId = result.FactEventId;
+        if (!result.Known) return false;
+        prepared = marker with { Kill = result.Identity }; return true;
+    }
 
     internal void NoteKill(ReplayMarker marker, uint frame, KillcamContext context, bool enemy = true)
     {
@@ -108,11 +130,28 @@ internal sealed class KillcamController : IDisposable
                 else if (context.LocalSlot != pending.VictimSlot || context.LocalGeneration != pending.VictimGeneration
                     || context.LocalLife != pending.VictimLifeId || context.LocalAlive)
                 { _pending = null; EndReason = KillcamEndReason.Respawn; }
+                else if ((ulong)context.Frame > (ulong)_pendingFrame + PostRollFrames + 60)
+                { _pending = null; EndReason = KillcamEndReason.Unavailable; }
                 else
                 {
-                    var clip = Freeze(_pendingFrame);
-                    if (clip != null) { Start(live, clip, _pending.Value, KillCamKind.Personal, _pendingFrame); _pending = null; }
-                    else if ((ulong)context.Frame > (ulong)_pendingFrame + PostRollFrames + 60) { _pending = null; EndReason = KillcamEndReason.Unavailable; }
+                    // Do not mutate a pending identity until its original range
+                    // can start. Both packet delivery orders consult the same
+                    // retained authority facts; an active camera is never retargeted.
+                    if (PrepareIdentity(_pending.Value, out var prepared))
+                    {
+                        var clip = Freeze(_pendingFrame);
+                        if (clip != null)
+                        {
+                            // A direct clip caller may have had no protocol at
+                            // NoteKill. Its frozen source contract is authoritative.
+                            if (!PrepareIdentity(_pending.Value, out prepared, clip.PresentationProtocolVersion)) clip.Dispose();
+                            else
+                            {
+                                if (_candidate == _pending) _candidate = prepared;
+                                Start(live, clip, prepared, KillCamKind.Personal, _pendingFrame); _pending = null;
+                            }
+                        }
+                    }
                 }
             }
             if (_player == null || _playing?.Kill is not { } playing) return;
@@ -154,9 +193,12 @@ internal sealed class KillcamController : IDisposable
         Stop(KillcamEndReason.None); _pending = null;
         if (!context.FinalEnabled || _candidate is not { Kill: { } kill } marker || !Matches(kill, context)
             || !FinalEligible(kill.ServerTick, endFrame, timedEnd, causalEnd)) return false;
+        if (!PrepareIdentity(marker, out var prepared)) { EndReason = KillcamEndReason.Unavailable; return false; }
         var clip = Freeze(_candidateFrame);
         if (clip == null) { EndReason = KillcamEndReason.Unavailable; return false; }
-        try { Start(live, clip, marker, KillCamKind.Final, _candidateFrame); return true; }
+        if (!PrepareIdentity(marker, out prepared, clip.PresentationProtocolVersion))
+        { clip.Dispose(); EndReason = KillcamEndReason.Unavailable; return false; }
+        try { _candidate = prepared; Start(live, clip, prepared, KillCamKind.Final, _candidateFrame); return true; }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         { LastError = ex.Message; Stop(KillcamEndReason.Failed); return false; }
     }
@@ -290,7 +332,8 @@ internal sealed class KillcamController : IDisposable
     internal void FailPresentation(Exception error)
     { LastError = error.Message; Stop(KillcamEndReason.Failed); }
     internal static bool IsValidIdentity(ReplayKillIdentity kill, KillcamContext context, Scene? scene = null)
-        => Matches(kill, context) && kill.KillerGeneration != 0 && kill.VictimGeneration != 0
+        => Matches(kill, context) && kill.MatchId != 0 && kill.AuthorityEpoch != 0 && kill.EventId != 0
+            && kill.KillerGeneration != 0 && kill.VictimGeneration != 0
             && kill.VictimLifeId != 0 && kill.KillerSlot < PlayerEntity.SlotCapacity
             && kill.VictimSlot < PlayerEntity.SlotCapacity && kill.KillerSlot != kill.VictimSlot
             && (scene == null || kill.KillerSlot < scene.Players.Items.Count && kill.VictimSlot < scene.Players.Items.Count
@@ -314,6 +357,6 @@ internal sealed class KillcamController : IDisposable
         { live.Players.Main.Controls.ClearAll(); live.Players.Main.ModForgetInputDeltas(); }
     }
     internal void Reset(KillcamEndReason reason)
-    { Stop(reason); _pending = _candidate = null; }
+    { Stop(reason); _pending = _candidate = null; IdentityResolution = ReplayKillLifeStatus.Unknown; IdentityFactEventId = 0; }
     public void Dispose() => Reset(KillcamEndReason.SceneClosed);
 }
