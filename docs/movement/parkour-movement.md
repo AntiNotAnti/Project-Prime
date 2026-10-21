@@ -36,5 +36,6 @@ consume accepted positions and shapes rather than rerunning current wall forces.
 The existing life-fenced owner-position multiplayer contract remains in effect;
 the authority does not independently resimulate remote trajectories.
 
-Wallrun/kick, short ledge scramble and optional grapple are subsequent ordered
-slices. Validation for wallstrafe will be linked here after the Windows gates.
+See [wallstrafe validation](parkour-wallstrafe-results.md) for Windows scene,
+multiplayer and replay results. Wallrun/kick, short ledge scramble and optional
+grapple are subsequent ordered slices.
