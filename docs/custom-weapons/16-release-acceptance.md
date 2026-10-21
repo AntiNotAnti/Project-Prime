@@ -44,14 +44,38 @@ acceptance tests and does not authorize a production deployment.
 | CW-15 Release desktop including Starting/late-join review fix | Exit 0; 0 errors, 2 existing warnings; 96.90 seconds | `artifacts/custom-weapons/CW-15/compile/` |
 | CW-16 final integrated dedicated, separate output directory | Exit 0; 0 errors, 1 existing warning; 61.09 seconds | `artifacts/custom-weapons/CW-16/compile/` |
 
-Final dedicated source is `f1d56ba879108ba8f33b88bb97f6edb966233979` with only
+The initial CW-16 dedicated source is `f1d56ba879108ba8f33b88bb97f6edb966233979` with only
 this slice's documentation uncommitted. Binary SHA-256:
 `1002b7a97598dc3cf85953611bbdacae88648a4b0d9bbc972a2556f13469c46f`;
 log SHA-256 `cd464a27cf93fa1ff21adb9c3a9a091532ff5b3ff3f0ea2cae1992d8af1dba6d`.
 The later integration between the CW-15 build and final source added upstream CI/tool
-fixes, not production C# changes. CW-16 changes documentation only. Source comparison
+fixes, not production C# changes. The initial CW-16 assessment changed documentation only. Source comparison
 also leaves protocol85, native weapon enum/metadata and canonical pose exclusions
 unchanged; this is a source observation, not a native runtime regression pass.
+
+### Final integration follow-up
+
+After that recorded build, main added cinematic final-kill presentation. Compiling
+merged `7c42846cef64e2072d63034fc53fe04917a9bb74` exposed CS0136: the new cinematic
+FOV local conflicted with the first-person FOV local. The first-person local is now
+named `ownerFov`, preserving its existing finite checks, clamping and camera values.
+The failed receipt remains in `CW-16/compile-integrated/`.
+
+Final source review also found that valid catalog mutations could exceed the 32 MiB
+restart reader limit. All catalog writes now serialize through the same bounded stream.
+New revisions preflight it before publishing their immutable object; visibility,
+archive and report/moderation updates reject over-budget metadata before persistence
+or in-memory adoption. This closes the source-level oversized-catalog/repeated-budget-
+refusal object accumulation path. Disk failure may still leave an unreferenced immutable
+object under the existing retention policy; this change does not delete shared bytes.
+The corrected compilation receipts are in `CW-16/compile-integrated-fixed/`.
+Catalog boundary/restart/fault and cinematic runtime acceptance remain **NOT RUN**.
+
+The corrected Release builds on that merged base plus this follow-up both exited 0:
+desktop 0 errors / 2 existing warnings in 76.27 seconds; dedicated 0 errors / 1 existing
+warning in 56.88 seconds. Receipt JSON retains source/configuration, log and binary
+SHA-256 values. Independent read-only review found no further concrete issue in these
+two changes. No tests, gameplay, rendered captures or Android checks were run.
 
 ## Threat model and required negative cases
 
