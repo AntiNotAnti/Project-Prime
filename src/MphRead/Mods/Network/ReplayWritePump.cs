@@ -80,6 +80,7 @@ internal sealed class ReplayWritePump
         Completion = Task.Run(async () =>
         {
             ReplayWriterV3? writer = null;
+            uint customEndFrame = 0;
             try
             {
                 writer = new ReplayWriterV3(path, metadata);
@@ -92,15 +93,33 @@ internal sealed class ReplayWritePump
                         if (Error != null) continue;
                         switch (command.Kind)
                         {
-                            case Kind.Record: ReplayTimelineArchive.Write(writer, command.Record, _origin); break;
-                            case Kind.Checkpoint: writer.WriteCheckpoint(command.Record.RecordingFrame - _origin, command.Record.Payload); break;
-                            case Kind.Frame: ReplayTimelineArchive.EndFrame(writer, command.Frame); break;
+                            case Kind.Record:
+                                ReplayTimelineArchive.Write(writer, command.Record, _origin);
+                                if (metadata.FormatVersion == 7 && command.Record.RecordingFrame >= _origin)
+                                    customEndFrame = Math.Max(customEndFrame, command.Record.RecordingFrame - _origin);
+                                break;
+                            case Kind.Checkpoint:
+                                writer.WriteCheckpoint(command.Record.RecordingFrame - _origin, command.Record.Payload);
+                                if (metadata.FormatVersion == 7)
+                                    customEndFrame = Math.Max(customEndFrame, command.Record.RecordingFrame - _origin);
+                                break;
+                            case Kind.Frame:
+                                // Format7's complete-world contract has one final
+                                // quiet marker. Retain the frontier while streaming;
+                                // per-step markers belong to the native contract.
+                                if (metadata.FormatVersion == 7) customEndFrame = Math.Max(customEndFrame, command.Frame);
+                                else ReplayTimelineArchive.EndFrame(writer, command.Frame);
+                                break;
                             case Kind.Event: writer.WriteEvent(command.Event); break;
                         }
                     }
                     finally { long cost = command.Bytes; command.Release(); Interlocked.Add(ref _bytes, -cost); }
                 }
-                if (Error == null) { writer.Dispose(); writer = null; finalized?.Invoke(); }
+                if (Error == null)
+                {
+                    if (metadata.FormatVersion == 7 && customEndFrame > 0) ReplayTimelineArchive.EndFrame(writer, customEndFrame);
+                    writer.Dispose(); writer = null; finalized?.Invoke();
+                }
             }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException) { Abort(ex); }
             finally

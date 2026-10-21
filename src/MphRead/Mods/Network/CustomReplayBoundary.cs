@@ -34,7 +34,13 @@ internal static class CustomReplayBoundary
 
     internal static bool TryActivateClient(out string? error)
     {
-        if (ReplayCapture.LiveRecordingActive) { error = Error; return false; }
+        // Accepted custom packets must keep flowing if an optional recording
+        // loses its scope. Abort that sink, never turn replay backpressure into
+        // lost gameplay facts or readiness ACKs.
+        if (DemoRecorder.IsCustomRecording && !DemoRecorder.HasCurrentCustomScope)
+            DemoRecorder.InterruptCustomRecording();
+        if (ReplayCapture.LiveRecordingActive && !(DemoRecorder.HasCurrentCustomScope
+            && !ServerReplayRecorder.IsRecording && !DemoClip.IsSaving)) { error = Error; return false; }
         if (GameState.Current.Owner is { } owner)
         {
             if (!owner.CustomReplayUnsupported) Mods.KillCam.Reset();

@@ -16,6 +16,14 @@ internal static class ReplayTimelineArchive
     internal static ReplayMetadata Metadata(PassiveReplayScene world, ReplayType type)
     {
         var match = world.State.Match ?? throw new InvalidDataException("Replay has no match.");
+        if (world.State.CustomWeapons != null)
+        {
+            using var custom = ReplayWorldCheckpoint.CaptureCustom(world);
+            var metadata = custom.ClipMetadata(0, Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))
+                .Where(p => p.Occupant.Generation != 0).Select(p => new ReplayPlayerInfo((byte)p.Slot, (byte)p.Occupant.Hunter,
+                    p.Occupant.Team, p.Occupant.Name, p.Occupant.IsBot, p.Occupant.BotLevel)).ToArray(), type);
+            return metadata;
+        }
         using var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
         return new ReplayMetadata
         {

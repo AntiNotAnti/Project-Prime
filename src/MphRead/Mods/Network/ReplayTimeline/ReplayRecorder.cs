@@ -202,6 +202,10 @@ internal sealed partial class ReplayRecorder
     internal void SeedWorld(Action<ReplayTimelineRecord> accept)
     {
         if (HasCustomWeaponMatch) throw new InvalidOperationException("Custom world construction requires an explicit historical archive/world contract.");
+        SeedWorldCore(accept);
+    }
+    private void SeedWorldCore(Action<ReplayTimelineRecord> accept)
+    {
         if (_match is { } match) accept(match);
         if (_configuration is { } configuration) accept(configuration);
         if (_roster is { } roster) accept(roster);
@@ -274,6 +278,23 @@ internal sealed partial class ReplayRecorder
         try
         {
             if (!Timeline.AppendRestorePoint(new(frame, tick, ReplayRestoreKind.ReplicaCheckpoint, records))) return false;
+            CheckpointCaptured?.Invoke(world); return true;
+        }
+        finally { world.Release(); }
+    }
+
+    internal bool AppendCustomWorldCheckpoint(Replay.ReplayWorldCheckpoint checkpoint)
+    {
+        if (!HasCustomWeaponMatch || !CustomFactScope || _roster == null || _snapshot == null
+            || !checkpoint.HasHeadHistoryContract || Timeline.LastRecordingFrame is uint previous && checkpoint.Frame < previous
+            || checkpoint.CustomWeaponDescriptor == null || CustomWeaponContext == null
+            || !checkpoint.CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(ReplayCustomWeaponDescriptor.ForInspection(CustomWeaponContext).CopyBytes()))
+            return false;
+        checkpoint.Payload.Retain();
+        var world = new ReplayTimelineRecord(checkpoint.Frame, _customReplayState!.World, ReplayFactKind.World, checkpoint.Payload);
+        try
+        {
+            if (!Timeline.AppendRestorePoint(new(checkpoint.Frame, world.ServerTick, ReplayRestoreKind.ReplicaCheckpoint, new[] { world }))) return false;
             CheckpointCaptured?.Invoke(world); return true;
         }
         finally { world.Release(); }

@@ -16,6 +16,27 @@ internal sealed class PreparedReplayWeaponPackage : IDisposable
     internal ReplayCustomWeaponContext Context { get; }
     private PreparedReplayWeaponPackage(ReplayCustomWeaponDescriptor descriptor, ReplayCustomWeaponContext context,
         WeaponMatchPackageBinding binding) { Descriptor = descriptor; Context = context; _binding = binding; }
+    // The ordinary client has already verified and prewarmed these exact bytes
+    // outside simulation. Retention performs no store access or decoding.
+    internal static PreparedReplayWeaponPackage RetainPrepared(ReplayCustomWeaponDescriptor descriptor,
+        WeaponMatchPackageBinding prepared)
+    {
+        var owned = prepared.Retain();
+        try
+        {
+            var metadata = descriptor.InspectContext();
+            if (owned.Count != 1 || owned.Manifest.Digest != descriptor.Bootstrap.Packages.Digest)
+                throw new InvalidDataException("Recording resources differ from the accepted package manifest.");
+            var definition = owned.Definition(new WeaponRuntimeId(10));
+            var context = descriptor.Bind(definition);
+            if (context.Digest != metadata.Digest || definition.Name != metadata.Definition.Name
+                || !definition.Mechanics.ToCanonicalBytes().AsSpan().SequenceEqual(metadata.Definition.Mechanics.ToCanonicalBytes()))
+                throw new InvalidDataException("Recording mechanics differ from the accepted historical descriptor.");
+            _ = owned.Resources(0);
+            return new(descriptor, context, owned);
+        }
+        catch { owned.Dispose(); throw; }
+    }
     internal static PreparedReplayWeaponPackage Prepare(ReplayCustomWeaponDescriptor descriptor, WeaponPackageStore store,
         CancellationToken cancellationToken = default)
     {
