@@ -34,6 +34,15 @@ internal static partial class EditorGlAcceptance
         var metrics=new TimelineMetrics(width,height,width,height,density);
         var captures=new List<object>();TimelineRenderTicket? presented=null;string timelineDiagnostic="";int timelineDiagnosticCount=0;Settle();
         Check(pages.PageKey=="studio-workspace"&&pages.Top==document&&pages.ModalCount==0,"actual persistent workspace owns one native page without an editor modal");
+        // Focused transport buttons must not steal media keys. Text editing
+        // retains Space/arrows for caret movement and entering field values.
+        Check(host.FocusDocument(document,"replay_back")&&page.StudioTimelineShortcut("play")
+            &&page.StudioTimelineShortcut("previous-frame")&&page.StudioTimelineShortcut("next-frame")
+            &&!transport.TryTakeEngineCommand(out _),"Space and arrows are Studio transport commands even when Library is focused");
+        Check(host.FocusDocument(document,"studio_camera_x")&&host.TextInputActive
+            &&!page.StudioTimelineShortcut("play")&&!page.StudioTimelineShortcut("next-frame"),
+            "native Studio text fields retain keyboard editing instead of triggering playback");
+        Check(host.FocusDocument(document,"replay_pause"),"native Studio returns keyboard focus to playback transport");
         Layout("initial");Capture("camera");
         foreach(string id in new[]{"studio_camera_x","studio_camera_y","studio_camera_z","studio_camera_yaw","studio_camera_pitch","studio_camera_roll","studio_camera_fov"})
             {Check(host.FocusDocument(document,id),"numeric field can scroll into view: "+id);WaitVisible(id,"studio_inspector_scroll");Check(Bounds(id).Inside(Bounds("studio_inspector_scroll")),"actual numeric camera field is reachable inside the inspector: "+id);}
