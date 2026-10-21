@@ -69,6 +69,7 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.LobbyTeamSelect => 4,
         RmlUiIntentKind.HunterSelect => 7,
         RmlUiIntentKind.HunterBodySelect => 7,
+        RmlUiIntentKind.HunterDroneSelect => 3,
         RmlUiIntentKind.HunterSkinSelect => 7,
         RmlUiIntentKind.HunterArmorSelect => 21,
         RmlUiIntentKind.HunterDeathSelect => 8,
@@ -100,6 +101,21 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
 }
 Require(RmlUiIntentRegistry.LobbyRuleChoiceCount == 19 && RmlUiIntentRegistry.OfflineRuleChoiceCount == 15,
     "Reviewed rule action families append Riftline M7 after Third Person and Movement");
+Require((int)RmlUiIntentKind.HunterBodySelect == 286 && (int)RmlUiIntentKind.HunterDroneSelect == 287,
+    "Drone selection appends intent287 without renumbering body selection");
+foreach (int choice in new[] { 0, 1, 2 })
+{
+    var packet = new RmlUiNativeIntent { Size = RmlUiIntentRegistry.NativeIntentSize,
+        Version = RmlUiIntentRegistry.ProtocolVersion, Kind = 287, Argument = choice,
+        Generation = 73, DocumentId = 19, Sequence = 8 };
+    Require(RmlUiIntentRegistry.TryDecode(packet, out var drone)
+        && drone == new RmlUiIntent(RmlUiIntentKind.HunterDroneSelect, choice, new(73, 19), 8),
+        "Native drone selector decodes into the existing Hunters route: " + choice);
+}
+foreach (string invalid in new[] { "hunter:drone-select:-1", "hunter:drone-select:3", "hunter:drone-select:01" })
+    Require(!RmlUiIntentRegistry.TryParseLegacy(invalid, new(1, 1), 1, out _),
+        "Drone selector rejects noncanonical/out-of-range action: " + invalid);
+Require(!RmlUiIntentRegistry.IsValid(RmlUiIntentKind.HunterDroneSelect, -1), "Native drone selector rejects negative arguments");
 foreach (var choice in new[] {
     ("lobby:rules-toggle:16", RmlUiIntentKind.LobbyRulesToggle, 16),
     ("lobby:rules-toggle:17", RmlUiIntentKind.LobbyRulesToggle, 17),

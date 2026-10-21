@@ -96,7 +96,8 @@ internal static class HunterPresenterContractAcceptance
                 Check(choice.Writes == 0 && cosmetics.Writes == 0, "publication does not save identity or contact an account");
             }
             if (LocalBodyAppearanceRules.Available) BodyPersistence(host, pages, isolated, viewportWidth, viewportHeight);
-            Console.WriteLine($"HUNTER PRESENTER CONTRACT PASS viewport {viewportWidth}x{viewportHeight}; all 7 Hunters; {refreshes} category/beam/color/suit publications; actual native strict binding targets and isolated Weavel body Apply/Discard/reopen persistence; no GL window, game files, account or real player writes.");
+            if (LocalDroneAppearanceRules.Available) DronePersistence(host, pages, isolated, viewportWidth, viewportHeight);
+            Console.WriteLine($"HUNTER PRESENTER CONTRACT PASS viewport {viewportWidth}x{viewportHeight}; all 7 Hunters; {refreshes} category/beam/color/suit publications; actual native strict binding targets and isolated Weavel body/drone Apply/Discard/reopen persistence; no GL window, game files, account or real player writes.");
             return 0;
         }
         finally
@@ -120,7 +121,7 @@ internal static class HunterPresenterContractAcceptance
     private static void BodyPersistence(RmlUiHost host, RmlUiPageManager pages, string isolated, int viewportWidth, int viewportHeight)
     {
         string oldDirectory = LauncherPrefs.Directory;
-        var oldChoice = new LauncherHunterChoice(LauncherPrefs.LastHunter, LauncherPrefs.LastColor, LauncherPrefs.LocalBody);
+        var oldChoice = new LauncherHunterChoice(LauncherPrefs.LastHunter, LauncherPrefs.LastColor, LauncherPrefs.LocalBody, LauncherPrefs.LocalDrone);
         string directory = Path.Combine(isolated, "saved-hunters"); Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, "launcher.txt");
         var store = new PersistedChoiceStore(); var cosmetics = new CosmeticService();
@@ -128,6 +129,7 @@ internal static class HunterPresenterContractAcceptance
         {
             LauncherPrefs.Directory = directory; LauncherPrefs.LastHunter = Hunter.Weavel;
             LauncherPrefs.LastColor = 0; LauncherPrefs.LocalBody = LocalBodyAppearance.Native;
+            LauncherPrefs.LocalDrone = LocalDroneAppearance.Native;
             Check(LauncherPrefs.TrySave(), "fixture creates only its isolated launcher preference file");
             foreach (var body in new[] { LocalBodyAppearance.TrooperPower, LocalBodyAppearance.TrooperIce,
                 LocalBodyAppearance.TrooperWave, LocalBodyAppearance.TrooperPlasma, LocalBodyAppearance.Native })
@@ -174,8 +176,80 @@ internal static class HunterPresenterContractAcceptance
         {
             LauncherPrefs.Directory = oldDirectory; LauncherPrefs.LastHunter = oldChoice.Hunter;
             LauncherPrefs.LastColor = oldChoice.Suit; LauncherPrefs.LocalBody = oldChoice.Body;
+            LauncherPrefs.LocalDrone = oldChoice.Drone;
         }
         void Click(NativeHunterPagePresenter presenter, string id, RmlUiIntentKind kind, int argument)
+            => NativeClick(host, presenter, id, kind, argument, viewportWidth, viewportHeight);
+    }
+
+    private static void DronePersistence(RmlUiHost host, RmlUiPageManager pages, string isolated, int viewportWidth, int viewportHeight)
+    {
+        Check((int)RmlUiIntentKind.HunterDroneSelect == 287
+            && MphRead.Mods.Launcher.RmlUi.Core.RmlUiPageCommandRouting.Hunter(RmlUiIntentKind.HunterDroneSelect),
+            "appended native drone intent287 routes to the Hunters presenter");
+        string oldDirectory = LauncherPrefs.Directory;
+        var oldChoice = new LauncherHunterChoice(LauncherPrefs.LastHunter, LauncherPrefs.LastColor, LauncherPrefs.LocalBody, LauncherPrefs.LocalDrone);
+        string directory = Path.Combine(isolated, "saved-drones"); Directory.CreateDirectory(directory);
+        string path = Path.Combine(directory, "launcher.txt");
+        var store = new PersistedChoiceStore(); var cosmetics = new CosmeticService();
+        try
+        {
+            LauncherPrefs.Directory = directory; LauncherPrefs.LastHunter = Hunter.Weavel; LauncherPrefs.LastColor = 0;
+            LauncherPrefs.LocalBody = LocalBodyAppearance.Native; LauncherPrefs.LocalDrone = LocalDroneAppearance.Native;
+            Check(LauncherPrefs.TrySave(), "drone fixture creates only isolated launcher preferences");
+            foreach (var drone in new[] { LocalDroneAppearance.Alpha, LocalDroneAppearance.Gamma, LocalDroneAppearance.Native })
+            {
+                int writes = store.Writes; byte[] saved = File.ReadAllBytes(path);
+                using (var presenter = new NativeHunterPagePresenter(pages, store, cosmetics, host))
+                {
+                    presenter.Open(); host.Update();
+                    Click(presenter, "hunter_drone" + (int)drone, RmlUiIntentKind.HunterDroneSelect, (int)drone);
+                    Check(Draft(presenter).Drone == drone && Draft(presenter).Body == LocalBodyAppearance.Native
+                        && !presenter.CanNavigateAway && store.Writes == writes && File.ReadAllBytes(path).AsSpan().SequenceEqual(saved),
+                        "native drone click stages presentation without persistence/body selection: " + drone);
+                    Click(presenter, "hunter_apply", RmlUiIntentKind.HunterApply, 0);
+                    Check(store.Writes == writes + 1 && presenter.CanNavigateAway
+                        && store.Capture() == new LauncherHunterChoice(Hunter.Weavel, 0, LocalBodyAppearance.Native, drone)
+                        && File.ReadAllLines(path).Contains("local_drone=" + drone) && cosmetics.Writes == 0,
+                        "actual Apply saves exact drone through launcher preferences: " + drone);
+                }
+                LauncherPrefs.LastHunter = Hunter.Samus; LauncherPrefs.LastColor = 3;
+                LauncherPrefs.LocalDrone = LocalDroneAppearance.Native; LauncherPrefs.Load();
+                Check(store.Capture() == new LauncherHunterChoice(Hunter.Weavel, 0, LocalBodyAppearance.Native, drone),
+                    "real preference reload retains exact saved drone: " + drone);
+                using var reopened = new NativeHunterPagePresenter(pages, store, cosmetics, host);
+                reopened.Open(); host.Update();
+                Check(Draft(reopened) == store.Capture() && reopened.CanNavigateAway, "reopen captures saved drone: " + drone);
+                var other = drone == LocalDroneAppearance.Alpha ? LocalDroneAppearance.Gamma : LocalDroneAppearance.Alpha;
+                byte[] applied = File.ReadAllBytes(path);
+                Click(reopened, "hunter_drone" + (int)other, RmlUiIntentKind.HunterDroneSelect, (int)other);
+                Click(reopened, "hunter_discard", RmlUiIntentKind.HunterResetPreview, 0);
+                Check(Draft(reopened).Drone == drone && reopened.CanNavigateAway && store.Writes == writes + 1
+                    && File.ReadAllBytes(path).AsSpan().SequenceEqual(applied), "Discard restores saved drone without rewriting preferences");
+                Click(reopened, "hunter_drone1", RmlUiIntentKind.HunterDroneSelect, 1);
+                var controller = (LauncherHunterChoiceController)typeof(NativeHunterPagePresenter)
+                    .GetField("_controller", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(reopened)!;
+                Check(controller.SelectHunter(Array.IndexOf(LauncherHunterChoiceController.Playable, Hunter.Samus))
+                    && controller.Current().Choice.Drone == LocalDroneAppearance.Native && !controller.SelectDrone(1)
+                    && !controller.SelectDrone(2), "switching from Weavel clears drone and rejects imported choices on Samus");
+                Check(controller.SelectHunter(Array.IndexOf(LauncherHunterChoiceController.Playable, Hunter.Weavel))
+                    && controller.Current().Choice.Drone == LocalDroneAppearance.Native,
+                    "switching back to Weavel cannot resurrect discarded drone selection");
+                Check(!controller.SelectDrone(-1) && !controller.SelectDrone(3), "drone choices remain finite in the draft owner");
+            }
+            Check(store.Writes == 3 && cosmetics.Writes == 0, "three drone Apply operations make exactly three local writes and no account request");
+        }
+        finally
+        {
+            LauncherPrefs.Directory = oldDirectory; LauncherPrefs.LastHunter = oldChoice.Hunter;
+            LauncherPrefs.LastColor = oldChoice.Suit; LauncherPrefs.LocalBody = oldChoice.Body; LauncherPrefs.LocalDrone = oldChoice.Drone;
+        }
+        void Click(NativeHunterPagePresenter presenter, string id, RmlUiIntentKind kind, int argument)
+            => NativeClick(host, presenter, id, kind, argument, viewportWidth, viewportHeight);
+    }
+
+    private static void NativeClick(RmlUiHost host, NativeHunterPagePresenter presenter, string id,
+        RmlUiIntentKind kind, int argument, int viewportWidth, int viewportHeight)
         {
             var document = presenter.PreviewDocument;
             host.SetBool(document, "class:@document:reduce-motion", true);
@@ -197,10 +271,9 @@ internal static class HunterPresenterContractAcceptance
             Check(!presenter.Handle(intent), "duplicate native command sequence cannot write or apply twice: " + id);
             host.Update();
         }
-        static LauncherHunterChoice Draft(NativeHunterPagePresenter presenter)
+    private static LauncherHunterChoice Draft(NativeHunterPagePresenter presenter)
             => ((LauncherHunterChoiceController)typeof(NativeHunterPagePresenter).GetField("_controller", BindingFlags.Instance | BindingFlags.NonPublic)!
                 .GetValue(presenter)!).Current().Choice;
-    }
 
     private sealed class PersistedChoiceStore : ILauncherHunterChoiceStore
     {
