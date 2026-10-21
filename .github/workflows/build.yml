@@ -1115,6 +1115,17 @@ jobs:
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --transport-stress
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --network-benchmark --smoke
 
+      # The pinned GL2 bridge uses find_package(OpenGL REQUIRED). Install the
+      # GLVND/OpenGL development libraries *before* CMake configuration,
+      # not after publishing. Keep software GL/Xvfb here for later smoke tests.
+      - name: install Linux RmlUi OpenGL build and Xvfb test prerequisites
+        if: matrix.id == 'linux-x64'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install --no-install-recommends -y cmake g++ pkg-config \
+            libgl1-mesa-dev libx11-dev libxinerama-dev libxcursor-dev libxi-dev \
+            xvfb xauth libgl1-mesa-dri libgl1 libglx-mesa0 libxinerama1 libxcursor1 libxi6
+
       - name: build the Linux desktop RmlUi native runtime
         if: matrix.id == 'linux-x64'
         run: bash tools/rmlui/build-native.sh linux-x64 gl2
@@ -1150,12 +1161,6 @@ jobs:
       - name: bounded thumbnail worker regression
         if: matrix.id == 'linux-x64'
         run: dotnet run --project tools/thumbnail-batch-check/thumbnail-batch-check.csproj -c Release
-
-      - name: install Linux GL and Xvfb acceptance prerequisites once
-        if: matrix.id == 'linux-x64'
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install --no-install-recommends -y xvfb xauth libgl1-mesa-dri libgl1 libglx-mesa0 libxinerama1 libxcursor1 libxi6
 
       - name: legacy thumbnail diagnostics without KHR_debug
         if: matrix.id == 'linux-x64'
