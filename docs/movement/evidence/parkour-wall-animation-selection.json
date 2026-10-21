@@ -1,5 +1,5 @@
 {
-  "status": "PASS_FULL_03_AND_TARGETED_04",
+  "status": "PASS_FULL_03_TARGETED_04_LATEST_MAIN_05",
   "producer": {
     "baseSha": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
     "integrationBaseSha": "242be3d578528848823c8b5fff8713529425f399",
@@ -524,5 +524,10 @@
       "build-artifacts\\bin\\nettest\\release\\nettest.dll": "99fadc82865caf47660fb8e8bcc6686910573d4202d5a27e83078f379233e1c4"
     },
     "scope": "Only three existing current-protocol test files changed. Other6675 source files byte-identical to full03; no repeated GPU/native/UDP/history claim."
+  },
+  "latestMainIntegration": {
+    "producer": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "base": "b406d1a129cf7c09345ac5c7f02ac5efc4889fad",
+    "receipt": "parkour-wall-animation-integration.json"
   }
 }

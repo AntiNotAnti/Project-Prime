@@ -1,0 +1,763 @@
+{
+  "status": "PASS_LATEST_MAIN_INTEGRATION",
+  "producerFreezeReceipt": {
+    "baseSha": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "integrationBaseSha": "b406d1a129cf7c09345ac5c7f02ac5efc4889fad",
+    "archiveSha256": "e8a90d9d9758eb330b9894b8ae670540af7c82665bb8de9904a26fa6b6eb6f13",
+    "sourceManifestSha256": "c094c296fcdbbe04a6ca8e420d9568bc3a73a65094b902b43313763057b98412",
+    "fullSourceManifestSha256": "0ca76cd1f1ba1db0198133e94a04b34f858a61b9421017d9c6281750ff147336",
+    "overlaySha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85",
+    "overlayFiles": 0,
+    "fullSourceFiles": 6691,
+    "exactCommittedProducer": true,
+    "buildsRun": 0,
+    "gameRuntimeRun": 0,
+    "gitArchiveCoreAutocrlf": false
+  },
+  "freezeCounterScope": "Receipt counters reflect archive creation, before the completed runs below.",
+  "builds": {
+    "normalClient": "PASS",
+    "nettest": "PASS",
+    "dedicatedServer": "PASS",
+    "warning": "Existing CS0649 readiness probe"
+  },
+  "binarySha256": {
+    "build-artifacts\\bin\\MphRead\\release\\ProjectPrime.dll": "a30d08cb7ae3392b3b128160fad687ae804ebc4712da1054ccbe90106b96c912",
+    "build-artifacts\\bin\\nettest\\release\\nettest.dll": "f59a1fa61e0f802705d83e6e0ff41a57e86326dfe15515e40f512d091fd488c6",
+    "server-artifacts\\bin\\MphRead\\release\\ProjectPrime.dll": "c0e7b880c837da4c76645a4f65ac893be8573695636ccd476daad789f85e8105"
+  },
+  "focusedGates": [
+    {
+      "gate": "parkour-wall-animation-wire",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-animation-wire",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-grapple-rules",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-grapple-wire",
+      "exit": 0
+    },
+    {
+      "gate": "compact-intents",
+      "exit": 0
+    },
+    {
+      "gate": "player-form-protocol",
+      "exit": 0
+    },
+    {
+      "gate": "pickup-replay",
+      "exit": 0
+    },
+    {
+      "gate": "traversal-rules",
+      "exit": 0
+    },
+    {
+      "gate": "quake3-advanced-rules",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-input-packets",
+      "exit": 0
+    },
+    {
+      "gate": "crouch-input-check",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-mantle-rules",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-compatibility",
+      "exit": 0
+    },
+    {
+      "gate": "lifecycle",
+      "exit": 0
+    },
+    {
+      "gate": "architecture",
+      "exit": 0
+    },
+    {
+      "gate": "protocol17",
+      "exit": 0
+    },
+    {
+      "gate": "protocol58-replay",
+      "exit": 0
+    },
+    {
+      "gate": "quake3-replay-compatibility",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-replay-metadata",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-replay-rules",
+      "exit": 0
+    },
+    {
+      "gate": "traversal-stance-network",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-stance-rules",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-wallstrafe-rules",
+      "exit": 0
+    },
+    {
+      "gate": "parkour-wallrun-rules",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-rules",
+      "exit": 0
+    },
+    {
+      "gate": "momentum-offline-rules",
+      "exit": 0
+    },
+    {
+      "gate": "quake3-rules",
+      "exit": 0
+    },
+    {
+      "gate": "enhanced-retirement",
+      "exit": 0
+    },
+    {
+      "gate": "movement-validation-shadow",
+      "exit": 0
+    },
+    {
+      "gate": "timed-shot-replay",
+      "exit": 0
+    },
+    {
+      "gate": "grant-replay",
+      "exit": 0
+    },
+    {
+      "gate": "player-names-chat",
+      "exit": 0
+    },
+    {
+      "gate": "continuous-targets",
+      "exit": 0
+    },
+    {
+      "gate": "pickup-protocol",
+      "exit": 0
+    },
+    {
+      "gate": "advanced-rules",
+      "exit": 0
+    }
+  ],
+  "replayWorkflow": [
+    {
+      "gate": "protocol58-replay",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 1.211
+    },
+    {
+      "gate": "momentum-replay-rules",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.122
+    },
+    {
+      "gate": "momentum-replay-metadata",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.175
+    },
+    {
+      "gate": "architecture",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.232
+    },
+    {
+      "gate": "timed-shot-replay",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.315
+    },
+    {
+      "gate": "pickup-replay",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.276
+    },
+    {
+      "gate": "grant-replay",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.113
+    },
+    {
+      "gate": "compact-intents",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.285
+    },
+    {
+      "gate": "protocol17",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.091
+    },
+    {
+      "gate": "player-names-chat",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.114
+    },
+    {
+      "gate": "continuous-targets",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.172
+    },
+    {
+      "gate": "pickup-protocol",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.059
+    },
+    {
+      "gate": "enhanced-retirement",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 0.194
+    },
+    {
+      "gate": "lobby",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 98.91
+    },
+    {
+      "gate": "advanced-rules",
+      "exit": 0,
+      "status": "PASS",
+      "elapsedSeconds": 2.466
+    }
+  ],
+  "native": {
+    "status": "PASS",
+    "producerCommit": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "integrationBaseCommit": "b406d1a129cf7c09345ac5c7f02ac5efc4889fad",
+    "sourceFiles": 6691,
+    "sourceOverlayFiles": 0,
+    "archiveSha256": "e8a90d9d9758eb330b9894b8ae670540af7c82665bb8de9904a26fa6b6eb6f13",
+    "fullSourceManifestSha256": "0ca76cd1f1ba1db0198133e94a04b34f858a61b9421017d9c6281750ff147336",
+    "scope": "Frozen Windows CPU/native scene qualification with actual keyboard, native collision, scoped draw-only body/owner probes and independent private asset mirror. Excludes GL, UDP, physical-device and performance qualification.",
+    "startedUtc": "2026-10-21T16:16:23.7814788Z",
+    "completedUtc": "2026-10-21T16:17:02.0777728Z",
+    "gateCount": 11,
+    "assertions": 903799,
+    "gates": [
+      {
+        "gate": "wall-animation-scene",
+        "status": "PASS",
+        "assertions": 258242
+      },
+      {
+        "gate": "animation-scene",
+        "status": "PASS",
+        "assertions": 85517
+      },
+      {
+        "gate": "grapple-authority",
+        "status": "PASS",
+        "assertions": 1529
+      },
+      {
+        "gate": "grapple",
+        "status": "PASS",
+        "assertions": 1988
+      },
+      {
+        "gate": "mantle",
+        "status": "PASS",
+        "assertions": 9215
+      },
+      {
+        "gate": "native-gold",
+        "status": "PASS",
+        "assertions": 0
+      },
+      {
+        "gate": "traversal",
+        "status": "PASS",
+        "assertions": 82331
+      },
+      {
+        "gate": "ground-slope",
+        "status": "PASS",
+        "assertions": 413037
+      },
+      {
+        "gate": "wallrun",
+        "status": "PASS",
+        "assertions": 6149
+      },
+      {
+        "gate": "wallstrafe",
+        "status": "PASS",
+        "assertions": 11820
+      },
+      {
+        "gate": "tuck",
+        "status": "PASS",
+        "assertions": 33971
+      }
+    ],
+    "wallAnimation": {
+      "assertions": 258242,
+      "hunters": 7,
+      "actions": [
+        "ground wallstrafe",
+        "airborne wallstrafe",
+        "wallrun",
+        "fresh wallkick",
+        "tucked airborne wallstrafe"
+      ],
+      "mirroredWallSides": 2,
+      "actualPositiveTrajectories": 70,
+      "bodyLodCombinations": 140,
+      "ownerHunterActionCombinations": 35,
+      "nativeWeaponBranchPreserved": true,
+      "nativeTuckedLegMatricesPreserved": true,
+      "nativePhysicsAndAnimationCursorsPreserved": true,
+      "paletteRestorationExact": true,
+      "freshKickCompletedPictures": 12,
+      "historicalProfilesExcluded": 4,
+      "warmedZeroAllocationProbes": 4,
+      "loopsPerAllocationProbe": 20000
+    },
+    "mantleGrappleAnimation": {
+      "assertions": 85517,
+      "ownerHunterActionCombinations": 14,
+      "bodyLodCombinations": 28,
+      "historicalProfilesExcluded": 4,
+      "warmedZeroAllocationProbes": 4,
+      "loopsPerAllocationProbe": 20000
+    },
+    "authority": {
+      "assertions": 1529,
+      "originalGrappleAssertions": 262,
+      "mantleVisualAssertions": 512,
+      "wallVisualAssertions": 755,
+      "currentMantlePhaseCodes": 15
+    },
+    "classicGolden": {
+      "nativeTrajectories": 56,
+      "tolerance": 1e-05,
+      "recorded": false
+    },
+    "fences": {
+      "committedSourceUnchanged": true,
+      "allNormalBuildArtifactsUnchanged": true,
+      "normalArtifactFiles": 803,
+      "originalExtractedAssetsUnchanged": true,
+      "privateAssetBaselineFiles": 3671,
+      "privateAssetBaselineUnchanged": true,
+      "unexpectedPrivateGeneratedOutputs": 0,
+      "privateGeneratedCourseFiles": 8
+    },
+    "binarySha256": {
+      "nettest": "f59a1fa61e0f802705d83e6e0ff41a57e86326dfe15515e40f512d091fd488c6",
+      "ProjectPrime": "a30d08cb7ae3392b3b128160fad687ae804ebc4712da1054ccbe90106b96c912"
+    },
+    "helperSha256": {
+      "gateRunner": "fc6f7e9d50720f69d415aceec4cfdd1d7eb9f58cbbb019ac4e0c7c074d435cb0",
+      "stagedPrivateAssetRunner": "f560e8da13b12a272c7c0fcb6c3aa5098167112c5dbb7345e98c5281f3580e81"
+    },
+    "evidenceSha256": {
+      "native-summary.json": "d89562ad30b5a40d74668e0f77388f3dee9dc6f323b3df5ed2ec656c05635f5c",
+      "wall-animation-scene.json": "2e2a4febe072aec99cbc8879d4c1ccb7326aa7985b34f4df19f85daf78ba15f8",
+      "animation-scene.json": "f0a26e1d7482bae04659a0a24d23ed64ba5a6977485c31c3f7623921858be4fd",
+      "grapple-authority.json": "c10db33440e812cb7ac73b82c4fe37a6b19692f3580151f10a5d422e1a9c234a",
+      "native-gold.log": "998fa144b1db03d70890e668bb3d67b1a18efd48ff37262785561c4aec31de2f",
+      "binaries-before.json": "f3a408d6fc7198079616164123df79f0a9c1fa7f8c5109c2a3b1c2ffecc8ce5a",
+      "binaries-after.json": "f3a408d6fc7198079616164123df79f0a9c1fa7f8c5109c2a3b1c2ffecc8ce5a"
+    }
+  },
+  "targetedRender": {
+    "producer": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "sourceFiles": 6691,
+    "overlayFiles": 0,
+    "archiveSha256": "e8a90d9d9758eb330b9894b8ae670540af7c82665bb8de9904a26fa6b6eb6f13",
+    "fullSourceManifestSha256": "0ca76cd1f1ba1db0198133e94a04b34f858a61b9421017d9c6281750ff147336",
+    "normalClientSha256": "a30d08cb7ae3392b3b128160fad687ae804ebc4712da1054ccbe90106b96c912",
+    "copiedClientSha256": "a30d08cb7ae3392b3b128160fad687ae804ebc4712da1054ccbe90106b96c912",
+    "toolDllSha256": "1f3079a26bc7c0fb7230a00e02cf45c12e33ece3a436376daef5e22519dbb34c",
+    "buildExit": 0,
+    "runExit": 0,
+    "status": "PASS",
+    "normalArtifactsUnchanged": true,
+    "assetsUnchanged": true,
+    "privateAssetFencePass": true,
+    "sourceFence": "PASS6691",
+    "schema": 1,
+    "baseCommit": "b406d1a129cf7c09345ac5c7f02ac5efc4889fad",
+    "scope": "Targeted latest-main Windows hidden/unfocused native external-body OpenGL regression. Ten Samus scenarios: east/west wallstrafe, wallrun, wallkick, airborne tucked wallstrafe; mantle and grapple. Real input after initial lane placement; no source overlays, controller/velocity/position/cursor injection after initial placement.",
+    "driver": {
+      "vendor": "NVIDIA Corporation",
+      "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+      "version": "4.6.0 NVIDIA 617.42",
+      "hidden": true,
+      "focused": false
+    },
+    "assertions": 28664,
+    "scenarios": 10,
+    "processes": [
+      {
+        "selector": "walls",
+        "exitCode": 0,
+        "assertions": 20389,
+        "scenarios": 6
+      },
+      {
+        "selector": "walltuck",
+        "exitCode": 0,
+        "assertions": 5847,
+        "scenarios": 2
+      },
+      {
+        "selector": "both",
+        "exitCode": 0,
+        "assertions": 2428,
+        "scenarios": 2
+      }
+    ],
+    "positiveFrames": 622,
+    "pngFiles": 2488,
+    "frameManifests": 10,
+    "groups": {
+      "wallstrafe": {
+        "scenarios": 2,
+        "positiveFrames": 196,
+        "visiblePoseFrames": 74
+      },
+      "wallrun": {
+        "scenarios": 2,
+        "positiveFrames": 166,
+        "visiblePoseFrames": 46
+      },
+      "wallkick": {
+        "scenarios": 2,
+        "positiveFrames": 80,
+        "visiblePoseFrames": 12
+      },
+      "walltuck": {
+        "scenarios": 2,
+        "positiveFrames": 126,
+        "visiblePoseFrames": 20
+      },
+      "mantle": {
+        "scenarios": 1,
+        "positiveFrames": 30,
+        "visiblePoseFrames": 9
+      },
+      "grapple": {
+        "scenarios": 1,
+        "positiveFrames": 24,
+        "visiblePoseFrames": 16
+      }
+    },
+    "positiveRepeatRgbExact": true,
+    "canonicalStateUnchanged": true,
+    "normalArtifactFileCount": 803,
+    "renderArtifactFileCount": 352,
+    "sourceExtraFiles": 0,
+    "privateGeneratedAssetFiles": 8,
+    "buildWarnings": 0,
+    "buildErrors": 0,
+    "sourceContractComparison": {
+      "baselineProducer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+      "unchangedFiles": 10,
+      "files": [
+        {
+          "file": "src/MphRead/Entities/Players/PlayerParkourAnimation.cs",
+          "sha256": "1cd0256710569f1d3792f0e0c5d650001495c246c478d466085e15579cbaca6c",
+          "unchanged": true
+        },
+        {
+          "file": "src/MphRead/Entities/Players/PlayerWallAnimation.cs",
+          "sha256": "5ac01dd1de3017d9440de87e265c72dd6d91dabec188ab0a0106650f3d4c8fa2",
+          "unchanged": true
+        },
+        {
+          "file": "src/MphRead/Entities/Players/PlayerParkourContacts.cs",
+          "sha256": "f6150765daec957518d8b871d9672f3f470c99a73835743c5db45eede65166b5",
+          "unchanged": true
+        },
+        {
+          "file": "src/MphRead/Entities/Players/PlayerParkourWallrun.cs",
+          "sha256": "444a510367d41b7294fa50e0037ddbcf5bd2ead892717c2a0366f1eac723af09",
+          "unchanged": true
+        },
+        {
+          "file": "src/MphRead/Entities/Players/PlayerParkourGrapple.cs",
+          "sha256": "62195790eb53d5b4f6466ef788a9c6d8db479f052831a0ac8d1e54643e87329e",
+          "unchanged": true
+        },
+        {
+          "file": "src/MphRead/Entities/Players/PlayerParkourMantle.cs",
+          "sha256": "ba66931b13672e6452da35787b4272555ae752f528ef157f218934a3745aa112",
+          "unchanged": true
+        },
+        {
+          "file": "src/MphRead/Mods/Render/ParkourAnimationPose.cs",
+          "sha256": "57224d1c4b3f8354412272e85851d60f6f76ce9d4c34b1dc6592201e24d23d5e",
+          "unchanged": true
+        },
+        {
+          "file": "src/MphRead/Mods/Render/ParkourPoseOverlay.cs",
+          "sha256": "a874796b4a82d8d61d1bdfe92e534aa9a9be755774688f097a722ad56ea611e9",
+          "unchanged": true
+        },
+        {
+          "file": "src/MphRead/Mods/Network/ParkourWallVisualCodec.cs",
+          "sha256": "ad794e684cabaf22cf0eca0dd021de542af23fae90ac5f2c46e8231ccfc85c75",
+          "unchanged": true
+        },
+        {
+          "file": "tools/native-render-check/ParkourAnimationRenderCheck.cs",
+          "sha256": "0f45138e6b9ce6ccc10cf849757fcdfafc27176df02d6bbf4ed9a62df895fce9",
+          "unchanged": true
+        }
+      ]
+    },
+    "retainedFullMatrix": {
+      "producer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+      "scenarios": 56,
+      "assertions": 183556,
+      "receiptSha256": "00443334cf60dfc6be1348bb57a2be29155e7de86158bab451ae9dea307c0af3",
+      "scope": "Full seven-Hunter both-side wall raster matrix and previews remain attributed to exact producer03. They were not rerun as a full matrix on producer05."
+    },
+    "runtimeArguments": [
+      "-parkouranimationcheck -hunter Samus -scenario walls -wall-side both -size 800x600 -shots <fresh-walls-directory> -output <fresh-walls-report.json>",
+      "-parkouranimationcheck -hunter Samus -scenario walltuck -wall-side both -size 800x600 -shots <fresh-tuck-directory> -output <fresh-tuck-report.json>",
+      "-parkouranimationcheck -hunter Samus -scenario both -wall-side east -size 800x600 -shots <fresh-mantle-grapple-directory> -output <fresh-mantle-grapple-report.json>"
+    ],
+    "limits": [
+      "Targeted ten-Samus common-render regression only; full56 remained producer03.",
+      "External-body raster only; owner first-person gun cue raster not checked here.",
+      "No new preview generated. Retained previews are exact producer03 captures.",
+      "No Mac, physical-device input, OS-focus/UI automation, frame pacing or performance acceptance."
+    ],
+    "logs": {
+      "both-run.log": "02f9f66651b57a5d66052bc1aa1e8a1be8fc977c8e7283c301e6e7d64be09617",
+      "build.log": "97b409718e91693c46fdbaa373d9e99ff7adfe9514439bf8481df11db747c171",
+      "walls-run.log": "138038e0c7c8d3c1ab48b2ab91565541d8ff89e75ffc38d31624f8260c8b2f6c",
+      "walltuck-run.log": "26c584d4d5a8075d57717c9d864fa3da4808869b91121adc21cc52c6f3ad3f7c"
+    }
+  },
+  "staticReleaseDag": {
+    "status": "PASS",
+    "producer": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "sourceCommittedFiles": 6691,
+    "zeroOverlay": true,
+    "staticReleaseDagTests": 4,
+    "sourceFence": "PASS",
+    "testedScriptSha256": "bce8ed8a4697efc50383d0339aa5ebad6aed8e4278e9a5c71d174697f77b4506",
+    "releaseWorkflowSha256": "5ccf98f034a5880b26e52d77fc52f41459c1fb2e1e4ff4eecdd0532d99edffd8",
+    "scope": "Static release DAG assertions from exact frozen05 source; no Mac/device/package execution claim."
+  },
+  "scope": "Latest-main contact replay/shared-renderer integration. Full seven-Hunter56render and clean/impairedUDP retain03attribution. Targeted10Samusrender/native11 repeated here. No new custom contact GL capture/bundle/cold-file raster claim.",
+  "compatibilityAndSupplemental": {
+    "status": "PASS",
+    "producer": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "integrationBase": "b406d1a129cf7c09345ac5c7f02ac5efc4889fad",
+    "sourceCommittedFiles": 6691,
+    "sourceOverlayFiles": 0,
+    "archiveComparisons": 18,
+    "recreatedCompatibilityFixtures": 10,
+    "actualRetainedRecordings": 8,
+    "exactMatchingFields": 588,
+    "explicitSizeChangeChecks": 36,
+    "frames": 43014,
+    "worldCheckpoints": 200,
+    "seeks": 1958,
+    "testBuilds": 4,
+    "runtimeGates": 17,
+    "staticReleaseDagTests": 4,
+    "customFileMarkerChecks": 63,
+    "causalContactVisualChecks": 68,
+    "androidSourceOnlyChecks": 735,
+    "actualDllPartyChecks": 147,
+    "realUdpPackagePreparationChecks": 146,
+    "historicalRegistryNamesPreserved": 78,
+    "normalRecursiveNettestFilesUnchanged": 355,
+    "normalRecursiveClientAndNettestFilesUnchanged": 702,
+    "sourceBinaryScratchHelperConfigRegistryInputFences": "PASS",
+    "all18OriginalCopiedArchivesFactsProvenanceBackupsReadback": "PASS",
+    "protectedPoseControllerCodecGameplaySourceFilesUnchangedFrom04": 47,
+    "testSourceSubstitution": false,
+    "ownedReplayCommands": 18,
+    "all21SupplementalCommandRowsExited0": true,
+    "ownedProcessesRemaining": 0,
+    "coreSha256": "a30d08cb7ae3392b3b128160fad687ae804ebc4712da1054ccbe90106b96c912",
+    "nettestSha256": "f59a1fa61e0f802705d83e6e0ff41a57e86326dfe15515e40f512d091fd488c6",
+    "helpers": {
+      "compare_wall_history85-05.py": "e35885db2b7f31c026349870864fb120084b501250303f4ba9dfcd759f6ac1c1",
+      "run-wall05-supplemental01.py": "f58444ac3aff728d1b95d31fe1224bb9ddd994a19913294f422de0829fe63a0b",
+      "run-wall05-ci-targeted01.py": "2995c5bb922b77c4c3197d973423a0ee9c1d44cd774ce7d121235fa4773a137a",
+      "qualify.py": "ec87909647134e7a635d0d8800bb739c0ef222a4a827f52014ad0ed9440d5c0d"
+    },
+    "scope": "Latest-main05 compatibility/source-only/party/package-preparation integration refresh. Separate native/GPU results retain their own qualification attribution. No fresh custom-contact/file-reopen GL, Mac/device, original archive recovery, or dedicated wall-movement generic-UDP claim."
+  },
+  "supplemental": {
+    "status": "PASS",
+    "producer": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "sourceCommittedFiles": 6691,
+    "sourceOverlayFiles": 0,
+    "testBuilds": 2,
+    "runtimeGates": 14,
+    "customFileMarkerChecks": 63,
+    "causalContactVisualChecks": 68,
+    "androidSourceOnlyChecks": 735,
+    "retainedCustomFileProtocols": [
+      83,
+      84
+    ],
+    "currentProtocol": 85,
+    "sourceBinaryScratchFences": "PASS",
+    "testSourceSubstitution": false,
+    "scope": "Frozen05 marker-aware file and causal-contact derived visual/source-only integration checks; no fresh custom-contact/file-reopen GL/device claim."
+  },
+  "partyRegistryPackage": {
+    "status": "PASS",
+    "producer": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "fullRuntimeProducer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+    "sourceCommittedFiles": 6691,
+    "sourceOverlayFiles": 0,
+    "testBuilds": 2,
+    "runtimeGates": 3,
+    "actualDllPartyChecks": 147,
+    "realUdpPackagePreparationChecks": 146,
+    "historicalRegistryNamesPreserved": 78,
+    "protectedSourceFilesByteIdenticalTo04": 47,
+    "poseControllerCodecGameplaySourcesByteIdenticalTo04": true,
+    "sourceBinaryScratchHelperRegistryInputFences": "PASS",
+    "normalRecursiveClientAndNettestFilesUnchanged": 702,
+    "testSourceSubstitution": false,
+    "scope": "Exact05 compiled-DLL party/registry and real package-preparation UDP integration checks; no backend/online package execution claim."
+  },
+  "actualRecordedWallRestoreProbe": {
+    "status": "PASS",
+    "consumerProducer": "d256ce6c0b2ab9bc9d6433808bde453c202aaafe",
+    "sourceFiles": 6691,
+    "overlayFiles": 0,
+    "recordingProducer": "cc46e138c8e2b384f7f8b6a5bed4ca5a51d358e1",
+    "recordedProtocol": 85,
+    "checks": 2162,
+    "scope": "Supplemental private CPU actual production DLL probe: two retained real native protocol85 clean/impaired recordings, actual nonzero accepted wall pictures, serialized real world cold restore and16 same-life suffix frames. This is separate from the eleven native gates. No packet/controller/cue injection, fresh UDP, GL or device claim.",
+    "sourceArchiveSha256": "e8a90d9d9758eb330b9894b8ae670540af7c82665bb8de9904a26fa6b6eb6f13",
+    "scan": [
+      {
+        "kind": "clean",
+        "records": 17049,
+        "snapshotRecords": 1907,
+        "nonzeroAcceptedWallSnapshots": 15
+      },
+      {
+        "kind": "impaired",
+        "records": 16815,
+        "snapshotRecords": 2306,
+        "nonzeroAcceptedWallSnapshots": 15
+      }
+    ],
+    "cases": [
+      {
+        "kind": "clean",
+        "slot": 2,
+        "captureFrame": 958,
+        "recordedWallCue": 2,
+        "firstSuffixFrame": 959,
+        "firstSuffixRecordedWallCue": 2,
+        "sameLifeSuffixFrames": 16,
+        "checkpointBytes": 588093,
+        "checkpointSha256": "5978a1e689d970f7dbfde662dfd575f8ec88f2d90fa69e3d1ec85a4760ae6d24"
+      },
+      {
+        "kind": "impaired",
+        "slot": 2,
+        "captureFrame": 890,
+        "recordedWallCue": 1,
+        "firstSuffixFrame": 891,
+        "firstSuffixRecordedWallCue": 1,
+        "sameLifeSuffixFrames": 16,
+        "checkpointBytes": 588801,
+        "checkpointSha256": "096129e7bdb7315e11756cf0a87d56ffdf96f0a4a0015f9f78509b44c727f1a4"
+      }
+    ],
+    "assertions": {
+      "actualDecoderWallPositive": true,
+      "immediateColdWorldExact": true,
+      "firstSameLifeNonzeroWallSuffixExact": true,
+      "sixteenSuffixFramesExact": true,
+      "gameplayAndPresentationHashesExact": true,
+      "acceptedPoseNormalAmountStanceClockExact": true,
+      "noLocalWallMantleGrappleMechanics": true
+    },
+    "fences": {
+      "source6691Unchanged": true,
+      "allNormalBuildArtifactsUnchanged": true,
+      "normalArtifactFiles": 803,
+      "exactCopiedProductionDll": true,
+      "allCopiedRuntimeDependencyFilesUnchanged": true,
+      "recordedArchiveBytesUnchanged": true,
+      "originalExtractedAssetsUnchanged": true,
+      "privateAssetBaselineFiles": 3671,
+      "privateAssetBaselineUnchanged": true,
+      "privateAssetOutputsAdded": 0
+    },
+    "archives": [
+      {
+        "kind": "clean",
+        "sha256": "bb1bc9a1ae50cd2eabdca4b0dbb817b8409ea5a919614567f8493d93d33778dd",
+        "bytes": 1164892
+      },
+      {
+        "kind": "impaired",
+        "sha256": "33a482452d59f3581eb5b37abdca6aaf8660425d21f4ebfb498760ed7b719c8f",
+        "bytes": 1176326
+      }
+    ],
+    "sha256": {
+      "productionGameAssembly": "a30d08cb7ae3392b3b128160fad687ae804ebc4712da1054ccbe90106b96c912",
+      "executedGameAssembly": "a30d08cb7ae3392b3b128160fad687ae804ebc4712da1054ccbe90106b96c912",
+      "privateProbeAssembly": "47400a3118aae4c153ead74efca216ffc2fad76d9e2031270f8d1b064a4691ca",
+      "privateProbeSource": "83d1250852e430356fb5e00406007fd28df2403b1ecab0132405904ce073305d",
+      "privateProbeProject": "1a2b93402a68a8ad30feee70817c3db3dd5e82f428584de71e65e006919e0913",
+      "scan02": "25430b92881b9fc6baf516e69e1c45f29189fe794214b9fe20da145fe44d45d5",
+      "worldRestoreResult": "7225fdc05953519526db010723c6be2876add4044ce560b53319576528b496bb",
+      "worldRestoreLog": "69908b0c7f3fe7304c0772be5596f73196f5729635f2c6baaf84589afc7b3876"
+    },
+    "retainedEarlierAttempt": {
+      "name": "scan01",
+      "outcome": "Standalone whole-event decoder hit bounded bomb-event queue without scene consumers; no scene or production failure. Narrowed accepted snapshot scan follows exact Match/Roster/Session/Snapshot decoder path."
+    }
+  }
+}
