@@ -420,8 +420,45 @@ namespace MphRead.Mods.Network
                 Require(p38Converted.Length == 2 + IntentPacket.TouchCanonicalSize
                     && p38Read.HasFireEvents && p38Read.FireEventCount == 1
                     && p38Read.FireEvents[0].ShotId == 77
+                    && p38Read.FireEvents[0].SourceFrame == 100
+                    && p38Read.FireEvents[0].AckFrame == 90
+                    && p38Read.FireEvents[0].AckSubFrame == 128
+                    && p38Read.FireEvents[0].Kind == FireEventKind.PressFire
+                    && p38Read.FireEvents[0].Weapon == (byte)BeamType.Imperialist
                     && !p38Read.FireEvents[0].HasPose,
                     "protocol 38 FireEvent upgrades without invented shot pose");
+                Require(p38Read.NativeTouch == default && p38Read.GrappleRequestNonce == 0
+                    && (p38Read.Buttons & IntentButtons.Grapple) == 0
+                    && p38Converted[(2 + IntentPacket.FullSize)..].IndexOfAnyExcept((byte)0) < 0,
+                    "protocol 38 canonical expansion adds only inactive touch and zero grapple request defaults");
+
+                // Protocol80/81 have native touch but no grapple nonce. Keep
+                // the historical input width and verify both packet prefixes
+                // expand while preserving every other recorded payload byte.
+                var historicalTouch = new Mods.Input.NativeTouchReport(true, true, true, -24, 36, 987, true);
+                foreach (int protocol in new[] { 80, 81 })
+                foreach (PacketType type in new[] { PacketType.Intent, PacketType.SlotIntent })
+                {
+                    int prefix = type == PacketType.Intent ? 1 : 2;
+                    byte[] historicalIntent = new byte[prefix + IntentPacket.Protocol80TouchSize];
+                    historicalIntent[0] = (byte)type;
+                    if (prefix == 2) historicalIntent[1] = 3;
+                    new IntentPacket { Frame = 123, Buttons = IntentButtons.Shoot | IntentButtons.Grapple,
+                        MatchId = 7, AuthorityEpoch = 9, SlotGeneration = 2, LifeId = 4,
+                        NativeTouch = historicalTouch }.Write(historicalIntent.AsSpan(prefix));
+                    byte[] historicalBefore = (byte[])historicalIntent.Clone();
+                    ReadOnlySpan<byte> canonical = ReplayIdentityCompatibility.Convert(historicalIntent, protocol);
+                    IntentPacket canonicalRead = IntentPacket.Read(canonical[prefix..]);
+                    byte[] expectedHistorical = (byte[])historicalBefore.Clone();
+                    BinaryPrimitives.WriteUInt32LittleEndian(expectedHistorical.AsSpan(prefix + 4), (uint)IntentButtons.Shoot);
+                    Require(canonical.Length == prefix + IntentPacket.TouchCanonicalSize
+                        && canonical[..historicalIntent.Length].SequenceEqual(expectedHistorical)
+                        && canonical[historicalIntent.Length..].IndexOfAnyExcept((byte)0) < 0
+                        && historicalIntent.AsSpan().SequenceEqual(historicalBefore)
+                        && canonicalRead.NativeTouch == historicalTouch && canonicalRead.GrappleRequestNonce == 0
+                        && canonicalRead.Buttons == IntentButtons.Shoot,
+                        $"protocol {protocol} {type} preserves historical touch/identity bytes and clears only the unavailable grapple request");
+                }
 
                 // Original Fruity Prime v1 was FPDM + elapsed milliseconds +
                 // uncompressed length-prefixed packets. Preserve it forever by

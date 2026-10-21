@@ -242,7 +242,7 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         var data = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal)
         {
             ["visible:hunter_local_body"] = RmlUiBindingValue.FromBoolean(
-                state.Choice.Hunter == Hunter.Samus && LocalBodyAppearanceRules.Available),
+                state.Choice.Hunter is Hunter.Samus or Hunter.Weavel && LocalBodyAppearanceRules.Available),
             ["native_hunter_name"] = RmlUiBindingValue.FromText(
                 state.Choice.Hunter.ToString().ToUpperInvariant()),
             ["native_hunter_status"] = RmlUiBindingValue.FromText(
@@ -310,10 +310,13 @@ internal sealed class NativeHunterPagePresenter : IDisposable
             data["class:hunter_suit" + i + ":selected"] = RmlUiBindingValue.FromBoolean(i == state.Choice.Suit);
             data["disabled:hunter_suit" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy);
         }
-        for (int i = 0; i < 3; i++)
+        for (int i = 0; i < 7; i++)
         {
+            data["visible:hunter_body" + i] = RmlUiBindingValue.FromBoolean(
+                LocalBodyAppearanceRules.MatchesHunter((LocalBodyAppearance)i, state.Choice.Hunter));
             data["class:hunter_body" + i + ":selected"] = RmlUiBindingValue.FromBoolean(i == (int)state.Choice.Body);
-            data["disabled:hunter_body" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy);
+            data["disabled:hunter_body" + i] = RmlUiBindingValue.FromBoolean(cosmetic.Busy
+                || !LocalBodyAppearanceRules.MatchesHunter((LocalBodyAppearance)i, state.Choice.Hunter));
         }
         for (int i = 0; i < 5; i++)
         {

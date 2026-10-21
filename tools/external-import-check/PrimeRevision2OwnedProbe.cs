@@ -234,12 +234,13 @@ internal static class PrimeRevision2OwnedProbe
                         || p.EndsWith(".parts.json", StringComparison.Ordinal)), "Rev2 bodyv4 includes exactly one generated body-viewer manifest without cannon/parts index.");
                 var runtimeCaches = Caches();
                 object preview = VerifyCpuPreview(id, imports, receipt.Generation, Check); cpuPreviewCaptures++;
-                bool localBodyRefused = false;
-                try { CharacterSourcePreviewSelection.LoadForLocalBody(id, CancellationToken.None, imports); }
-                catch (NotSupportedException) { localBodyRefused = true; }
+                var localBody = CharacterSourcePreviewSelection.LoadForLocalBody(id, CancellationToken.None, imports);
+                bool localBodyAdmitted = localBody.NativeHunter == Hunter.Weavel && !localBody.HasCannon && !localBody.RuntimeCannon
+                    && localBody.Generation == receipt.Generation && localBody.Clips.Count == 113
+                    && localBody.SelectedAppearance.CharacterId == "trooper";
                 var runtimeCachesAfter = Caches();
-                Check(localBodyRefused && runtimeCaches.All(p => runtimeCachesAfter[p.Key].SequenceEqual(p.Value)),
-                    "Successful CPU viewer capture and refused local-body admission leave every native Read cache unchanged.");
+                Check(localBodyAdmitted && runtimeCaches.All(p => runtimeCachesAfter[p.Key].SequenceEqual(p.Value)),
+                    "CPU viewer and local Weavel body capture retain strict clips without cannon capability or native Read cache mutation.");
                 object fullSource = VerifyFullSource(id, folder, fingerprint, Check);
                 object materials = VerifyMaterials(id, folder, fingerprint, materialPak, Check);
                 var previousV3 = previousV3Generations[id];
@@ -264,7 +265,7 @@ internal static class PrimeRevision2OwnedProbe
                 bundles.Add(new { Id = id, receipt.Version, receipt.RecipeHash, receipt.SourceFingerprint, receipt.Generation,
                     Positions = positions, Triangles = triangles, Bones = bones, RequiredRecipeComponents = spec.RequiredComponents.Length,
                     CommittedFiles = state.Files.Count, Components = componentMetadata, FullSource = fullSource, RawMaterials = materials,
-                    CpuPreview = preview, LocalBodySelectionRefused = localBodyRefused,
+                    CpuPreview = preview, LocalBodySelectionAdmitted = localBodyAdmitted, LocalBodyHasCannon = localBody.HasCannon,
                     PreviousV3ComponentsByteIdentical = 10, PreviousV4ComponentsByteIdentical = 11 });
             }
             CheckPreviousBytes(); migrationRetained = v3BytesPreserved = v4BytesPreserved = true;
@@ -540,7 +541,7 @@ internal static class PrimeRevision2OwnedProbe
         return new { UniqueLeaves = bank.Resources.Count, DeclaredStrictRoots = 113, TotalKeys = keys, RotationChannels = rotationChannels,
             TranslationChannels = translationChannels, ScaleChannels = 0, TotalScalars = scalars, PoseSamples = poseSamples,
             UnknownChannelBones = 0, BankSha256 = Sha(archive), GraphSha256 = Sha(descriptor), CinfSha256, Glb = glbMetadata,
-            ProvenanceSha256 = HashFile(Path.Combine(folder, id + ".source.json")), LocalBodySelectionRefused = true };
+            ProvenanceSha256 = HashFile(Path.Combine(folder, id + ".source.json")), SourceOnlyAuthoringProvenance = true };
     }
 
     // Independent glTF/BIN reads; deliberately does not call the writer or the

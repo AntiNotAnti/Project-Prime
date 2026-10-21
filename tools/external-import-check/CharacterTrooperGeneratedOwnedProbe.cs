@@ -119,7 +119,11 @@ internal static class CharacterTrooperGeneratedOwnedProbe
                     id + " retains all35 joints,36 nodes, three material ordinals and1,970 unique complete triangles.");
                 Check(selection.Clips.Count == 113 && selection.Clips.Select(c => c.Ordinal).Distinct().Count() == 113
                     && selection.Clips.All(c => lease.SourceAnimations!.Data.Roots.Any(r => r.Ordinal == c.Ordinal && r.CharacterDeclared && r.StrictPlay)), id + " exposes exactly113 genuine strict source clips.");
-                Reject(() => CharacterSourcePreviewSelection.LoadForLocalBody(id, CancellationToken.None, imports), id + ": viewer does not grant actor/cannon runtime capability");
+                var localBody = CharacterSourcePreviewSelection.LoadForLocalBody(id, CancellationToken.None, imports);
+                Check(localBody.NativeHunter == Hunter.Weavel && localBody.SelectedAppearance == selection.SelectedAppearance
+                    && localBody.Generation == selection.Generation && !localBody.HasCannon && !localBody.RuntimeCannon
+                    && localBody.Clips.Select(c => c.Ordinal).SequenceEqual(selection.Clips.Select(c => c.Ordinal)),
+                    id + " explicit local-body selection preserves its Weavel generation/strict clips without a cannon.");
                 Reject(() => CharacterSourceClip.Load(lease, asset, geometry.SourceRig!, int.MaxValue), id + ": undeclared clip refuses");
                 Check(!selection.Pack.TryCreateSourcePreviewLease(asset with { }, out _), id + " copied asset cannot mint owner authority.");
                 captured.Add(new(id, folder, selection, asset, lease, materials, state.Files.ToDictionary(f => f, HashFile)));

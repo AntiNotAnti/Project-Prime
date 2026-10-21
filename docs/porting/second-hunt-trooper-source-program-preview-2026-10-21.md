@@ -1,5 +1,9 @@
 # Prime Rev 2 Trooper source-program preview
 
+Merged in [PR948](https://github.com/AntiNotAnti/Project-Prime/pull/948) at
+`123df20e3737f672048309310f18c8c7f9428cd9`. Its tree exactly matches qualified
+head `d964d0924fe0202f426f62f4ef39a53e726fb417`.
+
 All four verified Prime USA Rev 2 Trooper imports now open in the existing
 animated source viewer with their complete source geometry, textures, material
 programs and strict animation clips. They use the real Weavel HunterPreview
