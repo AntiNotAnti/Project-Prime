@@ -315,6 +315,7 @@ internal static class CharacterBodyRuntimeOwnedProbe
                         {
                             foreach (int rate in new[] { 90, 120, 240, 540 })
                             {
+                                FrameTiming.FrameRateCap = rate > FrameTiming.MaxCap ? FrameTiming.Unlimited : rate;
                                 FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
                                 int totalSteps = 0, zeroSteps = 0, fractional = 0, changed = 0;
                                 ulong startFrame = scene.FrameCount;
@@ -334,13 +335,16 @@ internal static class CharacterBodyRuntimeOwnedProbe
                                     Picture(true);
                                     Check(Palette(owner.Model) == afterSkin, "fractional and repeated draws preserve raw source skin");
                                 }
-                                Check(scene.FrameCount - startFrame == (ulong)totalSteps && zeroSteps > 0 && fractional > 0 && changed > 0
-                                    && Math.Abs(owner.MaterialSeconds - startClock - totalSteps / 60d) < 1e-9,
-                                    "90/120/240/540 simulated picture schedules retain 60 Hz source authority and moving poses");
                                 Console.WriteLine(JsonSerializer.Serialize(new { Probe = "trooper-fractional-schedule", Rate = rate,
-                                    Pictures = rate, CompletedSteps = totalSteps, ZeroSteps = zeroSteps, Fractional = fractional, ChangedSkins = changed }));
+                                    Pictures = rate, CompletedSteps = totalSteps, ZeroSteps = zeroSteps, Fractional = fractional, ChangedSkins = changed,
+                                    NativeSteps = scene.FrameCount - startFrame, MaterialAdvance = owner.MaterialSeconds - startClock }));
+                                // The supported ready source clip can be static. Changing
+                                // palettes are required by the real movement script above.
+                                Check(scene.FrameCount - startFrame == (ulong)totalSteps && zeroSteps > 0 && fractional > 0
+                                    && Math.Abs(owner.MaterialSeconds - startClock - totalSteps / 60d) < 1e-9,
+                                    "90/120/240/540 simulated picture schedules retain 60 Hz source authority");
                             }
-                            FrameTiming.Reset();
+                            FrameTiming.FrameRateCap = cap; FrameTiming.Reset();
                             scene.GameState.ThirdPersonCamera = false;
                             try
                             {

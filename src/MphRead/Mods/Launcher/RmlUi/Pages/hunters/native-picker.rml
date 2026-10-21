@@ -34,7 +34,7 @@
                 </div>
                 <div id="hunter_local_body" style="display:none">
                     <div class="section-title">LOCAL OFFLINE BODY</div>
-                    <div class="hint">Requires the matching local import. Dark Samus includes a Power Beam cannon; Trooper and Overcharged guns stay native. Jumps, morphing, status effects and dynamic shadows use native presentation. Online uses your native loadout.</div>
+                    <div class="hint">Requires the matching local import. Dark Samus includes a Power Beam cannon. Hunters preview, ball, Trooper guns and Overcharged gun stay native. Jumps, morphing, status effects and dynamic shadows use native presentation. Online uses your native loadout.</div>
                     <div class="hunter-suits">
                         <button id="hunter_body0" data-action="hunter:body-select:0">NATIVE</button>
                         <button id="hunter_body1" data-action="hunter:body-select:1">DARK SAMUS</button>
