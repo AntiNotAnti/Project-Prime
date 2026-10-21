@@ -69,7 +69,7 @@ internal sealed class CharacterSourcePreviewSelection
                 throw new InvalidDataException("The generated source cannon is unavailable.");
             pack.CaptureGeneratedCannonMaterials(asset, cannonAsset);
         }
-        bool hasBall = id == "darksamus-echoes";
+        bool hasBall = trooper==null;
         if (hasBall)
         {
             if (!pack.TryResolvePrivate(Hunter.Samus,appearance,CharacterModelPart.AlternateForm,0,out var ballAsset)

@@ -30,7 +30,9 @@ internal sealed class CharacterSourceAnimationArchive
     internal uint RootBoneId { get; }
     internal uint ExternalParentId { get; }
     internal bool IsNormalBall => _stem == CharacterGeneratedNormalBallProfile.Stem;
-    internal int ExpectedJointCount => IsNormalBall ? 2 : RootBoneId == 0 ? 39 : 35;
+    internal bool IsFinalBall => _stem == CharacterGeneratedFinalBallProfile.Stem;
+    internal bool IsBall => IsNormalBall||IsFinalBall;
+    internal int ExpectedJointCount => IsBall ? 2 : RootBoneId == 0 ? 39 : 35;
     private CharacterSourceAnimationArchive(string root, string modelSha, string sha, RetroCharacterAnimationArchive.Snapshot data,
         RetroNativeSkeleton skeleton, Dictionary<string, (string, int)> inputs, string stem, uint rootBoneId, uint externalParentId)
         => (_root, _modelSha, Sha256, Data, Skeleton, _inputs, _stem, RootBoneId, ExternalParentId)
@@ -38,6 +40,7 @@ internal sealed class CharacterSourceAnimationArchive
     internal static CharacterSourceAnimationArchive Load(string root, CharacterModelManifestEntry entry, string modelSha)
     {
         if (CharacterGeneratedNormalBallProfile.IsEntry(entry)) return LoadNormalBall(root,entry,modelSha);
+        if (CharacterGeneratedFinalBallProfile.IsEntry(entry)) return LoadNormalBall(root,entry,modelSha,final:true);
         bool final = entry.SkinSource == "MP2DarkSamusFinal";
         var trooper = CharacterGeneratedTrooperProfile.FromSkin(entry.SkinSource);
         bool echoes = trooper == null;
@@ -82,11 +85,14 @@ internal sealed class CharacterSourceAnimationArchive
         return new(root, modelSha, entry.SourceAnimationArchiveSha256!, data,
             new(new ReadOnlyDictionary<uint,RetroNativeBone>(skeleton.Bones.ToDictionary(p=>p.Key,p=>p.Value))), inputs, Stem, rootId, externalParent);
     }
-    private static CharacterSourceAnimationArchive LoadNormalBall(string root,CharacterModelManifestEntry entry,string modelSha)
+    private static CharacterSourceAnimationArchive LoadNormalBall(string root,CharacterModelManifestEntry entry,string modelSha,bool final=false)
     {
-        Require(CharacterGeneratedNormalBallProfile.IsEntry(entry)
-            && String.Equals(modelSha,CharacterGeneratedNormalBallProfile.ModelSha,StringComparison.OrdinalIgnoreCase),"Exact original normal ball animation owner required.");
-        const string stem=CharacterGeneratedNormalBallProfile.Stem;
+        string modelPin=final?CharacterGeneratedFinalBallProfile.ModelSha:CharacterGeneratedNormalBallProfile.ModelSha;
+        string archivePin=final?CharacterGeneratedFinalBallProfile.AnimationSha:CharacterGeneratedNormalBallProfile.AnimationSha;
+        string graphPin=final?CharacterGeneratedFinalBallProfile.GraphSha:CharacterGeneratedNormalBallProfile.GraphSha;
+        Require((final?CharacterGeneratedFinalBallProfile.IsEntry(entry):CharacterGeneratedNormalBallProfile.IsEntry(entry))
+            && String.Equals(modelSha,modelPin,StringComparison.OrdinalIgnoreCase),"Exact own ball animation/composite owner required.");
+        string stem=final?CharacterGeneratedFinalBallProfile.Stem:CharacterGeneratedNormalBallProfile.Stem;
         var inputs=new Dictionary<string,(string Sha,int Limit)>(StringComparer.Ordinal);
         byte[] Read(string name,string pin,int maximum)
         {
@@ -94,10 +100,25 @@ internal sealed class CharacterSourceAnimationArchive
             string sha=RetroAnimationGraphProof.Sha(bytes);Require(sha==pin,"Normal ball source input changed: "+name);
             inputs.Add(name,(sha,maximum));return bytes;
         }
-        byte[] description=Read(stem+".ancs-graph.json",CharacterGeneratedNormalBallProfile.GraphSha,RetroAnimationGraphProof.MaximumProofBytes),
+        byte[] description=Read(stem+".ancs-graph.json",graphPin,RetroAnimationGraphProof.MaximumProofBytes),
             source=Read(stem+".ancs.bin",CharacterGeneratedNormalBallProfile.AncsSha,RetroAnimationIndex.MaxAncsBytes),
             cinf=Read(stem+".cinf.bin",CharacterGeneratedNormalBallProfile.CinfSha,1024*1024),
-            archive=Read(stem+".animations.bin",CharacterGeneratedNormalBallProfile.AnimationSha,RetroCharacterAnimationArchive.MaximumBytes);
+            archive=Read(stem+".animations.bin",archivePin,RetroCharacterAnimationArchive.MaximumBytes);
+        if(final)
+        {
+            byte[] receipt=Read(stem+".composite.json",CharacterGeneratedFinalBallProfile.ProvenanceSha,CharacterModelPack.MaximumManifestBytes);
+            using var document=System.Text.Json.JsonDocument.Parse(receipt);
+            var sourceInputs=document.RootElement.GetProperty("sourceInputs");
+            Require(sourceInputs.EnumerateObject().Count()==14,"Complete fourteen-input Final composite receipt required.");
+            foreach(var input in sourceInputs.EnumerateObject())
+            {
+                string name=input.Name;int limit=name.EndsWith(".glb",StringComparison.Ordinal)?checked((int)CharacterModelPack.MaximumModelBytes)
+                    :name.EndsWith(".materials.bin",StringComparison.Ordinal)?RetroCharacterMaterialArchive.MaxArchiveBytes
+                    :name.EndsWith(".animations.bin",StringComparison.Ordinal)?RetroCharacterAnimationArchive.MaximumBytes:CharacterModelPack.MaximumManifestBytes;
+                if(inputs.TryGetValue(name,out var existing))Require(existing.Sha==input.Value.GetString(),"Final composite input identity changed.");
+                else Read(name,input.Value.GetString()!,limit);
+            }
+        }
         var graph=RetroAnimationGraphProof.Verify(description,source);
         var skeleton=RetroCharacterSource.ReadSkeleton(cinf);
         Require(graph.SourceGameId=="G2ME01" && graph.SourceAncsId==0x654a3f97 && graph.Cmdl==0x2f2c1e6f
@@ -107,7 +128,7 @@ internal sealed class CharacterSourceAnimationArchive
             "Normal ball requires its complete own original ANCS/CINF hierarchy.");
         var data=RetroCharacterAnimationArchive.Read(archive,new(source,description,graph),cinf,echoes:true);
         Require(data.Roots.Count==2 && data.Roots.All(r=>r.CharacterDeclared&&r.StrictPlay),"Both original normal ball motion roots must remain captured.");
-        return new(root,modelSha,CharacterGeneratedNormalBallProfile.AnimationSha,data,
+        return new(root,modelSha,archivePin,data,
             new(new ReadOnlyDictionary<uint,RetroNativeBone>(skeleton.Bones.ToDictionary(p=>p.Key,p=>p.Value))),inputs,stem,0,97);
     }
     internal void Revalidate(string root, CharacterModelManifestEntry entry, string modelSha)

@@ -103,10 +103,10 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
                 _ballInstance=new(ballAnchor,CharacterModelPart.AlternateForm,bodyOwner:this);
                 if (!CharacterModelRuntime.TryGetSourcePreview(scene,player.Hunter,CharacterModelPart.AlternateForm,
                     _nativeBall,selection.Pack,selection.SelectedAppearance,_ballInstance,true,out _ballModel)
-                    || _ballModel.Joints.Count!=2 || _ballModel.IndexCount!=2220*3 || _ballModel.Segments.Count==0
+                    || _ballModel.Joints.Count!=2 || _ballModel.IndexCount!=(_ballModel.IsFinalSourceBall?8170:2220)*3 || _ballModel.Segments.Count==0
                     || _ballModel.Segments.Any(s=>s.SourceGx==null||s.SourceJointPalette is not {Count:>0 and <=32})
                     || !CharacterModelRuntime.TryLoadSourceClip(scene,_ballInstance,_ballModel,CharacterGeneratedNormalBallProfile.ClipOrdinal,out var ready))
-                    throw new InvalidDataException("The selected normal source ball could not bind completely.");
+                    throw new InvalidDataException("The selected source ball could not bind completely.");
                 var pose=ready.Sample(0);_ballModel.UpdateSourcePreviewPalette(pose);
                 BallFit=_ballModel.FitSourceBall(pose,Fixed.ToFloat(player.Values.AltColRadius));
             }
@@ -186,7 +186,7 @@ internal sealed class CharacterSourceBodyOwner : IDisposable
         presentation=Matrix4.Identity;
         if(!BallReady||!BallCurrent)return false;
         presentation=BallFit*roll;
-        _ballModel!.PrepareSourcePreviewPresentation(presentation);return true;
+        _ballModel!.PrepareSourceBallPresentation(presentation,BallMaterialSeconds);return true;
     }
 
     public void Dispose()

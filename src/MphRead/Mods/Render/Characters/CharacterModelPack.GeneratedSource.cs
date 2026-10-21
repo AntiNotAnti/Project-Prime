@@ -17,7 +17,10 @@ internal sealed partial class CharacterModelPack
         CharacterModelAsset asset, PrivateCharacterAppearance appearance, string sourceCharacter, string? verifiedModelSha)
     {
         if (asset.Part == CharacterModelPart.AlternateForm)
-            return CharacterGeneratedNormalBallProfile.Validate(receipt,entry,asset,appearance,sourceCharacter,
+            return sourceCharacter=="darksamus-overcharged-echoes"
+                ? CharacterGeneratedFinalBallProfile.Validate(receipt,entry,asset,appearance,sourceCharacter,
+                    verifiedModelSha ?? CharacterSourceProofIO.HashFile(asset.ModelPath,MaximumModelBytes))
+                : CharacterGeneratedNormalBallProfile.Validate(receipt,entry,asset,appearance,sourceCharacter,
                 verifiedModelSha ?? CharacterSourceProofIO.HashFile(asset.ModelPath,MaximumModelBytes));
         bool final = sourceCharacter == "darksamus-overcharged-echoes";
         string modelPin = final ? GeneratedFinalSourceGlbSha256 : GeneratedNormalSourceGlbSha256;

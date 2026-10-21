@@ -366,7 +366,7 @@ namespace MphRead.Mods.Render.Characters
                     throw new InvalidDataException($"Unknown character skinning mode '{entry.Skinning}'.");
                 if (!Enum.IsDefined(entry.PoseSource)) throw new InvalidDataException("Unknown character pose source.");
                 bool sourcePreview = entry.PoseSource==CharacterPoseSource.SourceRigPreview;
-                bool ballPreview = CharacterGeneratedNormalBallProfile.IsEntry(entry);
+                bool ballPreview = CharacterGeneratedNormalBallProfile.IsEntry(entry)||CharacterGeneratedFinalBallProfile.IsEntry(entry);
                 bool graphPreview=entry.SourceGraphProof!=null||entry.SourceGraphProofSha256!=null||entry.SourceMotionManifest!=null;
                 if(graphPreview&&(!sourcePreview||entry.Part!=CharacterModelPart.Biped||entry.SourceGraphProof==null||entry.SourceGraphProofSha256==null||entry.SourceMotionManifest==null))
                     throw new InvalidDataException("Raw graph binding requires explicit source-only Biped proof/motion references; no graph evaluator.");

@@ -42,7 +42,8 @@ internal sealed partial class CharacterModelPack
         if (!_sourceMaterials.TryGetValue(asset, out var captured)) return;
         string materialId = captured.Materials.Archive.Binding.CharacterId;
         string path = ContainedPath(_sourceRoot!, (materialId == CharacterGeneratedNormalBallProfile.MaterialId
-            ? CharacterGeneratedNormalBallProfile.Stem : materialId) + ".materials.bin");
+            ? CharacterGeneratedNormalBallProfile.Stem : materialId == CharacterGeneratedFinalBallProfile.MaterialId
+                ? CharacterGeneratedFinalBallProfile.Stem : materialId) + ".materials.bin");
         if (path != captured.Path || CharacterSourceProofIO.HashFile(path, RetroCharacterMaterialArchive.MaxArchiveBytes) != captured.Materials.Archive.Sha256)
             throw new InvalidDataException("Captured source material generation changed.");
     }
@@ -52,9 +53,16 @@ internal sealed partial class CharacterModelPack
         if (_sourceRoot == null || !HasSourceBall(asset) || !_sourceProofs.TryGetValue(asset,out var proof))
             throw new InvalidDataException("Exact original normal ball owner required for its own material capture.");
         ValidateAtGeneration(asset,proof.ModelSha,_sourceGeneration);
-        string path=ContainedPath(_sourceRoot,CharacterGeneratedNormalBallProfile.Stem+".materials.bin");
+        bool final=asset.PrivateAppearance==new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal");
+        string path=ContainedPath(_sourceRoot,(final?CharacterGeneratedFinalBallProfile.Stem:CharacterGeneratedNormalBallProfile.Stem)+".materials.bin");
         var materials=CharacterSourceGxMaterials.Read(CharacterSourceProofIO.ReadFile(path,RetroCharacterMaterialArchive.MaxArchiveBytes),
-            proof.ModelSha,CharacterGeneratedNormalBallProfile.MaterialId);
+            proof.ModelSha,final?CharacterGeneratedFinalBallProfile.MaterialId:CharacterGeneratedNormalBallProfile.MaterialId);
+        if(final)
+        {
+            if(!TryResolvePrivate(Hunter.Samus,asset.PrivateAppearance!.Value,CharacterModelPart.Biped,0,out var body)
+                ||!_sourceMaterials.TryGetValue(body,out var bodyMaterials))throw new InvalidDataException("Own original Final body material capture required before composite.");
+            materials=materials.ForFinalBall(bodyMaterials.Materials);
+        }
         ValidateAtGeneration(asset,proof.ModelSha,_sourceGeneration);
         lock(_sourceProofLock)
         {

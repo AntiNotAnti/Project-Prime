@@ -61,7 +61,7 @@ public partial class PlayerEntity
             {
                 _scene.SourceGxSubmission=new(segment.SourceGx!,owner.BallMaterialSeconds,owner,AlternateForm:true);
                 _scene.AddRenderItem(_altModel.Model.Materials[segment.NativeMaterialIndex],polygonId,1,
-                    Vector3.Zero,GetLightInfo(),Matrix4.Identity,presentation,segment.ListId,
+                    Vector3.Zero,GetLightInfo(),Matrix4.Identity,model.SourceBallSegmentPresentation(segment,presentation,owner.BallMaterialSeconds),segment.ListId,
                     segment.SourceJointPalette!.Count,segment.SourcePresentationPalette!,null,null,SelectionType.None,BillboardMode.None,1,
                     segment.AlbedoBinding,weightedSkinning:true,authoredTexture:true,authoredWrapS:segment.WrapS,
                     authoredWrapT:segment.WrapT,authoredDoubleSided:true,

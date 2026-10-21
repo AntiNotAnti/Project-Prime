@@ -96,6 +96,8 @@ namespace MphRead.Mods.Render.Characters
         public IReadOnlyList<CharacterWeightedRenderJoint> Joints { get; }
         public float[] MatrixPalette { get; }
         private readonly CharacterWeightedModelData? _sourceGeometry;
+        internal bool IsFinalSourceBall { get; }
+        private readonly Vector3 _finalBallCenter;
         internal bool IsSourcePreview => _sourceGeometry?.SourceRig != null;
         internal Matrix4 DiagnosticPreviewFit { get; }
         internal CharacterSourceRig? SourceRig => _sourceGeometry?.SourceRig;
@@ -127,8 +129,22 @@ namespace MphRead.Mods.Render.Characters
             // are fitted, once at load; launcher camera/zoom never participate.
             return Matrix4.CreateTranslation(0, -minimum, 0) * Matrix4.CreateScale(nativeHeight / sourceHeight);
         }
-        internal Matrix4 FitSourceBall(IReadOnlyList<Matrix4> readyPose,float nativeRadius)
-            => CharacterSourceBallPose.Fit(_sourceGeometry ?? throw new InvalidDataException("Captured source ball required."),readyPose,nativeRadius);
+        internal Matrix4 FitSourceBall(IReadOnlyList<Matrix4>? readyPose,float nativeRadius)
+        {
+            var source=_sourceGeometry??throw new InvalidDataException("Captured source ball required.");
+            // The donor's outer shell defines the ball fit. Veins/heart do not
+            // silently shrink the sphere or change native collision authority.
+            if(IsFinalSourceBall)source=source with{Primitives=source.Primitives.Where(p=>p.SourceMaterialOrdinal==0).ToArray()};
+            return CharacterSourceBallPose.Fit(source,readyPose,nativeRadius);
+        }
+        internal void PrepareSourceBallPresentation(Matrix4 presentation,double seconds)
+            => PrepareSourcePreviewPresentation(presentation,IsFinalSourceBall
+                ?(float)Import.RetroFinalBallPresentation.HeartScale(CharacterSourceGxProgram.Clock(seconds)):null);
+        private Matrix4 HeartTransform(float scale) => Matrix4.CreateTranslation(-_finalBallCenter)
+            *Matrix4.CreateScale(scale)*Matrix4.CreateTranslation(_finalBallCenter);
+        internal Matrix4 SourceBallSegmentPresentation(CharacterWeightedRenderSegment segment,Matrix4 presentation,double seconds)
+            => IsFinalSourceBall&&segment.SourcePrimitiveOrdinal==5
+                ?HeartTransform((float)Import.RetroFinalBallPresentation.HeartScale(CharacterSourceGxProgram.Clock(seconds)))*presentation:presentation;
         internal void UpdateSourcePreviewPalette(IReadOnlyList<Matrix4>? localPose = null)
         {
             if (_sourceGeometry?.SourceRig is not { } rig) throw new InvalidOperationException("Model is not a source preview.");
@@ -144,9 +160,11 @@ namespace MphRead.Mods.Render.Characters
                 Array.Copy(palettes[i],buffer,palettes[i].Length);
             }
         }
-        internal void PrepareSourcePreviewPresentation(Matrix4 presentationPose)
+        internal void PrepareSourcePreviewPresentation(Matrix4 presentationPose,float? compositeHeartScale=null)
         {
             if (!IsSourcePreview) throw new InvalidOperationException("Native palettes already contain their owner pose.");
+            if(compositeHeartScale is { } beat&&(!IsFinalSourceBall||!float.IsFinite(beat)||beat is <.69f or >1.31f))
+                throw new InvalidDataException("Only the exact Final composite admits its bounded heart-only pulse.");
             // The existing preview owner supplies positive uniform zoom and rotation.
             // Preserve the shader's normalized mat3 normal convention; no new
             // nonuniform-scale, mirrored, perspective or world-clock contract.
@@ -182,7 +200,9 @@ namespace MphRead.Mods.Render.Characters
                         raw[offset+12], raw[offset+13], raw[offset+14], raw[offset+15]);
                     // OpenTK row-vector order; GL's transpose=false interpretation
                     // supplies world * skin to the existing column-vector shader.
-                    WriteMatrix(target, offset, skin * sourcePresentation);
+                    Matrix4 heart=compositeHeartScale is { } scale&&segment.SourcePrimitiveOrdinal==5
+                        ?HeartTransform(scale):Matrix4.Identity;
+                    WriteMatrix(target, offset, skin * heart * sourcePresentation);
                 }
             }
         }
@@ -192,9 +212,18 @@ namespace MphRead.Mods.Render.Characters
         public CharacterWeightedRenderModel(CharacterModelAsset asset,
             IReadOnlyList<CharacterWeightedRenderSegment> segments,
             IReadOnlyList<CharacterWeightedRenderJoint> joints,
-            int vertexCount, int indexCount, CharacterWeightedModelData? sourceGeometry = null)
+            int vertexCount, int indexCount, CharacterWeightedModelData? sourceGeometry = null,bool finalSourceBall=false)
         {
             _sourceGeometry = sourceGeometry;
+            IsFinalSourceBall=finalSourceBall;
+            if(finalSourceBall)
+            {
+                if(sourceGeometry?.SourceRig==null||asset.Part!=CharacterModelPart.AlternateForm||sourceGeometry.IndexCount!=8170*3
+                    ||sourceGeometry.Primitives.Count!=6||!sourceGeometry.Primitives.Select(p=>p.SourceMaterialOrdinal).SequenceEqual(Enumerable.Range(0,6)))
+                    throw new InvalidDataException("Exact six-batch Final composite required for heart presentation.");
+                var points=sourceGeometry.Primitives[0].Vertices.Select(v=>new Vector3(v.Position.X,v.Position.Y,v.Position.Z)).ToArray();
+                _finalBallCenter=(points.Aggregate(Vector3.ComponentMin)+points.Aggregate(Vector3.ComponentMax))*.5f;
+            }
             DiagnosticPreviewFit = Matrix4.Identity;
             if (sourceGeometry?.SourceRig != null)
             {
@@ -771,7 +800,14 @@ namespace MphRead.Mods.Render.Characters
                     && sourceMaterials.Archive.Sha256==CharacterGeneratedNormalBallProfile.MaterialSha
                     && sourceMaterials.Programs.Count==1 && geometry.IndexCount==2220*3 && geometry.Joints.Count==2
                     && geometry.Primitives.All(p=>p.SourceMaterialOrdinal==0);
-                if (attachment == null || !(generatedCannonCut || trooperCannonCut || finalCannonCut || normalBall || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
+                bool finalBall=asset.Part==CharacterModelPart.AlternateForm&&sourceLease.SourceAnimations?.IsFinalBall==true
+                    &&asset.PrivateAppearance==new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal")&&asset.Hunter==Hunter.Samus
+                    &&sourceLease.ModelSha256==CharacterGeneratedFinalBallProfile.ModelSha&&sourceMaterials.IsFinalBall
+                    &&sourceMaterials.Archive.Sha256==CharacterGeneratedFinalBallProfile.MaterialSha
+                    &&sourceMaterials.Programs.Count==6&&geometry.IndexCount==8170*3&&geometry.Joints.Count==2
+                    &&geometry.Primitives.Select(p=>p.SourceMaterialOrdinal).SequenceEqual(Enumerable.Range(0,6))
+                    &&geometry.Primitives.Select(p=>p.SourcePrimitiveOrdinal).SequenceEqual(Enumerable.Range(0,6));
+                if (attachment == null || !(generatedCannonCut || trooperCannonCut || finalCannonCut || normalBall || finalBall || sourceLease.SourceCannon == null && asset.Part == CharacterModelPart.Biped
                         && geometry.Primitives.Select(p => p.SourceMaterialOrdinal).Distinct().Count() == sourceMaterials.Programs.Count)
                     || geometry.Primitives.Any(p => p.SourceMaterialOrdinal < 0 || p.SourceMaterialOrdinal >= sourceMaterials.Programs.Count))
                     throw new InvalidDataException("Complete original body material ordinals required.");
@@ -840,7 +876,7 @@ namespace MphRead.Mods.Render.Characters
                         sourcePrograms?[primitive.SourceMaterialOrdinal]));
                 }
                 return new(asset, compiled.ToArray(), joints.ToArray(),
-                    geometry.VertexCount, geometry.IndexCount, sourceLease==null?null:geometry);
+                    geometry.VertexCount, geometry.IndexCount, sourceLease==null?null:geometry,sourceLease?.SourceMaterials?.IsFinalBall==true);
             }
             catch
             {
