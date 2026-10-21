@@ -38,6 +38,8 @@ try
         return CharacterFinalBallSourceOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-drone-source")
         return CharacterDroneSourceOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-drone-runtime")
+        return CharacterDroneRuntimeOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-drone-baseline")
         return CharacterDroneSourceOwnedProbe.Run(args[1], captureBaseline: true);
     if (args.Length == 2 && args[0] == "--probe-character-normal-ball-runtime")
