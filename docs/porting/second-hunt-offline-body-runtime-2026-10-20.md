@@ -190,6 +190,15 @@ Subsequent documentation-only changes do not alter qualified production or
 fixture bytes. No green-CI, external-review or later-main qualification is
 implied by these exact identities.
 
+## Merge confirmation
+
+[PR940](https://github.com/AntiNotAnti/Project-Prime/pull/940) merged as
+`ff522877ec16e065ec7e0782928f5f2448ff5b70`. Its tree exactly matches PR head
+`fdcf35ace67a8c4cbdd7befa5ff4b6e31f1527de`; the diff from the combined freeze
+to that head contains only this evidence document and manifest status prose.
+Qualified production/test source therefore survives unchanged. This is a tree
+identity check, not a fresh build of an arbitrary later main revision.
+
 ## Rollback
 
 Choose **Native** in Hunters and equip it. No import removal is required.
