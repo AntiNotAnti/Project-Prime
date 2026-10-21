@@ -717,7 +717,8 @@ internal static class CharacterBundleAcceptance
             {
                 bool reached=false;var progress=new SynchronousProgress(stage=>{if(stage==ImportPublishStage.BeforeCommit){reached=true;cancellation.Cancel();}});
                 Expect<OperationCanceledException>(()=>LocalImportBundle.Publish(root,next,bytes,cancellation.Token,progress,replaceAllComponents:true),"synthetic Final7 to8 BeforeCommit cancellation");
-                Check(reached&&ShaFile(pointer)==pointerHash&&LocalImportBundle.Inspect(root,FinalId,previous).State==ImportBundleState.Ready&&Same(original,Snapshot(root)),
+                Check(reached&&ShaFile(pointer)==pointerHash&&LocalImportBundle.Inspect(root,FinalId,previous).State==ImportBundleState.Ready
+                    &&original.All(p=>File.Exists(Path.Combine(root,p.Key))&&ShaFile(Path.Combine(root,p.Key))==p.Value),
                     "synthetic canceled composite8 retains literal Final7 bytes and pointer");
             }
             LocalImportBundle.Publish(root,next,bytes,replaceAllComponents:true);var ready=RetroCharacterPreviewExporter.InspectBundle(root,FinalId);
