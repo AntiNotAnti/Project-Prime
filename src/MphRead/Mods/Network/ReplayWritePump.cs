@@ -46,15 +46,22 @@ internal sealed class ReplayWritePump
     }
     internal const int MaximumCommands = 4096;
     internal const long MaximumBytes = 32L * 1024 * 1024;
-    private enum Kind { Record, Checkpoint, Frame, Event }
+    private enum Kind { Record, PostWorldRecord, Checkpoint, Frame, Event }
     private readonly record struct Command(Kind Kind, ReplayTimelineRecord Record, uint Frame, ReplayEvent Event)
     {
-        internal long Bytes => Kind is Kind.Record or Kind.Checkpoint ? Record.PayloadBytes : 128;
-        internal void Retain() { if (Kind is Kind.Record or Kind.Checkpoint) Record.Retain(); }
-        internal void Release() { if (Kind is Kind.Record or Kind.Checkpoint) Record.Release(); }
+        internal long Bytes => Kind == Kind.PostWorldRecord ? Record.PayloadBytes + ReplayPostWorldRecord.HeaderBytes
+            : Kind is Kind.Record or Kind.Checkpoint ? Record.PayloadBytes : 128;
+        internal void Retain() { if (Kind is Kind.Record or Kind.PostWorldRecord or Kind.Checkpoint) Record.Retain(); }
+        internal void Release() { if (Kind is Kind.Record or Kind.PostWorldRecord or Kind.Checkpoint) Record.Release(); }
     }
     private readonly Channel<Command> _queue;
     private readonly uint _origin;
+    private readonly bool _postWorld;
+    private readonly bool _timedShotCertificates;
+    private readonly ReplayCustomWeaponContext? _customContext;
+    private readonly object _phaseGate = new();
+    private uint _queuedCompleted, _queuedAccepted;
+    private bool _ordinaryQueued, _phaseClosing;
     private readonly long _maximumBytes;
     private long _bytes;
     private Exception? _error;
@@ -69,6 +76,12 @@ internal sealed class ReplayWritePump
         if (Volatile.Read(ref _shutdownSignaled) != 0)
             throw new IOException("The process is shutting down; no new replay writer can start.");
         _origin = origin; _maximumBytes = maximumBytes;
+        _postWorld = metadata.FormatVersion == 8;
+        _timedShotCertificates = metadata.TimedShotCertificates;
+        _customContext = _postWorld ? metadata.CustomWeapons?.InspectContext() : null;
+        if (_postWorld && (_customContext == null || metadata.OriginRecordingFrame != origin))
+            throw new InvalidDataException("Post-world storage requires its exact custom baseline origin.");
+        _queuedCompleted = _queuedAccepted = origin;
         _queue = Channel.CreateBounded<Command>(new BoundedChannelOptions(capacity)
         { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait, AllowSynchronousContinuations = false });
         if (Interlocked.Increment(ref _activeCount) > 4)
@@ -95,19 +108,23 @@ internal sealed class ReplayWritePump
                         {
                             case Kind.Record:
                                 ReplayTimelineArchive.Write(writer, command.Record, _origin);
-                                if (metadata.FormatVersion == 7 && command.Record.RecordingFrame >= _origin)
+                                if (metadata.FormatVersion is 7 or 8 && command.Record.RecordingFrame >= _origin)
                                     customEndFrame = Math.Max(customEndFrame, command.Record.RecordingFrame - _origin);
+                                break;
+                            case Kind.PostWorldRecord:
+                                ReplayTimelineArchive.WritePostWorld(writer, command.Record, _origin, _customContext!);
+                                customEndFrame = Math.Max(customEndFrame, command.Record.RecordingFrame - _origin);
                                 break;
                             case Kind.Checkpoint:
                                 writer.WriteCheckpoint(command.Record.RecordingFrame - _origin, command.Record.Payload);
-                                if (metadata.FormatVersion == 7)
+                                if (metadata.FormatVersion is 7 or 8)
                                     customEndFrame = Math.Max(customEndFrame, command.Record.RecordingFrame - _origin);
                                 break;
                             case Kind.Frame:
-                                // Format7's complete-world contract has one final
+                                // Custom complete-world contracts have one final
                                 // quiet marker. Retain the frontier while streaming;
                                 // per-step markers belong to the native contract.
-                                if (metadata.FormatVersion == 7) customEndFrame = Math.Max(customEndFrame, command.Frame);
+                                if (metadata.FormatVersion is 7 or 8) customEndFrame = Math.Max(customEndFrame, command.Frame);
                                 else ReplayTimelineArchive.EndFrame(writer, command.Frame);
                                 break;
                             case Kind.Event: writer.WriteEvent(command.Event); break;
@@ -117,7 +134,8 @@ internal sealed class ReplayWritePump
                 }
                 if (Error == null)
                 {
-                    if (metadata.FormatVersion == 7 && customEndFrame > 0) ReplayTimelineArchive.EndFrame(writer, customEndFrame);
+                    if (metadata.FormatVersion == 8 || metadata.FormatVersion == 7 && customEndFrame > 0)
+                        ReplayTimelineArchive.EndFrame(writer, customEndFrame);
                     writer.Dispose(); writer = null; finalized?.Invoke();
                 }
             }
@@ -149,11 +167,79 @@ internal sealed class ReplayWritePump
         command.Release(); Interlocked.Add(ref _bytes, -cost);
         Abort(new IOException("Replay storage queue is full or closed.")); return false;
     }
-    internal bool Record(ReplayTimelineRecord record) => Enqueue(new(Kind.Record, record, 0, default));
-    internal bool Checkpoint(ReplayTimelineRecord record) => record.RecordingFrame <= _origin || Enqueue(new(Kind.Checkpoint, record, 0, default));
-    internal bool EndFrame(uint frame) => Enqueue(new(Kind.Frame, default, frame, default));
+    internal bool Record(ReplayTimelineRecord record) => _postWorld
+        ? EnqueuePhaseRecord(record, postWorld: false) : Enqueue(new(Kind.Record, record, 0, default));
+    internal bool RecordPostWorld(ReplayTimelineRecord record) => EnqueuePhaseRecord(record, postWorld: true);
+    internal bool Record(ReplayCaptureRecord item)
+    {
+        if (item.Phase == ReplayCapturePhase.PostWorld) return RecordPostWorld(item.Record);
+        if (item.Phase == ReplayCapturePhase.Ordinary) return Record(item.Record);
+        Abort(new InvalidDataException("Unknown capture phase.")); return false;
+    }
+    private bool EnqueuePhaseRecord(ReplayTimelineRecord record, bool postWorld)
+    {
+        lock (_phaseGate)
+        {
+            if (_phaseClosing) return false;
+            try
+            {
+                if (!_postWorld || (ulong)record.RecordingFrame != (ulong)_queuedCompleted + (postWorld ? 0UL : 1UL)
+                    || postWorld && _ordinaryQueued)
+                    throw new InvalidDataException("Replay fact does not match its queued completed-world frontier.");
+                var packet = ReplayTimelineArchive.PhasePayload(record);
+                ReplayPostWorldRecord.ValidatePayload(packet, _customContext);
+                ReplayFormatV3.ValidateArchiveRecord(packet, _customContext, 8, _timedShotCertificates);
+                if (!Enqueue(new(postWorld ? Kind.PostWorldRecord : Kind.Record, record, 0, default))) return false;
+                if (!postWorld) { _queuedAccepted = record.RecordingFrame; _ordinaryQueued = true; }
+                return true;
+            }
+            catch (Exception error) when (error is IOException or InvalidDataException or ArgumentException
+                or InvalidOperationException or OverflowException)
+            { Abort(error); return false; }
+        }
+    }
+    internal bool Checkpoint(ReplayTimelineRecord record)
+    {
+        if (!_postWorld) return record.RecordingFrame <= _origin || Enqueue(new(Kind.Checkpoint, record, 0, default));
+        lock (_phaseGate)
+        {
+            if (_phaseClosing) return false;
+            if (record.Kind != ReplayFactKind.World || record.Payload.IsEmpty
+                || record.RecordingFrame < _queuedCompleted || (ulong)record.RecordingFrame > (ulong)_queuedCompleted + 1)
+            { Abort(new InvalidDataException("Replay checkpoint does not match the queued world frontier.")); return false; }
+            if (record.RecordingFrame == _origin) return true; // Already retained by metadata.
+            if (!Enqueue(new(Kind.Checkpoint, record, 0, default))) return false;
+            _queuedAccepted = Math.Max(_queuedAccepted, record.RecordingFrame); return true;
+        }
+    }
+    internal bool EndFrame(uint frame)
+    {
+        if (!_postWorld) return Enqueue(new(Kind.Frame, default, frame, default));
+        lock (_phaseGate)
+        {
+            if (_phaseClosing) return false;
+            ulong absolute = (ulong)_origin + frame;
+            if (frame > ReplayFormatV3.MaxFrame || absolute > uint.MaxValue
+                || absolute < _queuedCompleted || absolute > (ulong)_queuedCompleted + 1)
+            { Abort(new InvalidDataException("Replay completed-world frames must be contiguous.")); return false; }
+            if (!Enqueue(new(Kind.Frame, default, frame, default))) return false;
+            if (absolute != _queuedCompleted) _ordinaryQueued = false;
+            _queuedCompleted = (uint)absolute; return true;
+        }
+    }
     internal bool Event(ReplayEvent value) => Enqueue(new(Kind.Event, default, 0, value));
-    internal void Complete() => _queue.Writer.TryComplete();
+    internal void Complete()
+    {
+        if (!_postWorld) { _queue.Writer.TryComplete(); return; }
+        lock (_phaseGate)
+        {
+            if (_phaseClosing) return;
+            _phaseClosing = true;
+            if (_queuedAccepted > _queuedCompleted)
+            { Abort(new InvalidDataException("Replay stopped before its accepted next-frame work completed.")); return; }
+            _queue.Writer.TryComplete();
+        }
+    }
     internal void Abort(Exception? error = null)
     {
         Interlocked.CompareExchange(ref _error, error ?? new IOException("Recording aborted."), null);

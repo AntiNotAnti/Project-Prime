@@ -111,12 +111,19 @@ namespace MphRead.Mods.Network
         }
         internal static PassiveReplayScene CreateCustomInspection(ReplayReplicaCheckpoint initial, PreparedReplayWeaponPackage prepared,
             ulong mapHash, Vector2i size)
+            => CreateCustomInspectionCore(initial, prepared, mapHash, size, postWorld: false);
+        internal static PassiveReplayScene CreatePostWorldInspection(ReplayReplicaCheckpoint initial, PreparedReplayWeaponPackage prepared,
+            ulong mapHash, Vector2i size)
+            => CreateCustomInspectionCore(initial, prepared, mapHash, size, postWorld: true);
+        private static PassiveReplayScene CreateCustomInspectionCore(ReplayReplicaCheckpoint initial, PreparedReplayWeaponPackage prepared,
+            ulong mapHash, Vector2i size, bool postWorld)
         {
             if (mapHash == 0) throw new InvalidDataException("Custom Scene inspection requires the recorded exact map hash.");
             var session = new ReplayPlaybackSession(new PassiveReplaySessionHost());
             try
             {
-                session.JoinCustomInspection(initial, prepared, mapHash);
+                if (postWorld) session.JoinPostWorldInspection(initial, prepared, mapHash);
+                else session.JoinCustomInspection(initial, prepared, mapHash);
                 if (!((PassiveReplaySessionHost)session.Host).State.HasRecordedSceneBaseline)
                     throw new InvalidDataException("Custom Scene inspection requires accepted native roster and snapshot coverage.");
                 if (ReplayMapIdentity.Validate(session.Metadata!) != ReplayOpenResult.Success)
@@ -126,10 +133,14 @@ namespace MphRead.Mods.Network
             catch { session.Dispose(); throw; }
         }
         internal static PassiveReplayScene RestoreCustomInspection(Replay.ReplayWorldCheckpoint checkpoint, PreparedReplayWeaponPackage prepared, Vector2i size)
+            => RestoreCustomInspectionCore(checkpoint, prepared, size, postWorld: false);
+        internal static PassiveReplayScene RestorePostWorldInspection(Replay.ReplayWorldCheckpoint checkpoint, PreparedReplayWeaponPackage prepared, Vector2i size)
+            => RestoreCustomInspectionCore(checkpoint, prepared, size, postWorld: true);
+        private static PassiveReplayScene RestoreCustomInspectionCore(Replay.ReplayWorldCheckpoint checkpoint, PreparedReplayWeaponPackage prepared, Vector2i size, bool postWorld)
         {
             if (!checkpoint.HasCustomWeaponContract) throw new InvalidDataException("An explicit custom world12/13 capsule is required.");
             var metadata = checkpoint.ClipMetadata(0, Array.Empty<ReplayPlayerInfo>());
-            var scene = CreateCustomInspection(checkpoint.ConstructionState(), prepared, metadata.MapHash, size);
+            var scene = CreateCustomInspectionCore(checkpoint.ConstructionState(), prepared, metadata.MapHash, size, postWorld);
             try { checkpoint.RestoreCustom(scene); return scene; }
             catch { scene.Dispose(); throw; }
         }
@@ -223,6 +234,13 @@ namespace MphRead.Mods.Network
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             Session.AdvanceCustomInspection(frame, records);
+            PrepareCustomPresentation();
+            Scene.StepReplica(); HasStepped = true;
+        }
+        internal void StepPostWorldInspection(uint frame, IReadOnlyList<ReplayCaptureRecord> records)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            Session.AdvancePostWorldInspection(frame, records);
             PrepareCustomPresentation();
             Scene.StepReplica(); HasStepped = true;
         }

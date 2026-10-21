@@ -141,6 +141,10 @@ namespace MphRead.Mods.Network
             _frame = LastFrame = frame; _started = true;
         }
         internal void JoinCustomInspection(ReplayReplicaCheckpoint construction, PreparedReplayWeaponPackage prepared, ulong mapHash)
+            => JoinCustomInspectionCore(construction, prepared, mapHash, postWorld: false);
+        internal void JoinPostWorldInspection(ReplayReplicaCheckpoint construction, PreparedReplayWeaponPackage prepared, ulong mapHash)
+            => JoinCustomInspectionCore(construction, prepared, mapHash, postWorld: true);
+        private void JoinCustomInspectionCore(ReplayReplicaCheckpoint construction, PreparedReplayWeaponPackage prepared, ulong mapHash, bool postWorld)
         {
             if (_host is not PassiveReplaySessionHost passive) throw new InvalidOperationException("Custom inspection requires a private passive host.");
             ArgumentNullException.ThrowIfNull(prepared);
@@ -148,14 +152,15 @@ namespace MphRead.Mods.Network
             var match = validated.Match ?? throw new InvalidDataException("Custom inspection has no recorded match.");
             Stop(); _host.Start(); passive.State.RestoreCustomCheckpoint(construction);
             _frame = validated.RecordingFrame; LastFrame = _frame; _live = _customInspection = true; _started = false; IsActive = true;
-            _liveMetadata = new ReplayMetadata { FormatVersion = 7, ProtocolVersion = NetConfig.ProtocolVersion, MapHash = mapHash, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+            _liveMetadata = new ReplayMetadata { FormatVersion = postWorld ? (byte)8 : (byte)7, ProtocolVersion = NetConfig.ProtocolVersion, MapHash = mapHash, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
                 OriginRecordingFrame = _frame, CustomWeapons = prepared.Descriptor, TimedShotCertificates = validated.TimedShots.Enabled,
                 Bootstrap = new() { Packets = new[] { ReplayTimelineArchive.Construction(construction) } } };
             LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
         }
         internal void AdvanceCustomInspection(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
         {
-            if (!_live || !_customInspection) throw new InvalidOperationException("No explicit custom inspection is active.");
+            if (!_live || !_customInspection || _liveMetadata?.FormatVersion != 7)
+                throw new InvalidOperationException("No explicit format7 custom inspection is active.");
             try
             {
                 if (_started ? (ulong)frame != (ulong)_frame + 1 : frame != _frame && (ulong)frame != (ulong)_frame + 1)
