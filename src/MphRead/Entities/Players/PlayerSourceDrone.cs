@@ -22,6 +22,9 @@ public partial class PlayerEntity
     internal int ModSourceDroneFrame => _droneLaserFrame>=0?_droneLaserFrame:_droneFireFrame;
     private bool SourceDroneStateSupported => SourcePresentationStateSupported&&ScoutDroneEnabled
         &&IsAltForm&&!IsMorphing&&!IsUnmorphing
+        // Scout Drone clears Morphing immediately; its native camera still
+        // moves from first to third person over the independent handoff.
+        &&_camSwitchTimer>=Values.CamSwitchTime*2
         &&CharacterSourceDronePose.Supports(ModSourceDroneState,ModSourceDroneFrame);
     private bool ModTryDrawSourceDrone(Vector3 drawPosition,Vector3 drawFacing,Vector4? color,Vector4? outline)
     {
