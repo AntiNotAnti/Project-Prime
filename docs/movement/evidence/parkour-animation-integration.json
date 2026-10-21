@@ -1,0 +1,963 @@
+{
+  "status": "PASS",
+  "producer": "b307a51df1f6e34bb2839fcf23c47c1c0edcc0f7",
+  "integrationScope": "Full native body/rig/owner/GL/UDP qualification remains attributed to producer04. Latest-main05 targeted normal34 plus supplementary/new custom-file and immutable native replay compatibility refresh only. No Mac/device or new custom file-reopen GL claim.",
+  "frozenSourceFiles": 6663,
+  "zeroOverlay": true,
+  "targetedArchiveComparisons": 16,
+  "exactHistoricalSemanticFields": 440,
+  "exactRetained84SemanticAndSizeFields": 74,
+  "totalExactFields": 514,
+  "explicitHistoricalSizeGrowthChecks": 28,
+  "totalReplayFrames": 38209,
+  "totalWorldCheckpoints": 175,
+  "totalSeeks": 1758,
+  "supplementalTestBuilds": 2,
+  "supplementalRuntimeGates": 14,
+  "newCustomFileChecks": 51,
+  "androidSourceOnlyChecks": 735,
+  "normalRecursiveRuntimeFilesUnchanged": 353,
+  "sourceBinaryArchivesBaselineProvenanceHelperConfigFences": true,
+  "coreSha256": "4b4af9b5e4ed00859c4f359764df4043d319e0d4f88cd0331a2f21227b0c84ad",
+  "nettestSha256": "495302219c3f65a8d3fcc5ed8d3cf81d802620bfc08200fa3d9b6e386d7a9559",
+  "ownedProcessesRemaining": 0,
+  "integrationBase": "9e8e514e36f07fc2b8e252bdff05b6d4aae84345",
+  "frozenSource": {
+    "baseSha": "b307a51df1f6e34bb2839fcf23c47c1c0edcc0f7",
+    "integrationBaseSha": "9e8e514e36f07fc2b8e252bdff05b6d4aae84345",
+    "archiveSha256": "96f657ffd460db7e715ae16ad03f54ae07b04b5f50ad6b70e145a306761becfa",
+    "sourceManifestSha256": "957bd6075f8c8db28363bae899f3d2ae05ab72e2f2c7d981764138b0862724e4",
+    "fullSourceManifestSha256": "fffdbdd7247a027485713efdddb4774becfe9e8e15578c56b7fa1ed863f3557e",
+    "overlaySha256": "8739c76e681f900923b900c9df0ef75cf421d39cabb54650c4b9ad19b6a76d85",
+    "overlayFiles": 0,
+    "fullSourceFiles": 6663,
+    "exactCommittedProducer": true,
+    "gitArchiveCoreAutocrlf": false
+  },
+  "pureGates": [
+    {
+      "exit": 0,
+      "gate": "parkour-animation-wire"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-grapple-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-grapple-wire"
+    },
+    {
+      "exit": 0,
+      "gate": "compact-intents"
+    },
+    {
+      "exit": 0,
+      "gate": "player-form-protocol"
+    },
+    {
+      "exit": 0,
+      "gate": "pickup-replay"
+    },
+    {
+      "exit": 0,
+      "gate": "traversal-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "quake3-advanced-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-input-packets"
+    },
+    {
+      "exit": 0,
+      "gate": "crouch-input-check"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-mantle-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-compatibility"
+    },
+    {
+      "exit": 0,
+      "gate": "lifecycle"
+    },
+    {
+      "exit": 0,
+      "gate": "architecture"
+    },
+    {
+      "exit": 0,
+      "gate": "protocol17"
+    },
+    {
+      "exit": 0,
+      "gate": "protocol58-replay"
+    },
+    {
+      "exit": 0,
+      "gate": "quake3-replay-compatibility"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-replay-metadata"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-replay-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "traversal-stance-network"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-stance-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-wallstrafe-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "parkour-wallrun-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "momentum-offline-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "quake3-rules"
+    },
+    {
+      "exit": 0,
+      "gate": "enhanced-retirement"
+    },
+    {
+      "exit": 0,
+      "gate": "movement-validation-shadow"
+    },
+    {
+      "exit": 0,
+      "gate": "timed-shot-replay"
+    },
+    {
+      "exit": 0,
+      "gate": "grant-replay"
+    },
+    {
+      "exit": 0,
+      "gate": "player-names-chat"
+    },
+    {
+      "exit": 0,
+      "gate": "continuous-targets"
+    },
+    {
+      "exit": 0,
+      "gate": "pickup-protocol"
+    },
+    {
+      "exit": 0,
+      "gate": "advanced-rules"
+    }
+  ],
+  "unchangedAnimationSource": {
+    "status": "PASS",
+    "fullProducer": "780a39d9f7a86f18ae37e7a2392fe18dfc26f54a",
+    "integrationProducer": "b307a51df1f6e34bb2839fcf23c47c1c0edcc0f7",
+    "files": [
+      {
+        "path": "src/MphRead/Entities/Players/PlayerParkourAnimation.cs",
+        "sha256": "719081633a80f275cdc49fe17ac61e478ef486904c0f30cd634ea5ca7ea54bc6"
+      },
+      {
+        "path": "src/MphRead/Entities/Players/PlayerDraw.cs",
+        "sha256": "367cba039ce82f370aaf179a5b112664841f1c6db9cbcb5f8ded4a59284b99a5"
+      },
+      {
+        "path": "src/MphRead/Entities/Players/PlayerEntity.cs",
+        "sha256": "a9e4cea2c8287a98a7d97fb15a9a7f80cbcfa902434b649642aa6604dfc59225"
+      },
+      {
+        "path": "src/MphRead/Entities/Players/PlayerParkourGrapple.cs",
+        "sha256": "62195790eb53d5b4f6466ef788a9c6d8db479f052831a0ac8d1e54643e87329e"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/PlayerEntityNetAim.cs",
+        "sha256": "debebdab1cb7783aec2c5e858e45fe7475222b747ad72818eb77c16133fc5ae9"
+      },
+      {
+        "path": "src/MphRead/Mods/Render/ParkourAnimationPose.cs",
+        "sha256": "a6161603df92c4915cea8bc019ba5497bef750d9047ef8dc2c0bbc6a2040edd9"
+      },
+      {
+        "path": "src/MphRead/Mods/Render/ParkourPoseOverlay.cs",
+        "sha256": "9eba73d9fba3aff1462ad6a2879c1bb9beea6b91e63c562d0e944dff3a27df63"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/NetProtocol.cs",
+        "sha256": "f25f5bbaef310b08509c7eb0e6c2d97cac0e5db56d9aef71391a4131e2fcdb60"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/CompactIntentCodec.cs",
+        "sha256": "2b7a48bef2db8273170940284d1dea73af4fa94d7d5ae0e642fecd8ea82626bf"
+      }
+    ]
+  },
+  "supplemental": {
+    "status": "PASS",
+    "producer": "b307a51df1f6e34bb2839fcf23c47c1c0edcc0f7",
+    "testProjectBuildsPassed": 2,
+    "runtimeGatesPassed": 14,
+    "newCustomReplayFileChecks": 51,
+    "androidSourceOnlyChecks": 735,
+    "gatePassLines": {
+      "custom-replay-file": "PASS 51 custom replay file preparation/inspection checks",
+      "custom-contracts": "PASS 37067 custom weapon identity/registry/mechanics/state/network-contract/source-journal/engine-source-history/source-modifier/readiness/source-boundary/result-transport/control-request/input-carrier/replica-delivery/payment checks (pure contracts; scene fixture requires --scene)",
+      "custom-replay-bootstrap": "PASS 460 custom replay bootstrap/historical ownership checks",
+      "custom-replay-state": "PASS 73 passive custom replay state/restore checks",
+      "custom-replay-facts": "PASS 2368 custom replay file-fact checks",
+      "custom-replay-checkpoint": "PASS 1541 custom replay durable checkpoint checks",
+      "custom-replay-replica-checkpoint": "PASS 30289 custom replica checkpoint17 inspection checks",
+      "custom-replay-clock": "PASS 97 custom replay snapshot clock/current-owner checks",
+      "custom-replay-archive": "PASS 63 custom archive7 retention checks",
+      "custom-replay-world": "PASS 84 detached custom world12/archive checks",
+      "custom-replay-resources": "PASS 50 replay package resource/passive session checks",
+      "custom-replay-visuals": "PASS 61 custom replay visual derivation checks",
+      "weapon-package-host-request": "PASS 273 remote weapon package host-request wire/guard checks. No allocator, UDP handshake or older-server rejection claim.",
+      "rmlui-android-capabilities-check": "PASS: 735 configured-local capability, authored DOM, publisher, modal, admission, local Hunter presenter, and preview barrier checks (source-only; native/engine boundaries faked)."
+    },
+    "frozenSource6663Unchanged": true,
+    "scratchTrackedSource6663Unchanged": true,
+    "normalRecursiveRuntimeFilesUnchanged": 353,
+    "all16OriginalArchivesAndBaselineProvenanceUnchanged": true,
+    "helperSha256": "e61b60da2e91ca27f824f9636b0254dc8f1c3c26d36800cf0eb029546bdedd75",
+    "scope": "Exact archived source; source-only Android and custom contract tests. Test projects use copied fixed05 main references. No original frozen source, released binary writes, native assets, GL or device claim."
+  },
+  "historical": {
+    "status": "PASS",
+    "consumerProducer": "b307a51df1f6e34bb2839fcf23c47c1c0edcc0f7",
+    "sourceCommittedFiles": 6663,
+    "sourceOverlayFiles": 0,
+    "fixtureCount": 14,
+    "exactSemanticComparisons": 440,
+    "explicitSizeGrowthComparisons": 28,
+    "coreSha256": "4b4af9b5e4ed00859c4f359764df4043d319e0d4f88cd0331a2f21227b0c84ad",
+    "nettestSha256": "495302219c3f65a8d3fcc5ed8d3cf81d802620bfc08200fa3d9b6e386d7a9559",
+    "sourceFenceBeforeAfter": true,
+    "binaryFenceBeforeAfter": true,
+    "archiveFenceBeforeAfter": true,
+    "helperFenceBeforeAfter": true,
+    "assetConfigFenceBeforeAfter": true,
+    "totalFrames": 33419,
+    "totalWorldCheckpoints": 150,
+    "totalSeeks": 1505,
+    "totalDurableSeeks": 0,
+    "rows": [
+      {
+        "fixture": "p77-clean",
+        "status": "PASS",
+        "fixtureProducer": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 77,
+        "recordedProfileVersion": 1,
+        "archiveSha256": "7d61b494e76648487d73eef63c4f9b25cc8d69ce3a0bbd492d83af87db23896b",
+        "archiveBytes": 1109033,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2365,
+        "gameplayPresentationDigest": "902172FD53DA3737317AF8925800F36459B36B4850DD17FBA5B4D788AA35FBF5",
+        "checkpointCount": 10,
+        "seekCount": 115,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587401,
+          587487,
+          587389,
+          587335,
+          587685,
+          588162,
+          588763,
+          589712,
+          589953,
+          591078
+        ],
+        "newCheckpointSizes": [
+          587941,
+          588027,
+          587929,
+          587875,
+          588225,
+          588702,
+          589303,
+          590252,
+          590493,
+          591618
+        ],
+        "oldMemoryCheckpointBytes": 4123584,
+        "newMemoryCheckpointBytes": 4127364,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p77-impaired",
+        "status": "PASS",
+        "fixtureProducer": "26fba95d628e3168a6a0520fbf5e179e022f039f",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 77,
+        "recordedProfileVersion": 1,
+        "archiveSha256": "7e15129f0b45254d661ce3ef173d4942f50d2f63c20eb60eabb3acd7f67ec63d",
+        "archiveBytes": 1151941,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2390,
+        "gameplayPresentationDigest": "E5B6117B04EC113D33480EB2E850D01B19F34A6D62C81E7BC12E7A6C86341CEC",
+        "checkpointCount": 10,
+        "seekCount": 103,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587199,
+          587183,
+          587241,
+          587289,
+          588205,
+          588151,
+          588110,
+          588852,
+          589352,
+          589224
+        ],
+        "newCheckpointSizes": [
+          587739,
+          587723,
+          587781,
+          587829,
+          588745,
+          588691,
+          588650,
+          589392,
+          589892,
+          589764
+        ],
+        "oldMemoryCheckpointBytes": 4120079,
+        "newMemoryCheckpointBytes": 4123859,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p78-clean",
+        "status": "PASS",
+        "fixtureProducer": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 78,
+        "recordedProfileVersion": 2,
+        "archiveSha256": "cc91a5e9686dab6e40fb2c6b98c494ee2172f31917306fc1cad0d1167a3ddb86",
+        "archiveBytes": 1157317,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2399,
+        "gameplayPresentationDigest": "F75994C261CA7AC057970E897590D57DC473E4447290A62DEA5F6DAA86E57989",
+        "checkpointCount": 10,
+        "seekCount": 84,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587200,
+          587621,
+          587397,
+          587389,
+          587561,
+          588711,
+          588370,
+          589784,
+          590323,
+          590479
+        ],
+        "newCheckpointSizes": [
+          587740,
+          588161,
+          587937,
+          587929,
+          588101,
+          589251,
+          588910,
+          590324,
+          590863,
+          591019
+        ],
+        "oldMemoryCheckpointBytes": 4123513,
+        "newMemoryCheckpointBytes": 4127293,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p78-impaired",
+        "status": "PASS",
+        "fixtureProducer": "1cea2db5590826bab08a81cb371a4ab6691f93ec",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 78,
+        "recordedProfileVersion": 2,
+        "archiveSha256": "be15b99215b0fb2b2a0768973018d917c04652bbde66056d9cbc8cbaa06ec968",
+        "archiveBytes": 1157226,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2388,
+        "gameplayPresentationDigest": "45D0607347FEAF4D3C038B32C7E27B99DDC70D2D85D0C19DBAFE04B77FBC7477",
+        "checkpointCount": 10,
+        "seekCount": 108,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587171,
+          587357,
+          587340,
+          587531,
+          588080,
+          587772,
+          587867,
+          588861,
+          589348,
+          589501
+        ],
+        "newCheckpointSizes": [
+          587711,
+          587897,
+          587880,
+          588071,
+          588620,
+          588312,
+          588407,
+          589401,
+          589888,
+          590041
+        ],
+        "oldMemoryCheckpointBytes": 4119856,
+        "newMemoryCheckpointBytes": 4123636,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p79-clean",
+        "status": "PASS",
+        "fixtureProducer": "7fabec4daf5f252831566ad66c24c13279c54018",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 79,
+        "recordedProfileVersion": 3,
+        "archiveSha256": "4f571e9f8dec1a31538c194b84d86dafdd316d59346bfccc8d622bd4e88f7d3d",
+        "archiveBytes": 1083414,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2374,
+        "gameplayPresentationDigest": "ED63BCE8B62E1DCBD93657D92BE5ABBB0ECCAC89A92695B97423719D17967200",
+        "checkpointCount": 10,
+        "seekCount": 102,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587200,
+          587313,
+          587397,
+          587370,
+          587506,
+          586660,
+          587054,
+          587704,
+          587993,
+          588721
+        ],
+        "newCheckpointSizes": [
+          587740,
+          587853,
+          587937,
+          587910,
+          588046,
+          587200,
+          587594,
+          588244,
+          588533,
+          589261
+        ],
+        "oldMemoryCheckpointBytes": 4113904,
+        "newMemoryCheckpointBytes": 4117684,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p79-impaired",
+        "status": "PASS",
+        "fixtureProducer": "7fabec4daf5f252831566ad66c24c13279c54018",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 79,
+        "recordedProfileVersion": 3,
+        "archiveSha256": "1ff909e7ea562c10089d2be1d9956d523e27038d2e97d2d8b1e8cb8704ee81b9",
+        "archiveBytes": 1157684,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2406,
+        "gameplayPresentationDigest": "30B8992141A9D6760724CBC9309EA15827DF7B7FFFB304F804838E7B507C1E45",
+        "checkpointCount": 11,
+        "seekCount": 91,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587200,
+          587156,
+          587278,
+          587290,
+          588206,
+          588622,
+          587932,
+          587426,
+          588192,
+          587686,
+          588445
+        ],
+        "newCheckpointSizes": [
+          587740,
+          587696,
+          587818,
+          587830,
+          588746,
+          589162,
+          588472,
+          587966,
+          588732,
+          588226,
+          588985
+        ],
+        "oldMemoryCheckpointBytes": 4704823,
+        "newMemoryCheckpointBytes": 4709143,
+        "memoryCheckpointCount": 8
+      },
+      {
+        "fixture": "p80-clean",
+        "status": "PASS",
+        "fixtureProducer": "1c8f9806abe6060cff38ede79502e6a425303a67",
+        "replacementCompatibilityFixture": false,
+        "recordedProtocol": 80,
+        "recordedProfileVersion": 4,
+        "archiveSha256": "8f3bda4a686331a0f14f4f71d324fbc11511d2283968a10d3ce9f2a9abd4192e",
+        "archiveBytes": 1110772,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2381,
+        "gameplayPresentationDigest": "43F0D7770EABC8E04D77C58C90A37532CE0C170C8ED63429040BA9E163183F39",
+        "checkpointCount": 10,
+        "seekCount": 114,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587200,
+          587299,
+          587322,
+          587324,
+          587593,
+          587673,
+          587875,
+          590243,
+          590606,
+          590808
+        ],
+        "newCheckpointSizes": [
+          587740,
+          587839,
+          587862,
+          587864,
+          588133,
+          588213,
+          588415,
+          590783,
+          591146,
+          591348
+        ],
+        "oldMemoryCheckpointBytes": 4123018,
+        "newMemoryCheckpointBytes": 4126798,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p80-impaired",
+        "status": "PASS",
+        "fixtureProducer": "1c8f9806abe6060cff38ede79502e6a425303a67",
+        "replacementCompatibilityFixture": false,
+        "recordedProtocol": 80,
+        "recordedProfileVersion": 4,
+        "archiveSha256": "432f495df266ecc672770b95e58d37802ba49d126cfbdc1d104b423f709813fe",
+        "archiveBytes": 1157760,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2391,
+        "gameplayPresentationDigest": "128947E3DFD24E0155E80FC9B4727E7FB666B514B5AF7B181A473323C22C7CCB",
+        "checkpointCount": 10,
+        "seekCount": 104,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587200,
+          587184,
+          587382,
+          587481,
+          587521,
+          588949,
+          587966,
+          588719,
+          589076,
+          589224
+        ],
+        "newCheckpointSizes": [
+          587740,
+          587724,
+          587922,
+          588021,
+          588061,
+          589489,
+          588506,
+          589259,
+          589616,
+          589764
+        ],
+        "oldMemoryCheckpointBytes": 4119832,
+        "newMemoryCheckpointBytes": 4123612,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p81-clean",
+        "status": "PASS",
+        "fixtureProducer": "e893a052eec36218161ec383b3dab1b49983acb6",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 81,
+        "recordedProfileVersion": 4,
+        "archiveSha256": "45a8c5d82344274f801ce0bde231e6890a5e49df944cda8793adb227be86ca73",
+        "archiveBytes": 1121922,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2380,
+        "gameplayPresentationDigest": "2C5E659AEA0E6156A99578F36FF2949E43987DA0351BDDA0F0190E979C80FFEE",
+        "checkpointCount": 10,
+        "seekCount": 122,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587200,
+          587500,
+          587397,
+          587393,
+          587474,
+          586580,
+          586794,
+          588125,
+          587630,
+          587523
+        ],
+        "newCheckpointSizes": [
+          587740,
+          588040,
+          587937,
+          587933,
+          588014,
+          587120,
+          587334,
+          588665,
+          588170,
+          588063
+        ],
+        "oldMemoryCheckpointBytes": 4112415,
+        "newMemoryCheckpointBytes": 4116195,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p81-impaired",
+        "status": "PASS",
+        "fixtureProducer": "e893a052eec36218161ec383b3dab1b49983acb6",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 81,
+        "recordedProfileVersion": 4,
+        "archiveSha256": "c8883208f21a048b0c39d5e355dde3f34f2ea8b15e32aeb4da1089013f612bd2",
+        "archiveBytes": 1155531,
+        "exactMatchingFields": 30,
+        "differingFields": [],
+        "frames": 2386,
+        "gameplayPresentationDigest": "7A86E1E449F5D92CA49DC285BEF6A54C1E8B98CE6274BD92F7F4AA6D681A5B58",
+        "checkpointCount": 10,
+        "seekCount": 87,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 540,
+        "oldCheckpointSizes": [
+          587200,
+          587371,
+          587290,
+          587542,
+          588315,
+          587513,
+          588569,
+          589258,
+          589238,
+          590337
+        ],
+        "newCheckpointSizes": [
+          587740,
+          587911,
+          587830,
+          588082,
+          588855,
+          588053,
+          589109,
+          589798,
+          589778,
+          590877
+        ],
+        "oldMemoryCheckpointBytes": 4121668,
+        "newMemoryCheckpointBytes": 4125448,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p82-clean",
+        "status": "PASS",
+        "fixtureProducer": "c82b1cf0df6c8dd57815adb24c45244a50fc7a57",
+        "replacementCompatibilityFixture": false,
+        "recordedProtocol": 82,
+        "recordedProfileVersion": 5,
+        "archiveSha256": "9c2d4dd8b33a6b8070474ac23944ce7185c0584d3bd85aac1316f21935e4a3ab",
+        "archiveBytes": 1088353,
+        "exactMatchingFields": 35,
+        "differingFields": [],
+        "frames": 2378,
+        "gameplayPresentationDigest": "1F9DF213F6F85B19F55AB61A4D6C6407845193D3C37C3C90BBDAB7DB275B7113",
+        "checkpointCount": 12,
+        "seekCount": 118,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 16,
+        "oldCheckpointSizes": [
+          588152,
+          588325,
+          588110,
+          588244,
+          588182,
+          588194,
+          588200,
+          589039,
+          589398,
+          590090,
+          590285,
+          590998
+        ],
+        "newCheckpointSizes": [
+          588168,
+          588341,
+          588126,
+          588260,
+          588198,
+          588210,
+          588216,
+          589055,
+          589414,
+          590106,
+          590301,
+          591014
+        ],
+        "oldMemoryCheckpointBytes": 4127100,
+        "newMemoryCheckpointBytes": 4127212,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p82-impaired",
+        "status": "PASS",
+        "fixtureProducer": "c82b1cf0df6c8dd57815adb24c45244a50fc7a57",
+        "replacementCompatibilityFixture": false,
+        "recordedProtocol": 82,
+        "recordedProfileVersion": 5,
+        "archiveSha256": "5ecd07e24636802071e10614f70870104d02cd1dc3408a2ec026efe04d587981",
+        "archiveBytes": 1180048,
+        "exactMatchingFields": 35,
+        "differingFields": [],
+        "frames": 2390,
+        "gameplayPresentationDigest": "D70BB6C6B04D8F15D599B0E01DCFB75FCA4B5DF3F4F89698109976781CAE318F",
+        "checkpointCount": 12,
+        "seekCount": 122,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 16,
+        "oldCheckpointSizes": [
+          587964,
+          587948,
+          587996,
+          588006,
+          588094,
+          588090,
+          588801,
+          587250,
+          586897,
+          588288,
+          587773,
+          588571
+        ],
+        "newCheckpointSizes": [
+          587980,
+          587964,
+          588012,
+          588022,
+          588110,
+          588106,
+          588817,
+          587266,
+          586913,
+          588304,
+          587789,
+          588587
+        ],
+        "oldMemoryCheckpointBytes": 4116566,
+        "newMemoryCheckpointBytes": 4116678,
+        "memoryCheckpointCount": 7
+      },
+      {
+        "fixture": "p83-clean",
+        "status": "PASS",
+        "fixtureProducer": "07f23c014a408d134d1cc67e2f1d7074fc7f7942",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 83,
+        "recordedProfileVersion": 5,
+        "archiveSha256": "4f23e45d18b6c01c06be32a3d3f75cbc5c6ae96a4a6d18f4b73321cd4b97d0c1",
+        "archiveBytes": 1184683,
+        "exactMatchingFields": 35,
+        "differingFields": [],
+        "frames": 2400,
+        "gameplayPresentationDigest": "2DE6F634E14AE7019F14D3C5B35267785CFAD0B947909CE1041B22B19D9861A2",
+        "checkpointCount": 13,
+        "seekCount": 114,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 16,
+        "oldCheckpointSizes": [
+          587964,
+          588385,
+          588015,
+          587993,
+          588109,
+          588109,
+          589278,
+          588650,
+          588980,
+          589212,
+          589182,
+          588957,
+          590285
+        ],
+        "newCheckpointSizes": [
+          587980,
+          588401,
+          588031,
+          588009,
+          588125,
+          588125,
+          589294,
+          588666,
+          588996,
+          589228,
+          589198,
+          588973,
+          590301
+        ],
+        "oldMemoryCheckpointBytes": 4713677,
+        "newMemoryCheckpointBytes": 4713805,
+        "memoryCheckpointCount": 8
+      },
+      {
+        "fixture": "p83-impaired",
+        "status": "PASS",
+        "fixtureProducer": "07f23c014a408d134d1cc67e2f1d7074fc7f7942",
+        "replacementCompatibilityFixture": true,
+        "recordedProtocol": 83,
+        "recordedProfileVersion": 5,
+        "archiveSha256": "cfdefdf8256565564d2a5e93b9f6eb9ce1dea7ad81bb815ef1ee76b7195c2187",
+        "archiveBytes": 1169101,
+        "exactMatchingFields": 35,
+        "differingFields": [],
+        "frames": 2391,
+        "gameplayPresentationDigest": "3650D30FE3234FF2347E5A7744D5F6A575408085C7BDFB7BE1BB0DA2371D01AF",
+        "checkpointCount": 12,
+        "seekCount": 121,
+        "durableSeekCount": 0,
+        "expectedWorldCheckpointGrowth": 16,
+        "oldCheckpointSizes": [
+          587994,
+          588006,
+          588090,
+          588054,
+          588200,
+          588120,
+          587913,
+          588847,
+          589263,
+          587552,
+          588734,
+          588920
+        ],
+        "newCheckpointSizes": [
+          588010,
+          588022,
+          588106,
+          588070,
+          588216,
+          588136,
+          587929,
+          588863,
+          589279,
+          587568,
+          588750,
+          588936
+        ],
+        "oldMemoryCheckpointBytes": 4120245,
+        "newMemoryCheckpointBytes": 4120357,
+        "memoryCheckpointCount": 7
+      }
+    ],
+    "declaredRuntimeOutputFiles": 353,
+    "originalHistoricalArchivesRecovered": false
+  },
+  "retained84": {
+    "status": "PASS",
+    "consumerProducer": "b307a51df1f6e34bb2839fcf23c47c1c0edcc0f7",
+    "recordedProducer": "780a39d9f7a86f18ae37e7a2392fe18dfc26f54a",
+    "recordedProtocol": 84,
+    "recordedProfileVersion": 5,
+    "rows": [
+      {
+        "fixture": "retained84-clean",
+        "status": "PASS",
+        "exactMatchingFields": 37,
+        "archiveSha256": "c0081d2ff6cd6464c27f952d9a4d37b32dc330929f05df80087fe8e7265bf625",
+        "archiveBytes": 1197607,
+        "frames": 2384,
+        "digest": "43BC05032932C07DDB2E73AD2A953BED2DF543AE62FEF47985B50F6F4AE74F81",
+        "worldCheckpoints": 12,
+        "seeks": 142,
+        "checkpointSizeGrowth": 0,
+        "memoryCheckpointByteGrowth": 0
+      },
+      {
+        "fixture": "retained84-impaired",
+        "status": "PASS",
+        "exactMatchingFields": 37,
+        "archiveSha256": "65e156358a4762980d21de97d73338c903d612483f0b93062476d8dfb30bc2ea",
+        "archiveBytes": 1200866,
+        "frames": 2406,
+        "digest": "3AF62C5D3C9F8A78FE2742FC4D94BE3C426BEA14294203339507AE986A4AC296",
+        "worldCheckpoints": 13,
+        "seeks": 111,
+        "checkpointSizeGrowth": 0,
+        "memoryCheckpointByteGrowth": 0
+      }
+    ],
+    "exactFieldComparisons": 74,
+    "frozenSourceFiles": 6663,
+    "sourceBinaryArchiveHelperConfigFences": true,
+    "coreSha256": "4b4af9b5e4ed00859c4f359764df4043d319e0d4f88cd0331a2f21227b0c84ad",
+    "nettestSha256": "495302219c3f65a8d3fcc5ed8d3cf81d802620bfc08200fa3d9b6e386d7a9559",
+    "scope": "Two actual04 native protocol84 recordings. All37 semantic/checkpoint facts and archive bytes must remain exact; no new05 UDP or full body/GL attribution."
+  }
+}
