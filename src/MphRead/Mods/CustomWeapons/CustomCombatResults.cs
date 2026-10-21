@@ -61,6 +61,7 @@ internal readonly record struct CustomStateMessage(WorldBootstrapIdentity Bootst
 internal static class CustomCombatResults
 {
     internal const int SnapshotSize=25;
+    internal const int ContactSemanticSize=108;
     private static bool Before(uint a,uint b) => unchecked((int)(a-b)) < 0;
     private static bool Resolves(WeaponDigest digest,WeaponRuntimeId runtime,CustomWeaponManifest manifest,WeaponDefinition definition)
     {
@@ -176,20 +177,28 @@ internal static class CustomCombatResults
         if (!Valid(value,manifest,definition)) return false; message=value; return true;
     }
     internal static bool Valid(in CustomContactMessage message,CustomWeaponManifest manifest,WeaponDefinition definition)
+        => message.Token!=0 && ValidOutcome(message.Bootstrap,message.Outcome,manifest,definition);
+    internal static bool ValidOutcome(WorldBootstrapIdentity bootstrap,in CustomContactOutcome outcome,CustomWeaponManifest manifest,WeaponDefinition definition)
     {
-        var outcome=message.Outcome; var contact=outcome.Contact; var action=contact.Key.Action;
-        return message.Token!=0 && CustomWeaponProtocol.ValidBootstrap(message.Bootstrap) && contact.IsValid && outcome.Health.IsValid
-            && Resolves(action.Manifest,action.Weapon,manifest,definition) && action.Owner.MatchId==message.Bootstrap.Start.MatchId
-            && action.Owner.AuthorityEpoch==message.Bootstrap.Start.AuthorityEpoch && action.Owner.Generation==message.Bootstrap.SlotGeneration
-            && !Before(outcome.AuthorityFrame,message.Bootstrap.AuthorityFrame)
+        var contact=outcome.Contact; var action=contact.Key.Action;
+        return CustomWeaponProtocol.ValidBootstrap(bootstrap) && contact.IsValid && outcome.Health.IsValid
+            && Resolves(action.Manifest,action.Weapon,manifest,definition) && action.Owner.MatchId==bootstrap.Start.MatchId
+            && action.Owner.AuthorityEpoch==bootstrap.Start.AuthorityEpoch && action.Owner.Generation==bootstrap.SlotGeneration
+            && !Before(outcome.AuthorityFrame,bootstrap.AuthorityFrame)
             && outcome.Disposition is CustomContactDisposition.Canonical or CustomContactDisposition.TradeDenied
             && (outcome.Disposition!=CustomContactDisposition.TradeDenied || outcome.Health.BodyRemoved==0 && outcome.Health.TurretRemoved==0);
     }
     internal static void Write(in CustomContactMessage message,Span<byte> bytes,CustomWeaponManifest manifest,WeaponDefinition definition)
     {
         if (bytes.Length < CustomContactMessage.Size || !Valid(message,manifest,definition)) throw new ArgumentException("Consistent custom contact result required.");
-        var outcome=message.Outcome; var contact=outcome.Contact; var action=contact.Key.Action;
-        CustomWeaponProtocol.WriteHeader(bytes,message.Bootstrap,action.Manifest); bytes[65]=action.Owner.Slot;
+        WriteOutcome(message.Bootstrap,message.Outcome,bytes[..ContactSemanticSize],manifest,definition);
+        BinaryPrimitives.WriteUInt64LittleEndian(bytes[108..],message.Token);
+    }
+    internal static void WriteOutcome(WorldBootstrapIdentity bootstrap,in CustomContactOutcome outcome,Span<byte> bytes,CustomWeaponManifest manifest,WeaponDefinition definition)
+    {
+        if (bytes.Length < ContactSemanticSize || !ValidOutcome(bootstrap,outcome,manifest,definition)) throw new ArgumentException("Consistent custom contact outcome required.");
+        var contact=outcome.Contact; var action=contact.Key.Action;
+        CustomWeaponProtocol.WriteHeader(bytes,bootstrap,action.Manifest); bytes[65]=action.Owner.Slot;
         BinaryPrimitives.WriteUInt16LittleEndian(bytes[66..],action.Owner.Life); BinaryPrimitives.WriteUInt16LittleEndian(bytes[68..],action.Weapon.Value);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[70..],action.Sequence); BinaryPrimitives.WriteUInt32LittleEndian(bytes[74..],outcome.AuthorityFrame);
         bytes[78]=contact.Key.Victim.Slot; BinaryPrimitives.WriteUInt16LittleEndian(bytes[79..],contact.Key.Victim.Generation);
@@ -197,22 +206,29 @@ internal static class CustomCombatResults
         CustomWeaponProtocol.WriteVector(bytes[85..],contact.Point); bytes[97]=(byte)((contact.Headshot ? 1:0)|(outcome.Disposition==CustomContactDisposition.TradeDenied ? 2:0));
         BinaryPrimitives.WriteUInt16LittleEndian(bytes[98..],(ushort)outcome.Health.BodyBefore); BinaryPrimitives.WriteUInt16LittleEndian(bytes[100..],(ushort)outcome.Health.BodyAfter);
         BinaryPrimitives.WriteUInt16LittleEndian(bytes[102..],(ushort)outcome.Health.TurretBefore); BinaryPrimitives.WriteUInt16LittleEndian(bytes[104..],(ushort)outcome.Health.TurretAfter);
-        BinaryPrimitives.WriteUInt16LittleEndian(bytes[106..],outcome.Health.DamageEventId); BinaryPrimitives.WriteUInt64LittleEndian(bytes[108..],message.Token);
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes[106..],outcome.Health.DamageEventId);
     }
     internal static bool TryReadContact(ReadOnlySpan<byte> bytes,CustomWeaponManifest manifest,WeaponDefinition definition,out CustomContactMessage message)
     {
         message=default;
-        if (bytes.Length!=CustomContactMessage.Size || !CustomWeaponProtocol.ReadHeader(bytes,out var bootstrap,out var digest)
+        if (bytes.Length!=CustomContactMessage.Size || !TryReadOutcome(bytes[..ContactSemanticSize],manifest,definition,out var bootstrap,out var outcome)) return false;
+        ulong token=BinaryPrimitives.ReadUInt64LittleEndian(bytes[108..]); if (token==0) return false;
+        message=new(bootstrap,token,outcome); return true;
+    }
+    internal static bool TryReadOutcome(ReadOnlySpan<byte> bytes,CustomWeaponManifest manifest,WeaponDefinition definition,out WorldBootstrapIdentity bootstrap,out CustomContactOutcome outcome)
+    {
+        bootstrap=default; outcome=default;
+        if (bytes.Length!=ContactSemanticSize || !CustomWeaponProtocol.ReadHeader(bytes,out var parsedBootstrap,out var digest)
             || bytes[65]>=8 || BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..])==0 || bytes[83]!=1 || bytes[97]>3) return false;
         ushort id=BinaryPrimitives.ReadUInt16LittleEndian(bytes[68..]); if (id is < 10 or > 73 || !Resolves(digest,new(id),manifest,definition)) return false;
-        var owner=new WeaponOwnerContext(bootstrap.Start.MatchId,bootstrap.Start.AuthorityEpoch,bytes[65],bootstrap.SlotGeneration,BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..]));
+        var owner=new WeaponOwnerContext(parsedBootstrap.Start.MatchId,parsedBootstrap.Start.AuthorityEpoch,bytes[65],parsedBootstrap.SlotGeneration,BinaryPrimitives.ReadUInt16LittleEndian(bytes[66..]));
         var identity=new CustomActionIdentity(owner,digest,new(id),BinaryPrimitives.ReadUInt32LittleEndian(bytes[70..]));
         var key=new CustomPaymentKey(identity,new(bytes[78],BinaryPrimitives.ReadUInt16LittleEndian(bytes[79..]),BinaryPrimitives.ReadUInt16LittleEndian(bytes[81..])),1,(CustomImpactChannel)bytes[84]);
-        var outcome=new CustomContactOutcome(new(key,CustomWeaponProtocol.ReadVector(bytes[85..]),(bytes[97]&1)!=0),BinaryPrimitives.ReadUInt32LittleEndian(bytes[74..]),
+        var parsedOutcome=new CustomContactOutcome(new(key,CustomWeaponProtocol.ReadVector(bytes[85..]),(bytes[97]&1)!=0),BinaryPrimitives.ReadUInt32LittleEndian(bytes[74..]),
             new(BinaryPrimitives.ReadUInt16LittleEndian(bytes[98..]),BinaryPrimitives.ReadUInt16LittleEndian(bytes[100..]),BinaryPrimitives.ReadUInt16LittleEndian(bytes[102..]),
                 BinaryPrimitives.ReadUInt16LittleEndian(bytes[104..]),BinaryPrimitives.ReadUInt16LittleEndian(bytes[106..])),(bytes[97]&2)!=0 ? CustomContactDisposition.TradeDenied:CustomContactDisposition.Canonical);
-        var value=new CustomContactMessage(bootstrap,BinaryPrimitives.ReadUInt64LittleEndian(bytes[108..]),outcome);
-        if (!Valid(value,manifest,definition)) return false; message=value; return true;
+        if (!ValidOutcome(parsedBootstrap,parsedOutcome,manifest,definition)) return false;
+        bootstrap=parsedBootstrap; outcome=parsedOutcome; return true;
     }
     internal static bool Valid(in CustomStateMessage message,CustomWeaponManifest manifest,WeaponDefinition definition)
         => CustomWeaponProtocol.ValidBootstrap(message.Bootstrap) && message.Revision!=0

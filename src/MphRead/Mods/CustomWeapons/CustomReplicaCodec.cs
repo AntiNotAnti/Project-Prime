@@ -52,7 +52,8 @@ internal static class CustomReplicaCodec
         return row.State.Phase!=CustomWeaponPhase.Invalid && CustomCombatResults.SnapshotValid(row.State,owner,wire.Definition)
             && row.State.LastAcceptedShotId<=row.SettledSequence && !Before(row.State.Tick,row.CommittedSourceFrame);
     }
-    private static void WriteSlot(Span<byte> bytes,in CustomReplicaSlot row)
+    // File-only replay projections reuse these frozen validated primitives.
+    internal static void WriteSlot(Span<byte> bytes,in CustomReplicaSlot row)
     {
         bytes[..SlotSize].Clear();bytes[0]=row.Slot;bytes[1]=(byte)((row.Occupied?1:0)|(row.Spectating?2:0)|(row.HasWeapon?4:0));
         BinaryPrimitives.WriteUInt16LittleEndian(bytes[2..],row.Generation);BinaryPrimitives.WriteUInt16LittleEndian(bytes[4..],row.Life);
@@ -61,7 +62,7 @@ internal static class CustomReplicaCodec
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[8..],row.SettledSequence);BinaryPrimitives.WriteUInt32LittleEndian(bytes[12..],row.CommittedSourceFrame);
         CustomCombatResults.WriteSnapshot(bytes[16..],row.State);
     }
-    private static bool ReadSlot(ReadOnlySpan<byte> bytes,int index,CustomReadinessWire wire,out CustomReplicaSlot row)
+    internal static bool ReadSlot(ReadOnlySpan<byte> bytes,int index,CustomReadinessWire wire,out CustomReplicaSlot row)
     {
         row=default;if(bytes[0]!=index||bytes[1]>7)return false;
         byte flags=bytes[1];ushort generation=BinaryPrimitives.ReadUInt16LittleEndian(bytes[2..]),life=BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]);
@@ -83,7 +84,7 @@ internal static class CustomReplicaCodec
             && !Before(world,launch.World)&&Finite(launch.Origin)&&Finite(launch.Direction)
             && MathF.Abs(launch.Direction.LengthSquared-1)<=.02f;
     }
-    private static void WriteLaunch(Span<byte> bytes,in CustomReplicaLaunch launch)
+    internal static void WriteLaunch(Span<byte> bytes,in CustomReplicaLaunch launch)
     {
         var source=launch.Source;source.Action.Write(bytes);
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[109..],source.ObservedWorldFrame);BinaryPrimitives.WriteUInt32LittleEndian(bytes[113..],source.TargetWorldFrame);
@@ -91,7 +92,7 @@ internal static class CustomReplicaCodec
         bytes[142]=(byte)((source.CanUseWeapon?1:0)|(source.DoubleDamage?2:0)|(source.PrimeHunter?4:0)|(source.Crouched?8:0)|(source.Tucked?16:0));
         BinaryPrimitives.WriteUInt32LittleEndian(bytes[143..],launch.World);CustomWeaponProtocol.WriteVector(bytes[147..],launch.Origin);CustomWeaponProtocol.WriteVector(bytes[159..],launch.Direction);
     }
-    private static bool ReadLaunch(ReadOnlySpan<byte> bytes,CustomReadinessWire wire,uint world,out CustomReplicaLaunch launch)
+    internal static bool ReadLaunch(ReadOnlySpan<byte> bytes,CustomReadinessWire wire,uint world,out CustomReplicaLaunch launch)
     {
         launch=default;if(!CustomWeaponAction.TryRead(bytes[..109],out var action)||bytes[142]>31)return false;
         byte flags=bytes[142];var source=new CustomSourceCertificate(action,BinaryPrimitives.ReadUInt32LittleEndian(bytes[109..]),
@@ -109,14 +110,14 @@ internal static class CustomReplicaCodec
             && flight.RemainingSeconds>0&&flight.AgeSeconds<=wire.Definition.Mechanics.LifetimeTicks/60f+.00001f
             && flight.RemainingSeconds<=wire.Definition.Mechanics.LifetimeTicks/60f+.00001f
             && MathF.Abs(flight.AgeSeconds+flight.RemainingSeconds-wire.Definition.Mechanics.LifetimeTicks/60f)<=.00002f;
-    private static void WriteFlight(Span<byte> bytes,in CustomReplicaFlight flight)
+    internal static void WriteFlight(Span<byte> bytes,in CustomReplicaFlight flight)
     {
         WriteLaunch(bytes,LaunchFor(flight));BinaryPrimitives.WriteUInt32LittleEndian(bytes[171..],flight.PaymentDeadline);
         CustomWeaponProtocol.WriteVector(bytes[175..],flight.SpawnPosition);CustomWeaponProtocol.WriteVector(bytes[187..],flight.Position);
         CustomWeaponProtocol.WriteVector(bytes[199..],flight.Velocity);BinaryPrimitives.WriteSingleLittleEndian(bytes[211..],flight.AgeSeconds);
         BinaryPrimitives.WriteSingleLittleEndian(bytes[215..],flight.RemainingSeconds);
     }
-    private static bool ReadFlight(ReadOnlySpan<byte> bytes,CustomReadinessWire wire,uint world,out CustomReplicaFlight flight)
+    internal static bool ReadFlight(ReadOnlySpan<byte> bytes,CustomReadinessWire wire,uint world,out CustomReplicaFlight flight)
     {
         flight=default;if(!ReadLaunch(bytes,wire,world,out var launch))return false;
         var value=new CustomReplicaFlight(launch.Identity,launch.Source,launch.World,BinaryPrimitives.ReadUInt32LittleEndian(bytes[171..]),

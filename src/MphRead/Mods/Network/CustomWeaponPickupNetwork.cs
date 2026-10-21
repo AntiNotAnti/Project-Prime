@@ -92,6 +92,8 @@ public static partial class NetSession
             ||CurrentCustomPickupReplica() is not {} receiver)return;
         if(!receiver.Receive(packet.Payload,out var ack))
         {if(receiver.Closed)_customReadiness?.Invalidate();return;}
+        if(!DemoPlayback.IsActive&&ReplayCapture.Recorder.CustomWeaponContext?.Bootstrap.World==_customPickupWire?.Bootstrap)
+            CaptureCustomPickupBaseline(receiver);
         Span<byte> bytes=stackalloc byte[CustomPickupReplicaCodec.AckSize];CustomPickupReplicaCodec.Write(ack,bytes);
         _transport.TrySendSemantic(_hostEndPoint,PacketType.CustomWeaponPickupAck,bytes);
     }

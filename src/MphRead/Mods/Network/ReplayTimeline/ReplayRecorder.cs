@@ -24,6 +24,7 @@ internal sealed partial class ReplayRecorder
     {
         Resetting?.Invoke();
         ResetBombFacts(); ResetPickupSeed(); _grantSeed.Reset(); _grantSeedLatestFrame = 0;
+        ResetCustomWeaponFacts();
         _timedShots.Reset();
         _worldWire.Reset();
         _semantic.Begin(0, 0);
