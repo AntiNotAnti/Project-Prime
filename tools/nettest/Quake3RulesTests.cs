@@ -52,7 +52,7 @@ internal static class Quake3RulesTests
     private static void ParseAndRules()
     {
         Check((byte)MovementModel.Native == 0 && (byte)MovementModel.Momentum == 1 && (byte)MovementModel.Quake3 == 2 && (byte)MovementModel.Traversal == 3, "stable movement enum values");
-        Check((uint)MatchModifierFlags.Quake3Movement == 65536 && NetConfig.ProtocolVersion == 77, "protocol77 retains bit16 contract");
+        Check((uint)MatchModifierFlags.Quake3Movement == 65536 && NetConfig.ProtocolVersion == 78, "protocol78 retains bit16 contract");
         foreach (string? text in new string?[] { null, "", "Native", "native", "NATIVE", "Classic", "classic" })
             Check(MovementModelRules.TryParse(text, out var model) && model == MovementModel.Native, "native/default parse " + text);
         foreach (string text in new[] { "Quake3", "quake3", "QUAKE3", "Quake III" })

@@ -43,8 +43,8 @@ no artificial total-speed cap. Its profile v4 also chains held jumps on legal
 landings and supports additive self-missile rocket jumps with normal self-damage.
 Traversal adds stronger air control, ramp jumps, Magmaul jumps, crouch/power sliding and tagged training-map
 surfing; see the [Traversal guide](docs/movement/traversal-movement.md).
-Parkour adds optional airborne crouch tuck; see the [Parkour guide](docs/movement/parkour-airborne-tuck-results.md).
-All live peers must use protocol 77; older clients are refused
+Parkour adds optional airborne crouch tuck and bounded wallstrafe; see the [Parkour guide](docs/movement/parkour-movement.md).
+All live peers must use protocol 78; older clients are refused
 rather than assigned different movement rules.
 Older Classic and Momentum recordings remain readable with their original rules. It remains an
 experimental opt-in while the final platform, combat and performance matrix is

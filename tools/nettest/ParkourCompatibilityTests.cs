@@ -22,7 +22,7 @@ internal static class ParkourCompatibilityTests
             catch (InvalidDataException) { rejected = true; }
             Check(rejected, $"Protocol{protocol} must reject Parkour bit19.");
         }
-        Check(NetConfig.ProtocolVersion == 77, "Parkour v1 requires protocol77.");
+        Check(NetConfig.ProtocolVersion == 78, "Current Parkour v2 requires protocol78.");
         Check((byte)MovementModel.Parkour == 4 && (uint)MatchModifierFlags.ParkourMovement == 524288u,
             "Parkour model4 and bit19 are stable.");
         Check(MovementModelRules.KnownModifierMask == 1048575u,
@@ -36,6 +36,9 @@ internal static class ParkourCompatibilityTests
                 "Movement model flags remain mutually exclusive.");
         Check(!MovementModelRules.ValidRules((MatchModifierFlags)(1u << 20)),
             "Future unknown modifier remains unsupported.");
+        Check(MovementModelRules.ProfileVersion(MovementModel.Parkour) == 2
+            && new ReplayMetadata { ProtocolVersion = 78, IndexedMovementModel = MovementModel.Parkour }
+                .RecordedMovementProfileVersion == 2, "Protocol78 selects Parkour v2 while protocol77 stays v1.");
         var metadata = new ReplayMetadata { ProtocolVersion = 77, IndexedMovementModel = MovementModel.Parkour };
         Check(metadata.RecordedMovementModel == MovementModel.Parkour
             && metadata.RecordedMovementProfileVersion == 1, "Protocol77 records Parkour v1 explicitly.");
@@ -62,7 +65,7 @@ internal static class ParkourCompatibilityTests
         new SnapshotHeader { PlayerCount = 1 }.Write(snapshot.AsSpan(1));
         new PlayerState { SlotIndex = 0, Health = 99, Crouched = false }
             .Write(snapshot.AsSpan(1 + SnapshotHeader.Size));
-        foreach (int protocol in new[] { 68, 69, 76, 77 })
+        foreach (int protocol in new[] { 68, 69, 76, 77, 78 })
         {
             var converted = ReplayIdentityCompatibility.Convert(snapshot, protocol);
             Check(converted.SequenceEqual(snapshot)

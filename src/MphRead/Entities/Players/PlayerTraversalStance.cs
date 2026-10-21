@@ -43,6 +43,7 @@ public partial class PlayerEntity
     internal void ModResetTraversalStance()
     {
         ModStopTraversalSlideSfx();
+        ModResetParkourContacts();
         _modCrouched = _modCrouchWasDown = _modTucked = _modTuckCameraSuppressed = false;
         _modCrouchPresentation.Reset(); _modCrouchGait.Reset();
         _modSlidePresentation.Reset(); _modCrouchWalk.Reset(); _modCrouchWalkReach = 0; _modTraversalPictureFrame = ulong.MaxValue;

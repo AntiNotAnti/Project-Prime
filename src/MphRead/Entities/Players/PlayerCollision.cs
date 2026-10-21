@@ -1230,6 +1230,8 @@ namespace MphRead.Entities
             {
                 v164 = true;
             }
+            if (v2 >= -CollisionRecoverySkin)
+                ModObserveParkourContact(result, penetrating: v2 > 0);
             if (v2 > 0)
             {
                 ModMovementShadowNoteContact(result.Plane.Xyz, v2);
