@@ -827,55 +827,77 @@ namespace MphRead.Entities
 
         public void UpdateMatchEndCamera(PlayerEntity winner, float timeSinceMatchEnd)
         {
-            Vector3 winnerFacing = winner.FacingVector;
-            // todo?: the game updates all players' cameras, possibly because of (non-existent) spectator mode?
+            // Presentation-only winner shot. Camera position/target/FOV are never
+            // written to any authoritative player state or recorded hit fact.
+            float progress = Math.Clamp(timeSinceMatchEnd / SceneGameState.MatchFinalCameraSeconds, 0f, 1f);
+            float ease = progress * progress * (3f - 2f * progress);
+            bool reduceMotion = Mods.Launcher.LauncherPrefs.ReduceMotion
+                || Mods.Render.Hud.HudProfiles.Runtime.ReduceMotion;
+
+            // Use the Hunter's *horizontal* pose for a stable orbital plane,
+            // including alt form and steep uphill/downhill aim.
+            Vector3 forward = winner.FacingVector;
+            forward.Y = 0;
+            if (!float.IsFinite(forward.X) || !float.IsFinite(forward.Z)
+                || forward.LengthSquared < 0.0001f)
+                forward = new Vector3(winner.Field70, 0, winner.Field74);
+            if (!float.IsFinite(forward.X) || !float.IsFinite(forward.Z)
+                || forward.LengthSquared < 0.0001f) forward = Vector3.UnitZ;
+            else forward.Normalize();
+            Vector3 side = Vector3.Cross(forward, Vector3.UnitY);
+            if (side.LengthSquared < 0.0001f) side = Vector3.UnitX;
+            else side.Normalize();
+
+            bool alt = winner.IsAltForm || winner.IsMorphing || winner.IsUnmorphing;
+            Vector3 focus = winner.Position + Vector3.UnitY * (alt ? 0.75f : 1.25f);
+            // Sweeping 1.06 radians over five seconds is enough to reveal the
+            // winner's silhouette without disorienting rapid camera spins.
+            float azimuth = reduceMotion ? -0.18f : -0.35f + 1.06f * ease;
+            float range = (alt ? 4.2f : 4.6f) - (reduceMotion ? 0f : 0.75f * ease);
+            Vector3 desired = focus + (-forward * MathF.Cos(azimuth) + side * MathF.Sin(azimuth)) * range
+                + Vector3.UnitY * (alt ? 1.65f : 1.15f);
+            Vector3 desiredTarget = focus + forward * (alt ? 0.15f : 0.4f);
+            float nativeFov = Fixed.ToFloat(Values.NormalFov) * 2;
+            float desiredFov = nativeFov * (reduceMotion ? 1f : 1f - 0.065f * ease);
+
+            // Check the actual camera ray before *and* after smoothing, since
+            // a filtered camera can drift behind geometry the target avoids.
+            Vector3 proposed = MatchEndSafeCamera(focus, desired);
+            bool firstFrame = CameraType != CameraType.Third2 || timeSinceMatchEnd <= 1f / 30f;
             CameraType = CameraType.Third2;
-            CameraInfo.Target = winner.Position;
-            if (winner.IsAltForm || winner.IsMorphing || winner.IsUnmorphing)
+            if (firstFrame || reduceMotion)
             {
-                CameraInfo.Position = winner.Position
-                    .AddX(-(2.75f * winner.Field70))
-                    .AddY(3)
-                    .AddZ(-(2.75f * winner.Field74));
+                CameraInfo.Position = proposed;
+                CameraInfo.Target = desiredTarget;
+                CameraInfo.Fov = desiredFov;
             }
             else
             {
-                CameraInfo.Target += winnerFacing * 10;
-                CameraInfo.Position = winner.Position
-                    .AddX(-(1.5f * winner.Field70 + winner._gunVec2.X / 2))
-                    .AddY(1.75f)
-                    .AddZ(-(1.5f * winner.Field74 + winner._gunVec2.X / 2));
-            }
-            if (winnerFacing.Y < 0)
-            {
-                CameraInfo.Position = CameraInfo.Position
-                    .AddX(-(2.15f * winnerFacing.Y * winner.Field70))
-                    .AddY(-(winnerFacing.Y / 2))
-                    .AddZ(-(2.15f * winnerFacing.Y * winner.Field74));
-            }
-            else
-            {
-                CameraInfo.Position = CameraInfo.Position
-                    .AddX(0.75f * winnerFacing.Y * winner.Field70)
-                    .AddY(-(winnerFacing.Y * 2))
-                    .AddZ(0.75f * winnerFacing.Y * winner.Field74);
-            }
-            float factor = Fixed.ToFloat(15) * timeSinceMatchEnd * 30;
-            CameraInfo.Position = CameraInfo.Position
-                .AddX(winner._gunVec2.X * factor)
-                .AddZ(winner._gunVec2.Z * factor);
-            CollisionResult result = default;
-            if (CollisionDetection.CheckBetweenPoints(winner.Position, CameraInfo.Position,
-                TestFlags.Players, _scene, ref result))
-            {
-                Vector3 between = CameraInfo.Position - winner.Position;
-                CameraInfo.Position = winner.Position + between * result.Distance + result.Plane.Xyz * 0.05f;
+                // The simulation ticks at 60 Hz; smoothing is performed on
+                // camera poses, not by adding independent render-frame motion.
+                float alpha = 1f - MathF.Exp(-12f * MathF.Max(_scene.FrameTime, 1f / 60f));
+                CameraInfo.Position = MatchEndSafeCamera(focus,
+                    Vector3.Lerp(CameraInfo.Position, proposed, alpha));
+                CameraInfo.Target = Vector3.Lerp(CameraInfo.Target, desiredTarget, alpha);
+                CameraInfo.Fov += (desiredFov - CameraInfo.Fov) * alpha;
             }
             CameraInfo.UpVector = Vector3.UnitY;
             CameraInfo.Shake = 0;
-            CameraInfo.Fov = Fixed.ToFloat(Values.NormalFov) * 2;
             CameraInfo.Update();
             CameraInfo.NodeRef = _scene.UpdateNodeRef(winner.NodeRef, winner.Position, CameraInfo.Position);
+        }
+
+        private Vector3 MatchEndSafeCamera(Vector3 focus, Vector3 target)
+        {
+            CollisionResult hit = default;
+            if (!CollisionDetection.CheckBetweenPoints(focus, target, TestFlags.Players, _scene, ref hit))
+                return target;
+            // The existing collision distance is a segment fraction. Keep a
+            // small surface margin without crossing behind the first hit.
+            // Malformed collision distances are not allowed into view matrices.
+            if (!float.IsFinite(hit.Distance)) return focus + Vector3.UnitY * 0.5f;
+            float fraction = Math.Clamp(hit.Distance - 0.025f, 0.05f, 1f);
+            return focus + (target - focus) * fraction + hit.Plane.Xyz * 0.05f;
         }
 
         public void RefreshExternalCamera()

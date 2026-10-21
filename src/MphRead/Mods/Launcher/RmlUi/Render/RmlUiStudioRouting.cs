@@ -22,6 +22,11 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static bool HandleNativeStudioRoute(in RmlUiIntent intent)
     {
+        if(_weaponStudio is {} weapon)
+        { weapon.Handle(intent);if(weapon.Closed){CloseNativeWeaponStudio();OpenNativeStudio();}return true; }
+        if(_studio is {} hub&&intent.Kind==RmlUiIntentKind.StudioAction&&intent.Argument==224
+            &&intent.Document==hub.Document&&_pages?.Top==hub.Document&&_host?.CurrentInputDocument==hub.Document&&_pages.Accept(intent))
+        { OpenNativeWeaponStudio();return true; }
         if (_studioChange is { } change)
         {
             change.Handle(intent);
@@ -79,6 +84,8 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static void RefreshNativeStudioRoute()
     {
+        _weaponStudio?.Refresh();
+        if(_weaponStudio is {Closed:true}){CloseNativeWeaponStudio();OpenNativeStudio();}
         if (_studioChange == null && _studioEditor == null && _studioPublish == null
             && _studio is { } studio && studio.TryTakeProjectChangeRequest(out var changes) && changes != null)
             OpenNativeStudioProjectChange(changes, studio);
@@ -92,6 +99,8 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static bool BackNativeStudioRoute()
     {
+        if(_weaponStudio is {} weapon)
+        {weapon.Back();if(weapon.Closed){CloseNativeWeaponStudio();OpenNativeStudio();}return true;}
         if (_studioChange is { } change)
         {
             change.Back();

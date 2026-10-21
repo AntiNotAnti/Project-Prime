@@ -10,7 +10,8 @@
     <div id="native_studio_chooser">
       <div class="eyebrow">PROJECT PRIME // CREATION</div>
       <h1>PRIME STUDIO</h1>
-      <p>Review recordings, direct cameras, and export from Replay Studio.</p>
+      <p>Review recordings, direct cameras, or create a custom weapon in the separate Studio app.</p>
+      <button id="native_studio_weapon" data-action="studio:weapon-new">OPEN WEAPON CREATOR</button>
       <div class="studio-destinations">
         <div class="studio-destination studio-technical">
           <div class="studio-card-art replay-art"><div class="replay-frame"></div><div class="replay-play"></div><div class="replay-track replay-track-a"></div><div class="replay-track replay-track-b"></div><div class="replay-playhead"></div></div>
