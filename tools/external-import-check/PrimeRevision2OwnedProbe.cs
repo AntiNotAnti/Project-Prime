@@ -42,7 +42,9 @@ internal static class PrimeRevision2OwnedProbe
         var previousGenerations = new Dictionary<string, ImportBundleInspection>(StringComparer.Ordinal);
         var previousV3Generations = new Dictionary<string, ImportBundleInspection>(StringComparer.Ordinal);
         var previousV4Generations = new Dictionary<string, ImportBundleInspection>(StringComparer.Ordinal);
+        var previousV5Generations = new Dictionary<string, ImportBundleInspection>(StringComparer.Ordinal);
         bool v3BytesPreserved = false, v4BytesPreserved = false, v4MigrationRollback = false;
+        bool v5BytesPreserved = false, v5MigrationRollback = false;
         int cpuPreviewCaptures = 0;
         void Check(bool value, string why) { if (!value) throw new InvalidDataException(why); checks++; }
         try
@@ -121,14 +123,14 @@ internal static class PrimeRevision2OwnedProbe
             }
             void CheckPreviousBytes()
             {
-                foreach (var old in previousGenerations.Values.Concat(previousV3Generations.Values).Concat(previousV4Generations.Values))
+                foreach (var old in previousGenerations.Values.Concat(previousV3Generations.Values).Concat(previousV4Generations.Values).Concat(previousV5Generations.Values))
                 {
                     string folder = Path.GetDirectoryName(old.Files[0])!;
                     foreach (var component in old.Receipt!.Components)
                     {
                         string path = Path.Combine(folder, component.Id);
                         Check(File.Exists(path) && new FileInfo(path).Length == component.Length && HashFile(path) == component.Sha256,
-                            "Every previous v2/v3/v4 immutable component survives rollback/upgrade byte-for-byte.");
+                            "Every previous v2/v3/v4/v5 immutable component survives rollback/upgrade byte-for-byte.");
                     }
                 }
             }
@@ -174,6 +176,43 @@ internal static class PrimeRevision2OwnedProbe
                     "Canceled preview migration preserves all actual v4 current receipts and explicit old-recipe validity.");
             }
             CheckPreviousBytes(); v4MigrationRollback = true;
+            string previewBaselineCore = Environment.GetEnvironmentVariable("PRIME_REV2_PREVIEW_BASELINE_CORE")
+                ?? throw new InvalidDataException("Owned cannon migration probe requires an explicit frozen v5 preview core.");
+            Check(HashFile(previewBaselineCore) == "8eccf5dffec7261ff29c2e05a46bac3ee90952bdfa46e533d221249ff6f010c4",
+                "Preview baseline exporter is the independently frozen complete v5 production core.");
+            var previewBaselineContext = new AssemblyLoadContext("prime-rev2-v5-baseline-" + Guid.NewGuid().ToString("N"), isCollectible: true);
+            try
+            {
+                var baselineAssembly = previewBaselineContext.LoadFromAssemblyPath(Path.GetFullPath(previewBaselineCore));
+                var exporter = baselineAssembly.GetType("MphRead.Mods.Import.RetroCharacterPreviewExporter", throwOnError: true)!;
+                var oldOutputs = (IReadOnlyList<string>)exporter.GetMethod("ExportFromOwnedGame", BindingFlags.Public | BindingFlags.Static)!
+                    .Invoke(null, new object?[] { source, imports, CancellationToken.None, null, Ids })!;
+                Check(oldOutputs.Count == 4, "Frozen v5 exporter publishes all four actual body-preview generations.");
+            }
+            finally { previewBaselineContext.Unload(); }
+            foreach (string id in Ids)
+            {
+                var old = LocalImportBundle.Inspect(imports, id, PrimeRevision2RecipeChecks.PreviousRev5(id));
+                previousV5Generations.Add(id, old);
+                var snapshot = Snapshot(imports);
+                Check(old.State == ImportBundleState.Ready && old.Receipt is { Version: 5 } && old.Files.Count == 12
+                    && RetroCharacterPreviewExporter.InspectBundle(imports, id).State == ImportBundleState.Outdated
+                    && Same(snapshot, Snapshot(imports)),
+                    "Actual frozen twelve-component v5 remains explicitly valid while current cannon inspection is nonmutating Outdated.");
+            }
+            var oldV5Pointers = Ids.ToDictionary(id => id, id => HashFile(Pointer(id)));
+            using (var cancellation = new CancellationTokenSource())
+            {
+                bool canceled = false, v5StageSeen = false;
+                var progress = new InlineProgress(stage => { if (stage == ImportPublishStage.BeforeCommit) { v5StageSeen = true; cancellation.Cancel(); } });
+                try { RetroCharacterPreviewExporter.ExportFromOwnedGame(source, imports, cancellation.Token, progress, new[] { "trooper-power" }); }
+                catch (OperationCanceledException) { canceled = true; }
+                Check(canceled && v5StageSeen && Ids.All(id => HashFile(Pointer(id)) == oldV5Pointers[id]
+                    && LocalImportBundle.Inspect(imports, id, PrimeRevision2RecipeChecks.PreviousRev5(id)).State == ImportBundleState.Ready
+                    && RetroCharacterPreviewExporter.InspectBundle(imports, id).State == ImportBundleState.Outdated),
+                    "Canceled cannon migration preserves all actual v5 current receipts and explicit old-recipe validity.");
+            }
+            CheckPreviousBytes(); v5MigrationRollback = true;
             var exported = RetroCharacterPreviewExporter.ExportFromOwnedGame(source, imports, selectedIds: Ids);
             Check(exported.Count == 4 && exported.Select(Path.GetFileName).Order(StringComparer.Ordinal)
                 .SequenceEqual(Ids.Select(id => id + ".obj").Order(StringComparer.Ordinal)),
@@ -186,7 +225,7 @@ internal static class PrimeRevision2OwnedProbe
             {
                 var spec = RetroCharacterPreviewExporter.BundleSpec(id, ExternalSourceEdition.PrimeUsaRevision2);
                 var legacy = RetroCharacterPreviewExporter.BundleSpec(id);
-                Check(spec.Version == 5 && legacy.Version == 1 && spec.RequiredComponents.Length == 12
+                Check(spec.Version == 6 && legacy.Version == 1 && spec.RequiredComponents.Length == 13
                     && spec.RequiredComponents.ToHashSet().SetEquals(PrimeRevision2RecipeChecks.FullComponents(id))
                     && spec.SourceFingerprint == fingerprint && spec.SourceFingerprint != legacy.SourceFingerprint
                     && spec.RecipeHash != legacy.RecipeHash, "Recipe identity must bind the exact new source without changing legacy v1.");
@@ -194,9 +233,9 @@ internal static class PrimeRevision2OwnedProbe
                 Check(state.State == ImportBundleState.Ready
                     && LocalImportBundle.Inspect(imports, id, spec).State == ImportBundleState.Ready
                     && LocalImportBundle.Inspect(imports, id, legacy).State == ImportBundleState.UnsupportedSource,
-                    "Edition-aware inspection accepts v5 while an explicit legacy recipe refuses the different source.");
+                    "Edition-aware inspection accepts v6 while an explicit legacy recipe refuses the different source.");
                 var receipt = state.Receipt ?? throw new InvalidDataException("Missing committed source receipt.");
-                Check(receipt.Id == id && receipt.Version == 5 && receipt.SourceFingerprint == fingerprint && state.Files.Count == 12
+                Check(receipt.Id == id && receipt.Version == 6 && receipt.SourceFingerprint == fingerprint && state.Files.Count == 13
                     && receipt.RecipeHash == spec.RecipeHash && receipt.Components.Length == state.Files.Count
                     && receipt.RequiredComponents.Length == state.Files.Count, "Receipt must describe the complete exact generation.");
                 string folder = Path.GetDirectoryName(state.Files.Single(p => Path.GetFileName(p) == id + ".obj"))!;
@@ -228,19 +267,23 @@ internal static class PrimeRevision2OwnedProbe
                     && root.GetProperty("Id").GetString() == id && root.GetProperty("SourceGameId").GetString() == "GM8E01"
                     && root.GetProperty("SourceCharacter").GetString() == nativeName,
                     "Actual selected appearance must retain its pinned geometry and skeleton inventory.");
-                Check(RetroCharacterPreviewExporter.InspectParts(id, state).Single() is { Id: "body", Version: 4, State: ImportBundleState.Ready }
+                var part = RetroCharacterPreviewExporter.InspectParts(id, state).Single();
+                Check(part is { Id: "body", Version: 5, State: ImportBundleState.Ready }
                     && state.Files.Count(p => Path.GetFileName(p) == "characters.json") == 1
-                    && !state.Files.Any(p => p.EndsWith(".cannon-source.json", StringComparison.Ordinal)
-                        || p.EndsWith(".parts.json", StringComparison.Ordinal)), "Rev2 bodyv4 includes exactly one generated body-viewer manifest without cannon/parts index.");
+                    && state.Files.Count(p => Path.GetFileName(p) == id + ".cannon-source.json") == 1
+                    && !state.Files.Any(p => p.EndsWith(".parts.json", StringComparison.Ordinal))
+                    && part.Components.Single(c => c.Role == "source-preview-manifest").Version == 2
+                    && part.Components.Single(c => c.Role == "source-cannon-recipe").Version == 1,
+                    "Rev2 bodyv5 includes one generated body/ViewModel manifest and one fixed cannon recipe with exact role versions.");
                 var runtimeCaches = Caches();
                 object preview = VerifyCpuPreview(id, imports, receipt.Generation, Check); cpuPreviewCaptures++;
                 var localBody = CharacterSourcePreviewSelection.LoadForLocalBody(id, CancellationToken.None, imports);
-                bool localBodyAdmitted = localBody.NativeHunter == Hunter.Weavel && !localBody.HasCannon && !localBody.RuntimeCannon
+                bool localBodyAdmitted = localBody.NativeHunter == Hunter.Weavel && localBody.HasCannon && localBody.RuntimeCannon
                     && localBody.Generation == receipt.Generation && localBody.Clips.Count == 113
                     && localBody.SelectedAppearance.CharacterId == "trooper";
                 var runtimeCachesAfter = Caches();
                 Check(localBodyAdmitted && runtimeCaches.All(p => runtimeCachesAfter[p.Key].SequenceEqual(p.Value)),
-                    "CPU viewer and local Weavel body capture retain strict clips without cannon capability or native Read cache mutation.");
+                    "CPU viewer and local Weavel body capture retain strict clips and exact cannon capability without native Read cache mutation.");
                 object fullSource = VerifyFullSource(id, folder, fingerprint, Check);
                 object materials = VerifyMaterials(id, folder, fingerprint, materialPak, Check);
                 var previousV3 = previousV3Generations[id];
@@ -259,16 +302,28 @@ internal static class PrimeRevision2OwnedProbe
                     Check(File.ReadAllBytes(before).AsSpan().SequenceEqual(File.ReadAllBytes(after)) && HashFile(after) == component.Sha256,
                         "Each of eleven preexisting actual v4 authoring/material files is byte/hash identical after adding the preview manifest.");
                 }
-                Check(receipt.Generation != previousV3.Receipt.Generation && receipt.Generation != previousV4.Receipt.Generation,
-                    "The generated preview upgrade publishes a distinct immutable v5 generation.");
+                var previousV5 = previousV5Generations[id];
+                string previousPreviewFolder = Path.GetDirectoryName(previousV5.Files[0])!;
+                foreach (var component in previousV5.Receipt!.Components.Where(c => c.Id != "characters.json"))
+                {
+                    string before = Path.Combine(previousPreviewFolder, component.Id), after = Path.Combine(folder, component.Id);
+                    Check(File.ReadAllBytes(before).AsSpan().SequenceEqual(File.ReadAllBytes(after)) && HashFile(after) == component.Sha256,
+                        "Each of eleven nonmanifest actual v5 authoring/material files is byte/hash identical after adding fixed cannon authoring.");
+                }
+                Check(previousV5.Receipt.Components.Length == 12
+                    && HashFile(Path.Combine(folder, "characters.json")) != previousV5.Receipt.Components.Single(c => c.Id == "characters.json").Sha256,
+                    "The one v5 manifest intentionally changes to add ViewModel while every old immutable manifest remains retained.");
+                Check(receipt.Generation != previousV3.Receipt.Generation && receipt.Generation != previousV4.Receipt.Generation
+                    && receipt.Generation != previousV5.Receipt.Generation,
+                    "The fixed cannon upgrade publishes a distinct immutable v6 generation.");
                 generations.Add(id, state);
                 bundles.Add(new { Id = id, receipt.Version, receipt.RecipeHash, receipt.SourceFingerprint, receipt.Generation,
                     Positions = positions, Triangles = triangles, Bones = bones, RequiredRecipeComponents = spec.RequiredComponents.Length,
                     CommittedFiles = state.Files.Count, Components = componentMetadata, FullSource = fullSource, RawMaterials = materials,
                     CpuPreview = preview, LocalBodySelectionAdmitted = localBodyAdmitted, LocalBodyHasCannon = localBody.HasCannon,
-                    PreviousV3ComponentsByteIdentical = 10, PreviousV4ComponentsByteIdentical = 11 });
+                    PreviousV3ComponentsByteIdentical = 10, PreviousV4ComponentsByteIdentical = 11, PreviousV5NonManifestComponentsByteIdentical = 11 });
             }
-            CheckPreviousBytes(); migrationRetained = v3BytesPreserved = v4BytesPreserved = true;
+            CheckPreviousBytes(); migrationRetained = v3BytesPreserved = v4BytesPreserved = v5BytesPreserved = true;
             var initial = Snapshot(imports);
             var repeated = RetroCharacterPreviewExporter.ExportFromOwnedGame(source, imports, selectedIds: Ids);
             Check(repeated.Order(StringComparer.Ordinal).SequenceEqual(exported.Order(StringComparer.Ordinal)) && Same(initial, Snapshot(imports))
@@ -311,8 +366,8 @@ internal static class PrimeRevision2OwnedProbe
         bool sourceUnchanged = sourceBefore != null && sourceBefore == sourceAfter;
         bool binariesUnchanged = coreBefore == coreAfter && toolBefore == toolAfter;
         bool passed = errorType == null && sourceUnchanged && binariesUnchanged && cachesUnchanged
-            && cleaned && reused && canceledPreserved && removed && retained && migrationRollback && v4MigrationRollback
-            && migrationRetained && v3BytesPreserved && v4BytesPreserved && cpuPreviewCaptures == 4 && bundles.Count == 4;
+            && cleaned && reused && canceledPreserved && removed && retained && migrationRollback && v4MigrationRollback && v5MigrationRollback
+            && migrationRetained && v3BytesPreserved && v4BytesPreserved && v5BytesPreserved && cpuPreviewCaptures == 4 && bundles.Count == 4;
         Console.WriteLine(JsonSerializer.Serialize(new
         {
             Schema = 1, Kind = "prime-usa-revision2-owned-import", Passed = passed, Checks = checks,
@@ -322,9 +377,10 @@ internal static class PrimeRevision2OwnedProbe
             SourceGameId = "GM8E01", Revision = 2, DiscNumber = 0, Archives = archiveMetadata, Bundles = bundles,
             SameInputGenerationReused = reused, PreCancelledReceiptsPreserved = canceledPreserved,
             ActualV3BeforeCommitRollback = migrationRollback, ActualV4BeforeCommitRollback = v4MigrationRollback,
-            OldV2V3AndV4GenerationsRetainedAfterUpgrade = migrationRetained,
+            ActualV5BeforeCommitRollback = v5MigrationRollback, OldV2V3V4AndV5GenerationsRetainedAfterUpgrade = migrationRetained,
             AllFortyPreexistingV3ComponentsByteIdentical = v3BytesPreserved,
             AllFortyFourPreexistingV4ComponentsByteIdentical = v4BytesPreserved,
+            AllFortyFourNonManifestV5ComponentsByteIdentical = v5BytesPreserved,
             DiscoveryRemoved = removed, OldGenerationsRetainedUntilCleanup = retained,
             SourceBeforeSha256 = sourceBefore, SourceAfterSha256 = sourceAfter, SourceUnchanged = sourceUnchanged,
             CoreBeforeSha256 = coreBefore, CoreAfterSha256 = coreAfter, ToolBeforeSha256 = toolBefore, ToolAfterSha256 = toolAfter,
@@ -339,15 +395,15 @@ internal static class PrimeRevision2OwnedProbe
     {
         var selection = CharacterSourcePreviewSelection.Load(id, CancellationToken.None, imports);
         check(selection.NativeHunter == Hunter.Weavel && selection.Generation == generation
-            && selection.SelectedAppearance.CharacterId == "trooper" && !selection.HasCannon && !selection.RuntimeCannon
+            && selection.SelectedAppearance.CharacterId == "trooper" && selection.HasCannon && !selection.RuntimeCannon
             && selection.Clips.Count == 113 && selection.Clips.Select(c => c.Ordinal).Distinct().Count() == 113,
-            "Actual current Trooper CPU preview captures the exact Weavel appearance/generation and113 strict clips without cannon authority.");
+            "Actual current Trooper CPU preview captures its exact Weavel appearance/generation and113 strict clips with cannon asset capability but no runtime gun activation.");
         check(selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.Biped, 0, out var asset),
             "CPU preview resolves its exact private Weavel biped asset.");
         check(!selection.Pack.TryResolvePrivate(Hunter.Samus, selection.SelectedAppearance, CharacterModelPart.Biped, 0, out _)
-            && !selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.ViewModel, 0, out _)
+            && selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.ViewModel, 0, out _)
             && !selection.Pack.TryResolvePrivate(Hunter.Weavel, selection.SelectedAppearance, CharacterModelPart.AlternateForm, 0, out _),
-            "Trooper CPU preview cannot borrow a Samus owner, cannon or alternate-form capability.");
+            "Trooper CPU preview resolves its own ViewModel and cannot borrow a Samus owner or alternate-form capability.");
         check(selection.Pack.TryCreateSourcePreviewLease(asset, out var lease) && lease.SourceAnimations != null && lease.SourceMaterials != null,
             "CPU capture retains source animation and compiled material authority in the same exact lease.");
         var geometry = CharacterWeightedModelLoader.LoadSourcePreview(asset, lease);
