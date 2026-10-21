@@ -62,6 +62,7 @@ Those frozen identities do not qualify later main changes. Our slices add no wir
 | [911](https://github.com/AntiNotAnti/Project-Prime/pull/911) | Explicit offline Scout Drone primary/hover practice, native pool/body ownership, real Scene/OpenGL/menu checks and both Android Release packages | `7bc52d5b7e217a8a52c057bdf80738a0309b3f69` |
 | [916](https://github.com/AntiNotAnti/Project-Prime/pull/916) | Offline native-fallback Scout Drone laser and distinct0–7 native-bot combat route; exact Scene/GL/UI and default/optional Android Release qualification | `67bface0f2f360f70283d849633d141fa247f675` |
 | [925](https://github.com/AntiNotAnti/Project-Prime/pull/925) | Offline Trooper Arsenal private three-bolt Blaster, shared UA, native collision/damage/marks and reciprocal native-bot kill; combined desktop/dedicated/GL/menu checks; further Android testing skipped | `939765d825e0a7a8fd2ba19098e114a18cc9c560` |
+| [940](https://github.com/AntiNotAnti/Project-Prime/pull/940) | Opt-in normal/Overcharged source bodies in actual offline Samus matches, Hunters loadout draft, Windows physical source identity, full39-joint poses and explicit native fallbacks; real Windows gameplay parity and launcher/import lifecycle | `ff522877ec16e065ec7e0782928f5f2448ff5b70` |
 
 The commit prefixes above are identities, not a claim that unrelated current
 main changes were covered by an earlier frozen build. Each evidence document
@@ -69,6 +70,16 @@ records its exact source and test scope. Merges follow local verification;
 this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
+
+The [offline body runtime](second-hunt-offline-body-runtime-2026-10-20.md)
+merged in PR940 at `ff522877ec16e065ec7e0782928f5f2448ff5b70`.
+The merged tree exactly matches qualified head `fdcf35ace`; only evidence prose
+changed after combined production/test freeze `043e12fd7`. Windows desktop and
+dedicated builds,16,480 actual-match assertions with exact native gameplay parity,
+54 actual launcher lifecycle assertions, source/rig/GPU/native-Hunters/importer,
+36,965 custom-weapon contracts and relevant replay/network/timing checks pass.
+This is a local offline body slice with native gun/ball/unsupported-state
+presentation, not completed characters or the full plan. Android remains deferred.
 
 [PR812](https://github.com/AntiNotAnti/Project-Prime/pull/812) merged optional
 collision detail inside the existing campaign pause map, with native NAV
