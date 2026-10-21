@@ -54,24 +54,36 @@ public static partial class DemoPlayback
     internal static ReplayMetadata? Metadata => Session.Metadata;
     public static uint CurrentFrame => Session.CurrentFrame;
     public static uint LastFrame => Session.LastFrame;
-    public static ReplayOpenResult LastResult => Session.LastResult;
+    public static ReplayOpenResult LastResult => _customOpenError != null ? ReplayOpenResult.UnsupportedFormat : Session.LastResult;
     public static double CurrentSeconds => Session.CurrentSeconds;
     public static double DurationSeconds => Session.DurationSeconds;
     public static bool AtEnd => Session.AtEnd;
-    public static string? LastError => Session.LastError;
+    public static string? LastError => _customOpenError ?? Session.LastError;
     public static string? LastWarning => Session.LastWarning;
     public static bool Join(string path, int timeoutMs = 8000)
     {
+        long nativeAttempt = 0;
+        try { if (TryJoinCustomArchive(path, out bool customOpened, out nativeAttempt)) return customOpened; }
+        catch (Exception error) when (error is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException)
+        {
+            lock (CustomRequestGate)
+                if (nativeAttempt == 0 || nativeAttempt == _customRequestGeneration)
+                    _customOpenError = "Cannot prepare replay: " + error.Message;
+            return false;
+        }
+        lock (CustomRequestGate)
+        {
+        if (nativeAttempt != 0 && nativeAttempt != _customRequestGeneration) return false;
         Stop();
         _prepared = new(new PassiveReplaySessionHost());
         _failed = false; _presentationFailed = false;
         bool opened = _prepared.Join(path, timeoutMs);
         if (opened)
         {
-            ReplayInput.CancelScrub(); ReplayCamera.ClearBookmarks(); ReplayCamera.Reset();
-            ReplayHud.Reset(); ReplayStudio.ResetCache(); ReplayKillMessagePresenter.Reset();
+            ResetPlaybackPresentation();
         }
         return opened;
+        }
     }
     internal static int CheckpointCount => _player?.CheckpointCount ?? 0;
     internal static string SeekDiagnostics => _player == null ? "" :
@@ -124,17 +136,23 @@ public static partial class DemoPlayback
     private static void UpdateCore(Scene shell)
     {
         _shell ??= shell;
+        lock (CustomRequestGate)
+        {
         if (_player == null)
         {
             var transport = _prepared.Transport;
             uint? seek = transport.SeekTarget;
-            _player = new PassiveReplayPlayer(_prepared.CurrentPath!, _shell.Size);
+            _player = _customPrepared != null ? AdoptCustomArchive(_shell.Size)
+                : new PassiveReplayPlayer(_prepared.CurrentPath!, _shell.Size);
+            _playerThread = Environment.CurrentManagedThreadId;
             _player.Current.Session.FactRead += ReplayNetworkDiagnostics.OnPacketArray;
             _player.Stepped += ReplayVerification.AfterFrame;
             _player.Replaced += (previous, replacement) =>
             {
                 ReplayAudioOwner.Release(_audio); _audio = 0;
-                replacement.Scene.CopyReplayView(previous); replacement.Scene.UseReplayInput(_shell);
+                if (replacement.Session.IsCustomInspection) replacement.Scene.CopyCustomTheatreView(previous);
+                else replacement.Scene.CopyReplayView(previous);
+                replacement.Scene.UseReplayInput(_shell);
                 replacement.Session.FactRead += ReplayNetworkDiagnostics.OnPacketArray;
                 ReplayHud.Reset(); ReplayKillMessagePresenter.Reset();
                 ReplayNetworkDiagnostics.Reset(); ReplayVerification.SeekTo(CurrentFrame);
@@ -146,14 +164,15 @@ public static partial class DemoPlayback
             _prepared.Dispose();
             if (_player.Current.Session.HasSimulatedFrame) ReplayVerification.AfterFrame(_player.Current.Scene);
         }
+        }
         Scene before = _player.Current.Scene;
         before.UseReplayInput(_shell);
         before.PollReplayControls();
         bool silent = !_player.Ready || _player.Transport.IsPaused || _player.Transport.AtEnd;
         if (silent) { ReplayAudioOwner.Release(_audio); _audio = 0; }
-        _player.Update();
+        _player.Update(maximumMilliseconds: IsCustomPlayback ? 5 : double.PositiveInfinity);
         Scene current = _player.Current.Scene;
-        if (_player.Ready && !_presentationFailed)
+        if (_player.Ready && !_presentationFailed && !IsCustomPlayback)
         {
             try
             {
@@ -207,6 +226,11 @@ public static partial class DemoPlayback
     public static void PumpFrame() => Session.PumpFrame();
     public static void Stop()
     {
+        lock (CustomRequestGate)
+        {
+        if ((_player != null || _lab != null) && Environment.CurrentManagedThreadId != _playerThread)
+            throw new InvalidOperationException("Close replay playback on its Scene thread.");
+        RetireCustomArchiveRequest();
         // Frame rendering depends on this player. A detached encoder may finish its already captured frames.
         if (ReplayVideoExporter.Rendering) ReplayVideoExporter.Cancel();
         ReplayInput.CancelScrub();
@@ -216,11 +240,12 @@ public static partial class DemoPlayback
         Scene? lab = _lab; _lab = null;
         lab?.DoCleanup(); lab?.UnloadGl(); _shell = null;
         _prepared.Stop(); _failed = false; _presentationFailed = false;
+        }
     }
     public static bool TakeControl(int slot, out string? branchPath)
     {
         branchPath = null;
-        if (_player?.Ready != true || NetSession.Active || (uint)slot >= 8
+        if (IsCustomPlayback || _player?.Ready != true || NetSession.Active || (uint)slot >= 8
             || _player.Current.Scene.Players.Items[slot].Health == 0
             || !_player.Current.Scene.Players.Items[slot].LoadFlags.TestFlag(LoadFlags.Spawned)) return false;
         try

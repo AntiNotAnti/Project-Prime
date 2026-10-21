@@ -388,6 +388,7 @@ namespace MphRead
 
         private void ModReplayCamera()
         {
+            if (Mods.Network.DemoPlayback.IsCustomPlayback && Mods.Network.DemoPlayback.Owns(this)) return;
 #if !ANDROID && !MPHREAD_SERVER
             if(ApplyNativeReplayMultiViewCamera())return;
 #endif

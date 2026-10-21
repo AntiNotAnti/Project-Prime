@@ -97,8 +97,9 @@ internal static partial class RmlUiOpenGlSmoke
             CloseGameplayOverlays();
             _launcherPages?.Suspend();
             _playbackController = new TheatrePlaybackController(new CurrentReplayStudio());
-            var editor = Shell.StudioWindow ? new CurrentReplayEditor() : null;
-            _playback = Shell.StudioWindow
+            bool editing = Shell.StudioWindow && !DemoPlayback.IsCustomPlayback;
+            var editor = editing ? new CurrentReplayEditor() : null;
+            _playback = editing
                 ? new TheatrePlaybackPagePresenter(_host,_pages,_playbackController,
                     new CurrentReplayBookmarks(), new CurrentReplayRanges(), new CurrentReplayCamera(),
                     new CurrentReplayExports(), editor)
@@ -118,6 +119,7 @@ internal static partial class RmlUiOpenGlSmoke
     {
         public bool OpenStudio(string path, out string? error)
         {
+            if (DemoPlayback.IsCustomPlayback) { error = "Custom replay Studio editing is not qualified."; return false; }
             error = "REPLAY OWNER CHANGED";
             if (!GameplayLeaseCurrent || !DemoPlayback.IsActive || DemoPlayback.LogicalPath != path) return false;
             if (!Shell.StudioWindow) return StudioApplicationLauncher.TryOpen(path, false, out error);

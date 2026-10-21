@@ -78,6 +78,20 @@ internal sealed class PreparedCustomReplayArchive : IDisposable
         }
         catch { resources?.Dispose(); world?.Dispose(); reader?.Dispose(); throw; }
     }
+    internal ReplayPlaybackSession CreateRequestSession()
+    {
+        lock (_gate)
+        {
+            if (_reader == null || _world == null) throw new ObjectDisposedException(nameof(PreparedCustomReplayArchive));
+            var session = new ReplayPlaybackSession(new PassiveReplaySessionHost());
+            try
+            {
+                session.JoinCustomArchiveRequest(_reader.Metadata!, Path, _reader.DurationFrames);
+                return session;
+            }
+            catch { session.Dispose(); throw; }
+        }
+    }
     internal ReplayWorldCheckpoint CopyWorld()
     {
         lock (_gate)

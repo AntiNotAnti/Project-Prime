@@ -121,6 +121,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void Watch(int slot)
         {
+            if (Network.DemoPlayback.IsCustomPlayback) { Network.DemoPlayback.WatchCustomSubject(slot); return; }
             if (!IsSpectating || slot < 0 || slot >= Registry.Items.Count) return;
             var player = Registry.Items[slot];
             if (!player.LoadFlags.TestFlag(LoadFlags.Active) || !player.LoadFlags.TestFlag(LoadFlags.Spawned)) return;
@@ -131,6 +132,7 @@ namespace MphRead.Mods
 
         public static void CycleNext()
         {
+            if (Network.DemoPlayback.IsCustomPlayback) { Network.DemoPlayback.CycleCustomSubject(1); return; }
             if (!IsSpectating)
             {
                 return;
@@ -153,6 +155,7 @@ namespace MphRead.Mods
         /// <summary>Move to the previous active player when driven by a controller.</summary>
         public static void CyclePrevious()
         {
+            if (Network.DemoPlayback.IsCustomPlayback) { Network.DemoPlayback.CycleCustomSubject(-1); return; }
             if (!IsSpectating)
             {
                 return;
@@ -180,6 +183,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void ToggleView()
         {
+            if (Network.DemoPlayback.IsCustomPlayback) { Replay.ReplayCamera.ToggleFree(); return; }
             if (!IsSpectating)
             {
                 return;
