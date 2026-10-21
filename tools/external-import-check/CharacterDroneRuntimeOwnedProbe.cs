@@ -24,7 +24,7 @@ using MphRead.Mods.Launcher.RmlUi.Host;
 // The tests-first admission check intentionally runs before any owned media I/O.
 internal static class CharacterDroneRuntimeOwnedProbe
 {
-    internal static int Run(string source,bool probeBurst=false)
+    internal static int Run(string source,bool probeBurst=false,bool probeLaser=false)
     {
         int checks=0;string? failed=null,error=null;var milestones=new Milestones();object? runtime=null;
         string core=typeof(Scene).Assembly.Location,tool=typeof(CharacterDroneRuntimeOwnedProbe).Assembly.Location;
@@ -33,13 +33,27 @@ internal static class CharacterDroneRuntimeOwnedProbe
         {if(!condition){failed=why;throw new InvalidDataException(why);}checks++;}
         try
         {
+            if(probeLaser)
+            {
+                var pose=typeof(Scene).Assembly.GetType("MphRead.Mods.Render.Characters.CharacterSourceDronePose");
+                var flags=BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
+                var required=pose?.GetProperty("RequiredOrdinals",flags)?.GetValue(null);
+                Check(required is IEnumerable<int> ordinals&&ordinals.SequenceEqual(new[]{13,75,73,74,29}),
+                    "source drone laser captures exact fifth original ordinal29 before any owned-source/native-asset IO");
+                var supports=pose!.GetMethod("Supports",flags,null,[typeof(int),typeof(int)],null);
+                var ordinal=pose.GetMethod("OrdinalForState",flags,null,[typeof(int)],null);
+                Check(supports!=null&&ordinal!=null&&(int)ordinal.Invoke(null,[4])! ==29
+                    &&(bool)supports.Invoke(null,[4,0])!&&(bool)supports.Invoke(null,[4,133])!
+                    &&!(bool)supports.Invoke(null,[4,-1])!&&!(bool)supports.Invoke(null,[4,134])!,
+                    "synthetic presentation state4 admits only public native laser frames0through133 and maps to original ordinal29");
+            }
             if(probeBurst)
             {
                 var pose=typeof(Scene).Assembly.GetType("MphRead.Mods.Render.Characters.CharacterSourceDronePose");
                 Check(pose!=null,"source drone burst pose contract exists before any owned-source/native-asset IO");
                 var flags=BindingFlags.Static|BindingFlags.Public|BindingFlags.NonPublic;
                 var required=pose!.GetProperty("RequiredOrdinals",flags)?.GetValue(null)??pose.GetField("RequiredOrdinals",flags)?.GetValue(null);
-                Check(required is IEnumerable<int> ordinals&&ordinals.SequenceEqual(new[]{13,75,73,74}),"burst pose captures only Ready/unfold/fire/fold closed source ordinals");
+                Check(required is IEnumerable<int> ordinals&&(ordinals.SequenceEqual(new[]{13,75,73,74})||ordinals.SequenceEqual(new[]{13,75,73,74,29})),"burst pose preserves Ready/unfold/fire/fold order with only optional closed laser29 extension");
                 Check(typeof(CharacterSourceDroneOwner).GetProperty("Pose",Hidden)?.PropertyType==pose
                     &&pose.GetProperty("CurrentLocalPose",Hidden|BindingFlags.Public)!=null
                     &&pose.GetMethod("Sample",Hidden|BindingFlags.Public,null,[typeof(int),typeof(int)],null)!=null,
@@ -68,7 +82,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
         {
             try{Check(HashFile(core)==coreBefore&&HashFile(tool)==toolBefore,"test-first runtime contract check preserves core/tool bytes");}
             catch(Exception ex){error??=ex.GetType().Name;}
-            Console.WriteLine(JsonSerializer.Serialize(new{Pass=error==null,Checks=checks,FailedCheck=failed,ErrorType=error,BurstProbe=probeBurst,
+            Console.WriteLine(JsonSerializer.Serialize(new{Pass=error==null,Checks=checks,FailedCheck=failed,ErrorType=error,BurstProbe=probeBurst,LaserProbe=probeLaser,
                 CoreSha256=coreBefore,ToolSha256=toolBefore,SourceIoAttempted=milestones.SourceIo,SourceSha256Before=milestones.SourceBefore,SourceSha256After=milestones.SourceAfter,
                 NativeSha256Before=milestones.NativeBefore,NativeSha256After=milestones.NativeAfter,TemporaryDerivedDataDeleted=milestones.Cleaned,
                 Runtime=runtime,NativeAssetIoAttempted=milestones.NativeIo,GraphicsContextActivated=milestones.Context,RenderingActivated=milestones.Rendering,GameplayActivated=milestones.Gameplay,
