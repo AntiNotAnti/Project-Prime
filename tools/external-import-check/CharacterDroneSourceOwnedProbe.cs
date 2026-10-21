@@ -48,6 +48,7 @@ internal static class CharacterDroneSourceOwnedProbe
                 Check(RetroCharacterPreviewExporter.Sources.Where(s => DroneIds.Contains(s.Id)).All(s =>
                     s.Game == ExternalGameKind.MetroidPrime && s.Ancs == 0x5e058399),
                     "new drone sources bind their own Prime ANCS rather than Trooper body ANCS");
+                CheckSelections(Check);
                 sourceIo = true; before = HashFile(source);
                 Check(before == SourceSha, "source is the independently pinned owned Prime USA Revision2 RVZ");
                 bundles.AddRange(VerifyAuthoring(source, temporary, Check));
@@ -234,7 +235,7 @@ internal static class CharacterDroneSourceOwnedProbe
         }
         CheckOldTroopers(imports,check);
         string mixed=Path.Combine(temporary,"mixed");var allIds=TrooperIds.Concat(DroneIds).ToArray();
-        check(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,mixed,selectedIds:allIds).Count==6,"mixed source archive union publishes all six explicitly selected Prime bundles");
+        check(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,mixed,selectedIds:allIds,sameSourceGroup:true).Count==6,"owned Rev2 full same-source group publishes all six independent Prime bundles");
         foreach(string id in allIds)
         {
             var own=RetroCharacterPreviewExporter.InspectBundle(imports,id);var together=RetroCharacterPreviewExporter.InspectBundle(mixed,id);
@@ -250,6 +251,40 @@ internal static class CharacterDroneSourceOwnedProbe
     }
 
     private sealed class InlineProgress(Action<ImportPublishStage> callback):IProgress<ImportPublishStage>{public void Report(ImportPublishStage value)=>callback(value);}
+    private static void CheckSelections(Action<bool,string> check)
+    {
+        // Pure catalog/edition checks. No claim of running an original-edition
+        // disc: only the verified owned Rev2 RVZ is opened by this fixture.
+        string[] all=TrooperIds.Concat(DroneIds).ToArray();
+        string[] Select(ExternalSourceEdition edition,IReadOnlyCollection<string>? ids=null,bool group=false)
+            =>RetroCharacterPreviewExporter.SelectSourcesForEdition(ExternalGameKind.MetroidPrime,edition,ids,group).Select(s=>s.Id).Order(StringComparer.Ordinal).ToArray();
+        void Equal(string[] actual,IEnumerable<string> expected,string why)=>check(actual.SequenceEqual(expected.Order(StringComparer.Ordinal)),why);
+        void Reject(Action action,string why)
+        {bool refused=false;try{action();}catch(Exception ex)when(ex is InvalidDataException or NotSupportedException or ArgumentException){refused=true;}check(refused,why);}
+        Equal(Select(ExternalSourceEdition.OriginalRecipe),TrooperIds,"pure original Prime default retains four old Troopers and excludes unsupported drones");
+        Equal(Select(ExternalSourceEdition.PrimeUsaRevision2),all,"pure Rev2 Prime default selects six supported independent sources");
+        Equal(Select(ExternalSourceEdition.OriginalRecipe,all,true),TrooperIds,"pure full-game group filters original edition to its four supported Troopers");
+        Equal(Select(ExternalSourceEdition.PrimeUsaRevision2,all,true),all,"pure full-game Rev2 group retains all six");
+        Reject(()=>Select(ExternalSourceEdition.OriginalRecipe,all),"explicit all-six request cannot silently filter unsupported original drones");
+        foreach(var edition in new[]{ExternalSourceEdition.OriginalRecipe,ExternalSourceEdition.PrimeUsaRevision2})
+        {
+            Equal(Select(edition,[TrooperIds[1],TrooperIds[3]]),[TrooperIds[1],TrooperIds[3]],"explicit supported subset is exact for either known edition");
+            Reject(()=>Select(edition,TrooperIds,true),"partial game group cannot impersonate complete group authority");
+            Reject(()=>Select(edition,null,true),"same-source group requires explicit full catalog rather than null authority");
+            Reject(()=>Select(edition,[]),"empty explicit source selection refuses");
+            Reject(()=>Select(edition,[TrooperIds[0],TrooperIds[0]]),"duplicate source selection refuses");
+            Reject(()=>Select(edition,[TrooperIds[0],"darksamus-echoes"]),"foreign-game source cannot join a Prime selection");
+            Reject(()=>Select(edition,["TROOPER-POWER"]),"noncanonical source ID spelling refuses");
+            Reject(()=>Select(edition,[TrooperIds[0],"not-a-source"],true),"unknown source cannot grant group filtering authority");
+        }
+        Equal(Select(ExternalSourceEdition.PrimeUsaRevision2,[DroneIds[1]]),[DroneIds[1]],"explicit Rev2 Gamma subset remains exact");
+        Reject(()=>Select(ExternalSourceEdition.OriginalRecipe,[DroneIds[1]]),"explicit original-edition drone refuses rather than returning an empty success");
+        string[] echoes=["darksamus-echoes","darksamus-overcharged-echoes"];
+        Equal(RetroCharacterPreviewExporter.SelectSourcesForEdition(ExternalGameKind.Echoes,ExternalSourceEdition.OriginalRecipe).Select(s=>s.Id).Order(StringComparer.Ordinal).ToArray(),echoes,"Echoes default catalog retains its two existing sources");
+        Equal(RetroCharacterPreviewExporter.SelectSourcesForEdition(ExternalGameKind.Echoes,ExternalSourceEdition.OriginalRecipe,echoes,true).Select(s=>s.Id).Order(StringComparer.Ordinal).ToArray(),echoes,"explicit Echoes full group remains supported");
+        Reject(()=>RetroCharacterPreviewExporter.SelectSourcesForEdition(ExternalGameKind.Echoes,ExternalSourceEdition.PrimeUsaRevision2),"PrimeRev2 edition cannot be relabeled Echoes");
+        Reject(()=>Select((ExternalSourceEdition)int.MaxValue),"unknown edition refuses before media I/O");
+    }
     private static void CheckOldTroopers(string imports,Action<bool,string> check)
     {
         using var witness=JsonDocument.Parse(BaselineWitness);
