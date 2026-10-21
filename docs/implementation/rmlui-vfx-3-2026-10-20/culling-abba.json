@@ -1,0 +1,31 @@
+{
+  "order": [
+    "a1-pre-cull",
+    "b1-post-cull",
+    "b2-post-cull",
+    "a2-pre-cull"
+  ],
+  "same_runner_binary": true,
+  "same_external_dependencies": true,
+  "switched_only": "ProjectPrime.dll",
+  "framebuffer": [
+    1920,
+    1080
+  ],
+  "client": [
+    960,
+    540
+  ],
+  "warmup_draws": 50,
+  "samples_per_scene": 300,
+  "gpu_query_samples_per_scene": 30,
+  "cosmetic_quality": "Medium",
+  "fixture": "Identical ControlledRunner source/binary, Home then full synthetic lobby, same explicit identities/hunters/ready mask/one-second 144Hz clocks and clear pattern.",
+  "timer": "GL_EXT_timer_query glGetQueryObjectui64vEXT; all query arms returned NoError",
+  "scope": "Procedural chamber Draw only. No model, native UI, swap/input latency or end-to-end frame pacing claim. CPU timing tails noisy under concurrent unrelated CPU work.",
+  "runner_source_sha256": "fd21a26d5436cef5a6574e45140dbe47460b8e69932e5d1fd80ad4e3fd06c4de",
+  "pre_cull_shader_sha256": "ef711710aaee1983e5d99fb6860bd6a4ac878db3313f7ee3553eedd937f89adc",
+  "post_cull_shader_sha256": "87a53626ee377bb60d107c7f8519704d08ffba7c89ca536e669b140645c2044c",
+  "pixel_comparison": "../post-cull/pixel-comparison.json",
+  "pixel_result": "8/16 captures exact. Other 8 differ at 1-4 pixels out of 2,073,600 with maximum channel difference 1/255. Strict bit identity is not met; negligible numerical rounding differences remain."
+}

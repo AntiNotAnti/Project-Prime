@@ -1,0 +1,176 @@
+{
+  "scope": "Actual procedural OpenGL chamber only. Explicit synthetic lobby state; no game meshes, cartridge imagery, network, account, saves, or gameplay. No claim of device-wide FPS, input latency, Android or Windows qualification.",
+  "hardware": {
+    "gpu": "Apple M4 Pro",
+    "vendor": "Apple",
+    "version": "2.1 Metal - 91.7",
+    "width": 1920,
+    "height": 1080,
+    "timerQueriesSupported": true,
+    "timerQueryExtAdvertised": true,
+    "gpuTiming": "GL_TIME_ELAPSED query (core/ARB or EXT) around the same procedural draw; 30 warmed samples per scene/quality."
+  },
+  "checks": 66,
+  "rows": [
+    {
+      "name": "home-off",
+      "path": "home-off.png",
+      "quality": "Off",
+      "samples": 180,
+      "submitP50Ms": 0.0283,
+      "submitP95Ms": 0.0795,
+      "submitP99Ms": 0.1395,
+      "completionP50Ms": 0.7692,
+      "completionP95Ms": 1.109,
+      "completionP99Ms": 1.4407,
+      "gpu": {
+        "samples": 30,
+        "p50Ms": 0.671792,
+        "p95Ms": 0.89775,
+        "p99Ms": 1.125624
+      },
+      "allocatedBytes": 0,
+      "measurement": "Unpaced CPU submission and draw+glFinish GPU completion; excludes host/native UI, swap, input and model rendering."
+    },
+    {
+      "name": "home-low",
+      "path": "home-low.png",
+      "quality": "Low",
+      "samples": 180,
+      "submitP50Ms": 0.0251,
+      "submitP95Ms": 0.0666,
+      "submitP99Ms": 0.126,
+      "completionP50Ms": 1.0436,
+      "completionP95Ms": 1.9915,
+      "completionP99Ms": 3.544,
+      "gpu": {
+        "samples": 30,
+        "p50Ms": 0.995791,
+        "p95Ms": 1.40225,
+        "p99Ms": 1.46925
+      },
+      "allocatedBytes": 0,
+      "measurement": "Unpaced CPU submission and draw+glFinish GPU completion; excludes host/native UI, swap, input and model rendering."
+    },
+    {
+      "name": "home-medium",
+      "path": "home-medium.png",
+      "quality": "Medium",
+      "samples": 180,
+      "submitP50Ms": 0.0359,
+      "submitP95Ms": 0.1135,
+      "submitP99Ms": 0.1387,
+      "completionP50Ms": 1.3483,
+      "completionP95Ms": 1.6035,
+      "completionP99Ms": 2.2879,
+      "gpu": {
+        "samples": 30,
+        "p50Ms": 1.215,
+        "p95Ms": 1.685167,
+        "p99Ms": 1.708875
+      },
+      "allocatedBytes": 0,
+      "measurement": "Unpaced CPU submission and draw+glFinish GPU completion; excludes host/native UI, swap, input and model rendering."
+    },
+    {
+      "name": "home-high",
+      "path": "home-high.png",
+      "quality": "High",
+      "samples": 180,
+      "submitP50Ms": 0.03,
+      "submitP95Ms": 0.0962,
+      "submitP99Ms": 0.1314,
+      "completionP50Ms": 1.3515,
+      "completionP95Ms": 1.4984,
+      "completionP99Ms": 1.5767,
+      "gpu": {
+        "samples": 30,
+        "p50Ms": 1.252874,
+        "p95Ms": 2.043417,
+        "p99Ms": 2.166709
+      },
+      "allocatedBytes": 0,
+      "measurement": "Unpaced CPU submission and draw+glFinish GPU completion; excludes host/native UI, swap, input and model rendering."
+    },
+    {
+      "name": "lobby-off",
+      "path": "lobby-off.png",
+      "quality": "Off",
+      "samples": 180,
+      "submitP50Ms": 0.0525,
+      "submitP95Ms": 0.207,
+      "submitP99Ms": 0.3835,
+      "completionP50Ms": 0.745,
+      "completionP95Ms": 2.4792,
+      "completionP99Ms": 8.2391,
+      "gpu": {
+        "samples": 30,
+        "p50Ms": 0.8,
+        "p95Ms": 1.436375,
+        "p99Ms": 1.963125
+      },
+      "allocatedBytes": 0,
+      "measurement": "Unpaced CPU submission and draw+glFinish GPU completion; excludes host/native UI, swap, input and model rendering."
+    },
+    {
+      "name": "lobby-low",
+      "path": "lobby-low.png",
+      "quality": "Low",
+      "samples": 180,
+      "submitP50Ms": 0.053,
+      "submitP95Ms": 0.1474,
+      "submitP99Ms": 0.2086,
+      "completionP50Ms": 1.2122,
+      "completionP95Ms": 1.9502,
+      "completionP99Ms": 2.8414,
+      "gpu": {
+        "samples": 30,
+        "p50Ms": 1.304,
+        "p95Ms": 1.603126,
+        "p99Ms": 1.776416
+      },
+      "allocatedBytes": 0,
+      "measurement": "Unpaced CPU submission and draw+glFinish GPU completion; excludes host/native UI, swap, input and model rendering."
+    },
+    {
+      "name": "lobby-medium",
+      "path": "lobby-medium.png",
+      "quality": "Medium",
+      "samples": 180,
+      "submitP50Ms": 0.0629,
+      "submitP95Ms": 0.1313,
+      "submitP99Ms": 0.1975,
+      "completionP50Ms": 1.402,
+      "completionP95Ms": 1.9667,
+      "completionP99Ms": 2.3751,
+      "gpu": {
+        "samples": 30,
+        "p50Ms": 1.188125,
+        "p95Ms": 1.620501,
+        "p99Ms": 1.630625
+      },
+      "allocatedBytes": 0,
+      "measurement": "Unpaced CPU submission and draw+glFinish GPU completion; excludes host/native UI, swap, input and model rendering."
+    },
+    {
+      "name": "lobby-high",
+      "path": "lobby-high.png",
+      "quality": "High",
+      "samples": 180,
+      "submitP50Ms": 0.0332,
+      "submitP95Ms": 0.1064,
+      "submitP99Ms": 0.1657,
+      "completionP50Ms": 1.3408,
+      "completionP95Ms": 1.7779,
+      "completionP99Ms": 1.8746,
+      "gpu": {
+        "samples": 30,
+        "p50Ms": 1.202375,
+        "p95Ms": 1.645,
+        "p99Ms": 1.655333
+      },
+      "allocatedBytes": 0,
+      "measurement": "Unpaced CPU submission and draw+glFinish GPU completion; excludes host/native UI, swap, input and model rendering."
+    }
+  ]
+}

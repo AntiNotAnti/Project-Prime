@@ -201,6 +201,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         Menu("Graphics","Lighting and atmosphere","ShadowQuality",new[]{"off","low","high","ultra"});
         Menu("Graphics","Cosmetics","ShowCustomCosmetics",OnOff);
         Menu("Graphics","Cosmetics","CosmeticQuality",new[]{"off","low","medium","high"});
+        Rows[^1].HintOverride = "Menu atmosphere and cosmetic effects. Off keeps a static chamber; Low limits detail. Reduce Motion freezes movement.";
         Menu("Graphics","Cel shading","CelShading",OnOff); Menu("Graphics","Cel shading","CelBands",null,2,8); Menu("Graphics","Cel shading","CelEdge",null,0,100);
         foreach(string p in new[]{"SfxVolume","MusicVolume","PlayerVolume","WeaponVolume","NotificationVolume","EffectsVolume"}) Menu("Audio","Mixer",p,null,0,1);
         Menu("Audio","General","Language",Enum.GetNames<Language>());

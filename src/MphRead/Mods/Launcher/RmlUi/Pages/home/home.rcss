@@ -20,12 +20,24 @@
     width: 100%; box-sizing: border-box;
 }
 #home_feature_rail {
+    position: relative;
     flex-shrink: 0; padding: 14dp;
     background-color: rgba(3,13,23,76%);
     border-left: 2dp rgba(114,199,255,55%);
     border-top: 1dp rgba(114,199,255,16%);
 }
 #home_feature_rail.hidden, #home_feature_rail.empty, #activity_compact.hidden { display: none; }
+/* Authored seams sit outside text flow and never receive pointer input. */
+.chamber_corner { position: absolute; display: block; pointer-events: none; }
+.chamber_corner_top {
+    right: 0; top: 0; width: 28dp; height: 6dp;
+    border-top: 1dp rgba(114,199,255,55%); border-right: 1dp rgba(114,199,255,55%);
+}
+.chamber_corner_bottom {
+    left: 0; bottom: 0; width: 14dp; height: 4dp;
+    border-bottom: 1dp rgba(114,199,255,30%); border-left: 1dp rgba(114,199,255,30%);
+}
+.high-contrast .chamber_corner { display: none; }
 .home_rail_heading, .session_header {
     display: flex; align-items: center; justify-content: space-between; margin-bottom: 10dp;
 }
@@ -123,6 +135,7 @@
 #activity_selector:hover, #activity_selector:focus, .drawer_item:hover, .drawer_item:focus,
 #drawer_close:hover, #drawer_close:focus { color: #fff; background-color: rgba(23,72,111,94%); border-color: #72c7ff; }
 #deploy:hover, #deploy:focus { background-color: rgba(27,103,169,98%); border-color: #b5e4ff; }
+#activity_selector:hover, #activity_selector:focus, #deploy:hover, #deploy:focus { border-top-color: #d3efff; }
 #home_feature_open { nav-up: #nav_play; nav-down: #activity_selector; }
 #hunter_caption { position: absolute; left: 43%; bottom: 18dp; width: 29%; display: flex; align-items: center; pointer-events: none; }
 .hunter_rule { width: 26dp; height: 1dp; margin-right: 10dp; background-color: #72c7ff; }

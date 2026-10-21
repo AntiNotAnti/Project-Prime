@@ -1,0 +1,24 @@
+{
+  "scope": "Exact captured PNG files. Original procedural room only, or synthetic native UI fixtures; no game meshes or cartridge/world images.",
+  "comparison": "Matched Medium-quality controlled runner and deterministic 144 Hz fixture clocks at measured 1920x1080; original before vs final culled renderer after.",
+  "sources": {
+    "home-before.png": "controlled/a2-before/home.png",
+    "lobby-before.png": "controlled/a2-before/lobby.png",
+    "home-after.png": "culling-controlled/b2-post-cull/home.png",
+    "lobby-after.png": "culling-controlled/b2-post-cull/lobby.png",
+    "home-minimal.png": "post-cull/home-off.png",
+    "weavel-theme.png": "post-cull/theme-weavel.png",
+    "home-holographic-ui.png": "holographic/screenshots/pages_home_home_1920x1080_d1.png",
+    "lobby-holographic-ui.png": "roster-width/screenshots/pages_lobby_lobby_1920x1080_d1.png"
+  },
+  "png_sha256": {
+    "home-after.png": "358bd9cb5df48f4cf8b46356b78fcf1eda01194717fb0c28ac0d51bf044e739f",
+    "home-before.png": "43a46fc2cec192f8c34eac439a53d4977f227d6c7346e5bbcfdd108560cfe738",
+    "home-holographic-ui.png": "4e205427420147d6b94a1adb590f465a0c82cd228c99a5025d48da0d16d6cbe8",
+    "home-minimal.png": "b4e051c07aba62e066291dabe1e74aaf2cddd395e435af418a7c09eaf2130559",
+    "lobby-after.png": "9ae79664e0f6620229edd627155a4cb6acddeafbf3e591ec52e59afb52b3fd76",
+    "lobby-before.png": "23057ad1b1af0430e89eba797e2ee6b36d1a94c3de256262ca731be3d1b52387",
+    "lobby-holographic-ui.png": "362a663b6d9539b4a0dc3ed1e3cc777aac8d702d60676b0d7063ac4374bbd125",
+    "weavel-theme.png": "909d769bc4bd929a4a444f8a2f4b268e9a00ab91710de3b0fa5e137fc1f97848"
+  }
+}

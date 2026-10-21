@@ -193,6 +193,10 @@ void main()
             float side = float(machine);
             vec2 centre = vec2(0.315 + side * 0.370, 0.425 - side * 0.035);
             vec2 local = (roomUv - centre) / vec2(0.052, 0.092);
+            // Every rotor mask is exactly zero beyond radius 1.05. Avoid
+            // evaluating its atan/pow on the rest of the full-screen triangle.
+            if (dot(local, local) < 1.21)
+            {
             float radius = length(local);
             float housing = 1.0 - smoothstep(0.92, 1.05, radius);
             col = mix(col, vec3(0.008, 0.019, 0.029), housing * 0.82);
@@ -206,6 +210,7 @@ void main()
             col += mix(activity_secondary, hunter_rim, 0.28) * inner * 0.17;
             float hub = 1.0 - smoothstep(0.06, 0.14, radius);
             col += vec3(0.22, 0.35, 0.41) * hub * 0.25;
+            }
             // Cast casing shadow, not a model/world shadow-map substitute.
             float bracket = box_mask(roomUv, centre + vec2(-0.060, 0.100),
                 centre + vec2(0.060, 0.112), 0.003);
@@ -368,6 +373,9 @@ void main()
 
             // A raised steel pedestal, not a floating dark ellipse.
             vec2 foot = (uv - centre) / radius;
+            // Conservative bounds contain the complete offset pedestal shadow,
+            // its lip, boots and all join/leave rings at every authored depth.
+            if (abs(foot.x) > 1.6 || abs(foot.y) > 2.5) continue;
             float q = dot(foot, foot);
             vec2 outer = (uv - (centre + vec2(0.0, 0.014))) / (radius * 1.12);
             float shadow = 1.0 - smoothstep(0.52, 1.22, dot(outer, outer));

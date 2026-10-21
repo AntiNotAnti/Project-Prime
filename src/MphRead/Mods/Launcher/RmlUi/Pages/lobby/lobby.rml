@@ -14,6 +14,8 @@
             </div>
 
             <div id="lobby_brief" class="enter_top" role="status">
+                <div class="chamber_corner chamber_corner_top" aria-hidden="true" />
+                <div class="chamber_corner chamber_corner_bottom" aria-hidden="true" />
                 <div class="lobby_brief_header">
                     <span class="lobby_brief_eyebrow">SQUAD STATUS</span>
                     <span id="lobby_brief_count" class="lobby_brief_count" data-prime-text="{{lobby_brief_count}}" />
@@ -33,6 +35,8 @@
             </div>
             <div id="lobby_left_panels">
             <div id="lobby_match_panel" class="lobby_side_panel enter_left">
+                <div class="chamber_corner chamber_corner_top" aria-hidden="true" />
+                <div class="chamber_corner chamber_corner_bottom" aria-hidden="true" />
                 <div class="eyebrow">NEXT MATCH</div>
                 <div class="lobby_panel_title" data-prime-text="{{lobby_mode_name}}" id="text_lobby_mode_name_1" />
                 <div class="lobby_data_row lobby_data_wide">
@@ -65,6 +69,8 @@
 
             <div id="lobby_right_panels">
             <div id="lobby_roster_panel" class="lobby_side_panel enter_right">
+                <div class="chamber_corner chamber_corner_top" aria-hidden="true" />
+                <div class="chamber_corner chamber_corner_bottom" aria-hidden="true" />
                 <div class="lobby_roster_header">
                     <div class="eyebrow">CONNECTED HUNTERS</div>
                     <div class="lobby_roster_count" data-prime-text="{{lobby_player_count}}" id="text_lobby_player_count_2" />
@@ -143,7 +149,7 @@
                     <button id="lobby_add_bot7" class="lobby_roster_add_bot" style="display: none" data-prime-visible="slot7_can_add_bot" data-prime-disabled="!slot7_can_add_bot" data-action="lobby:player:7"><b>OPEN SLOT</b><span>+ ADD BOT</span></button>
                 </div>
             </div>
-            <div id="lobby_chat_panel" class="lobby_side_panel"><div class="eyebrow">LOBBY CHAT</div><div id="lobby_chat_history"/><div id="lobby_chat_status"/><div class="lobby_chat_compose"><input id="lobby_chat_input" data-submit="lobby:chat-send" type="text" maxlength="128" placeholder="Message the lobby"/><button id="lobby_chat_send" data-action="lobby:chat-send">SEND</button></div></div>
+            <div id="lobby_chat_panel" class="lobby_side_panel"><div class="chamber_corner chamber_corner_top" aria-hidden="true" /><div class="chamber_corner chamber_corner_bottom" aria-hidden="true" /><div class="eyebrow">LOBBY CHAT</div><div id="lobby_chat_history"/><div id="lobby_chat_status"/><div class="lobby_chat_compose"><input id="lobby_chat_input" data-submit="lobby:chat-send" type="text" maxlength="128" placeholder="Message the lobby"/><button id="lobby_chat_send" data-action="lobby:chat-send">SEND</button></div></div>
             </div>
             <button data-action="lobby:player:0" id="lobby_slot0" data-prime-class-occupied="slot0_occupied" data-prime-class-ready="slot0_ready" class="lobby_nameplate local">
                 <b data-prime-text="{{slot0_name}}" id="text_slot0_name_2" />
