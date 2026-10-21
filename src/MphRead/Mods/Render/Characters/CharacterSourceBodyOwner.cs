@@ -46,7 +46,7 @@ internal sealed class CharacterSourceBodyOwner : IDisposable, ICharacterSourcePr
 
     internal CharacterSourceBodyOwner(Scene scene, PlayerEntity player, CharacterSourcePreviewSelection selection)
     {
-        if (!player.Initialized || player.Hunter != selection.NativeHunter || player.IsBot || scene.Exiting
+        if (selection.RuntimeArsenalBody || !player.Initialized || player.Hunter != selection.NativeHunter || player.IsBot || scene.Exiting
             || scene.SideScene || scene.IsReplayLab || scene.Services.IsReplica || scene.GameState.SinglePlayer
             || player.ModCharacterGameplay.Variant != Multiplayer.CharacterGameplayVariant.Native)
             throw new InvalidOperationException("An initialized matching local offline actor is required for an imported body.");

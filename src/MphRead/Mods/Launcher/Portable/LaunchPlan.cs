@@ -93,6 +93,7 @@ namespace MphRead.Mods.Launcher
         public bool IsPlaytest { get; init; }
         public OfflineCharacterMode OfflineCharacter { get; init; }
         public LocalBodyAppearance LocalBody { get; init; }
+        public LocalBodyAppearance LocalArsenalBody { get; init; }
         public LocalDroneAppearance LocalDrone { get; init; }
 
         /// <summary>

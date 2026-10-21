@@ -56,6 +56,8 @@ namespace MphRead.Mods.Launcher
                 OfflineCharacter = character,
                 LocalBody = LocalBodyAppearanceRules.Available && character == OfflineCharacterMode.Native
                     ? LocalBodyAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalBody, resolvedHunter) : LocalBodyAppearance.Native,
+                LocalArsenalBody = LocalArsenalBodyRules.Available && character == OfflineCharacterMode.TrooperArsenalPractice
+                    ? LocalBodyAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalBody, resolvedHunter) : LocalBodyAppearance.Native,
                 LocalDrone = LocalDroneAppearanceRules.Available && character == OfflineCharacterMode.TrooperScoutDronePractice
                     ? LocalDroneAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalDrone, resolvedHunter) : LocalDroneAppearance.Native,
                 IsPlaytest = character != OfflineCharacterMode.Native,
@@ -105,6 +107,8 @@ namespace MphRead.Mods.Launcher
                 throw new ArgumentException(bodyReason);
             if (!LocalDroneAppearanceRules.TryAdmit(plan, out string droneReason))
                 throw new ArgumentException(droneReason);
+            if (!LocalArsenalBodyRules.TryAdmit(plan, out string arsenalBodyReason))
+                throw new ArgumentException(arsenalBodyReason);
             return plan;
         }
 

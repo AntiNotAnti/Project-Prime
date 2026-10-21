@@ -19,7 +19,7 @@ public partial class PlayerEntity
         ModRetireSourceBody();
         _sourceBody = new(_scene, this, selection);
     }
-    internal void ModRetireSourceBody() { _sourceBody?.Dispose(); _sourceBody = null; ModRetireSourceDrone(); }
+    internal void ModRetireSourceBody() { _sourceBody?.Dispose(); _sourceBody = null; ModRetireSourceDrone(); ModRetireSourceArsenalBody(); }
     internal void ModResetSourceBodyLife() { unchecked { _sourceBodyLife++; } }
 
     private bool SourcePresentationStateSupported => Health > 0 && RenderOptions.Shadows == ShadowQuality.Off
@@ -41,6 +41,7 @@ public partial class PlayerEntity
     internal void ModStepSourceBody()
     {
         _sourceDrone?.Step(_scene.FrameCount,_sourceBodyLife,SourceDroneStateSupported);
+        ModStepSourceArsenalBody();
         if (_sourceBody == null) return;
         _sourceBody.Step(_scene.FrameCount, _sourceBodyLife, Biped1Anim, _bipedModel1.AnimInfo.Frame[0],
             Biped2Anim, _bipedModel2.AnimInfo.Frame[0], _facingVector.Y, SourceBodyStateSupported,SourceBallStateSupported);
@@ -76,6 +77,8 @@ public partial class PlayerEntity
     private bool ModTryDrawSourceBody(Vector3 drawPosition, Vector3 drawFacing, float alpha,
         Vector4? overrideColor, Vector4? outlineColor, int lod)
     {
+        if (_sourceArsenalBody != null)
+            return ModTryDrawSourceArsenalBody(drawPosition, drawFacing, alpha, overrideColor, outlineColor, lod);
         if (_sourceBody is not { } owner || !SourceBodyStateSupported || alpha != 1 || lod != 0
             || overrideColor != null || outlineColor != null || !RenderOptions.ShowCustomCosmetics) return false;
         // Feet and height follow the native actor. This positive-scale source
@@ -112,6 +115,7 @@ public partial class PlayerEntity
 
     private bool ModTryDrawSourceCannon(Matrix4 gun)
     {
+        if (_sourceArsenalBody != null) return ModTryDrawSourceArsenalCannon(gun);
         if (_sourceBody is not { } owner || !SourceBodyStateSupported || !RenderOptions.ShowCustomCosmetics
             || _curAlpha != 1 || CurrentWeapon != BeamType.PowerBeam
             || !SourceCannonAnimationSupported(GunAnimation)
