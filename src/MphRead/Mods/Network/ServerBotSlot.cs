@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MphRead.Entities;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Multiplayer;
@@ -26,25 +27,59 @@ namespace MphRead.Mods.Network
             _peers.Count(p => p.SlotIndex != excludeSlot && p.TeamIndex == team)
             + _bots.Count(b => b.SlotIndex != excludeSlot && b.TeamIndex == team);
 
-        private bool BotMapAvailable(MatchDefinition match, out string reason)
+        // Imported arenas can take a long time to compile and analyze. Never perform
+        // that work in the server's UDP/lobby command loop: it would stall all peers,
+        // lobby responses and bot administration until the entire map finishes.
+        // These results are keyed by the immutable on-wire package identity, so a
+        // replacement map never inherits an earlier version's navigation verdict.
+        private sealed record BotNavigationCheck(string RoomKey, Task<bool> Work);
+        private readonly Dictionary<NetworkMapIdentity, BotNavigationCheck> _botNavigationChecks = new();
+
+        private void PrimeBotNavigation(MatchDefinition match)
+        {
+            if (!match.MapIdentity.IsCustom || _botNavigationChecks.ContainsKey(match.MapIdentity))
+                return;
+            var definition = CustomRooms.Definitions.FirstOrDefault(d =>
+                String.Equals(d.Name, match.RoomKey, StringComparison.Ordinal));
+            if (definition == null) return;
+            // Only a handful of historical map versions are worth retaining in a
+            // persistent lobby. Dropped tasks finish privately without publishing.
+            if (_botNavigationChecks.Count >= 4) _botNavigationChecks.Clear();
+            var work = Task.Run(() =>
+            {
+                // Check generated navigation against compiled geometry, not a
+                // package-declared "supports bots" flag.
+                var analysis = new MapAnalysisResult("bots",
+                    MapCompiler.Compile(definition), navigation: true);
+                var graph = analysis.CreateNavigation();
+                return analysis.Succeeded && graph != null
+                    && graph.Positions.Length > 1 && graph.Edges > 0;
+            });
+            _botNavigationChecks.Add(match.MapIdentity, new(match.RoomKey, work));
+        }
+
+        private LobbyResultCode BotMapAvailable(MatchDefinition match, out string reason)
         {
             reason = "";
-            if (!match.MapIdentity.IsCustom) return true;
-            // Validate the installed geometry's generated navigation, never a claimed metadata flag.
-            try
+            if (!match.MapIdentity.IsCustom) return LobbyResultCode.Ok;
+            PrimeBotNavigation(match);
+            if (!_botNavigationChecks.TryGetValue(match.MapIdentity, out var check)
+                || !String.Equals(check.RoomKey, match.RoomKey, StringComparison.Ordinal))
             {
-                var definition = CustomRooms.Definitions.FirstOrDefault(d => d.Name == match.RoomKey);
-                if (definition != null)
-                {
-                    var analysis = new MapAnalysisResult("bots", MapCompiler.Compile(definition), navigation: true);
-                    var graph = analysis.CreateNavigation();
-                    if (analysis.Succeeded && graph != null && graph.Positions.Length > 1 && graph.Edges > 0)
-                        return true;
-                }
+                reason = "Bots unavailable: the selected map has no installed navigation source.";
+                return LobbyResultCode.MapUnavailable;
             }
-            catch (Exception ex) { Log($"[bot] navigation validation failed: {ex.Message}"); }
+            if (!check.Work.IsCompleted)
+            {
+                reason = "Preparing this custom map's bot navigation. Try again shortly.";
+                return LobbyResultCode.ServerBusy;
+            }
+            if (check.Work.IsCompletedSuccessfully && check.Work.Result)
+                return LobbyResultCode.Ok;
+            if (check.Work.IsFaulted)
+                Log($"[bot] navigation validation failed: {check.Work.Exception!.GetBaseException().Message}");
             reason = "Bots unavailable: this map has no usable AI navigation data.";
-            return false;
+            return LobbyResultCode.MapUnavailable;
         }
 
         private LobbyResultCode ConfigureBot(LobbyCommandPacket command, bool update, out string reason)
@@ -58,7 +93,8 @@ namespace MphRead.Mods.Network
             if (slot < 0) { reason = "All player slots are occupied."; return LobbyResultCode.ServerBusy; }
             if ((command.Hunter >= 7 && command.Hunter != (byte)Hunter.Random) || command.Color > 3 || command.BotLevel > 3)
             { reason = "Choose a valid hunter, suit and bot difficulty."; return LobbyResultCode.InvalidConfiguration; }
-            if (!BotMapAvailable(CurrentDefinition, out reason)) return LobbyResultCode.MapUnavailable;
+            LobbyResultCode botMap = BotMapAvailable(CurrentDefinition, out reason);
+            if (botMap != LobbyResultCode.Ok) return botMap;
             var layout = LobbyRules.ResolveTeamLayout(CurrentDefinition);
             sbyte team = -1;
             if (layout.TeamCount > 0)
