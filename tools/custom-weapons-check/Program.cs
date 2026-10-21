@@ -4,6 +4,8 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length == 3 && args[0] == "--weapon-package-local-host") return LocalWeaponPackageHostChecks.Run(args[1],args[2]);
+if (args.Length == 4 && args[0] == "--weapon-package-local-host-gl") return WeaponPackageOnlineGlChecks.Run(args[1],args[2],args[3],localHost:true);
 if (args.Length == 4 && args[0] == "--weapon-package-online-gl") return WeaponPackageOnlineGlChecks.Run(args[1],args[2],args[3]);
 if (args.Length == 2 && args[0] == "--weapon-package-execution-udp") return NetLobbyTest.RunWeaponPackageExecution(args[1]);
 if (args.Length == 1 && args[0] == "--weapon-package-preparation-udp") return NetLobbyTest.RunWeaponPackagePreparation();
