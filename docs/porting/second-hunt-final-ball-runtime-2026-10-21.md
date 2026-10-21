@@ -114,6 +114,22 @@ Dedicated core:
 Both Release builds pass with one existing readiness warning/zero errors.
 External tool:
 `75ef2de671efa37492c94b3836a4636075b5bbd0a9ba3afcd9550b8f30bd87f7`.
+The verified local SDK is10.0.401. Relevant commands use that `dotnet` binary:
+
+```text
+dotnet build src/MphRead/MphRead.csproj -c Release
+dotnet tools/external-import-check/bin/Release/net10.0/external-import-check.dll --probe-character-final-ball-source <owned-Echoes-RVZ>
+dotnet tools/external-import-check/bin/Release/net10.0/external-import-check.dll --probe-character-final-ball-runtime <owned-Echoes-RVZ>
+dotnet tools/external-import-check/bin/Release/net10.0/external-import-check.dll --probe-character-body-launch <owned-Echoes-RVZ>
+dotnet tools/retro-character-preview-check/bin/Release/net10.0/retro-character-preview-check.dll
+dotnet tools/retro-character-preview-check/bin/Release/net10.0/retro-character-preview-check.dll --probe-bundle <owned-Echoes-RVZ>
+```
+
+GPU probes set `PRIME_BODY_TEST_ASSETS` to the existing AMHE1 tree and use
+isolated user data/null audio. Owned migration selects the frozen baseline core
+paths recorded in its ignored receipt. Tool builds disable project references
+after the named core build; dedicated builds set `MphReadServer=true` and
+`-r win-x64` into separately named output directories.
 
 - An independent original-source bootstrap on authoring core `e54eaff0…fc8b6`
   compares all24510 corners with zero position, normal or raw UV error, exact
@@ -165,6 +181,23 @@ architecture pass. Combined nettest SHA256:
 `e1ff303dd2750e1d28f2ee71bc1ed31a91bd07d85644da3e5bdb11b635677a2f`.
 Independent pure/source/migration/viewer/Trooper evidence retains the explicitly
 frozen binary identities above; it is not relabeled as a combined-core run.
+
+PR creation revealed later main PR957 prediction/replay/killcam work, PR959's
+normal-v7 UI fixtures and PR960's macOS packaging repair. These were inspected
+and merged cleanly at `a3e6b66b39ef2f4235aa03877d964834d4304140`; source importer
+and GX paths are unchanged. The qualified final desktop core is
+`da82cebddc1475b13c8408791b5c4ce5717683df748f63a10ab078cb04f5ca12`,
+dedicated core
+`22d475ac563e8a0280be5f7c6696bee3b9709518a294a979876e978874971d4c`,
+and external tool
+`2d2fc106e4d5d1cdbf2bdeb925aa110b54543d92a0d47db96a9bcea48bc27e66`.
+Both builds and the bounded final world376478/launch66 checks pass, with the
+same gameplay trace and source/native inventories. Final desktop2708/
+dedicated2690 source-body, root24/rig910, replay3107, offline971 and architecture
+also pass. Final nettest is
+`498ee44eceba6a930e311e8513452b1b7ffced0fd621bd62409510459eb6d89e`.
+Raw final integration evidence uses the `final-ball-main957-*` prefix. The
+earlier frozen source/migration/material/viewer proofs remain explicitly scoped.
 
 Raw failures remain retained: the first authoring attempt wrote Final's shared
 temporary manifest instead of its appearance-local staged manifest; Update-all
