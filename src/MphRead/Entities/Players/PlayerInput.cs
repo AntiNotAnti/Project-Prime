@@ -847,7 +847,8 @@ namespace MphRead.Entities
                         // itodo: button aim (see free cam code for FPS-independent stuff)
                     }
                 }
-                bool jumping = WallClingInput();
+                ModPrepareParkourWallrun();
+                bool jumping = WallClingInput() || _modWallkickPending;
                 if (!Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck) && !WallClingHeld)
                 {
                     // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
@@ -961,7 +962,7 @@ namespace MphRead.Entities
                     }
                     // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
                     // unimpl-controls: the aim input disable flag is also checked by the game
-                    if (_jumpPadControlLockMin == 0 && (Controls.Jump.IsPressed || ModQuake3HeldJumpRequested)
+                    if (!_modWallkickPending && _jumpPadControlLockMin == 0 && (Controls.Jump.IsPressed || ModQuake3HeldJumpRequested)
                         && !Flags1.TestFlag(PlayerFlags1.UsedJump))
                     {
                         // unimpl-controls: double tap jump is hard coded as an alternate condition to the jump input
@@ -2865,6 +2866,7 @@ namespace MphRead.Entities
                 if (_q3LaunchGravity != 0) Speed = q3IncomingSpeed;
                 else Speed += (speedMul - Speed) / 2; // todo: FPS stuff
             }
+            ModApplyParkourWallkick(momentumAllowed);
             if (Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
             {
                 Speed = Speed.AddX(_jumpPadAccel.X);
@@ -2890,7 +2892,8 @@ namespace MphRead.Entities
                 if (_jumpPadControlLock == 0 && !Flags2.TestFlag(PlayerFlags2.BipedStuck) && !WallClingHeld
                     && !ScoutDroneHover())
                 {
-                    if (Flags2.TestFlag(PlayerFlags2.GravityOverride))
+                    bool nativeGravityOverride = Flags2.TestFlag(PlayerFlags2.GravityOverride);
+                    if (nativeGravityOverride)
                     {
                         Flags2 &= ~PlayerFlags2.GravityOverride;
                     }
@@ -2925,8 +2928,9 @@ namespace MphRead.Entities
                         }
                     }
                     if (_q3LaunchGravity != 0) _gravity = _q3LaunchGravity;
-                    ModMovementShadowNoteGravity(_gravity);
-                    Speed = Speed.AddY(_gravity / 2); // todo: FPS stuff
+                    float appliedGravity = ModParkourGravity(_gravity, nativeGravityOverride);
+                    ModMovementShadowNoteGravity(appliedGravity);
+                    Speed = Speed.AddY(appliedGravity / 2); // todo: FPS stuff
                 }
                 Vector3 position = Position + Speed / 2; // todo: FPS stuff
                 if (AttachedEnemy?.EnemyType == EnemyType.Quadtroid)
@@ -3061,6 +3065,7 @@ namespace MphRead.Entities
                 }
             }
             ModCompleteTuckContact();
+            ModCompleteParkourWallrun(nativeJumpAccepted);
             WallClingAfterCollision();
             bool burning = false;
             if (_health > 0 && (_burnTimer > 0 || Hunter != Hunter.Spire

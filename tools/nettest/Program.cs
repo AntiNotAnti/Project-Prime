@@ -131,6 +131,8 @@ namespace MphRead.NetTest
                     + "  --parkour-tuck-scene <assets> [json] Test native input, tuck clearance and landing.\n"
                     + "  --parkour-wallstrafe-scene <assets> [json] Test actual static-wall input and bounded gain.\n"
                     + "  --parkour-wallstrafe-rules        Test bounded wall-tangent acceleration.\n"
+                    + "  --parkour-wallrun-scene <assets> [json] Test earned wallrun, kick and landing budget.\n"
+                    + "  --parkour-wallrun-rules          Test wallkick impulse and fixed profile limits.\n"
                     + "  --parkour-stance-rules             Test Parkour tuck eligibility and shape.\n"
                     + "  --parkour-compatibility            Test Parkour rules and archive protocol boundaries.\n"
                     + "  --traversal-rules                  Test five-mode selection, stronger air control and ramp math.\n"
@@ -574,6 +576,18 @@ namespace MphRead.NetTest
                 return TraversalStanceNetworkTests.RunScene(output);
             }
             if (args.Length > 0 && args[0] == "--traversal-stance-rules") return TraversalStanceTests.Run();
+            if (args.Length > 1 && args[0] == "--parkour-wallrun-scene")
+            {
+                string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.Combine(AppContext.BaseDirectory, "maps", "traversal-training");
+                Mods.MapGen.CustomRooms.UserMapDirectory = System.IO.Path.Combine(
+                    System.IO.Path.GetTempPath(), "movement-fixtures", Guid.NewGuid().ToString("N"));
+                Mods.MapGen.CustomRooms.RuntimeNamespace = "parkour-wallrun";
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
+                return ParkourWallrunSceneTests.Run(output);
+            }
             if (args.Length > 1 && args[0] == "--parkour-wallstrafe-scene")
             {
                 string? output = args.Length > 2 ? System.IO.Path.GetFullPath(args[2]) : null;
@@ -635,6 +649,7 @@ namespace MphRead.NetTest
                 Mods.MapGen.CustomRooms.GenerateMissing(TraversalSceneTests.Room);
                 return GroundSlopeSceneTests.Run(output);
             }
+            if (args.Length > 0 && args[0] == "--parkour-wallrun-rules") return ParkourWallrunTests.Run(args.Length > 1 ? args[1] : null);
             if (args.Length > 0 && args[0] == "--parkour-wallstrafe-rules") return ParkourWallstrafeTests.Run();
             if (args.Length > 0 && args[0] == "--parkour-stance-rules") return ParkourStanceTests.Run();
             if (args.Length > 0 && args[0] == "--parkour-compatibility") return ParkourCompatibilityTests.Run();

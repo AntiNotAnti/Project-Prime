@@ -34,8 +34,8 @@ internal static class CustomMatchPolicyChecks
             &&!Native.RiftlineM7Available&&(Native.Rules&MatchModifierFlags.RiftlineM7Available)==0,
             "native/default match definitions never opt into M7 availability");
         check((uint)MatchModifierFlags.RiftlineM7Available==262144
-            &&MovementModelRules.KnownModifierMask==1048575&&NetConfig.ProtocolVersion==78,
-            "protocol78 retains availability bit18 while preserving every earlier modifier ID");
+            &&MovementModelRules.KnownModifierMask==1048575&&NetConfig.ProtocolVersion==79,
+            "protocol79 retains availability bit18 while preserving every earlier modifier ID");
         var requested=Native with{RiftlineM7Available=true};
         check(requested.Rules==(Native.Rules|MatchModifierFlags.RiftlineM7Available)
             &&requested.ModifierSummary.Contains("Riftline M7",StringComparison.Ordinal),

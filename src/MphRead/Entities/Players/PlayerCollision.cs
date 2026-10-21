@@ -1516,6 +1516,7 @@ namespace MphRead.Entities
                             _modRampSupport = result.Plane.Xyz;
                             _modRampSupportFrame = _scene.FrameCount;
                         }
+                        ModObserveParkourSupport(result);
                         Flags1 |= PlayerFlags1.Standing;
                         _timeSinceStanding = 0;
                         if (!Flags1.TestFlag(PlayerFlags1.StandingPrevious) || Flags1.TestFlag(PlayerFlags1.AltFormPrevious))

@@ -655,6 +655,7 @@ namespace MphRead.Entities
             ModResetTraversalStance();
             ModResetGroundTravel();
             ModResetWallClingForLife();
+            ModResetParkourWallrunForLife();
             ScoutDroneResetForLife();
             _abilities = AbilityFlags.None;
             _walkSfxTimer = 0;
@@ -756,6 +757,7 @@ namespace MphRead.Entities
                 Mods.RespawnChoice.ApplyOnSpawn(this);
             }
             ModResetWallClingForLife();
+            ModResetParkourWallrunForLife();
             ScoutDroneResetForLife();
             LoadFlags |= LoadFlags.Spawned;
             if (IsMainPlayer)
@@ -1277,6 +1279,7 @@ namespace MphRead.Entities
             _q3LaunchGravity = 0; _q3LaunchFrames = 0;
             ModCancelTraversalSlide(); _modCrouchWasDown = false;
             ModNoteMovementValidationTeleport();
+            ModCancelParkourWallrun();
             ModResetWallClingForLife();
             ScoutDroneMerge();
             ScoutDroneRetireFlights();

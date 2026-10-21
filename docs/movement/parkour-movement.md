@@ -30,12 +30,29 @@ Try the mirrored wall, then release strafe, turn away, push head-on and reach a
 corner: each should stop the bonus. Keep the movement HUD visible to compare
 speed without relying solely on camera motion.
 
-Current live peers use protocol 78 / Parkour v2. Protocol 77 recordings retain
-Parkour v1, and earlier protocols cannot acquire Parkour. Passive replay worlds
+**Wallrun and wall kick:** jump into a safe vertical wall while holding Forward
+and strafe along it. Above half ordinary ground speed along the wall, an upright
+biped can use up to 45 fixed ticks of reduced gravity per airborne period.
+Gravity is 35% of native gravity; the run never resets upward velocity. Release
+Forward/strafe, crouch, leave the face, reach a corner, or enter a native ability
+and the run ends. Remaining time is preserved until a real safe static landing;
+changing form or releasing input cannot refill it.
+
+While running, release Jump and press it again to kick away from the wall. A
+fresh kick supplies at least 8 units/second outward and 9 upward, preserving
+larger incoming impulses and tangent speed. It spends the entire remaining
+wallrun budget. Holding the original Jump press never kicks automatically.
+Native jump/SpaceJump flags remain owned by their existing controller. Native
+pads, teleports and external acceleration retain priority over a pending kick.
+
+Current live peers use protocol 79 / Parkour v3. Protocol 78 recordings retain
+Parkour v2 and protocol 77 recordings retain Parkour v1. Earlier protocols cannot
+acquire Parkour. Passive replay worlds
 consume accepted positions and shapes rather than rerunning current wall forces.
 The existing life-fenced owner-position multiplayer contract remains in effect;
 the authority does not independently resimulate remote trajectories.
 
-See [wallstrafe validation](parkour-wallstrafe-results.md) for Windows scene,
-multiplayer and replay results. Wallrun/kick, short ledge scramble and optional
-grapple are subsequent ordered slices.
+See [wallstrafe validation](parkour-wallstrafe-results.md) for completed Windows
+scene, multiplayer and replay results. [Wallrun validation](parkour-wallrun-results.md) records the v3 checks and
+performance diagnostics. Short ledge scramble and optional grapple are subsequent
+ordered slices.
