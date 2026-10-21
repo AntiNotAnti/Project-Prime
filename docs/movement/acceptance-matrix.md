@@ -92,3 +92,7 @@ special/replay suites cover many named boundaries; no report establishes every
 possible simultaneous online event. That is a scoped evidence limitation, not
 an invented requirement to enumerate all combinations. PR-10 surf/slide/training
 features are explicitly optional future work and are not v1 release gates.
+
+## Parkour v4 mantle refresh
+
+[PR #942 mantle results](parkour-mantle-results.md) adds bounded static ledge mantle and separately attributed full/targeted Windows leases. Seven native scene gates and56 Classic golden trajectories pass. Original77-79 archives were lost externally; new replacement fixtures establish decoder compatibility only. Full live-menu/Android checks remain environment-blocked; physical-device/GL/Linux/refresh/performance gaps above remain open. Grapple and final integration are pending.

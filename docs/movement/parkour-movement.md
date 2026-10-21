@@ -70,3 +70,5 @@ scene, multiplayer and replay results. [Wallrun validation](parkour-wallrun-resu
 performance diagnostics. The [v4 version contract](../network/parkour-v4-version-contract.md)
 describes mantle admission and historical boundaries. Optional grapple follows
 as a separate slice.
+
+Mantle qualification and limits: [Parkour v4 results](parkour-mantle-results.md).
