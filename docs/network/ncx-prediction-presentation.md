@@ -2,7 +2,9 @@
 
 The missing Mac-only NCX-06 source was not available in GitHub or this checkout.
 The user authorized rebuilding it on 2026-10-20. This implementation starts from
-main `10297d8cdde3d9944a634aea16e36c8c5001b7e8` (protocol79). Historical handoff
+main `10297d8cdde3d9944a634aea16e36c8c5001b7e8` and integrates the deliberate
+main pin `66795c48790c774b17e5773e98fcd200b3642d32` (protocol79), including its
+shader portability and opt-in body rendering changes. Historical handoff
 results and unavailable captures do not qualify this reconstruction.
 
 ## Behavior
@@ -64,6 +66,14 @@ explicitly. Tests requiring unavailable Windows symlink privilege are skipped
 with a reason. The opt-in drain publisher replaces existing status files
 atomically; the reader must retain same-handle freshness and bounded sharing32
 recovery without weakening drain/queue predicates.
+
+The core timeline, receipt-conservation and paid-receipt auditors explicitly
+accept timeline schemas1 and2. Schema2 adds optional pose/provenance metadata;
+these auditors retain the same core identity/clock checks and do not qualify
+those extensions. Future or untyped schema values remain incomplete. A prior
+real UDP attempt retained a failing audit because its producer emitted schema2
+while the old auditor required schema1; its successful process exits and drain
+never upgraded that failed campaign.
 
 The explicit `-nativeprojectiononly` mode on `-viewmodelacceptancecheck` requires
 real cartridge weapon mesh packets at selected FOV60/78/120, a fixed canonical

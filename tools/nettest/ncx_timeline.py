@@ -40,6 +40,18 @@ def integer(value, low, high):
     return value
 
 
+def timeline_schema(value):
+    """Only v1 and v2 share this auditor's core field/clock contract.
+
+    V2 adds optional Pose and Provenance for separate presentation auditors.
+    Those fields are neither validated nor exported here and prove no pose or
+    hit authority. Future schemas require an explicit compatibility review.
+    """
+    if type(value) is not int or value not in (1, 2):
+        raise ValueError('unsupported timeline schema')
+    return value
+
+
 def identity(value):
     if not isinstance(value, dict):
         raise ValueError('missing full shot key')
@@ -84,8 +96,7 @@ def audit(reports):
         processes.append(entry)
         try:
             timeline = report['ShotTimeline']
-            if type(timeline['Schema']) is not int or timeline['Schema'] != 1:
-                raise ValueError('unsupported timeline schema')
+            timeline_schema(timeline['Schema'])
             clock = timeline['Clock']
             if clock['Domain'] != 'ProcessStopwatch':
                 raise ValueError('unsupported clock domain')
@@ -232,6 +243,7 @@ def audit(reports):
         intervals.append(interval)
     return dict(schema=1, status='INCOMPLETE' if incomplete else 'COMPLETE',
                 scope=dict(intentOffered='transport scheduling only; not observed socket send',
+                           timelineSchema='Only versions 1 and 2; optional Pose/Provenance are outside this core timeline audit and provide no pose or hit authority proof',
                            actualPixels='UNAVAILABLE',
                            collisionObservation='AVAILABLE' if all_stages['native-contact'] else 'UNAVAILABLE',
                            nativeContact='observed contact before payment; immunity may prevent a commit',
