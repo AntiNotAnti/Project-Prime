@@ -87,6 +87,8 @@ printf '<rml><head/><body>Signed UI fixture</body></rml>\n' > "$fixture/rmlui/pr
 printf '<rml><head/><body>Start</body></rml>\n' > "$fixture/rmlui/pages/startup/startup.rml"
 printf 'RmlUi fixture attribution\n' > "$fixture/licenses/RmlUi-LICENSE.txt"
 printf 'optional debug symbols are not release resources\n' > "$fixture/MphRead.CorpsePhysics.pdb"
+# The native provenance manifest stays beside the dylib for package inspection.
+printf '{"renderer":"gl2"}\n' > "$fixture/PRIME-RMLUI.json"
 "$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3
 mkdir "$temp/unpacked"
 tar -xzf "$temp/dist/ProjectPrime-v1.2.3-$rid.tar.gz" -C "$temp/unpacked"
@@ -100,6 +102,7 @@ for resource in rmlui/prime_home.rml rmlui/pages/startup/startup.rml licenses/Rm
 done
 [[ ! -e "$app/Contents/MacOS/rmlui" && ! -e "$app/Contents/MacOS/licenses" ]] || exit 1
 [[ ! -e "$app/Contents/MacOS/MphRead.CorpsePhysics.pdb" ]] || exit 1
+cmp "$fixture/PRIME-RMLUI.json" "$app/Contents/MacOS/PRIME-RMLUI.json"
 for resource in gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
     cmp "$fixture/$resource" "$app/Contents/Resources/$resource"
     [[ ! -e "$app/Contents/MacOS/$resource" ]] || exit 1
