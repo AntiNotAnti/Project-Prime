@@ -31,7 +31,7 @@ Windows qualification uses exact committed producer
 `d0867e7f03a7d21e9643b1f9d8649435486bc478` after wallstrafe PR #930. The
 publication updates add documentation, selected evidence, asset-free CI wiring
 and acceptance-fixture compatibility;
-runtime code remains byte-identical to that producer. Runtime
+production source remains byte-identical to that producer. Runtime
 results below are completed before publication.
 
 The pure helper passed 1,102 assertions, including mirrored/rotated normals,
@@ -107,8 +107,21 @@ No new GL, physical-device, rendered-smoothness or worst-case wall-probe perform
 acceptance is claimed. Raw assets, recordings and logs remain private. CI status
 is recorded in the PR; merging does not wait for CI or review, as requested.
 A post-merge snapshot of PR #930 exposed stale live-profile and four-model menu
-assertions plus a content-free adapter stub missing the upstream private-weapon
-type. These fixtures are updated without changing production movement. Targeted
-Windows revalidation of the affected fixtures is pending before publication.
+assertions plus missing dependencies in the content-free semantic adapter stub.
+These fixtures are updated without changing production movement. An intermediate
+compatibility pass preserved its compile failure for additional missing scene
+identity members; the completed pass uses committed producer
+`7fabec4daf5f252831566ad66c24c13279c54018` with an empty overlay.
+
+The [targeted compatibility receipt](evidence/parkour-wallrun-compatibility.json)
+records a fresh normal Windows Release build, the movement-shadow check and all
+four Parkour CI commands passing. Offline rules, semantic events and live-menu
+pure tools built and passed. Both actual protocol-79 recordings preserved exact
+archive hashes, gameplay/presentation digests, selected counts, checkpoint arrays
+and seek arrays. The injected OpenGL acceptance harness compiled in a separate
+source/output tree; its managed compilation passed, with no GL runtime executed.
+Normal outputs remained unchanged, prior qualification producers and recordings
+passed preservation fences, and all test-owned runtime processes closed. No new
+multiplayer cohort or performance rerun was needed for these fixture changes.
 Ledge scramble and grapple remain pending. Work stops after this PR at the user's
 requested break.

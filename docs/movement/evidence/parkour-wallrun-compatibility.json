@@ -1,0 +1,181 @@
+{
+  "status": "PASS",
+  "candidate": "wallrun03-targeted-fixture-compatibility",
+  "producerCommit": "7fabec4daf5f252831566ad66c24c13279c54018",
+  "featureQualificationProducer": "6eec103001a5e44e0efb850ea0216eedd9fec4bd",
+  "featureQualificationSelectionSha256": "35b762014f529ea0f60c2bff05cdc79d804b3fa43b9f008309839456fad54714",
+  "scope": "Fresh Windows normal build and bounded fixture/CI compatibility only. Production source unchanged; no new gameplay cohorts, benchmark or GL runtime.",
+  "source": {
+    "exactCommittedSource": true,
+    "fullSourceFiles": 6459,
+    "manifestSha256": "8578bb088942b04c930f311a385d069bf107662ab850ac18a837fe94a4c47842",
+    "fullSourceManifestSha256": "b80db31c6bd659741023aed4ca69019167a204dfb528099e63f05e537d8cdfec",
+    "bundleSha256": "35be14025ba45a2131d39f1061e28e5bed8a5d89ca4b64bff07be1f32ac193e3",
+    "assetGuard": "PASS",
+    "closureFiles": 49,
+    "productionSourceFileCount": 2207,
+    "allProductionSourceIdenticalToFeatureProducer": true
+  },
+  "normalBuild": {
+    "platform": "Windows",
+    "sdk": "10.0.401",
+    "configuration": "Release",
+    "exitCode": 0,
+    "elapsed": "00:01:00.32",
+    "warnings": 1,
+    "errors": 0,
+    "binaries": {
+      "ProjectPrime.dll": "65b689c0f55315222a86b9295b3d7dd03f975412c71393da084fdccd64768039",
+      "nettest.dll": "bcf7e4858be6130cb10dabb82c66c769a2a7262e8d6077cd3028671b7f7b700e",
+      "MphRead.CorpsePhysics.dll": "76038c4969782e752bcb5e6d0931d27207345ba9bd0e7012b192c3328240a3f4",
+      "BepuPhysics.dll": "5bbd07c09f058025049e741e136a4e7ab8a68afe56f391f58072429f44262fbe",
+      "BepuUtilities.dll": "4666356f52ed46fce9707786cda72cfb6ba6460f8bcd789d75cb816a744643f6"
+    },
+    "logSha256": "0ebe5b6dcfd70ada9f7de63a0069ad9fa0b4535bf2d0ed856835693a4446f1df"
+  },
+  "targetedCommands": [
+    {
+      "command": "movement-validation-shadow",
+      "status": "PASS",
+      "logSha256": "72e083ea7e5ec9fc1c3ea137ea48d36553919a0892416004e007f9990ab1f90f"
+    },
+    {
+      "command": "parkour-stance-rules",
+      "status": "PASS",
+      "logSha256": "1aa598e87d265a21178b8a496e36b2e761930245075adae9f1558f4ab640839c",
+      "checks": 99
+    },
+    {
+      "command": "parkour-compatibility",
+      "status": "PASS",
+      "logSha256": "a10411bc256a96925c1b7dfb843e278e574eae4e0d9941311b97d8fd4ab65906",
+      "checks": 47
+    },
+    {
+      "command": "parkour-wallstrafe-rules",
+      "status": "PASS",
+      "logSha256": "bcf625ab54d4945b66e51684f9fc9fbca258bb4f53c93a2f61961704d64bf7e6",
+      "checks": 25
+    },
+    {
+      "command": "parkour-wallrun-rules",
+      "status": "PASS",
+      "logSha256": "3dd473b0fb3b7016d2f2f6cff603da255e06a38b3e991e1f0fc12f27fa4172e6",
+      "checks": 1102
+    }
+  ],
+  "pureTools": [
+    {
+      "tool": "rmlui-offline-rules-check",
+      "buildExitCode": 0,
+      "exitCode": 0,
+      "toolSha256": "12f98327a357a0b9055b850c90516fe9c4f85ee8b2a5f722f14324af4cb14bda",
+      "logSha256": "d6d1e18231e5ccb23f2a38068431cf48db131c377291df37e62ae516fc920c4c",
+      "passedRuleCheckLines": 114
+    },
+    {
+      "tool": "match-events-check",
+      "buildExitCode": 0,
+      "exitCode": 0,
+      "toolSha256": "c49c15c4772b5fac7b831892b09706cb03cfd9d06a512e92f60e21945c16ac9a",
+      "logSha256": "6c7f4eb530c3abd3bed71488c8579b0dcec0aa4a663fbb333faf8b00a841841c",
+      "contentFreeSemanticChecks": 47,
+      "scope": "source-linked semantic contracts with content-free upstream type stubs; no private weapon feature acceptance"
+    },
+    {
+      "tool": "rmlui-live-menu-check",
+      "buildExitCode": 0,
+      "exitCode": 0,
+      "toolSha256": "3483308d97782c179a139f4464cfa91d4031caa90273e235349aabe740811ef0",
+      "logSha256": "1f16720c93f9a765290cda18b6924f5d21889c245808bfbcda7d45043c0cb463",
+      "rml03PassLines": 423,
+      "scope": "pure controller/service fixtures; nested fixture groups additionally passed, no renderer qualification"
+    }
+  ],
+  "retainedActualProtocol79Recordings": [
+    {
+      "kind": "clean",
+      "status": "PASS",
+      "recordingProducer": "6eec103001a5e44e0efb850ea0216eedd9fec4bd",
+      "archiveSha256": "d687c2acf174a6914ed789d1072bf8b9d44583f40fbc6baa60681abba1e4511f",
+      "digestCountsCheckpointAndSeekArraysUnchanged": true,
+      "recordedProtocol": 79,
+      "profileVersion": 3,
+      "checks": 126721,
+      "frames": 2399,
+      "tuckedSnapshotChecks": 1018,
+      "continuedFrames": 2350,
+      "checkpointCount": 10,
+      "seekCount": 87,
+      "gameplayPresentationDigest": "D7CE744C13B2E4AA7C330ADECA76811E4B36E1932D0B3026F0BE08BFF36F9634",
+      "resultSha256": "6da2ba3dd105bf51b116c74b856a319fbb3214dcbd322b18b13c32f6ae4cffce"
+    },
+    {
+      "kind": "faulted",
+      "status": "PASS",
+      "recordingProducer": "6eec103001a5e44e0efb850ea0216eedd9fec4bd",
+      "archiveSha256": "a341b67aaa47b60f4357c7057927c85bf44995fe1addf08df103c39d05526451",
+      "digestCountsCheckpointAndSeekArraysUnchanged": true,
+      "recordedProtocol": 79,
+      "profileVersion": 3,
+      "checks": 124522,
+      "frames": 2405,
+      "tuckedSnapshotChecks": 1039,
+      "continuedFrames": 2342,
+      "checkpointCount": 11,
+      "seekCount": 93,
+      "gameplayPresentationDigest": "DA9BB9B6E10D2EFFFA1377975CCC710B1782D5E40AFE5BD776351CB55585B3BE",
+      "resultSha256": "8db184c329781d6e2ac87a3d4adc791d31fd35a4fa32697379ef9ce453a9c714"
+    }
+  ],
+  "isolatedManagedGlCompilation": {
+    "status": "PASS",
+    "compileOnly": true,
+    "buildExitCode": 0,
+    "sourceFilesVerified": 6459,
+    "isolatedSourceAndOutputTree": true,
+    "MphReadRmlUiGlSmoke": true,
+    "MphReadReplayPreviewFailureFixture": true,
+    "fixtureCoreSha256": "875e3d1f6d623e59bde07ec9f3be12befbe4df4fbe330ed15b63b354de50568d",
+    "toolSha256": "1b9ff3fd300f463290a030410d5b2359cfb3b1c239e4c9e4b6c4c4090cb8a44b",
+    "normalCoreUnchanged": true,
+    "elapsed": "00:00:58.73",
+    "warnings": 1,
+    "errors": 0,
+    "logSha256": "b4a57b907d83616df2d71fc6f38fb5e9a0de58156e707b9fae4393b62d90adac",
+    "scope": "managed compilation with the tool required opt-in fixture; no native GL execution or display acceptance"
+  },
+  "finalReadback": {
+    "status": "PASS",
+    "ownedRuntimeProcessCount": 0,
+    "ownedScheduledTasksCreated": 0,
+    "normalSourceAndBinariesUnchanged": true,
+    "normalCoreAndToolCopiesByteIdentical": true,
+    "isolatedInjectedCoreSeparate": true,
+    "prior01And02FullSourceAndNormalBinariesUnchanged": true,
+    "retained79ArchivesByteIdentical": true,
+    "newCohortsRun": false,
+    "benchmarkRun": false,
+    "glRuntimeRun": false,
+    "cleanupDeletesPerformed": false,
+    "freeBytes": 158145339392
+  },
+  "evidence": {
+    "zipSha256": "ff88be2df2282062dd238156febdfc52a19247e150e0d9199919f06e4bea935c",
+    "zipBytes": 378466,
+    "copiedLocallyHashVerified": true
+  },
+  "preservedFailure02": {
+    "stage": "source-linked match-events tool compilation",
+    "compilerErrors": 4,
+    "code": "CS1061",
+    "missingStubMembers": [
+      "Scene.MatchEvents",
+      "Scene.Players",
+      "PlayerEntity.OwningScene"
+    ],
+    "evidenceZipSha256": "3a48d39a8d2afa3fb8d39411d0c06c1bce1e744881a55a11770dd282971d56e0",
+    "sourceAndNormalBinariesUnchanged": true
+  },
+  "macBuildGameOrUiUsed": false
+}
