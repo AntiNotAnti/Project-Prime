@@ -40,3 +40,9 @@ the presenter and choice controller are actual production sources. No real
 profile is read or written. Android, EGL/GLES, and main projects are
 neither built nor exercised. Passing these checks does not establish device
 rendering, touch usability, asset loading, or game launch acceptance.
+
+The current choice controller also uses `LocalBodyAppearance.cs`, which is
+source-linked here. Its gameplay/replay/character-witness dependencies are
+compile-only engine-boundary fakes in `EngineFakes.cs`; imported bodies remain
+unavailable in this fixture. The Hunter/Suit checks do not qualify imported-body
+admission or assets.

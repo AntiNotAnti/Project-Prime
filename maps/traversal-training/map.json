@@ -162,6 +162,18 @@
       "shade": 0.5
     }
   ],
+  "brushes": [
+    {
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d9001",
+      "label": "Grapple unsafe first static obstruction",
+      "min": [-39, 0, 31.8],
+      "max": [-37, 3, 32.2],
+      "material": 0,
+      "shade": 0.5,
+      "solid": true,
+      "damaging": true
+    }
+  ],
   "spawns": [
     { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2001", "position": [-36, 0.5, -30], "yaw": 0 },
     { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2002", "position": [36, 0.5, -30], "yaw": 0 },

@@ -12,6 +12,7 @@ internal static class CharacterGxProgramAcceptance
         _checks = 0;
         EquationsAndDestinations();
         Dependencies();
+        ProfileRegister1();
         ClockAndAnimation();
         TexgenRowsAndDomains();
         ShaderAndSnapshots();
@@ -112,6 +113,70 @@ internal static class CharacterGxProgramAcceptance
         Near(p.Evaluate(new[] { SampleInvented(stq) }, Vector4.Zero), new(0, 0, 1, 1), "asymmetric authored texture domain selects lower-left blue");
     }
 
+    private static void ProfileRegister1()
+    {
+        var yellow = new Vector4(253 / 255f, 239 / 255f, 86 / 255f, 0);
+        var direct = M(S(new[] { 15, 4, 12, 15 }, OneAlpha()));
+        var p = CharacterSourceGxProgram.Compile(direct, yellow);
+        Check(p.InitialRegister1 == yellow && p.InitialRegisterDependencies == 4, "C1 is register2 RGB with its own initial dependency bit");
+        Near(p.Evaluate(new[] { Vector4.Zero }, Vector4.Zero), new(yellow.X, yellow.Y, yellow.Z, 1), "profile C1 initializes CPU evaluation without caller register fixtures");
+        Near(CharacterSourceGxProgram.Compile(direct).Evaluate(new[] { Vector4.One }, Vector4.Zero), new(0, 0, 0, 1), "default Echoes C1 remains explicitly zero");
+        var initial = new[] { Vector4.Zero, Vector4.Zero, new Vector4(.125f, .25f, .5f, .75f), Vector4.Zero };
+        Near(p.Evaluate(new[] { Vector4.Zero }, Vector4.Zero, initial), new(.125f, .25f, .5f, 1), "explicit CPU fixture inventory overrides the profile C1");
+        Check(initial[2] == new Vector4(.125f, .25f, .5f, .75f), "profile evaluation leaves caller registers detached");
+        var mixed = M(S(new[] { 15, 8, 4, 0 }, OneAlpha()));
+        p = CharacterSourceGxProgram.Compile(mixed, yellow);
+        Near(p.Evaluate(new[] { new Vector4(.5f, .25f, .75f, 0) }, Vector4.Zero),
+            new(253 / 510f, 239 / 1020f, 258 / 1020f, 1), "source-like C1 factor multiplies texture RGB component by component");
+        Check(p.InitialRegisterDependencies == 5, "source-like C1 mix retains independent PREV and C1 dependencies");
+        void D(int[] color, int expected, string why) => Check(Compile(S(color, OneAlpha())).InitialRegisterDependencies == expected, why);
+        D(new[] { 4, 15, 12, 15 }, 0, "ONE factor removes dead C1 A input");
+        D(new[] { 15, 4, 15, 15 }, 0, "ZERO factor removes dead C1 B input");
+        D(new[] { 8, 8, 4, 15 }, 0, "equal operands remove irrelevant C1 factor");
+        D(new[] { 4, 4, 0, 15 }, 4, "equal C1 operands remove irrelevant PREV factor");
+        D(new[] { 15, 15, 15, 4 }, 4, "additive C1 dependency survives");
+        var writeC1ToC2 = S(new[] { 15, 4, 12, 15 }, OneAlpha(), colorDestination: 3);
+        var readC2 = S(new[] { 15, 6, 12, 15 }, OneAlpha());
+        var overwriteC2 = S(new[] { 15, 8, 12, 15 }, OneAlpha(), colorDestination: 3);
+        Check(Compile(writeC1ToC2, readC2).InitialRegisterDependencies == 4, "C2 write propagates the C1 dependency rather than initial C2");
+        Check(Compile(writeC1ToC2, overwriteC2, readC2).InitialRegisterDependencies == 0, "overwriting C2 before its read removes propagated C1 dependency");
+        Check(Compile(S(new[] { 15, 4, 12, 15 }, OneAlpha()), S()).InitialRegisterDependencies == 0, "later PREV overwrite removes earlier C1 result dependency");
+        p = CharacterSourceGxProgram.Compile(M(writeC1ToC2, readC2), yellow);
+        Near(p.Evaluate(new[] { Vector4.Zero, Vector4.Zero }, Vector4.Zero), new(yellow.X, yellow.Y, yellow.Z, 1), "later C2 read receives committed C1 RGB");
+        Near(CharacterSourceGxProgram.Compile(M(writeC1ToC2, overwriteC2, readC2), yellow)
+            .Evaluate(new[] { Vector4.Zero, new Vector4(.125f, .25f, .5f, 0), Vector4.Zero }, Vector4.Zero),
+            new(.125f, .25f, .5f, 1), "overwritten C2 does not reuse initial profile color");
+
+        var zero = CharacterSourceGxProgram.Compile(mixed); var explicitZero = CharacterSourceGxProgram.Compile(mixed, Vector4.Zero);
+        Check(zero.Vertex120 == explicitZero.Vertex120 && zero.Fragment120 == explicitZero.Fragment120
+            && zero.Vertex300 == explicitZero.Vertex300 && zero.Fragment300 == explicitZero.Fragment300,
+            "explicit zero profile preserves default shader bytes in both dialects");
+        p = CharacterSourceGxProgram.Compile(mixed, yellow);
+        foreach (string shader in new[] { p.Fragment120, p.Fragment300 })
+        {
+            Check(shader.Contains("mix(vec3(0.0),tx0.rgb,r2.rgb)", StringComparison.Ordinal), "both GLSL dialects use C1 as the independent color factor");
+            var match = System.Text.RegularExpressions.Regex.Match(shader, @"r2=vec4\(([^,]+),([^,]+),([^,]+),0\.0\)");
+            Check(match.Success && float.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture) == yellow.X
+                && float.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture) == yellow.Y
+                && float.Parse(match.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture) == yellow.Z,
+                "C1 GLSL initializer retains exact finite normalized profile values");
+        }
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        try
+        {
+            System.Globalization.CultureInfo.CurrentCulture = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
+            var localized = CharacterSourceGxProgram.Compile(mixed, yellow);
+            Check(localized.Fragment120 == p.Fragment120 && localized.Fragment300 == p.Fragment300, "baked profile shader literals remain invariant under comma-decimal culture");
+        }
+        finally { System.Globalization.CultureInfo.CurrentCulture = culture; }
+        foreach (var invalid in new[] { new Vector4(float.NaN, 0, 0, 0), new Vector4(0, float.PositiveInfinity, 0, 0),
+            new Vector4(0, 0, float.NegativeInfinity, 0), new Vector4(-.01f, 0, 0, 0), new Vector4(0, 1.01f, 0, 0),
+            new Vector4(0, 0, 1.01f, 0), new Vector4(0, 0, 0, .01f), new Vector4(0, 0, 0, float.NaN) })
+            Refuses(() => CharacterSourceGxProgram.Compile(direct, invalid), "invalid C1 profile initializer refuses");
+        foreach (string id in new[] { "darksamus-echoes", "darksamus-overcharged-echoes", "trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma" })
+            Refuses(() => CharacterSourceGxMaterials.Read(new byte[257], new string('0', 64), id), "compiler selector support cannot qualify an invented archive for " + id);
+    }
+
     private static void TexgenRowsAndDomains()
     {
         var primary = Identities(); var post = Identities();
@@ -142,6 +207,21 @@ internal static class CharacterGxProgramAcceptance
         post[2] = Rows(2, 0, 0, .125f, 0, 1, 0, .25f, 0, 0, 0, 1);
         Near(CharacterSourceGxProgram.Generate(p.Generators[0], new(.25f, .5f, 1), primary, post), new(.875f, .5f, 1), "slot0 primary plus slot2 post");
         Near(CharacterSourceGxProgram.Generate(p.Generators[1], new(.25f, .5f, 1), primary, post), new(0, .625f, 1), "slot1 primary plus identity post");
+
+        m = M(); m.TexGens[0] = G(4, 3, 3); p = CharacterSourceGxProgram.Compile(m);
+        Check(p.Generators[0] == new CharacterSourceGxProgram.Generator(4, 1, false, 1), "packed post3 addresses post slot1 independently of primary slot1");
+        post[1] = Rows(2, 0, 0, .125f, 0, 3, 0, -.25f, 0, 0, 0, 2);
+        Near(CharacterSourceGxProgram.Generate(p.Generators[0], new(.25f, .5f, 1), primary, post), new(.125f, 1.625f, 2), "post slot1 applies after its distinct primary and preserves Q");
+        foreach (string shader in new[] { p.Vertex120, p.Vertex300 })
+            Check(shader.Contains("dot(gx_post[3]", StringComparison.Ordinal) && shader.Contains("dot(gx_post[4]", StringComparison.Ordinal)
+                && shader.Contains("dot(gx_post[5]", StringComparison.Ordinal) && !shader.Contains("dot(gx_post[0]", StringComparison.Ordinal),
+                "both GLSL dialects address all three rows of post slot1");
+        m.TexGens[0] = G(1, 3, 3);
+        m.UvAnims = new[] { new Cmdl.UvAnim { Mode = 2, Params = new[] { .125, .25, .5, .75 } }, new Cmdl.UvAnim { Mode = 0 } };
+        p = CharacterSourceGxProgram.Compile(m); var slot1 = p.Matrices(2, Matrix4x4.Identity);
+        Near(CharacterSourceGxProgram.Generate(p.Generators[0], new(-.5f, .5f, -1), slot1.Primary, slot1.Post), new(.25f, .25f, 1), "environment at slot1 does not borrow slot0 scroll or identity post");
+        Check(slot1.Post[0] == Matrix4x4.Identity && slot1.Post[2] == Matrix4x4.Identity && slot1.Primary[0].M41 == 1.125f,
+            "slot1 environment leaves other posts reset and slot0 animation independent");
 
         m = M(); m.TexGens[0] = G(1, 0, 0); m.TexGens[0].Normalize = true;
         m.UvAnims = new[] { new Cmdl.UvAnim { Mode = 0 } }; p = CharacterSourceGxProgram.Compile(m);
@@ -206,13 +286,13 @@ internal static class CharacterGxProgramAcceptance
         Bad(m => m.TexGens[0].Type = 1, "unknown texgen type");
         Bad(m => m.TexGens[0].Src = 7, "unproved UV channel");
         Bad(m => m.TexGens[0].Mtx = 1, "unaligned matrix selector");
-        Bad(m => m.TexGens[0].Post = 3, "unobserved post slot");
+        Bad(m => m.TexGens[0].Post = 9, "unobserved post slot");
         Bad(m => m.UvAnims = new[] { new Cmdl.UvAnim { Mode = 1 } }, "unknown animation mode");
         Bad(m => m.UvAnims = new[] { new Cmdl.UvAnim { Mode = 0, Params = new[] { 1d } } }, "environment parameter extent");
         Bad(m => m.UvAnims = new[] { new Cmdl.UvAnim { Mode = 2, Params = new[] { 0d, 0d, 0d } } }, "scroll parameter extent");
         foreach (double value in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity, 10001d, -10001d })
             Bad(m => m.UvAnims = new[] { new Cmdl.UvAnim { Mode = 2, Params = new[] { value, 0d, 0d, 0d } } }, "invalid scroll scalar");
-        foreach (uint op in new uint[] { 0, 0x101, 0x110, 0x140, 0x300 })
+        foreach (uint op in new uint[] { 0, 0x101, 0x110, 0x140, 0x300, 0x500 })
         {
             Bad(m => m.Stages[0].RawColorOp = op, "unknown color op/bias/scale/destination");
             Bad(m => m.Stages[0].RawAlphaOp = op, "unknown alpha op/bias/scale/destination");

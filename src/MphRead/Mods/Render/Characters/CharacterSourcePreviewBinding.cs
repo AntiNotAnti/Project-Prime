@@ -24,7 +24,7 @@ internal sealed class CharacterSourcePreviewBinding
  {
   var rig=model.SourceRig!;
   for(int i=0;i<rig.Nodes.Count;i++)
-   if(rig.Nodes[i].Parent<0&&rig.Nodes[i].Name=="source_bone_0_root")
+   if(rig.Nodes[i].Parent<0&&rig.Nodes[i].Name is "source_bone_0_root" or "source_bone_3_root")
     return pose[i].Row3.Xyz-rig.Nodes[i].Local.Row3.Xyz;
   return Vector3.Zero;
  }

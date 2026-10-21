@@ -29,7 +29,7 @@ public partial class PlayerEntity
         _modMantleTicks = _modMantleStage = _modMantleStalled = 0;
     }
 
-    private bool ModMantleBodyAllowed => ModParkourActive && !ModCrouched && !ModSliding
+    private bool ModMantleBodyAllowed => ModParkourActive && !ModGrappleOwnsMovement && !ModCrouched && !ModSliding
         && !Controls.Crouch.IsDown && !WallClingHeld && !_modWallrunning && !_modWallkickPending
         && Hunter is >= Hunter.Samus and <= Hunter.Weavel;
     private bool ModMantleInput(Vector3 normal) => Controls.MoveUp.IsDown && Controls.AnalogScaleY(1) > 0

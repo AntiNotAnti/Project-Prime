@@ -354,6 +354,7 @@ namespace MphRead.Mods.Network
             int seen = 0;
             for (int i = 0; i < header.PlayerCount; i++)
             {
+                if (!PlayerGrappleState.TryRead(payload.Slice(SnapshotHeader.Size + i * PlayerState.Size + PlayerState.Protocol80Size, PlayerGrappleState.Size), out _)) throw Malformed();
                 var player = PlayerState.Read(payload[(SnapshotHeader.Size + i * PlayerState.Size)..]);
                 if (player.SlotIndex >= _players.Length || (seen & 1 << player.SlotIndex) != 0
                     || !Sane(player.Position) || !Sane(player.Speed) || !Sane(player.Facing)
