@@ -2677,6 +2677,9 @@ namespace MphRead.Entities
             Vector3 beforeTriggers = momentumAllowed ? Position : default;
             ModProcessQ3Triggers();
             if (momentumAllowed && Position != beforeTriggers) momentumAllowed = false;
+            // Capture native ownership before one-tick flags/timers are cleared
+            // below. A mantle must not reclaim a just-triggered native impulse.
+            if ((_modMantling || _modMantlePending) && !ModMantleBodyAllowed) ModCancelParkourMantle();
             Vector3 q3IncomingSpeed = Speed;
             if (_accelerationTimer > 0)
             {

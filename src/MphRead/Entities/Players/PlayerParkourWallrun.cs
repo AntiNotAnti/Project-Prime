@@ -151,7 +151,7 @@ public partial class PlayerEntity
         _modWallrunAppliedGravity = gravity;
         // Native messages own the persistent field and override tick. Observe
         // their flag before integration clears it; never scale scripted gravity.
-        if (nativeOverride) { ModCancelParkourWallrun(); return gravity; }
+        if (nativeOverride) { ModCancelParkourWallrun(); ModCancelParkourMantle(); return gravity; }
         if (!_modWallrunning) return gravity;
         if (_modWallrunTicks <= 0 || !ModWallrunBodyAllowed || !ModWallrunInput(_modWallrunNormal)
             || !ModProbeWallrun(_modWallrunNormal))

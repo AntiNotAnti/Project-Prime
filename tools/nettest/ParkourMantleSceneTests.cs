@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MphRead;
 using MphRead.Entities;
 using MphRead.Formats;
@@ -27,10 +28,22 @@ internal static class ParkourMantleSceneTests
     private static readonly Action<KeyboardState, Keys, bool> SetKey = typeof(KeyboardState)
         .GetMethod("SetKeyState", Hidden | BindingFlags.Public)!.CreateDelegate<Action<KeyboardState, Keys, bool>>();
     private static readonly FieldInfo Contacts = typeof(PlayerEntity).GetField("_collisionScratch", Hidden)!;
+    private static readonly FieldInfo Seed = typeof(PlayerEntity).GetField("_modMantleSeed", Hidden)!;
+    private static readonly FieldInfo SeedBlocked = typeof(PlayerEntity).GetField("_modMantleSeedBlocked", Hidden)!;
+    private static readonly FieldInfo ContactFrame = typeof(PlayerEntity).GetField("_modParkourContactFrame", Hidden)!;
+    private static readonly FieldInfo SeedNormal = typeof(PlayerEntity).GetField("_modMantleSeedNormal", Hidden)!;
+    private static readonly FieldInfo SeedPlane = typeof(PlayerEntity).GetField("_modMantleSeedPlane", Hidden)!;
     private static int _checks;
-    private sealed record Tick(int Index, Vector3 Position, Vector3 Velocity, bool Standing, bool Front,
+    private sealed record Tick(int Index, [property: JsonIgnore] Vector3 Position,
+        [property: JsonIgnore] Vector3 Velocity, bool Standing, bool Front,
         bool Forward, bool JumpPressed, bool Active, bool Applied, bool Completed, int Ticks,
-        bool NativeJump, bool Alt, bool Transition, bool SafeTop);
+        bool NativeJump, bool Alt, bool Transition, bool SafeTop, int Admission,
+        bool SeedBefore, bool SeedBlockedBefore, ulong ContactFrameBefore,
+        float SeedNormalX, float SeedNormalY, float SeedNormalZ, float SeedPlaneBefore)
+    {
+        public float[] PositionXyz => new[] { Position.X, Position.Y, Position.Z };
+        public float[] VelocityXyz => new[] { Velocity.X, Velocity.Y, Velocity.Z };
+    }
     private sealed record Capture(string Scenario, string Hunter, string Model, int Contact, int Request,
         int Abort, Tick[] Ticks);
     private static void Check(bool good, string label)
@@ -58,7 +71,7 @@ internal static class ParkourMantleSceneTests
                         "fresh request follows actual native front-face contact");
                     Tick[] applied = capture.Ticks.Where(t => t.Applied).ToArray();
                     Check(applied.Length > 1 && applied.Length <= MantleMovementV1.Ticks,
-                        "actual mantle movement is bounded to at most 24 fixed ticks");
+                        $"actual mantle movement is bounded to at most 24 fixed ticks (observed {applied.Length}, request {capture.Request})");
                     Check(capture.Ticks.Count(t => t.Completed) == 1,
                         "one fresh request completes exactly one mantle");
                     Check(capture.Ticks[capture.Request].JumpPressed && !capture.Ticks[capture.Request].NativeJump,
@@ -168,6 +181,10 @@ internal static class ParkourMantleSceneTests
                 SetKey(keyboard, Keys.W, forward); SetKey(keyboard, Keys.Space, jump);
                 SetKey(keyboard, Keys.Tab, scenario == "morph" && i == abort);
                 ulong frame = scene.FrameCount; long steps = scene.DeveloperMomentumSteps;
+                bool seedBefore = (bool)Seed.GetValue(p)!, seedBlockedBefore = (bool)SeedBlocked.GetValue(p)!;
+                ulong contactFrameBefore = (ulong)ContactFrame.GetValue(p)!;
+                Vector3 seedNormal = (Vector3)SeedNormal.GetValue(p)!;
+                float seedPlaneBefore = (float)SeedPlane.GetValue(p)!;
                 scene.OnSimulationFrame();
                 Check(p.Health > 0 && p.ModIsInPlay && !NetSession.Active, "living offline owned keyboard player");
                 Check(p.Controls.MoveUp.IsDown == forward && p.Controls.Jump.IsDown == jump,
@@ -196,7 +213,9 @@ internal static class ParkourMantleSceneTests
                 ticks[i] = new(i, p.Position, p.Speed, p.Flags1.TestFlag(PlayerFlags1.Standing), front,
                     forward, p.Controls.Jump.IsPressed, p.ModParkourMantleActive,
                     p.ModParkourMantleApplied(frame), p.ModParkourMantleCompleted(frame), p.ModParkourMantleTicks,
-                    nativeJump, p.IsAltForm, p.IsMorphing || p.IsUnmorphing, safeTop);
+                    nativeJump, p.IsAltForm, p.IsMorphing || p.IsUnmorphing, safeTop,
+                    p.ModParkourMantleAdmission, seedBefore, seedBlockedBefore, contactFrameBefore,
+                    seedNormal.X, seedNormal.Y, seedNormal.Z, seedPlaneBefore);
             }
             return new(scenario, hunter.ToString(), model.ToString(), contact, request, abort, ticks);
         }

@@ -8,6 +8,10 @@ namespace MphRead.Entities;
 
 public partial class PlayerEntity
 {
+    private enum MantleAdmission { None, Body, Contact, Input, Velocity, StandingClearance,
+        ContactGap, Travel, Top, Rise, Support, LiftRoute, AcrossRoute, SettleRoute, Accepted }
+    private MantleAdmission _modMantleAdmission;
+    internal int ModParkourMantleAdmission => (int)_modMantleAdmission;
     private bool _modMantling, _modMantlePending, _modMantleSeed, _modMantleSeedBlocked;
     private Vector3 _modMantleNormal, _modMantleSeedNormal, _modMantleStart, _modMantleRaised, _modMantleTarget;
     private float _modMantleSeedPlane;
@@ -56,18 +60,31 @@ public partial class PlayerEntity
             if (!ModMantleBodyAllowed || !ModMantleInput(_modMantleNormal)) ModCancelParkourMantle();
             return;
         }
-        if (!Controls.Jump.IsPressed || !ModMantleBodyAllowed || !_modMantleSeed || _modMantleSeedBlocked
-            || _scene.FrameCount == 0 || _modParkourContactFrame != _scene.FrameCount - 1
-            || !ModMantleInput(_modMantleSeedNormal) || !MantleMovementV1.Finite(Speed)
-            || Speed.Length * NativeVelocityUnitsPerSecond > 18 || !ModCanOccupyBiped(false)) return;
+        if (!Controls.Jump.IsPressed) return;
+        _modMantleAdmission = ModPlanParkourMantle();
+        _modMantlePending = _modMantleAdmission == MantleAdmission.Accepted;
+    }
+
+    // The bounded result is retained for scene diagnostics, without strings,
+    // per-frame logging or any effect on admission and collision ownership.
+    private MantleAdmission ModPlanParkourMantle()
+    {
+        if (!ModMantleBodyAllowed) return MantleAdmission.Body;
+        if (!_modMantleSeed || _modMantleSeedBlocked || _scene.FrameCount == 0
+            || _modParkourContactFrame != _scene.FrameCount - 1) return MantleAdmission.Contact;
+        if (!ModMantleInput(_modMantleSeedNormal)) return MantleAdmission.Input;
+        if (!MantleMovementV1.Finite(Speed) || Speed.Length * NativeVelocityUnitsPerSecond > 18)
+            return MantleAdmission.Velocity;
+        if (!ModCanOccupyBiped(false)) return MantleAdmission.StandingClearance;
         float radius = Fixed.ToFloat(Values.BipedColRadius);
         float gap = Vector3.Dot(Position, _modMantleSeedNormal) - _modMantleSeedPlane - radius;
-        if (gap < -CollisionRecoverySkin || gap > CollisionRecoverySkin) return;
+        if (gap < -CollisionRecoverySkin || gap > CollisionRecoverySkin) return MantleAdmission.ContactGap;
         _modMantleNormal = _modMantleSeedNormal;
-        // The bound is origin-to-origin. Clearing a face needs two radii plus
-        // landing margin, rather than an arbitrary one-unit inward displacement.
-        float travel = 2 * radius + gap + MantleMovementV1.Clearance;
-        if (!float.IsFinite(travel) || travel > MantleMovementV1.MaxTravel) return;
+        // Origin-to-origin travel includes both radii, the footprint proof's
+        // margin, and an additional margin so quantization cannot place the
+        // landing disk exactly on its containment threshold.
+        float travel = 2 * radius + gap + 2 * MantleMovementV1.Clearance;
+        if (!float.IsFinite(travel) || travel > MantleMovementV1.MaxTravel) return MantleAdmission.Travel;
         Vector3 inward = Position - _modMantleNormal * travel;
         float feet = Position.Y + ModBipedBottom;
         CollisionResult top = default;
@@ -75,16 +92,19 @@ public partial class PlayerEntity
             inward.WithY(feet + .05f), TestFlags.Players, _scene, ref top)
             || top.EntityCollision != null || top.Field0 != 0 || top.Plane.Xyz != Vector3.UnitY
             || top.Slipperiness != 0 || top.Flags.TestFlag(CollisionFlags.Damaging) || top.Terrain == Terrain.Lava
-            || !float.IsFinite(top.Plane.W)) return;
+            || !float.IsFinite(top.Plane.W)) return MantleAdmission.Top;
         float rise = top.Plane.W - feet;
-        if (rise <= .05f || rise + MantleMovementV1.Clearance > MantleMovementV1.MaxRise) return;
+        if (rise <= .05f || rise + MantleMovementV1.Clearance > MantleMovementV1.MaxRise) return MantleAdmission.Rise;
         _modMantleStart = Position;
         _modMantleTarget = inward.WithY(top.Plane.W - ModBipedBottom);
         _modMantleRaised = Position.WithY(_modMantleTarget.Y + MantleMovementV1.Clearance);
-        if (!ModMantleSupported(_modMantleTarget) || !ModMantleRoute(Position, _modMantleRaised)
-            || !ModMantleRoute(_modMantleRaised, _modMantleTarget.AddY(MantleMovementV1.Clearance))
-            || !ModMantleRoute(_modMantleTarget.AddY(MantleMovementV1.Clearance), _modMantleTarget)) return;
-        _modMantlePending = true;
+        if (!ModMantleSupported(_modMantleTarget)) return MantleAdmission.Support;
+        if (!ModMantleRoute(Position, _modMantleRaised)) return MantleAdmission.LiftRoute;
+        if (!ModMantleRoute(_modMantleRaised, _modMantleTarget.AddY(MantleMovementV1.Clearance)))
+            return MantleAdmission.AcrossRoute;
+        if (!ModMantleRoute(_modMantleTarget.AddY(MantleMovementV1.Clearance), _modMantleTarget))
+            return MantleAdmission.SettleRoute;
+        return MantleAdmission.Accepted;
     }
 
     private void ModApplyParkourMantle(bool movementAllowed)
