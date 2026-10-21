@@ -112,6 +112,7 @@ namespace MphRead.Mods.Launcher
             LauncherPrefs.Bots = Math.Clamp(bots, 0, PlayerEntity.SlotCapacity - 1);
             LauncherPrefs.BotLevel = Math.Clamp(botLevel, 0, 3);
             LauncherPrefs.LastKind = (int)LaunchKind.Offline;
+            LauncherPrefs.LastSelectedMap = roomKey;
             LauncherPrefs.Save();
             return plan;
         }
