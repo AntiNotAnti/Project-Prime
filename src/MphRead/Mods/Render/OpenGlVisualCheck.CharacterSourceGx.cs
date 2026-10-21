@@ -10,6 +10,7 @@ using MphRead.Mods.Render.Characters;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using NativeGL = OpenTK.Graphics.OpenGL.GL;
+using NVector4 = System.Numerics.Vector4;
 
 namespace MphRead.Mods.Render
 {
@@ -92,6 +93,25 @@ namespace MphRead
                 multi.TexIds = new uint[]{1,2};
                 Pixel(Picture(multi),32,32,160,160,200,255,"ordered TEV register3 write and later mix use independent numeric oracle",2);
 
+                // Invented profile state is compiled into each plan. Alternating
+                // zero/yellow/zero must not borrow another cached program's C1.
+                var yellow = new NVector4(253/255f,239/255f,86/255f,0);
+                var c1 = Material(Stage(new[]{15,4,12,15},new[]{7,7,7,6}));
+                byte[] c1Zero = Picture(c1);
+                Pixel(c1Zero,32,32,0,0,0,255,"default source C1 remains zero on the GPU");
+                Pixel(Picture(c1,initialRegister1:yellow),32,32,253,239,86,255,"profile C1 uses explicit register2 RGB on the GPU");
+                check(c1Zero.SequenceEqual(Picture(c1)),"zero/yellow/zero profile draws preserve zero-register cache isolation");
+                var c1Mix = Material(Stage(new[]{15,8,4,0},new[]{7,7,7,6}));
+                Pixel(Picture(c1Mix,initialRegister1:yellow),32,32,63,120,65,255,"source-like texture times C1 has independent byte oracle");
+                var c1Write = Material(Stage(new[]{15,4,12,15},new[]{7,7,7,6},0x700),
+                    Stage(new[]{15,6,12,15},new[]{7,7,7,6}));
+                Pixel(Picture(c1Write,initialRegister1:yellow),32,32,253,239,86,255,"C1 propagated through committed C2 reaches later GPU stage");
+                var c1Overwrite = Material(Stage(new[]{15,4,12,15},new[]{7,7,7,6},0x700),
+                    Stage(new[]{15,8,12,15},new[]{7,7,7,6},0x700,texture:1),
+                    Stage(new[]{15,6,12,15},new[]{7,7,7,6}));
+                c1Overwrite.TexIds = new uint[]{1,2};
+                Pixel(Picture(c1Overwrite,initialRegister1:yellow),32,32,128,64,32,255,"later C2 write replaces propagated C1 before its GPU read");
+
                 var alpha = Material(Stage(new[]{15,12,8,15},new[]{7,7,7,4}));
                 alpha.BlendSrc = 4; alpha.BlendDst = 5; alpha.Flags |= Cmdl.DepthSort;
                 Pixel(Picture(alpha),32,32,16,32,48,207,"source alpha framebuffer policy blends straight RGB exactly once",2);
@@ -117,6 +137,11 @@ namespace MphRead
                 environment.TexGens[0] = new Cmdl.TexGen{Type=0,Src=1,Mtx=0,Post=0};
                 environment.UvAnims = new[]{new Cmdl.UvAnim{Mode=0}};
                 Pixel(Picture(environment),32,32,64,128,192,255,"environment domain uses raw normal and post STQ q1 with negative Z");
+                var post1 = Material(Stage(new[]{15,12,8,15},new[]{7,7,7,6}));
+                post1.TexGens[0] = new Cmdl.TexGen{Type=0,Src=1,Mtx=3,Post=3};
+                post1.UvAnims = new[]{new Cmdl.UvAnim{Mode=2,Params=new double[]{.125,.25,.5,.75}},new Cmdl.UvAnim{Mode=0}};
+                Pixel(Picture(post1,2),32,32,64,128,192,255,"packed post3 selects slot1 environment rows rather than slot0 scroll or identity");
+                check(Picture(post1,0).SequenceEqual(Picture(post1,2)),"slot1 environment sampling remains independent of animated slot0");
 
                 // Named preview lighting has its own numeric expectation.
                 GraphicsApi.DeleteLists(weightedList,1);
@@ -186,9 +211,9 @@ namespace MphRead
                     GraphicsApi.Clear(ClearBufferMask.ColorBufferBit|ClearBufferMask.DepthBufferBit);if(preserve)GraphicsApi.DepthMask(mask);
                 }
                 byte[] Read(){var b=new byte[size*size*4];GraphicsApi.ReadPixels(0,0,size,size,PixelFormat.Rgba,PixelType.UnsignedByte,b);return b;}
-                CharacterSourceGxBinding Binding(Cmdl.Material material)
+                CharacterSourceGxBinding Binding(Cmdl.Material material,NVector4 initialRegister1=default)
                 {
-                    var plan=CharacterSourceGxProgram.Compile(material);string key=plan.Vertex120+plan.Fragment120;
+                    var plan=CharacterSourceGxProgram.Compile(material,initialRegister1);string key=plan.Vertex120+plan.Fragment120;
                     if(!scene._sourceGxPrograms.TryGetValue(key,out var gpu))
                     {
                         int vs=0,fs=0,p=0;
@@ -197,8 +222,8 @@ namespace MphRead
                     }
                     return new(scene,plan,gpu.Id,Array.AsReadOnly(material.TexIds.Select(t=>t==1?image:second).ToArray()));
                 }
-                void Draw(Cmdl.Material m,double seconds){item.SourceGx=new(Binding(m),seconds);scene.RenderItem(item);}
-                byte[] Picture(Cmdl.Material m,double seconds=0){Clear();Draw(m,seconds);NativeGL.Finish();check(NativeGL.GetError()==ErrorCode.NoError,"source generated shader compiles/executes GL-clean");return Read();}
+                void Draw(Cmdl.Material m,double seconds,NVector4 initialRegister1=default){item.SourceGx=new(Binding(m,initialRegister1),seconds);scene.RenderItem(item);}
+                byte[] Picture(Cmdl.Material m,double seconds=0,NVector4 initialRegister1=default){Clear();Draw(m,seconds,initialRegister1);NativeGL.Finish();check(NativeGL.GetError()==ErrorCode.NoError,"source generated shader compiles/executes GL-clean");return Read();}
                 void Pixel(byte[] p,int x,int y,int r,int g,int b,int alphaByte,string why,int tolerance=1)
                 {int o=(y*size+x)*4;check(Math.Abs(p[o]-r)<=tolerance&&Math.Abs(p[o+1]-g)<=tolerance&&Math.Abs(p[o+2]-b)<=tolerance&&Math.Abs(p[o+3]-alphaByte)<=tolerance,why+$"; actual={p[o]},{p[o+1]},{p[o+2]},{p[o+3]} expected={r},{g},{b},{alphaByte}");}
                 string State()

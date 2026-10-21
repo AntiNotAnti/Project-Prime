@@ -15,6 +15,7 @@ namespace MphRead.Mods.Render.Characters;
 internal sealed class CharacterSourceGxProgram
 {
     internal const string Policy = "echoes-body-gx-preview-v1-raw-normal-zero-registers-white-channels-linear-top-repeat";
+    internal const string TrooperPolicy = "prime-trooper-gx-preview-v1-raw-normal-profile-c1-white-channels-linear-top-repeat";
     internal enum Pass { Opaque, Alpha, Additive }
     internal sealed record Stage(int A, int B, int C, int D, int Aa, int Ab, int Ac, int Ad,
         int ColorDestination, int AlphaDestination, int Texture, int Coordinate, int Raster);
@@ -29,13 +30,20 @@ internal sealed class CharacterSourceGxProgram
     internal bool SourceDepthSorting { get; }
     internal Pass DrawPass { get; }
     internal int InitialRegisterDependencies { get; }
+    internal Vector4 InitialRegister1 { get; }
     internal string Vertex120 { get; }
     internal string Fragment120 { get; }
     internal string Vertex300 { get; }
     internal string Fragment300 { get; }
 
-    private CharacterSourceGxProgram(Cmdl.Material m)
+    private CharacterSourceGxProgram(Cmdl.Material m, Vector4 initialRegister1)
     {
+        Require(float.IsFinite(initialRegister1.X) && float.IsFinite(initialRegister1.Y)
+            && float.IsFinite(initialRegister1.Z) && float.IsFinite(initialRegister1.W)
+            && initialRegister1.X is >= 0 and <= 1 && initialRegister1.Y is >= 0 and <= 1
+            && initialRegister1.Z is >= 0 and <= 1 && initialRegister1.W == 0,
+            "Source C1 requires a finite unit RGB value and zero alpha.");
+        InitialRegister1 = initialRegister1;
         Require(m.TexIds.Length is > 0 and <= 4 && m.Stages.Length is > 0 and <= 4
             && m.TexGens.Length is > 0 and <= 4 && m.UvAnims.Length <= 3
             && m.Konst.Length == 0 && m.IndTex == null && (m.Flags & (Cmdl.IndStage | Cmdl.AlphaTest)) == 0,
@@ -57,7 +65,7 @@ internal sealed class CharacterSourceGxProgram
         Generators = Array.AsReadOnly(m.TexGens.Select(g =>
         {
             Require(g.Type == 0 && g.Src is 1 or 4 or 5 or 6 && g.Mtx is 0 or 3 or 6 or 30
-                && g.Post is 0 or 6 or 61, "Unsupported body texgen.");
+                && g.Post is 0 or 3 or 6 or 61, "Unsupported body texgen.");
             return new Generator(g.Src, g.Mtx == 30 ? -1 : g.Mtx / 3, g.Normalize, g.Post == 61 ? -1 : g.Post / 3);
         }).ToArray());
         Animations = Array.AsReadOnly(m.UvAnims.Select(a =>
@@ -70,7 +78,7 @@ internal sealed class CharacterSourceGxProgram
         {
             Require(s.RawColorOp is 0x100 or 0x700 && s.RawAlphaOp is 0x100 or 0x700
                 && s.KAlpha == 0 && s.KColor == 0 && s.Ras is 4 or 6 or 255
-                && s.ColorIn.Length == 4 && s.ColorIn.All(v => v is 0 or 6 or 8 or 10 or 12 or 15)
+                && s.ColorIn.Length == 4 && s.ColorIn.All(v => v is 0 or 4 or 6 or 8 or 10 or 12 or 15)
                 && s.AlphaIn.Length == 4 && s.AlphaIn.All(v => v is 0 or 4 or 6 or 7)
                 && (s.Tex == 255 || s.Tex >= 0 && s.Tex < Textures.Count)
                 && (s.Tex == 255 || s.TexCoord >= 0 && s.TexCoord < Generators.Count), "Unsupported body TEV stage.");
@@ -84,7 +92,7 @@ internal sealed class CharacterSourceGxProgram
         int[] rgb = { 1, 2, 4, 8 }, alpha = { 16, 32, 64, 128 };
         foreach (var s in Stages)
         {
-            int C(int v) => v == 0 ? rgb[0] : v == 6 ? rgb[3] : 0;
+            int C(int v) => v == 0 ? rgb[0] : v == 4 ? rgb[2] : v == 6 ? rgb[3] : 0;
             int A(int v) => v == 0 ? alpha[0] : 0;
             int cr = C(s.D) | (s.A == s.B ? C(s.A) : s.C == 15 ? C(s.A) : s.C == 12 ? C(s.B) : C(s.A) | C(s.B) | C(s.C));
             int ar = A(s.Ad) | (s.Aa == s.Ab ? A(s.Aa) : s.Ac == 7 ? A(s.Aa) : s.Ac == 6 ? A(s.Ab) : A(s.Aa) | A(s.Ab) | A(s.Ac));
@@ -94,7 +102,8 @@ internal sealed class CharacterSourceGxProgram
         Vertex120 = Vertex(es: false); Fragment120 = Fragment(es: false);
         Vertex300 = Vertex(es: true); Fragment300 = Fragment(es: true);
     }
-    internal static CharacterSourceGxProgram Compile(Cmdl.Material material) => new(material);
+    internal static CharacterSourceGxProgram Compile(Cmdl.Material material, Vector4 initialRegister1 = default)
+        => new(material, initialRegister1);
     internal static void Require(bool condition, string message)
     { if (!condition) throw new InvalidDataException(message); }
 
@@ -104,11 +113,13 @@ internal sealed class CharacterSourceGxProgram
     {
         Require(textureSamples.Count == Stages.Count && (initial == null || initial.Count == 4), "TEV sample inventory mismatch.");
         var regs = initial?.ToArray() ?? new Vector4[4];
+        if (initial == null) regs[2] = InitialRegister1;
         for (int i = 0; i < Stages.Count; i++)
         {
             var s = Stages[i]; var tex = s.Texture == 255 ? Vector4.One : textureSamples[i];
             Vector3 ras = s.Raster == 4 ? new(raster.X, raster.Y, raster.Z) : Vector3.Zero;
-            Vector3 C(int v) => v switch { 0 => new(regs[0].X, regs[0].Y, regs[0].Z), 6 => new(regs[3].X, regs[3].Y, regs[3].Z),
+            Vector3 C(int v) => v switch { 0 => new(regs[0].X, regs[0].Y, regs[0].Z), 4 => new(regs[2].X, regs[2].Y, regs[2].Z),
+                6 => new(regs[3].X, regs[3].Y, regs[3].Z),
                 8 => new(tex.X, tex.Y, tex.Z), 10 => ras, 12 => Vector3.One, 15 => Vector3.Zero, _ => throw new InvalidDataException() };
             float A(int v) => v switch { 0 => regs[0].W, 4 => tex.W, 6 => 1, 7 => 0, _ => throw new InvalidDataException() };
             Vector3 a = C(s.A), b = C(s.B), c = C(s.C), d = C(s.D);
@@ -188,12 +199,22 @@ internal sealed class CharacterSourceGxProgram
         b.Append($"{varying} vec4 gx_raster;\n");
         for (int i = 0; i < Generators.Count; i++) b.Append($"{varying} vec3 gx_stq{i};\n");
         for (int i = 0; i < Textures.Count; i++) b.Append($"uniform sampler2D gx_tex{i};\n");
-        b.Append("void main(){ vec4 r0=vec4(0.0),r1=vec4(0.0),r2=vec4(0.0),r3=vec4(0.0);\n");
+        // Keep the established Echoes zero-register shader bytes unchanged.
+        // The closed Power profile supplies its original actor C1 value;
+        // GLSL owns that value explicitly rather than inheriting driver state.
+        string F(float value)
+        {
+            string text = value.ToString("R", CultureInfo.InvariantCulture);
+            return text.Contains('.') || text.Contains('E') ? text : text + ".0";
+        }
+        string c1 = InitialRegister1 == Vector4.Zero ? "vec4(0.0)"
+            : $"vec4({F(InitialRegister1.X)},{F(InitialRegister1.Y)},{F(InitialRegister1.Z)},0.0)";
+        b.Append($"void main(){{ vec4 r0=vec4(0.0),r1=vec4(0.0),r2={c1},r3=vec4(0.0);\n");
         for (int i = 0; i < Stages.Count; i++)
         {
             var s = Stages[i];
             b.Append(s.Texture == 255 ? $"vec4 tx{i}=vec4(1.0);\n" : $"vec4 tx{i}={sample}(gx_tex{s.Texture},gx_stq{s.Coordinate}.xy/gx_stq{s.Coordinate}.z);\n");
-            string C(int v) => v switch { 0 => "r0.rgb", 6 => "r3.rgb", 8 => $"tx{i}.rgb", 10 => s.Raster == 4 ? "gx_raster.rgb" : "vec3(0.0)", 12 => "vec3(1.0)", _ => "vec3(0.0)" };
+            string C(int v) => v switch { 0 => "r0.rgb", 4 => "r2.rgb", 6 => "r3.rgb", 8 => $"tx{i}.rgb", 10 => s.Raster == 4 ? "gx_raster.rgb" : "vec3(0.0)", 12 => "vec3(1.0)", _ => "vec3(0.0)" };
             string A(int v) => v switch { 0 => "r0.a", 4 => $"tx{i}.a", 6 => "1.0", _ => "0.0" };
             b.Append($"vec3 c{i}=clamp({C(s.D)}+mix({C(s.A)},{C(s.B)},{C(s.C)}),0.0,1.0);\nfloat a{i}=clamp({A(s.Ad)}+mix({A(s.Aa)},{A(s.Ab)},{A(s.Ac)}),0.0,1.0);\nr{s.ColorDestination}.rgb=c{i}; r{s.AlphaDestination}.a=a{i};\n");
         }
@@ -209,24 +230,34 @@ internal sealed class CharacterSourceGxMaterials
     internal RetroCharacterMaterialArchive.Archive Archive { get; }
     internal IReadOnlyList<CharacterSourceGxProgram> Programs { get; }
     internal IReadOnlyDictionary<uint, RetroTextureSource.Decoded> Images { get; }
+    internal string Policy { get; }
     private CharacterSourceGxMaterials(RetroCharacterMaterialArchive.Archive archive)
     {
         Archive = archive;
-        Programs = Array.AsReadOnly(archive.Programs.Select(p => CharacterSourceGxProgram.Compile(archive.ReadProgram(p.Ordinal))).ToArray());
+        bool trooper = CharacterGeneratedTrooperProfile.Find(archive.Binding.CharacterId) != null;
+        Policy = trooper ? CharacterSourceGxProgram.TrooperPolicy : CharacterSourceGxProgram.Policy;
+        // Prime's Power Trooper sets GX register1 in actor code rather than the
+        // CMDL. SecondHunt 41452f2d CampaignRetroBody.GameRegister1 (MIT,
+        // Copyright2020 NoneGiven; repository LICENSE retained) supplies this
+        // exact RGB. Other closed profiles keep the existing explicit zeros.
+        Vector4 c1 = archive.Binding.CharacterId == "trooper-power" ? new(253 / 255f, 239 / 255f, 86 / 255f, 0) : Vector4.Zero;
+        Programs = Array.AsReadOnly(archive.Programs.Select(p => CharacterSourceGxProgram.Compile(archive.ReadProgram(p.Ordinal), c1)).ToArray());
         Images = new System.Collections.ObjectModel.ReadOnlyDictionary<uint, RetroTextureSource.Decoded>(archive.Textures.ToDictionary(t => t.ResourceId, t => archive.DecodeTexture(t.ResourceId)));
     }
     internal static CharacterSourceGxMaterials Read(byte[] bytes, string modelSha, string character)
     {
+        var trooper = CharacterGeneratedTrooperProfile.Find(character);
         string expected = character switch {
             "darksamus-echoes" => "6a5666bfb14ee989658c7543543429d8de824820bee2531f0051a21a42be86d7",
             "darksamus-overcharged-echoes" => "69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d",
-            _ => throw new InvalidDataException("No qualified source body material profile.") };
+            _ => trooper?.MaterialSha ?? throw new InvalidDataException("No qualified source body material profile.") };
         CharacterSourceGxProgram.Require(bytes.Length is > RetroCharacterMaterialArchive.HeaderBytes and <= RetroCharacterMaterialArchive.MaxArchiveBytes
             && Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)) == expected,
             "Exact source body material archive required before semantic decode.");
         var a = RetroCharacterMaterialArchive.Read(bytes);
         CharacterSourceGxProgram.Require(a.Sha256 == expected && a.Binding.CharacterId == character
-            && a.GeometrySha256 == modelSha, "Source body archive/appearance/geometry identity mismatch.");
+            && a.GeometrySha256 == modelSha && (trooper == null || modelSha == trooper.ModelSha),
+            "Source body archive/appearance/geometry identity mismatch.");
         return new(a);
     }
 }
