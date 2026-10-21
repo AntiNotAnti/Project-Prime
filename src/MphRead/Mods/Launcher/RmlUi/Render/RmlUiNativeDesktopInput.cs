@@ -90,6 +90,7 @@ internal static partial class RmlUiOpenGlSmoke
         _hudEditor?.ReleaseInput(); _hudPointerHeld = false;
         _fullSettings?.CancelInputCapture(revertDisplayTrial);
         _playback?.Viewport.Release();
+        _studioShortcutHeld.Clear();
         _studioEditor?.ReleaseInput();
         CancelNativeComposition();
         _gamepad?.Reset(); _gamepadDocument = default;
