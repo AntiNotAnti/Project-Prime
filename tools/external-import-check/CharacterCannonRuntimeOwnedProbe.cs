@@ -36,7 +36,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
         new("charge-release",40),new("turn",30),new("walk",30),new("missile",50),new("power",50),
         new("morph",100),new("unmorph",100),new("settle",100)];
     private sealed record Result(string Identity, string[] Trace, object[] Stages, int CannonFrames,
-        int FallbackFrames, int RepeatedDraws, double MaximumTipError, double MaximumPaletteError);
+        int FallbackFrames, int RepeatedDraws, double MaximumTipError, double MaximumPaletteError, object[] FractionalSchedules);
 
     internal static int Run(string rvz)
     {
@@ -169,6 +169,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     int sourceFrames=0,fallbackFrames=0,repeats=0,sourceFire=0,sourceCharge=0,sourceRelease=0;
                     double maxTip=0,maxPalette=0;bool fired=false,charged=false,morphed=false,missile=false;
                     var trace=new List<string>();var stages=new List<object>();var captured=new HashSet<string>();
+                    var fractionalSchedules=new List<object>();
                     Picture(false);Rng.SetRng1(123456);Rng.SetRng2(654321);scene.Random.SetRng1(123456);scene.Random.SetRng2(654321);
                     foreach(Stage stage in Script)
                     {
@@ -203,6 +204,71 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         foreach(Keys key in KeysUsed)Key(keyboard,key,false);
                         for(int n=0;n<300&&SourceItems(scene).Count==0;n++){scene.OnSimulationFrame();Picture(false);}
                         Check(SourceItems(scene).Count==cannon!.Segments.Count,"fallback fixtures start from complete source cannon");
+                        // This normal-only phase follows the captured parity
+                        // trace. Its additional steps/pictures are separately
+                        // counted and never presented as part of that trace.
+                        int savedSourceFrames=sourceFrames,savedFallbackFrames=fallbackFrames,savedRepeats=repeats;
+                        // Classic moving-reticle mode deliberately follows its
+                        // eased camera rather than late pointer input. Select
+                        // the existing responsive native viewmodel fixture here.
+                        bool phasePro=Features.ProHud;Features.ProHud=false;
+                        bool phaseCrosshair=Features.FixedCrosshair,phaseWeapon=Features.FixedWeapon;
+                        Features.FixedCrosshair=true;Features.FixedWeapon=true;
+                        try
+                        {
+                        foreach(int rate in new[]{90,120,240,540})
+                        {
+                            FrameTiming.FrameRateCap=rate>FrameTiming.MaxCap?FrameTiming.Unlimited:rate;
+                            FrameTiming.Reset();FrameTiming.ResetDiagnostics();
+                            int rateSource=sourceFrames,rateFallback=fallbackFrames,rateRepeats=repeats;
+                            int completedSteps=0,fractionalPictures=0,changedOrientations=0,zeroStepPictures=0;
+                            ulong firstFrame=scene.FrameCount;double firstClock=owner!.MaterialSeconds;
+                            Matrix4? previousGun=null;double minimumAlpha=1,maximumAlpha=0;
+                            string fixedSkin=RawPalette(cannon);
+                            for(int picture=0;picture<rate;picture++)
+                            {
+                                Bound();ulong priorFrame=scene.FrameCount;double priorClock=owner.MaterialSeconds;
+                                int steps=FrameTiming.Advance(1d/rate);completedSteps+=steps;
+                                if(steps==0)zeroStepPictures++;
+                                for(int step=0;step<steps;step++)scene.OnSimulationFrame();
+                                Check(scene.FrameCount-priorFrame==(ulong)steps
+                                    &&Math.Abs(owner.MaterialSeconds-priorClock-steps/60d)<1e-9,
+                                    "fractional schedule advances native frame and source clock only by returned completed steps");
+                                double alpha=FrameTiming.PresentationAlpha;minimumAlpha=Math.Min(minimumAlpha,alpha);maximumAlpha=Math.Max(maximumAlpha,alpha);
+                                if(alpha>1e-6&&alpha<1-1e-6)fractionalPictures++;
+                                scene.ModSetLateAim((picture%7-3)*.2f,(picture%5-2)*.1f);
+                                Picture(true);
+                                Check(player.ModGetFirstPersonGunTransform(out var preparedGun),"fractional picture retains prepared native first-person pose");
+                                if(previousGun is { } previous&&Distance(previous.ClearTranslation(),preparedGun.ClearTranslation())>1e-7)changedOrientations++;
+                                previousGun=preparedGun;
+                                Check(scene.FrameCount-priorFrame==(ulong)steps
+                                    &&Math.Abs(owner.MaterialSeconds-priorClock-steps/60d)<1e-9&&RawPalette(cannon)==fixedSkin,
+                                    "fractional late aim and repeated pictures preserve fixed raw cannon skin and do not advance source clocks");
+                            }
+                            var schedule=new{Rate=rate,Pictures=rate,CompletedSteps=completedSteps,ZeroStepPictures=zeroStepPictures,
+                                FractionalPictures=fractionalPictures,ChangedPreparedOrientations=changedOrientations,
+                                ResponsiveNativeAim=Features.ResponsiveAimCamera,StaticNativeWeapon=Features.FixedWeapon,
+                                MinimumAlpha=minimumAlpha,MaximumAlpha=maximumAlpha,SourcePictures=sourceFrames-rateSource,
+                                FallbackPictures=fallbackFrames-rateFallback,RepeatedDraws=repeats-rateRepeats,
+                                MaterialClockAdvance=owner.MaterialSeconds-firstClock};
+                            fractionalSchedules.Add(schedule);Console.WriteLine(JsonSerializer.Serialize(new{Probe="cannon-fractional-schedule",schedule}));
+                            Check(fractionalPictures>0,"simulated "+rate+" Hz earns fractional presentation alpha");
+                            Check(changedOrientations>0,"simulated "+rate+" Hz earns changed prepared native gun orientations");
+                            Check(zeroStepPictures>0,"simulated "+rate+" Hz earns pictures between completed simulation steps");
+                            Check(sourceFrames-rateSource>0,"simulated "+rate+" Hz draws visible complete source cannon packets");
+                            Check(scene.FrameCount-firstFrame==(ulong)completedSteps&&FrameTiming.TotalSteps==completedSteps
+                                &&Math.Abs(owner.MaterialSeconds-firstClock-completedSteps/60d)<1e-9,
+                                "per-rate native and source clocks agree with the full completed-step inventory");
+                            scene.ModSetLateAim(0,0);
+                        }
+                        }
+                        finally
+                        {
+                            Features.FixedCrosshair=phaseCrosshair;Features.FixedWeapon=phaseWeapon;Features.ProHud=phasePro;
+                            scene.ModSetLateAim(0,0);
+                        }
+                        FrameTiming.Reset();FrameTiming.FrameRateCap=oldCap;
+                        sourceFrames=savedSourceFrames;fallbackFrames=savedFallbackFrames;repeats=savedRepeats;
                         var flagsProperty=typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!;var flags=player.Flags2;
                         flagsProperty.SetValue(player,flags|PlayerFlags2.Cloaking);
                         try{Picture(false);Check(SourceItems(scene).Count==0,"cloaking falls back before any source cannon packet");}
@@ -220,7 +286,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         scene.OnDrawFrame();Check(SourceItems(scene).Count==0&&!owner.CannonCurrent,"retired cannon never resurrects on draw");
                     }
                     else Check(sourceFrames==0,"native and Final first-person paths retain native gun rendering");
-                    return new(selection?.SelectedAppearance.SkinSource??"native",trace.ToArray(),stages.ToArray(),sourceFrames,fallbackFrames,repeats,maxTip,maxPalette);
+                    return new(selection?.SelectedAppearance.SkinSource??"native",trace.ToArray(),stages.ToArray(),sourceFrames,fallbackFrames,repeats,maxTip,maxPalette,fractionalSchedules.ToArray());
 
                     void Picture(bool repeat,string? label=null)
                     {
@@ -324,8 +390,8 @@ internal static class CharacterCannonRuntimeOwnedProbe
                 CoreSha256=coreSha,ToolSha256=toolSha,Renderer=renderer,GlVersion=version,SourceSha256Before=sourceBefore,SourceSha256After=sourceAfter,
                 NativeSha256Before=nativeBefore,NativeSha256After=nativeAfter,TemporaryDerivedDataDeleted=cleaned,Captures=captures,
                 Runs=runs.Select(run=>new{run.Identity,Frames=run.Trace.Length,GameplayTraceSha256=Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.Trace))),
-                    run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError}),
-                Scope="Actual owned offline first-person input/Scene/GX; fixed source pose, original material2/5 cut, native muzzle/effect/weapon authority; common pre-script RNG seed and status fixtures declared",
+                    run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError,run.FractionalSchedules}),
+                Scope="Actual owned offline first-person input/Scene/GX; fixed source pose, original material2/5 cut, native muzzle/effect/weapon authority;675-step parity trace plus separately counted normal-only simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
                 Unqualified=new[]{"physical controls","Android/macOS","online/replay","source cannon skeletal animation","other weapons","Overcharged source cannon","achieved refresh rate","visual art completeness"}}));
         }
         return error==null?0:1;
