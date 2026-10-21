@@ -297,6 +297,30 @@ internal static class CharacterBodyRuntimeOwnedProbe
                             && owner.MaterialSeconds == beforeShadowClock,
                             "shadow Off resumes frozen imported body without simulation, native state or clock changes");
 
+                        // Injected accepted-presentation-state fixture only:
+                        // this does not exercise or qualify the grapple controller.
+                        PlayerGrappleState savedGrapple = player.ModGrappleState;
+                        var grappleField = typeof(PlayerEntity).GetField("_modGrapple", Hidden)!;
+                        var injectedGrapple = new PlayerGrappleState(true, 1, player.Position + new Vector3(0, 2, 4), 4);
+                        Check(injectedGrapple.IsValid, "injected accepted grapple presentation state is declared valid");
+                        string beforeGrappleState = State(scene, player), beforeGrapplePalette = Palette(owner.Model);
+                        double beforeGrappleClock = owner.MaterialSeconds;
+                        try
+                        {
+                            grappleField.SetValue(player, injectedGrapple);
+                            Picture(false);
+                            Check(player.ModGrappleState == injectedGrapple && BodyItems(scene).Count == 0
+                                && WorldItems(scene).Any(item => nativeBipedLists.Contains(item.ListId)),
+                                "injected accepted grapple presentation state selects complete native biped fallback before imported submission");
+                        }
+                        finally { grappleField.SetValue(player, savedGrapple); }
+                        Picture(false);
+                        Check(player.ModGrappleState == savedGrapple && owner.Current && owner.Ready
+                            && BodyItems(scene).Count == owner.Model.Segments.Count
+                            && State(scene, player) == beforeGrappleState && Palette(owner.Model) == beforeGrapplePalette
+                            && owner.MaterialSeconds == beforeGrappleClock,
+                            "restoring injected grapple presentation state resumes complete imported body with unchanged native state, palette and clock");
+
                         // This is a second source resource/pose owner over the
                         // SAME actual actor model, not a fabricated second actor
                         // or qualification of two simultaneously drawn bodies.
