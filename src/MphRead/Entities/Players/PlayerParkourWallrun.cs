@@ -25,6 +25,7 @@ public partial class PlayerEntity
     {
         _modWallrunning = _modWallkickPending = false;
         _modWallrunNormal = _modWallkickNormal = default;
+        ModRetireWallPicture();
     }
     private void ModResetParkourWallrunForLife()
     {
@@ -140,6 +141,7 @@ public partial class PlayerEntity
             delta.Y == 0 ? before.Y : before.Y + delta.Y / NativeVelocityUnitsPerSecond,
             delta.Z == 0 ? before.Z : before.Z + delta.Z / NativeVelocityUnitsPerSecond);
         _modWallkickFrame = _scene.FrameCount;
+        ModRememberWallKickVisual(_modWallkickNormal);
         ModCancelTraversalSlide();
         _timeSinceGrounded = 16;
         PlayHunterSfx(HunterSfx.Jump);

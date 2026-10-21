@@ -20,7 +20,7 @@ public static class CompactIntentCodec
 
     public static int Size(in IntentPacket intent)
     {
-        if (intent.MantleVisualPhase > 15) throw new ArgumentException("Invalid mantle visual phase.", nameof(intent));
+        if (intent.MantleVisualPhase > 15 || !ParkourWallVisualCodec.Valid(intent.WallVisualCue)) throw new ArgumentException("Invalid mantle visual phase.", nameof(intent));
         if (intent.FireEventCount > NetFireEvents.LiveCapacity)
             throw new ArgumentOutOfRangeException(nameof(intent), "Too many fire events.");
         if (!intent.ShotInputs.Valid(intent.ShotInputCount))
@@ -47,7 +47,7 @@ public static class CompactIntentCodec
         for (int i = 0; i < intent.FireEventCount; i++)
             intent.FireEvents[i].Write(destination.Slice(eventStart + i * FireEvent.Size, FireEvent.Size));
         BinaryPrimitives.WriteUInt16LittleEndian(destination[(size - 3)..], intent.GrappleRequestNonce);
-        destination[size - 1] = intent.MantleVisualPhase;
+        destination[size - 1] = ParkourWallVisualCodec.PackIntent(intent.MantleVisualPhase, intent.WallVisualCue);
         return size;
     }
 
@@ -61,7 +61,7 @@ public static class CompactIntentCodec
         int eventStart = HeaderSize + (hasTouch ? NativeTouchReport.WireSize : 0);
         if (count > NetFireEvents.LiveCapacity || hasTouch && !touchMode
             || hasTouch && count == NetFireEvents.LiveCapacity
-            || payload.Length != eventStart + count * FireEvent.Size + 3 || payload[^1] > 15) return false;
+            || payload.Length != eventStart + count * FireEvent.Size + 3 || !ParkourWallVisualCodec.Valid((byte)(payload[^1] >> 4))) return false;
         IntentPacket decoded = IntentPacket.Read(payload[..IntentPacket.LegacyFullSize]);
         if (hasTouch)
         {
@@ -75,7 +75,8 @@ public static class CompactIntentCodec
             decoded.NativeTouch = new NativeTouchReport(true, false, false, 0, 0, 0, false, true);
         }
         decoded.GrappleRequestNonce = BinaryPrimitives.ReadUInt16LittleEndian(payload[^3..]);
-        decoded.MantleVisualPhase = payload[^1];
+        decoded.MantleVisualPhase = (byte)(payload[^1] & 15);
+        decoded.WallVisualCue = (byte)(payload[^1] >> 4);
         decoded.HasFireEvents = true;
         decoded.FireEventCount = count;
         decoded.ShotInputCount = (byte)(payload[ShotInputOffset] & ~(TouchPresent | TouchMode));

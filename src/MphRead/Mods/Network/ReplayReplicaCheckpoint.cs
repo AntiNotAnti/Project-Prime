@@ -146,6 +146,7 @@ internal sealed partial class ReplayReplicaState
                 byte[] upgraded = new byte[PlayerState.Size];
                 Read(layout.PlayerBytes).CopyTo(upgraded, 0);
                 if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
+                if (protocol < 85) upgraded[PlayerState.Protocol80Size] &= 15;
                 var value = PlayerState.Read(upgraded);
                 if (protocol < 84) value.MantleVisualPhase = 0;
                 if (protocol < 69) value.Crouched = false;
@@ -211,7 +212,16 @@ internal sealed partial class ReplayReplicaState
                     (NetworkPlayerState)reader.ReadByte(), Flag()));
                 restored._hasPlayer[i] = Flag(); restored._players[i] = ReadPlayer();
                 if (protocol < 84) restored._players[i].MantleVisualPhase = 0;
-                restored._hasIntent[i] = Flag(); restored._intents[i] = IntentPacket.Read(Read(layout.IntentBytes));
+                if (protocol < 85) restored._players[i].WallVisualCue = 0;
+                restored._hasIntent[i] = Flag();
+                byte[] intentSource = Read(layout.IntentBytes);
+                if (protocol < 85 && intentSource.Length >= IntentPacket.TouchCanonicalSize)
+                    intentSource[IntentPacket.Protocol82TouchSize] &= 15;
+                if (protocol < 84 && intentSource.Length >= IntentPacket.TouchCanonicalSize)
+                    intentSource[IntentPacket.Protocol82TouchSize] = 0;
+                restored._intents[i] = IntentPacket.Read(intentSource);
+                if (protocol < 85) restored._intents[i].WallVisualCue = 0;
+                if (protocol < 84) restored._intents[i].MantleVisualPhase = 0;
                 if (protocol < 69) restored._intents[i].Buttons &= ~(IntentButtons.Crouch | IntentButtons.CrouchedState);
                 if (protocol < 82) { restored._intents[i].Buttons &= ~IntentButtons.Grapple; restored._intents[i].GrappleRequestNonce = 0; }
                 if (protocol < 77) restored._intents[i].Buttons &= ~(IntentButtons.TuckedState | IntentButtons.TuckRebaseMask);

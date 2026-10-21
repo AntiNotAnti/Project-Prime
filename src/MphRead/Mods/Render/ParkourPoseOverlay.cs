@@ -1,4 +1,5 @@
 using System;
+using MphRead.Mods.Network;
 using System.Runtime.CompilerServices;
 using MphRead.Formats;
 using OpenTK.Mathematics;
@@ -15,7 +16,8 @@ internal static class ParkourPoseOverlay
     internal static void Prewarm(Model model) => Profiles.GetValue(model, m => new(m));
     internal static Scope Begin(Model model, Matrix4 world, ParkourAnimationPose pose)
     {
-        if (SuppressForCheck || !pose.Active || (pose.MantleWeight <= 0 && pose.GrappleAmount <= 0)
+        if (SuppressForCheck || !pose.Active || (pose.MantleWeight <= 0 && pose.GrappleAmount <= 0 && pose.WallAmount <= 0)
+            || !float.IsFinite(pose.WallAmount) || !ParkourWallVisualCodec.Valid(pose.WallCue)
             || !float.IsFinite(pose.MantleProgress)
             || !float.IsFinite(pose.GrappleAmount) || !double.IsFinite(pose.Seconds)
             || !Profiles.TryGetValue(model, out var profile) || !profile.Valid || profile.InUse)
@@ -91,6 +93,7 @@ internal static class ParkourPoseOverlay
 
     private static void Apply(Profile p, Matrix4 world, ParkourAnimationPose pose)
     {
+        if (pose.WallAmount > 0 && pose.WallCue != 0) { ApplyWall(p, world, pose); return; }
         Vector3 forward = Unit(-world.Row2.Xyz.WithY(0), Vector3.UnitZ);
         Vector3 right = new(forward.Z, 0, -forward.X);
         float mantle = pose.MantleWeight, grapple = Math.Clamp(pose.GrappleAmount, 0, 1);
@@ -127,6 +130,46 @@ internal static class ParkourPoseOverlay
         float swing = (float)Math.Sin(pose.Seconds * 4) * .025f * grapple;
         Leg(p, p.LeftLeg, 3, forward, lift * .3f + grapple * .2f, lift * .22f + swing, Math.Max(mantle, grapple));
         Leg(p, p.RightLeg, 6, forward, lift * .12f + grapple * .16f, -lift * .1f - swing, Math.Max(mantle, grapple));
+        p.Model.UpdateMatrixStack();
+    }
+
+    private static void ApplyWall(Profile p, Matrix4 world, ParkourAnimationPose pose)
+    {
+        int kind = ParkourWallVisualCodec.Kind(pose.WallCue);
+        float weight = Math.Clamp(pose.WallAmount, 0, 1);
+        Vector3 forward = Unit(-world.Row2.Xyz.WithY(0), Vector3.UnitZ);
+        Vector3 right = new(forward.Z, 0, -forward.X);
+        Vector3 normal = ParkourWallVisualCodec.Normal(pose.WallCue);
+        Vector3 hip = (p.Saved[p.LeftLeg[0]].Row3.Xyz + p.Saved[p.RightLeg[0]].Row3.Xyz) * .5f;
+        float degrees = kind == 2 ? 12 : kind == 3 ? -9 : 6;
+        Matrix4 lean = Around(hip, forward, Vector3.Dot(normal, right) * MathHelper.DegreesToRadians(degrees) * weight)
+            * Around(hip, right, -Vector3.Dot(normal, forward) * MathHelper.DegreesToRadians(degrees * .6f) * weight);
+        for (int i = 0; i < p.Saved.Length; i++)
+            if (p.Torso[i] && !p.Weapon[i]) p.Model.Nodes[i].Animation = p.Saved[i] * lean;
+        Vector3 shoulder = p.Model.Nodes[p.LeftShoulder].Animation.Row3.Xyz;
+        Vector3 elbow = p.Model.Nodes[p.LeftElbow].Animation.Row3.Xyz;
+        Vector3 hand = p.LeftWrist >= 0 ? p.Model.Nodes[p.LeftWrist].Animation.Row3.Xyz
+            : elbow + Unit(elbow - shoulder, forward) * ((elbow - shoulder).Length * .8f);
+        float reach = (elbow - shoulder).Length + (hand - elbow).Length;
+        Vector3 brace = shoulder - normal * (reach * .65f) + Vector3.UnitY * (reach * .13f);
+        if (kind == 3) brace = shoulder + normal * (reach * .22f) - Vector3.UnitY * (reach * .60f);
+        Solve(shoulder, elbow, hand, Vector3.Lerp(hand, brace, weight),
+            BlendPole(shoulder, elbow, hand, -right + forward * .3f, weight), out Matrix4 upper, out Matrix4 lower);
+        for (int i = 0; i < p.Saved.Length; i++)
+        {
+            if (p.Groups[i] == 1) p.Model.Nodes[i].Animation *= upper;
+            else if (p.Groups[i] == 2) p.Model.Nodes[i].Animation *= lower;
+        }
+        // Existing tuck owns the entire leg chain. Wall bracing must not extend it.
+        if (!pose.WallTucked)
+        {
+            float cycle = (float)Math.Sin(pose.Seconds * (kind == 2 ? 15 : 11));
+            float lift = kind == 2 ? .12f : kind == 3 ? .06f : .035f;
+            float swing = kind == 2 ? .10f : kind == 3 ? .045f : .03f;
+            float push = kind == 3 ? -.14f : 0;
+            Leg(p, p.LeftLeg, 3, forward, weight * (lift + swing * cycle), weight * (push + swing * cycle), weight);
+            Leg(p, p.RightLeg, 6, forward, weight * (lift - swing * cycle), weight * (push - swing * cycle), weight);
+        }
         p.Model.UpdateMatrixStack();
     }
 

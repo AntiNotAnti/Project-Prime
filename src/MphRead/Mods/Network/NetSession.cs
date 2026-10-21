@@ -1922,7 +1922,7 @@ namespace MphRead.Mods.Network
                     int slot = payload[SnapshotHeader.Size + i * PlayerState.Size];
                     if (slot >= RemoteStates.Length || (occupied & (1 << slot)) != 0) return;
                     occupied |= 1 << slot;
-                    if (!PlayerGrappleState.TryRead(payload.Slice(SnapshotHeader.Size + i * PlayerState.Size + PlayerState.Protocol80Size, PlayerGrappleState.Size), out _)) return;
+                    if (!ParkourWallVisualCodec.TryReadGrapple(payload.Slice(SnapshotHeader.Size + i * PlayerState.Size + PlayerState.Protocol80Size, PlayerGrappleState.Size), out _, out _)) return;
                     decoded[i] = PlayerState.Read(payload[(SnapshotHeader.Size + i * PlayerState.Size)..]);
                 }
             }
@@ -2158,6 +2158,7 @@ namespace MphRead.Mods.Network
                     Form = player.ModCaptureForm(),
                     Grapple = player.ModGrappleState,
                     MantleVisualPhase = player.ModPublishedMantleVisualPhase,
+                    WallVisualCue = player.ModPublishedWallVisualCue,
                     SlotIndex = (byte)i,
                     SlotGeneration = NetPlayerLifecycle.Generation(i),
                     LifeId = NetPlayerLifecycle.Get(i),

@@ -14,11 +14,13 @@ public partial class PlayerEntity
     private uint _modMantleVisualSource;
     private bool _modMantleVisualHasSource;
 
-    private bool ModParkourAnimationBodyAllowed => _scene.GameState.MovementModel == MovementModel.Parkour
+    private bool ModParkourAnimationNativeBodyAllowed => _scene.GameState.MovementModel == MovementModel.Parkour
         // Rendering must not invoke the retiring gameplay getter for a private rig.
         && _modCharacterGameplay.Variant == CharacterGameplayVariant.Native
-        && ModMomentumBodyEligible && !ModCrouched && !IsAltForm && !IsMorphing && !IsUnmorphing
+        && ModMomentumBodyEligible && !IsAltForm && !IsMorphing && !IsUnmorphing
         && LoadFlags.TestFlag(LoadFlags.Spawned) && Hunter is >= Hunter.Samus and <= Hunter.Weavel;
+
+    private bool ModParkourAnimationBodyAllowed => ModParkourAnimationNativeBodyAllowed && !ModCrouched;
 
     internal byte ModLocalMantleVisualPhase
     {
@@ -47,7 +49,7 @@ public partial class PlayerEntity
             ? _modMantleVisualPhase : (byte)0;
 
     private void ModResetParkourAnimation()
-    { _modMantleVisualPhase = 0; _modMantleVisualReceived = 0; _modMantleVisualHasSource = false; }
+    { ModResetWallVisual(); _modMantleVisualPhase = 0; _modMantleVisualReceived = 0; _modMantleVisualHasSource = false; }
 
     // This visual hint is consumed only after the same accepted pose/control
     // seam as shot proof. It never enables the mantle controller or moves a body.
@@ -59,6 +61,7 @@ public partial class PlayerEntity
             || _modMantleVisualHasSource && !NetLifecycleTracker.Newer(intent.Frame, _modMantleVisualSource)) return;
         _modMantleVisualHasSource = true; _modMantleVisualSource = intent.Frame;
         _modMantleVisualReceived = _scene.FrameCount;
+        ModSetAcceptedWallVisual(intent.MantleVisualPhase == 0 ? intent.WallVisualCue : (byte)0);
         _modMantleVisualPhase = ModParkourAnimationBodyAllowed && !ModGrappleState.Active
             && intent.MantleVisualPhase <= 15 ? intent.MantleVisualPhase : (byte)0;
     }
@@ -75,12 +78,14 @@ public partial class PlayerEntity
 
     internal ParkourAnimationPose ModGetParkourAnimationPose()
     {
-        if (ParkourPoseOverlay.SuppressForCheck || !ModParkourAnimationBodyAllowed) return default;
-        float mantle = ParkourAnimationPose.DecodeMantle(ModPublishedMantleVisualPhase);
-        bool grapple = _modGrapple.Active && _modGrapple.IsValid
+        if (ParkourPoseOverlay.SuppressForCheck || !ModParkourAnimationNativeBodyAllowed) return default;
+        float mantle = ParkourAnimationPose.DecodeMantle(ModParkourAnimationBodyAllowed ? ModPublishedMantleVisualPhase : (byte)0);
+        bool grapple = ModParkourAnimationBodyAllowed && _modGrapple.Active && _modGrapple.IsValid
             && (_scene.Services.IsReplica || !_scene.MomentumOwnsPlayer(this) || ModGrappleOwnsMovement);
         Vector3 rope = grapple ? _modGrapple.Anchor - Position.AddY(ModBipedEyeOffset) : Vector3.Zero;
         double alpha = FrameTiming.Active && FrameTiming.HighRefreshPresentation ? FrameTiming.PresentationAlpha : 0;
-        return new(Math.Max(0, mantle), grapple ? 1 : 0, rope, (_scene.FrameCount + alpha) / 60d);
+        byte wall = mantle > 0 || grapple ? (byte)0 : ModPublishedWallVisualCue;
+        return new(Math.Max(0, mantle), grapple ? 1 : 0, rope, (_scene.FrameCount + alpha) / 60d,
+            wall, wall == 0 ? 0 : 1, ParkourWallVisualCodec.Normal(wall), ModTucked);
     }
 }

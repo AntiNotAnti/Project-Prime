@@ -24,9 +24,9 @@ internal static class ReplayProtocol58Tests
         try
         {
             _checks = 0;
-            Check(NetConfig.ProtocolVersion == 84 && ReplayIdentityCompatibility.Supports(60)
+            Check(NetConfig.ProtocolVersion == 85 && ReplayIdentityCompatibility.Supports(60)
                 && ReplayIdentityCompatibility.Supports(61) && ReplayIdentityCompatibility.Supports(62)
-                && ReplayIdentityCompatibility.Supports(63) && ReplayIdentityCompatibility.Supports(64) && ReplayIdentityCompatibility.Supports(65) && ReplayIdentityCompatibility.Supports(66) && ReplayIdentityCompatibility.Supports(67) && ReplayIdentityCompatibility.Supports(68) && ReplayIdentityCompatibility.Supports(69) && ReplayIdentityCompatibility.Supports(70) && ReplayIdentityCompatibility.Supports(71) && ReplayIdentityCompatibility.Supports(72) && ReplayIdentityCompatibility.Supports(73) && ReplayIdentityCompatibility.Supports(74) && ReplayIdentityCompatibility.Supports(75) && ReplayIdentityCompatibility.Supports(76) && ReplayIdentityCompatibility.Supports(77) && ReplayIdentityCompatibility.Supports(78) && ReplayIdentityCompatibility.Supports(79) && ReplayIdentityCompatibility.Supports(80) && ReplayIdentityCompatibility.Supports(81) && ReplayIdentityCompatibility.Supports(82) && ReplayIdentityCompatibility.Supports(83) && ReplayIdentityCompatibility.Supports(84) && !ReplayIdentityCompatibility.Supports(85),
+                && ReplayIdentityCompatibility.Supports(63) && ReplayIdentityCompatibility.Supports(64) && ReplayIdentityCompatibility.Supports(65) && ReplayIdentityCompatibility.Supports(66) && ReplayIdentityCompatibility.Supports(67) && ReplayIdentityCompatibility.Supports(68) && ReplayIdentityCompatibility.Supports(69) && ReplayIdentityCompatibility.Supports(70) && ReplayIdentityCompatibility.Supports(71) && ReplayIdentityCompatibility.Supports(72) && ReplayIdentityCompatibility.Supports(73) && ReplayIdentityCompatibility.Supports(74) && ReplayIdentityCompatibility.Supports(75) && ReplayIdentityCompatibility.Supports(76) && ReplayIdentityCompatibility.Supports(77) && ReplayIdentityCompatibility.Supports(78) && ReplayIdentityCompatibility.Supports(79) && ReplayIdentityCompatibility.Supports(80) && ReplayIdentityCompatibility.Supports(81) && ReplayIdentityCompatibility.Supports(82) && ReplayIdentityCompatibility.Supports(83) && ReplayIdentityCompatibility.Supports(84) && ReplayIdentityCompatibility.Supports(85) && !ReplayIdentityCompatibility.Supports(86),
                 "explicit reviewed current protocol boundary preserves protocol60–83 replay support");
             Checkpoints(); PackageCheckpoint81(); Metadata(); ConvertedRules();
             Console.WriteLine($"PROTOCOL58 REPLAY PASS {_checks} byte/archive checks; no gameplay or visual acceptance claim.");
@@ -65,10 +65,10 @@ internal static class ReplayProtocol58Tests
         foreach (bool timed in new[] { false, true })
         {
             byte[] current = Checkpoint(timed, thirdPerson: true, momentum: true);
-            Check(current[6] == 84 && BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(4)) == 16
-                && current[7] == (timed ? 95 : 87), "current writer identifies protocol84/v16 grapple layout");
+            Check(current[6] == 85 && BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(4)) == 16
+                && current[7] == (timed ? 95 : 87), "current writer identifies protocol85/v16 grapple layout");
             var currentRoundtrip = new ReplayReplicaState(); currentRoundtrip.RestoreCheckpoint(new(current));
-            Check(currentRoundtrip.CaptureCheckpoint().Bytes.SequenceEqual(current), "protocol84/v16 exact current checkpoint roundtrip");
+            Check(currentRoundtrip.CaptureCheckpoint().Bytes.SequenceEqual(current), "protocol85/v16 exact current checkpoint roundtrip");
             var destination = new ReplayReplicaState();
             foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81 })
             {
@@ -113,7 +113,7 @@ internal static class ReplayProtocol58Tests
             }
             foreach (int length in new[] { 0, 4, 6, 7, 8, current.Length - 1 })
                 Reject(current.AsSpan(0, length).ToArray(), "truncated checkpoint " + length);
-            var future = current.ToArray(); future[6] = 85; Reject(future, "unreviewed future protocol");
+            var future = current.ToArray(); future[6] = 86; Reject(future, "unreviewed future protocol");
             var old = current.ToArray(); old[6] = 55; Reject(old, "wrong historical feature contract");
             var unknown = current.ToArray(); unknown[7] |= 0x80; Reject(unknown, "unknown feature bit");
             var mismatched = current.ToArray(); mismatched[7] ^= (byte)ReplayReplicaCheckpointFeatures.TimedShots;
@@ -159,9 +159,9 @@ internal static class ReplayProtocol58Tests
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(new(historical));
         Check(restored.Match?.RuleBits == (uint)rules && restored.CaptureCheckpoint().Bytes.SequenceEqual(current),
             "historical native81 preserves Parkour v4 rule bytes through decoder restore");
-        foreach (byte protocol in new byte[] { 81, 82, 83, 84 })
+        foreach (byte protocol in new byte[] { 81, 82, 83, 84, 85 })
         {
-            byte[] custom = protocol == 81 ? historical.ToArray() : protocol < 84 ? Protocol83CheckpointFixtures.ToProtocol83(current) : current.ToArray();
+            byte[] custom = protocol == 81 ? historical.ToArray() : protocol < 84 ? Protocol83CheckpointFixtures.ToProtocol83(current) : protocol == 84 ? Protocol84CheckpointFixtures.ToProtocol84(current) : current.ToArray();
             custom[6] = protocol;
             // Fixed fixture has an unrevisioned present match at47; RuleBits
             // starts at the published body offset103. Preserve both real row
@@ -196,7 +196,7 @@ internal static class ReplayProtocol58Tests
 
     private static void Metadata()
     {
-        foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84 })
+        foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85 })
         foreach (bool? continuation in new bool?[] { null, false, true })
         {
             ReplayMetadata metadata = Fixture(protocol, continuation);
@@ -306,7 +306,7 @@ internal static class ReplayProtocol58Tests
             var magic = encoded.ToArray(); magic[^6] ^= 1; Reject(magic, "wrong capability magic");
             var capability = encoded.ToArray(); capability[^2] = 2; Reject(capability, "wrong capability revision");
             var policy = encoded.ToArray(); policy[^1] = 3; Reject(policy, "invalid continuation policy");
-            foreach (byte unsupported in new byte[] { 55, 85 })
+            foreach (byte unsupported in new byte[] { 55, 86 })
             {
                 Check(Refused(() => ReplayFormatV3.EncodeMetadata(Fixture(unsupported, continuation))), "unreviewed metadata protocol refused by encoder");
                 Check(Refused(() => ReplayFormatV3.DecodeMetadata(unsupported, encoded, 6)), "unreviewed metadata protocol refused by decoder");
