@@ -246,7 +246,7 @@ internal sealed partial class ReplayWorldCheckpoint : IDisposable
 
     internal static ReplayWorldCheckpoint Capture(PassiveReplayScene replay, uint? recordingFrame = null, bool boundAccessors = true)
     {
-        if (replay.State.CustomWeapons != null)
+        if (replay.State.CustomWeapons != null || replay.Scene.CustomReplayUnsupported)
             throw new InvalidOperationException("Custom Scene capture requires the retained historical resource and presentation contract.");
         using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Checkpoint);
         using var stream = new ReplayCheckpointWriter();

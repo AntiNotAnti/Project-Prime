@@ -25,6 +25,8 @@ namespace MphRead.Mods.Network
         private ReplayTimelineClip? _clip;
         private int _clipIndex;
         private bool _live;
+        private bool _customInspection;
+        internal bool IsCustomInspection => _customInspection;
         private ReplayMetadata? _liveMetadata;
         /// <summary>The frame of the recording about to be replayed.</summary>
         private uint _frame;
@@ -95,11 +97,48 @@ namespace MphRead.Mods.Network
 
         internal void AdvanceLive(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
         {
+            if (_customInspection) throw new InvalidOperationException("Custom inspection requires its explicit accepted-record advance.");
             if (!_live || _started && frame != _frame + 1) throw new InvalidOperationException("Live replica frames must be contiguous.");
             foreach (var record in records)
                 if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation)
                     _host.Inject(record.Payload, record.RecordingFrame);
             _frame = LastFrame = frame; _started = true;
+        }
+        internal void JoinCustomInspection(ReplayReplicaCheckpoint construction, PreparedReplayWeaponPackage prepared, ulong mapHash)
+        {
+            if (_host is not PassiveReplaySessionHost passive) throw new InvalidOperationException("Custom inspection requires a private passive host.");
+            ArgumentNullException.ThrowIfNull(prepared);
+            var validated = prepared.InspectCheckpoint(construction);
+            var match = validated.Match ?? throw new InvalidDataException("Custom inspection has no recorded match.");
+            Stop(); _host.Start(); passive.State.RestoreCustomCheckpoint(construction);
+            _frame = validated.RecordingFrame; LastFrame = _frame; _live = _customInspection = true; _started = false; IsActive = true;
+            _liveMetadata = new ReplayMetadata { FormatVersion = 7, ProtocolVersion = 83, MapHash = mapHash, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+                OriginRecordingFrame = _frame, CustomWeapons = prepared.Descriptor, TimedShotCertificates = validated.TimedShots.Enabled,
+                Bootstrap = new() { Packets = new[] { ReplayTimelineArchive.Construction(construction) } } };
+            LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
+        }
+        internal void AdvanceCustomInspection(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
+        {
+            if (!_live || !_customInspection) throw new InvalidOperationException("No explicit custom inspection is active.");
+            try
+            {
+                if (_started ? (ulong)frame != (ulong)_frame + 1 : frame != _frame && (ulong)frame != (ulong)_frame + 1)
+                    throw new InvalidOperationException("Custom inspection frames must be contiguous.");
+                foreach (var record in records)
+                {
+                    if (record.RecordingFrame != frame) throw new InvalidDataException("Custom inspection records must keep their actual recording frame.");
+                    if (record.Kind == ReplayFactKind.World || record.Payload.Length > 0 && record.Payload[0] == 253)
+                        throw new InvalidDataException("Custom world restoration requires its separate Scene contract.");
+                    if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent
+                        or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation or ReplayFactKind.CustomWeapon)
+                        _host.Inject(record.Payload, frame);
+                }
+                _frame = LastFrame = frame; _started = true;
+            }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            {
+                Stop(); LastResult = ReplayOpenResult.Corrupt; LastError = "Custom inspection stopped: " + error.Message; throw;
+            }
         }
 
         internal void Join(ReplayTimelineClip clip, ReplayReplicaCheckpoint construction)
@@ -519,7 +558,7 @@ namespace MphRead.Mods.Network
         public void Stop()
         {
             _clip = null; _clipIndex = 0;
-            _live = false; _liveMetadata = null;
+            _live = false; _customInspection = false; _liveMetadata = null;
             _host.Stop();
             Transport.Stop();
             CloseReader();

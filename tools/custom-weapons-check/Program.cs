@@ -4,6 +4,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
+if (args.Length is 1 or 2 && args[0] == "--custom-replay-resources") return CustomReplayResourceChecks.Run(args.Length==2?args[1]:null);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-world") return CustomReplayWorldChecks.Run(args.Length==2?args[1]:null);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-archive") return CustomReplayArchiveChecks.Run(args.Length==2?args[1]:null);
 if (args.Length is 1 or 2 && args[0] == "--custom-replay-clock") return CustomReplayClockChecks.Run(args.Length==2?args[1]:null);

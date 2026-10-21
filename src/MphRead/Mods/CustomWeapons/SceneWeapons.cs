@@ -17,7 +17,7 @@ public partial class Scene
     private WeaponMatchPackageBinding? _onlineWeaponPackage;
     private Mods.Network.MatchStartIdentity _onlineWeaponPackageStart;
     private WeaponPackageResources? _weaponPackageResources;
-    internal WeaponPackage? LocalWeaponPackage => _localWeaponLease?.Package ?? _onlineWeaponPackage?.Package(0);
+    internal WeaponPackage? LocalWeaponPackage => _localWeaponLease?.Package ?? _onlineWeaponPackage?.Package(0) ?? _replayWeaponPackage?.Package(0);
     internal bool HasOnlineWeaponPackage(Mods.Network.MatchStartIdentity start, WeaponDigest manifest)
         => !_exiting && _onlineWeaponPackageStart == start && _onlineWeaponPackage?.Manifest.Digest == manifest
             && _weaponPackageResources != null;
@@ -124,6 +124,7 @@ public partial class Scene
         CustomWeapons = null;
         _localWeaponLease?.Dispose(); _localWeaponLease = null;
         _onlineWeaponPackage?.Dispose(); _onlineWeaponPackage = null; _onlineWeaponPackageStart = default;
+        ReleaseReplayWeaponPackage();
         _weaponPackageResources = null;
     }
 }

@@ -7,6 +7,7 @@ internal sealed partial class ReplayReplicaState
 {
     internal ReplayCustomWeaponDescriptor? CustomWeaponDescriptor { get; private set; }
     internal ReplayCustomWeaponState? CustomWeapons { get; private set; }
+    internal bool HasRecordedSceneBaseline => _hasSnapshot && _rosterRevision.HasValue;
     private const MatchModifierFlags CustomRuleBits = MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable;
     internal void EnableCustomInspection(ReplayCustomWeaponDescriptor descriptor)
     {
