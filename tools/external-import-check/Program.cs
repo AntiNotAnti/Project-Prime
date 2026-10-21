@@ -30,6 +30,8 @@ try
         return CharacterGeneratedCannonOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-trooper-generated-cannon")
         return CharacterGeneratedCannonOwnedProbe.RunTrooper(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-final-generated-cannon")
+        return CharacterGeneratedCannonOwnedProbe.RunFinal(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-profile")
         return CharacterGeneratedProfileOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-generated-preview")

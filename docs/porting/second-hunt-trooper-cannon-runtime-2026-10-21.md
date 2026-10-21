@@ -1,5 +1,9 @@
 # Trooper fixed cannons in local offline matches
 
+Merged in [PR952](https://github.com/AntiNotAnti/Project-Prime/pull/952) at
+`65d30788c1af5064041dd3f709b8803e77151641`. The merge tree exactly matches
+qualified head `cbf6d179c34d85d29b350d1295664488c2e40cda`.
+
 This slice adds the Power, Ice, Wave and Plasma Trooper's own fixed source
 cannon to the selected local offline Weavel body when using native Power Beam.
 Hunters keeps the existing four body choices. Native gameplay, weapon logic,

@@ -158,17 +158,18 @@ internal static class CharacterGeneratedProfileOwnedProbe
             var normalInventory=state.Files.ToDictionary(f=>f,HashFile);
             var finalOutput=RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz,imports,selectedIds:new[]{finalId});
             var finalSpec=RetroCharacterPreviewExporter.BundleSpec(finalId);var finalState=LocalImportBundle.Inspect(imports,finalId,finalSpec);
-            Check(finalOutput.Count==1&&finalState.State==ImportBundleState.Ready&&finalState.Receipt is { Version:6 }
-                &&finalSpec.RequiredComponents.Length==19&&finalState.Files.Count==23
-                &&normalInventory.All(p=>HashFile(p.Key)==p.Value),"Importing Final publishes its own recipe6 and preserves normal's generation and manifest.");
+            Check(finalOutput.Count==1&&finalState.State==ImportBundleState.Ready&&finalState.Receipt is { Version:7 }
+                &&finalSpec.RequiredComponents.Length==20&&finalState.Files.Count==24
+                &&normalInventory.All(p=>HashFile(p.Key)==p.Value),"Importing Final publishes its own recipe7 and preserves normal's generation and manifest.");
             var finalSelection=CharacterSourcePreviewSelection.Load(finalId,CancellationToken.None,imports);finalClips=finalSelection.Clips.Count;
             var finalAppearance=new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal");
             bool finalBodyFound=finalSelection.Pack.TryResolvePrivate(Hunter.Samus,finalAppearance,CharacterModelPart.Biped,0,out var finalAsset);
-            Check(finalSelection.SelectedAppearance==finalAppearance&&!finalSelection.HasCannon&&finalClips>0
+            bool finalCannonFound=finalSelection.Pack.TryResolvePrivate(Hunter.Samus,finalAppearance,CharacterModelPart.ViewModel,0,out var finalCannonAsset);
+            Check(finalSelection.SelectedAppearance==finalAppearance&&finalSelection.HasCannon&&!finalSelection.RuntimeCannon&&finalClips>0
                 &&finalSelection.Generation==finalState.Receipt!.Generation&&finalBodyFound
-                &&!finalSelection.Pack.TryResolvePrivate(Hunter.Samus,finalAppearance,CharacterModelPart.ViewModel,0,out _)
+                &&finalCannonFound
                 &&!finalSelection.Pack.TryResolvePrivate(Hunter.Samus,CharacterSourcePreviewSelection.Appearance,CharacterModelPart.Biped,0,out _),
-                "Final captures only its own generated Biped and clip inventory without normal-body or cannon alias.");
+                "Final captures its own generated Biped/ViewModel and clip inventory without normal-body alias or runtime activation.");
             bool finalLeaseCreated=finalSelection.Pack.TryCreateSourcePreviewLease(finalAsset,out var finalLease);
             Check(finalLeaseCreated
                 &&finalLease.ModelSha256.Equals("ff1866fd7c92c7aad0326381e059119febd0993d63aacc85b45400b019af5164",StringComparison.OrdinalIgnoreCase)
@@ -180,6 +181,18 @@ internal static class CharacterGeneratedProfileOwnedProbe
                 &&finalModel.SourceRig.Evaluate(finalClip.Sample(finalChoice.Duration*.37),finalModel.Joints).Length==39
                 &&finalModel.Primitives.SelectMany(p=>p.SourceTriangleIds??Array.Empty<int>()).Order().SequenceEqual(Enumerable.Range(0,12734)),
                 "Final full source hierarchy, original triangle inventory and temporal adapter load independently of normal.");
+            Check(finalSelection.Pack.TryCreateSourcePreviewLease(finalCannonAsset,out var finalCannonLease)
+                &&ReferenceEquals(finalCannonLease.SourceMaterials,finalLease.SourceMaterials)
+                &&finalCannonLease.SourceCannon is{IsGenerated:true,TriangleCount:793},
+                "Final cannon lease shares its own captured body material authority and exact independently generated793 cut.");
+            var finalCannonModel=CharacterWeightedModelLoader.LoadSourcePreview(finalCannonAsset,finalCannonLease);
+            Check(finalCannonModel.Joints.Count==39&&finalCannonModel.SourceRig?.Nodes.Count==40&&finalCannonModel.IndexCount==793*3
+                &&finalCannonModel.Primitives.Select(p=>p.SourceMaterialOrdinal).Distinct().Order().SequenceEqual(new[]{3,4,5,7}),
+                "Final ViewModel retains complete39-joint source rig and only its four exact cut materials.");
+            var localFinal=CharacterSourcePreviewSelection.LoadForLocalBody(finalId,CancellationToken.None,imports);
+            Check(localFinal.HasCannon&&localFinal.RuntimeCannon&&localFinal.Generation==finalSelection.Generation
+                &&localFinal.SelectedAppearance==finalAppearance&&localFinal.Clips.Select(c=>c.Ordinal).SequenceEqual(finalSelection.Clips.Select(c=>c.Ordinal)),
+                "Final product local-body boundary enables only its same-generation own cannon and source clips.");
             finalAdmitted=true;
             string finalMutable=Path.Combine(temporary,"mutable-final");Directory.CreateDirectory(finalMutable);
             foreach(string file in finalState.Files){LocalImportBundle.CheckPath(file,imports);File.Copy(file,Path.Combine(finalMutable,Path.GetFileName(file)));}

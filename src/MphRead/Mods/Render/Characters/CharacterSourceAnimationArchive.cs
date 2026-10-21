@@ -41,12 +41,13 @@ internal sealed class CharacterSourceAnimationArchive
         string Stem = trooper?.Id ?? (final ? "darksamus-overcharged-echoes" : "darksamus-echoes");
         string archivePin = trooper?.AnimationSha ?? (final ? "15f102868334b98e271050493bbfdd996ca3d7121a6f4b04d54f6308b5d07b0d" : QualifiedArchiveSha256);
         Require((entry.Part == CharacterModelPart.Biped || echoes && CharacterSourceCannonRecipe.IsGeneratedEntry(entry, modelSha)
+                || final && CharacterSourceCannonRecipe.IsGeneratedFinalEntry(entry,modelSha)
                 || trooper != null && CharacterSourceCannonRecipe.IsGeneratedTrooperEntry(entry, modelSha, trooper)) && entry.PoseSource == CharacterPoseSource.SourceRigPreview
             && entry.SourceAnimationArchive == Stem + ".animations.bin" && entry.SourceAnimationArchiveSha256 == archivePin
             && modelSha.Length == 64 && (trooper != null
                 ? entry.Hunter == "Weavel" && entry.CharacterId == "trooper" && modelSha == trooper.ModelSha
                 : entry.CharacterId == "darksamus" && entry.SkinSource == (final ? "MP2DarkSamusFinal" : "MP2DarkSamus")
-                    && (!final || entry.Part == CharacterModelPart.Biped && modelSha == CharacterModelPack.GeneratedFinalSourceGlbSha256)),
+                    && (!final || modelSha == CharacterModelPack.GeneratedFinalSourceGlbSha256)),
             "Only an exact verified generated body accepts imported animation resources.");
         var inputs = new Dictionary<string, (string, int)>(StringComparer.Ordinal);
         byte[] Read(string file, int maximum)

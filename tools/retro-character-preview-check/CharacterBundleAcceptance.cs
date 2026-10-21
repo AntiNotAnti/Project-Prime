@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
+using System.Reflection;
+using System.Runtime.Loader;
 using System.Text.Json;
 using MphRead.Mods.Import;
 using MphRead.Mods.Import.Retro;
@@ -9,6 +11,15 @@ using Archive=MphRead.Mods.Import.RetroCharacterAnimationArchive;
 // keeps every derived byte in one disposable root, never the real inventory.
 internal static class CharacterBundleAcceptance
 {
+    private const string FinalId = "darksamus-overcharged-echoes";
+    private static ImportBundleSpec PreviousFinalV6()
+    {
+        string[] body = new[] { ".obj", ".skeleton.json", ".weights.json", ".motions.json", ".cinf.bin", ".animations.bin", ".source.glb", ".source.json" };
+        return new(FinalId, 6, "a023e5c79a9ebdd3d6e654b756eeb47df227e39a9bb382410adac576f6c42a40",
+            "e25524c84e498e3ee77d4717ac3a3c812fbc8bd7", body.Select(s => FinalId + s)
+                .Concat(new[] { FinalId + ".materials.bin", "characters.json" })
+                .Concat(body.Select(s => FinalId + ".ball" + s)).Append(FinalId + ".parts.json").ToArray());
+    }
     internal static void RunContract()
     {
         var specs = RetroCharacterPreviewExporter.Sources.Select(s => RetroCharacterPreviewExporter.BundleSpec(s.Id)).ToArray();
@@ -16,17 +27,17 @@ internal static class CharacterBundleAcceptance
         {
             var again = RetroCharacterPreviewExporter.BundleSpec(spec.Id);
             bool echoes=spec.Id.EndsWith("-echoes",StringComparison.Ordinal);
-            Check(spec.Version == (echoes?6:1) && spec.RecipeHash.Length == 64 && spec.SourceFingerprint.Length == 40,
+            Check(spec.Version == (echoes?(spec.Id==FinalId?7:6):1) && spec.RecipeHash.Length == 64 && spec.SourceFingerprint.Length == 40,
                 "canonical version and digest contract " + spec.Id);
             string[] body={spec.Id+".obj",spec.Id+".skeleton.json",spec.Id+".weights.json",spec.Id+".motions.json"};
             string[] completeBody=body.Concat(new[]{spec.Id+".cinf.bin",spec.Id+".animations.bin",spec.Id+".source.glb",spec.Id+".source.json"}).ToArray();
-            string[] required=echoes?completeBody.Append(spec.Id+".materials.bin").Concat(spec.Id=="darksamus-echoes"?new[]{"characters.json","darksamus-echoes.cannon-source.json"}:new[]{"characters.json"})
+            string[] required=echoes?completeBody.Append(spec.Id+".materials.bin").Concat(new[]{"characters.json",spec.Id+".cannon-source.json"})
                 .Concat(completeBody.Select(f=>spec.Id+".ball"+f[spec.Id.Length..])).Append(spec.Id+".parts.json").ToArray():body;
             Check(spec.RequiredComponents.SequenceEqual(required),
                 "complete required body/ball inventory in one appearance contract " + spec.Id);
             var parts=RetroCharacterPreviewExporter.PartsFor(spec.Id);
             Check(parts.Select(p=>p.Id).SequenceEqual(echoes?new[]{"body","ball"}:new[]{"body"})
-                &&parts.All(p=>p.Version==(echoes?(p.Id=="body"?5:3):1))&&RetroCharacterPreviewExporter.PartStem(spec.Id,"body")==spec.Id,
+                &&parts.All(p=>p.Version==(echoes?(p.Id=="body"?(spec.Id==FinalId?6:5):3):1))&&RetroCharacterPreviewExporter.PartStem(spec.Id,"body")==spec.Id,
                 "canonical versioned authoring parts retain body namespace " + spec.Id);
             Check(!ReferenceEquals(parts,RetroCharacterPreviewExporter.PartsFor(spec.Id)),"part inventory detached between calls "+spec.Id);
             Expect<NotSupportedException>(()=>((IList<RetroCharacterPreviewExporter.SourcePart>)parts)[0]=new("tampered",0,"",99),
@@ -60,6 +71,8 @@ internal static class CharacterBundleAcceptance
             "four Troopers share pinned Prime source, Echoes has distinct source");
         var normal=specs.Single(s=>s.Id=="darksamus-echoes");
         var overcharged=specs.Single(s=>s.Id=="darksamus-overcharged-echoes");
+        Check(normal.Version==6&&normal.RecipeHash=="c4a5604fe06270d7cc613423766f4912f6c36a834b05766cad840a995991b148",
+            "normal Echoes v6 recipe remains the exact frozen pre-Final-cannon identity");
         Check(normal.SourceFingerprint==overcharged.SourceFingerprint && normal.RecipeHash!=overcharged.RecipeHash,
             "distinct normal/Overcharged recipes bind the same verified Echoes edition");
         Check(RetroCharacterPreviewExporter.Sources.Single(s=>s.Id==overcharged.Id).NativeName=="Battle_3"
@@ -77,6 +90,7 @@ internal static class CharacterBundleAcceptance
             Expect<InvalidDataException>(() => RetroCharacterPreviewExporter.PartStem(id!,"body"), "unknown artifact-owner identity refused");
         }
         InspectPartsContract();
+        InspectFinalCannonContract();
         string root = Path.Combine(Path.GetTempPath(), "prime-character-contract-" + Guid.NewGuid().ToString("N"));
         using var cancellation = new CancellationTokenSource(); cancellation.Cancel();
         Expect<OperationCanceledException>(() => RetroCharacterPreviewExporter.ExportFromOwnedGame("missing-owned-source.iso", root, cancellation.Token), "pre-cancel precedes source read/output");
@@ -144,7 +158,7 @@ internal static class CharacterBundleAcceptance
                 string missing=Path.Combine(folder,id+".ball.obj");
                 var survivors=before.Files.Where(f=>f!=missing).ToDictionary(f=>f,f=>Convert.ToHexStringLower(HashFile(f)));
                 string[] bodyNames={id+".obj",id+".skeleton.json",id+".weights.json",id+".motions.json",id+".cinf.bin",id+".animations.bin",id+".source.glb",id+".source.json",id+".materials.bin"};
-                var bodyHashes=bodyNames.Concat(id=="darksamus-echoes"?new[]{"characters.json","darksamus-echoes.cannon-source.json"}:new[]{"characters.json"}).ToDictionary(n=>n,n=>Convert.ToHexStringLower(HashFile(Path.Combine(folder,n))));
+                var bodyHashes=bodyNames.Concat(new[]{"characters.json",id+".cannon-source.json"}).ToDictionary(n=>n,n=>Convert.ToHexStringLower(HashFile(Path.Combine(folder,n))));
                 File.Delete(missing);
                 var incomplete=LocalImportBundle.Inspect(root,id,spec);
                 Check(incomplete.State==ImportBundleState.Incomplete,
@@ -157,17 +171,16 @@ internal static class CharacterBundleAcceptance
                     &&ballStatus.Components.Where(c=>c.Role!="geometry").All(c=>c.State==ImportBundleState.Ready),
                     "missing ball OBJ leaves real body and other seven ball components Ready "+id);
                 string description=RetroCharacterPreviewExporter.DescribeInspection(id,incomplete);
-                Check(description.Contains("body v5: Ready",StringComparison.Ordinal)
+                Check(description.Contains("body v"+(id==FinalId?6:5)+": Ready",StringComparison.Ordinal)
                     &&description.Contains("ball v3: Incomplete (geometry v1 Incomplete)",StringComparison.Ordinal)
-                    &&description.Contains("Source authoring bundle",StringComparison.Ordinal)
-                    &&description.Contains("source-program body preview with preview lighting",StringComparison.Ordinal)
-                    &&description.Contains("First-person and playable animation/morph remain unqualified.",StringComparison.Ordinal),
+                    &&description.Contains("Choose an updated imported body in Hunters for local offline matches.",StringComparison.Ordinal)
+                    &&description.Contains("Unsupported states and online matches use native presentation.",StringComparison.Ordinal),
                     "owned inspection identifies failed ball geometry version without hiding usable body authoring parts "+id);
                 var repairedFiles=RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id});
                 var repaired=LocalImportBundle.Inspect(root,id,spec);
                 string repairedFolder=Path.GetDirectoryName(repairedFiles.Single())!;
                 Check(repaired.State==ImportBundleState.Ready&&repaired.Receipt!.Version==spec.Version
-                    &&repaired.Receipt.Generation!=before.Receipt!.Generation&&repaired.Files.Count==(id=="darksamus-echoes"?24:23),
+                    &&repaired.Receipt.Generation!=before.Receipt!.Generation&&repaired.Files.Count==24,
                     "update repairs whole body/ball appearance into a fresh complete v"+spec.Version+" generation "+id);
                 Check(Directory.Exists(folder)&&!File.Exists(missing)
                     &&survivors.All(p=>File.Exists(p.Key)&&Convert.ToHexStringLower(HashFile(p.Key))==p.Value),
@@ -179,6 +192,7 @@ internal static class CharacterBundleAcceptance
             foreach(string id in ids.Where(id=>RetroCharacterPreviewExporter.BundleSpec(id).Version>=4))
                 RepairOwnedMaterials(source,root,id,resources!.Read);
             if(ids.Contains("darksamus-overcharged-echoes")) RepairOwnedFinalManifest(source,root,resources!.Read);
+            if(ids.Contains(FinalId)) MigrateOwnedFinalCannon(source,root,resources!.Read);
             if(ids.Contains("darksamus-echoes")) RepairOwnedCannon(source,root,resources!.Read);
             files=ids.Select(id=>LocalImportBundle.Inspect(root,id,RetroCharacterPreviewExporter.BundleSpec(id)).Files
                 .Single(f=>Path.GetFileName(f)==id+".obj")).ToArray();
@@ -260,11 +274,11 @@ internal static class CharacterBundleAcceptance
             +string.Join(":",RetroCharacterPreviewExporter.PartsFor(id).Select(p=>
                 $"{p.Id}-v{(p.Id=="body"?previousBody:3)}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"));
         if(id=="darksamus-echoes")recipe+=":normal-fixed-generated-cannon-v1-global-triangle-ids";
-        var previous=spec with{Version=previousVersion,RecipeHash=Sha(System.Text.Encoding.UTF8.GetBytes(recipe)),RequiredComponents=spec.RequiredComponents.Where(n=>n!=material&&(id=="darksamus-echoes"||n!="characters.json")).ToArray()};
-        var components=repaired.Files.Where(f=>Path.GetFileName(f)!=material&&(id=="darksamus-echoes"||Path.GetFileName(f)!="characters.json")).ToDictionary(f=>Path.GetFileName(f)!,File.ReadAllBytes);
+        var previous=spec with{Version=previousVersion,RecipeHash=Sha(System.Text.Encoding.UTF8.GetBytes(recipe)),RequiredComponents=spec.RequiredComponents.Where(n=>n!=material&&(id=="darksamus-echoes"||n!="characters.json"&&n!=id+".cannon-source.json")).ToArray()};
+        var components=repaired.Files.Where(f=>Path.GetFileName(f)!=material&&(id=="darksamus-echoes"||Path.GetFileName(f)!="characters.json"&&Path.GetFileName(f)!=id+".cannon-source.json")).ToDictionary(f=>Path.GetFileName(f)!,File.ReadAllBytes);
         var index=ReadParts(repairedFolder,id);
         components[id+".parts.json"]=JsonSerializer.SerializeToUtf8Bytes(index with{BundleVersion=previousVersion,Parts=index.Parts.Select(p=>p.Id!="body"?p:p with{
-            Version=previousBody,RequiredComponents=p.RequiredComponents.Where(c=>c.Role!="source-materials"&&(id=="darksamus-echoes"||c.Role!="source-preview-manifest")).ToArray()}).ToArray()});
+            Version=previousBody,RequiredComponents=p.RequiredComponents.Where(c=>c.Role!="source-materials"&&(id=="darksamus-echoes"||c.Role!="source-preview-manifest"&&c.Role!="source-cannon-recipe")).ToArray()}).ToArray()});
         LocalImportBundle.Publish(root,previous,components,replaceAllComponents:true);
         var old=LocalImportBundle.Inspect(root,id,previous);var oldFiles=old.Files.ToDictionary(f=>f,ShaFile);
         Check(old.State==ImportBundleState.Ready&&old.Files.Count==(id=="darksamus-echoes"?23:21)
@@ -299,12 +313,12 @@ internal static class CharacterBundleAcceptance
                 $"{p.Id}-v{(p.Id=="body"?4:3)}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"))
             +":body-raw-materials-txtr-authoring-v1-all-local-slots";
         var previous=spec with{Version=5,RecipeHash=Sha(System.Text.Encoding.UTF8.GetBytes(recipe)),
-            RequiredComponents=spec.RequiredComponents.Where(n=>n!="characters.json").ToArray()};
-        var components=current.Files.Where(f=>Path.GetFileName(f)!="characters.json")
+            RequiredComponents=spec.RequiredComponents.Where(n=>n!="characters.json"&&n!=id+".cannon-source.json").ToArray()};
+        var components=current.Files.Where(f=>Path.GetFileName(f)!="characters.json"&&Path.GetFileName(f)!=id+".cannon-source.json")
             .ToDictionary(f=>Path.GetFileName(f)!,File.ReadAllBytes);
         var index=ReadParts(folder,id);
         components[id+".parts.json"]=JsonSerializer.SerializeToUtf8Bytes(index with{BundleVersion=5,Parts=index.Parts.Select(p=>p.Id!="body"?p:p with{
-            Version=4,RequiredComponents=p.RequiredComponents.Where(c=>c.Role!="source-preview-manifest").ToArray()}).ToArray()});
+            Version=4,RequiredComponents=p.RequiredComponents.Where(c=>c.Role!="source-preview-manifest"&&c.Role!="source-cannon-recipe").ToArray()}).ToArray()});
         LocalImportBundle.Publish(root,previous,components,replaceAllComponents:true);
         var old=LocalImportBundle.Inspect(root,id,previous);
         var oldFiles=old.Files.ToDictionary(f=>f,ShaFile);
@@ -320,19 +334,71 @@ internal static class CharacterBundleAcceptance
         }
         Check(reached&&ShaFile(pointer)==pointerHash&&LocalImportBundle.Inspect(root,id,previous).State==ImportBundleState.Ready
             &&oldFiles.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value),
-            "canceled Final v5 to v6 upgrade preserves old discovery and every old immutable byte");
+            "canceled Final v5 to v7 upgrade preserves old discovery and every old immutable byte");
         string migratedObj=RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id}).Single();
         string migratedFolder=Path.GetDirectoryName(migratedObj)!;
         var migrated=LocalImportBundle.Inspect(root,id,spec);
-        Check(migrated.State==ImportBundleState.Ready&&migrated.Receipt!.Version==6&&spec.RequiredComponents.Length==19&&migrated.Files.Count==23
+        Check(migrated.State==ImportBundleState.Ready&&migrated.Receipt!.Version==7&&spec.RequiredComponents.Length==20&&migrated.Files.Count==24
             &&migrated.Receipt.Generation!=old.Receipt!.Generation&&ShaFile(Path.Combine(migratedFolder,"characters.json"))==manifestHash
             &&oldFiles.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value)
             &&oldFiles.Where(p=>Path.GetFileName(p.Key)!=id+".parts.json").All(p=>ShaFile(Path.Combine(migratedFolder,Path.GetFileName(p.Key)))==p.Value),
-            "Final upgrade adds its sole body manifest and index version while retaining all source geometry rig animation material ball and graph bytes");
+            "Final upgrade adds its own body/cannon manifest and recipe while retaining all source geometry rig animation material ball and graph bytes");
         ValidateOwnedParts(id,migratedFolder,spec,migrated,resource,fullAnimationProof:false);
         var stable=Snapshot(root);
         Check(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{id}).Single()==migratedObj&&Same(stable,Snapshot(root)),
-            "repeat Final v6 import reuses the same exact generation and complete manifest bytes");
+            "repeat Final v7 import reuses the same exact generation and complete manifest bytes");
+    }
+    private static void MigrateOwnedFinalCannon(string source,string root,Func<uint,byte[]> resource)
+    {
+        var spec=RetroCharacterPreviewExporter.BundleSpec(FinalId);
+        string baseline=Environment.GetEnvironmentVariable("PRIME_FINAL_CANNON_V6_BASELINE_CORE")
+            ??throw new InvalidDataException("Final migration needs an explicit frozen v6 core.");
+        string baselineSha=ShaFile(baseline);
+        Check(baselineSha=="9998e6e375f7b8de49aebeeb4a64bfe1fa4c5ab25e009e90a8bc1afafa121f4a",
+            "Final migration uses exact independently frozen pre-cannon v6 exporter");
+        var normal=LocalImportBundle.Inspect(root,"darksamus-echoes",RetroCharacterPreviewExporter.BundleSpec("darksamus-echoes"));
+        var normalFiles=normal.Files.ToDictionary(f=>f,ShaFile);
+        string normalPointer=Path.Combine(root,LocalImportBundle.StorageDirectory,"darksamus-echoes","current.json");
+        string? normalPointerSha=File.Exists(normalPointer)?ShaFile(normalPointer):null;
+        var context=new AssemblyLoadContext("final-cannon-v6-baseline-"+Guid.NewGuid().ToString("N"),true);
+        try
+        {
+            var assembly=context.LoadFromAssemblyPath(Path.GetFullPath(baseline));
+            var exporter=assembly.GetType("MphRead.Mods.Import.RetroCharacterPreviewExporter",true)!;
+            var outputs=(IReadOnlyList<string>)exporter.GetMethod("ExportFromOwnedGame",BindingFlags.Public|BindingFlags.Static)!
+                .Invoke(null,new object?[]{source,root,CancellationToken.None,null,new[]{FinalId}})!;
+            Check(outputs.Count==1,"frozen v6 exporter publishes only the actual Final body/ball generation");
+        }
+        finally{context.Unload();}
+        var previous=PreviousFinalV6();var old=LocalImportBundle.Inspect(root,FinalId,previous);
+        Check(old.State==ImportBundleState.Ready&&old.Receipt is{Version:6}&&old.Files.Count==23
+            &&RetroCharacterPreviewExporter.InspectBundle(root,FinalId).State==ImportBundleState.Outdated,
+            "actual frozen Final v6 remains explicitly valid while current v7 requires Update");
+        string oldFolder=Path.GetDirectoryName(old.Files[0])!;
+        var oldFiles=old.Files.ToDictionary(f=>f,ShaFile);
+        string pointer=Path.Combine(root,LocalImportBundle.StorageDirectory,FinalId,"current.json"),pointerHash=ShaFile(pointer);
+        using(var cancellation=new CancellationTokenSource())
+        {
+            bool reached=false;var progress=new SynchronousProgress(stage=>{if(stage==ImportPublishStage.BeforeCommit){reached=true;cancellation.Cancel();}});
+            Expect<OperationCanceledException>(()=>RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,cancellation.Token,progress,new[]{FinalId}),
+                "actual Final v6 to v7 BeforeCommit cancellation");
+            Check(reached&&ShaFile(pointer)==pointerHash&&LocalImportBundle.Inspect(root,FinalId,previous).State==ImportBundleState.Ready
+                &&oldFiles.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value),
+                "canceled Final cannon migration preserves old pointer and every immutable v6 component");
+        }
+        string folder=Path.GetDirectoryName(RetroCharacterPreviewExporter.ExportFromOwnedGame(source,root,selectedIds:new[]{FinalId}).Single())!;
+        var next=LocalImportBundle.Inspect(root,FinalId,spec);
+        var unchanged=old.Receipt!.Components.Where(c=>c.Id!="characters.json"&&c.Id!=FinalId+".parts.json").ToArray();
+        Check(next.State==ImportBundleState.Ready&&next.Receipt is{Version:7}&&next.Files.Count==24&&unchanged.Length==21
+            &&next.Receipt.Generation!=old.Receipt.Generation
+            &&unchanged.All(c=>File.ReadAllBytes(Path.Combine(oldFolder,c.Id)).AsSpan().SequenceEqual(File.ReadAllBytes(Path.Combine(folder,c.Id)))
+                &&ShaFile(Path.Combine(folder,c.Id))==c.Sha256)
+            &&new[]{"characters.json",FinalId+".parts.json"}.All(n=>ShaFile(Path.Combine(folder,n))!=old.Receipt.Components.Single(c=>c.Id==n).Sha256)
+            &&oldFiles.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value),
+            "Final v7 retains all23 old files, preserves21 raw body/material/ball/graph components and changes only manifest/index plus new cannon recipe");
+        Check((normalPointerSha==null||ShaFile(normalPointer)==normalPointerSha)&&normalFiles.All(p=>File.Exists(p.Key)&&ShaFile(p.Key)==p.Value)
+            &&ShaFile(baseline)==baselineSha,"Final-only migration preserves normal discovery/components and frozen baseline binary");
+        ValidateOwnedParts(FinalId,folder,spec,next,resource,fullAnimationProof:false);
     }
     private static void RepairOwnedCannon(string source,string root,Func<uint,byte[]> resource)
     {
@@ -400,6 +466,56 @@ internal static class CharacterBundleAcceptance
     }
     private static string ShaFile(string path)=>Convert.ToHexStringLower(HashFile(path));
 
+    private static void InspectFinalCannonContract()
+    {
+        string root=Path.Combine(Path.GetTempPath(),"prime-final-cannon-contract-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var previous=PreviousFinalV6();var next=RetroCharacterPreviewExporter.BundleSpec(FinalId);
+            Check(next.Version==7&&next.RequiredComponents.Length==20&&next.RecipeHash=="4630d3cffd91885564b4b1a3c3cc51adcbb9b912e92a073d71c60f437bf7eaf2"
+                &&next.SourceFingerprint==previous.SourceFingerprint&&next.RecipeHash!=previous.RecipeHash,
+                "Final-only v7 recipe has the exact new identity while retaining the original source fingerprint");
+            var oldBytes=previous.RequiredComponents.ToDictionary(n=>n,n=>System.Text.Encoding.UTF8.GetBytes("invented old Final v6 "+n));
+            LocalImportBundle.Publish(root,previous,oldBytes);
+            var oldSnapshot=Snapshot(root);var old=RetroCharacterPreviewExporter.InspectBundle(root,FinalId);
+            Check(old.State==ImportBundleState.Outdated&&old.Receipt is{Version:6}
+                &&LocalImportBundle.Inspect(root,FinalId,previous).State==ImportBundleState.Ready&&Same(oldSnapshot,Snapshot(root)),
+                "literal old Final v6 remains explicitly Ready and current inspection is nonmutating Outdated");
+            string pointer=Path.Combine(root,LocalImportBundle.StorageDirectory,FinalId,"current.json"),pointerHash=ShaFile(pointer);
+            var newBytes=next.RequiredComponents.ToDictionary(n=>n,n=>System.Text.Encoding.UTF8.GetBytes("invented new Final v7 "+n));
+            using(var cancellation=new CancellationTokenSource())
+            {
+                bool reached=false;var progress=new SynchronousProgress(stage=>{if(stage==ImportPublishStage.BeforeCommit){reached=true;cancellation.Cancel();}});
+                Expect<OperationCanceledException>(()=>LocalImportBundle.Publish(root,next,newBytes,cancellation.Token,progress,replaceAllComponents:true),
+                    "synthetic Final v7 publication honors BeforeCommit cancellation");
+                Check(reached&&ShaFile(pointer)==pointerHash&&LocalImportBundle.Inspect(root,FinalId,previous).State==ImportBundleState.Ready
+                    &&oldSnapshot.All(p=>File.Exists(Path.Combine(root,p.Key))&&ShaFile(Path.Combine(root,p.Key))==p.Value),
+                    "synthetic canceled Final v7 preserves every old v6 component and pointer");
+            }
+            LocalImportBundle.Publish(root,next,newBytes,replaceAllComponents:true);
+            var ready=RetroCharacterPreviewExporter.InspectBundle(root,FinalId);
+            foreach(var missing in new[]{("source-cannon-recipe",FinalId+".cannon-source.json",1),("source-preview-manifest","characters.json",2)})
+            {
+                string path=ready.Files.Single(f=>Path.GetFileName(f)==missing.Item2);byte[] bytes=File.ReadAllBytes(path);File.Delete(path);
+                try
+                {
+                    var incomplete=RetroCharacterPreviewExporter.InspectBundle(root,FinalId);var parts=RetroCharacterPreviewExporter.InspectParts(FinalId,incomplete);
+                    var component=parts[0].Components.Single(c=>c.Role==missing.Item1);
+                    Check(incomplete.State==ImportBundleState.Incomplete&&parts[0].Version==6&&parts[0].State==ImportBundleState.Incomplete
+                        &&component.Version==missing.Item3&&component.State==ImportBundleState.Incomplete
+                        &&parts[0].Components.Where(c=>c.Role!=missing.Item1).All(c=>c.State==ImportBundleState.Ready)
+                        &&parts[1].Version==3&&parts[1].State==ImportBundleState.Ready,
+                        "Final missing required companion affects only its exact versioned body role: "+missing.Item1);
+                }
+                finally{File.WriteAllBytes(path,bytes);}
+                byte[] corrupt=(byte[])bytes.Clone();corrupt[0]^=1;File.WriteAllBytes(path,corrupt);
+                Check(RetroCharacterPreviewExporter.InspectBundle(root,FinalId).State==ImportBundleState.Failed,
+                    "Final changed required companion fails its digest: "+missing.Item1);File.WriteAllBytes(path,bytes);
+            }
+            Check(RetroCharacterPreviewExporter.InspectBundle(root,FinalId).State==ImportBundleState.Ready,"restored exact Final companions recover current Ready");
+        }
+        finally{if(Directory.Exists(root))Directory.Delete(root,true);}
+    }
     private static void InspectPartsContract()
     {
         const string id="darksamus-echoes";
@@ -606,12 +722,12 @@ internal static class CharacterBundleAcceptance
             ??throw new InvalidDataException("Missing authoring parts index");
     private static void ValidateOwnedParts(string id,string folder,ImportBundleSpec spec,ImportBundleInspection inspected,Func<uint,byte[]> resource,bool fullAnimationProof)
     {
-        int requiredCount=id=="darksamus-echoes"?20:19,fileCount=requiredCount+4;
+        bool final=id==FinalId;int bodyVersion=final?6:5,requiredCount=20,fileCount=24;
         Check(spec.RequiredComponents.Length==requiredCount&&inspected.Files.Count==fileCount&&inspected.Receipt!.Components.Length==fileCount
             &&inspected.Files.All(f=>Path.GetDirectoryName(f)==folder),"exact complete body/ball inventory and four graph files share one generation "+id);
         Check(RetroCharacterPreviewExporter.InspectParts(id,inspected).All(p=>p.State==ImportBundleState.Ready
-            &&p.Version==(p.Id=="body"?5:3)&&p.Components.Count==(p.Id=="body"?(id=="darksamus-echoes"?11:10):8)
-            &&p.Components.All(c=>c.State==ImportBundleState.Ready&&c.Version==(c.Role=="source-preview-manifest"&&id=="darksamus-echoes"?2:1))),
+            &&p.Version==(p.Id=="body"?bodyVersion:3)&&p.Components.Count==(p.Id=="body"?11:8)
+            &&p.Components.All(c=>c.State==ImportBundleState.Ready&&c.Version==(c.Role=="source-preview-manifest"?2:1))),
             "actual verified body and ball report every versioned source component Ready "+id);
         var index=ReadParts(folder,id);
         Check(index.Schema==1&&index.CharacterId==id&&index.SourceGameId=="G2ME01"&&index.BundleVersion==spec.Version&&!index.RuntimeInstall
@@ -621,13 +737,13 @@ internal static class CharacterBundleAcceptance
         foreach(var part in index.Parts)
         {
             string stem=RetroCharacterPreviewExporter.PartStem(id,part.Id);
-            Check(part.Version==(part.Id=="body"?5:3)&&part.RequiredComponents.All(c=>c.Version==(c.Role=="source-preview-manifest"&&id=="darksamus-echoes"?2:1))
+            Check(part.Version==(part.Id=="body"?bodyVersion:3)&&part.RequiredComponents.All(c=>c.Version==(c.Role=="source-preview-manifest"?2:1))
                 &&part.RequiredComponents.Select(c=>c.Role).SequenceEqual(new[]{"geometry","rig","weights","motion-samples","skeleton-source","animation-resources","source-rig-geometry","generated-provenance"}
                     .Concat(part.Id=="body"?new[]{"source-materials"}:Array.Empty<string>())
-                    .Concat(part.Id=="body"?(id=="darksamus-echoes"?new[]{"source-preview-manifest","source-cannon-recipe"}:new[]{"source-preview-manifest"}):Array.Empty<string>()))
+                    .Concat(part.Id=="body"?new[]{"source-preview-manifest","source-cannon-recipe"}:Array.Empty<string>()))
                 &&part.RequiredComponents.Select(c=>c.File).SequenceEqual(new[]{stem+".obj",stem+".skeleton.json",stem+".weights.json",stem+".motions.json",stem+".cinf.bin",stem+".animations.bin",stem+".source.glb",stem+".source.json"}
                     .Concat(part.Id=="body"?new[]{stem+".materials.bin"}:Array.Empty<string>())
-                    .Concat(part.Id=="body"?(id=="darksamus-echoes"?new[]{"characters.json","darksamus-echoes.cannon-source.json"}:new[]{"characters.json"}):Array.Empty<string>()))
+                    .Concat(part.Id=="body"?new[]{"characters.json",id+".cannon-source.json"}:Array.Empty<string>()))
                 &&part.OptionalComponents.SequenceEqual(new[]{stem+".ancs-graph.json",stem+".ancs.bin"})
                 &&part.RequiredComponents.Select(c=>c.File).Concat(part.OptionalComponents).All(n=>inspected.Files.Contains(Path.Combine(folder,n))),
                 "part component versions exact body/ball filenames and optional raw graph siblings "+id+"/"+part.Id);
@@ -636,22 +752,22 @@ internal static class CharacterBundleAcceptance
         }
         ValidateMaterialArchive(id,folder,index.Parts.Single(p=>p.Id=="body"),spec.SourceFingerprint,resource);
         Check(!inspected.Files.Any(f=>Path.GetFileName(f)==id+".ball.materials.bin"),"body-only material transport does not invent alternate-form qualification "+id);
-        if(id=="darksamus-echoes")
         {
             using var manifest=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(folder,"characters.json")));
             var value=manifest.RootElement;var models=value.GetProperty("models");
             Check(value.GetProperty("format").GetInt32()==1&&models.GetArrayLength()==2
                 &&models.EnumerateArray().Select(e=>e.GetProperty("part").GetString()).SequenceEqual(new[]{"Biped","ViewModel"}),
-                "normal generated manifest contains exactly body and fixed source-cannon diagnostic entries "+id);
+                "generated manifest contains exactly its own body and fixed source-cannon entries "+id);
+            if(final)Check(value.GetProperty("id").GetString()=="generated-darksamus-final-cannon-v2","Final owns its distinct cannon manifest identity");
             foreach(var entry in models.EnumerateArray())
             Check(entry.GetProperty("hunter").GetString()=="Samus"&&entry.GetProperty("lod").GetInt32()==0
                 &&entry.GetProperty("skinning").GetString()=="Weighted4"&&entry.GetProperty("poseSource").GetString()=="SourceRigPreview"
-                &&entry.GetProperty("characterId").GetString()=="darksamus"&&entry.GetProperty("skinSource").GetString()=="MP2DarkSamus"
+                &&entry.GetProperty("characterId").GetString()=="darksamus"&&entry.GetProperty("skinSource").GetString()==(final?"MP2DarkSamusFinal":"MP2DarkSamus")
                 &&entry.GetProperty("model").GetString()==id+".source.glb"&&entry.GetProperty("provenance").GetString()==id+".source.json"
                 &&entry.GetProperty("provenanceSha256").GetString()==Sha(File.ReadAllBytes(Path.Combine(folder,id+".source.json")))
                 &&entry.GetProperty("sourceAnimationArchive").GetString()==id+".animations.bin"
                 &&entry.GetProperty("sourceAnimationArchiveSha256").GetString()==Sha(File.ReadAllBytes(Path.Combine(folder,id+".animations.bin")))
-                &&!entry.GetProperty("boneMap").EnumerateObject().Any(),"normal body/cannon manifest binds same-generation generated geometry/provenance/full archive without retarget mappings "+id);
+                &&!entry.GetProperty("boneMap").EnumerateObject().Any(),"body/cannon manifest binds same-generation generated geometry/provenance/full archive without retarget mappings "+id);
             Check(models[0].GetProperty("sourceCannonReceipt").ValueKind==JsonValueKind.Null
                 &&models[0].GetProperty("sourceCannonSha256").ValueKind==JsonValueKind.Null
                 &&models[1].GetProperty("sourceCannonReceipt").GetString()==id+".cannon-source.json"
@@ -665,36 +781,18 @@ internal static class CharacterBundleAcceptance
                 &&recipe.GetProperty("sourceElbowId").GetInt32()==24&&recipe.GetProperty("sourceElbowName").GetString()=="R_elbow"
                 &&recipe.GetProperty("sourceParticleLocatorId").GetInt32()==32&&recipe.GetProperty("sourceParticleLocatorName").GetString()=="GUN_Particle_LCTR"
                 &&recipe.GetProperty("clipOrdinal").GetInt32()==32&&recipe.GetProperty("clipResourceId").GetUInt32()==0xd12fdfa3u
-                &&recipe.GetProperty("clipSeconds").GetDouble()==0&&groups.GetArrayLength()==7
-                &&groups[2].GetArrayLength()==66&&groups[5].GetArrayLength()==326
-                &&groups.EnumerateArray().Sum(g=>g.GetArrayLength())==392
-                &&groups.EnumerateArray().SelectMany(g=>g.EnumerateArray().Select(v=>v.GetInt32())).Distinct().Count()==392
+                &&recipe.GetProperty("clipSeconds").GetDouble()==0
+                &&groups.EnumerateArray().Select(g=>g.GetArrayLength()).SequenceEqual(final?new[]{0,0,0,392,66,314,0,21,0}:new[]{0,0,66,0,0,326,0})
+                &&groups.EnumerateArray().SelectMany(g=>g.EnumerateArray().Select(v=>v.GetInt32())).Distinct().Count()==(final?793:392)
                 &&recipe.GetProperty("sourceInputs").EnumerateObject().Select(p=>p.Name).Order().SequenceEqual(sourceInputs.Order())
                 &&sourceInputs.All(n=>recipe.GetProperty("sourceInputs").GetProperty(n).GetString()==Sha(File.ReadAllBytes(Path.Combine(folder,n))))
                 &&recipe.GetProperty("sourceUnitsUnscaled").GetBoolean()&&recipe.GetProperty("calibrationOnly").GetBoolean()
                 &&new[]{"gameplayMuzzleChanged","publicSelectionEnabled","networkReplayEnabled","firstPersonVerified"}.All(f=>!recipe.GetProperty(f).GetBoolean()),
                 "fixed source cannon receipt binds source IDs, exact zero-phase primitive, six original inputs and all false gameplay claims "+id);
-        }
-        else
-        {
-            using var manifest=JsonDocument.Parse(File.ReadAllBytes(Path.Combine(folder,"characters.json")));
-            var value=manifest.RootElement;var models=value.GetProperty("models");
-            Check(value.GetProperty("format").GetInt32()==1&&value.GetProperty("id").GetString()=="generated-darksamus-final-body-preview-v1"
-                &&models.GetArrayLength()==1,"Final owns a distinct sole-body generated preview manifest "+id);
-            var entry=models[0];
-            Check(entry.GetProperty("hunter").GetString()=="Samus"&&entry.GetProperty("part").GetString()=="Biped"
-                &&entry.GetProperty("lod").GetInt32()==0&&entry.GetProperty("skinning").GetString()=="Weighted4"
-                &&entry.GetProperty("poseSource").GetString()=="SourceRigPreview"&&entry.GetProperty("characterId").GetString()=="darksamus"
-                &&entry.GetProperty("skinSource").GetString()=="MP2DarkSamusFinal"&&entry.GetProperty("model").GetString()==id+".source.glb"
-                &&entry.GetProperty("provenance").GetString()==id+".source.json"
-                &&entry.GetProperty("provenanceSha256").GetString()==ShaFile(Path.Combine(folder,id+".source.json"))
-                &&entry.GetProperty("sourceAnimationArchive").GetString()==id+".animations.bin"
-                &&entry.GetProperty("sourceAnimationArchiveSha256").GetString()==ShaFile(Path.Combine(folder,id+".animations.bin"))
-                &&!entry.GetProperty("boneMap").EnumerateObject().Any()
-                &&!entry.TryGetProperty("sourceCannonReceipt",out _)&&!entry.TryGetProperty("sourceCannonSha256",out _)
-                &&!inspected.Files.Any(f=>Path.GetFileName(f).EndsWith(".cannon-source.json",StringComparison.Ordinal)
-                    ||Path.GetFileName(f)==id+".characters.json"),
-                "Final manifest binds only its own generation body and archive without borrowed cannon or staging filename "+id);
+            Check(ShaFile(Path.Combine(folder,id+".cannon-source.json"))==(final
+                ?"46c828de8c0c7f6ec6102216400891c30475036bc2aa7da0f7b6b752abf0752c"
+                :"5f1f479438b5efe1d482ff4565f7782e3175a2aed49b4a33a2953b82e4ac7521"),
+                "complete generated cannon receipt reproduces its independently frozen appearance identity "+id);
         }
         var ball=index.Parts.Single(p=>p.Id=="ball");
         var exactRefs=new RetroCharacterRefs(0x2f2c1e6f,0x4403b1b9,0xc7dbc44a);

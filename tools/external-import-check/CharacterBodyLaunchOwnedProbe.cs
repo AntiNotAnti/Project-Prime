@@ -192,6 +192,12 @@ internal static class CharacterBodyLaunchOwnedProbe
                         && cannon.SourceCannon is { IsGenerated: true, TriangleCount: 206 }
                         && owner.Model.Joints.Count == 35 && owner.Model.IndexCount == 1970 * 3,
                         "Trooper load barrier preserves native Weavel gameplay, complete35-joint body and its exact206-triangle generated cannon owner");
+                else
+                    Check(owner.CannonCurrent && owner.CannonModel is { } echoesCannon
+                        && echoesCannon.IndexCount == (appearance == "MP2DarkSamusFinal" ? 793 : 392) * 3
+                        && echoesCannon.SourceCannon is { IsGenerated:true } recipe
+                        && recipe.GeneratedFinal == (appearance == "MP2DarkSamusFinal"),
+                        "Echoes load barrier owns its independent normal or Final cannon recipe and exact complete source cut");
                 var mode = typeof(Scene).GetField("_inputMode", Hidden)!;
                 mode.SetValue(scene, Enum.Parse(mode.FieldType, "All"));
                 foreach (var button in player.Controls.All) { button.Type = ButtonType.Key; button.Key = Keys.Unknown; }

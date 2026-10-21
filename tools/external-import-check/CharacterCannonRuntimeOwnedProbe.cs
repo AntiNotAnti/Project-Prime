@@ -93,7 +93,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                 :["darksamus-echoes","darksamus-overcharged-echoes"];
             RetroCharacterPreviewExporter.ExportFromOwnedGame(rvz,imports,selectedIds:ids);
             var selections=ids.Select(id=>CharacterSourcePreviewSelection.LoadForLocalBody(id,CancellationToken.None,imports)).ToArray();
-            Check(trooper?selections.All(s=>s.HasCannon&&s.RuntimeCannon):selections[0].HasCannon&&!selections[1].HasCannon,
+            Check(selections.All(s=>s.HasCannon&&s.RuntimeCannon),
                 "only the exact supported appearance owns its own source cannon capability");
             var canonicalByAppearance=new Dictionary<PrivateCharacterAppearance,CharacterSourceGxMaterials>();
             foreach(var selected in selections.Where(s=>s.RuntimeCannon))
@@ -122,6 +122,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
 
             Result Exercise(CharacterSourcePreviewSelection? selection)
             {
+                bool final=selection?.SelectedAppearance.SkinSource=="MP2DarkSamusFinal";
                 Bound();FrameTiming.Reset();PointerInput.Reset();PointerDevice.Reset();
                 Rng.SetRng1(8128);Rng.SetRng2(0x8128a5a5);
                 var keyboard=SyntheticInput.CreateKeyboard();var mouse=SyntheticInput.CreateMouse();Scene? scene=null;
@@ -157,11 +158,13 @@ internal static class CharacterCannonRuntimeOwnedProbe
                     Matrix4[]? globals=null,skin=null;
                     if(cannon!=null)
                     {
-                        Check(cannon.Joints.Count==(trooper?35:39)&&cannon.IndexCount==(trooper?206:392)*3&&geometry!.SourceAuthoringPose!=null
+                        Check(cannon.Joints.Count==(trooper?35:39)&&cannon.IndexCount==(trooper?206:final?793:392)*3&&geometry!.SourceAuthoringPose!=null
                             &&geometry.SourceRig!=null&&geometry.SourceCannon!=null,"fixed runtime cannon retains complete source cut/rig and original authoring pose");
                         int[] materialIds=geometry!.Primitives.Select(p=>p.SourceMaterialOrdinal).Distinct().Order().ToArray();
                         Check(trooper?materialIds.SequenceEqual(new[]{0,1,2})
                                 &&new[]{0,1,2}.Select(m=>geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==m).Sum(p=>p.Indices.Length)/3).SequenceEqual(new[]{10,32,164})
+                            :final?materialIds.SequenceEqual(new[]{3,4,5,7})
+                                &&new[]{3,4,5,7}.Select(m=>geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==m).Sum(p=>p.Indices.Length)/3).SequenceEqual(new[]{392,66,314,21})
                             :materialIds.SequenceEqual(new[]{2,5})&&geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==2).Sum(p=>p.Indices.Length)==66*3
                                 &&geometry.Primitives.Where(p=>p.SourceMaterialOrdinal==5).Sum(p=>p.Indices.Length)==326*3,
                             "runtime cannon retains exact whole-triangle original material cut");
@@ -170,10 +173,14 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         for(int segment=0;segment<cannon.Segments.Count;segment++)
                         {
                             var batch=cannon.Segments[segment];var primitive=geometry.Primitives[segment];
-                            Check(batch.SourceGx!=null&&batch.SourceGx.Program.Vertex120==canonicalMaterials!.Programs[primitive.SourceMaterialOrdinal].Vertex120
-                                &&batch.SourceGx.Program.Fragment120==canonicalMaterials.Programs[primitive.SourceMaterialOrdinal].Fragment120
+                            var original=canonicalMaterials!.Programs[primitive.SourceMaterialOrdinal];
+                            var expected=final?canonicalMaterials.ForFinalCannon().Programs[primitive.SourceMaterialOrdinal]:original;
+                            Check(batch.SourceGx!=null&&batch.SourceGx.Program.Vertex120==original.Vertex120
+                                &&batch.SourceGx.Program.Fragment120==expected.Fragment120
                                 &&batch.SourceGx.Program.InitialRegister1==canonicalMaterials.Programs[primitive.SourceMaterialOrdinal].InitialRegister1,
                                 "cannon material and C1 come from its exact original body GX program");
+                            Check(!final||batch.SourceGx!.Program.PresentationAlphaScale==(original.DrawPass==CharacterSourceGxProgram.Pass.Alpha?.55f:1f),
+                                "Final applies donor shell alpha only to its Alpha pass; raw body programs remain unmodified");
                         }
                     }
                     int sourceFrames=0,fallbackFrames=0,repeats=0,sourceFire=0,sourceCharge=0,sourceRelease=0;
@@ -217,7 +224,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         foreach(Keys key in KeysUsed)Key(keyboard,key,false);
                         for(int n=0;n<300&&SourceItems(scene).Count==0;n++){scene.OnSimulationFrame();Picture(false);}
                         Check(SourceItems(scene).Count==cannon!.Segments.Count,"fallback fixtures start from complete source cannon");
-                        // This normal-only phase follows the captured parity
+                        // This source-cannon phase follows the captured parity
                         // trace. Its additional steps/pictures are separately
                         // counted and never presented as part of that trace.
                         int savedSourceFrames=sourceFrames,savedFallbackFrames=fallbackFrames,savedRepeats=repeats;
@@ -338,7 +345,7 @@ internal static class CharacterCannonRuntimeOwnedProbe
                         Check(!owner!.CannonCurrent&&lists.All(id=>!GL.IsList(id)),"context retirement deletes cannon geometry and authority");
                         scene.OnDrawFrame();Check(SourceItems(scene).Count==0&&!owner.CannonCurrent,"retired cannon never resurrects on draw");
                     }
-                    else Check(sourceFrames==0,"native and Final first-person paths retain native gun rendering");
+                    else Check(sourceFrames==0,"native first-person path retains native gun rendering");
                     return new(selection?.SelectedAppearance.SkinSource??"native",trace.ToArray(),stages.ToArray(),sourceFrames,fallbackFrames,repeats,maxTip,maxPalette,fractionalSchedules.ToArray());
 
                     void Picture(bool repeat,string? label=null)
@@ -444,8 +451,8 @@ internal static class CharacterCannonRuntimeOwnedProbe
                 NativeSha256Before=nativeBefore,NativeSha256After=nativeAfter,TemporaryDerivedDataDeleted=cleaned,Captures=captures,
                 Runs=runs.Select(run=>new{run.Identity,Frames=run.Trace.Length,GameplayTraceSha256=Sha(Encoding.UTF8.GetBytes(string.Join("\n",run.Trace))),
                     run.Stages,run.CannonFrames,run.FallbackFrames,run.RepeatedDraws,run.MaximumTipError,run.MaximumPaletteError,run.FractionalSchedules}),
-                Scope="Actual owned offline first-person input/Scene/GX; fixed "+(trooper?"Weavel/four Trooper206tri/35joint/three-material":"Samus/normal392tri/39joint/material2+5")+" source cannon, native muzzle/effect/weapon authority;675-step parity trace plus separately counted source-cannon simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
-                Unqualified=new[]{"physical controls","Android/macOS","online/replay","source cannon skeletal animation","other weapons","Overcharged source cannon","achieved refresh rate","visual art completeness"}}));
+                Scope="Actual owned offline first-person input/Scene/GX; fixed "+(trooper?"Weavel/four Trooper206tri/35joint/three-material":"Samus/normal392tri+Final793tri/39joint/own source materials+Final shell alpha")+" source cannon, native muzzle/effect/weapon authority;675-step parity trace plus separately counted source-cannon simulated90/120/240/540 schedules with fractional late aim; common pre-script RNG seed and status fixtures declared",
+                Unqualified=new[]{"physical controls","Android/macOS","online/replay","source cannon skeletal animation","other weapons","achieved refresh rate","visual art completeness"}}));
         }
         return error==null?0:1;
     }

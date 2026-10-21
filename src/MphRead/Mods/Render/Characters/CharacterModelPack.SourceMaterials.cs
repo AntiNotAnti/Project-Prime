@@ -62,6 +62,9 @@ internal sealed partial class CharacterModelPack
             ? body.Hunter == Hunter.Weavel && body.PrivateAppearance == new PrivateCharacterAppearance("trooper", profile.Skin)
                 && bodyProof.SourceCharacter == profile.Id && bodyProof.ModelSha == profile.ModelSha
                 && captured.Materials.Archive.Sha256 == profile.MaterialSha
+            : recipe.GeneratedFinal ? body.Hunter == Hunter.Samus && body.PrivateAppearance == new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal")
+                && bodyProof.SourceCharacter == "darksamus-overcharged-echoes" && bodyProof.ModelSha == GeneratedFinalSourceGlbSha256
+                && captured.Materials.Archive.Sha256 == "69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d"
             : body.Hunter == Hunter.Samus && body.PrivateAppearance == CharacterSourcePreviewSelection.Appearance
                 && bodyProof.SourceCharacter == "darksamus-echoes" && bodyProof.ModelSha == GeneratedNormalSourceGlbSha256;
         if (!qualified) throw new InvalidDataException("Cannon must use its own qualified source body's material archive.");
