@@ -67,6 +67,7 @@ namespace MphRead.Entities
             try
             {
                 using var scoped = Mods.Render.HeadDeathPoseOverlay.Begin(body.Model, pose);
+                using var physical = _scene.ModBeginPhysicalBody(this,body.Model,pose);
                 if (!TryDrawModernCharacter(body, CharacterModelPart.Biped, pose.Active ? pose.Alpha : 1,
                     lod: Flags2.TestFlag(PlayerFlags2.Lod1) ? 1 : 0, cosmeticDeath: cosmeticDeath))
                     GetDrawItems(body, body.Model.Nodes[0], pose.Active ? pose.Alpha : 1, cosmeticDeath: cosmeticDeath);

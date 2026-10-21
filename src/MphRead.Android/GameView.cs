@@ -558,6 +558,9 @@ namespace MphRead.Droid
                 {
                     try
                     {
+                        // Private corpse pools are CPU-owned; release them on
+                        // this original render thread even if EGL was lost.
+                        Scene?.ModReleasePhysicalCorpseWorlds();
 #if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
                         // An exception can unwind Loop before its ordinary
                         // End path. Retain and retire the exact registered
