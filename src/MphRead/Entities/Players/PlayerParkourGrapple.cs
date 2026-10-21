@@ -99,7 +99,12 @@ public partial class PlayerEntity
         _modGrappleSelections++;
         if (ModGrappleBodyAllowed && ModTrySelectGrappleAnchor(ModGrappleOrigin, aim, out var anchor, out float length))
         {
-            _modGrapple = new(true, nonce, anchor, length);
+            var accepted = new PlayerGrappleState(true, nonce, anchor, length);
+            // A finite accepted pose can lie near the wire coordinate limit;
+            // its nearby ray hit must still satisfy the complete state codec.
+            if (!accepted.IsValid)
+            { if (_scene.MomentumOwnsPlayer(this)) _modGrappleCancelled = nonce; return; }
+            _modGrapple = accepted;
             _modGrappleStarted = _scene.FrameCount;
         }
         else if (_scene.MomentumOwnsPlayer(this)) _modGrappleCancelled = nonce;
