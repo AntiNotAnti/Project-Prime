@@ -28,7 +28,7 @@ internal static class ReplayProtocol58Tests
                 && ReplayIdentityCompatibility.Supports(61) && ReplayIdentityCompatibility.Supports(62)
                 && ReplayIdentityCompatibility.Supports(63) && ReplayIdentityCompatibility.Supports(64) && ReplayIdentityCompatibility.Supports(65) && ReplayIdentityCompatibility.Supports(66) && ReplayIdentityCompatibility.Supports(67) && ReplayIdentityCompatibility.Supports(68) && ReplayIdentityCompatibility.Supports(69) && ReplayIdentityCompatibility.Supports(70) && ReplayIdentityCompatibility.Supports(71) && ReplayIdentityCompatibility.Supports(72) && ReplayIdentityCompatibility.Supports(73) && ReplayIdentityCompatibility.Supports(74) && ReplayIdentityCompatibility.Supports(75) && ReplayIdentityCompatibility.Supports(76) && ReplayIdentityCompatibility.Supports(77) && ReplayIdentityCompatibility.Supports(78) && ReplayIdentityCompatibility.Supports(79) && ReplayIdentityCompatibility.Supports(80) && ReplayIdentityCompatibility.Supports(81) && ReplayIdentityCompatibility.Supports(82) && !ReplayIdentityCompatibility.Supports(83),
                 "explicit reviewed current protocol boundary preserves protocol60–82 replay support");
-            Checkpoints(); Metadata(); ConvertedRules();
+            Checkpoints(); PackageCheckpoint81(); Metadata(); ConvertedRules();
             Console.WriteLine($"PROTOCOL58 REPLAY PASS {_checks} byte/archive checks; no gameplay or visual acceptance claim.");
             return 0;
         }
@@ -131,6 +131,36 @@ internal static class ReplayProtocol58Tests
         current.AsSpan(cut + 2).CopyTo(historical.AsSpan(cut));
         historical[6] = protocol;
         return historical;
+    }
+
+    private static void PackageCheckpoint81()
+    {
+        var source = new ReplayReplicaState();
+        byte[] packet = new byte[1 + MatchStatePacket.Size]; packet[0] = (byte)PacketType.MatchState;
+        var rules = MatchModifierFlags.ParkourMovement;
+        new MatchStatePacket { MatchId = 7, AuthorityEpoch = 23, RoomKey = "package81-checkpoint",
+            Mode = (byte)GameMode.Battle, RuleBits = (uint)rules }.Write(packet.AsSpan(1));
+        source.Accept(packet, 0);
+        byte[] current = source.CaptureCheckpoint().Bytes.ToArray();
+        byte[] historical = HistoricalCheckpoint(current, 81);
+        var layout = ReplayReplicaState.InspectCheckpointLayout(new(historical));
+        Check(layout.Protocol == 81 && layout.Version == 12 && layout.PlayerBytes == 173 && layout.IntentBytes == 1296,
+            "package81 uses actual historical12/173/1296 checkpoint contract");
+        var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(new(historical));
+        Check(restored.Match?.RuleBits == (uint)rules && restored.CaptureCheckpoint().Bytes.SequenceEqual(current),
+            "historical native81 preserves Parkour v4 rule bytes through decoder restore");
+        foreach (byte protocol in new byte[] { 81, 82 })
+        {
+            byte[] custom = protocol == 81 ? historical.ToArray() : current.ToArray();
+            // Fixed fixture has an unrevisioned present match at47; RuleBits
+            // starts at the published body offset103. Preserve both real row
+            // layouts while challenging the unsupported custom replay rule.
+            BinaryPrimitives.WriteUInt32LittleEndian(custom.AsSpan(47 + 103),
+                (uint)(rules | MatchModifierFlags.PackagedWeaponAvailable));
+            Check(Refused(() => restored.RestoreCheckpoint(new(custom)))
+                && restored.CaptureCheckpoint().Bytes.SequenceEqual(current),
+                "protocol" + protocol + " refuses custom/package checkpoint transactionally");
+        }
     }
 
     private static byte[] Checkpoint(bool timed, bool thirdPerson, bool momentum)

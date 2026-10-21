@@ -64,13 +64,16 @@ internal static class ParkourCompatibilityTests
             Reject(packet, 76);
             Check(ReplayIdentityCompatibility.Convert(packet, 77).SequenceEqual(packet),
                 "Protocol77 retains Parkour rule without changing canonical packet width.");
-            BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(offset), 524288u | 1048576u);
             Check(ReplayIdentityCompatibility.Convert(packet, 81).SequenceEqual(packet),
-                "Historical package81 preserves Parkour v4 plus independent package availability bit20.");
-            bool rejectedPackage80 = false;
-            try { ReplayIdentityCompatibility.Convert(packet, 80); }
-            catch (InvalidDataException) { rejectedPackage80 = true; }
-            Check(rejectedPackage80, "Protocol80 cannot acquire reserved package availability bit20.");
+                "Historical native81 preserves Parkour v4 rule bytes.");
+            BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(offset), 524288u | 1048576u);
+            foreach (int protocol in new[] { 80, 81, 82 })
+            {
+                bool rejectedPackage = false;
+                try { ReplayIdentityCompatibility.Convert(packet, protocol); }
+                catch (InvalidDataException) { rejectedPackage = true; }
+                Check(rejectedPackage, "Custom/package replay remains refused at protocol" + protocol);
+            }
             BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(offset), 0);
             Check(ReplayIdentityCompatibility.Convert(packet, 76).SequenceEqual(packet),
                 "Protocol76 default rules remain byte-identical.");
