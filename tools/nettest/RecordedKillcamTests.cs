@@ -5,6 +5,7 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Text.Json;
 using MphRead.Entities;
+using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.MatchEvents;
 using MphRead.Mods.Network;
