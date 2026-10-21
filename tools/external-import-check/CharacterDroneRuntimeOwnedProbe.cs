@@ -127,6 +127,8 @@ internal static class CharacterDroneRuntimeOwnedProbe
         try
         {
             check(OperatingSystem.IsWindows()&&!Headless.Active&&!NetSession.Active&&!DemoPlayback.IsActive&&!ReplayCapture.LiveRecordingActive,"actual offline Windows GPU process");
+            string? downCapture=Environment.GetEnvironmentVariable("PRIME_DRONE_MOVEMENT_DOWN_CAPTURE_DIR");
+            if(!string.IsNullOrWhiteSpace(downCapture)){check(probeMovement&&string.IsNullOrWhiteSpace(captureRoot),"settled Down diagnostic is a separate movement-only capture run");captureRoot=downCapture;}
             if(!string.IsNullOrWhiteSpace(captureRoot)){captureRoot=Path.GetFullPath(captureRoot);check(captureRoot.StartsWith(Path.GetFullPath(Path.Combine(cwd,"artifacts"))+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase),"optional drone pictures stay only in ignored worktree artifacts");Directory.CreateDirectory(captureRoot);}
             check(before=="3fc5ece5ca1badecc1e61a3762294bf81a9f3cf0ed6652eab0838aacd74fe844"&&native!=null&&Directory.Exists(native),"exact owned PrimeRev2 and existing AMHE1 source before import");milestones.NativeIo=true;nativeBefore=Inventory(native!);milestones.NativeBefore=nativeBefore;
             string user=Path.Combine(temporary,"user");Directory.CreateDirectory(user);File.WriteAllText(Path.Combine(user,"paths.txt"),"0.19.0.0\n"+Ver.AMHE1+"="+native+"\nExport="+Path.Combine(user,"Export")+"\n");
@@ -183,6 +185,7 @@ internal static class CharacterDroneRuntimeOwnedProbe
         var watch=Stopwatch.StartNew();var native=player.ModSourceNativeDrone!;int sourcePictures=0,nativePictures=0,repeats=0,burstFallback=0,sourceBurstPictures=0,sourceLaserPictures=0,laserFallback=0,laserPictures=0,beamPictures=0,poseChecks=0,maxShots=0;bool died=false,respawn=false,moved=false,guards=false;
         var start=player.Position;var rows=new List<string>();var extraRows=new List<string>();var laserRows=new List<string>();var movementRows=new List<string>();var directionOrdinals=new HashSet<int>();var movementCaptured=new HashSet<int>();bool nativeMoveCaptured=false,movementGuards=false;Vector3 lastVelocity=Vector3.Zero;int movementAttackSteps=0,movementFallbackSteps=0;var movementStages=new List<object>();var laserPatterns=new HashSet<int>();var laserRuns=new List<object>();bool laserGuards=false;int laserStatusSteps=0,laserAlphaSteps=0,laserResumeFrame=-1;object? nearWall=null;var programs=new HashSet<int>();var gpuPhases=new HashSet<string>();var schedules=new List<object>();bool captured=false,burstGuards=false;
         bool movementContract=CharacterSourceDronePose.RequiredOrdinals.SequenceEqual(new[]{13,75,73,74,29,4,3,2,5,6,1});bool laserContract=movementContract||CharacterSourceDronePose.RequiredOrdinals.SequenceEqual(new[]{13,75,73,74,29});
+        bool downDiagnosticCapture=!string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("PRIME_DRONE_MOVEMENT_DOWN_CAPTURE_DIR")),downDiagnosticDone=false;int nativeCameraHandoffPictures=0;var handoffCameraSteps=new HashSet<int>();
         int previousSample=-1,fadeStep=0,phaseChecks=0,returnFadeChecks=0,extraInterrupts=0,extraRecoveries=0,extraAlphaGuardSteps=0,extraRecoveredFrame=-1;var startNode=player.NodeRef;long observedLife=(long)typeof(PlayerEntity).GetField("_sourceBodyLife",Hidden)!.GetValue(player)!;long readySteps=0,freeSteps=0;var expectedMotion=new MotionOracle();bool hadPose=false,fadeActive=false;
         if(owner!=null)
         {
@@ -281,10 +284,15 @@ internal static class CharacterDroneRuntimeOwnedProbe
             {
                 ResetMovementTrial(trial.Item1);if(trial.Item1=="down")for(int n=0;n<75;n++){Key(window.KeyboardState,Keys.Space,true);MovementStep("down-prelift");}foreach(var key in Used)Key(window.KeyboardState,key,false);
                 var observed=new HashSet<int>();float distance=0;Vector3 origin=player.Position;
-                for(int n=0;n<100;n++){if(trial.Item2!=Keys.Unknown)Key(window.KeyboardState,trial.Item2,true);MovementStep(trial.Item1);if(expectedMotion.Current!=13)observed.Add(expectedMotion.Current);distance=Math.Max(distance,(player.Position-origin).Length);}
+                for(int n=0;n<100;n++)
+                {
+                    if(trial.Item2!=Keys.Unknown)Key(window.KeyboardState,trial.Item2,true);MovementStep(trial.Item1);if(expectedMotion.Current!=13)observed.Add(expectedMotion.Current);distance=Math.Max(distance,(player.Position-origin).Length);
+                    if(downDiagnosticCapture&&!downDiagnosticDone&&trial.Item1=="down"&&owner!=null&&owner.Pose.CurrentOrdinal==1&&owner.Pose.FreeCompletedSteps>=8&&owner.Pose.BlendAmount==1&&Items(scene).Count==2&&CameraStep()>=player.Values.CamSwitchTime*2){CaptureSettledDownPair();downDiagnosticDone=true;}
+                }
                 movementStages.Add(new{Name=trial.Item1,NativeInput=trial.Item2.ToString(),ObservedCommittedOrdinals=observed.Order().ToArray(),MaximumDisplacement=distance});
             }
             check(directionOrdinals.SetEquals(new[]{4,3,2,5,6,1}),"genuine native W/S/A/D/Space/release inputs produce all six committed source direction choices");
+            check(!downDiagnosticCapture||owner==null||downDiagnosticDone,"explicit released descent after seventy-five genuine Space steps earns a settled-camera source/native diagnostic pair");
             foreach(string status in new[]{"same-direction-status","changed-direction-status"})
             {
                 ResetMovementTrial(status);
@@ -328,7 +336,8 @@ internal static class CharacterDroneRuntimeOwnedProbe
             if(probeLaser)check(player.DroneLaserOn&&player.DroneLaserProcessedFrame==90,"actual native cached laser survives source context retirement in the same picture");
         }
         check(CharacterSourceClip.CapturedFileReads==reads,"no source proof/clip file IO occurs during locked native simulation/GPU pictures");
-        return new(rows.ToArray(),extraRows.ToArray(),laserRows.ToArray(),movementRows.ToArray(),new{ObservedFreeDirections=directionOrdinals.Order().ToArray(),MovementStages=movementStages.ToArray(),MovementPictureGuards=movementGuards,MovingAttackCompletedSteps=movementAttackSteps,MovementNativeFallbackSteps=movementFallbackSteps,LaserPatterns=laserPatterns.Order().ToArray(),LaserRuns=laserRuns.ToArray(),LaserPictureGuards=laserGuards,LaserStatusInterruptSteps=laserStatusSteps,LaserAlphaGuardSteps=laserAlphaSteps,LaserResumePublicFrame=laserResumeFrame,NearWall=nearWall,ThroughFixed1418AndReadyGuards=throughFixedScriptPictures,SourcePictures=sourcePictures,NativePictures=nativePictures,RepeatedDraws=repeats,BurstFallbackPictures=burstFallback,SourceBurstPictures=sourceBurstPictures,SourceLaserPictures=sourceLaserPictures,LaserFallbackPictures=laserFallback,NativeLaserPictures=laserPictures,NativeBeamTrailPictures=beamPictures,FixedScriptMaximumShots=maxShots,SourcePoseChecks=poseChecks,BurstPhaseChecks=phaseChecks,ReturnFadeChecks=returnFadeChecks,ExtraStatusInterruptSteps=extraInterrupts,ExtraNativeAlphaGuardSteps=extraAlphaGuardSteps,ExtraStatusRecoveries=extraRecoveries,ExtraRecoveredNativeFireFrame=extraRecoveredFrame,BurstPictureGuards=burstGuards,ActualShaderPrograms=programs.Count,ActualGpuPhaseKeys=gpuPhases.Order().ToArray(),FractionalSchedules=schedules.ToArray(),TraceGrain="one record after each fixed script completed simulation step and its repeated picture; scene/global RNG, actor+planted body, selected native drone/laser counters and cached origin/end,40 beam lifespan/age/position/direction/flags/ownership columns, native registered animation frames; separate420step burst, laser-pattern/cooldown/nearwall and movement extensions use identical grain with labeled cloak presentation injection; movement setup uses declared native public Spawn at the original real spawn/floor before genuine input; optional diagnostic camera draws and source-only active-laser retirement are outside canonical traces; separate guards/fractional/context pictures counted outside trace"});
+        if(probeMovement&&owner!=null)check(handoffCameraSteps.SetEquals(Enumerable.Range(0,player.Values.CamSwitchTime*2)),"real native split pictures exercise complete native fallback at every unfinished camera handoff step");
+        return new(rows.ToArray(),extraRows.ToArray(),laserRows.ToArray(),movementRows.ToArray(),new{NativeCameraHandoffPictures=nativeCameraHandoffPictures,NativeCameraHandoffSteps=handoffCameraSteps.Order().ToArray(),SettledDownDiagnostic=downDiagnosticDone,ObservedFreeDirections=directionOrdinals.Order().ToArray(),MovementStages=movementStages.ToArray(),MovementPictureGuards=movementGuards,MovingAttackCompletedSteps=movementAttackSteps,MovementNativeFallbackSteps=movementFallbackSteps,LaserPatterns=laserPatterns.Order().ToArray(),LaserRuns=laserRuns.ToArray(),LaserPictureGuards=laserGuards,LaserStatusInterruptSteps=laserStatusSteps,LaserAlphaGuardSteps=laserAlphaSteps,LaserResumePublicFrame=laserResumeFrame,NearWall=nearWall,ThroughFixed1418AndReadyGuards=throughFixedScriptPictures,SourcePictures=sourcePictures,NativePictures=nativePictures,RepeatedDraws=repeats,BurstFallbackPictures=burstFallback,SourceBurstPictures=sourceBurstPictures,SourceLaserPictures=sourceLaserPictures,LaserFallbackPictures=laserFallback,NativeLaserPictures=laserPictures,NativeBeamTrailPictures=beamPictures,FixedScriptMaximumShots=maxShots,SourcePoseChecks=poseChecks,BurstPhaseChecks=phaseChecks,ReturnFadeChecks=returnFadeChecks,ExtraStatusInterruptSteps=extraInterrupts,ExtraNativeAlphaGuardSteps=extraAlphaGuardSteps,ExtraStatusRecoveries=extraRecoveries,ExtraRecoveredNativeFireFrame=extraRecoveredFrame,BurstPictureGuards=burstGuards,ActualShaderPrograms=programs.Count,ActualGpuPhaseKeys=gpuPhases.Order().ToArray(),FractionalSchedules=schedules.ToArray(),TraceGrain="one record after each fixed script completed simulation step and its repeated picture; scene/global RNG, actor+planted body, selected native drone/laser counters and cached origin/end,40 beam lifespan/age/position/direction/flags/ownership columns, native registered animation frames; separate420step burst, laser-pattern/cooldown/nearwall and movement extensions use identical grain with labeled cloak presentation injection; movement setup uses declared native public Spawn at the original real spawn/floor before genuine input; optional diagnostic camera draws and source-only active-laser retirement are outside canonical traces; separate guards/fractional/context pictures counted outside trace"});
 
         void LaserStep(string label,bool draw)
         {
@@ -356,8 +365,36 @@ internal static class CharacterDroneRuntimeOwnedProbe
                 if(owner!=null&&Items(scene).Count==2&&owner.Pose.FreeCompletedSteps>=8&&owner.Pose.BlendAmount==1&&MotionOracle.Pick(lastVelocity,player.FacingVector)==expectedMotion.Current)
                 {
                     if(!movementGuards){Guards();movementGuards=true;}
-                    if(captureRoot!=null&&!movementCaptured.Contains(expectedMotion.Current)){CaptureMovement("oblique");movementCaptured.Add(expectedMotion.Current);if(!nativeMoveCaptured){CaptureMovement("native");nativeMoveCaptured=true;}}
+                    if(captureRoot!=null&&!downDiagnosticCapture&&!movementCaptured.Contains(expectedMotion.Current)){CaptureMovement("oblique");movementCaptured.Add(expectedMotion.Current);if(!nativeMoveCaptured){CaptureMovement("native");nativeMoveCaptured=true;}}
                 }
+            }
+        }
+        int CameraStep()=>(ushort)typeof(PlayerEntity).GetField("_camSwitchTimer",Hidden)!.GetValue(player)!;
+        string CameraState()
+        {
+            float[] V(Vector3 v)=>new[]{v.X,v.Y,v.Z};
+            var handoff=typeof(Scene).GetField("_thirdPersonFormHandoff",Hidden)!.GetValue(scene)!;
+            object? H(string name)=>handoff.GetType().GetField(name,Hidden)!.GetValue(handoff);
+            return JsonSerializer.Serialize(new{CameraStep=CameraStep(),CameraEnd=player.Values.CamSwitchTime*2,CameraType=player.CameraType.ToString(),NativeFov=player.CameraInfo.Fov,NormalFov=Fixed.ToFloat(player.Values.NormalFov)*2,SceneFovRadians=typeof(Scene).GetField("_cameraFov",Hidden)!.GetValue(scene),player.EquipInfo.Zoomed,HudZoom=typeof(PlayerEntity).GetField("_hudZoom",Hidden)!.GetValue(player),player.ScanVisor,scene.GameState.MenuPause,scene.GameState.DialogPause,LayerBindings=new[]{scene.Layer1Info.BindingId,scene.Layer2Info.BindingId,scene.Layer3Info.BindingId},LayerAlphas=new[]{scene.Layer1Info.Alpha,scene.Layer2Info.Alpha,scene.Layer3Info.Alpha},NativeEye=V(player.CameraInfo.Position),SceneEye=V(scene.CameraPosition),RenderedInverseViewEye=V(scene.ViewMatrix.Inverted().Row3.Xyz),ViewMatrixSha256=LocalHash(new[]{scene.ViewMatrix}),ProjectionMatrixSha256=LocalHash(new[]{scene.PerspectiveMatrix}),FormHandoff=new{Initialized=H("_initialized"),Blending=H("_blending"),StartTick=H("_startTick"),LastTick=H("_lastTick")}});
+        }
+        void CaptureSettledDownPair()
+        {
+            string canonical=State(scene,player),raw=Palette(owner!.Model),pose=PoseState(owner),camera=CameraState();long clock=owner.CompletedSteps;bool cosmetics=RenderOptions.ShowCustomCosmetics;
+            var handoff=typeof(Scene).GetField("_thirdPersonFormHandoff",Hidden)!.GetValue(scene)!;
+            bool blending=(bool)handoff.GetType().GetField("_blending",Hidden)!.GetValue(handoff)!;
+            check(cosmetics&&CameraStep()>=player.Values.CamSwitchTime*2&&!blending&&owner.Pose.CurrentOrdinal==1,"settled Down diagnostic uses actual completed native and Scene camera transitions and genuine released descent");
+            try
+            {
+                Save("source");RenderOptions.ShowCustomCosmetics=false;Save("native-fallback");
+            }
+            finally{RenderOptions.ShowCustomCosmetics=cosmetics;Picture("settled-down-camera-restored",false);}
+            check(State(scene,player)==canonical&&Palette(owner.Model)==raw&&PoseState(owner)==pose&&owner.CompletedSteps==clock&&CameraState()==camera&&Items(scene).Count==2,"same-camera source/native readbacks and restored cosmetics cannot mutate native actor/RNG/camera/HUD or source raw pose/clock/selector");
+            void Save(string view)
+            {
+                Picture("settled-down-"+view,false);check(view=="source"?Items(scene).Count==2&&NativePackets(scene,native)==0:Items(scene).Count==0&&NativePackets(scene,native)>0,"settled Down source/native pair changes only complete model presentation");
+                check(CameraState()==camera,"settled Down pair keeps identical actual native/rendered camera and HUD state without forcing fields");
+                string path=Path.Combine(captureRoot!,"source-drone-"+appearance.ToString().ToLowerInvariant()+"-settled-down-"+view+".png");check(!File.Exists(path)&&ScreenCapture.SaveWindow(scene.Size.X,scene.Size.Y,path),"optional settled Down native-camera diagnostic saved");
+                captures.Add(new{Appearance=appearance.ToString(),View=view,Diagnostic="explicit Down trial after75 real Space steps then released descent; camera untouched",Ordinal=owner.Pose.CurrentOrdinal,owner.Pose.FreeCompletedSteps,owner.Pose.ClipSeconds,Velocity=new[]{lastVelocity.X,lastVelocity.Y,lastVelocity.Z},Camera=JsonSerializer.Deserialize<JsonElement>(camera),Path=path,Sha256=HashFile(path),DeleteAfterVisualReview=true});
             }
         }
         void CaptureMovement(string view)
@@ -440,7 +477,13 @@ internal static class CharacterDroneRuntimeOwnedProbe
         void Step()
         {
             if(watch.Elapsed.TotalMinutes>8)throw new TimeoutException("Bounded actual drone timeline exceeded eight minutes.");long prior=owner?.CompletedSteps??0;Vector3 beforeCenter=player.Position.AddY(Fixed.ToFloat(player.Values.AltColYPos));scene.OnSimulationFrame();
-            bool supported=(bool)typeof(PlayerEntity).GetProperty("SourceDroneStateSupported",Hidden)!.GetValue(player)!;long nowLife=(long)typeof(PlayerEntity).GetField("_sourceBodyLife",Hidden)!.GetValue(player)!;bool lifeChanged=nowLife!=observedLife;observedLife=nowLife;
+            bool supported=(bool)typeof(PlayerEntity).GetProperty("SourceDroneStateSupported",Hidden)!.GetValue(player)!;
+            if(movementContract)
+            {
+                bool expectedSupport=(bool)typeof(PlayerEntity).GetProperty("SourcePresentationStateSupported",Hidden)!.GetValue(player)!&&(bool)typeof(PlayerEntity).GetProperty("ScoutDroneEnabled",Hidden)!.GetValue(player)!&&player.IsAltForm&&!player.IsMorphing&&!player.IsUnmorphing&&CameraStep()>=player.Values.CamSwitchTime*2&&CharacterSourceDronePose.Supports(player.ModSourceDroneState,player.ModSourceDroneFrame);
+                check(supported==expectedSupport,"source admission independently requires complete native third-person camera handoff alongside existing presentation and closed-pose guards");
+            }
+            long nowLife=(long)typeof(PlayerEntity).GetField("_sourceBodyLife",Hidden)!.GetValue(player)!;bool lifeChanged=nowLife!=observedLife;observedLife=nowLife;
             lastVelocity=!lifeChanged?(player.Position.AddY(Fixed.ToFloat(player.Values.AltColYPos))-beforeCenter)*60f:Vector3.Zero;
             if(movementContract)
             {
@@ -501,11 +544,12 @@ internal static class CharacterDroneRuntimeOwnedProbe
                 var items=Items(scene);int nativeCount=NativePackets(scene,native);check(items.Count is 0 or 2,"both original source material packets or complete native fallback");
                 if(probeMovement&&owner is{Current:true}&&player.IsAltForm&&!player.IsMorphing&&!player.IsUnmorphing)
                 {
-                    int cameraStep=(ushort)typeof(PlayerEntity).GetField("_camSwitchTimer",Hidden)!.GetValue(player)!,cameraEnd=player.Values.CamSwitchTime*2;
+                    int cameraStep=CameraStep(),cameraEnd=player.Values.CamSwitchTime*2;
                     if(cameraStep<cameraEnd)
                     {
                         if(items.Count!=0)Console.WriteLine(JsonSerializer.Serialize(new{Probe="source-drone-native-camera-handoff",Appearance=appearance.ToString(),CameraStep=cameraStep,CameraEnd=cameraEnd,player.CameraType,player.CameraInfo.Fov,player.EquipInfo.Zoomed,SourceItems=items.Count,NativeItems=nativeCount}));
                         check(items.Count==0&&nativeCount>0,"unfinished actual native third-person camera handoff retains complete native drone presentation");
+                        nativeCameraHandoffPictures++;handoffCameraSteps.Add(cameraStep);
                     }
                 }
                 if(items.Count>0){sourcePictures++;if(player.DroneFireState!=0)sourceBurstPictures++;if(player.DroneLaserFrame>=0)sourceLaserPictures++;check(owner is{Current:true,Ready:true}&&nativeCount==0&&items.All(i=>ReferenceEquals(i.SourceGx!.BodyOwner,owner)&&i.SourceGx.AlternateForm&&!i.ViewModel&&i.SourceGx.Seconds==owner.MaterialSeconds),"own complete source drone replaces exactly native mobile model and carries own supported-step material clock");}else if(nativeCount>0){nativePictures++;if(player.DroneFireState!=0)burstFallback++;if(player.DroneLaserFrame>=0)laserFallback++;}
