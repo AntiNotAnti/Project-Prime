@@ -11,7 +11,7 @@ namespace MphRead.Mods.Replay;
 internal static class ReplayPortableArchive
 {
     private static readonly HashSet<string> Names = new(StringComparer.Ordinal)
-        { "manifest.json", "replay.ppdemo", "map.ppmap", "replay.ppdemo.studio.json", "replay.ppdemo.reel.json" };
+        { "manifest.json", "replay.ppdemo", "map.ppmap", "weapon.ppweapon", "replay.ppdemo.studio.json", "replay.ppdemo.reel.json" };
     internal static void Extract(string archivePath, string directory, CancellationToken cancellation)
     {
         Directory.CreateDirectory(directory);
@@ -26,7 +26,7 @@ internal static class ReplayPortableArchive
             int mode = (entry.ExternalAttributes >> 16) & 0xf000;
             if (!Names.Contains(entry.FullName) || !names.Add(entry.FullName) || mode != 0 && mode != 0x8000 || (entry.ExternalAttributes & 0x10) != 0)
                 throw new InvalidDataException("Portable replay contains an unexpected, duplicate or linked archive member.");
-            long maximum = entry.FullName.EndsWith(".json", StringComparison.Ordinal) ? 512 * 1024 : 1024L * 1024 * 1024;
+            long maximum = entry.FullName=="weapon.ppweapon" ? CustomWeapons.Packages.WeaponPackageLimits.MaximumArchiveBytes : entry.FullName.EndsWith(".json", StringComparison.Ordinal) ? 512 * 1024 : 1024L * 1024 * 1024;
             total = checked(total + entry.Length);
             if (entry.Length < 0 || entry.Length > maximum || total > 1024L * 1024 * 1024)
                 throw new InvalidDataException("Portable replay exceeds the extraction budget.");

@@ -172,6 +172,8 @@ public static partial class DemoPlayback
         if (silent) { ReplayAudioOwner.Release(_audio); _audio = 0; }
         _player.Update(maximumMilliseconds: IsCustomPlayback ? 5 : double.PositiveInfinity);
         Scene current = _player.Current.Scene;
+        if (_player.Ready && !_presentationFailed && IsCustomPlayback && !silent && _audio == 0)
+            _audio = ReplayAudioOwner.Acquire(current, _shell);
         if (_player.Ready && !_presentationFailed && !IsCustomPlayback)
         {
             try

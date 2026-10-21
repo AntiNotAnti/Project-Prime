@@ -9,6 +9,23 @@ internal readonly record struct ReplayCustomWeaponContact(WorldBootstrapIdentity
 
 internal sealed partial class ReplayCustomWeaponState
 {
+    internal bool TryKillWeaponName(ReplayKillIdentity kill, out string name)
+    {
+        name = "";
+        if (!CompleteForRestore || Context.Bootstrap.Start.MatchId != kill.MatchId
+            || Context.Bootstrap.Start.AuthorityEpoch != kill.AuthorityEpoch) return false;
+        foreach (var action in _actions)
+        {
+            if (!action.Used || action.Contact is not { } fact || !fact.TryContact(Context, out _, out var hit)
+                || !hit.Lethal || hit.Disposition != CustomContactDisposition.Canonical || hit.AuthorityFrame != kill.ServerTick) continue;
+            var owner = hit.Contact.Key.Action.Owner; var victim = hit.Contact.Key.Victim;
+            if (owner.Slot != kill.KillerSlot || owner.Generation != kill.KillerGeneration
+                || owner.Life != kill.KillerLifeId || victim.Slot != kill.VictimSlot
+                || victim.Generation != kill.VictimGeneration || victim.Life != kill.VictimLifeId) continue;
+            name = Context.Definition.Name; return true;
+        }
+        return false;
+    }
     internal bool TryLatestLaunch(WeaponOwnerContext owner, out CustomReplicaLaunch launch, out uint frame)
     {
         launch = default; frame = 0; bool found = false;

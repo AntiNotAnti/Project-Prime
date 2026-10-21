@@ -25,6 +25,7 @@ internal sealed partial class PassiveReplayPlayer
         while (steps < due && (!seeking || steps == 0 || Stopwatch.GetElapsedTime(began).TotalMilliseconds < maximumMilliseconds))
         {
             if (!Current.StepCustomClip()) { Transport.AfterFrame(); break; }
+            Current.Scene.StepReplayCustomAudio();
             Transport.AfterFrame(); steps++; Stepped?.Invoke(Current.Scene);
             if (seeking && !Transport.IsSeeking) break;
         }
