@@ -42,7 +42,8 @@ internal static partial class EditorGlAcceptance
         Check(host.FocusDocument(document,"studio_camera_x")&&host.TextInputActive
             &&!page.StudioTimelineShortcut("play")&&!page.StudioTimelineShortcut("next-frame"),
             "native Studio text fields retain keyboard editing instead of triggering playback");
-        Check(host.FocusDocument(document,"replay_pause"),"native Studio returns keyboard focus to playback transport");
+        Check(!host.FocusDocument(document,"replay_pause"),"inactive Studio fixture keeps playback transport disabled");
+        Check(host.FocusDocument(document,"replay_back"),"native Studio returns keyboard focus to workspace navigation");
         Layout("initial");Capture("camera");
         foreach(string id in new[]{"studio_camera_x","studio_camera_y","studio_camera_z","studio_camera_yaw","studio_camera_pitch","studio_camera_roll","studio_camera_fov"})
             {Check(host.FocusDocument(document,id),"numeric field can scroll into view: "+id);WaitVisible(id,"studio_inspector_scroll");Check(Bounds(id).Inside(Bounds("studio_inspector_scroll")),"actual numeric camera field is reachable inside the inspector: "+id);}
