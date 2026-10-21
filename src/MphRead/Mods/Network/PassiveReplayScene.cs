@@ -18,6 +18,8 @@ namespace MphRead.Mods.Network
         internal ReplayReplicaCheckpoint InitialState { get; }
         internal ulong MapHash { get; }
         internal bool HasStepped { get; private set; }
+        internal bool HasRestoredCustomWorld { get; private set; }
+        internal void MarkCustomWorldRestored() => HasRestoredCustomWorld = true;
         private bool _disposed;
         private bool _ownsScene = true;
         internal Scene DetachScene() { _ownsScene = false; return Scene; }
@@ -113,6 +115,14 @@ namespace MphRead.Mods.Network
                 return new PassiveReplayScene(session, size, prepared);
             }
             catch { session.Dispose(); throw; }
+        }
+        internal static PassiveReplayScene RestoreCustomInspection(Replay.ReplayWorldCheckpoint checkpoint, PreparedReplayWeaponPackage prepared, Vector2i size)
+        {
+            if (!checkpoint.HasCustomWeaponContract) throw new InvalidDataException("An explicit custom world12 capsule is required.");
+            var metadata = checkpoint.ClipMetadata(0, Array.Empty<ReplayPlayerInfo>());
+            var scene = CreateCustomInspection(checkpoint.ConstructionState(), prepared, metadata.MapHash, size);
+            try { checkpoint.RestoreCustom(scene); return scene; }
+            catch { scene.Dispose(); throw; }
         }
         private PassiveReplayScene(ReplayPlaybackSession session, Vector2i size, PreparedReplayWeaponPackage? prepared = null)
         {
