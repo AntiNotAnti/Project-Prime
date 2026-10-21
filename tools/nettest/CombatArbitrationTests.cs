@@ -167,9 +167,8 @@ internal static class CombatArbitrationTests
         var child = _shooter.EquipInfo.Beams.FirstOrDefault(b => b != beam && b.Lifespan > 0
             && b.ModLaunchKey == beam.ModLaunchKey && b.ModComponentId != 0 && b.ModComponentId != beam.ModComponentId);
         Check(spawned != BeamResultFlags.NoSpawn && child != null, "native child has independent component identity");
-        before = _victim.Health; Native(child!);
-        Check(_victim.Health < before, "rescued parent does not suppress distinct native child");
-        Unchanged(child!, true, "native child component pays only once");
+        Unchanged(child!, true,
+            "direct-hit rescued parent forbids a contradictory late ricochet child on the same victim");
     }
     private static void RicochetAlternateDamage()
     {
@@ -203,6 +202,59 @@ internal static class CombatArbitrationTests
                 && NetDamage.Sequence(_victim.SlotIndex) == sequence,
                 $"{weapon} alternate splash claim acknowledges native payment without another hit");
         }
+    }
+
+    private static void RicochetParentChildCausality()
+    {
+        // A parent splash from a wall can legitimately hit a victim before
+        // its ricochet child hits that victim. A parent DIRECT hit cannot
+        // spawn the child on that same timeline.
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare();
+        var wallParent = Emit(BeamType.Judicator);
+        var wallClaim = Claim(wallParent, direct: false, damage: 12);
+        Check(Receive(wallClaim) == HitVerdictPacket.ResultApplied,
+            "Judicator parent wall splash is rescued");
+        var spawned = BeamProjectileEntity.Spawn(_shooter, wallParent.Equip!, wallParent.Position,
+            _direction, BeamSpawnFlags.NoMuzzle, _shooter.NodeRef, _shooter.OwningScene, parent: wallParent);
+        var wallChild = _shooter.EquipInfo.Beams.FirstOrDefault(b => b != wallParent && b.Lifespan > 0
+            && b.ModLaunchKey == wallParent.ModLaunchKey && b.ModComponentId >> 4 == wallParent.ModComponentId);
+        Check(spawned != BeamResultFlags.NoSpawn && wallChild != null,
+            "wall-splash parent launches an independent native child");
+        int afterWall = _victim.Health;
+        Native(wallChild!, direct: true);
+        Check(_victim.Health < afterWall, "legitimate wall-splash then child-direct remains payable");
+        Unchanged(wallChild!, true, "legitimate child direct cannot pay twice");
+
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare();
+        var liveParent = Emit(BeamType.Judicator);
+        spawned = BeamProjectileEntity.Spawn(_shooter, liveParent.Equip!, liveParent.Position,
+            _direction, BeamSpawnFlags.NoMuzzle, _shooter.NodeRef, _shooter.OwningScene, parent: liveParent);
+        var liveChild = _shooter.EquipInfo.Beams.FirstOrDefault(b => b != liveParent && b.Lifespan > 0
+            && b.ModLaunchKey == liveParent.ModLaunchKey && b.ModComponentId >> 4 == liveParent.ModComponentId);
+        Check(spawned != BeamResultFlags.NoSpawn && liveChild != null,
+            "inverse ordering uses actual admitted child identity");
+        Native(liveChild!, direct: true);
+        int childPaidHealth = _victim.Health; ushort childPaidSeq = NetDamage.Sequence(_victim.SlotIndex);
+        var impossibleParent = Claim(liveParent, direct: true, damage: 12);
+        Check(Receive(impossibleParent) == HitVerdictPacket.ResultDuplicate
+            && _victim.Health == childPaidHealth
+            && NetDamage.Sequence(_victim.SlotIndex) == childPaidSeq,
+            "late client parent-direct claim cannot pay over physical child hit");
+
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare();
+        var predictedParent = Emit(BeamType.Judicator);
+        spawned = BeamProjectileEntity.Spawn(_shooter, predictedParent.Equip!, predictedParent.Position,
+            _direction, BeamSpawnFlags.NoMuzzle, _shooter.NodeRef, _shooter.OwningScene, parent: predictedParent);
+        var predictedChild = _shooter.EquipInfo.Beams.FirstOrDefault(b => b != predictedParent && b.Lifespan > 0
+            && b.ModLaunchKey == predictedParent.ModLaunchKey
+            && b.ModComponentId >> 4 == predictedParent.ModComponentId);
+        Check(spawned != BeamResultFlags.NoSpawn && predictedChild != null,
+            "client child rescue uses actual native component lineage");
+        var childClaim = Claim(predictedChild!, direct: true, damage: 12);
+        Check(Receive(childClaim) == HitVerdictPacket.ResultApplied,
+            "client ricochet-child direct rescue settles");
+        Unchanged(predictedParent, true,
+            "late server parent-direct cannot pay after the contradictory child rescue");
     }
 
     private static void DerivedCatchUpPool()
@@ -481,7 +533,7 @@ internal static class CombatArbitrationTests
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
 
-            RescueFirst(); RicochetAlternateDamage(); DerivedCatchUpPool(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); TerminalRefusalCacheChurn(); TerminalReceiptCapacity(); PosthumousFlight(); NativeSameFrameTrade();
+            RescueFirst(); RicochetAlternateDamage(); RicochetParentChildCausality(); DerivedCatchUpPool(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); TerminalRefusalCacheChurn(); TerminalReceiptCapacity(); PosthumousFlight(); NativeSameFrameTrade();
             long lifetimePayments = NetCombatPayments.LifetimePayments;
             long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;
             Check(lifetimePayments > 0 && lifetimeSuppressed > 0, "process evidence captures actual payments and suppressed repeats");
