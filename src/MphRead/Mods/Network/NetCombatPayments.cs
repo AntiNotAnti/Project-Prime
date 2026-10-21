@@ -83,7 +83,7 @@ internal static class NetCombatPayments
                 || (!incomingClaim && !entry.RescuedClaim)
                 || entry.Key.Shot != key.Shot || entry.Key.Victim != key.Victim
                 || entry.Key.Generation != key.Generation || entry.Key.Life != key.Life
-                || entry.Key.Component != key.Component || entry.Key.Phase != key.Phase
+                || entry.Key.Phase != key.Phase
                 || (entry.Key.Kind & 4) != (key.Kind & 4)) continue;
             int existingKind = entry.Key.Kind & 3, newKind = key.Kind & 3;
             bool oppositeCollisionKind = entry.Key.Component == key.Component
