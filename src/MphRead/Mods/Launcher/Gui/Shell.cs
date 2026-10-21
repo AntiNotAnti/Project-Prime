@@ -845,6 +845,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return false;
             }
+            _settings.RoomKey = next.RoomKey;
+            LauncherPrefs.RememberMap(next.RoomKey);
             _endMatch = true;
             _pending = next;
             return true;

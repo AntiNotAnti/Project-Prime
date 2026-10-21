@@ -1165,6 +1165,7 @@ CommunityHostingAcceptance.Run();
 GameFilesSetupResumeChecks.Run();
 TrainingReturnChecks.Run();
 OfflineReturnChecks.Run();
+MapSelectionPreferenceChecks.Run();
 HostRequestIdentityAcceptance.Run();
 LobbyStartGateAcceptance.Run();
 var stageLobby = new RmlUiLobbyView(true, false, true, false, false,

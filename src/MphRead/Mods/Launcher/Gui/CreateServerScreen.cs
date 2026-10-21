@@ -341,10 +341,8 @@ namespace MphRead.Mods.Launcher.Gui
             // without one. The map they last played rather than the first in
             // the list: somebody who has been playing one map and now wants to
             // run a server for it should not have to pick it again.
-            string? start = firstMap != null && _rooms.Contains(firstMap)
-                ? firstMap
-                : _rooms.Count > 0 ? _rooms[0] : null;
-            if (start != null)
+            string start = LauncherPrefs.PreferredMap(_rooms, firstMap);
+            if (start.Length > 0)
             {
                 _rotation.Add(start);
             }
@@ -753,6 +751,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _rotation.Clear();
                 _rotation.AddRange(picked);
+                if (_rotation.Count > 0) LauncherPrefs.RememberMap(_rotation[0]);
                 _maps.Set(Describe());
                 RefreshSetupChrome();
                 ClosePage();
@@ -872,6 +871,7 @@ namespace MphRead.Mods.Launcher.Gui
             LauncherPrefs.LastLobbyMode = mode;
             LauncherPrefs.LastLobbyTimeLimitSeconds = timeLimit;
             LauncherPrefs.LastLobbyGoal = pointGoal;
+            LauncherPrefs.LastSelectedMap = _rotation[0];
             LauncherPrefs.Save();
 
             if (Dedicated)

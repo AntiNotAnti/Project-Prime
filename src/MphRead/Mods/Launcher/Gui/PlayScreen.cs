@@ -672,6 +672,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void OpenSide(DeckTile tile)
         {
             _picked = tile.RoomKey;
+            if (Current == Face.Offline) LauncherPrefs.RememberMap(tile.RoomKey);
             if (_grid != null)
             {
                 foreach (Control child in _grid.Children)
@@ -1533,10 +1534,12 @@ namespace MphRead.Mods.Launcher.Gui
                 _note.Foreground = GuiTheme.WarmBrush;
                 return;
             }
+            string initialMap = LauncherPrefs.PreferredMap(_rooms,
+                LauncherPrefs.LastSelectedMap.Length > 0 ? LauncherPrefs.LastSelectedMap : _settings.RoomKey);
             foreach (string room in _rooms)
             {
                 DeckTile tile = MapCardFactory.Create(room);
-                tile.Chosen = room == _settings.RoomKey;
+                tile.Chosen = Current != Face.Vote && String.Equals(room, initialMap, StringComparison.OrdinalIgnoreCase);
                 tile.Click += (_, _) =>
                 {
                     if (Current == Face.Vote)
@@ -1548,7 +1551,7 @@ namespace MphRead.Mods.Launcher.Gui
                 };
                 _grid.Children.Add(tile);
             }
-            _picked = _settings.RoomKey;
+            _picked = Current == Face.Vote ? NetSession.ServerMatch?.RoomKey : initialMap;
         }
 
         private void FillRooms(string? current)

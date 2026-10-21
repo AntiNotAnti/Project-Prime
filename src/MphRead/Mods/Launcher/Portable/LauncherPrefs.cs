@@ -116,6 +116,41 @@ namespace MphRead.Mods.Launcher
         /// <summary>Last LaunchKind, so the front screen can offer it again.</summary>
         public static int LastKind { get; set; }
 
+        /// <summary>Combat Hall is the first-run map; explicit choices take precedence afterwards.</summary>
+        public const string DefaultMap = "MP3 PROVING GROUND";
+
+        /// <summary>The last arena explicitly selected for an offline match or hosted lobby.</summary>
+        public static string LastSelectedMap { get; set; } = "";
+
+        /// <summary>
+        /// Resolve only against installed choices. An unavailable saved custom map must not
+        /// leave a selector empty, and must not erase the saved choice when it returns.
+        /// The caller can supply an explicit map (e.g. from Map Studio) ahead of the preference.
+        /// </summary>
+        public static string PreferredMap(IReadOnlyList<string> rooms, string? requested = null)
+        {
+            foreach (string? candidate in new[] { requested, LastSelectedMap, DefaultMap })
+            {
+                if (String.IsNullOrWhiteSpace(candidate)) continue;
+                foreach (string room in rooms)
+                    if (String.Equals(room, candidate, StringComparison.OrdinalIgnoreCase))
+                        return room;
+            }
+            foreach (string room in rooms)
+                if (!String.IsNullOrWhiteSpace(room)) return room;
+            return "";
+        }
+
+        /// <summary>Persist a deliberate map choice without changing current server rotation.</summary>
+        public static void RememberMap(string roomKey)
+        {
+            if (String.IsNullOrWhiteSpace(roomKey) || roomKey.Length > 256
+                || roomKey.Contains('=') || System.Linq.Enumerable.Any(roomKey, char.IsControl)
+                || String.Equals(roomKey, LastSelectedMap, StringComparison.OrdinalIgnoreCase)) return;
+            LastSelectedMap = roomKey;
+            Save();
+        }
+
         /// <summary>
         /// Whether the front screen looks for a new release.
         ///
@@ -388,6 +423,9 @@ namespace MphRead.Mods.Launcher
                                 HostPort = hostPort;
                             }
                             break;
+                        case "last_map":
+                            LastSelectedMap = value;
+                            break;
                         case "lobby_mode":
                             if (Enum.TryParse(value, ignoreCase: true, out GameMode lobbyMode)
                                 && Enum.IsDefined(lobbyMode))
@@ -651,6 +689,7 @@ namespace MphRead.Mods.Launcher
                     $"list_hosted={ListHostedGame.ToString().ToLowerInvariant()}",
                     $"host_on_master={HostOnMaster.ToString().ToLowerInvariant()}",
                     $"last_kind={LastKind.ToString(CultureInfo.InvariantCulture)}",
+                    $"last_map={LastSelectedMap}",
                     $"auto_update={AutoUpdate.ToString().ToLowerInvariant()}",
                     $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
                     $"bright_skins={RenderOptions.BrightSkins.ToString().ToLowerInvariant()}",

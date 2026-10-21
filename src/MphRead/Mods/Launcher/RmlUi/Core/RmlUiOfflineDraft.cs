@@ -54,7 +54,7 @@ public sealed class RmlUiOfflineDraft
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
         _types = MatchTypeCatalog.GameTypes;
-        Current = new(_rooms.FirstOrDefault() ?? "", GameMode.Battle,
+        Current = new(LauncherPrefs.PreferredMap(_rooms), GameMode.Battle,
             (uint)hunter < 7 ? hunter : Hunter.Samus,
             Math.Clamp(suit, 0, 3), Math.Clamp(bots, 0, 7), Math.Clamp(level, 0, 3));
     }
@@ -66,7 +66,7 @@ public sealed class RmlUiOfflineDraft
         if (_rooms.SequenceEqual(next, StringComparer.OrdinalIgnoreCase)) return;
         _rooms = next;
         if (!_rooms.Contains(Current.RoomKey, StringComparer.OrdinalIgnoreCase))
-            Current = Current with { RoomKey = _rooms.FirstOrDefault() ?? "" };
+            Current = Current with { RoomKey = LauncherPrefs.PreferredMap(_rooms) };
         if (_arenaOpen) SearchArena("");
     }
 
