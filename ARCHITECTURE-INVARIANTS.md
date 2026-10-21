@@ -21,7 +21,8 @@ This file is the short, machine-oriented source of truth for architectural assum
   and exact prewarmed resources to ordinary client scenes before loaded ACKs.
   Availability never grants inventory; authored world contact owns acquisition.
   Native archives remain readable;
-  custom/package replay continues to refuse rather than substitute definitions.
+  custom/package replay requires exact historical bytes and a supported explicit
+  descriptor/world contract, and refuses rather than substituting definitions.
 - Protocol76 selects Quake3 profile v4 and Traversal profile v5. Qualified static
   walkable ground uses surface-speed acceleration and contact redirection;
   earned Traversal slides receive one bounded slope-gravity force per fixed tick.
@@ -168,10 +169,32 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Replay and clips
 
-- Replay readers preserve formats v1–v6. Historical protocols are adapted by `ReplayIdentityCompatibility` (protocol 4 through the current protocol); live peers still require an exact protocol match. Format v5 preserves indexed-fire continuation. Opt-in timed-shot certificate capture uses v6; ordinary capture remains v3 and checkpoint clips remain v4 unless their recorded capability requires a later format. Every replay is validated before playback.
+- Replay readers preserve native formats v1–v6 and explicit custom formats v7/v8. Historical protocols are adapted by `ReplayIdentityCompatibility` (protocol 4 through the current protocol); live peers still require an exact protocol match. Format v5 preserves indexed-fire continuation. Opt-in timed-shot certificate capture uses v6; ordinary native capture remains v3 and checkpoint clips remain v4 unless their recorded capability requires a later format. Every replay is validated before playback. Custom playback retains exact historical package leases and producer presentation policy; format8 capture phases preserve original source/availability clocks and post-world ordering. Validated deferred records at EOF remain inert. Custom scenes, audio and exports never reinterpret missing custom data as native gameplay.
 - Authoritative dedicated servers record canonical replays when enabled.
 - Client replay recording, rolling clip capture, Replay Studio, checkpoints, highlight derivation and deterministic frame export all exist. Do not describe replay/clip recording as a future feature.
 - Replay playback must not open a live gameplay socket or mutate the recorded session through reconnect/authority control packets.
+
+## Custom weapon authoring and distribution
+
+- Package installation, Community download and creator controls never grant or
+  equip inventory. Authored world pickup contact and authority funding own acquisition.
+- Community `weapon` revisions validate complete self-contained `.ppweapon` packages,
+  bounded to 8 MiB. Raw v3 object SHA remains separate from package content,
+  dependency and mechanics identities. Exact package ID/name/bytes are immutable;
+  owner visibility and moderation are separate metadata lifecycle operations.
+- Public browse excludes unlisted-only and draft weapons. Exact weapon links may
+  read unlisted revisions; draft reads require the owner. Archive/restore cannot
+  clear moderator hiding. Authenticated original-account witnesses govern private
+  transfer retry and installation; credentials never enter persisted receipts.
+- New Community publication requires `PROJECT_PRIME_WEAPON_COMMUNITY_PUBLISH=1`.
+  Weapon Studio admission requires `PROJECT_PRIME_WEAPON_CREATOR=1` and uses the
+  paired separate Studio process and bounded authenticated local IPC. Authoring
+  validates CPU snapshots and saves atomically; owned pickup playtests run in a
+  separate game process with retained archive leases.
+- Implementation and compilation are distinct from release qualification. The
+  current waived/deferred acceptance blockers are recorded in
+  `docs/custom-weapons/16-release-acceptance.md`; do not promote historical evidence
+  or an unrun matrix into a pass.
 
 ## Updates and release packaging
 
