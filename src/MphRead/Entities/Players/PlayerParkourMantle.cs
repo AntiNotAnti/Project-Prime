@@ -35,6 +35,11 @@ public partial class PlayerEntity
     private bool ModMantleInput(Vector3 normal) => Controls.MoveUp.IsDown && Controls.AnalogScaleY(1) > 0
         && Vector3.Dot(new Vector3(_field70, 0, _field74), normal) < -.5f;
 
+    private void ModBlockParkourMantleActorContact()
+    {
+        if (_scene.GameState.MovementModel == MovementModel.Parkour) _modMantleSeedBlocked = true;
+    }
+
     // Kept separate from wallrun's stricter whole-wall seed: finite top-edge
     // contacts cannot grant a mantle, but need not invalidate a real front face.
     private void ModObserveMantleContact(in CollisionResult hit, bool penetrating)
@@ -141,7 +146,7 @@ public partial class PlayerEntity
     private void ModCompleteParkourMantle()
     {
         if (!_modMantling || _modMantleApplied != _scene.FrameCount) return;
-        if (!ModMantleBodyAllowed) { ModCancelParkourMantle(); return; }
+        if (!ModMantleBodyAllowed || _modMantleSeedBlocked) { ModCancelParkourMantle(); return; }
         _modMantleStalled = (Position - _modMantleBefore).LengthSquared < .000001f ? _modMantleStalled + 1 : 0;
         if (_modMantleStage == 0 && (Position - _modMantleRaised).LengthSquared < .00001f) _modMantleStage = 1;
         else if (_modMantleStage == 1 && (Position - _modMantleTarget.AddY(MantleMovementV1.Clearance)).LengthSquared < .00001f)
@@ -201,6 +206,25 @@ public partial class PlayerEntity
         Vector3 a = Local(from), b = Local(to);
         Vector3 minimum = Vector3.ComponentMin(a, b) + new Vector3(-radius, ModBipedBottom, -radius);
         Vector3 maximum = Vector3.ComponentMax(a, b) + new Vector3(radius, ModBipedTop, radius);
+        // Native doors/fields synthesize collision planes outside the polygon
+        // candidate API. Conservatively enclose their complete collision region
+        // rather than treating an endpoint polygon query as actor clearance.
+        int actors = 0;
+        foreach (DoorEntity door in _scene.GetDoorEntities())
+        {
+            if (++actors > 256) return false;
+            if (door.Flags.TestFlag(DoorFlags.Open) || door.ConnectorInactive) continue;
+            if (MantleMovementV1.SphereOverlapsBox(Local(door.LockPosition),
+                MathF.Sqrt(door.RadiusSquared) + 1.25f, minimum, maximum)) return false;
+        }
+        foreach (ForceFieldEntity field in _scene.GetForceFieldEntities())
+        {
+            if (++actors > 256) return false;
+            if (!field.Active) continue;
+            if (MantleMovementV1.SphereOverlapsBox(Local(field.Position),
+                MathF.Sqrt(field.Width * field.Width + field.Height * field.Height) + 1.25f,
+                minimum, maximum)) return false;
+        }
         Vector3 worldMin = Vector3.ComponentMin(from, to) + new Vector3(-radius * 1.5f, ModBipedBottom, -radius * 1.5f);
         Vector3 worldMax = Vector3.ComponentMax(from, to) + new Vector3(radius * 1.5f, ModBipedTop, radius * 1.5f);
         using var candidates = CollisionDetection.GetCandidatesForLimits(from, to, 0, worldMin, worldMax,

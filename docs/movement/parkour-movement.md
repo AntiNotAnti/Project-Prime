@@ -51,7 +51,8 @@ within 1.25 units of total rise and 2.5 units of horizontal origin travel.
 Assistance uses native velocity and collision for at most 24 fixed ticks;
 it never snaps the body. The entire lift/across/settle route must fit the standing
 body, and one safe flat face must support the full landing footprint. Narrow,
-roof-blocked, excessive, moving and hazardous ledges refuse admission, leaving
+roof-blocked, excessive, moving and hazardous ledges refuse admission. Closed
+doors and active forcefields near the route also refuse, leaving
 native Jump available. Release Forward, enter a form/ability, encounter an
 obstruction or stop progressing to cancel. Active wallrun/kick, tuck and slide
 exclude a mantle. Training lanes at z=17 include a broad ledge plus blocked,

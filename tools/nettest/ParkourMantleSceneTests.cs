@@ -7,6 +7,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MphRead;
 using MphRead.Entities;
+using MphRead.Editor;
 using MphRead.Formats;
 using MphRead.Formats.Collision;
 using MphRead.Formats.Culling;
@@ -14,6 +15,7 @@ using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Movement;
 using MphRead.Mods.Network;
+using MphRead.Utility;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -39,7 +41,8 @@ internal static class ParkourMantleSceneTests
         bool Forward, bool JumpPressed, bool Active, bool Applied, bool Completed, int Ticks,
         bool NativeJump, bool Alt, bool Transition, bool SafeTop, int Admission,
         bool SeedBefore, bool SeedBlockedBefore, ulong ContactFrameBefore,
-        float SeedNormalX, float SeedNormalY, float SeedNormalZ, float SeedPlaneBefore)
+        float SeedNormalX, float SeedNormalY, float SeedNormalZ, float SeedPlaneBefore,
+        bool ActorContact, bool ActorActive)
     {
         public float[] PositionXyz => new[] { Position.X, Position.Y, Position.Z };
         public float[] VelocityXyz => new[] { Velocity.X, Velocity.Y, Velocity.Z };
@@ -109,6 +112,34 @@ internal static class ParkourMantleSceneTests
                     if (input == "no-forward") Check(capture.Contact >= 0 && capture.Request > capture.Contact,
                         "no-Forward case first physically earns the same front contact");
                 });
+            foreach (string actor in new[] { "field-contact", "field-route" })
+                Case(actor + "/native-actor-reject", () =>
+                {
+                    Capture capture = Trace(Hunter.Samus, MovementModel.Parkour, -30, actor); rows.Add(capture);
+                    Check(capture.Contact >= 0 && capture.Request > capture.Contact,
+                        "actor negative earns actual keyboard contact before its fresh request");
+                    Check(capture.Ticks.All(t => !t.Applied && !t.Active && !t.Completed),
+                        "active native actor cannot seed or obstruct an admitted static mantle route");
+                    Tick request = capture.Ticks[capture.Request];
+                    Check(request.JumpPressed && request.NativeJump && request.Velocity.Y > .01f,
+                        "actor admission refusal preserves the ordinary native fresh Jump");
+                    if (actor == "field-contact")
+                        Check(capture.Ticks.Take(capture.Request).Any(t => t.ActorContact)
+                            && request.SeedBlockedBefore,
+                            "native forcefield contact veto is physically earned rather than injected");
+                    else
+                        Check(request.SeedBefore && !request.SeedBlockedBefore
+                            && !capture.Ticks.Take(capture.Request).Any(t => t.ActorContact),
+                            "route-only actor starts from a genuine static wall seed without touching the raised field");
+                });
+            Case("native-Unlock-API-clears-route-actor", () =>
+            {
+                Capture capture = Trace(Hunter.Samus, MovementModel.Parkour, -30, "field-unlocked"); rows.Add(capture);
+                Check(capture.Ticks.All(t => !t.ActorActive)
+                    && capture.Ticks.Count(t => t.Completed) == 1
+                    && capture.Ticks.Count(t => t.Applied) > 1,
+                    "initial native Unlock API retires the identical field and restores the positive mantle");
+            });
             foreach (MovementModel model in new[] { MovementModel.Native, MovementModel.Momentum,
                 MovementModel.Quake3, MovementModel.Traversal })
                 Case(model + "/isolation", () =>
@@ -138,7 +169,7 @@ internal static class ParkourMantleSceneTests
         {
             string path = Path.GetFullPath(output); Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new { status = failures.Count == 0 ? "PASS" : "FAIL",
-                checks = _checks, failures, scope = "Windows CPU production keyboard and authored static collision; initial placement plus one labeled same-origin native Teleport API; no renderer, network or replay qualification", rows },
+                checks = _checks, failures, scope = "Windows CPU production keyboard and authored static collision; initial actor construction and native Unlock plus one labeled same-origin native Teleport API; no renderer, network or replay qualification", rows },
                 new JsonSerializerOptions { WriteIndented = true, IncludeFields = true }));
         }
         Console.WriteLine($"PARKOUR MANTLE SCENE {(failures.Count == 0 ? "PASS" : "FAIL")} {_checks} assertions; {failures.Count} failed cases");
@@ -154,6 +185,31 @@ internal static class ParkourMantleSceneTests
         try
         {
             PlayerEntity p = scene.Players.Main!;
+            ForceFieldEntity? actor = null;
+            if (scenario is "field-contact" or "field-route" or "field-unlocked")
+            {
+                bool contactActor = scenario == "field-contact";
+                var editor = new ForceFieldEntityEditor { Id = 31001, ForceFieldType = 9,
+                    Position = new Vector3(-30, contactActor ? .75f : 2, contactActor ? 16.8f : 17.7f),
+                    Up = Vector3.UnitY, Facing = -Vector3.UnitZ, Width = contactActor ? 2 : 2.5f,
+                    Height = contactActor ? 2 : .3f, Active = true };
+                byte[] bytes;
+                using (var stream = new MemoryStream())
+                {
+                    using var writer = new BinaryWriter(stream);
+                    typeof(Repack).GetMethod("WriteEntity", BindingFlags.Static | BindingFlags.NonPublic)!
+                        .Invoke(null, new object[] { editor, writer });
+                    bytes = stream.ToArray();
+                }
+                actor = new ForceFieldEntity(Read.ReadStruct<ForceFieldEntityData>(bytes), "", scene);
+                scene.AddEntity(actor);
+                Check(actor.Active && actor.Data.Type == 9, "serialized production no-lock native forcefield starts active");
+                if (scenario == "field-unlocked")
+                {
+                    actor.HandleMessage(new MessageInfo(Message.Unlock, p, actor, 0, 0, scene.FrameCount, scene.FrameCount));
+                    Check(!actor.Active, "initial production Unlock message disables actor collision");
+                }
+            }
             Vector3 seed = new(x, .5f, 14);
             p.Reposition(seed, Vector3.UnitZ, NodeRef.None); p.PrevPosition = seed; p.ModSetSpawnFacing(Vector3.UnitZ);
             for (int i = 0; i < 12; i++) scene.OnSimulationFrame();
@@ -200,7 +256,16 @@ internal static class ParkourMantleSceneTests
                         && MathF.Abs(Vector3.Dot(p.Position, hit.Plane.Xyz) - hit.Plane.W - radius) <= .03f)
                         front = true;
                 }
-                if (front && contact < 0) contact = i;
+                bool actorContact = false;
+                if (actor?.Active == true)
+                {
+                    Vector3 actorBetween = p.Volume.SpherePosition - actor.Position;
+                    float actorGap = MathF.Abs(Vector3.Dot(p.Position, actor.Plane.Xyz) - actor.Plane.W) - radius;
+                    actorContact = MathF.Abs(actorGap) <= .03f
+                        && MathF.Abs(Vector3.Dot(actorBetween, actor.FieldUpVector)) <= actor.Height
+                        && MathF.Abs(Vector3.Dot(actorBetween, actor.FieldRightVector)) <= actor.Width;
+                }
+                if ((front || actorContact) && contact < 0) contact = i;
                 CollisionResult support = default;
                 Vector3 foot = p.Position.AddY(p.ModBipedBottom);
                 bool safeTop = CollisionDetection.CheckBetweenPoints(foot.AddY(.06f), foot.AddY(-.06f),
@@ -215,7 +280,8 @@ internal static class ParkourMantleSceneTests
                     p.ModParkourMantleApplied(frame), p.ModParkourMantleCompleted(frame), p.ModParkourMantleTicks,
                     nativeJump, p.IsAltForm, p.IsMorphing || p.IsUnmorphing, safeTop,
                     p.ModParkourMantleAdmission, seedBefore, seedBlockedBefore, contactFrameBefore,
-                    seedNormal.X, seedNormal.Y, seedNormal.Z, seedPlaneBefore);
+                    seedNormal.X, seedNormal.Y, seedNormal.Z, seedPlaneBefore,
+                    actorContact, actor?.Active == true);
             }
             return new(scenario, hunter.ToString(), model.ToString(), contact, request, abort, ticks);
         }

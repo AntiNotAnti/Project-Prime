@@ -30,6 +30,17 @@ internal static class ParkourMantleTests
                 "a thin face penetrating the route flank is an obstruction");
             Check(!Overlaps(new(.6f, -2, -2), new(.6f, 2, -2), new(.6f, 0, 2)),
                 "separated parallel rail is clear");
+            Check(MantleMovementV1.SphereOverlapsBox(new(1, 0, 0), .5f, minimum, maximum),
+                "native actor enclosure touching the route boundary refuses admission");
+            Check(!MantleMovementV1.SphereOverlapsBox(new(1.01f, 0, 0), .5f, minimum, maximum),
+                "separated native actor enclosure leaves the route clear");
+            foreach (float invalidRadius in new[] { -1f, float.NaN, float.PositiveInfinity, float.MaxValue })
+                Check(MantleMovementV1.SphereOverlapsBox(Vector3.Zero, invalidRadius, minimum, maximum),
+                    "negative nonfinite or overflowing actor radius fails closed");
+            Check(MantleMovementV1.SphereOverlapsBox(Vector3.Zero, .5f, maximum, minimum)
+                && MantleMovementV1.SphereOverlapsBox(Vector3.Zero, .5f, new(float.NaN, 0, 0), maximum)
+                && MantleMovementV1.SphereOverlapsBox(new(float.PositiveInfinity, 0, 0), .5f, minimum, maximum),
+                "inverted or nonfinite enclosure bounds and center fail closed");
             Vector3[] floor = { new(-2, 1, -2), new(-2, 1, 2), new(2, 1, 2), new(2, 1, -2) };
             Check(MantleMovementV1.SupportsDisk(floor, new(0, 1, 0), .5f),
                 "broad planar native polygon contains the full foot disk");
@@ -70,21 +81,28 @@ internal static class ParkourMantleTests
                     Vector3 a = Transform(new(-2, 0, -2)), b = Transform(new(2, 0, -2)), c = Transform(new(0, 0, 2));
                     Check(Overlaps(a, b, c) && Overlaps(c, b, a),
                         "SAT crossing survives rotated and mirrored triangles and reversed winding");
+                    Vector3 ToLocal(Vector3 world) => new(Vector3.Dot(world, Transform(Vector3.UnitX)),
+                        world.Y, Vector3.Dot(world, Transform(Vector3.UnitZ)));
+                    Check(MantleMovementV1.SphereOverlapsBox(ToLocal(Transform(new(.9f, 0, 0))), .5f, minimum, maximum)
+                        && !MantleMovementV1.SphereOverlapsBox(ToLocal(Transform(new(1.2f, 0, 0))), .5f, minimum, maximum),
+                        "actor enclosure overlap and separation survive rotated and mirrored route coordinates");
                 }
-            bool supported = false, blocked = false;
+            bool supported = false, blocked = false, actorBlocked = false;
             for (int i = 0; i < 20000; i++)
             {
                 supported = MantleMovementV1.SupportsDisk(floor, new(0, 1, 0), .5f);
                 blocked = Overlaps(new(-2, 0, -2), new(2, 0, -2), new(0, 0, 2));
+                actorBlocked = MantleMovementV1.SphereOverlapsBox(new(.9f, 0, 0), .5f, minimum, maximum);
             }
             long before = GC.GetAllocatedBytesForCurrentThread();
             for (int i = 0; i < 20000; i++)
             {
                 supported = MantleMovementV1.SupportsDisk(floor, new(0, 1, 0), .5f);
                 blocked = Overlaps(new(-2, 0, -2), new(2, 0, -2), new(0, 0, 2));
+                actorBlocked = MantleMovementV1.SphereOverlapsBox(new(.9f, 0, 0), .5f, minimum, maximum);
             }
             long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-            Check(supported && blocked && allocated == 0, "warmed geometry helpers allocate zero managed bytes");
+            Check(supported && blocked && actorBlocked && allocated == 0, "warmed geometry helpers allocate zero managed bytes");
             Check(ParkourMovementProfileV1.ProfileVersion == 1 && ParkourMovementProfileV2.ProfileVersion == 2
                 && ParkourMovementProfileV3.ProfileVersion == 3 && TraversalMovementProfileV5.ProfileVersion == 5,
                 "historical movement profiles retain their identities");

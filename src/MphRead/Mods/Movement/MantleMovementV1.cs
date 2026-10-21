@@ -12,6 +12,15 @@ internal static class MantleMovementV1
     internal const float LiftStep = .12f, AcrossStep = .14f, SettleStep = .08f;
     internal const float Clearance = .06f, Tolerance = 1f / 4096;
 
+    internal static bool SphereOverlapsBox(Vector3 center, float radius, Vector3 minimum, Vector3 maximum)
+    {
+        if (!Finite(center) || !float.IsFinite(radius) || radius < 0 || !Finite(minimum) || !Finite(maximum)
+            || minimum.X > maximum.X || minimum.Y > maximum.Y || minimum.Z > maximum.Z) return true;
+        Vector3 nearest = Vector3.ComponentMax(minimum, Vector3.ComponentMin(maximum, center));
+        float distance = (center - nearest).LengthSquared, squaredRadius = radius * radius;
+        return !float.IsFinite(distance) || !float.IsFinite(squaredRadius) || distance <= squaredRadius;
+    }
+
     internal static bool TriangleOverlapsBox(Vector3 a, Vector3 b, Vector3 c, Vector3 minimum, Vector3 maximum)
     {
         if (!Finite(a) || !Finite(b) || !Finite(c) || !Finite(minimum) || !Finite(maximum)

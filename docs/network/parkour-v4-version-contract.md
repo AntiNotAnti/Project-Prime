@@ -20,7 +20,10 @@ the lift's 0.06 clearance is included in that rise bound. Horizontal origin trav
 includes two native radii plus landing margin. Assistance lasts at most 24 ticks.
 Release Forward, body/ability changes, obstruction, stalled progress or timeout
 ends assistance. Completion requires actual current native static support.
-No Position or PrevPosition snap is used.
+No Position or PrevPosition snap is used. Synthesized door/forcefield contacts
+cannot supply a static seed. Their collision is absent from the polygon query,
+so a bounded conservative enclosure check refuses nearby closed doors and active
+fields along the complete route; native collision retains its existing response.
 
 The passive checkpoint schema remains unchanged. It is not a resumable active
 controller save; a future such save must persist mantle phase, route and clocks.
