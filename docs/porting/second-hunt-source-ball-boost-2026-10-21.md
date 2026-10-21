@@ -1,5 +1,9 @@
 # Dark Samus source ball boost tint
 
+Merged in [PR965](https://github.com/AntiNotAnti/Project-Prime/pull/965) at
+`11c94e1342129784d0d20cbb08801cdcbd02693a`; its complete tree equals qualified
+head `61fc1ead0d6c36a4a18da960b06cb4a18d054770`.
+
 Normal and Overcharged source balls tint their own native Samus boost effect136
 blue at the native sampled brightness. This is renewed only after the complete
 source ball submits in the current picture. Native morph/furl30, unsupported
