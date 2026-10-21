@@ -77,10 +77,12 @@ namespace MphRead.Mods.MapGen
         }
 
         public static void Generate(MapDefinition def, string archiveDir, string entityDir, string nodeDir,
-            bool verbose = true)
+            bool verbose = true, CancellationToken cancellation = default)
         {
-            var result = MapBuildScheduler.Shared.BuildAsync(MapBuildSnapshot.Capture(def)).GetAwaiter().GetResult();
+            cancellation.ThrowIfCancellationRequested();
+            var result = MapBuildScheduler.Shared.BuildAsync(MapBuildSnapshot.Capture(def), cancellation).GetAwaiter().GetResult();
             MapCompiler.ThrowIfInvalid(result.Validation());
+            cancellation.ThrowIfCancellationRequested();
             MapBuildScheduler.Install(result, def, archiveDir, entityDir, nodeDir);
             if (verbose) Console.WriteLine($"{def.Name}: {(result.CacheHit ? "cached" : "compiled")} runtime files ({result.Milliseconds:0} ms)");
         }

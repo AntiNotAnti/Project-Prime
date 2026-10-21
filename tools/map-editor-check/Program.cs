@@ -146,6 +146,21 @@ try
         MphRead.Paths.SetPath(MphRead.Paths.MphKey, Path.Combine(root, "runtime-files"));
         var runtimeDefinition = CustomRooms.Definitions.Single(d => d.Name == "RUNTIME LEASE CHECK");
         Check(CustomRooms.NeedsGenerating(runtimeDefinition), "runtime map starts without outputs");
+        string generationLock = CustomRooms.OutputsFor(runtimeDefinition).Manifest + ".generation.lock";
+        Directory.CreateDirectory(Path.GetDirectoryName(generationLock)!);
+        using (var heldGeneration = new FileStream(generationLock, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None))
+        using (var cancelledWarm = new CancellationTokenSource(TimeSpan.FromMilliseconds(100)))
+        {
+            bool cancelled = false;
+            try
+            {
+                await Task.Run(() => CustomRooms.GenerateMissing(runtimeDefinition.Name, cancelledWarm.Token))
+                    .WaitAsync(TimeSpan.FromSeconds(3));
+            }
+            catch (OperationCanceledException) { cancelled = true; }
+            Check(cancelled && !File.Exists(CustomRooms.OutputsFor(runtimeDefinition).Manifest),
+                "retired prewarm cancels a held generation lease without publishing stale runtime outputs");
+        }
         await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => Task.Run(() =>
             CustomRooms.GenerateMissing(runtimeDefinition.Name)))).WaitAsync(TimeSpan.FromSeconds(15));
         Check(!CustomRooms.NeedsGenerating(runtimeDefinition)

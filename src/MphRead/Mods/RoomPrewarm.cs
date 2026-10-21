@@ -24,6 +24,7 @@ namespace MphRead.Mods
         private static Dictionary<string, Lazy<byte[]>> _files = new(PathComparer);
         private static Lazy<Model>? _roomModel;
         private static TaskCompletionSource<bool>? _prepared;
+        private static CancellationTokenSource? _preparationCancellation;
         private const string HostPrewarmMutexName = "ProjectPrime.RoomPrewarm";
 
         private sealed class HostPrewarmLease : IDisposable
@@ -93,11 +94,14 @@ namespace MphRead.Mods
 
             int generation;
             TaskCompletionSource<bool> prepared;
+            CancellationTokenSource cancellation;
             lock (Gate)
             {
                 if (String.Equals(_room, metadata.Name, StringComparison.OrdinalIgnoreCase))
                     return _prepared != null;
                 _prepared?.TrySetResult(false);
+                _preparationCancellation?.Cancel();
+                _preparationCancellation = cancellation = new CancellationTokenSource();
                 _room = metadata.Name;
                 generation = ++_generation;
                 _files = new Dictionary<string, Lazy<byte[]>>(PathComparer);
@@ -110,7 +114,18 @@ namespace MphRead.Mods
             // Preserve the existing worker/generation. Transfer only the file
             // read capability so a retired warm still protects its actual reads.
             var workerFiles = configuredFiles;
-            _ = Task.Run(() => { using (workerFiles) Warm(metadata, generation, prepared); });
+            _ = Task.Run(() =>
+            {
+                try { using (workerFiles) Warm(metadata, generation, prepared, cancellation.Token); }
+                finally
+                {
+                    lock (Gate)
+                    {
+                        if (ReferenceEquals(_preparationCancellation, cancellation)) _preparationCancellation = null;
+                        cancellation.Dispose();
+                    }
+                }
+            });
             configuredFiles = null;
             return true;
         }
@@ -257,11 +272,12 @@ namespace MphRead.Mods
         }
 
         private static void Warm(RoomMetadata metadata, int generation,
-            TaskCompletionSource<bool> prepared)
+            TaskCompletionSource<bool> prepared, CancellationToken cancellation)
         {
             var clock = Stopwatch.StartNew();
             try
             {
+                cancellation.ThrowIfCancellationRequested();
                 // Hosted lobbies are separate processes. Serialize their heavy
                 // file/model prewarm across the machine so a burst of lobby
                 // creation cannot make every child decode a room at once.
@@ -279,7 +295,8 @@ namespace MphRead.Mods
                 }
                 // Custom maps can compile while players are choosing settings,
                 // instead of making Start Match pay that cost.
-                MapGen.CustomRooms.GenerateMissing(metadata.Name);
+                MapGen.CustomRooms.GenerateMissing(metadata.Name, cancellation);
+                cancellation.ThrowIfCancellationRequested();
 
                 List<string> paths = AssetPaths(metadata);
                 var files = new Dictionary<string, Lazy<byte[]>>(PathComparer);
@@ -334,6 +351,9 @@ namespace MphRead.Mods
                 }
 
                 // Moves geometry, texture and animation decode off the Start path.
+                // A map switch during the last file read must not start a now
+                // obsolete model decode while the next room needs this lane.
+                cancellation.ThrowIfCancellationRequested();
                 _ = model.Value;
 
                 lock (Gate)
@@ -347,6 +367,10 @@ namespace MphRead.Mods
                 prepared.TrySetResult(true);
                 Console.WriteLine($"[prewarm] {metadata.Name}: {count} files, "
                     + $"{bytes / (1024.0 * 1024.0):0.0} MiB in {clock.Elapsed.TotalSeconds:0.00}s");
+            }
+            catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+            {
+                prepared.TrySetResult(false);
             }
             catch (Exception ex)
             {
@@ -388,6 +412,7 @@ namespace MphRead.Mods
         private static void ClearLocked()
         {
             _generation++;
+            _preparationCancellation?.Cancel();
             _prepared?.TrySetResult(false);
             _prepared = null;
             _room = "";
