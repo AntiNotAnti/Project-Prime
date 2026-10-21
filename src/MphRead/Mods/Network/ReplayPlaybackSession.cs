@@ -8,7 +8,7 @@ namespace MphRead.Mods.Network
 {
     /// <summary>Instance-owned replay reader and clock. All compatibility side effects
     /// are delegated to the explicit host; passive sessions never use NetSession.</summary>
-    internal sealed class ReplayPlaybackSession : IDisposable
+    internal sealed partial class ReplayPlaybackSession : IDisposable
     {
         private readonly IReplaySessionHost _host;
         internal event Action<uint, byte[]>? FactRead;
@@ -199,7 +199,15 @@ namespace MphRead.Mods.Network
                     || !metadata.CustomWeapons.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes())
                     || _frame < metadata.OriginRecordingFrame || _frame > (ulong)metadata.OriginRecordingFrame + reader.DurationFrames)
                     throw new InvalidDataException("Custom file differs from its retained historical world scope.");
-                var pending = reader.SeekAfter(checked(_frame - metadata.OriginRecordingFrame));
+                uint relative = checked(_frame - metadata.OriginRecordingFrame);
+                var pending = metadata.FormatVersion == 8 ? reader.SeekAtOrAfter(relative) : reader.SeekAfter(relative);
+                // WorldK already represents ordinary K. Deferred K remains inert
+                // while paused and must survive even a durable checkpoint seek.
+                while (metadata.FormatVersion == 8 && pending is { } atBaseline && atBaseline.Frame == relative
+                    && atBaseline.Data[0] != ReplayPostWorldRecord.Tag)
+                    pending = reader.ReadNext();
+                if (metadata.FormatVersion == 8 && relative == reader.DurationFrames)
+                    ConsumePostWorldEnd(reader, ref pending, _frame);
                 if (reader.LastResult != ReplayOpenResult.Success) throw new InvalidDataException("Custom archive seek failed: " + reader.LastResult);
                 _reader = reader; _pending = pending; CurrentPath = prepared.Path; _live = false;
                 LastFrame = reader.DurationFrames;
@@ -212,6 +220,7 @@ namespace MphRead.Mods.Network
             if (AtEnd) return false;
             try
             {
+                if (_reader!.Metadata!.FormatVersion == 8) return AdvancePostWorldArchiveInspection();
                 uint next = checked(_frame + 1), origin = _reader!.Metadata!.OriginRecordingFrame;
                 int count = 0, bytes = 0;
                 while (_pending is { } record && (ulong)record.Frame + origin <= next)
@@ -225,7 +234,10 @@ namespace MphRead.Mods.Network
                     if ((record.Data[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag) && !_reader.Metadata!.TimedShotCertificates)
                         throw new InvalidDataException("Timed shot facts lack their recording capability.");
                     if (record.Data[0] == 254)
-                        _ = ReplayTimelineArchive.DecodeMarker(next, record.Data); // Semantic metadata, never a gameplay packet.
+                    {
+                        var marker = ReplayTimelineArchive.DecodeMarker(next, record.Data); // Metadata, never a gameplay packet.
+                        marker.Release();
+                    }
                     else if (record.Data[0] != 255)
                     {
                         // This explicitly admitted custom archive retains its custom
