@@ -4,6 +4,13 @@ This file summarises the launcher features and where its code lives.
 
 ## Native offline setup (October 2026)
 
+Offline matches use an explicitly labeled **OFFLINE // BOT LOBBY**. The layout
+follows the online lobby's match-settings rail and eight-slot roster, with a
+local human row, selectable bot rows and distinct empty slots. Selecting a bot
+opens its existing independent loadout/team/difficulty controls. Start Bot Match
+uses the local launch owner; it does not create a network lobby or require online
+ready/chat state. Aim Lab retains its separate setup panel and route.
+
 The RmlUi offline setup carries seven immutable bot profiles in its local draft.
 Combatant count activates the first zero to seven profiles. The roster selector
 edits each bot's Hunter (including Random), suit, difficulty, team (Auto or teams
@@ -40,6 +47,24 @@ Offline arena search accepts display names and runtime keys. The native offline
 picker uses six preview cards per page and the shared asynchronous preview cache,
 including explicit loading/unavailable placeholders. The offline and lobby pickers
 share one active preview read so a closed picker cannot retire the visible cache.
+
+After first-run extraction or game-file repair, native online and bot menus read
+the current `StartScreen` room catalog. The separate Shell startup snapshot may
+predate extraction and must not hide the newly installed arenas. Offline catalog
+reads still exclude missing built-in entity files. `rmlui-live-menu-check
+--arena-catalog-only` reproduces this transition with generated entities and the
+real setup-completion/front-screen owners. Optional
+`PROJECT_PRIME_ARENA_CATALOG_OWNED_PATHS` supplies an existing paths.txt for an
+additional read-only check against owned game data, using private test preferences.
+
+The October 21 arena/Bot Lobby regression run verified all 27 arenas from an
+existing extraction, setup-to-menu refresh and repair, offline menu/roster launch
+handoff, native GL controls at 1280x800 (605 checks) and 640x360 (604 checks),
+managed runtime, configured-local Android capabilities (798 source-only checks),
+isolated settings acceptance, and desktop/server compilation. Android workload
+was unavailable, so no APK or device validation is claimed. Native GL captures
+use generated fixtures and private preferences; owned cartridge assets are never
+included in source or distributable packages.
 
 Focused checks: `tools/rmlui-offline-rules-check -- --roster-only` exercises profile
 validation and real local population (preseeded turret holders avoid cartridge model

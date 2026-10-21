@@ -54,6 +54,12 @@ if (args.Contains(NativeSettingsAcceptance.ChildArgument))
     return;
 }
 
+if (args.Contains("--arena-catalog-only"))
+{
+    OfflineArenaCatalogChecks.Run();
+    return;
+}
+
 #if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
 // Source-linked async ownership checks intentionally avoid unrelated fixtures
 // that reflect the prebuilt engine via the controller assembly identity.
@@ -686,9 +692,9 @@ Check(botSetupBindings.TryGetValue("visible:offline_match_panel", out var visibl
     && botSetupBindings.TryGetValue("visible:offline_training_panel", out var hiddenAimSetup)
     && !hiddenAimSetup.Boolean
     && botSetupBindings.TryGetValue("offline_heading", out var botSetupHeading)
-    && botSetupHeading.Text == "OFFLINE BATTLE"
+    && botSetupHeading.Text == "BOT LOBBY"
     && !Flag(controller.Tick(), "offline_training_can_start"),
-    "Offline Battle shows only bot-match settings and the correct heading");
+    "Bot Lobby shows only bot-match settings and the correct heading");
 Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice, 8)
     && !controller.Dispatch(RmlUiIntentKind.OfflineOpenTrainingOptions)
     && !controller.Dispatch(RmlUiIntentKind.OfflineLaunchTraining),
@@ -857,6 +863,7 @@ controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Home);
 // interpret save state. No native controller edits/loads save JSON.
 if (args.Contains("--offline-only"))
 {
+    OfflineBotLobbyAcceptance.Run();
     MapPickerCatalogAcceptance.Run();
     OfflineReturnChecks.Run();
     Console.WriteLine("RML OFFLINE AND MAP MENU CHECKS PASS");

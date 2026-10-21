@@ -665,9 +665,14 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             return values.ToArray();
         }
 
-        private static readonly Binding[] OfflineBindings =
+        private static readonly Binding[] OfflineBindings = BuildOfflineBindings();
+
+        private static Binding[] BuildOfflineBindings()
         {
+            var bindings = new List<Binding>
+            {
             new(RmlUiBindingKind.Boolean, "visible:offline_match_panel", "!offline_training_mode"),
+            new(RmlUiBindingKind.Boolean, "visible:offline_roster_panel", "!offline_training_mode"),
             new(RmlUiBindingKind.Boolean, "visible:offline_training_panel", "offline_training_mode"),
             new(RmlUiBindingKind.Text, "offline_eyebrow", "{{offline_eyebrow_label}}"),
             new(RmlUiBindingKind.Text, "offline_heading", "{{offline_heading_label}}"),
@@ -693,6 +698,8 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Text, "offline_character_notice", "{{offline_character_notice}}"),
             new(RmlUiBindingKind.Text, "offline_start", "{{offline_start_label}}"),
             new(RmlUiBindingKind.Text, "offline_summary", "{{offline_summary}}"),
+            new(RmlUiBindingKind.Text, "offline_roster_count", "{{offline_roster_count}}"),
+            new(RmlUiBindingKind.Text, "offline_local_detail", "{{offline_local_detail}}"),
             new(RmlUiBindingKind.Text, "offline_error", "{{offline_error}}"),
             new(RmlUiBindingKind.Text, "offline_availability", "{{offline_availability}}"),
             new(RmlUiBindingKind.Boolean, "disabled:offline_start", "!offline_can_start"),
@@ -707,7 +714,19 @@ namespace MphRead.Mods.Launcher.RmlUi.Host
             new(RmlUiBindingKind.Boolean, "disabled:offline_previous_9", "!offline_training_can_weapon"),
             new(RmlUiBindingKind.Boolean, "disabled:offline_targets", "!offline_training_can_targets"),
             new(RmlUiBindingKind.Boolean, "disabled:offline_weapon", "!offline_training_can_weapon")
-        };
+            };
+            for (int i = 0; i < 7; i++)
+            {
+                bindings.Add(new(RmlUiBindingKind.Text, $"offline_bot_slot{i}_name", $"{{{{offline_bot_slot{i}_name}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Text, $"offline_bot_slot{i}_detail", $"{{{{offline_bot_slot{i}_detail}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Text, $"offline_bot_slot{i}_state", $"{{{{offline_bot_slot{i}_state}}}}"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"class:offline_bot_slot{i}:occupied", $"offline_bot_slot{i}_occupied"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"class:offline_bot_slot{i}:empty", $"!offline_bot_slot{i}_occupied"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"class:offline_bot_slot{i}:selected", $"offline_bot_slot{i}_selected"));
+                bindings.Add(new(RmlUiBindingKind.Boolean, $"disabled:offline_bot_slot{i}", $"!offline_bot_slot{i}_occupied"));
+            }
+            return bindings.ToArray();
+        }
 
         private static readonly Binding[] OfflineRulesBindings = BuildOfflineRulesBindings();
 

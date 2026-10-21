@@ -303,17 +303,22 @@ namespace MphRead.Mods.Launcher.Gui
         internal static bool RmlUiLeaveLobby()
             => Active && _window?.HasScene == false && _front?.RmlUiLeaveLobby() == true;
 
+        // Setup refreshes the long-lived front screen after extraction. Its
+        // current catalog can differ from the startup snapshot, which may have
+        // contained only custom rooms before any cartridge files existed.
+        private static IReadOnlyList<string> CurrentRooms
+            => _front is { } front ? front.RmlUiRoomKeys : _rooms;
+
         internal static IReadOnlyList<string> RmlUiBuiltInRooms()
-            => _rooms.Where(Metadata.IsBuiltInRoom).ToArray();
+            => CurrentRooms.Where(Metadata.IsBuiltInRoom).ToArray();
 
         internal static IReadOnlyList<string> RmlUiOfflineRooms()
         {
-            // The room catalog was captured when the launcher started. A
-            // missing built-in entity file must not remain selectable after a
-            // failed load or game-file repair, especially on bot-match return.
+            // Missing built-in data must not remain selectable after a failed
+            // load or game-file repair, especially on bot-match return.
             using var files = GameFiles.TryUseConfiguredFiles();
             if (files == null) return Array.Empty<string>();
-            return _rooms.Where(room =>
+            return CurrentRooms.Where(room =>
                 (Metadata.IsBuiltInRoom(room) || _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase))
                 && (!Metadata.IsBuiltInRoom(room) || ThumbnailGenerator.HasInstalledEntityFile(room))).ToArray();
         }

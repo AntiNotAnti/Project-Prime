@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead;
+using MphRead.Mods;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Launcher.RmlUi.Core;
@@ -60,6 +61,17 @@ internal static class OfflineCharacterGlAcceptance
         Check(host.IsAlive(offline)&&host.CurrentInputDocument==offline,"actual Offline document owns input");
         Check(!host.TryGetElementBounds(offline,"offline_mechanics",out _,out _,out float mechanicsWidth,out float mechanicsHeight)
             || mechanicsWidth == 0 || mechanicsHeight == 0,"deferred Weavel mechanics section is hidden in shipped setup");
+        if(width>800)
+        {
+            Check(host.TryGetElementBounds(offline,"offline_match_panel",out float matchX,out _,out float matchWidth,out _)
+                &&host.TryGetElementBounds(offline,"offline_roster_panel",out float rosterX,out _,out float rosterWidth,out _)
+                &&matchWidth>0&&rosterWidth>0&&matchX+matchWidth<=rosterX+1,
+                "wide native bot-lobby setup and roster panels occupy separate columns");
+        }
+        Frame();
+        string lobbyCapture=Path.Combine(root,$"offline-bot-lobby-{width}x{height}.png");
+        Check(ScreenCapture.SaveWindow(width,height,lobbyCapture),"pristine native Bot Lobby screenshot saves before deferred mechanics reveal");
+        Console.WriteLine("RML OFFLINE BOT LOBBY GL screenshot: "+lobbyCapture);
         // Only this fixture reveals the deferred controls so existing experimental
         // runtime coverage remains available without exposing them to players.
         host.SetBool(offline,"visible:offline_mechanics",true);
@@ -69,6 +81,11 @@ internal static class OfflineCharacterGlAcceptance
         while(controller.Tick().Bindings["offline_bots_value"].Text != "2 BOTS")
             Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice,3),"set two synthetic bots");
         Settle(150);
+        Click("offline_bot_slot1",RmlUiIntentKind.OfflineChoice,25);
+        Check(Label("offline_bot_slot1").Contains("BOT 2",StringComparison.Ordinal)
+            &&Label("offline_bot_selected").Contains("BOT 2 / 2",StringComparison.Ordinal),
+            "native roster row selects the corresponding occupied offline bot slot");
+        Click("offline_bot_slot0",RmlUiIntentKind.OfflineChoice,24);
         foreach(var choice in new[]{(18,"offline_bot_hunter"),(19,"offline_bot_suit"),
             (20,"offline_bot_skill"),(22,"offline_bot_handicap"),(17,"offline_bot_selected")})
             Click(choice.Item2,RmlUiIntentKind.OfflineChoice,choice.Item1);
@@ -258,7 +275,7 @@ internal static class OfflineCharacterGlAcceptance
         Check(!host.IsAlive(modal),"closing training retires its actual document");
         Check(controller.Dispatch(RmlUiIntentKind.Navigate,(int)RmlUiRouteArgument.Offline),"return to Offline uses same controller draft");
         Settle(150);var closing=layout.Document;
-        Check(!controller.Tick().Bindings["offline_training_mode"].Boolean&&Label("offline_heading")=="OFFLINE BATTLE"
+        Check(!controller.Tick().Bindings["offline_training_mode"].Boolean&&Label("offline_heading")=="BOT LOBBY"
             &&Label("offline_character").Contains("TROOPER SCOUT DRONE",StringComparison.Ordinal),
             "returning to actual native Battle page restores its original explicit drone selection");
         Check(!controller.Dispatch(RmlUiIntentKind.OfflineChoice,13)

@@ -154,6 +154,13 @@ public sealed class RmlUiOfflineDraft
 
     private bool ChangeBot(int index, int direction)
     {
+        if (index is >= 24 and <= 30)
+        {
+            int selectedBot = index - 24;
+            if (selectedBot >= Current.Bots) return false;
+            _selectedBot = selectedBot;
+            return true;
+        }
         if (!HasBots) return false;
         if (index == 17)
         {
@@ -183,7 +190,7 @@ public sealed class RmlUiOfflineDraft
     {
         EnsureBotRoster();
         int direction = previous ? -1 : 1;
-        if (index is >= 17 and <= 22) return ChangeBot(index, direction);
+        if (index is >= 17 and <= 22 or >= 24 and <= 30) return ChangeBot(index, direction);
         switch (index)
         {
             case 0: return Step(_rooms, Current.RoomKey,

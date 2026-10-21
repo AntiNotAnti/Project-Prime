@@ -82,7 +82,8 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.SettingsCategory => 13,
         RmlUiIntentKind.SettingsAction => 63,
         RmlUiIntentKind.AdventureSelectSlot or RmlUiIntentKind.AdventureCopyDestination => 3,
-        RmlUiIntentKind.OfflineChoice or RmlUiIntentKind.OfflineChoicePrevious => 24,
+        RmlUiIntentKind.OfflineChoice => 31,
+        RmlUiIntentKind.OfflineChoicePrevious => 24,
         RmlUiIntentKind.OfflineRuleToggle => RmlUiIntentRegistry.OfflineRuleChoiceCount,
         RmlUiIntentKind.OfflineTrainingToggle => 5,
         _ => 1
@@ -131,7 +132,7 @@ foreach (var choice in new[] {
 // Mechanics continues to reuse literal choice16: the third local draft state
 // is not a new native action or an expansion of the intent ABI.
 var mechanicsDocument = new RmlUiDocumentToken(73, 19);
-foreach (int choice in new[] { 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 })
+foreach (int choice in new[] { 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30 })
 {
     var packet = new RmlUiNativeIntent { Size = RmlUiIntentRegistry.NativeIntentSize,
         Version = RmlUiIntentRegistry.ProtocolVersion, Kind = 140, Argument = choice,
@@ -140,9 +141,15 @@ foreach (int choice in new[] { 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23 })
         && decodedMechanics == new RmlUiIntent(RmlUiIntentKind.OfflineChoice, choice, mechanicsDocument, 7),
         "training, mechanics and appended bot choices keep the native action identity: " + choice);
 }
-Require(!RmlUiIntentRegistry.TryParseLegacy("offline:choice:24", mechanicsDocument, 8, out _)
-    && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineChoice, 24),
-    "offline family rejects indices beyond appended bot configuration choices");
+Require(RmlUiIntentRegistry.TryParseLegacy("offline:choice:30", mechanicsDocument, 8, out var finalBotSlot)
+    && finalBotSlot.Argument == 30
+    && RmlUiIntentRegistry.TryParseLegacy("offline:previous-choice:23", mechanicsDocument, 9, out var previousFinalChoice)
+    && previousFinalChoice.Argument == 23
+    && !RmlUiIntentRegistry.TryParseLegacy("offline:choice:31", mechanicsDocument, 10, out _)
+    && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineChoice, 31)
+    && !RmlUiIntentRegistry.TryParseLegacy("offline:previous-choice:24", mechanicsDocument, 11, out _)
+    && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.OfflineChoicePrevious, 24),
+    "offline family accepts exactly seven appended bot roster slots");
 string[] studioBuildActions =
 {
     "build-validate", "build-runtime", "build-package", "build-play-camera",

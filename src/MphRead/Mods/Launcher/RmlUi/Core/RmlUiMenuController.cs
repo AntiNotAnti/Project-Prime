@@ -2123,6 +2123,27 @@ public sealed class RmlUiMenuController : IDisposable
         Text("offline_skill_value", _offline?.Difficulty ?? "");
         Flag("offline_has_bots", _offline?.HasBots == true);
         Flag("offline_teams", _offline?.Teams == true);
+        Text("offline_roster_count", _offline == null ? "1 / 8 PLAYERS"
+            : (1 + _offline.Current.Bots) + " / 8 PLAYERS");
+        Text("offline_local_detail", _offline == null ? ""
+            : _offline.HunterName + " // " + _offline.SuitName + " // "
+                + (_offline.Teams ? "TEAM " + (_offline.Current.LocalTeam + 1) : "FREE FOR ALL"));
+        RmlUiOfflineDraft? draft = _offline;
+        for (int i = 0; i < 7; i++)
+        {
+            bool occupied = draft != null && i < draft.Current.Bots;
+            OfflineBotSettings bot = draft?.Current.BotRoster[i] ?? default;
+            Flag($"offline_bot_slot{i}_occupied", occupied);
+            Flag($"offline_bot_slot{i}_selected", occupied && draft?.SelectedBot == i);
+            Text($"offline_bot_slot{i}_name", occupied ? "BOT " + (i + 1) : "OPEN SLOT");
+            Text($"offline_bot_slot{i}_detail", occupied
+                ? (bot.Hunter == Hunter.Random ? "RANDOM HUNTER" : bot.Hunter.ToString().ToUpperInvariant())
+                    + " // SUIT " + (bot.Suit + 1)
+                : "EMPTY SLOT");
+            Text($"offline_bot_slot{i}_state", !occupied ? "EMPTY"
+                : draft != null && draft.Teams && bot.Team >= 0 ? "TEAM " + (bot.Team + 1)
+                : draft?.Teams == true ? "TEAM AUTO" : "BOT");
+        }
         Text("offline_bot_selected_value", _offline?.BotSelection ?? "");
         Text("offline_bot_hunter_value", _offline?.Bot.Hunter.ToString().ToUpperInvariant() ?? "");
         Text("offline_bot_suit_value", _offline == null ? "" : "SUIT " + (_offline.Bot.Suit + 1));
@@ -2140,20 +2161,20 @@ public sealed class RmlUiMenuController : IDisposable
             OfflineCharacterMode.TrooperScoutDronePractice => "START DRONE PRACTICE",
             OfflineCharacterMode.TrooperScoutDroneCombatPractice => "START DRONE COMBAT PRACTICE",
             OfflineCharacterMode.TrooperArsenalPractice => "START ARSENAL PRACTICE",
-            _ => "INITIATE BOT SIMULATION"
+            _ => "START BOT MATCH"
         });
         Text("offline_summary", _offline == null ? "" :
             _offline.Mode + " // " + _offline.Bots + " // " + _offline.Difficulty);
-        Text("offline_eyebrow_label", _trainingRoute ? "OPERATIONS // TRAINING" : "OPERATIONS // OFFLINE");
-        Text("offline_heading_label", _trainingRoute ? "AIM LAB" : "OFFLINE BATTLE");
+        Text("offline_eyebrow_label", _trainingRoute ? "OPERATIONS // TRAINING" : "OFFLINE // BOT LOBBY");
+        Text("offline_heading_label", _trainingRoute ? "AIM LAB" : "BOT LOBBY");
         Text("offline_description_label", _trainingRoute
             ? "Configure dedicated aim and movement drills."
-            : "Build a local match with bots and custom rules.");
+            : "LOCAL SESSION // ONE HUMAN + UP TO SEVEN BOTS");
         Text("offline_error", _offline == null ? "" : _status);
         Text("offline_availability", _trainingRoute
             ? "PERSONAL TRAINING // CHOOSE A DRILL"
             : _offline?.Valid == true
-                ? "READY // VALIDATION RUNS BEFORE LAUNCH" : "NO INSTALLED BUILT-IN ARENAS");
+                ? "LOCAL MATCH READY // NO NETWORK LOBBY" : "NO INSTALLED BUILT-IN ARENAS");
         Flag("offline_can_start", !_trainingRoute && _offline?.Valid == true
             && !_busy && !_offlineLaunched && _offlineRules == null);
         Flag("offline_training_can_start", _trainingRoute && _training != null && !_trainingLaunched
