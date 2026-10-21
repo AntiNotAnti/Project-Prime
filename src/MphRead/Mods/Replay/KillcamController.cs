@@ -374,11 +374,11 @@ internal sealed class KillcamController : IDisposable
             var eye = actor.CameraInfo.ModGetDrawPosition(scene.ReplayRenderAlpha)
                 + actor.ReplayDrawTransform.Row3.Xyz - actor.SimulationDrawPosition;
             Vector3 target = eye + facing * 5;
-            float fov = actor.CameraInfo.ModGetDrawFov(scene.ReplayRenderAlpha);
-            if (!float.IsFinite(fov) || fov <= 0) fov = 82;
-            fov = Math.Clamp(fov, 1, 175);
-            scene.SetReplicaCamera(eye, target, fov);
-            _lastKillerCamera = new(eye, target, facing, fov, Frame);
+            float ownerFov = actor.CameraInfo.ModGetDrawFov(scene.ReplayRenderAlpha);
+            if (!float.IsFinite(ownerFov) || ownerFov <= 0) ownerFov = 82;
+            ownerFov = Math.Clamp(ownerFov, 1, 175);
+            scene.SetReplicaCamera(eye, target, ownerFov);
+            _lastKillerCamera = new(eye, target, facing, ownerFov, Frame);
             return;
         }
         double relativeFrame = scene.ReplayPresentationFrame - _killFrame;

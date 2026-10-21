@@ -31,6 +31,7 @@ public sealed class CommunityContentRegistry
     private const int MaximumRevisions = 16384;
     private const int MaximumTags = 16;
     private const int MaximumDependencies = 32;
+    private const int MaximumCatalogBytes = 32 * 1024 * 1024;
     // Distinct raw objects are a separate storage pool from historical
     // .ppmap packages. Cap both the service and a single creator so valid
     // credentials cannot exhaust origin disk by accumulating revisions.
@@ -66,7 +67,7 @@ public sealed class CommunityContentRegistry
         Directory.CreateDirectory(_objects);
 
         if (!File.Exists(_index)) return;
-        if (new FileInfo(_index).Length > 32L * 1024 * 1024)
+        if (new FileInfo(_index).Length > MaximumCatalogBytes)
             throw new InvalidDataException("V3 content catalog exceeds its metadata budget.");
         var saved = JsonSerializer.Deserialize<CommunityContentStoredState>(
             File.ReadAllBytes(_index), MapPackageReader.JsonOptions)
@@ -203,11 +204,6 @@ public sealed class CommunityContentRegistry
                 EnsureAcyclic(metadata.Kind, metadata.ContentId,
                     metadata.Dependencies ?? Array.Empty<CommunityContentDependency>());
 
-            // Immutable objects are persisted before the metadata pointer.
-            // If metadata persistence fails, an unreferenced blob is harmless,
-            // while no catalog revision ever points to an unwritten object.
-            PutVerifiedBlob(stagedFile, hash, bytes);
-
             DateTimeOffset now = DateTimeOffset.UtcNow;
             int revisionNumber = (current?.Revisions.LastOrDefault()?.RevisionNumber ?? 0) + 1;
             var revision = new CommunityContentRevision(
@@ -243,9 +239,12 @@ public sealed class CommunityContentRegistry
                 .Append(next)
                 .OrderBy(p => p.Kind, StringComparer.Ordinal)
                 .ThenBy(p => p.ContentId).ToArray();
-            AtomicFile.Write(_index, JsonSerializer.SerializeToUtf8Bytes(
-                new CommunityContentStoredState(Format, updated, _reports.ToArray()),
-                MapPackageReader.JsonOptions));
+            // Refuse the restart reader's byte limit before publishing another
+            // immutable object. Catalog-budget failures cannot accumulate orphan
+            // archives outside the quota snapshot of admitted revisions.
+            byte[] catalogBytes = SerializeCatalog(new(Format, updated, _reports.ToArray()));
+            PutVerifiedBlob(stagedFile, hash, bytes);
+            AtomicFile.Write(_index, catalogBytes);
             _projects[key] = next;
             return Project(next, owner: true)
                 ?? throw new InvalidDataException("New v3 content could not be projected.");
@@ -479,7 +478,29 @@ public sealed class CommunityContentRegistry
     {
         var projects = _projects.Values.Select(p => replacement != null && p.Kind == replacement.Kind && p.ContentId == replacement.ContentId ? replacement : p)
             .OrderBy(p => p.Kind, StringComparer.Ordinal).ThenBy(p => p.ContentId).ToArray();
-        AtomicFile.Write(_index, JsonSerializer.SerializeToUtf8Bytes(new CommunityContentStoredState(Format, projects, reports), MapPackageReader.JsonOptions));
+        AtomicFile.Write(_index, SerializeCatalog(new(Format, projects, reports)));
+    }
+
+    private static byte[] SerializeCatalog(CommunityContentStoredState state)
+    {
+        using var output = new CatalogStream();
+        JsonSerializer.Serialize(output, state, MapPackageReader.JsonOptions);
+        return output.ToArray();
+    }
+
+    private sealed class CatalogStream : MemoryStream
+    {
+        private void Reserve(int count)
+        {
+            if (count < 0 || Length > MaximumCatalogBytes - count)
+                throw new InvalidDataException("V3 content catalog exceeds its metadata byte budget.");
+        }
+        public override void Write(byte[] buffer, int offset, int count)
+        { Reserve(count); base.Write(buffer, offset, count); }
+        public override void Write(ReadOnlySpan<byte> buffer)
+        { Reserve(buffer.Length); base.Write(buffer); }
+        public override void WriteByte(byte value)
+        { Reserve(1); base.WriteByte(value); }
     }
 
     private static void ValidateReport(CommunityContentReport report)
@@ -517,9 +538,7 @@ public sealed class CommunityContentRegistry
             .Append(replacement)
             .OrderBy(p => p.Kind, StringComparer.Ordinal)
             .ThenBy(p => p.ContentId).ToArray();
-        AtomicFile.Write(_index, JsonSerializer.SerializeToUtf8Bytes(
-            new CommunityContentStoredState(Format, updated, _reports.ToArray()),
-            MapPackageReader.JsonOptions));
+        AtomicFile.Write(_index, SerializeCatalog(new(Format, updated, _reports.ToArray())));
         _projects[(replacement.Kind, replacement.ContentId)] = replacement;
     }
 

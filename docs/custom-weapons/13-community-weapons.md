@@ -37,6 +37,9 @@ project and revision, bounded to 20 new reports per creator/day and 4,096 retain
 reports. Reasons are bounded printable text. Moderator-only routes list reports and
 record hide/unhide decisions atomically with the catalog, retaining up to 32 decisions
 per report. Report and moderator responses use `Cache-Control: private, no-store`.
+Every catalog mutation also uses bounded serialization against the restart reader's
+32 MiB metadata limit. A new revision preflights that budget before publishing its
+immutable object, so budget refusal cannot accumulate unreferenced upload objects.
 
 The existing durable Community queue now supports typed weapon jobs alongside map
 jobs, with the same 32 retained jobs and bounded workers. Uploads freeze exact bytes
