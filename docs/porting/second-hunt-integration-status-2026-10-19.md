@@ -77,7 +77,7 @@ this ledger makes no green-CI or external-review claim.
 The [Trooper offline body runtime](second-hunt-trooper-offline-body-runtime-2026-10-21.md)
 extends Hunters with four local Weavel body appearances, complete35-joint
 source poses and existing Scene source programs. Windows actual match checks
-pass68,103 assertions with all four1,011-step native gameplay traces identical;
+pass68,143 protocol82 assertions with all four1,011-step native gameplay traces identical;
 77 actual launcher lifecycle checks,27,303 independent CPU pose checks and
 native Apply/reload/Discard UI acceptance pass. Native gun/ball and unsupported
 states remain explicit fallbacks. Cosmetic selection does not enable Trooper

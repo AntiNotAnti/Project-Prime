@@ -51,20 +51,23 @@ source-program viewer is unchanged. No online, campaign or replay admission.
 
 ## Frozen source and binaries
 
-Base is merged PR948 `123df20e3737f672048309310f18c8c7f9428cd9`, including
-main PR946/protocol81. Only draft PR947 was open at overlap inspection. This
-slice adds no protocol/replay fields. Production C# freeze is
-`353efd1790d7f3310260152759161ad32ca601f6`; final hint/world fixture is
-`5a74d2cf00d706fc438e435247124b13e5a1dbe1`; final pose test freeze is
-`ea9e77b08b7f31911470fe1df62a45242eff891e`.
+Initial base was merged PR948 `123df20e3737f672048309310f18c8c7f9428cd9`,
+including main PR946/protocol81. Concurrent PR947/949 subsequently merged;
+this branch integrates pinned main `a7985b431` at local merge
+`caa54da853d3aadb47b6ea906ee9b1fc2e5beb74`, inheriting protocol82 and its
+active-grapple native-body fallback. This character slice adds no wire/replay
+fields. Character C# freeze remains `353efd1790d7f3310260152759161ad32ca601f6`;
+final hint is `5a74d2cf00d706fc438e435247124b13e5a1dbe1`, pose test
+`ea9e77b08b7f31911470fe1df62a45242eff891e`, grapple presentation fixture
+`670b5c37f`, native UI fixture `b16ea5d64`. Those post-merge changes are test-only.
 
 | Artifact | SHA256 |
 | --- | --- |
-| Desktop Release core, including final body-policy fixture | `8eccf5dffec7261ff29c2e05a46bac3ee90952bdfa46e533d221249ff6f010c4` |
-| Dedicated win-x64 Release | `7e2885870ed0bcc403ce4d955880d7888913eee7830f9d012f82cf6053cf081a` |
-| Final external-import-check | `02f244e40db18d5e5a0b615560ade41782b885b7bc5b8bbed60506df7edde224` |
-| Native UI contract tool | `6bfc50a722779353bab67bf8cbc292a6b4cd59d9255fcd8fa7a33b3afc4a91d1` |
-| Nettest | `7863972a97fc9276ba2e477524b799989bd0d66a13bd9c2dca2d331b46367598` |
+| Protocol82 desktop Release core | `59ad23e41a4607b38087b1c88f074303405eefbfea4802dedcda2dfdfcd9bde0` |
+| Protocol82 dedicated win-x64 Release | `ce5de150386bc3fd1737029c6e74be63c0e1dc88f35516a027c15a99b905c0b6` |
+| Protocol82 external-import-check | `0c261d210f2160cbe387b56005a204552f455adb063dd84972af53819b824a66` |
+| Native UI contract tool | `9eb80bd7794320d2557d2e58ee4ad7cad84f5811f41d9f1b00ccc3c5ec6a627c` |
+| Nettest | `10112baf7f9a22534ae86392c1e38f4e83d5f055c68f5e5e74df548d2cf50431` |
 | Rebuilt Windows native bridge | `87f02086cd8400279eb06adec9105aebafd55a472cc7ef3bb9909653bcf76c9e` |
 
 SDK10.0.401, NVIDIA RTX5080/OpenGL4.6 driver617.42. The Windows bridge was
@@ -95,7 +98,8 @@ hashes and deletes its derived tree. Protected payloads and images are not in Gi
   radians. Observed maximum is0.0007414282 radians/0.04248degrees and endpoint
   difference5.96e-8. This is an explicit numerical bound, not relaxed animation
   state, clock or raw-key acceptance. Earlier failures/diagnostics are retained.
-- **68,103 final actual world assertions** (68,112 in the earlier visual run): real initialized native Weavel baseline
+- **68,143 protocol82 actual world assertions** (68,103 initial protocol81,
+ 68,112 in its visual run): real initialized native Weavel baseline
   plus each Trooper, keyboard/mouse movement, turn, shot, charge, jump, morph,
   declared injected lethal damage and native respawn. Each1,011-step gameplay
   trace exactly equals native SHA256
@@ -104,8 +108,11 @@ hashes and deletes its derived tree. Protected payloads and images are not in Gi
   source components stay exclusively locked through the input/draw script,
   repeated draws preserve gameplay/palettes/clocks, and actual pause, shadow
   fallback, independent owners, native first-person gun and context retirement
-  pass. Per Trooper the fixture records1,460 source and556 fallback pictures,
+  pass. Per Trooper the protocol82 fixture records1,461 source and557 fallback pictures,
   including its added scheduling phases; these are not simulation-step counts.
+  Protocol82 additionally injects a declared valid accepted grapple presentation
+  state, checks complete native fallback, restores it and verifies the same
+  body/palette/clock/gameplay state. This is not controller or anchor acceptance.
 - Simulated90/120/240/540Hz schedules exercise fractional and zero-step
   pictures without render-time pose advancement. First three schedules return
  60 completed native steps;540 returns59 with the remaining accumulator interval
@@ -115,20 +122,31 @@ hashes and deletes its derived tree. Protected payloads and images are not in Gi
   OfflineLaunch.Preview, MatchStart.Begin/LoadScene/EndScene; detached four-body
   plans, missing/corrupt refusal before Scene allocation, repair to a new
   generation, Remove retaining the admitted Scene, teardown, reinstall and
-  native recovery. Final launch and pose checks use the final external tool
-  above; earlier launcher tool SHA was
-  `bceb43cf5765320517d2649220b0c99bf2a7e3228207b18ce08a3c88df2a7a26`.
+  native recovery. Final launch and pose checks use the protocol82 external tool
+  above. The earlier protocol81 core/tool remain separately retained under
+  `trooper-runtime-protocol81-frozen` with their original receipts.
 - Real Windows native CPU UI clicks pass all seven Hunters and192 category/
   beam/color/suit publications plus each Trooper's Apply/disk reload/new
-  presenter/Discard/duplicate-event fencing. No account writes or physical
+  presenter/Discard/duplicate-event fencing, including Native and all four
+  Trooper buttons at640×480 with focus/scroll/click centers inside the viewport.
+  No account writes or physical
   control claim. Final markup explicitly describes native preview/gun/ball
   fallbacks. Managed typed ABI/range/Host/lifecycle/IME/reinitialization checks
   pass independently.
+- Current protocol82 replay conversion widens old intents to the new canonical
+  width. The inherited protocol38 check still expected the old converted width.
+  Test-only repair `8862112f930079ef987c5d57896c8bdb47d30732` preserves the
+  historical input bytes, verifies shot timing/no invented pose and adds80/81
+  touch/identity preservation and zero-grapple-default cases. The repaired
+  replay suite passes3,107 checks in a separately compiled CPU-only core
+  `3d51b98e7ea460db8dfd565de66ce16c0b1be44e0f92b6275b1d68159abfe38a`.
+  Production code is identical to the GPU-qualified merge; that additional
+  binary qualifies this fixture repair, not a new GPU run.
 - Desktop/dedicated builds pass; body-policy checks2,708 desktop/2,690 dedicated,
-  source-root24/rig910, replay-format3,050, offline-policy971 and network
+  source-root24/rig910, offline-policy971 and network
   architecture pass. The exact same desktop core passes the77,124-assertion
-  actual normal/Overcharged cannon regression; that run's earlier tool is
-  `db21a35fd121bf237d3fd0ed874589d076fe8b1dcd4373391d26b4bf20f796eb`.
+  actual normal/Overcharged cannon regression. Frozen protocol81 receipts are
+  retained separately and do not qualify unrelated protocol82 main changes.
 
 Ignored evidence lives under `artifacts/sh-integration/trooper-runtime-*`.
 The successful visual run saved eight local idle/fire captures. Six were viewed
