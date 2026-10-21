@@ -47,7 +47,6 @@ internal static class KillcamIdentityTests
         void Check(bool value, string message) { if (!value) throw new InvalidDataException(message); checks++; }
         Headless.Enter();
         var live = new Scene(new Vector2i(640, 480), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { }, initializeRuntime: false);
-        live.AddPlayer(Hunter.Samus);
         try
         {
             ReplayKillLifeResult Resolve(params MatchSemanticEventPacket[] events) => ReplayKillLifeResolver.Resolve(Raw, events);
