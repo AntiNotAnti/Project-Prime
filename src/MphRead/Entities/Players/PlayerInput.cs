@@ -15,12 +15,17 @@ namespace MphRead.Entities
         private float _buttonAimY = 0;
         private const float _maxButtonAimX = 8;
         private const float _maxButtonAimY = 8;
+        private VoltDriverTapBuffer _voltTapBuffer;
 
         private void ProcessInput()
         {
             RepairSpatialState();
             ModSampleGrappleControl();
             ModMaintainParkourGrapple();
+            // Queued trigger edges are per-life, biped-only input, never a future
+            // shot after a death, freeze, transformation or scripted lock.
+            if (_health <= 0 || _frozenTimer > 0 || _field6D0 || IsAltForm || IsMorphing || IsUnmorphing)
+                _voltTapBuffer.Reset();
             var replication = _scene.Services.PlayerReplication;
             if (replication.Active && !IsBot)
             {
@@ -1052,9 +1057,21 @@ namespace MphRead.Entities
                         StopBeamChargeSfx(CurrentWeapon);
                     }
                 }
+                if (scanInput || IsUnmorphing) _voltTapBuffer.Reset();
                 if (!scanInput && !IsUnmorphing)
                 {
                     ModSynchronizeCustomNativeSuppression();
+                    // Native Volt accepts a real tap made during cooldown at the
+                    // first legal frame after release. All other weapons retain
+                    // their original fire/charge handling.
+                    bool bufferedVoltPress = _voltTapBuffer.Step(
+                        enabled: CurrentWeapon == BeamType.VoltDriver && !IsBot
+                            && !_scene.Services.IsReplica && !ModCustomOwnsBipedControls
+                            && (!NetSession.Active || SlotIndex == NetSession.LocalSlot)
+                            && !NetFireEvents.UsesEvents(this),
+                        pressed: Controls.Shoot.IsPressed, held: Controls.Shoot.IsDown,
+                        framesSinceShot: _timeSinceShot,
+                        cooldownFrames: EquipWeapon.ShotCooldown * 2);
                     if(!ModCustomOwnsBipedControls)
                     {
                         if (!Controls.Shoot.IsDown)
@@ -1208,9 +1225,14 @@ namespace MphRead.Entities
                                 && (!Controls.Shoot.IsReleased || _scene.Services.IsReplica)
                             || Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
                             || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
-                            && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2)) // todo: FPS stuff
+                            && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2) // todo: FPS stuff
+                            || bufferedVoltPress)
                         {
-                            if (TryFireWeapon())
+                            bool fired = TryFireWeapon(bufferedVoltPress);
+                            // A buffered tap is one attempt, not a new held-fire
+                            // source that repeats if the gun is empty or blocked.
+                            if (fired || bufferedVoltPress) _voltTapBuffer.Reset();
+                            if (fired)
                             {
                                 anim2 = PlayerAnimation.Shoot;
                                 animFlags2 |= AnimFlags.NoLoop;
@@ -1301,7 +1323,7 @@ namespace MphRead.Entities
             }
         }
 
-        private bool TryFireWeapon()
+        private bool TryFireWeapon(bool bufferedVoltPress = false)
         {
             if(ModCustomOwnsBipedControls)return false;
             if (!NetFireEvents.CanFire(this)) return false;
@@ -1320,7 +1342,7 @@ namespace MphRead.Entities
             {
                 return false;
             }
-            bool pressed = Controls.Shoot.IsPressed;
+            bool pressed = Controls.Shoot.IsPressed || bufferedVoltPress;
             bool balancedBurst = BalancedModeRules.IsBattlehammerBurst(
                 _scene.GameState.Multiplayer, _scene.GameState.BalancedMode, CurrentWeapon);
             int shotCooldownFrames = balancedBurst
@@ -1426,7 +1448,7 @@ namespace MphRead.Entities
             try
             {
                 NetFireEvents.Begin(this, shotOrigin, shotVec, shotAim,
-                    shotView, shotReticle, shotReticleValid);
+                    shotView, shotReticle, shotReticleValid, bufferedPress: bufferedVoltPress);
                 Mods.Network.NetUnlagged.BeginShot(this, shotOrigin, shotVec);
                 timedAttempt = NetTimedShotProof.NativeAttempt(this);
                 var modifiers = NetTimedShotModifiers.Resolve(timedAttempt, this);
