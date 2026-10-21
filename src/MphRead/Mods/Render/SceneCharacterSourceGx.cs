@@ -95,13 +95,14 @@ namespace MphRead
                 GL.PixelStore(PixelStoreParameter.UnpackSkipPixels, 0);
                 // Admission is complete before publishing any body segment.
                 var bindings = new Dictionary<uint, int>();
-                foreach (var texture in materials.Archive.Textures)
+                foreach (var texture in materials.Images.OrderBy(p=>p.Key))
                 {
-                    var image = materials.Images[texture.ResourceId];
-                    string key = materials.Policy + "/" + texture.RgbaSha256 + "/" + texture.Width + "x" + texture.Height;
-                    int binding = CharacterTextureAssets.UploadRgba(key, texture.Width, texture.Height, image.Pixels.ToArray(), SourceGxSampling);
+                    var image = texture.Value;
+                    string pixelSha=Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(image.Pixels));
+                    string key = materials.Policy + "/" + pixelSha + "/" + image.Layout.Width + "x" + image.Layout.Height;
+                    int binding = CharacterTextureAssets.UploadRgba(key, image.Layout.Width, image.Layout.Height, image.Pixels.ToArray(), SourceGxSampling);
                     if (binding == 0) throw new InvalidOperationException("Complete body source texture upload failed.");
-                    bindings.Add(texture.ResourceId, binding); _characterPinnedBindings.Add(binding);
+                    bindings.Add(texture.Key, binding); _characterPinnedBindings.Add(binding);
                 }
                 var result = new List<CharacterSourceGxBinding>();
                 foreach (var material in materials.Programs)
@@ -114,11 +115,10 @@ namespace MphRead
                     string key = vertexSource + fragmentSource;
                     if (!_sourceGxPrograms.TryGetValue(key, out var gpu))
                     {
-                        // Six closed body profiles contain at most28 programs
-                        // (Echoes7+9, Prime4*3). Shared Scene switches may retain
-                        // every shader until context retirement; cache identity
-                        // still includes the complete generated shader source.
-                        if (_sourceGxPrograms.Count >= 28) throw new InvalidOperationException("Source body program budget exceeded.");
+                        // Closed bodies28 + at most9 Final cannon alpha variants
+                        // + original normal ball1 + derived vent1. Source shader
+                        // identity remains complete; draw policies live in bindings.
+                        if (_sourceGxPrograms.Count >= 39) throw new InvalidOperationException("Source body program budget exceeded.");
                         int vertex = 0, fragment = 0, program = 0;
                         try
                         {
@@ -223,7 +223,9 @@ namespace MphRead
                     GL.ColorMask(!_sourceBodyDepthOnly, !_sourceBodyDepthOnly, !_sourceBodyDepthOnly, !_sourceBodyDepthOnly);
                     GL.Disable(EnableCap.StencilTest);
                 }
-                GL.Disable(EnableCap.AlphaTest); GL.Disable(EnableCap.CullFace);
+                GL.Disable(EnableCap.AlphaTest);
+                if(binding.Program.FrontFacesOnly){GL.Enable(EnableCap.CullFace);GL.CullFace(TriangleFace.Back);NativeGL.FrontFace(FrontFaceDirection.Ccw);}
+                else GL.Disable(EnableCap.CullFace);
                 GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
                 GL.BlendEquation(BlendEquationMode.FuncAdd);
                 if (opaque) GL.Disable(EnableCap.Blend);
@@ -233,7 +235,7 @@ namespace MphRead
                     if (binding.Program.DrawPass == CharacterSourceGxProgram.Pass.Additive) GL.BlendFunc(BlendingFactor.One, BlendingFactor.One);
                     else GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
                 }
-                DrawRenderItemGeometry(item, null);
+                for(int copy=0;copy<binding.Program.DrawCopies;copy++)DrawRenderItemGeometry(item, null);
             }
             finally
             {

@@ -767,6 +767,8 @@ jobs:
           tools/check-no-game-assets.sh
           tools/check-opengl-only.sh
           tools/check-maps-shipped.sh
+      - name: test macOS signed bundle resource layout
+        run: tools/test-macos-tools.sh
       - name: publish and verify macOS release
         env:
           RID: ${{ matrix.rid }}

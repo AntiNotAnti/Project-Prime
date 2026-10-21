@@ -46,8 +46,12 @@ internal static class CharacterGeneratedNormalBallProfile
 internal sealed partial class CharacterModelPack
 {
     internal bool HasSourceBall(CharacterModelAsset asset) => asset.Part == CharacterModelPart.AlternateForm
-        && asset.PrivateAppearance == CharacterSourcePreviewSelection.Appearance && asset.Hunter == Hunter.Samus
-        && _sourceProofs.TryGetValue(asset,out var proof) && proof.SourceCharacter == "darksamus-echoes"
-        && String.Equals(proof.ModelSha,CharacterGeneratedNormalBallProfile.ModelSha,StringComparison.OrdinalIgnoreCase)
+        && asset.Hunter == Hunter.Samus && _sourceProofs.TryGetValue(asset,out var proof)
+        && (asset.PrivateAppearance == CharacterSourcePreviewSelection.Appearance && proof.SourceCharacter == "darksamus-echoes"
+            && String.Equals(proof.ModelSha,CharacterGeneratedNormalBallProfile.ModelSha,StringComparison.OrdinalIgnoreCase)
+            || asset.PrivateAppearance == new PrivateCharacterAppearance("darksamus","MP2DarkSamusFinal")
+                && proof.SourceCharacter == "darksamus-overcharged-echoes"
+                && CharacterGeneratedFinalBallProfile.ModelSha.Length==64
+                && String.Equals(proof.ModelSha,CharacterGeneratedFinalBallProfile.ModelSha,StringComparison.OrdinalIgnoreCase))
         && _sourceAnimations.ContainsKey(asset);
 }

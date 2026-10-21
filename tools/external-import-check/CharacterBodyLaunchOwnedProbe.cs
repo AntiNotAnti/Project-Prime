@@ -198,23 +198,24 @@ internal static class CharacterBodyLaunchOwnedProbe
                         && echoesCannon.SourceCannon is { IsGenerated:true } recipe
                         && recipe.GeneratedFinal == (appearance == "MP2DarkSamusFinal"),
                         "Echoes load barrier owns its independent normal or Final cannon recipe and exact complete source cut");
-                bool expectsBall = !trooper && appearance == "MP2DarkSamus";
+                bool expectsBall = !trooper;
                 Check(expectsBall ? owner.BallCurrent && owner.BallModel != null : !owner.BallCurrent && owner.BallModel == null,
-                    "load barrier admits only normal's independent local source ball; Final and Troopers retain native alternate forms");
+                    "load barrier admits independent normal/Final source balls; Troopers retain native alternate forms");
                 if (expectsBall)
                 {
                     var ball = owner.BallModel!;
                     Check(ball.Asset.Part == CharacterModelPart.AlternateForm && ball.Asset.Hunter == Hunter.Samus
-                        && ball.Asset.PrivateAppearance?.SkinSource == "MP2DarkSamus"
-                        && ball.Joints.Count == 2 && ball.SourceRig != null && ball.IndexCount == 2220 * 3
+                        && ball.Asset.PrivateAppearance?.SkinSource == appearance
+                        && ball.Joints.Count == 2 && ball.SourceRig != null && ball.IndexCount == (appearance=="MP2DarkSamusFinal"?8170:2220) * 3
+                        && ball.IsFinalSourceBall==(appearance=="MP2DarkSamusFinal")
                         && ball.SourceCannon == null && ball.Segments.Count > 0
                         && ball.Segments.All(s => s.SourceGx is { } gx && ReferenceEquals(gx.Owner, scene)
-                            && gx.Program.DrawPass == CharacterSourceGxProgram.Pass.Opaque
+                            && (appearance=="MP2DarkSamusFinal"||gx.Program.DrawPass == CharacterSourceGxProgram.Pass.Opaque)
                             && s.SourceJointPalette is { Count: > 0 and <= 2 } && s.SourcePresentationPalette != null)
                         && !ReferenceEquals(ball, owner.Model) && !ReferenceEquals(ball, owner.CannonModel)
                         && ball.Segments.All(s => owner.Model.Segments.Concat(owner.CannonModel!.Segments)
                             .All(other => !ReferenceEquals(s.SourceGx, other.SourceGx) && s.ListId != other.ListId)),
-                        "normal launch owns its complete two-joint 2220-triangle opaque ball with separate body/cannon programs and geometry");
+                        "normal and Final launch their complete distinct two-joint source balls with separate body/cannon programs and geometry");
                 }
                 var mode = typeof(Scene).GetField("_inputMode", Hidden)!;
                 mode.SetValue(scene, Enum.Parse(mode.FieldType, "All"));

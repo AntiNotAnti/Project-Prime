@@ -61,7 +61,7 @@ public static partial class RetroCharacterPreviewExporter
         SourceCharacter source = Source(id);
         _ = ExternalSourceRequirements.For(source.Game, edition);
         var body = new SourcePart("body", source.Ancs, source.NativeName, source.Game == ExternalGameKind.Echoes ? source.Id == "darksamus-overcharged-echoes" ? 6 : 5 : FullPrime(source, edition) ? 5 : 1);
-        return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = id == "darksamus-echoes" ? 4 : 3 } } : new[] { body });
+        return Array.AsReadOnly(source.AlternateForm is { } ball ? new[] { body, ball with { Version = 4 } } : new[] { body });
     }
 
     public static string PartStem(string id, string part)
@@ -118,6 +118,12 @@ public static partial class RetroCharacterPreviewExporter
             new AuthoringComponent("animation-graph",1,stem+".ancs-graph.json"),
             new AuthoringComponent("animation-graph-source",1,stem+".ancs.bin"),
             new AuthoringComponent("source-materials",1,stem+".materials.bin") } : Array.Empty<AuthoringComponent>())
+        .Concat(id == "darksamus-overcharged-echoes" && part == "ball" ? new[] {
+            new AuthoringComponent("animation-graph",1,stem+".ancs-graph.json"),
+            new AuthoringComponent("animation-graph-source",1,stem+".ancs.bin"),
+            new AuthoringComponent("source-materials",1,stem+".materials.bin"),
+            new AuthoringComponent("generated-composite-geometry",1,stem+".composite.glb"),
+            new AuthoringComponent("generated-composite-provenance",1,stem+".composite.json") } : Array.Empty<AuthoringComponent>())
         .Concat((Source(id).Game == ExternalGameKind.Echoes || prime) && part == "body"
             ? new[] { new AuthoringComponent("source-materials", 1, stem + ".materials.bin") }
             : Array.Empty<AuthoringComponent>())
@@ -129,7 +135,7 @@ public static partial class RetroCharacterPreviewExporter
             ? new[] { new AuthoringComponent("source-preview-manifest", 3, "characters.json"),
                 new AuthoringComponent("source-cannon-recipe", 1, "darksamus-echoes.cannon-source.json") }
             : id == "darksamus-overcharged-echoes" && part == "body"
-                ? new[] { new AuthoringComponent("source-preview-manifest", 2, "characters.json"),
+                ? new[] { new AuthoringComponent("source-preview-manifest", 3, "characters.json"),
                     new AuthoringComponent("source-cannon-recipe", 1, stem + ".cannon-source.json") }
                 : Array.Empty<AuthoringComponent>()).ToArray() : legacy;
     }
@@ -159,13 +165,14 @@ public static partial class RetroCharacterPreviewExporter
             return new(spec.Id, 1, HashRecipe(legacy), fingerprint,
                 RequiredPartComponents(spec.Id, "body").Select(c => c.File).ToArray());
         }
-        int bundleVersion = 7;
+        int bundleVersion = spec.Id == "darksamus-overcharged-echoes" ? 8 : 7;
         string recipe = $"retro-character-preview-v{bundleVersion}:{spec.Id}:{spec.Game}:parts-index-v1:"
             + string.Join(":", PartsFor(spec.Id).Select(p =>
                 $"{p.Id}-v{p.Version}:{p.Ancs:x8}:{p.NativeName}:geometry-v1-rig-v1-weights-v1-motion-samples-v1-cinf-v1-full-anim-bank-v1-generated-glb-v1-diagnostic-colors-v1-generated-provenance-v2-optional-part-graph"));
         recipe += ":body-raw-materials-txtr-authoring-v1-all-local-slots";
         if (spec.Id == "darksamus-echoes") recipe += ":normal-fixed-generated-cannon-v1-global-triangle-ids:normal-source-ball-v1-ready-native-roll-own-materials";
-        else recipe += ":final-generated-body-preview-manifest-v1:final-fixed-generated-cannon-v1-raw-uv-trim12-alpha055";
+        else recipe += ":final-generated-body-preview-manifest-v1:final-fixed-generated-cannon-v1-raw-uv-trim12-alpha055:"
+            + RetroFinalBallSource.Policy;
         return new(spec.Id, bundleVersion, HashRecipe(recipe), fingerprint,
             PartsFor(spec.Id).SelectMany(p => RequiredPartComponents(spec.Id, p.Id)).Select(c => c.File)
                 .Append(spec.Id + ".parts.json").ToArray());
@@ -279,6 +286,10 @@ public static partial class RetroCharacterPreviewExporter
                     ancsBytes, archive, geometry, model, skeleton) : PrimeAuthoringProvenance(spec, refs, gameId, cmdlBytes, cskrBytes,
                     cinfBytes, ancsBytes, graph.Descriptor, archive, geometry, model, skeleton);
                 File.WriteAllBytes(Path.Combine(staging, provenanceName), provenance); Stage(provenanceName);
+                if (spec.Id == "darksamus-overcharged-echoes" && part.Id == "ball")
+                {
+                    foreach (string name in WriteFinalBallComposite(staging,resource,model,skeleton,cmdlBytes,cskrBytes,cancellation)) Stage(name);
+                }
                 if (!echoes)
                 {
                     string skin = spec.Id switch

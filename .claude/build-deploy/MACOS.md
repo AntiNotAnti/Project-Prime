@@ -22,9 +22,11 @@ The release publish job waits for all platform packages to pass before uploading
   OpenAL, uses `lipo -verify_arch` on every Mach-O (universal files are allowed),
   prints `otool -L`, verifies signatures, and checks the JIT entitlement's value.
 - `tools/package-macos.sh DIRECTORY DIST RID VERSION` preserves the publish
-  native layout inside `Project Prime.app/Contents/MacOS`; maps go in
-  `Contents/Resources/maps` because Apple's signer treats subdirectories of
-  MacOS as nested code. It versions Info.plist from
+  native executable/dependency layout inside `Project Prime.app/Contents/MacOS`.
+  Data directories (maps, fidelity baselines, RmlUi pages/fonts and third-party
+  license notices) go in `Contents/Resources`, and loose managed PDBs are
+  excluded from the app. Apple's signer treats non-code files inside MacOS as
+  nested code, invalidating the bundle. It versions Info.plist from
   the build version, generates an ICNS from the existing project mark, signs
   components and the app, then verifies the bundle. `--deep` is verification
   only. It runs the existing asset/map guards over the staged package.
@@ -34,9 +36,11 @@ The release publish job waits for all platform packages to pass before uploading
 When present in a publish, `gamecontrollerdb.txt`, `gamecontrollerdb.LICENSE`,
 and the `fidelity-baselines/` directory are also moved into `Contents/Resources`
 before signing. They are data, not nested code. Controller mappings and fidelity
-verification resolve them from `AppPaths.ResourceDirectory`. The packaging
-fixture checks these resources and proves that changing them invalidates the
-app's resource seal.
+verification resolve them from `AppPaths.ResourceDirectory`. The native RmlUi
+host also resolves `rmlui/` from the same resource root, whether launched from
+an app or a flat developer publish. The packaging fixture covers UI pages,
+license notices and stray dependency PDBs and proves that changing included
+assets invalidates the app's resource seal.
 
 These are ad-hoc signatures, not Developer ID signatures or notarization.
 Gatekeeper can still require the user's approval for a downloaded archive.

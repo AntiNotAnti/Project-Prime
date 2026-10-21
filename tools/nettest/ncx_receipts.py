@@ -1,6 +1,6 @@
 """Audit the existing claim outbox's process-lifetime conservation and keyed exits."""
 from collections import Counter
-from ncx_timeline import integer, row_value
+from ncx_timeline import integer, row_value, timeline_schema
 
 REASONS = ('Delivered', 'TimedOut', 'CapacityEvicted', 'LifeRetired',
            'OccupantRetired', 'MatchRetired', 'SessionRetired')
@@ -19,6 +19,7 @@ def audit(reports):
                 raise ValueError('invalid receipt counters')
             declarations, retirements, reasons = Counter(), Counter(), Counter()
             timeline = report['ShotTimeline']
+            timeline_schema(timeline['Schema'])
             if timeline['Overflow'] or timeline['UnkeyedRows'] or timeline['Complete'] is not True:
                 incomplete.append(label + ': incomplete timeline storage')
             for row in timeline['Rows']:
@@ -58,4 +59,4 @@ def audit(reports):
         incomplete.append('no client receipt accounting')
     return dict(schema=1, status='FAIL' if failures else 'INCOMPLETE' if incomplete else 'PASS',
                 processes=processes, failures=failures, incomplete=incomplete,
-                scope='Client declaration/retirement conservation and exact source/component/phase/kind/victim/claim joins. Delivered includes refusals; no legal-hit, paid damage, authority ordering or gameplay activity inferred. Raw source keys and player/account identifiers are not exported.')
+                scope='Client declaration/retirement conservation and exact source/component/phase/kind/victim/claim joins. Timeline schemas 1 and 2 share these validated core fields; optional Pose/Provenance are outside this audit. Delivered includes refusals; no legal-hit, paid damage, authority ordering or gameplay activity inferred. Raw source keys and player/account identifiers are not exported.')

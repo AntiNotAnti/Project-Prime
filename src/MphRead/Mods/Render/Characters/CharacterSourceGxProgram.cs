@@ -32,12 +32,14 @@ internal sealed class CharacterSourceGxProgram
     internal int InitialRegisterDependencies { get; }
     internal Vector4 InitialRegister1 { get; }
     internal float PresentationAlphaScale { get; }
+    internal bool FrontFacesOnly { get; }
+    internal int DrawCopies { get; }
     internal string Vertex120 { get; }
     internal string Fragment120 { get; }
     internal string Vertex300 { get; }
     internal string Fragment300 { get; }
 
-    private CharacterSourceGxProgram(Cmdl.Material m, Vector4 initialRegister1, float presentationAlphaScale)
+    private CharacterSourceGxProgram(Cmdl.Material m, Vector4 initialRegister1, float presentationAlphaScale,bool frontFacesOnly,int drawCopies)
     {
         Require(float.IsFinite(initialRegister1.X) && float.IsFinite(initialRegister1.Y)
             && float.IsFinite(initialRegister1.Z) && float.IsFinite(initialRegister1.W)
@@ -64,6 +66,9 @@ internal sealed class CharacterSourceGxProgram
         Require(float.IsFinite(presentationAlphaScale) && presentationAlphaScale is >= 0 and <= 1
             && (presentationAlphaScale == 1 || DrawPass == Pass.Alpha), "Only an Alpha pass accepts presentation shell alpha.");
         PresentationAlphaScale = presentationAlphaScale;
+        Require(drawCopies==1||drawCopies==2&&DrawPass==Pass.Additive,"Only additive composite parts may draw twice.");
+        Require(!frontFacesOnly||DrawPass==Pass.Additive,"Only the composite vent admits front-face-only rendering.");
+        FrontFacesOnly=frontFacesOnly;DrawCopies=drawCopies;
         Require(SourceDepthWrite && SourceDepthSorting == (DrawPass != Pass.Opaque), "Unsupported body depth policy.");
         Textures = Array.AsReadOnly(m.TexIds.ToArray());
         Generators = Array.AsReadOnly(m.TexGens.Select(g =>
@@ -106,8 +111,9 @@ internal sealed class CharacterSourceGxProgram
         Vertex120 = Vertex(es: false); Fragment120 = Fragment(es: false);
         Vertex300 = Vertex(es: true); Fragment300 = Fragment(es: true);
     }
-    internal static CharacterSourceGxProgram Compile(Cmdl.Material material, Vector4 initialRegister1 = default, float presentationAlphaScale = 1)
-        => new(material, initialRegister1, presentationAlphaScale);
+    internal static CharacterSourceGxProgram Compile(Cmdl.Material material, Vector4 initialRegister1 = default, float presentationAlphaScale = 1,
+        bool frontFacesOnly=false,int drawCopies=1)
+        => new(material, initialRegister1, presentationAlphaScale,frontFacesOnly,drawCopies);
     internal static void Require(bool condition, string message)
     { if (!condition) throw new InvalidDataException(message); }
 
@@ -238,6 +244,7 @@ internal sealed class CharacterSourceGxMaterials
     internal IReadOnlyList<CharacterSourceGxProgram> Programs { get; }
     internal IReadOnlyDictionary<uint, RetroTextureSource.Decoded> Images { get; }
     internal string Policy { get; }
+    internal bool IsFinalBall { get; }
     private CharacterSourceGxMaterials(RetroCharacterMaterialArchive.Archive archive)
     {
         Archive = archive;
@@ -270,6 +277,49 @@ internal sealed class CharacterSourceGxMaterials
             "Only the original qualified Final body archive can produce its cannon shell presentation.");
         return new(this);
     }
+    private CharacterSourceGxMaterials(CharacterSourceGxMaterials ball,CharacterSourceGxMaterials body)
+    {
+        Archive=ball.Archive;IsFinalBall=true;
+        Policy=ball.Policy+":"+RetroFinalBallSource.Policy+":"+body.Archive.Sha256;
+        var rawBall=ball.Archive.ReadProgram(0);var additive=body.Archive.ReadProgram(4);
+        var sourceStage=rawBall.Stages.First(s=>s.Tex==1);
+        var vent=new Cmdl.Material{Flags=additive.Flags,BlendSrc=additive.BlendSrc,BlendDst=additive.BlendDst,
+            Channels=additive.Channels,TexIds=new[]{rawBall.TexIds[1]},TexGens=new[]{rawBall.TexGens[sourceStage.TexCoord]},
+            Stages=new[]{new Cmdl.TevStage{ColorIn=new[]{15,8,12,15},AlphaIn=new[]{7,7,7,7},ColorOp=new(){Clamp=1},AlphaOp=new(){Clamp=1},
+                Tex=0,TexCoord=0,Ras=255,RawColorOp=additive.Stages[0].RawColorOp,RawAlphaOp=additive.Stages[0].RawAlphaOp}}};
+        var records=new[]{body.Archive.ReadProgram(3),vent,body.Archive.ReadProgram(7),body.Archive.ReadProgram(4),body.Archive.ReadProgram(5),body.Archive.ReadProgram(7)};
+        Programs=Array.AsReadOnly(records.Select((m,index)=>CharacterSourceGxProgram.Compile(m,
+            frontFacesOnly:index==1,drawCopies:m.BlendSrc==1&&m.BlendDst==1?2:1)).ToArray());
+        var images=new Dictionary<uint,RetroTextureSource.Decoded>();
+        foreach(uint id in Programs.SelectMany(p=>p.Textures).Distinct())
+        {
+            bool fromBody=body.Images.TryGetValue(id,out var image);if(!fromBody)image=ball.Images[id];
+            if(fromBody&&ball.Images.TryGetValue(id,out var duplicate))CharacterSourceGxProgram.Require(image!.Pixels.SequenceEqual(duplicate.Pixels),"Composite texture resource collision.");
+            images.Add(id,image!);
+        }
+        void Filter(uint id,Action<byte[]> filter,string expected)
+        {
+            var original=images[id];byte[] pixels=original.Pixels.ToArray();filter(pixels);
+            CharacterSourceGxProgram.Require(Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(pixels))==expected,"Final composite texture variant changed.");
+            images[id]=new(original.Layout,pixels);
+        }
+        Filter(records[0].TexIds[0],RetroFinalBallPresentation.ShellTexture,"65ab9c84ab0da18a2c9e8fd4e1d8752836e9069ec7742781325186b6ac3860d2");
+        Filter(vent.TexIds[0],RetroFinalBallPresentation.VentTexture,"dc0a2cd372162e2b062d62301680b58905809a2dac761c842995ec6f11bd9b6e");
+        Filter(records[3].TexIds[0],RetroFinalBallPresentation.LineTexture,"4f337593bc2eec39796596ef00dca4c1068fa066abecee4cd3bc5daa17377a15");
+        Filter(records[4].TexIds[0],RetroFinalBallPresentation.LineTexture,"6cec7b588ba49863234c0f839f774df411e6d09806d6a9bf5249bdb7dad0fc2e");
+        Images=new System.Collections.ObjectModel.ReadOnlyDictionary<uint,RetroTextureSource.Decoded>(images);
+    }
+    internal CharacterSourceGxMaterials ForFinalBall(CharacterSourceGxMaterials body)
+    {
+        CharacterSourceGxProgram.Require(Archive.Binding.CharacterId==CharacterGeneratedFinalBallProfile.MaterialId
+            &&CharacterGeneratedFinalBallProfile.MaterialSha.Length==64&&Archive.Sha256==CharacterGeneratedFinalBallProfile.MaterialSha
+            &&Archive.GeometrySha256==CharacterGeneratedFinalBallProfile.ModelSha&&!IsFinalBall&&Programs.Count==1
+            &&body.Archive.Binding.CharacterId=="darksamus-overcharged-echoes"
+            &&body.Archive.Sha256=="69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d"
+            &&body.Programs.Count==9&&body.Programs.All(p=>p.PresentationAlphaScale==1&&!p.FrontFacesOnly&&p.DrawCopies==1),
+            "Only original own Final body/ball materials can derive the composite; cannon variants cannot substitute.");
+        return new(this,body);
+    }
     internal static CharacterSourceGxMaterials Read(byte[] bytes, string modelSha, string character)
     {
         var trooper = CharacterGeneratedTrooperProfile.Find(character);
@@ -277,6 +327,7 @@ internal sealed class CharacterSourceGxMaterials
             "darksamus-echoes" => "6a5666bfb14ee989658c7543543429d8de824820bee2531f0051a21a42be86d7",
             "darksamus-overcharged-echoes" => "69d27a8e4867b4ec50084260a6fb570936e79edb7b08ad2bbd04a58d5204df8d",
             "darksamus-echoes-ball" => CharacterGeneratedNormalBallProfile.MaterialSha,
+            "darksamus-overcharged-echoes-ball" => CharacterGeneratedFinalBallProfile.MaterialSha,
             _ => trooper?.MaterialSha ?? throw new InvalidDataException("No qualified source body material profile.") };
         CharacterSourceGxProgram.Require(bytes.Length is > RetroCharacterMaterialArchive.HeaderBytes and <= RetroCharacterMaterialArchive.MaxArchiveBytes
             && Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)) == expected,
@@ -285,6 +336,8 @@ internal sealed class CharacterSourceGxMaterials
         CharacterSourceGxProgram.Require(a.Sha256 == expected && a.Binding.CharacterId == character
             && a.GeometrySha256 == modelSha && (trooper == null || modelSha == trooper.ModelSha)
             && (character != CharacterGeneratedNormalBallProfile.MaterialId || modelSha == CharacterGeneratedNormalBallProfile.ModelSha
+                && a.Programs.Count == 1 && a.Textures.Count == 4)
+            && (character != CharacterGeneratedFinalBallProfile.MaterialId || modelSha == CharacterGeneratedFinalBallProfile.ModelSha
                 && a.Programs.Count == 1 && a.Textures.Count == 4),
             "Source body archive/appearance/geometry identity mismatch.");
         return new(a);

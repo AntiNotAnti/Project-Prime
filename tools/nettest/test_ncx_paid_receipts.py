@@ -3,6 +3,7 @@ import copy
 import unittest
 from ncx_paid_receipts import audit
 from test_ncx_fastpath import paid, captured
+from test_ncx_timeline import as_schema2
 
 
 def report(mode='Paid', start=99, end=99):
@@ -23,6 +24,26 @@ def report(mode='Paid', start=99, end=99):
 
 
 class PaidReceiptLatencyTests(unittest.TestCase):
+    def test_schema2_optional_pose_preserves_exact_paid_latency_and_policy(self):
+        for mode in ('Shadow', 'Paid'):
+            legacy = report(mode); extended = as_schema2(legacy); before = copy.deepcopy(extended)
+            self.assertEqual(audit(legacy, mode.lower()), audit(extended, mode.lower()))
+            self.assertEqual(audit(extended)['eligibleSamples'], 1)
+            self.assertEqual(audit(extended)['p95AuthorityTicks'], 0)
+            self.assertEqual(extended, before)
+
+    def test_schema2_core_malformation_and_wrong_domain_still_fail_closed(self):
+        for field, value in (('Timestamp', -1), ('LocalFrame', 1 << 32), ('AckFrame', True)):
+            source = as_schema2(report()); source['ShotTimeline']['Rows'][0][field] = value
+            self.assertEqual(audit(source)['status'], 'INCOMPLETE', field)
+            self.assertEqual(audit(source)['eligibleSamples'], 0, field)
+        source = as_schema2(report()); source['ShotTimeline']['Rows'][0]['Key']['ShotId'] = 0
+        self.assertEqual(audit(source)['status'], 'INCOMPLETE')
+        source = as_schema2(report()); source['ShotTimeline']['Clock']['Domain'] = 'OtherClock'
+        self.assertEqual(audit(source)['status'], 'INCOMPLETE')
+        source = as_schema2(report()); source['ShotTimeline']['Rows'][-1]['AuthorityFrame'] += 1
+        self.assertEqual(audit(source)['status'], 'FAIL')
+
     def test_same_tick_paid_and_default_policy(self):
         for mode in ('Shadow','Paid'):
             r=report(mode); before=copy.deepcopy(r); result=audit(r,mode.lower())
@@ -67,7 +88,7 @@ class PaidReceiptLatencyTests(unittest.TestCase):
     def test_invalid_typed_capture_is_incomplete(self):
         r=report();r['CombatFastPath']['Rows'][0]['PaidBypass']='true';self.assertEqual(audit(r)['status'],'INCOMPLETE')
     def test_unknown_or_missing_timeline_schema_is_incomplete(self):
-        for value in (None, 2, True, '1'):
+        for value in (None, 0, 3, 1 << 31, True, '1', '2', 2.0):
             r=report();r['ShotTimeline']['Schema']=value
             self.assertEqual(audit(r)['status'],'INCOMPLETE')
         r=report();del r['ShotTimeline']['Schema'];self.assertEqual(audit(r)['status'],'INCOMPLETE')

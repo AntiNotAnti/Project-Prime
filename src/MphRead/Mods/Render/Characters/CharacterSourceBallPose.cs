@@ -9,7 +9,7 @@ namespace MphRead.Mods.Render.Characters;
 // collision radius and gameplay motion stay with the initialized player.
 internal static class CharacterSourceBallPose
 {
-    internal static Matrix4 Fit(CharacterWeightedModelData source,IReadOnlyList<Matrix4> readyPose,float nativeRadius)
+    internal static Matrix4 Fit(CharacterWeightedModelData source,IReadOnlyList<Matrix4>? readyPose,float nativeRadius)
     {
         if (source.SourceRig is not { } rig || !float.IsFinite(nativeRadius) || nativeRadius is <= 0 or > 1000)
             throw new InvalidDataException("Complete source rig and finite positive native ball radius required.");

@@ -8,7 +8,12 @@ from pathlib import Path
 import re
 
 HUNTERS = ("Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel")
-RATES = (60, 120, 144, 240)
+RATES = (60, 120, 144, 240, 360, 500)
+SCHEDULES = ("steady", "jitter144")
+
+
+def scheduled_elapsed(schedule, rate, output_index):
+    return ((.5, 1.5, .75, 1.25)[output_index % 4] if schedule == "jitter144" else 1) / rate
 ORIGINAL_SCENARIO = "native-pose-v1"
 SCENARIOS = (ORIGINAL_SCENARIO, "native-pose-charge-retreat-v2")
 PROJECTION = re.compile(r"[0-9a-fA-F]{64}:[0-9a-fA-F]{64}\Z")
@@ -36,7 +41,7 @@ def scenario_identity(result):
 
 
 def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False, scenario_id=None,
-            require_particle_sampling=False):
+            require_particle_sampling=False, require_jitter=False, require_supplemental=False):
     errors, comparisons, records, observations = [], [], {}, []
     observed_scenarios = set()
     for result in results:
@@ -44,7 +49,10 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
             errors.append("result is not an object")
             continue
         hunter, rate = result.get("hunter"), result.get("requestedOutputScheduleHz")
-        label = f"{hunter}/{rate}"
+        schedule_id = result.get("scheduleId", "steady")
+        cell = "jitter144" if schedule_id == "jitter144" else rate
+        requested_cells = list(rates) + (["jitter144"] if require_jitter else [])
+        label = f"{hunter}/{cell}"
         def require(condition, message):
             if not condition:
                 errors.append(f"{label}: {message}")
@@ -52,10 +60,11 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                 "unsupported diagnostic result")
         require(result.get("complete") is True and result.get("status") == "PASS" and "error" not in result,
                 "runtime result failed or incomplete")
-        require(hunter in hunters and rate in rates, "outside requested bounded matrix")
-        if hunter not in hunters or type(rate) is not int or rate not in rates:
+        require(hunter in hunters and cell in requested_cells, "outside requested bounded matrix")
+        require(schedule_id in SCHEDULES and (schedule_id != "jitter144" or rate == 144), "unknown or incompatible output schedule")
+        if hunter not in hunters or type(rate) is not int or cell not in requested_cells:
             continue
-        require((hunter, rate) not in records, "duplicate hunter/rate result")
+        require((hunter, cell) not in records, "duplicate hunter/rate result")
         if require_particle_sampling:
             particles = result.get("particleSampling")
             particles = particles if isinstance(particles, dict) else {}
@@ -76,9 +85,9 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                     "missing or invalid native beam draw observations")
             require(sampled == 0 if rate == 60 else positive_integer(sampled),
                     "beam observations did not exercise the current/high-refresh policy")
-        if (hunter, rate) in records:
+        if (hunter, cell) in records:
             continue
-        records[hunter, rate] = result
+        records[hunter, cell] = result
         identity = scenario_identity(result)
         valid_identity = isinstance(identity, str) and identity in SCENARIOS
         require(valid_identity, "unknown scenario identity")
@@ -86,11 +95,43 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
             observed_scenarios.add(identity)
         if scenario_id is not None:
             require(identity == scenario_id, "result differs from requested scenario identity")
-        require(result.get("platform") == "Mac", "outside requested Mac qualification")
-        require(result.get("simulationHz") == 60 and result.get("scheduledElapsedSeconds") == 1 / rate,
+        require(result.get("platform") in ("Mac", "Windows"), "unsupported native qualification platform")
+        require(result.get("simulationHz") == 60 and result.get("scheduledElapsedSeconds") == (1 / rate if schedule_id == "steady" else None),
                 "schedule/simulation contract differs")
         require(result.get("performanceAcceptance") == "NOT_CLAIMED_READBACK_FIXTURE"
                 and result.get("panelScanoutAcceptance") == "NOT_CLAIMED", "invalid timing/panel acceptance claim")
+        focus = result.get("focusControl")
+        isolation = result.get("physicalControllerIsolation")
+        if isolation is not None:
+            isolation = isolation if isinstance(isolation, dict) else {}
+            require(type(isolation.get("connectedBefore")) is bool
+                    and isolation.get("scopedDisconnected") is True
+                    and isolation.get("fixedAndPresentationPollingBlocked") is True
+                    and isolation.get("physicalDeviceAcceptance") == "NOT_CLAIMED",
+                    "physical controller isolation did not block fixed/presentation polling")
+        if focus is not None or require_supplemental:
+            focus = focus if isinstance(focus, dict) else {}
+            focus_mode = focus.get("mode")
+            require(focus_mode in ("none", "isolated") and focus.get("qualificationEligible") is True,
+                    "legacy/unknown focus control is ineligible for qualification")
+            injected = [row for row in rows(focus.get("events")) if str(row.get("source", "")).startswith("injected-")]
+            if focus_mode == "isolated":
+                require(focus.get("injected") is True and focus.get("injectionTick") == 245
+                        and len(injected) == 2 and [row.get("focused") for row in injected] == [False, True]
+                        and all(type(row.get("focused")) is bool and row.get("source") == "injected-isolated"
+                                and type(row.get("sceneFrame")) is int and row["sceneFrame"] == 244
+                                and type(row.get("outputFrame")) is int and row["outputFrame"] >= 0
+                                and finite_number(row.get("wallSeconds")) and row["wallSeconds"] >= 0 for row in injected)
+                        and injected[0].get("outputFrame") == injected[1].get("outputFrame"),
+                        "isolated focus loss/gain injection witness missing or malformed")
+            elif focus_mode == "none":
+                require(focus.get("injected") is False and not injected, "none focus control contains an injection")
+        selected_fov = result.get("selectedFieldOfView")
+        if "selectedFieldOfView" in result:
+            requested_fov = result.get("requestedFieldOfView")
+            require(type(selected_fov) is int and 60 <= selected_fov <= 120
+                    and (requested_fov is None or type(requested_fov) is int and requested_fov in (60,78,120)
+                         and selected_fov == requested_fov), "selected/requested FOV identity differs")
         steps = rows(result.get("steps"))
         require([row.get("tick") for row in steps] == list(range(1, 1441)), "missing or reordered canonical step")
         require(all(isinstance(row.get("canonicalProjection"), str)
@@ -98,6 +139,30 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                 "missing exact established gameplay/presentation projection")
         require(isinstance(result.get("inputTimelineSha256"), str)
                 and SHA256.fullmatch(result["inputTimelineSha256"]), "missing input timeline identity")
+        if require_supplemental:
+            require(result.get("supplementalWitness") == "fixture-local exact combat/source-input/scene-and-global-RNG; no archival schema changes",
+                    "independent supplemental witness contract unavailable")
+            require(all(all(isinstance(row.get(key), str) and SHA256.fullmatch(row[key])
+                            for key in ("combatWitness", "sourceInputWitness", "rngWitness"))
+                        and all(type(row.get(key)) is int and 0 <= row[key] <= 0xffffffff for key in ("rng1", "rng2"))
+                        for row in steps), "combat/source-input/RNG witness missing or malformed")
+        if "selectedFieldOfView" in result:
+            for step in steps:
+                observation = step.get("fovObservation")
+                observation = observation if isinstance(observation, dict) else {}
+                require(observation.get("selectedDegrees") == selected_fov
+                        and all(finite_number(observation.get(key)) for key in
+                                ("authoredCameraDegrees", "worldRadians", "viewmodelRadians"))
+                        and (step.get("tick", 0) <= 240 or observation.get("scaledWorldPolicyMatch") is True),
+                        "actual camera/world/viewmodel FOV observation missing or policy failed")
+                if step.get("tick", 0) > 240 and all(finite_number(observation.get(key)) for key in ("worldRadians", "viewmodelRadians")) and type(selected_fov) is int:
+                    authored_radians = observation["viewmodelRadians"]
+                    scaled = 2 * math.atan(math.tan(authored_radians / 2)
+                        * math.tan(math.radians(selected_fov) / 2) / math.tan(math.radians(78) / 2))
+                    scaled = min(math.radians(175), max(math.radians(1), scaled))
+                    require(0 < authored_radians < math.pi
+                            and abs(observation["worldRadians"] - scaled) < .00001,
+                            "actual world FOV values contradict selected/authored projection policy")
         schedule = rows(result.get("schedule"))
         expected_tick = 0
         for output, row in enumerate(schedule, 1):
@@ -109,7 +174,7 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
             if row.get("outputFrame") != output or row.get("sceneFrame") != expected_tick:
                 require(False, "output/step mapping changed")
                 break
-            if row.get("scheduledElapsed") != 1 / rate or row.get("active") is not True:
+            if row.get("scheduledElapsed") != scheduled_elapsed(schedule_id, rate, output - 1) or row.get("active") is not True:
                 require(False, "normal FrameTiming schedule not active")
                 break
             require(all(finite_number(row.get(key)) and 0 <= row[key] <= 1
@@ -144,6 +209,11 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                         and row.get("entryProjection") == row.get("exitProjection")
                         and row.get("differences") == [] for row in transactions),
                 "camera entry/exit changed canonical state or lacks complete exact witness")
+        if require_supplemental:
+            require(all(isinstance(row.get("supplementalEntry"), str)
+                        and re.fullmatch(r"[0-9a-f]{64}:[0-9a-f]{64}:[0-9a-f]{64}", row["supplementalEntry"])
+                        and row["supplementalEntry"] == row.get("supplementalExit") for row in transactions),
+                    "camera transaction changed independent combat/source-input/RNG witness")
         by_label = {row.get("label"): row for row in pictures}
         pixel_mode = result.get("pixelControlAcceptance", "NOT_REQUESTED")
         require(pixel_mode in ("NOT_REQUESTED", "ISOLATED_NATIVE_GUN_AND_CHARGE_REQUIRED"),
@@ -184,8 +254,9 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
     if len(observed_scenarios) != 1:
         errors.append("requested matrix must use one scenario identity; original and retreat scenarios cannot be combined")
     for hunter in hunters:
-        present = [rate for rate in rates if (hunter, rate) in records]
-        if present != list(rates):
+        requested_cells = list(rates) + (["jitter144"] if require_jitter else [])
+        present = [cell for cell in requested_cells if (hunter, cell) in records]
+        if present != requested_cells:
             errors.append(f"{hunter}: requested rate matrix incomplete")
         if not present:
             continue
@@ -199,13 +270,14 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                                     "exactCanonicalAndInputMatch": False, "scenarioIdentityMatch": False,
                                     "firstDifference": {"tick": None, "field": "scenarioId"}})
                 continue
-            for key in ("assemblyMvid", "room", "framebuffer", "renderSize", "responsiveCamera", "fixedWeapon", "pixelControlAcceptance"):
+            for key in ("platform", "selectedFieldOfView", "requestedFieldOfView", "assemblyMvid", "room", "framebuffer", "renderSize", "responsiveCamera", "fixedWeapon", "pixelControlAcceptance"):
                 if reference.get(key) != candidate.get(key):
                     errors.append(f"{hunter}/{rate}: fixture identity differs for {key}")
             reference_steps, candidate_steps = rows(reference.get("steps")), rows(candidate.get("steps"))
             common_count = min(len(reference_steps), len(candidate_steps))
             for expected, actual in zip(reference_steps, candidate_steps):
-                for key in ("tick", "canonicalProjection", "preparedInput", "consumedInput"):
+                for key in (("tick", "canonicalProjection", "preparedInput", "consumedInput")
+                            + (("combatWitness", "sourceInputWitness", "rngWitness", "rng1", "rng2") if require_supplemental else ())):
                     if expected.get(key) != actual.get(key):
                         first = {"tick": actual.get("tick"), "field": key}
                         break
@@ -222,9 +294,10 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                 errors.append(f"{hunter}/{rate}: canonical/input stream {detail} relative to {present[0]} Hz")
             comparisons.append({"hunter": hunter, "referenceHz": present[0], "candidateHz": rate,
                                 "exactCanonicalAndInputMatch": first is None and same_input,
+                                "exactCombatSourceInputRngMatch": first is None and require_supplemental,
                                 "commonPrefixSteps": common_count, "commonPrefixCanonicalAndInputExact": common_prefix_exact,
                                 "firstDifference": first})
-    return {"schema": 1, "status": "PASS_BOUNDED_MAC_DRAW_QUALIFICATION" if not errors else "FAIL_OR_INCOMPLETE",
+    return {"schema": 1, "status": "PASS_BOUNDED_NATIVE_DRAW_QUALIFICATION" if not errors else "FAIL_OR_INCOMPLETE",
             "hunters": list(hunters), "outputScheduleHz": list(rates),
             "scenarioId": next(iter(observed_scenarios)) if len(observed_scenarios) == 1 else None, "errors": errors, "comparisons": comparisons,
             "drawAnchorObservations": observations,
@@ -236,6 +309,7 @@ def analyze(results, rates=RATES, hunters=HUNTERS, require_pixel_controls=False,
                 else "CAPTURE_ONLY_NO_ISOLATED_GUN_PIXEL_GATE",
             "isolatedPixelControlsRequired": require_pixel_controls,
             "nativeParticleSamplingRequired": require_particle_sampling,
+            "independentSupplementalWitnessesRequired": require_supplemental, "jitterRequired": require_jitter,
             "replayPlaybackAcceptance": "NOT_RUN_EXISTING_CANONICAL_PROJECTIONS_ONLY"}
 
 
@@ -244,6 +318,8 @@ def main():
     parser.add_argument("results", nargs="+", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--rates", nargs="+", type=int, choices=RATES, default=RATES)
+    parser.add_argument("--require-jitter", action="store_true", help="require one declared jitter144 arm per Hunter")
+    parser.add_argument("--require-supplemental", action="store_true", help="require independent combat/source-input/RNG comparisons")
     parser.add_argument("--require-pixel-controls", action="store_true",
                         help="require the separate -posecheck -pose-pixels native gun/charge positive controls")
     parser.add_argument("--require-particle-sampling", action="store_true",
@@ -261,7 +337,7 @@ def main():
             ValueError("Non-finite JSON constant: " + value))))
         artifacts.append({"file": path.name, "sha256": hashlib.sha256(data).hexdigest()})
     report = analyze(results, tuple(args.rates), tuple(args.hunters), args.require_pixel_controls, args.scenario,
-                     args.require_particle_sampling)
+                     args.require_particle_sampling, args.require_jitter, args.require_supplemental)
     report["artifacts"] = artifacts
     if args.output.exists():
         raise FileExistsError("Analysis output already exists; preserve previous evidence")

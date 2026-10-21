@@ -24,7 +24,19 @@ internal static class DisplayPosePlan
     // An explicit scenario input, never a position edit or draw-time recovery.
     internal static bool RetreatsDuringCharge(string scenario, int tick)
         => scenario == RetreatScenario && tick is >= 361 and <= 390;
-    internal static readonly int[] OutputRates = { 60, 120, 144, 240 };
+    internal static readonly int[] OutputRates = { 60, 120, 144, 240, 360, 500 };
+    internal static string ResolveSchedule(string? selected, bool poseCheck, int hz)
+    {
+        if (selected == null) return "steady";
+        if (!poseCheck || selected is not ("steady" or "jitter144") || selected == "jitter144" && hz != 144)
+            throw new ArgumentException("-pose-schedule requires -posecheck and steady|jitter144 (jitter requires -hz 144).");
+        return selected;
+    }
+    // A fixed four-frame cycle, mean 1/144 s and maximum 1/96 s. It uses no
+    // game RNG and admits at most one 60 Hz step per output, so input remains
+    // prepared once per actual simulation step by the existing fixture.
+    internal static double Elapsed(string schedule, int hz, int outputIndex)
+        => (schedule == "jitter144" ? ((outputIndex % 4) switch { 0 => .5, 1 => 1.5, 2 => .75, _ => 1.25 }) : 1) / hz;
     internal const int WarmupTicks = 240;
     internal const int TotalTicks = 1440;
     internal static readonly IReadOnlyDictionary<int, string> Captures = new Dictionary<int, string>

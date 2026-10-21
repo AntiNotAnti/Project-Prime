@@ -71,12 +71,12 @@ internal sealed class CharacterSourceClip
  internal static CharacterSourceClip LoadImported(CharacterModelPack.SourcePreviewLease lease,CharacterModelAsset asset,
   CharacterSourceRig rig,CharacterSourceAnimationArchive imported,int ordinal)
  {
-  Require((asset.Part==CharacterModelPart.Biped||asset.Part==CharacterModelPart.AlternateForm&&imported.IsNormalBall&&ordinal==CharacterGeneratedNormalBallProfile.ClipOrdinal
+  Require((asset.Part==CharacterModelPart.Biped||asset.Part==CharacterModelPart.AlternateForm&&imported.IsBall&&ordinal==CharacterGeneratedNormalBallProfile.ClipOrdinal
    ||asset.Part==CharacterModelPart.ViewModel&&lease.SourceCannon?.IsGenerated==true&&ordinal==lease.SourceCannon.ClipOrdinal)&&ReferenceEquals(lease.SourceAnimations,imported)
    &&String.Equals(rig.ContentSha256,lease.ModelSha256,StringComparison.OrdinalIgnoreCase),"Exact source-rig imported animation owner required");
   var clip=imported.Open(ordinal);
   if(asset.Part==CharacterModelPart.ViewModel)Require(clip.Source.Id==lease.SourceCannon!.ClipResourceId&&clip.RigidScale,"Exact fixed original cannon primitive required");
-  if(asset.Part==CharacterModelPart.AlternateForm)Require(imported.IsNormalBall&&clip.RigidScale
+  if(asset.Part==CharacterModelPart.AlternateForm)Require(imported.IsBall&&clip.RigidScale
    &&clip.Source.Id==CharacterGeneratedNormalBallProfile.ClipId&&clip.Source.Sha256==CharacterGeneratedNormalBallProfile.ClipSha,
    "Normal ball permits only its fixed original ready primitive, never source travel layered over native roll");
   var anim=clip.CaptureAnimation();var source=imported.Skeleton.Bones;

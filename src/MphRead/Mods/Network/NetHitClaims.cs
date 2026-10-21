@@ -642,6 +642,7 @@ namespace MphRead.Mods.Network
                         NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
                         entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId, entry.ComponentId,
                         NetShotProof.Kind(entry.Flags)), ack);
+                    NetHitPrediction.RememberAcceptedOutcome(ack);
                     RetireReceipt(ref entry, ClaimReceiptRetirement.Delivered);
                     if (NetCampaignEvidence.Enabled)
                         NetCampaignEvidence.Timeline("terminal-delivered", new ShotKey(entry.AuthorityEpoch,

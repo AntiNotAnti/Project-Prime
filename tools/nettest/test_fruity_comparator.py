@@ -44,14 +44,14 @@ class FruityComparatorTests(unittest.TestCase):
         env = native.environment(Path('/private/fixture'), {'PATH': '/bin',
             'FRUITY_NCX_USER_DATA': '/old', 'PRIME_CONFIRMED_IMPACTS': '1',
             'MPHREAD_PHASE': 'one', 'PROJECT_PRIME_USER_DATA': '/normal', 'DYLD_LIBRARY_PATH': '/bad'})
-        self.assertEqual(env, {'PATH': '/bin', 'FRUITY_NCX_USER_DATA': '/private/fixture', 'ALSOFT_DRIVERS': 'null'})
+        self.assertEqual(env, {'PATH': '/bin', 'FRUITY_NCX_USER_DATA': str(Path('/private/fixture').resolve()), 'ALSOFT_DRIVERS': 'null'})
 
     def test_server_dispatch_keeps_upstream_combat_and_replay_defaults(self):
         argv = native.command(self.args(), Path('/bin/FruityPrime'), Path('/maps'), 'server', rotation=Path('/rotation'))
         for flag in ('-server', '-nomaster', '-rotation'): self.assertIn(flag, argv)
         for flag in ('-servershots', '-noclaims', '-nohitprediction', '-noserverreplays', '-nographics'):
             self.assertNotIn(flag, argv)
-        self.assertEqual(argv[0], '/bin/FruityPrime')
+        self.assertEqual(argv[0], str(Path('/bin/FruityPrime')))
 
     def test_native_clients_use_headless_and_existing_observer_mode(self):
         args = self.args()
@@ -96,7 +96,7 @@ class FruityComparatorTests(unittest.TestCase):
 
     def test_native_generation_command_and_texture_bounds_keep_native_features(self):
         self.assertEqual(native.preparation_command(Path('/private/binary'), Path('/private/maps')),
-                         ['/private/binary', '-mapdir', '/private/maps', '-noupdate', '-noautoupdate', '-mapgen', 'all'])
+                         [str(Path('/private/binary')), '-mapdir', str(Path('/private/maps')), '-noupdate', '-noautoupdate', '-mapgen', 'all'])
         with tempfile.TemporaryDirectory() as directory:
             model = Path(directory) / 'model.bin'
             model.write_bytes(self.native_model())
@@ -249,7 +249,7 @@ class FruityComparatorTests(unittest.TestCase):
         server = runner.child_environment(args, 'server', Path('/private/server'), {})
         peer = runner.child_environment(args, 'peer-0', Path('/private/peer-0'), {})
         self.assertNotIn('PRIME_NCX_VISIBILITY', server)
-        self.assertEqual(peer['PRIME_NCX_VISIBILITY'], '/private/peer-0/ncx-visibility.json')
+        self.assertEqual(peer['PRIME_NCX_VISIBILITY'], str(Path('/private/peer-0/ncx-visibility.json').resolve()))
         self.assertEqual(peer['PRIME_NCX_TIMELINE'], '1')
 
     def test_powerbeam_roles_and_requested_rate_are_dispatch_only(self):

@@ -184,7 +184,12 @@ internal static class CharacterNormalBallSourceOwnedProbe
             foreach (double time in new[] {double.Epsilon,-.1,.1,double.NaN,double.PositiveInfinity}) Reject(() => clip.Sample(time), "ball-refuses-nonzero-or-nonfinite-phase");
             Reject(() => ballMaterials.ForFinalCannon(), "ball-cannot-acquire-Final-cannon-alpha-policy");
             var final = CharacterSourcePreviewSelection.LoadForLocalBody("darksamus-overcharged-echoes",CancellationToken.None,imports);
-            Check(!final.HasBall && !final.RuntimeBall && !final.Pack.TryResolvePrivate(Hunter.Samus,final.SelectedAppearance,CharacterModelPart.AlternateForm,0,out _), "Final has no borrowed normal source ball capability.");
+            Check(final.HasBall && final.RuntimeBall && final.Pack.TryResolvePrivate(Hunter.Samus,final.SelectedAppearance,CharacterModelPart.AlternateForm,0,out _), "Final now admits its independent composite ball capability.");
+            final.Pack.TryResolvePrivate(Hunter.Samus,final.SelectedAppearance,CharacterModelPart.AlternateForm,0,out var finalBall);
+            Check(final.Pack.TryCreateSourcePreviewLease(finalBall,out var finalLease) && finalLease.ModelSha256 != GeometrySha
+                && finalLease.SourceMaterials is {IsFinalBall:true} && finalLease.SourceAnimations is {IsFinalBall:true}, "Final's generated composite has its own geometry/material/animation authority, never a borrowed normal profile.");
+            Reject(()=>CharacterWeightedModelLoader.LoadSourcePreview(finalBall,lease), "normal-ball-lease-cannot-authorize-Final-composite");
+            Reject(()=>CharacterWeightedModelLoader.LoadSourcePreview(ball,finalLease), "Final-composite-lease-cannot-authorize-normal-ball");
 
             // Negative proof fixtures use only a disposable copy, never the committed generation.
             string mutable = Path.Combine(temporary,"mutable"); Directory.CreateDirectory(mutable); foreach (string f in state.Files) File.Copy(f,Path.Combine(mutable,Path.GetFileName(f)));

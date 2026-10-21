@@ -15,21 +15,25 @@ trap 'rm -rf "$stage"' EXIT
 app="$stage/package/Project Prime.app"
 contents="$app/Contents"
 mkdir -p "$contents/MacOS" "$contents/Resources"
-# Keep the publish layout intact: .NET and native dependencies probe beside
-# the apphost. Apple's signer treats subdirectories of MacOS as nested code,
-# so non-code data belongs in Resources, resolved by AppPaths.ResourceDirectory.
+# Keep the apphost, .NET runtime metadata and native dependencies beside one
+# another: moving the DLLs or dylibs breaks .NET/native probing. Non-code asset
+# directories belong in Contents/Resources, however; macOS codesign treats
+# everything nested under Contents/MacOS as executable code.
 ditto "$root" "$contents/MacOS"
-if [[ -d "$contents/MacOS/maps" ]]; then
-    mv "$contents/MacOS/maps" "$contents/Resources/maps"
-fi
-if [[ -d "$contents/MacOS/fidelity-baselines" ]]; then
-    mv "$contents/MacOS/fidelity-baselines" "$contents/Resources/fidelity-baselines"
-fi
+for resource_dir in maps fidelity-baselines rmlui licenses; do
+    if [[ -d "$contents/MacOS/$resource_dir" ]]; then
+        mv "$contents/MacOS/$resource_dir" "$contents/Resources/$resource_dir"
+    fi
+done
 for resource in gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
     if [[ -f "$contents/MacOS/$resource" ]]; then
         mv "$contents/MacOS/$resource" "$contents/Resources/$resource"
     fi
 done
+# Additional project references can publish loose managed PDBs even when the
+# apphost uses embedded symbols. They are optional debug data, not Mach-O code;
+# leaving them under MacOS causes the entire app signature to fail.
+find "$contents/MacOS" -type f -name '*.pdb' -delete
 cp "$repo/src/MphRead/Platforms/macOS/Info.plist" "$contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $version" "$contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $version" "$contents/Info.plist"

@@ -1548,7 +1548,7 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.Characters.ViewModelAcceptanceCheck.Run(viewModelRoom,
                     ValueAfter(args, "output") ?? "viewmodel-acceptance",
                     Enum.TryParse(ValueAfter(args, "hunter"), true, out Hunter viewModelHunter) ? viewModelHunter : Hunter.Samus,
-                    HasFlag(args, "poseonly"), HasFlag(args, "projectiononly"));
+                    HasFlag(args, "poseonly"), HasFlag(args, "projectiononly"), HasFlag(args, "nativeprojectiononly"));
                 return true;
             }
             if (HasFlag(args, "charactermaterialpalette"))

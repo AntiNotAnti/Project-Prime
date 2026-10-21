@@ -23,7 +23,7 @@ internal static class ViewModelAcceptanceCheck
     private static void Require(bool value, string message) { if (!value) throw new InvalidOperationException(message); }
     private static List<RenderItem> Items(Scene scene, string field) =>
         (List<RenderItem>)typeof(Scene).GetField(field, Private)!.GetValue(scene)!;
-    internal static int Run(string room, string output, Hunter hunter = Hunter.Samus, bool poseOnly = false, bool projectionOnly = false)
+    internal static int Run(string room, string output, Hunter hunter = Hunter.Samus, bool poseOnly = false, bool projectionOnly = false, bool nativeProjectionOnly = false)
     {
         var directory = Path.GetFullPath(output); Directory.CreateDirectory(directory);
         var cases = new List<object>();
@@ -39,7 +39,8 @@ internal static class ViewModelAcceptanceCheck
         int submitted = 0, lateFrames = 0, effectFrames = 0; bool fired = false, zoomed = false, muzzleAligned = false;
         try
         {
-            Require(oldHd, "HD character models must be enabled."); DebugLog.Force();
+            Require(nativeProjectionOnly || oldHd, "HD character models must be enabled."); DebugLog.Force();
+            if (nativeProjectionOnly) RenderOptions.CharacterModelReplacements = false;
             var settings = DesktopGlContext.Settings(background: true);
             Console.WriteLine("VIEWMODEL ACCEPTANCE GLFW settings ready");
             settings.CurrentMonitor = Monitors.GetPrimaryMonitor().Handle;
@@ -118,6 +119,55 @@ internal static class ViewModelAcceptanceCheck
                 RenderOptions.FieldOfView=78;
                 scene.SetFreeCamera(false); Require(target.Health > 0 && target.Hunter == hunter, "Requested main player did not spawn.");
                 var gun = (ModelInstance)typeof(PlayerEntity).GetField("_gunModel", Private)!.GetValue(target)!;
+                if (nativeProjectionOnly)
+                {
+                    // Raise the native gun through the existing ordinary movement
+                    // input owner, then freeze simulation for all three projections.
+                    for (int age = 0; age < 60; age++)
+                    {
+                        Input(); Press(target.Controls.MoveRight); scene.OnSimulationFrame(); Present();
+                    }
+                    var nativeLists = gun.Model.Meshes.Select(mesh => mesh.ListId).ToHashSet();
+                    RenderItem[] NativePackets() => Items(scene, "_nonDecalItems").Concat(Items(scene, "_translucentItems"))
+                        .Distinct().Where(packet => packet.ViewModel && nativeLists.Contains(packet.ListId)).ToArray();
+                    string Canonical() => ReplayStateHash.Compute(scene, checked((uint)scene.FrameCount))
+                        + ":" + scene.ReplayPresentationHash(checked((uint)scene.FrameCount));
+                    RenderOptions.FieldOfView = RenderOptions.DefaultFov; Present();
+                    Require(NativePackets().Length > 0, "Native projection baseline has no actual weapon packets.");
+                    Matrix4 baseline = (Matrix4)typeof(Scene).GetField("_viewModelPerspectiveMatrix", Private)!.GetValue(scene)!;
+                    string before = Canonical();
+                    var worldValues = new HashSet<float>();
+                    foreach (int selectedFov in new[] { 60, 78, 120 })
+                    {
+                        RenderOptions.FieldOfView = selectedFov;
+                        Present($"native-projection-fov-{selectedFov}.png");
+                        RenderItem[] packets = NativePackets();
+                        Require(packets.Length > 0, $"FOV {selectedFov}: no actual native weapon packets.");
+                        Matrix4 projection = (Matrix4)typeof(Scene).GetField("_viewModelPerspectiveMatrix", Private)!.GetValue(scene)!;
+                        float world = (float)typeof(Scene).GetField("_cameraFov", Private)!.GetValue(scene)!;
+                        float viewmodel = (float)typeof(Scene).GetField("_viewModelFov", Private)!.GetValue(scene)!;
+                        float authored = target.CameraInfo.Fov;
+                        float effectiveAuthored = authored > 0 ? authored : RenderOptions.DefaultFov;
+                        Require(projection == baseline, $"FOV {selectedFov}: fixed-pose native weapon projection changed.");
+                        Require(MathF.Abs(viewmodel - MathHelper.DegreesToRadians(effectiveAuthored)) < .00001f,
+                            $"FOV {selectedFov}: native weapon projection lost camera-authored FOV.");
+                        Require(MathF.Abs(world - MathHelper.DegreesToRadians(RenderOptions.ScaleCameraFov(effectiveAuthored))) < .00001f,
+                            $"FOV {selectedFov}: actual world projection did not apply selected FOV scaling.");
+                        Require(Canonical() == before && scene.CheckRenderInvariants(), "Projection sweep changed canonical state or render invariants.");
+                        worldValues.Add(world);
+                        cases.Add(new { selectedFovDegrees = selectedFov, authoredCameraFovDegrees = authored,
+                            worldFovRadians = world, viewmodelFovRadians = viewmodel, nativeWeaponPackets = packets.Length,
+                            nativeWeaponListIds = packets.Select(packet => packet.ListId).Distinct().ToArray() });
+                    }
+                    Require(worldValues.Count == 3, "Selected FOV sweep did not produce three distinct actual world projections.");
+                    File.WriteAllText(Path.Combine(directory, "native-projection-acceptance.json"), JsonSerializer.Serialize(new
+                    {
+                        pass = true, room, hunter = hunter.ToString(), platform = OperatingSystem.IsWindows() ? "Windows" : "Mac",
+                        cases, exactCanonicalMatch = Canonical() == before,
+                        scope = "Native cartridge weapon packets and real OpenGL fixed-pose FOV60/78/120 projections only; no HD pack, scope, high-refresh, physical input or latency acceptance."
+                    }, json));
+                    Console.WriteLine("VIEWMODEL NATIVE PROJECTION PASS: " + directory); return 0;
+                }
                 Require(CharacterModelRuntime.TryGetRigid(scene, hunter, CharacterModelPart.ViewModel, gun.Model, out var replacement), "Rigid cannon did not resolve.");
                 Require(replacement.Segments.Any(s => s.AlbedoBinding.HasValue), "Expected embedded Source weapon sections.");
                 if (hunter == Hunter.Samus) Require(replacement.Segments.Where(s => s.AlbedoBinding.HasValue).Select(s => s.NativeNodeIndex).Distinct().Count() == 8, "Expected eight Samus mechanical cannon sections.");

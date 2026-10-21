@@ -558,7 +558,7 @@ namespace MphRead.Mods.Network
             // start a transition here. Preserve older reconstruction contracts.
             if (_host.IsReplica && _authorityForms[player.SlotIndex].Known
                 && player.OwningScene.Services is ReplaySceneServices replay
-                && replay.Session.Metadata?.ProtocolVersion >= 77)
+                && replay.Session.SourceProtocolVersion >= 77)
                 Set(c.Morph, false, false);
             if (c.Morph.IsPressed)
             {
