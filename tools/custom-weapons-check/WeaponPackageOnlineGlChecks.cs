@@ -134,6 +134,8 @@ internal static class WeaponPackageOnlineGlChecks
                     "accepted ordinary client context pins the actual creator archive");
                 Check(acceptedFacts.Count>0&&acceptedFacts.Count==recorder.AcceptedCustomWeaponFacts,"subscription copied every accepted ordinary client custom fact");
                 var counts=new Dictionary<ReplayCustomWeaponFactKind,int>();var receipt=new List<object>();ulong expectedSequence=1;
+                bool recordedEmpty=false,recordedPickup=false,recordedSpent=false,recordedReloading=false,recordedReloaded=false,recordedOptic4=false;
+                var recordedSlots=new CustomReplicaSlot[8];var recordedFlights=new CustomReplicaFlight[64];
                 using(var stream=new FileStream(Path.Combine(output,"accepted-facts.bin"),FileMode.Create,FileAccess.Write,FileShare.None))
                 using(var writer=new BinaryWriter(stream))
                 {
@@ -144,6 +146,17 @@ internal static class WeaponPackageOnlineGlChecks
                         if(!ReplayCustomWeaponFact.TryRead(captured.Payload,context,out var fact))throw new InvalidDataException("Invalid accepted custom fact.");
                         Check(fact!.Sequence==expectedSequence++,"accepted custom fact sequence is contiguous");
                         counts[fact.Kind]=counts.GetValueOrDefault(fact.Kind)+1;
+                        if(fact.Kind is ReplayCustomWeaponFactKind.Baseline or ReplayCustomWeaponFactKind.State)
+                        {
+                            if(!fact.CopyTable(context,recordedSlots,recordedFlights,out _))throw new InvalidDataException("Accepted custom table cannot be decoded.");
+                            var local=recordedSlots[NetSession.LocalSlot];var state=local.State;
+                            recordedEmpty|=!local.HasWeapon;
+                            recordedPickup|=local.HasWeapon&&state.Magazine==6&&state.Reserve==23;
+                            recordedSpent|=local.HasWeapon&&state.Magazine==5&&state.Reserve==23;
+                            recordedReloading|=local.HasWeapon&&state.Phase==CustomWeaponPhase.Reloading;
+                            recordedReloaded|=local.HasWeapon&&state.Magazine==6&&state.Reserve==22&&state.Phase==CustomWeaponPhase.Ready;
+                            recordedOptic4|=local.HasWeapon&&state.Optic==4;
+                        }
                         writer.Write(captured.Payload.Length);writer.Write(captured.Payload);
                         receipt.Add(new{kind=fact.Kind.ToString(),sequence=fact.Sequence,world=fact.World,captured.RecordingFrame,captured.ServerTick,
                             bytes=captured.Payload.Length,sha256=Convert.ToHexStringLower(SHA256.HashData(captured.Payload))});
@@ -153,8 +166,15 @@ internal static class WeaponPackageOnlineGlChecks
                     "ordinary client capture contains exactly one bootstrap and baseline");
                 Check(counts.GetValueOrDefault(ReplayCustomWeaponFactKind.State)>=1&&counts.GetValueOrDefault(ReplayCustomWeaponFactKind.Launch)>=1
                     &&counts.GetValueOrDefault(ReplayCustomWeaponFactKind.Pickup)>=2,"ordinary capture contains state launch and pickup facts");
+                Check(recordedEmpty,"accepted tables preserve initial absence of a granted weapon");
+                Check(recordedPickup,"accepted tables preserve actual pickup resources six/twentythree");
+                Check(recordedSpent,"accepted tables preserve authority-paid five/twentythree");
+                Check(recordedReloading,"accepted tables preserve actual reloading phase");
+                Check(recordedReloaded,"accepted tables preserve completed reload six/twentytwo");
+                Check(recordedOptic4,"accepted tables preserve fourth creator optic");
                 File.WriteAllText(Path.Combine(output,"accepted-facts-results.json"),JsonSerializer.Serialize(new{count=acceptedFacts.Count,capturedBytes,
                     package.PackageHash,context=context.Digest.ToString(),counts=counts.ToDictionary(pair=>pair.Key.ToString(),pair=>pair.Value),facts=receipt,
+                    observations=new{recordedEmpty,recordedPickup,recordedSpent,recordedReloading,recordedReloaded,recordedOptic4},
                     scope="Copied accepted ordinary-client custom facts in a test-only length-prefixed file. No actual contact capture expected from this single-client wall shot. Not a Demo archive, record-close-reopen playback, or seek qualification."},new JsonSerializerOptions{WriteIndented=true}));
             }
             Check(clientStore.Prune()==0,"ordinary live session and scene retain archive uninstalled before match transition");NetSession.Stop();Check(clientStore.Prune()==0&&scene.LocalWeaponPackage?.PackageHash==package.PackageHash,"session Stop preserves independently retained ordinary scene package owner");scene.DoCleanup();scene=null;Check(clientStore.Prune()==1,"ordinary scene cleanup releases final retained client archive");
