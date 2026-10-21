@@ -133,7 +133,7 @@ namespace MphRead.Mods.Network
             try { checkpoint.RestoreCustom(scene); return scene; }
             catch { scene.Dispose(); throw; }
         }
-        internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size)
+        internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
         {
             using var world = prepared.CopyWorld();
             var scene = RestoreCustomInspection(world, prepared.Resources, size);
@@ -145,7 +145,7 @@ namespace MphRead.Mods.Network
                 scene.Scene.ReplayPoses = new(scene, prepared, world.IndexedFirePresentation);
                 scene.Scene.BeginOwnerPresentation(prepared.Path);
                 scene.PrepareCustomPresentation();
-                while (scene.Session.RecordingFrame < prepared.TargetFrame)
+                while (reconstructToTarget && scene.Session.RecordingFrame < prepared.TargetFrame)
                     if (!scene.StepCustomArchiveInspection()) throw new InvalidDataException("Custom archive ended before its requested seek frame.");
                 return scene;
             }
