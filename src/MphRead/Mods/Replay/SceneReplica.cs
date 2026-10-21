@@ -57,6 +57,7 @@ namespace MphRead
                 }
             }
             replay.AfterSimulation(this);
+            UpdateReplayCustomWeaponPresentation();
             StepHeadHitPresentation();
             StepHeadDeathPresentation();
             ProcessMessageQueue();

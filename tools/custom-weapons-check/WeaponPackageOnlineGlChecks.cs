@@ -212,6 +212,7 @@ internal static class WeaponPackageOnlineGlChecks
                 foreach(var item in parsedFacts)inspectionFinal.Accept(item.Fact.CopyBytes(),item.Frame);
                 var finalReplica=inspectionFinal.CaptureCheckpoint();
                 var fullInspection=new ReplayReplicaState();fullInspection.EnableCustomInspection(inspectionDescriptor);
+                bool observedNonzeroReloadPose=false;var visualPrefixes=new Dictionary<string,ReplayReplicaCheckpoint>(StringComparer.Ordinal);var visualFlightScratch=new CustomReplicaFlight[ReplayCustomWeaponState.FlightCapacity];
                 int scopeStart=-1,nativeRosters=0,nativeSnapshots=0,nativeConfigurations=0;var expectedStart=context.Bootstrap.World.Start;
                 for(int i=0;i<=frozenMatchIndex;i++)
                 {
@@ -231,10 +232,21 @@ internal static class WeaponPackageOnlineGlChecks
                     }
                     fullInspection.Accept(item.Payload,item.Frame);
                     if(item.Kind==ReplayFactKind.Roster)nativeRosters++;if(item.Kind==ReplayFactKind.Snapshot)nativeSnapshots++;
+                    if(fullInspection.HasRecordedSceneBaseline&&fullInspection.CustomWeapons is {CompleteForRestore:true} visual&&visual.TrySlot(NetSession.LocalSlot,out var actor)&&fullInspection.TryGetPlayer(NetSession.LocalSlot,out _))
+                    {
+                        void KeepVisual(string name){if(!visualPrefixes.ContainsKey(name))visualPrefixes.Add(name,fullInspection.CaptureCheckpoint());}
+                        bool available=false;for(int pickup=0;pickup<context.Layout.Count;pickup++)available|=visual.TryPickup(pickup,out var pickupState)&&pickupState.Available;
+                        if(!actor.HasWeapon&&available)KeepVisual("before-pickup");
+                        if(actor.HasWeapon&&actor.Selected.Value==10&&actor.State.Optic==4)KeepVisual("selected-optic4");
+                        if(actor.HasWeapon&&item.Payload.Length>2&&item.Payload[0]==ReplayCustomWeaponFact.Tag&&item.Payload[2]==(byte)ReplayCustomWeaponFactKind.Launch)KeepVisual("accepted-launch");
+                        if(actor.HasWeapon&&actor.State.Phase==CustomWeaponPhase.Reloading)
+                        {KeepVisual("reloading");if(!observedNonzeroReloadPose&&visual.RiflePose(NetSession.LocalSlot,fullInspection.RecordingFrame).Magazine>0){visualPrefixes["reloading"]=fullInspection.CaptureCheckpoint();observedNonzeroReloadPose=true;}}
+                        if(visual.CopyFlights(visualFlightScratch)>0)KeepVisual("in-flight");
+                    }
                 }
                 Check(nativeRosters>0&&nativeSnapshots>0&&nativeConfigurations>0,"full inspection consumes genuine native roster snapshot and configuration");
                 Check(fullInspection.Occupant(NetSession.LocalSlot).Generation!=0&&fullInspection.TryGetPlayer(NetSession.LocalSlot,out _),"full inspection checkpoint contains actual ordinary client actor");
-                var fullReplica=fullInspection.CaptureCheckpoint();File.WriteAllBytes(Path.Combine(output,"full-inspection-replica-checkpoint.bin"),fullReplica.Bytes.ToArray());
+                var fullReplica=fullInspection.CaptureCheckpoint();visualPrefixes["final"]=fullReplica;Check(visualPrefixes.Count<=6&&visualPrefixes.ContainsKey("selected-optic4")&&visualPrefixes.ContainsKey("reloading"),"genuine accepted stream contains bounded selected and reloading visual prefixes");File.WriteAllBytes(Path.Combine(output,"full-inspection-replica-checkpoint.bin"),fullReplica.Bytes.ToArray());
                 Check(fullInspection.CustomWeapons!.CaptureCheckpointBytes().AsSpan().SequenceEqual(linear.CaptureCheckpointBytes()),"full native stream preserves exact accepted custom lane");
                 Console.WriteLine($"FULL INSPECTION records={acceptedSceneFacts.Count-scopeStart} roster={nativeRosters} snapshot={nativeSnapshots} configuration={nativeConfigurations}");
                 var replayStore=new WeaponPackageStore(Path.Combine(output,"isolated-replay-store"));replayStore.Install(package.CopyArchive());
@@ -242,6 +254,43 @@ internal static class WeaponPackageOnlineGlChecks
                 using(var preparedReplay=Task.Run(()=>{preparationThread=Environment.CurrentManagedThreadId;return PreparedReplayWeaponPackage.Prepare(inspectionDescriptor,replayStore);}).GetAwaiter().GetResult())
                 {
                     Check(preparationThread!=Environment.CurrentManagedThreadId,"historical CPU preparation completes on worker before Scene construction");
+                    var passivePictures=new List<object>();
+                    foreach(var entry in visualPrefixes)
+                    {
+                        using var visualScene=PassiveReplayScene.CreateCustomInspection(entry.Value,preparedReplay,ReplayMapIdentity.Compute(fullInspection.Match!.Value.RoomKey),new Vector2i(640,480));
+                        byte[] originalCustom=visualScene.State.CustomWeapons!.CaptureCheckpointBytes();uint liveBefore1=scene.Random.Rng1,liveBefore2=scene.Random.Rng2;var liveGameState=scene.GameState;bool liveActive=NetSession.Active;
+                        visualScene.StepCustomInspection(visualScene.State.RecordingFrame,Array.Empty<ReplayTimelineRecord>());
+                        var visual=visualScene.State.CustomWeapons!;if(!visual.TrySlot(NetSession.LocalSlot,out var actor)||!visualScene.State.TryGetPlayer(NetSession.LocalSlot,out var native))throw new InvalidDataException("Visual prefix lost recorded actor.");Check(true,"visual prefix retains recorded custom and native actor");
+                        var replayPlayer=visualScene.Scene.Players.Items[NetSession.LocalSlot];var hud=visualScene.Scene.CustomWeaponHud(replayPlayer);
+                        bool visible=actor.HasWeapon&&actor.Selected.Value==10&&!actor.Spectating&&native.Health>0&&visualScene.State.MatchesLife(NetSession.LocalSlot,actor.Generation,actor.Life);
+                        Check(hud.Visible==visible&&(!visible||hud.Ready&&hud.State==actor.State&&hud.Optic==actor.State.Optic)&&replayPlayer.Health==native.Health,"passive HUD matches accepted resources optic native life and health "+entry.Key);
+                        Check(replayPlayer.ModCustomOwnsBipedControls==visible,"recorded custom selection exclusively owns biped controls "+entry.Key);
+                        Vector3 cameraTarget=replayPlayer.Position+new Vector3(0,1,0);
+                        if(entry.Key=="before-pickup")for(int pickup=0;pickup<context.Layout.Count;pickup++)if(visual.TryPickup(pickup,out var pickupState)&&pickupState.Available){cameraTarget=context.Layout.Placements[pickup].Position;break;}
+                        if(entry.Key=="in-flight"&&visual.CopyFlights(visualFlightScratch)>0)cameraTarget=visualFlightScratch[0].Position;
+                        if(visible)
+                        {
+                            Check(replayPlayer.ModTryCustomRifleTransform(false,0,out var held,out var muzzle)&&float.IsFinite(muzzle.X)&&float.IsFinite(muzzle.Y)&&float.IsFinite(muzzle.Z)&&held!=Matrix4.Identity,"passive held model has actual finite socket transform "+entry.Key);
+                            // Held muzzle is in model/socket coordinates; frame the recorded world actor instead.
+                            Check(visualScene.Scene.CustomRiflePose(replayPlayer)==visual.RiflePose(NetSession.LocalSlot,visualScene.Session.RecordingFrame,FrameTiming.Active&&FrameTiming.HighRefreshPresentation?(float)FrameTiming.PresentationAlpha:0),"passive rifle pose derives exactly from accepted anchors "+entry.Key);
+                        }
+                        Vector3 cameraPosition=cameraTarget+new Vector3(2.7f,1.5f,3.8f);visualScene.Scene.SetReplicaCamera(cameraPosition,cameraTarget,55);
+                        if(entry.Key=="reloading")Check((visualScene.Scene.CustomRiflePose(replayPlayer).Magazine>0)==observedNonzeroReloadPose,"reload pose observation reflects actual accepted source ticks");
+                        for(int quiet=0;quiet<2;quiet++)
+                        {
+                            visualScene.Scene.OnDrawFrame();Check(visualScene.Scene.OnRenderFrame(),"actual passive GL renders "+entry.Key);Check(GL.GetError()==OpenTK.Graphics.OpenGL.ErrorCode.NoError,"passive GL no error "+entry.Key);
+                            if(quiet==0)
+                            {
+                                string image=Path.Combine(output,"passive-"+entry.Key+"-window.png"),worldImage=Path.Combine(output,"passive-"+entry.Key+"-world.png");
+                                Check(ScreenCapture.SaveWindow(visualScene.Scene,image)&&ScreenCapture.Save(visualScene.Scene,worldImage),"passive native window/world image retained "+entry.Key);
+                                passivePictures.Add(new{name=entry.Key,image,worldImage,sha256=Convert.ToHexStringLower(SHA256.HashData(File.ReadAllBytes(image))),sequence=visual.Sequence,visual.World,recordingFrame=visualScene.Session.RecordingFrame,cameraPosition=new[]{cameraPosition.X,cameraPosition.Y,cameraPosition.Z},cameraTarget=new[]{cameraTarget.X,cameraTarget.Y,cameraTarget.Z},pose=visualScene.Scene.CustomRiflePose(replayPlayer),availablePickup=entry.Key=="before-pickup",inFlight=entry.Key=="in-flight"});
+                            }
+                            DesktopGraphicsSession.Present(window);visualScene.Scene.AfterRenderFrame();
+                            Check(visual.CaptureCheckpointBytes().AsSpan().SequenceEqual(originalCustom),"quiet passive draw preserves canonical accepted custom state "+entry.Key);
+                        }
+                        Check(NetSession.Active==liveActive&&ReferenceEquals(scene.GameState,liveGameState)&&scene.Random.Rng1==liveBefore1&&scene.Random.Rng2==liveBefore2,"passive visual inspection preserves foreground session GameState and RNG "+entry.Key);
+                    }
+                    File.WriteAllText(Path.Combine(output,"passive-visual-results.json"),JsonSerializer.Serialize(new{count=passivePictures.Count,observedNonzeroReloadPose,pictures=passivePictures,scope="Genuine accepted native/custom prefix scenes, passive HUD/model/pose and window/world GL capture. Available pickups and flights claimed only for named observed prefixes. No actual contact, custom world restore or archive seek."},new JsonSerializerOptions{WriteIndented=true}));
                     byte[] beforeScene=fullReplica.Bytes.ToArray();uint liveRng1=scene.Random.Rng1,liveRng2=scene.Random.Rng2;
                     using(var passive=PassiveReplayScene.CreateCustomInspection(fullReplica,preparedReplay,ReplayMapIdentity.Compute(fullInspection.Match!.Value.RoomKey),new Vector2i(640,480)))
                     {
