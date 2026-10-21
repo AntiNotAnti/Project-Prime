@@ -34,10 +34,16 @@ try
         return CharacterGeneratedPreviewOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-trooper-generated")
         return CharacterTrooperGeneratedOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-pose")
+        return CharacterTrooperPoseOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-body-runtime")
         return CharacterBodyRuntimeOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-runtime")
+        return CharacterBodyRuntimeOwnedProbe.Run(args[1], trooper: true);
     if (args.Length == 2 && args[0] == "--probe-character-body-launch")
         return CharacterBodyLaunchOwnedProbe.Run(args[1]);
+    if (args.Length == 2 && args[0] == "--probe-character-trooper-launch")
+        return CharacterBodyLaunchOwnedProbe.Run(args[1], trooper: true);
     if (args.Length == 2 && args[0] == "--probe-character-cannon-runtime")
         return CharacterCannonRuntimeOwnedProbe.Run(args[1]);
     if (args.Length == 2 && args[0] == "--probe-character-animations")

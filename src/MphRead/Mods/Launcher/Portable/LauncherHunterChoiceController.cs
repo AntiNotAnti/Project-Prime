@@ -36,8 +36,7 @@ public sealed class LauncherHunterChoiceController : IDisposable
         var captured = store.Capture();
         _original = captured;
         _draft = (Array.IndexOf(Playable, captured.Hunter) >= 0 && captured.Suit is >= 0 and <= 3)
-            ? captured with { Body = captured.Hunter == Hunter.Samus
-                ? LocalBodyAppearanceRules.Canonical(captured.Body) : LocalBodyAppearance.Native }
+            ? captured with { Body = LocalBodyAppearanceRules.CanonicalForHunter(captured.Body, captured.Hunter) }
             : new(Hunter.Samus, Math.Clamp(captured.Suit, 0, 3));
     }
 
@@ -54,8 +53,7 @@ public sealed class LauncherHunterChoiceController : IDisposable
     {
         Owner();
         if (index < 0 || index >= Playable.Length) return false;
-        _draft = _draft with { Hunter = Playable[index], Body = Playable[index] == Hunter.Samus
-            ? _draft.Body : LocalBodyAppearance.Native };
+        _draft = _draft with { Hunter = Playable[index], Body = LocalBodyAppearanceRules.CanonicalForHunter(_draft.Body, Playable[index]) };
         Note("HUNTER CHOICE UNSAVED");
         return true;
     }
@@ -72,8 +70,8 @@ public sealed class LauncherHunterChoiceController : IDisposable
     public bool SelectBody(int index)
     {
         Owner();
-        if (index is < 0 or > 2 || index != 0
-            && (_draft.Hunter != Hunter.Samus || !LocalBodyAppearanceRules.Available)) return false;
+        if (index is < 0 or > 6 || !LocalBodyAppearanceRules.MatchesHunter((LocalBodyAppearance)index, _draft.Hunter)
+            || index != 0 && !LocalBodyAppearanceRules.Available) return false;
         _draft = _draft with { Body = (LocalBodyAppearance)index };
         Note("LOCAL OFFLINE BODY UNSAVED");
         return true;
@@ -86,7 +84,7 @@ public sealed class LauncherHunterChoiceController : IDisposable
         reason = "";
         if (!HunterRules.Allowed(_draft.Hunter, lowTier: false) || _draft.Suit is < 0 or > 3
             || LocalBodyAppearanceRules.Canonical(_draft.Body) != _draft.Body
-            || _draft.Body != LocalBodyAppearance.Native && _draft.Hunter != Hunter.Samus)
+            || !LocalBodyAppearanceRules.MatchesHunter(_draft.Body, _draft.Hunter))
             reason = "INVALID HUNTER OR SUIT";
         else if (_draft != _original && _store.Capture() != _original)
             reason = "PROFILE CHANGED ELSEWHERE. DISCARD AND REOPEN.";
@@ -119,8 +117,7 @@ public sealed class LauncherHunterChoiceController : IDisposable
         _original = _store.Capture();
         _draft = Array.IndexOf(Playable, _original.Hunter) >= 0
             ? _original with { Suit = Math.Clamp(_original.Suit, 0, 3),
-                Body = _original.Hunter == Hunter.Samus ? LocalBodyAppearanceRules.Canonical(_original.Body)
-                    : LocalBodyAppearance.Native }
+                Body = LocalBodyAppearanceRules.CanonicalForHunter(_original.Body, _original.Hunter) }
             : new(Hunter.Samus, Math.Clamp(_original.Suit, 0, 3));
         Note("HUNTER SELECTION DISCARDED");
     }
