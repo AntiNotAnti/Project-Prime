@@ -130,6 +130,7 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static void CloseNativePlayback()
     {
+        _studioShortcutHeld.Clear();
         RetireNativeStudioWaveChooser();
         RetireNativeStudioPresentationPreferences();
         RetireNativeStudioProjectImport();
