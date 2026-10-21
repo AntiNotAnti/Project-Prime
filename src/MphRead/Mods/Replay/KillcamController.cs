@@ -409,9 +409,9 @@ internal sealed class KillcamController : IDisposable
             && world.State.Occupant(kill.VictimSlot).Generation == kill.VictimGeneration
             && (kill.VictimLifeId == 0 || world.State.MatchesLife(kill.VictimSlot,
                 kill.VictimGeneration, kill.VictimLifeId))
-            && scene.Players.Items[kill.VictimSlot] is { } victim)
+            && scene.Players.Items[kill.VictimSlot] is { } trackedVictim)
         {
-            Vector3 impact = victim.ReplayDrawTransform.Row3.Xyz + Vector3.UnitY;
+            Vector3 impact = trackedVictim.ReplayDrawTransform.Row3.Xyz + Vector3.UnitY;
             if ((impact - focus).LengthSquared < 400f)
             {
                 float tracking = .68f * (1f - (float)Math.Abs(relativeFrame) / 24f);
