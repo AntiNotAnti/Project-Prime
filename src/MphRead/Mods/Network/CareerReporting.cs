@@ -458,19 +458,28 @@ namespace MphRead.Mods.Network
             CareerMatchState? match = _careerMatch;
             if (match == null) return;
             uint key = CareerKey(peer);
+            // Connected spectators are observers, not match starters. Retain
+            // their identity for the report, but never open a played segment.
+            bool competing = !peer.Spectating;
             if (!match.Participants.TryGetValue(key, out CareerParticipantState? p))
             {
                 p = new CareerParticipantState
                 {
                     ClientId = peer.ClientId != 0 ? peer.ClientId : key,
-                    StartedMatch = startedMatch
+                    StartedMatch = startedMatch && competing
                 };
                 match.Participants.Add(key, p);
             }
             else
             {
-                p.StartedMatch |= startedMatch;
-                if (p.Active) return;
+                p.StartedMatch |= startedMatch && competing;
+                if (p.Active)
+                {
+                    // A defensive fallback if a future role path bypasses
+                    // CareerSetSpectating: stop the player segment here.
+                    if (!competing) CareerCaptureSegment(p);
+                    else return;
+                }
             }
 
             p.CareerTicket = peer.CareerTicket;
@@ -480,10 +489,34 @@ namespace MphRead.Mods.Network
             p.Hunter = Math.Clamp((int)peer.Hunter, 0, Launcher.Hunters.Playable - 1);
             p.Team = Math.Clamp((int)peer.TeamIndex, 0, 7);
             p.Slot = peer.SlotIndex;
+            if (!competing) return;
             p.JoinedFrame = CareerFrame;
             p.Start = CareerCounters(peer.SlotIndex);
             p.Active = true;
             p.Departed = false;
+        }
+
+        /// <summary>
+        /// Apply an authoritative spectator role change to career accounting
+        /// before starting or ending gameplay for this peer. Switching to
+        /// spectator closes the current segment; spectating cannot accrue
+        /// played ticks or manufacture a win/loss eligibility flag.
+        /// </summary>
+        private void CareerSetSpectating(Peer peer, bool spectating)
+        {
+            if (peer.Spectating == spectating) return;
+            if (spectating && _careerMatch != null
+                && _careerMatch.Participants.TryGetValue(CareerKey(peer), out CareerParticipantState? p))
+            {
+                CareerCaptureSegment(p);
+            }
+            peer.Spectating = spectating;
+            if (!spectating)
+            {
+                // Rejoining resumes tracking, but cannot retroactively turn
+                // an opening spectator into a match-start participant.
+                CareerActivate(peer, startedMatch: false);
+            }
         }
 
         private void CareerIdentityChanged(Peer peer, int previousHunter)
