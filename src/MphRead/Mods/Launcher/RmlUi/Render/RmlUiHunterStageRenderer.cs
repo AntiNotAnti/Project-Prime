@@ -19,6 +19,7 @@ internal static class RmlUiHunterStageRenderer
     // Farther pads first; local/front player is deliberately rendered last.
     private static readonly int[] BackToFront = { 7, 5, 6, 3, 4, 1, 2, 0 };
     private static bool _shown;
+    private static readonly RmlUiHunterStagePlanCache StagePlans = new();
     private static RmlUiHost? _stageHost;
     private static RenderWindow? _stageWindow;
     private static readonly Func<bool> StageCanPresent = () => _stageHost is { Active: true }
@@ -47,7 +48,7 @@ internal static class RmlUiHunterStageRenderer
             return;
         }
 
-        RmlUiHunterStagePlan plan = RmlUiHunterStagePlan.Build(hub, lobby, roster);
+        RmlUiHunterStagePlan plan = StagePlans.Read(hub, lobby, roster);
         if (lobbyStage)
         {
             // Roster identities and native labels share one formation order.
@@ -401,6 +402,7 @@ internal static class RmlUiHunterStageRenderer
         LauncherPresentation.Motion.Suspend();
         if (!_shown) return;
         _shown = false;
+        StagePlans.Clear();
         LauncherPresentation.Active = false;
         LauncherHunter.Wanted = false;
         LauncherHunter.CanPresent = null;

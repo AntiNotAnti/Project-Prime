@@ -2,6 +2,12 @@
 
 Current gameplay correction: the user clarified on October 20, 2026 that the M7 must be a world pickup, not a menu/loadout grant. This overrides the attached CW-05 selection proposal; see [pickup contract](05k-pickup-correction.md).
 
+Current validation scope: the user requested skipping Android tests for now on
+October20. Completed Android evidence remains historical; further Android builds,
+emulator and physical-device checks are deferred until that scope changes.
+Unverified Android acceptance stays explicitly pending. Continue desktop/server
+implementation and local validation sequentially through CW-16.
+
 Source specification: `PROJECT_PRIME_CUSTOM_WEAPONS_SNIPER_HEADSHOT_RAGDOLL_IMPLEMENTATION_PLAN.md`
 supplied by the user on 2026-10-19 and preserved as [implementation-plan.md](implementation-plan.md). The user's request authorizes sequential CW-00 through CW-16,
 one independently reviewable PR and completed-slice commit at a time, immediate merge after
@@ -22,8 +28,8 @@ Implementation uses an isolated managed worktree; unrelated working-copy edits a
 | CW-07 | Accepted nonlethal head reaction | Implementation complete: full-life accepted native/custom/local facts, bounded future queue and freshness/dedupe, fixed-step head/spine/shoulder scope with exact matrix restoration, seven native rigs and both LODs, actual moving/jumping/scoped/form controls, genuine M7 collision/HP/protection/death/respawn and native replay linear/seek CPU evidence. Physical/HD/continuous high-refresh/WAN acceptance remains CW-16; custom replay remains CW-12. See CW-07 evidence for precise fixture limits. |
 | CW-08 | Lethal head collapse/cosmetics | Implementation complete: accepted full-life native/custom/local cause latch, delayed snapshot/timeout fences, bounded helmet/torso/analytic knee collapse, exact body palette restoration, all seven native Hunters/two LODs/eight death choices and held nonzero disappearance policy. Genuine M7 kills, actual native replay/seek/cold visual rebuild and platform builds and all24 network regression commands validated. Physical/HD/continuous animation and inherited device gates remain CW-16; custom replay remains CW-12. See CW-08 evidence. |
 | CW-09 | Experimental physics pilot | Standalone fifteen-part backend, static collision, pure interpolation and procedural baseline implemented; desktop CPU/GL/lifecycle and actual Android Debug/arm64 Mono AOT CPU/lifecycle evidence recorded. Physical/game-renderer/target-budget gates keep physics outside the shipping game. See CW-09 evidence. |
-| CW-10 | Hybrid corpse rollout/fallback | In progress:10a validates all14 native model/LOD layouts, whole-pair fallback and bounded fixed-step quality/distance retirement;10b supplies independent affine pose capture/sample and named helper mapping;10c adds bounded copied static polygon validation and relative-height retirement;10d fits copied native poses to15 owned primitive parts with per-joint bases and independent affine bindings. Actual native CPU/solver evidence is recorded; accepted-life draw integration and full lifecycle acceptance remain subsequent work. No shipping physics option enabled. |
-| CW-11 | Safe local packages and installation | Pending CW-10 |
+| CW-10 | Hybrid corpse rollout/fallback | Experimental implementation complete through10e:14 native LOD profiles, independent affine bindings and15-part fitted primitives, bounded copied static surfaces, accepted-life draw/fixed-step integration, conservative unsupported-geometry fallback and original-thread cleanup. Six actual physical Hunters and Spire fallback pass1,061 GL checks;128 genuine respawn cycles/eight active scene cleanups pass2,780 lifetime checks with all136 backend/capture pairs collected and pools released. Dedicated server excludes physics; Android game compiles and standalone arm64 AOT contracts pass. Default remains off; target-device costs, HD/physical replay/WAN/continuous graphics approval and inherited CW-06b device issues remain explicit CW-16 release gates. See10e evidence. |
+| CW-11 | Safe local packages and installation | Next after CW-10e merge |
 | CW-12 | Match readiness and replay manifest | Pending CW-11 |
 | CW-13 | Typed Community weapon publication | Pending CW-12 |
 | CW-14 | Studio creator | Pending CW-13 |

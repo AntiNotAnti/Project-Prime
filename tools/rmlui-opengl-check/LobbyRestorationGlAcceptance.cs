@@ -330,12 +330,17 @@ internal static class LobbyRestorationGlAcceptance
         void MeasureRails(string phase)
         {
             var stage = Bounds("lobby_stage"); var left = Bounds("lobby_left_panels");
+            var right = Bounds("lobby_right_panels");
             var roster = Bounds("lobby_roster_panel"); var chat = Bounds("lobby_chat_panel");
             var screen = new Box(0, 0, width, height);
             Check(screen.Contains(stage) && stage.Contains(left) && stage.Contains(roster) && stage.Contains(chat),
                 "left rail, roster and chat remain fully inside actual Lobby stage");
-            Check(Math.Abs(left.Width - roster.Width) <= 2 && Math.Abs(left.Width - chat.Width) <= 2,
-                "actual right roster/chat widths match the established left rail");
+            // The authored rails intentionally have different widths. Verify
+            // the two right panels fill their own rail, rather than imposing
+            // the obsolete equal-left/right geometry from RML-84.
+            Check(stage.Contains(right) && Math.Abs(right.Width - roster.Width) <= 2
+                && Math.Abs(right.Width - chat.Width) <= 2,
+                "actual roster/chat widths fill the established right rail");
             Check(Math.Abs(roster.X - chat.X) <= 2 && Math.Abs(roster.Right - chat.Right) <= 2
                 && left.Right < roster.X && roster.X - left.Right >= stage.Width * .30f,
                 "aligned right rail preserves at least thirty percent of the chamber between panels");

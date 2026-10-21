@@ -16,7 +16,7 @@ public partial class Scene
         internal readonly HeadDeathTrack Track=new();
         internal HeadHitFact Pending;
         internal uint PendingAt;
-        internal bool PendingHead,PendingEligible,AliveSeen,WasFrozen,WasAlt,Anchored,DeadBlocked;
+        internal bool PendingHead,PendingEligible,AliveSeen,WasFrozen,WasAlt,Anchored,DeadBlocked,PhysicalAttempted;
         internal Vector3 LastPosition,Position,Facing;
         internal Hunter Hunter;
     }
@@ -34,7 +34,7 @@ public partial class Scene
         if(!slot.Track.Victim.Matches(context)||slot.Hunter!=player.Hunter)
         {
             slot.Track.Bind(default);slot.Track.Bind(context);slot.Pending=default;
-            slot.AliveSeen=slot.WasFrozen=slot.WasAlt=slot.Anchored=slot.DeadBlocked=false;
+            slot.AliveSeen=slot.WasFrozen=slot.WasAlt=slot.Anchored=slot.DeadBlocked=slot.PhysicalAttempted=false;
             slot.LastPosition=player.Position;slot.Hunter=player.Hunter;
         }
         else if((slot.LastPosition-player.Position).LengthSquared>16)
@@ -122,7 +122,7 @@ public partial class Scene
     }
     private void StepHeadDeathPresentation()
     {
-        if(Headless.Active||ThumbnailMode.Active)return;
+        if(Headless.Active||ThumbnailMode.Active){ReleasePhysicalCorpses();return;}
         foreach(var player in Players.Items)if(player!=null&&HeadDeathOwner(player) is {} slot)
         {
             if(slot.Pending.Event.IsValid)
@@ -151,6 +151,7 @@ public partial class Scene
             }
         }
         ApplyHeadDeathBudget();
+        StepPhysicalCorpses();
     }
     private void ApplyHeadDeathBudget()
     {
@@ -171,5 +172,5 @@ public partial class Scene
         }
         for(int i=capacity;i<count;i++)_headDeaths[candidates[i]]!.Track.Cancel();
     }
-    private void ReleaseHeadDeathPresentation()=>_headDeaths=null;
+    private void ReleaseHeadDeathPresentation(){ReleasePhysicalCorpses();_headDeaths=null;}
 }

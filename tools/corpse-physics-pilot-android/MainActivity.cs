@@ -50,15 +50,17 @@ public sealed class MainActivity : Activity
                 int mapChecks = bridgeChecks - affineChecks;
                 global::StaticMeshChecks.Run(CheckBridge);
                 int staticMeshChecks = bridgeChecks - affineChecks - mapChecks;
+                global::HumanoidFitChecks.Run(CheckBridge);
+                int humanoidFitChecks = bridgeChecks - affineChecks - mapChecks - staticMeshChecks;
                 File.WriteAllText(Path.Combine(Path.GetDirectoryName(output)!, "bridge-check-results.json"),
                     JsonSerializer.Serialize(new
                     {
                         status = bridgeFailure == null ? "passed" : "failed", ownerThread = owner,
-                        affineChecks, humanoidMapChecks = mapChecks, staticMeshChecks, totalChecks = bridgeChecks,
+                        affineChecks, humanoidMapChecks = mapChecks, staticMeshChecks, humanoidFitChecks, totalChecks = bridgeChecks,
                         firstFailure = bridgeFailure,
-                        scope = "Standalone affine/map/static-mesh CPU contracts, including synthetic BEPU floor contacts; no native asset/render/game or physical-device qualification."
+                        scope = "Standalone affine/map/static-mesh/humanoid-fit CPU contracts, including synthetic BEPU floor contacts; no native asset/render/game or physical-device qualification."
                     }, new JsonSerializerOptions { WriteIndented = true }));
-                Log.Info(Tag, $"BRIDGE affine={affineChecks} humanoid-map={mapChecks} static-mesh={staticMeshChecks} total={bridgeChecks} firstFailure={bridgeFailure ?? "none"}");
+                Log.Info(Tag, $"BRIDGE affine={affineChecks} humanoid-map={mapChecks} static-mesh={staticMeshChecks} humanoid-fit={humanoidFitChecks} total={bridgeChecks} firstFailure={bridgeFailure ?? "none"}");
                 if (bridgeFailure != null) throw new InvalidOperationException("Bridge check failed: " + bridgeFailure);
 #if SHARED_PILOT_BENCHMARKS
                 string benchmarkDirectory = Path.Combine(Path.GetDirectoryName(output)!, "benchmark");

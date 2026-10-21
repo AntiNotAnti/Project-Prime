@@ -1196,6 +1196,7 @@ foreach (byte invalidTeamCount in new byte[] { 0, 5 })
 Check(RmlUiHunterStagePlan.Build(stageHub with { GameFilesReady = false },
     stageLobby, stageRoster) is { Lobby: true, GameFilesReady: false, Count: 0 },
     "when game assets are missing, the lobby keeps its stage but never touches model GL");
+HunterStagePlanCacheAcceptance.Run(stageHub, stageLobby, stageRoster);
 // RML-30: chat, match conditions and slot actions displayed on the central
 // Lobby must use the same authoritative local-front order as the 3D stage.
 services.LobbyView = stageLobby with
