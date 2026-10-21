@@ -17,6 +17,17 @@ internal sealed partial class ReplayReplicaState
         var context = descriptor.InspectContext();
         CustomWeaponDescriptor = descriptor; CustomWeapons = new(context);
     }
+    internal void InstallCustomLiveSeed(ReplayCustomWeaponDescriptor descriptor, byte[] checkpoint, uint frame)
+    {
+        if (CustomWeaponDescriptor == null || !CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes())
+            || Match is not { } match || !CustomMatchAllowed(match) || !HasRecordedSceneBaseline
+            || RecordingFrame != frame || Configuration is { } configuration && !CustomConfigurationAllowed(configuration))
+            throw new InvalidDataException("Live custom recording baseline differs from its native scope or clock.");
+        var current = ReplayCustomWeaponState.RestoreCheckpointBytes(checkpoint, descriptor.InspectContext());
+        if (!current.CompleteForRestore || current.RecordingFrame > frame)
+            throw new InvalidDataException("Live custom recording state is incomplete or ahead of its baseline.");
+        CustomWeapons = current;
+    }
     private bool CustomMatchAllowed(in MatchStatePacket match)
     {
         var bits = (MatchModifierFlags)match.RuleBits & CustomRuleBits;

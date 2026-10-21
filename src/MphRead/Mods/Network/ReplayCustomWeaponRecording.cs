@@ -122,6 +122,21 @@ internal sealed partial class ReplayRecorder
         if (!CustomFactScope || _customReplayState is not { CompleteForRestore: true } state || state.Sequence != _customFactSequence) return false;
         descriptor = ReplayCustomWeaponDescriptor.ForInspection(CustomWeaponContext!); checkpoint = state.CaptureCheckpointBytes(); return true;
     }
+    internal ReplayReplicaCheckpoint CaptureCustomLiveSeed(uint frame)
+    {
+        if (!TryCaptureCustomWeaponState(out var descriptor, out var current))
+            throw new InvalidOperationException("Recording requires a complete accepted custom state.");
+        var state = new ReplayReplicaState(); state.EnableCustomInspection(descriptor!);
+        var records = new System.Collections.Generic.List<ReplayTimelineRecord>();
+        try
+        {
+            SeedWorldCore(record => { record.Retain(); records.Add(record); });
+            ReplayLiveWorld.SeedBootstrap(state, records, frame);
+            state.InstallCustomLiveSeed(descriptor!, current, frame);
+            return state.CaptureCheckpoint();
+        }
+        finally { foreach (var record in records) record.Release(); }
+    }
 }
 
 public static partial class NetSession

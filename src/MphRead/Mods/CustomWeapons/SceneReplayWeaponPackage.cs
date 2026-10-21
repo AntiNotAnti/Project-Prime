@@ -6,6 +6,13 @@ namespace MphRead;
 
 public partial class Scene
 {
+    internal PreparedReplayWeaponPackage RetainOnlineReplayPackage(ReplayCustomWeaponDescriptor descriptor)
+    {
+        if (Services.IsReplica || PrivateCharacterGameplayUnsupported || OfflineWeapons != null || CustomCombat != null
+            || !HasOnlineWeaponPackage(descriptor.Bootstrap.World.Start, descriptor.Bootstrap.Packages.Digest))
+            throw new InvalidOperationException("Recording requires the current ordinary client's exact prepared package.");
+        return PreparedReplayWeaponPackage.RetainPrepared(descriptor, _onlineWeaponPackage!);
+    }
     private WeaponMatchPackageBinding? _replayWeaponPackage;
     private ReplayCustomWeaponDescriptor? _replayWeaponDescriptor;
     internal bool HasReplayWeaponPackage(ReplayCustomWeaponDescriptor descriptor)
