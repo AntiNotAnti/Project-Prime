@@ -122,11 +122,12 @@ internal static class CharacterNormalBallSourceOwnedProbe
             Check(pack.TryCreateSourcePreviewLease(ball, out var lease) && lease.SourceCannon == null && !pack.HasSourceCannon(ball)
                 && lease.CacheKey != bodyLease.CacheKey && lease.ModelSha256 == GeometrySha && lease.SourceMaterials != null && lease.SourceAnimations != null,
                 "Ball has its own fullsource pose/material owner and cache identity without acquiring cannon authority.");
-            Check(!ReferenceEquals(lease.SourceMaterials, bodyLease.SourceMaterials) && lease.SourceMaterials!.Archive.Sha256 == Sha(archiveBytes)
-                && lease.SourceMaterials.Archive.Binding.CharacterId == Profile && lease.SourceMaterials.Programs.Count == 1
-                && lease.SourceMaterials.Programs[0].DrawPass == CharacterSourceGxProgram.Pass.Opaque && lease.SourceMaterials.Programs[0].InitialRegister1 == V4.Zero
-                && lease.SourceMaterials.Programs[0].PresentationAlphaScale == 1, "Ball uses independent raw opaque GX authority, never body materials/C1 or Final shell alpha.");
-            var program = CharacterSourceGxProgram.Compile(raw.Materials[0]); var loadedProgram = lease.SourceMaterials.Programs[0];
+            var ballMaterials = lease.SourceMaterials!;
+            Check(!ReferenceEquals(ballMaterials, bodyLease.SourceMaterials) && ballMaterials.Archive.Sha256 == Sha(archiveBytes)
+                && ballMaterials.Archive.Binding.CharacterId == Profile && ballMaterials.Programs.Count == 1
+                && ballMaterials.Programs[0].DrawPass == CharacterSourceGxProgram.Pass.Opaque && ballMaterials.Programs[0].InitialRegister1 == V4.Zero
+                && ballMaterials.Programs[0].PresentationAlphaScale == 1, "Ball uses independent raw opaque GX authority, never body materials/C1 or Final shell alpha.");
+            var program = CharacterSourceGxProgram.Compile(raw.Materials[0]); var loadedProgram = ballMaterials.Programs[0];
             Check(program.Vertex120 == loadedProgram.Vertex120 && program.Fragment120 == loadedProgram.Fragment120 && program.Vertex300 == loadedProgram.Vertex300
                 && program.Fragment300 == loadedProgram.Fragment300, "All desktop/ES ball program source is compiled from its original raw GX record.");
             Check(lease.SourceAnimations!.RootBoneId == 0 && lease.SourceAnimations.ExternalParentId == 97 && lease.SourceAnimations.Skeleton.Bones.Count == 2
@@ -181,7 +182,7 @@ internal static class CharacterNormalBallSourceOwnedProbe
             Reject(() => CharacterWeightedModelLoader.LoadSourcePreview(ball,bodyLease), "body-lease-cannot-load-ball"); Reject(() => CharacterWeightedModelLoader.LoadSourcePreview(body,lease), "ball-lease-cannot-load-body");
             foreach (int ordinal in new[] {0,2,32,int.MaxValue}) Reject(() => CharacterSourceClip.Load(lease,ball,geometry.SourceRig!,ordinal), "ball-refuses-nonReady-source-root");
             foreach (double time in new[] {double.Epsilon,-.1,.1,double.NaN,double.PositiveInfinity}) Reject(() => clip.Sample(time), "ball-refuses-nonzero-or-nonfinite-phase");
-            Reject(() => lease.SourceMaterials.ForFinalCannon(), "ball-cannot-acquire-Final-cannon-alpha-policy");
+            Reject(() => ballMaterials.ForFinalCannon(), "ball-cannot-acquire-Final-cannon-alpha-policy");
             var final = CharacterSourcePreviewSelection.LoadForLocalBody("darksamus-overcharged-echoes",CancellationToken.None,imports);
             Check(!final.HasBall && !final.RuntimeBall && !final.Pack.TryResolvePrivate(Hunter.Samus,final.SelectedAppearance,CharacterModelPart.AlternateForm,0,out _), "Final has no borrowed normal source ball capability.");
 
