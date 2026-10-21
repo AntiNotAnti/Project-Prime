@@ -83,6 +83,15 @@ this ledger makes no green-CI or external-review claim.
 
 ## Recent merged slices
 
+The [Scout Drone burst runtime slice](second-hunt-scout-drone-burst-2026-10-21.md)
+adds source unfold/fire/fold driven by native counters, Snap entries and held
+Ready return fades to the same solo Alpha/Gamma owners. Windows qualification
+passes244385 checks with unchanged1418-step native trace and a separate420-step
+quick-release/cloak/recovery trace. Both complete source material groups and all
+33 joints are checked; four captures were inspected and individually deleted.
+Native laser/status/morph fallback remains. Source laser, movement and hit
+animation and broader character engineering remain unfinished.
+
 The [Scout Drone Ready runtime slice](second-hunt-scout-drone-runtime-2026-10-21.md)
 adds separate Alpha/Gamma source owners to explicit solo practice, full33-joint
 geometry, both source material groups and an independently checked private Ready
