@@ -61,7 +61,7 @@ class ReleaseParallelGateTests(unittest.TestCase):
                 self.assertIn(
                     f"cp docs/SERVER.md publish/{target}/SERVER.md", package
                 )
-        self.assertNotRegex(package, r"(?m)^\\s*cp SERVER\\.md\\b")
+        self.assertNotRegex(package, r"(?m)^\s*cp SERVER\.md\b")
 
     def test_publish_still_requires_all_releases_and_lobby_acceptance(self):
         publish = job("publish")
