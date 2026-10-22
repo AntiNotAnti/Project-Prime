@@ -13,13 +13,14 @@ public static class CommunityContentKinds
     public const string Material = "material";
     public const string Model = "model";
     public const string Prefab = "prefab";
+    public const string Weapon = "weapon";
 
     // Return a fresh public array; callers cannot mutate the process-wide
     // allowlist through the capability/default DTO representation.
-    public static string[] Supported => new[] { Map, Texture, Material, Model, Prefab };
+    public static string[] Supported => new[] { Map, Texture, Material, Model, Prefab, Weapon };
 
     public static bool IsSupported(string? kind)
-        => kind is Map or Texture or Material or Model or Prefab;
+        => kind is Map or Texture or Material or Model or Prefab or Weapon;
 
     public static string Normalize(string? kind)
     {
@@ -60,6 +61,9 @@ public sealed record CommunityContentDependency(
 /// historical content digest. For other kinds, ContentHash is SHA-256 of the
 /// raw asset bytes and ArchiveHash is null.
 /// </summary>
+public sealed record WeaponPackageRevisionIdentity(
+    string ArchiveHash, string ContentHash, string DependencyHash, string MechanicsHash);
+
 public sealed record CommunityContentRevision(
     int RevisionNumber,
     string ContentHash,
@@ -70,7 +74,8 @@ public sealed record CommunityContentRevision(
     DateTimeOffset CreatedAt,
     string? ParentHash = null,
     string? ReleaseNotes = null,
-    CommunityContentDependency[]? Dependencies = null);
+    CommunityContentDependency[]? Dependencies = null,
+    WeaponPackageRevisionIdentity? WeaponPackage = null);
 
 /// <summary>
 /// Common project-level catalog response. V3 maps are read-through projections
@@ -94,7 +99,21 @@ public sealed record CommunityContentProject(
     CommunityContentRevision? CurrentRevision,
     CommunityContentRevision LatestRevision,
     bool CanManage = false,
-    bool Archived = false);
+    bool Archived = false,
+    bool ModerationHidden = false);
+
+public sealed record CommunityContentReport(Guid ReportId, string Kind, Guid ContentId,
+    string Hash, string ReporterId, string Reason, DateTimeOffset CreatedAt,
+    string? ModeratorId = null, DateTimeOffset? ResolvedAt = null,
+    bool? Hide = null, string? DecisionReason = null,
+    CommunityContentModerationDecision[]? DecisionHistory = null);
+
+public sealed record CommunityContentModerationDecision(string ModeratorId,
+    DateTimeOffset DecidedAt, bool Hide, string Reason);
+
+public sealed record CommunityWeaponReportRequest(string Hash, string Reason);
+public sealed record CommunityWeaponModerationRequest(bool Hide, string Reason);
+public sealed record CommunityWeaponVisibilityRequest(string Hash, string Visibility);
 
 public sealed record CommunityContentPage(
     int SchemaVersion,

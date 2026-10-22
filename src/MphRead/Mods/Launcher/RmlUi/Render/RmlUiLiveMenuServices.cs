@@ -175,6 +175,7 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
         bool canStart = inLobby && NetSession.CanEditLobby && !NetSession.LobbyCommandPending && rulesReady;
         string status = NetSession.LobbyMessage.Length != 0 ? NetSession.LobbyMessage
             : !NetSession.RequiredMapReady ? NetSession.MapPreparationMessage
+            : !NetSession.RequiredWeaponPackagesReady ? NetSession.WeaponPackagePreparationMessage
             : session.Phase == SessionPhase.Starting
                 ? "STARTING MATCH // WAITING FOR SERVER"
                 : !rulesReady ? startReason.ToUpperInvariant()
@@ -185,7 +186,7 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
             localReady, canReady, canStart, "MULTIPLAYER LOBBY",
             session.Match.RoomKey, session.Match.Mode.ToString().ToUpperInvariant(),
             session.Match.Format.ToString().ToUpperInvariant(), status,
-            session.MaxPlayers, players);
+            session.MaxPlayers, players, PackageReviewRequired: !NetSession.RequiredWeaponPackagesReady);
     }
 
     public async Task<RmlUiDirectory> Browse(CancellationToken token)

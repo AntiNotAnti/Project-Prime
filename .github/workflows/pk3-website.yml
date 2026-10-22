@@ -3,14 +3,16 @@ name: PK3 website conversion and upload queue
 on:
   pull_request:
     paths:
-      - 'src/MphRead/Mods/MapGen/Q3WebConversion.cs'
+      - 'src/MphRead/Mods/MapGen/Q3*.cs'
+      - 'src/MphRead/Mods/MapGen/Pk3*.cs'
       - 'tools/pk3-converter/**'
       - 'tools/pk3-upload/**'
       - '.github/workflows/pk3-website.yml'
   push:
     branches: [main]
     paths:
-      - 'src/MphRead/Mods/MapGen/Q3WebConversion.cs'
+      - 'src/MphRead/Mods/MapGen/Q3*.cs'
+      - 'src/MphRead/Mods/MapGen/Pk3*.cs'
       - 'tools/pk3-converter/**'
       - 'tools/pk3-upload/**'
 
@@ -38,8 +40,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v6
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - name: Build headless converter
         run: dotnet build tools/pk3-converter/pk3-converter.csproj -c Release -p:MphReadServer=true

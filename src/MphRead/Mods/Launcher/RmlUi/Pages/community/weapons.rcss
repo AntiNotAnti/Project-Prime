@@ -1,0 +1,18 @@
+#weapons_page { position:absolute; left:2%; right:2%; top:10dp; bottom:10dp; padding:14dp; display:flex; flex-direction:column; box-sizing:border-box; background-color:#091e2b; }
+.weapons_heading { display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+#weapons_page h1 { color:#d8f9eb; font-size:25dp; margin:0; }
+#weapons_page h2 { font-size:18dp; color:#8be2c2; margin:18dp 0 7dp; }
+#weapons_page p { color:#b8d1df; font-size:13dp; line-height:18dp; white-space:pre-wrap; margin:6dp 0; }
+.weapons_scroll { flex:1; min-height:0; overflow-y:auto; padding-right:8dp; }
+.weapons_buttons { display:flex; flex-wrap:wrap; }
+#weapons_page button { min-height:36dp; margin:4dp 6dp 4dp 0; padding:8dp 12dp; border:1dp #488d82; color:#dff9ef; background-color:#143c3a; tab-index:auto; }
+#weapons_page button:hover,#weapons_page button:focus { border-color:#c3ffe9; background-color:#24685b; }
+#weapons_page button:disabled { color:#819d96; background-color:#1b2d2c; border-color:#3b5550; }
+#weapons_page label { display:block; color:#a8c7d7; font-size:12dp; margin:10dp 0 4dp; }
+#weapons_page input,#weapons_page textarea { display:block; width:100%; box-sizing:border-box; padding:8dp; border:1dp #47728a; color:#eefaff; background-color:#102d41; tab-index:auto; }
+#weapons_page input { min-height:34dp; } #weapons_page textarea { height:100dp; }
+.weapons_columns { display:flex; margin-top:8dp; }
+.weapons_catalog { width:43%; margin-right:2%; } .weapons_catalog button { display:block; width:100%; }
+.weapons_detail_panel { width:55%; background-color:#102c3a; padding:10dp; box-sizing:border-box; }
+#weapons_transfer_detail { border:1dp #3f6f7d; padding:10dp; }
+#weapons_status { flex-shrink:0; min-height:35dp; max-height:80dp; overflow-y:auto; border-top:1dp #3d6774; padding-top:7dp; }
