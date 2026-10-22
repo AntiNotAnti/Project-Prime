@@ -754,7 +754,7 @@ public static class MapCommunityServer
                     { context.Response.StatusCode = 400; return; }
                     string? path = contentRegistry.AuthorizedBlob(hash, creator?.CreatorId);
                     if (path == null) { context.Response.StatusCode = 404; return; }
-                    long total = new FileInfo(path).Length, offset = 0;
+                    long total = new FileInfo(path).Length;
                     context.Response.Headers["ETag"] = "\"" + hash + "\"";
                     context.Response.Headers["Accept-Ranges"] = "bytes";
                     // Different projects may share a hash with different
@@ -765,29 +765,30 @@ public static class MapCommunityServer
                     if (context.Request.Headers["Range"] == null
                         && context.Request.Headers["If-None-Match"] == "\"" + hash + "\"")
                     { context.Response.StatusCode = 304; return; }
-                    if (context.Request.Headers["Range"] is { } range)
+                    CommunityByteRangeSelection selection = CommunityByteRange.Select(
+                        context.Request.Headers["Range"], total);
+                    if (selection.Kind == CommunityByteRangeKind.BadRequest)
+                    { context.Response.StatusCode = 400; context.Response.ContentLength64 = 0; return; }
+                    if (selection.Kind == CommunityByteRangeKind.Unsatisfiable)
                     {
-                        if (!range.StartsWith("bytes=", StringComparison.OrdinalIgnoreCase)
-                            || !range.EndsWith("-", StringComparison.Ordinal)
-                            || !long.TryParse(range[6..^1], out offset) || offset < 0)
-                        { context.Response.StatusCode = 400; return; }
-                        if (offset >= total)
-                        {
-                            context.Response.StatusCode = 416;
-                            context.Response.Headers["Content-Range"] = "bytes */" + total;
-                            return;
-                        }
+                        context.Response.StatusCode = 416;
+                        context.Response.Headers["Content-Range"] = selection.UnsatisfiedContentRange;
+                        context.Response.ContentLength64 = 0;
+                        return;
+                    }
+                    if (selection.Kind == CommunityByteRangeKind.Partial)
+                    {
                         context.Response.StatusCode = 206;
-                        context.Response.Headers["Content-Range"] =
-                            "bytes " + offset + "-" + (total - 1) + "/" + total;
+                        context.Response.Headers["Content-Range"] = selection.ContentRange;
                     }
                     context.Response.ContentType = "application/octet-stream";
-                    context.Response.ContentLength64 = total - offset;
+                    context.Response.ContentLength64 = selection.Count;
                     await using var file = new FileStream(path, FileMode.Open,
                         FileAccess.Read, FileShare.Read, 65536,
                         FileOptions.Asynchronous | FileOptions.SequentialScan);
-                    file.Position = offset;
-                    await file.CopyToAsync(context.Response.OutputStream, 65536, deadline.Token);
+                    file.Position = selection.Start;
+                    await CommunityByteRange.CopySelectedAsync(file,
+                        context.Response.OutputStream, selection.Count, deadline.Token);
                     return;
                 }
 
@@ -1634,34 +1635,29 @@ public static class MapCommunityServer
                     if (context.Request.Headers["Range"] == null
                         && context.Request.Headers["If-None-Match"] == packageEtag)
                     { context.Response.StatusCode = 304; return; }
-                    long total = downloadMap.Bytes, start = 0;
+                    long total = downloadMap.Bytes;
                     context.Response.Headers["Accept-Ranges"] = "bytes";
-                    if (context.Request.Headers["Range"] is { Length: > 0 } range)
+                    CommunityByteRangeSelection selection = CommunityByteRange.Select(
+                        context.Request.Headers["Range"], total);
+                    if (selection.Kind == CommunityByteRangeKind.BadRequest)
+                    { context.Response.StatusCode = 400; context.Response.ContentLength64 = 0; return; }
+                    if (selection.Kind == CommunityByteRangeKind.Unsatisfiable)
                     {
-                        const string prefix = "bytes=";
-                        if (!range.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                            || range.Contains(',') || !range.EndsWith("-", StringComparison.Ordinal)
-                            || !long.TryParse(range.AsSpan(prefix.Length, range.Length - prefix.Length - 1),
-                                System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out start)
-                            || start < 0)
-                        { context.Response.StatusCode = 400; return; }
-                        if (start >= total)
-                        {
-                            context.Response.StatusCode = 416;
-                            context.Response.Headers["Content-Range"] = "bytes */" + total.ToString(System.Globalization.CultureInfo.InvariantCulture);
-                            return;
-                        }
+                        context.Response.StatusCode = 416;
+                        context.Response.Headers["Content-Range"] = selection.UnsatisfiedContentRange;
+                        context.Response.ContentLength64 = 0;
+                        return;
+                    }
+                    if (selection.Kind == CommunityByteRangeKind.Partial)
+                    {
                         context.Response.StatusCode = 206;
-                        context.Response.Headers["Content-Range"] = "bytes "
-                            + start.ToString(System.Globalization.CultureInfo.InvariantCulture) + "-"
-                            + (total - 1).ToString(System.Globalization.CultureInfo.InvariantCulture) + "/"
-                            + total.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                        context.Response.Headers["Content-Range"] = selection.ContentRange;
                     }
                     context.Response.ContentType = "application/octet-stream";
                     // Make direct website map downloads save as valid .ppmap files.
                     context.Response.Headers["Content-Disposition"] =
                         "attachment; filename=\"" + hash + ".ppmap\"";
-                    context.Response.ContentLength64 = total - start;
+                    context.Response.ContentLength64 = selection.Count;
                     // Permit moderation/retention purge while a download is in
                     // flight on Windows. The already-open handle retains its
                     // immutable bytes; subsequent requests use the catalog.
@@ -1670,9 +1666,10 @@ public static class MapCommunityServer
                         FileMode.Open, FileAccess.Read,
                         FileShare.Read | FileShare.Delete, 65536,
                         FileOptions.Asynchronous | FileOptions.SequentialScan);
-                    if (start > 0) file.Position = start;
-                    await file.CopyToAsync(context.Response.OutputStream, 65536, deadline.Token);
-                    Interlocked.Add(ref completedDownloadBytes, total - start);
+                    file.Position = selection.Start;
+                    long copied = await CommunityByteRange.CopySelectedAsync(file,
+                        context.Response.OutputStream, selection.Count, deadline.Token);
+                    Interlocked.Add(ref completedDownloadBytes, copied);
                 }
                 else if (context.Request.HttpMethod == "POST" && (route == root + "/maps"
                     || route.StartsWith(root + "/maps/", StringComparison.Ordinal) && route.EndsWith("/versions", StringComparison.Ordinal)))

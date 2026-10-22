@@ -1,0 +1,1919 @@
+{
+  "schemaVersion": 1,
+  "reportStatus": "measurement-report-complete; required-hosted-CI-is-a-separate-merge-gate",
+  "finalCompactWindowsCampaign": {
+    "status": "complete-campaign; required-hosted-CI-is-a-separate-merge-gate",
+    "campaignId": "32dea0de-aba6-4400-a1d3-69676aa0d099",
+    "startedUtc": "2026-10-22T04:25:27.058Z",
+    "finishedUtc": "2026-10-22T05:04:23.252Z",
+    "samplePlan": {
+      "rooms": 3,
+      "cacheKinds": 2,
+      "arms": 2,
+      "timedSamples": 240,
+      "warmPreseeds": 6,
+      "samplesPerMapCacheArmCell": 20,
+      "pairedTrialsPerMapCacheCombination": 20
+    },
+    "environment": {
+      "runner": {
+        "machine": "AMD64",
+        "platform": "Windows-11-10.0.26200-SP0",
+        "python": "3.14.7"
+      },
+      "process": {
+        "operatingSystem": "Microsoft Windows 10.0.26200",
+        "architecture": "X64",
+        "logicalProcessors": 16
+      },
+      "graphics": {
+        "vendor": "NVIDIA Corporation",
+        "renderer": "NVIDIA GeForce RTX 5080/PCIe/SSE2",
+        "version": "4.6.0 NVIDIA 617.42",
+        "driverVersion": "617.42"
+      },
+      "auditWindow": {
+        "width": 320,
+        "height": 180
+      },
+      "consistencyVerifiedAcrossAllSamples": true
+    },
+    "buildIdentity": {
+      "baselineDllSha256": "a0274647251df4e78f8d57707d26089df1f3241ec62d5b1680b91647bf9891f3",
+      "candidateDllSha256": "d6ddbc4d76c194e1d32124c25ed7305dca2550ce68ee0193c7251207a8ecc54b",
+      "candidateSourceCommit": "39253834282e860f56a924e36fadc12d9cf195d0",
+      "candidateSourceArchiveSha256": "2bc99d06f7585cac5ba2d032cc040708e5fbfdbc8e9095e0817f6fa9a735154d",
+      "runnerSha256": "2b72a8d3d8ad176d70345de7da8b553b07351873129868d40cf286ac1e097e7b"
+    },
+    "inputHashesMatchAfterCampaign": true,
+    "provenanceUnchangedAfterCampaign": true,
+    "packageCatalogIsolation": {
+      "sourceCatalogScope": "regular .ppmap packages only; loose recipes and .pk3 are excluded",
+      "sourceCatalogSha256": "6a252dafe1844f40e87b9abab09f30a88c5b764aca7c0347accb5eb8a6683ea9",
+      "packageCount": 4,
+      "coldPrivateSnapshots": 120,
+      "coldSnapshotsRemovedAfterEachRun": true,
+      "warmSharedCatalogs": 6,
+      "allPrivatePackageCatalogDirectoriesGoneAfterCampaign": true,
+      "privateCopiesMatchSourceHashes": true
+    },
+    "nativeAssetIsolation": {
+      "copiedOncePerCampaign": true,
+      "fileCount": 3543,
+      "sizeBytes": 97066399,
+      "sourceAndPrivateCopyTreeSha256Match": true,
+      "privateExportDirectory": true
+    },
+    "mapPackages": [
+      {
+        "roomId": "room-01",
+        "publicName": "MOCKTROID",
+        "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+        "sizeBytes": 4395222,
+        "role": "timed-load"
+      },
+      {
+        "roomId": "room-02",
+        "publicName": "DM-DECK16",
+        "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+        "sizeBytes": 49275230,
+        "role": "timed-load"
+      },
+      {
+        "roomId": "room-03",
+        "publicName": "Guardian v20",
+        "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+        "sizeBytes": 478782339,
+        "role": "timed-load"
+      },
+      {
+        "roomId": null,
+        "publicName": "MORPHEUS PRIME",
+        "sha256": "6b7cfad3d72e79e627c5c563b6cd87f45a9ee4e2321b565b820e43efcf058c97",
+        "sizeBytes": 332229349,
+        "role": "catalog-only; compatibility smoke"
+      }
+    ],
+    "groups": [
+      {
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "cacheKind": "application-cold",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 3636.8477,
+          "p95": 3697.3117,
+          "p99": 3747.5574
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 1095004552,
+          "p95": 1095099840,
+          "p99": 1095106512
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 3375,
+          "p95": 3531.25,
+          "p99": 3593.75
+        },
+        "workingSetBytesAtReady": {
+          "p50": 636973056,
+          "p95": 637517824,
+          "p99": 643743744
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 636973056,
+          "p95": 637517824,
+          "p99": 643743744
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 2903.9903,
+            "p95": 2971.5127,
+            "p99": 3014.226
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 361.4049,
+            "p95": 365.1008999999999,
+            "p99": 369.25880000000006
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 258.6690999999996,
+            "p95": 261.90689999999995,
+            "p99": 264.6246000000001
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 112.51930000000038,
+            "p95": 114.1242000000002,
+            "p99": 118.3485999999998
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1033.5902999999998,
+            "p95": 1056.6275999999998,
+            "p99": 1061.2254000000003
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 13.49369999999999,
+            "p95": 15.167999999999665,
+            "p99": 15.1891999999998
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 2903.9903,
+          "shareOfReadyP50Percent": 79.849104
+        }
+      },
+      {
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "cacheKind": "application-cold",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 3565.5581,
+          "p95": 3631.0643,
+          "p99": 3631.1019
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 978337712,
+          "p95": 978386440,
+          "p99": 978401744
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 3375,
+          "p95": 3500,
+          "p99": 3531.25
+        },
+        "workingSetBytesAtReady": {
+          "p50": 596439040,
+          "p95": 602693632,
+          "p99": 602931200
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 596635648,
+          "p95": 602693632,
+          "p99": 602931200
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 2835.6783,
+            "p95": 2899.4127,
+            "p99": 2904.082
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 358.55049999999983,
+            "p95": 362.6525999999999,
+            "p99": 376.3334
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 255.91359999999986,
+            "p95": 260.6705999999999,
+            "p99": 261.47980000000007
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 111.4966000000004,
+            "p95": 113.94509999999991,
+            "p99": 114.97929999999997
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1032.7965,
+            "p95": 1051.8925,
+            "p99": 1052.5266999999994
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 13.090100000000348,
+            "p95": 13.873900000000503,
+            "p99": 18.80580000000009
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 2835.6783,
+          "shareOfReadyP50Percent": 79.529718
+        }
+      },
+      {
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "cacheKind": "persistent-cache-warm",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 2651.7385,
+          "p95": 2750.5506,
+          "p99": 2756.6503
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 566514800,
+          "p95": 566536592,
+          "p99": 566537104
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2421.875,
+          "p95": 2546.875,
+          "p99": 2578.125
+        },
+        "workingSetBytesAtReady": {
+          "p50": 468844544,
+          "p95": 469946368,
+          "p99": 470024192
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 468992000,
+          "p95": 469946368,
+          "p99": 470024192
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 1916.2452,
+            "p95": 2009.1522,
+            "p99": 2021.3664
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 363.3262,
+            "p95": 367.8976,
+            "p99": 384.6301000000001
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 257.5761000000002,
+            "p95": 261.53679999999986,
+            "p99": 262.4826000000003
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 112.01360000000022,
+            "p95": 113.59699999999975,
+            "p99": 114.23970000000008
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1032.9462000000003,
+            "p95": 1051.2837999999997,
+            "p99": 1051.6097
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 12.547900000000027,
+            "p95": 14.251399999999649,
+            "p99": 15.427400000000034
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 1916.2452,
+          "shareOfReadyP50Percent": 72.263732
+        }
+      },
+      {
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "cacheKind": "persistent-cache-warm",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 2575.1238,
+          "p95": 2693.8602,
+          "p99": 2786.0713
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 449795872,
+          "p95": 449817808,
+          "p99": 449823248
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2390.625,
+          "p95": 2453.125,
+          "p99": 2531.25
+        },
+        "workingSetBytesAtReady": {
+          "p50": 422219776,
+          "p95": 429240320,
+          "p99": 429502464
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 422219776,
+          "p95": 429240320,
+          "p99": 429502464
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 1849.1249,
+            "p95": 1902.9734,
+            "p99": 2010.4632
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 359.39699999999993,
+            "p95": 414.54549999999995,
+            "p99": 437.7074
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 256.2946999999999,
+            "p95": 261.0816,
+            "p99": 263.12779999999975
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 111.48489999999993,
+            "p95": 114.16400000000021,
+            "p99": 118.10510000000022
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1031.9411,
+            "p95": 1053.5272,
+            "p99": 1053.8311000000003
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 12.846700000000055,
+            "p95": 13.861300000000028,
+            "p99": 17.310300000000097
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 1849.1249,
+          "shareOfReadyP50Percent": 71.807223
+        }
+      },
+      {
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "cacheKind": "application-cold",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 21965.0272,
+          "p95": 22116.8942,
+          "p99": 22246.7811
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 24863308040,
+          "p95": 24863610680,
+          "p99": 24903152736
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 23578.125,
+          "p95": 23859.375,
+          "p99": 23968.75
+        },
+        "workingSetBytesAtReady": {
+          "p50": 9999835136,
+          "p95": 10156892160,
+          "p99": 10276798464
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 10468274176,
+          "p95": 10624798720,
+          "p99": 10745638912
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 21084.8172,
+            "p95": 21200.8552,
+            "p99": 21317.725
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 492.1595000000016,
+            "p95": 516.9342999999972,
+            "p99": 534.9719000000005
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 262.0761999999995,
+            "p95": 271.16119999999864,
+            "p99": 279.0486000000019
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 147.45070000000123,
+            "p95": 157.32670000000144,
+            "p99": 157.65659999999843
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1441.6141000000025,
+            "p95": 1536.7927000000018,
+            "p99": 1565.703800000003
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 57.63100000000122,
+            "p95": 63.058499999999185,
+            "p99": 65.99959999999919
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 21084.8172,
+          "shareOfReadyP50Percent": 95.992675
+        }
+      },
+      {
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "cacheKind": "application-cold",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 19229.5425,
+          "p95": 19526.6041,
+          "p99": 19551.5906
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 15913271920,
+          "p95": 15953739472,
+          "p99": 15953960864
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 20734.375,
+          "p95": 21078.125,
+          "p99": 21171.875
+        },
+        "workingSetBytesAtReady": {
+          "p50": 4099215360,
+          "p95": 4679401472,
+          "p99": 4708204544
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 4124000256,
+          "p95": 4782452736,
+          "p99": 4791439360
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 18351.4631,
+            "p95": 18619.7052,
+            "p99": 18662.7962
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 478.91159999999945,
+            "p95": 497.46979999999894,
+            "p99": 515.1938999999984
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 261.1368000000002,
+            "p95": 269.1384999999973,
+            "p99": 270.8181000000004
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 147.90020000000004,
+            "p95": 157.29010000000198,
+            "p99": 157.62950000000274
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1446.2390999999989,
+            "p95": 1506.4244999999974,
+            "p99": 1534.8922999999995
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 58.52779999999984,
+            "p95": 67.66949999999997,
+            "p99": 69.19210000000021
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 18351.4631,
+          "shareOfReadyP50Percent": 95.433696
+        }
+      },
+      {
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "cacheKind": "persistent-cache-warm",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 10816.968,
+          "p95": 10950.6427,
+          "p99": 10992.0961
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 12805600704,
+          "p95": 12805738048,
+          "p99": 12805740208
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 11812.5,
+          "p95": 11984.375,
+          "p99": 12000
+        },
+        "workingSetBytesAtReady": {
+          "p50": 7547408384,
+          "p95": 7742275584,
+          "p99": 7750692864
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 7890219008,
+          "p95": 8159916032,
+          "p99": 8161415168
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 9958.3665,
+            "p95": 10089.8178,
+            "p99": 10121.1768
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 445.8042999999998,
+            "p95": 454.03319999999985,
+            "p99": 454.0684000000001
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 262.53520000000026,
+            "p95": 269.1815999999999,
+            "p99": 271.20150000000103
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 151.08920000000035,
+            "p95": 154.2517000000007,
+            "p99": 156.812100000001
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1469.4825,
+            "p95": 1485.8336999999992,
+            "p99": 1488.3706999999995
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 58.594600000000355,
+            "p95": 67.9400999999998,
+            "p99": 68.96349999999984
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 9958.3665,
+          "shareOfReadyP50Percent": 92.062457
+        }
+      },
+      {
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "cacheKind": "persistent-cache-warm",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 8387.9172,
+          "p95": 8448.0323,
+          "p99": 8466.0346
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 3861585464,
+          "p95": 3861803560,
+          "p99": 3861861568
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 9296.875,
+          "p95": 9515.625,
+          "p99": 9546.875
+        },
+        "workingSetBytesAtReady": {
+          "p50": 2352525312,
+          "p95": 2363752448,
+          "p99": 2368835584
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 2353127424,
+          "p95": 2363752448,
+          "p99": 2368835584
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 7514.8335,
+            "p95": 7578.4006,
+            "p99": 7592.1503
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 455.3716000000004,
+            "p95": 464.8045000000002,
+            "p99": 464.9821000000002
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 262.9455000000007,
+            "p95": 266.66879999999946,
+            "p99": 267.5170999999991
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 151.77240000000165,
+            "p95": 157.5640000000003,
+            "p99": 165.8055000000004
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1472.282299999999,
+            "p95": 1496.2457999999988,
+            "p99": 1527.4565999999995
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 58.14559999999983,
+            "p95": 66.8140999999996,
+            "p99": 67.70920000000115
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 7514.8335,
+          "shareOfReadyP50Percent": 89.591174
+        }
+      },
+      {
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "cacheKind": "application-cold",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 2740.7769,
+          "p95": 2932.9312,
+          "p99": 3036.853
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 726441984,
+          "p95": 727156952,
+          "p99": 727175312
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2500,
+          "p95": 2609.375,
+          "p99": 2843.75
+        },
+        "workingSetBytesAtReady": {
+          "p50": 488452096,
+          "p95": 489930752,
+          "p99": 494452736
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 488452096,
+          "p95": 489930752,
+          "p99": 494452736
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 2018.481,
+            "p95": 2198.332,
+            "p99": 2286.1604
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 357.53650000000016,
+            "p95": 382.1721,
+            "p99": 383.3935999999999
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 257.2727,
+            "p95": 270.52750000000015,
+            "p99": 289.7941999999998
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 110.00629999999956,
+            "p95": 114.41789999999992,
+            "p99": 117.16130000000021
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1032.6953999999996,
+            "p95": 1055.462,
+            "p99": 1067.661
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 13.839600000000246,
+            "p95": 16.3761999999997,
+            "p99": 19.974499999999807
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 2018.481,
+          "shareOfReadyP50Percent": 73.646308
+        }
+      },
+      {
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "cacheKind": "application-cold",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 2693.2174,
+          "p95": 2739.0776,
+          "p99": 2742.0245
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 609624992,
+          "p95": 609646744,
+          "p99": 609652440
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2500,
+          "p95": 2640.625,
+          "p99": 2640.625
+        },
+        "workingSetBytesAtReady": {
+          "p50": 459726848,
+          "p95": 463360000,
+          "p99": 465678336
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 459726848,
+          "p95": 463360000,
+          "p99": 465678336
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 1959.8016,
+            "p95": 2008.0678,
+            "p99": 2008.1877
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 359.5601999999999,
+            "p95": 371.49479999999994,
+            "p99": 403.53639999999973
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 255.82740000000013,
+            "p95": 262.2127999999998,
+            "p99": 282.69709999999986
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 109.83370000000014,
+            "p95": 113.21250000000009,
+            "p99": 155.2727
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1031.5955000000004,
+            "p95": 1053.1805,
+            "p99": 1055.4181999999996
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 12.927999999999884,
+            "p95": 13.827800000000025,
+            "p99": 14.229899999999816
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 1959.8016,
+          "shareOfReadyP50Percent": 72.768043
+        }
+      },
+      {
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "cacheKind": "persistent-cache-warm",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 2385.8045,
+          "p95": 2462.3573,
+          "p99": 2500.0056
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 520862352,
+          "p95": 520878096,
+          "p99": 520881208
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2156.25,
+          "p95": 2265.625,
+          "p99": 2265.625
+        },
+        "workingSetBytesAtReady": {
+          "p50": 429748224,
+          "p95": 430112768,
+          "p99": 430997504
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 429748224,
+          "p95": 430112768,
+          "p99": 430997504
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 1663.3917,
+            "p95": 1697.5777,
+            "p99": 1754.1858
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 352.4222,
+            "p95": 376.28660000000013,
+            "p99": 431.51160000000004
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 258.48710000000005,
+            "p95": 263.45320000000015,
+            "p99": 268.1719999999998
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 110.27250000000004,
+            "p95": 111.2802999999999,
+            "p99": 112.60199999999986
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1031.3543999999997,
+            "p95": 1053.8287,
+            "p99": 1054.0205999999998
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 12.373900000000049,
+            "p95": 14.552699999999732,
+            "p99": 16.068899999999758
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 1663.3917,
+          "shareOfReadyP50Percent": 69.720369
+        }
+      },
+      {
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "cacheKind": "persistent-cache-warm",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMilliseconds": {
+          "p50": 2329.2512,
+          "p95": 2361.1197,
+          "p99": 2495.5781
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 407917360,
+          "p95": 407934832,
+          "p99": 407940064
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2093.75,
+          "p95": 2187.5,
+          "p99": 2312.5
+        },
+        "workingSetBytesAtReady": {
+          "p50": 394477568,
+          "p95": 394833920,
+          "p99": 395026432
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 394477568,
+          "p95": 394833920,
+          "p99": 395026432
+        },
+        "stageIntervals": {
+          "requestToconstructorCompletedMilliseconds": {
+            "p50": 1599.9112,
+            "p95": 1637.0233,
+            "p99": 1723.9575
+          },
+          "constructorCompletedTosceneOnLoadCompletedMilliseconds": {
+            "p50": 357.77600000000007,
+            "p95": 362.10609999999997,
+            "p99": 396.9209999999998
+          },
+          "sceneOnLoadCompletedTofirstSimulationCompletedMilliseconds": {
+            "p50": 256.3945000000001,
+            "p95": 262.3230000000003,
+            "p99": 262.8290000000002
+          },
+          "firstSimulationCompletedTofirstSuccessfulPresentWithAllPlayersLiveMilliseconds": {
+            "p50": 109.68939999999975,
+            "p95": 113.31240000000025,
+            "p99": 117.50369999999975
+          },
+          "firstSuccessfulPresentWithAllPlayersLiveTorunCompletedMilliseconds": {
+            "p50": 1030.9862000000003,
+            "p95": 1050.1651000000002,
+            "p99": 1060.2444
+          },
+          "runCompletedToreceiptFinalizedMilliseconds": {
+            "p50": 12.449099999999817,
+            "p95": 14.381800000000112,
+            "p99": 14.72380000000021
+          }
+        },
+        "dominantStageAtP50": {
+          "interval": "requestToconstructorCompletedMilliseconds",
+          "p50Milliseconds": 1599.9112,
+          "shareOfReadyP50Percent": 68.687791
+        }
+      }
+    ],
+    "p95TargetAttainment": [
+      {
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "cold": {
+          "baselineP95Milliseconds": 2932.9312,
+          "candidateP95Milliseconds": 2739.0776,
+          "reductionPercent": 6.609552,
+          "targetReductionPercent": 30,
+          "targetMet": false
+        },
+        "warm": {
+          "baselineP95Milliseconds": 2462.3573,
+          "candidateP95Milliseconds": 2361.1197,
+          "reductionPercent": 4.11141,
+          "targetReductionPercent": 50,
+          "targetMet": false
+        }
+      },
+      {
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "cold": {
+          "baselineP95Milliseconds": 3697.3117,
+          "candidateP95Milliseconds": 3631.0643,
+          "reductionPercent": 1.791772,
+          "targetReductionPercent": 30,
+          "targetMet": false
+        },
+        "warm": {
+          "baselineP95Milliseconds": 2750.5506,
+          "candidateP95Milliseconds": 2693.8602,
+          "reductionPercent": 2.061056,
+          "targetReductionPercent": 50,
+          "targetMet": false
+        }
+      },
+      {
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "cold": {
+          "baselineP95Milliseconds": 22116.8942,
+          "candidateP95Milliseconds": 19526.6041,
+          "reductionPercent": 11.711817,
+          "targetReductionPercent": 30,
+          "targetMet": false
+        },
+        "warm": {
+          "baselineP95Milliseconds": 10950.6427,
+          "candidateP95Milliseconds": 8448.0323,
+          "reductionPercent": 22.853548,
+          "targetReductionPercent": 50,
+          "targetMet": false
+        }
+      }
+    ],
+    "resourceCounterInterpretation": {
+      "allocatedBytes": "approximate process-wide delta since request from GC.GetTotalAllocatedBytes(false); a counter estimate, not exact retained or allocated object memory",
+      "processCpuMilliseconds": "process-wide processor-time delta since request; not main-thread time and not wall time",
+      "workingSetBytes": "current process working-set sample at the readiness point",
+      "peakWorkingSetBytes": "process-lifetime high-water mark sampled at readiness; not a request-only peak, retained managed bytes, or VRAM"
+    },
+    "rawEvidence": "docs/performance/map-pipeline-evidence/compact-windows-runs.json",
+    "sourceEvidence": [
+      "tmp/map-final-windows-compact-comparison/campaign.json",
+      "tmp/map-final-windows-compact-comparison/summary.json",
+      "tmp/map-final-windows-compact-comparison/inputs.json"
+    ],
+    "statusNote": "All 240 timed rows and six warm preseeds passed. Separate CPU workload diagnostic completed; GL frame pacing remains unmeasured. Required hosted CI is a merge gate."
+  },
+  "preCompactWindowsComparison": {
+    "status": "complete-exploratory-only",
+    "startedUtc": "2026-10-22T03:14:36.593Z",
+    "finishedUtc": "2026-10-22T03:51:16.637Z",
+    "platform": "Windows x64",
+    "rendererFamily": "NVIDIA hardware renderer",
+    "driverVersion": "617.42",
+    "candidateLabel": "Frozen D45 pixel-buffer candidate, before compact storage",
+    "baselineDllSha256": "a0274647251df4e78f8d57707d26089df1f3241ec62d5b1680b91647bf9891f3",
+    "candidateDllSha256": "d45f4157e943b5d14f265d53f486755bd9ac25d42014defc6b0806d6624ec85e",
+    "design": {
+      "readyEndpoint": "request to first successful actual present after all eight players are spawned and alive",
+      "processStartupIncluded": false,
+      "percentileMethod": "nearest-rank",
+      "samples": 240,
+      "warmPreseedsExcluded": 6,
+      "trialOrder": "paired deterministic sequence; baseline-first on even trials and candidate-first on odd trials; not randomized",
+      "applicationCold": "fresh private user-data directory and custom runtime namespace per sample; source .ppmap catalog was passed directly to the game",
+      "persistentCacheWarm": "preseed per arm and room, excluded from samples; later fresh processes reused that arm/room profile and custom runtime namespace",
+      "nativeAssetCopy": {
+        "fileCount": 3543,
+        "sizeBytes": 97066399,
+        "sourceAndCopyHashesMatched": true
+      },
+      "inputHashesMatchAfterCampaign": true,
+      "osFileCacheFlushed": false,
+      "concurrentLocalBuildsPresent": true,
+      "samplesPerMapCacheArmCell": 20,
+      "pairedTrialsPerMapCacheCombination": 20
+    },
+    "groups": [
+      {
+        "room": "room-01",
+        "cacheKind": "application-cold",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 2808.9484,
+          "p95": 3172.3089,
+          "p99": 3194.3058
+        },
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 726597648,
+          "p95": 727245784,
+          "p99": 727249584
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 489611264,
+          "p95": 490762240,
+          "p99": 496611328
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2578.125,
+          "p95": 2781.25,
+          "p99": 2828.125
+        },
+        "workingSetBytesAtReady": {
+          "p50": 489611264,
+          "p95": 490762240,
+          "p99": 496611328
+        }
+      },
+      {
+        "room": "room-01",
+        "cacheKind": "application-cold",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 2735.9164,
+          "p95": 2907.9213,
+          "p99": 2937.2454
+        },
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 673345392,
+          "p95": 673356480,
+          "p99": 674070744
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 485044224,
+          "p95": 486416384,
+          "p99": 486526976
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2468.75,
+          "p95": 2671.875,
+          "p99": 2703.125
+        },
+        "workingSetBytesAtReady": {
+          "p50": 485044224,
+          "p95": 486416384,
+          "p99": 486526976
+        }
+      },
+      {
+        "room": "room-01",
+        "cacheKind": "persistent-cache-warm",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 2427.0757,
+          "p95": 2715.7665,
+          "p99": 3548.2406
+        },
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 520926632,
+          "p95": 520946176,
+          "p99": 520948968
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 429830144,
+          "p95": 432148480,
+          "p99": 494862336
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2187.5,
+          "p95": 2421.875,
+          "p99": 2671.875
+        },
+        "workingSetBytesAtReady": {
+          "p50": 429830144,
+          "p95": 432148480,
+          "p99": 494862336
+        }
+      },
+      {
+        "room": "room-01",
+        "cacheKind": "persistent-cache-warm",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 2365.3001,
+          "p95": 2418.0211,
+          "p99": 2469.2535
+        },
+        "roomId": "room-01",
+        "publicMapName": "MOCKTROID",
+        "mapPackage": {
+          "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+          "sizeBytes": 4395222
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 467773984,
+          "p95": 467789864,
+          "p99": 467800256
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 425959424,
+          "p95": 426299392,
+          "p99": 426442752
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2140.625,
+          "p95": 2218.75,
+          "p99": 2218.75
+        },
+        "workingSetBytesAtReady": {
+          "p50": 425959424,
+          "p95": 426299392,
+          "p99": 426442752
+        }
+      },
+      {
+        "room": "room-02",
+        "cacheKind": "application-cold",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 3635.0601,
+          "p95": 3677.5602,
+          "p99": 3690.8168
+        },
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 1095062104,
+          "p95": 1095170824,
+          "p99": 1095177680
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 637370368,
+          "p95": 638291968,
+          "p99": 639029248
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 3437.5,
+          "p95": 3546.875,
+          "p99": 3578.125
+        },
+        "workingSetBytesAtReady": {
+          "p50": 637296640,
+          "p95": 638021632,
+          "p99": 639029248
+        }
+      },
+      {
+        "room": "room-02",
+        "cacheKind": "application-cold",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 3605.2601,
+          "p95": 3672.6516,
+          "p99": 3684.6962
+        },
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 1039950368,
+          "p95": 1040058176,
+          "p99": 1040064152
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 637313024,
+          "p95": 638119936,
+          "p99": 638468096
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 3359.375,
+          "p95": 3453.125,
+          "p99": 3484.375
+        },
+        "workingSetBytesAtReady": {
+          "p50": 637288448,
+          "p95": 638119936,
+          "p99": 638468096
+        }
+      },
+      {
+        "room": "room-02",
+        "cacheKind": "persistent-cache-warm",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 2657.8513,
+          "p95": 2687.137,
+          "p99": 2695.469
+        },
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 566583512,
+          "p95": 566600104,
+          "p99": 566612496
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 469565440,
+          "p95": 470151168,
+          "p99": 470396928
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2437.5,
+          "p95": 2515.625,
+          "p99": 2531.25
+        },
+        "workingSetBytesAtReady": {
+          "p50": 469565440,
+          "p95": 470151168,
+          "p99": 470396928
+        }
+      },
+      {
+        "room": "room-02",
+        "cacheKind": "persistent-cache-warm",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 2615.0508,
+          "p95": 2655.3409,
+          "p99": 2664.3467
+        },
+        "roomId": "room-02",
+        "publicMapName": "DM-DECK16",
+        "mapPackage": {
+          "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+          "sizeBytes": 49275230
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 511454968,
+          "p95": 511478264,
+          "p99": 511479352
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 468578304,
+          "p95": 469278720,
+          "p99": 469381120
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 2390.625,
+          "p95": 2484.375,
+          "p99": 2484.375
+        },
+        "workingSetBytesAtReady": {
+          "p50": 468578304,
+          "p95": 469278720,
+          "p99": 469381120
+        }
+      },
+      {
+        "room": "room-03",
+        "cacheKind": "application-cold",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 22051.0455,
+          "p95": 22447.6079,
+          "p99": 22491.4048
+        },
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 24863408056,
+          "p95": 24903356008,
+          "p99": 24903366664
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 10488926208,
+          "p95": 10816589824,
+          "p99": 10840711168
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 23671.875,
+          "p95": 23890.625,
+          "p99": 24000
+        },
+        "workingSetBytesAtReady": {
+          "p50": 10020122624,
+          "p95": 10270625792,
+          "p99": 10300837888
+        }
+      },
+      {
+        "room": "room-03",
+        "cacheKind": "application-cold",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 20477.8492,
+          "p95": 20681.3408,
+          "p99": 20891.8511
+        },
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 20252055368,
+          "p95": 20291991072,
+          "p99": 20291994680
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 6080270336,
+          "p95": 6435401728,
+          "p99": 6889152512
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 22109.375,
+          "p95": 22296.875,
+          "p99": 22328.125
+        },
+        "workingSetBytesAtReady": {
+          "p50": 5683245056,
+          "p95": 5940854784,
+          "p99": 6526459904
+        }
+      },
+      {
+        "room": "room-03",
+        "cacheKind": "persistent-cache-warm",
+        "arm": "baseline",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 10833.7768,
+          "p95": 11676.9795,
+          "p99": 16524.271
+        },
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 12805877728,
+          "p95": 12806009648,
+          "p99": 12806015352
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 7968780288,
+          "p95": 8115494912,
+          "p99": 8316706816
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 11875,
+          "p95": 12046.875,
+          "p99": 13890.625
+        },
+        "workingSetBytesAtReady": {
+          "p50": 7579000832,
+          "p95": 7719260160,
+          "p99": 7908454400
+        }
+      },
+      {
+        "room": "room-03",
+        "cacheKind": "persistent-cache-warm",
+        "arm": "candidate",
+        "sampleCount": 20,
+        "readyMs": {
+          "p50": 9500.6138,
+          "p95": 12989.7054,
+          "p99": 24466.0144
+        },
+        "roomId": "room-03",
+        "publicMapName": "Guardian v20",
+        "mapPackage": {
+          "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+          "sizeBytes": 478782339
+        },
+        "approxManagedAllocatedBytesDeltaAtReady": {
+          "p50": 8194562888,
+          "p95": 8194727640,
+          "p99": 8194737024
+        },
+        "processLifetimePeakWorkingSetBytesSampledAtReady": {
+          "p50": 5986582528,
+          "p95": 6074056704,
+          "p99": 6169333760
+        },
+        "processCpuMillisecondsDeltaAtReady": {
+          "p50": 10359.375,
+          "p95": 12953.125,
+          "p99": 15140.625
+        },
+        "workingSetBytesAtReady": {
+          "p50": 5532848128,
+          "p95": 5594103808,
+          "p99": 5712318464
+        }
+      }
+    ],
+    "sourceArtifact": "tmp/map-report-draft/campaign-metrics.json",
+    "sanitizedRawSamples": "docs/performance/map-pipeline-evidence/d45-precompact-runs.json",
+    "mapPackages": [
+      {
+        "roomId": "room-01",
+        "publicName": "MOCKTROID",
+        "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+        "sizeBytes": 4395222,
+        "role": "timed-load"
+      },
+      {
+        "roomId": "room-02",
+        "publicName": "DM-DECK16",
+        "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+        "sizeBytes": 49275230,
+        "role": "timed-load"
+      },
+      {
+        "roomId": "room-03",
+        "publicName": "Guardian v20",
+        "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+        "sizeBytes": 478782339,
+        "role": "timed-load"
+      }
+    ],
+    "resourceCounterInterpretation": {
+      "allocatedBytes": "approximate process-wide delta since request from GC.GetTotalAllocatedBytes(false); a counter estimate, not exact retained or allocated object memory",
+      "processCpuMilliseconds": "process-wide processor-time delta since request; not main-thread time and not wall time",
+      "workingSetBytes": "current process working-set sample at the readiness point",
+      "peakWorkingSetBytes": "process-lifetime high-water mark sampled at readiness; not a request-only peak, retained managed bytes, or VRAM"
+    }
+  },
+  "acceptanceEvidence": {
+    "publishedPackageCompatibility": {
+      "status": "passed",
+      "distinctPublishedInputs": 4,
+      "runtimeReceipts": 24,
+      "sampleReceipts": 16,
+      "warmPreseeds": 8,
+      "failure": null,
+      "comparison": false,
+      "sourceArtifact": "tmp/map-final-published-compatibility/summary.json",
+      "packageNames": [
+        "MOCKTROID",
+        "DM-DECK16",
+        "Guardian v20",
+        "MORPHEUS PRIME"
+      ]
+    },
+    "interruptedRemoteResume": {
+      "status": "verified",
+      "httpStatuses": [
+        200,
+        206
+      ],
+      "interruptedPrefixBytes": 2742025,
+      "finalBytes": 4395222,
+      "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+      "cdnEnabled": false,
+      "sourceArtifact": "tmp/map-final-remote/resume/result.json"
+    },
+    "linuxUploadService": {
+      "status": "passed",
+      "contractTestsPassed": 13,
+      "fixtureBytes": 134217728,
+      "fixtureKind": "deterministic synthetic bytes, not a valid package archive",
+      "healthyElapsedMs": 652.67,
+      "interruptedElapsedMs": 631.94,
+      "interruptedPutRetries": 1,
+      "interruptedRecoveryGets": 1,
+      "sourceSha256Verified": true,
+      "sourceArtifact": "tmp/map-final-service-linux/upload-service-128.json"
+    },
+    "linuxRuntimeSmoke": {
+      "status": "passed-smoke-only",
+      "renderer": "Mesa llvmpipe software renderer",
+      "runtimeProcesses": 6,
+      "sampleProcesses": 4,
+      "warmPreseeds": 2,
+      "rooms": 1,
+      "inputProvenanceUnchanged": true,
+      "sourceArtifact": "tmp/map-final-linux-compact-smoke/summary.json"
+    },
+    "androidMapAcceptance": {
+      "status": "passed",
+      "testPath": "DEBUG MapAcceptanceActivity plus pure texture helper parity check",
+      "runtimeChecks": [
+        "package load, verification, download, registration, runtime decode",
+        "pure texture helper parity and compact-storage checks"
+      ],
+      "execution": "headless Android x86_64 API 35 emulator; CPU-rendered",
+      "physicalGpuTested": false,
+      "deviceMemoryPressureTested": false,
+      "sourceArtifact": "tmp/map-final-android-compact-parity/runtime-check.txt",
+      "finalSignedApkSha256": "EDDA7D61CC1055E7E59640226AB64F417B2F103825F06E6368EFCCAD14E4E9DD",
+      "finalSignedApkBytes": 85719010,
+      "lifecycleMemoryPressureTested": false
+    },
+    "localRepositoryChecks": {
+      "mapEditorChecksPassed": 518,
+      "multiplayerAcceptance": "passed",
+      "selectedServerBuild": "passed",
+      "packageStreamingChecksPassed": 6,
+      "selectedMapSmoke": "8 of 8 spawned; 6 of 8 moved; burn probe failed",
+      "macOsCi": "pending at report cutoff",
+      "mergeGate": "required CI must be green before merge; no PRs in the remaining stack were merged at report cutoff",
+      "postGameplayFrameCheck": "unsupported: MapAudit bypasses renderer profiler hooks; baseline reached readiness with eight alive, recorded 1800 total simulation frames, and exited 0; not a performance-regression comparison",
+      "hostedCi": "running; remaining open PR stack #1037 -> #1041 -> #1046 -> #1043",
+      "mergedEarlierPullRequests": "#1029, #1030-#1035, and Website #16",
+      "mapPerfCheck": "passed four measured 1800-draw workloads plus two excluded 300-draw preseeds; simulation/draw submission wall durations only, not frame pacing, CPU processor time, or GPU execution time; general correctness probes skipped"
+    },
+    "guardianCpuDiagnostic": {
+      "status": "complete",
+      "evidenceFile": "guardian-cpu-runs.json",
+      "time": {
+        "startedUtc": "2026-10-22T05:21:33.341Z",
+        "finishedUtc": "2026-10-22T05:25:23.578Z"
+      },
+      "builds": {
+        "baselineAssemblySha256": "a0274647251df4e78f8d57707d26089df1f3241ec62d5b1680b91647bf9891f3",
+        "compactCandidateAssemblySha256": "d6ddbc4d76c194e1d32124c25ed7305dca2550ce68ee0193c7251207a8ecc54b"
+      },
+      "runner": {
+        "scriptSha256": "1325f5f91db683d4af351e9c69d27d4754ba2bb55fcd68daf80bfb7ddf2e43d5",
+        "sharedHelperSha256": "2b72a8d3d8ad176d70345de7da8b553b07351873129868d40cf286ac1e097e7b",
+        "measurementContract": "existing frozen -perfcheck implementation; no production binary changes"
+      },
+      "pairedComparisons": [
+        {
+          "baselineDrawCpuP95Ms": 6.8658,
+          "baselineDrawCpuP99Ms": 26.8975,
+          "baselineSimulationCpuP99Ms": 7.519,
+          "candidateDrawCpuP95Ms": 6.8619,
+          "candidateDrawCpuP99Ms": 26.5257,
+          "candidateSimulationCpuP99Ms": 7.5069,
+          "comparisonScope": "two paired CPU diagnostic observations; not a frame-pacing qualification",
+          "drawCpuP95DifferenceMs": -0.0038999999999997925,
+          "order": [
+            "baseline",
+            "candidate"
+          ],
+          "trial": 1
+        },
+        {
+          "baselineDrawCpuP95Ms": 7.5117,
+          "baselineDrawCpuP99Ms": 26.7526,
+          "baselineSimulationCpuP99Ms": 7.8387,
+          "candidateDrawCpuP95Ms": 6.7921,
+          "candidateDrawCpuP99Ms": 26.4342,
+          "candidateSimulationCpuP99Ms": 7.4179,
+          "comparisonScope": "two paired CPU diagnostic observations; not a frame-pacing qualification",
+          "drawCpuP95DifferenceMs": -0.7196000000000007,
+          "order": [
+            "candidate",
+            "baseline"
+          ],
+          "trial": 2
+        }
+      ],
+      "inputProvenanceUnchanged": true,
+      "temporaryPrivateDataRemoved": true,
+      "measuredRuns": 4,
+      "excludedPreseeds": 2,
+      "timingDefinition": "Stopwatch wall duration around simulation/draw submission; drawing excludes SwapBuffers and may include driver blocking. Not CPU processor time, presented frame interval, or GPU execution time.",
+      "generalCorrectnessProbesSkipped": true,
+      "spawnedEightDoesNotProveSimultaneousLiveness": true,
+      "legacyFpsFieldsAreDrawCpuReciprocalsNotObservedFps": true
+    }
+  },
+  "historicalComponentResults": {
+    "source": "4042fc68cb5d8257470a18b7a6f0811db63ff773:docs/performance/map-pipeline-optimization.md",
+    "classification": "historical component evidence; not current end-to-end map qualification",
+    "downloadVerification32MiB": [
+      {
+        "run": "initial",
+        "samples": 20,
+        "baselineP50Ms": 64.9242,
+        "baselineP95Ms": 87.679,
+        "streamedP50Ms": 32.5084,
+        "streamedP95Ms": 34.0646
+      },
+      {
+        "run": "preserved-assembly-recheck",
+        "samples": 20,
+        "baselineP50Ms": 70.2221,
+        "baselineP95Ms": 100.9367,
+        "streamedP50Ms": 32.209,
+        "streamedP95Ms": 38.1336
+      }
+    ],
+    "q3Conversion": {
+      "sourceBytes": 2709119,
+      "coldImportMs": {
+        "original": 313.78,
+        "optimized": 295.61
+      },
+      "coldSameThreadAllocatedBytes": {
+        "original": 142296016,
+        "optimized": 101919560
+      },
+      "repeatRelocatedImportMs": {
+        "original": 126.47,
+        "optimized": 65.26
+      },
+      "repeatSameThreadAllocatedBytes": {
+        "original": 132287016,
+        "optimized": 82081184
+      },
+      "fingerprintAfterWarmupMs": {
+        "original": 2.38,
+        "optimized": 1.2
+      },
+      "fingerprintAllocatedBytes": {
+        "original": 168056,
+        "optimized": 84408
+      },
+      "sampleDesign": "one before/after pair; repeat is warm in both arms"
+    },
+    "serviceLoopback": [
+      {
+        "fixtureMiB": 32,
+        "healthyMs": 192.82,
+        "interruptedMs": 228.22,
+        "interruptedRetries": 1,
+        "offsetGets": 1
+      },
+      {
+        "fixtureMiB": 128,
+        "healthyMs": 560.57,
+        "interruptedMs": 585.7,
+        "interruptedRetries": 1,
+        "offsetGets": 1
+      }
+    ],
+    "nearLimitPackage": {
+      "bytes": 503471463,
+      "syntheticFixture": true,
+      "checksPassed": 6,
+      "representativeGameplayMap": false
+    },
+    "renderSmoke": {
+      "frames": 1048,
+      "spawnedPlayers": "8/8",
+      "spawns": 10,
+      "itemSpawns": 30,
+      "summaryParity": "identical between preserved and optimized assemblies",
+      "burnProbe": "failed in both arms"
+    }
+  },
+  "limitations": [
+    "The pre-compact D45 comparison is exploratory and does not qualify the compact-storage candidate.",
+    "D45 used the source .ppmap catalog directly; its application-cold results do not establish isolated package-catalog cold behavior.",
+    "Both comparisons use deterministic paired order and do not flush the OS file cache; P99 is the maximum of 20 observations.",
+    "All ready timings end at the first successful actual present after eight live players; they do not wait for optional HD texture promotion or physical display scanout.",
+    "Allocated-byte telemetry is an approximate process-wide GC counter delta; process CPU is process-wide CPU-time delta; peak working set is a process-lifetime high-water mark sampled at readiness.",
+    "The Linux runtime smoke used software rendering; Android checks ran on a headless CPU emulator and do not establish physical GPU or lifecycle memory-pressure behavior.",
+    "The service transfer fixture is synthetic and local; it is not a valid package archive or public-network throughput measurement.",
+    "The attempted GL frame capture is unsupported because MapAudit bypasses renderer profiler hooks. The separate existing CPU -perfcheck completed at 1920x1080, but measures no frame pacing or GPU execution time; required hosted CI remains a separate merge gate.",
+    "No CDN enablement, live deployment, or production write was performed."
+  ],
+  "publicMapPackages": [
+    {
+      "roomId": "room-01",
+      "publicName": "MOCKTROID",
+      "sha256": "41d62ef662ebbe26a6cb9ac70ee973e2161742d46400032f18965db480fb7268",
+      "sizeBytes": 4395222,
+      "role": "timed-load"
+    },
+    {
+      "roomId": "room-02",
+      "publicName": "DM-DECK16",
+      "sha256": "49c08ae61f6c1172dd3d9507de7976c2903626151602eb9bcfb673f6d39fdfe0",
+      "sizeBytes": 49275230,
+      "role": "timed-load"
+    },
+    {
+      "roomId": "room-03",
+      "publicName": "Guardian v20",
+      "sha256": "59c7cf940a1c6231e7cabd3465f3c7f9d9cc677cae08073efb419b8df497c54d",
+      "sizeBytes": 478782339,
+      "role": "timed-load"
+    },
+    {
+      "roomId": null,
+      "publicName": "MORPHEUS PRIME",
+      "sha256": "6b7cfad3d72e79e627c5c563b6cd87f45a9ee4e2321b565b820e43efcf058c97",
+      "sizeBytes": 332229349,
+      "role": "catalog-only; compatibility smoke"
+    }
+  ],
+  "implementationCoverage": {
+    "merged": [
+      {
+        "pr": 1029,
+        "title": "maps: qualify source-limit uploads and near-limit packages",
+        "component": "package qualification",
+        "change": "bounded source-limit and near-limit package qualification",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1029"
+      },
+      {
+        "pr": 1030,
+        "title": "maps: baseline pipeline performance and repair qualification gates",
+        "component": "audit and reproducibility",
+        "change": "transfer baseline and qualification-gate repairs",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1030"
+      },
+      {
+        "pr": 1031,
+        "title": "maps: verify downloads while streaming to disk",
+        "component": "download acquisition",
+        "change": "stream hashing and persisted-prefix verification for resume",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1031"
+      },
+      {
+        "pr": 1032,
+        "title": "maps: reuse portable conversion artifacts and parsed BSP inputs",
+        "component": "conversion",
+        "change": "content-keyed persistent artifact reuse and parsed BSP reuse",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1032"
+      },
+      {
+        "pr": 1033,
+        "title": "maps: cancel retired room prewarm build waits",
+        "component": "prewarm",
+        "change": "cancellation of retired room-prewarm build waits",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1033"
+      },
+      {
+        "pr": 1034,
+        "title": "maps: recover upload jobs across promotion crashes",
+        "component": "conversion-service recovery",
+        "change": "durable job staging and promotion-crash recovery",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1034"
+      },
+      {
+        "pr": 1035,
+        "title": "maps: prepare selected custom rooms at the loading boundary",
+        "component": "loading boundary",
+        "change": "prepare only the selected custom room",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1035"
+      },
+      {
+        "pr": 16,
+        "repository": "projectprimegg/projectprime-website",
+        "title": "MAP-OPT-02: streamline mixed map uploads and recover interrupted chunks",
+        "component": "website upload flow",
+        "change": "mixed map upload handling and interrupted chunk recovery",
+        "url": "https://github.com/projectprimegg/projectprime-website/pull/16"
+      }
+    ],
+    "openAtReportCutoff": [
+      {
+        "pr": 1037,
+        "title": "Repair CI evidence and native acceptance drift",
+        "status": "open; hosted CI running",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1037"
+      },
+      {
+        "pr": 1041,
+        "title": "Measure isolated real-map request-to-ready loading",
+        "status": "open; hosted CI running",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1041"
+      },
+      {
+        "pr": 1046,
+        "title": "Reduce native texture decode and upload allocations",
+        "status": "open; hosted CI running",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1046"
+      },
+      {
+        "pr": 1043,
+        "title": "Support bounded finite and suffix Community byte ranges",
+        "status": "open; hosted CI running",
+        "url": "https://github.com/AntiNotAnti/Project-Prime/pull/1043"
+      }
+    ],
+    "requiredOrder": [
+      1037,
+      1041,
+      1046,
+      1043
+    ],
+    "mergeGate": "All required CI, including macOS, must pass before merge."
+  },
+  "reportCutoffUtc": "2026-10-22T05:28:00Z",
+  "comparisonScope": "Texture storage/upload A/B; baseline already contains earlier merged pipeline improvements and common load-receipt instrumentation. Not a whole-program comparison against the original pre-optimization code."
+}

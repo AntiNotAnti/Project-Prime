@@ -1,9 +1,11 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -21,12 +23,42 @@ void Check(bool condition, string label)
     checks++;
     Console.WriteLine("PASS " + label);
 }
+async Task<HttpResponseMessage> SendGetAsync(HttpClient client, string path,
+    string? range = null, string? ifNoneMatch = null, string? bearerToken = null)
+{
+    using var request = new HttpRequestMessage(HttpMethod.Get, path);
+    if (range != null) request.Headers.TryAddWithoutValidation("Range", range);
+    if (ifNoneMatch != null)
+        request.Headers.TryAddWithoutValidation("If-None-Match", ifNoneMatch);
+    if (bearerToken != null)
+        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + bearerToken);
+    return await client.SendAsync(request);
+}
+(string Kind, string UnsatisfiedContentRange) InspectByteRange(
+    string? header, long total)
+{
+    Type parser = typeof(MapCommunityServer).Assembly.GetType(
+        "MphRead.Mods.MapGen.CommunityByteRange", throwOnError: true)!;
+    MethodInfo select = parser.GetMethod("Select",
+        BindingFlags.Public | BindingFlags.Static)!;
+    object selection = select.Invoke(null, new object?[] { header, total })!;
+    Type selectionType = selection.GetType();
+    string kind = selectionType.GetProperty("Kind")!.GetValue(selection)!.ToString()!;
+    string unsatisfied = (string)selectionType
+        .GetProperty("UnsatisfiedContentRange")!.GetValue(selection)!;
+    return (kind, unsatisfied);
+}
 string root = Path.Combine(Path.GetTempPath(),
     "prime-community-v3-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 string store = Path.Combine(root, "store");
 Directory.CreateDirectory(store);
 const string secret = "prime-community-v3-readthrough-fixture-secret";
+const string mirrorSetting = "PROJECT_PRIME_MAP_OBJECT_MIRROR_ENABLED";
+string? previousMirrorSetting = Environment.GetEnvironmentVariable(mirrorSetting);
+// This HTTP contract harness must stay local and must not start optional
+// mirror work while testing the authoritative origin endpoint.
+Environment.SetEnvironmentVariable(mirrorSetting, "0");
 CancellationTokenSource? stop = null;
 Task? server = null;
 
@@ -72,11 +104,22 @@ async Task StopAsync()
 
 try
 {
+    var emptyRange = InspectByteRange("bytes=0-0", 0);
+    var emptySuffix = InspectByteRange("bytes=-1", 0);
+    Check(emptyRange.Kind == "Unsatisfiable"
+        && emptyRange.UnsatisfiedContentRange == "bytes */0"
+        && emptySuffix.Kind == "Unsatisfiable"
+        && emptySuffix.UnsatisfiedContentRange == "bytes */0",
+        "empty object ranges return an unsatisfied zero-length representation");
+    Check(InspectByteRange("bytes=١-٢", 10).Kind == "BadRequest",
+        "range parser accepts only invariant ASCII digits");
+
     var registry = new CommunityContentRegistry(store);
     Guid textureId = Guid.Parse("be2b9795-c1d0-4d70-b5a4-27c74de5d3ae");
     string image = Path.Combine(root, "texture.png");
     File.WriteAllBytes(image, Convert.FromBase64String(
         "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO/aegAAAABJRU5ErkJggg=="));
+    byte[] publishedTextureBytes = File.ReadAllBytes(image);
     var textureMeta = new CommunityContentRegistration(
         CommunityContentKinds.Texture, textureId, MapCreatorCatalog.ServiceOwner,
         "Example texture", "HD Texture", "Fixture Creator",
@@ -96,6 +139,7 @@ try
     byte[] edited = File.ReadAllBytes(image);
     Array.Resize(ref edited, edited.Length + 1);
     edited[^1] = 0;
+    byte[] privateTextureBytes = edited;
     File.WriteAllBytes(image, edited);
     string privateHash = MapBuildFingerprint.HashFile(image);
     bool parentFailed = false;
@@ -211,6 +255,134 @@ try
         address = instance.Endpoint;
         using var http = instance.Http;
         using var publisher = new MapCommunityClient(address, secret);
+        async Task CheckObjectRange(string path, string objectHash,
+            byte[] source, string range, HttpStatusCode expectedStatus,
+            long start, long count, string? expectedContentRange,
+            string label, string? bearerToken = null, bool privateObject = false)
+        {
+            using var response = await SendGetAsync(http, path, range,
+                bearerToken: bearerToken);
+            byte[] responseBytes = await response.Content.ReadAsByteArrayAsync();
+            bool bodyExact = responseBytes.AsSpan().SequenceEqual(
+                source.AsSpan((int)start, (int)count));
+            bool contentRangeExact = expectedContentRange == null
+                ? response.Content.Headers.ContentRange == null
+                : response.Content.Headers.ContentRange?.ToString() == expectedContentRange;
+            bool cacheCorrect = privateObject
+                ? response.Headers.CacheControl?.Private == true
+                    && response.Headers.CacheControl?.NoStore == true
+                : response.Headers.CacheControl?.Public == true;
+            bool byteHeaders = response.Headers.ETag?.Tag == "\"" + objectHash + "\""
+                && response.Headers.TryGetValues("Accept-Ranges", out var accepts)
+                && accepts.Contains("bytes", StringComparer.OrdinalIgnoreCase);
+            Check(response.StatusCode == expectedStatus
+                && response.Content.Headers.ContentLength == count
+                && bodyExact && contentRangeExact && cacheCorrect && byteHeaders,
+                label);
+        }
+
+        string privateObjectPath = "v3/objects/" + privateHash;
+        using (var hiddenPrivate = await SendGetAsync(http, privateObjectPath,
+            "bytes=0-0"))
+            Check(hiddenPrivate.StatusCode == HttpStatusCode.NotFound
+                && hiddenPrivate.Headers.ETag == null,
+                "anonymous raw-object range does not reveal a private draft hash");
+
+        string publicTotal = publishedTextureBytes.LongLength.ToString(
+            CultureInfo.InvariantCulture);
+        await CheckObjectRange("v3/objects/" + firstTextureHash,
+            firstTextureHash, publishedTextureBytes, "bytes=0-3",
+            HttpStatusCode.PartialContent, 0, 4, "bytes 0-3/" + publicTotal,
+            "public v3 object finite range returns exact bytes and length");
+        using (var publicUnchanged = await SendGetAsync(http,
+            "v3/objects/" + firstTextureHash,
+            ifNoneMatch: "\"" + firstTextureHash + "\""))
+            Check(publicUnchanged.StatusCode == HttpStatusCode.NotModified,
+                "v3 object If-None-Match keeps its existing full-response 304 behavior");
+
+        string privateTotal = privateTextureBytes.LongLength.ToString(
+            CultureInfo.InvariantCulture);
+        var objectRangeCases = new[]
+        {
+            (Range: "bytes=1-4", Status: HttpStatusCode.PartialContent,
+                Start: 1L, Count: 4L, ContentRange: "bytes 1-4/" + privateTotal,
+                Label: "private v3 object finite range returns exact bytes and length"),
+            (Range: "bytes=" + (privateTextureBytes.Length - 2).ToString(CultureInfo.InvariantCulture)
+                + "-" + (privateTextureBytes.Length + 100).ToString(CultureInfo.InvariantCulture),
+                Status: HttpStatusCode.PartialContent,
+                Start: privateTextureBytes.LongLength - 2, Count: 2L,
+                ContentRange: "bytes " + (privateTextureBytes.Length - 2).ToString(CultureInfo.InvariantCulture)
+                    + "-" + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "/" + privateTotal,
+                Label: "private v3 object finite end clamps to the last byte"),
+            (Range: "bytes=-3", Status: HttpStatusCode.PartialContent,
+                Start: privateTextureBytes.LongLength - 3, Count: 3L,
+                ContentRange: "bytes " + (privateTextureBytes.Length - 3).ToString(CultureInfo.InvariantCulture)
+                    + "-" + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "/" + privateTotal,
+                Label: "private v3 object suffix range returns exact trailing bytes"),
+            (Range: "bytes=-" + (privateTextureBytes.Length + 5).ToString(CultureInfo.InvariantCulture),
+                Status: HttpStatusCode.PartialContent, Start: 0L,
+                Count: privateTextureBytes.LongLength,
+                ContentRange: "bytes 0-" + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "/" + privateTotal,
+                Label: "private v3 object suffix longer than the file returns the full file"),
+            (Range: "bytes=" + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture) + "-",
+                Status: HttpStatusCode.PartialContent,
+                Start: privateTextureBytes.LongLength - 1, Count: 1L,
+                ContentRange: "bytes " + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "-" + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "/" + privateTotal,
+                Label: "private v3 object open-ended range returns the last byte"),
+            (Range: "bytes=" + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                + "-" + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture),
+                Status: HttpStatusCode.PartialContent,
+                Start: privateTextureBytes.LongLength - 1, Count: 1L,
+                ContentRange: "bytes " + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "-" + (privateTextureBytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "/" + privateTotal,
+                Label: "private v3 object explicit last-byte range returns one exact byte"),
+            (Range: "bytes=5-3", Status: HttpStatusCode.RequestedRangeNotSatisfiable,
+                Start: 0L, Count: 0L, ContentRange: "bytes */" + privateTotal,
+                Label: "private v3 object reversed range is unsatisfiable"),
+            (Range: "bytes=-0", Status: HttpStatusCode.RequestedRangeNotSatisfiable,
+                Start: 0L, Count: 0L, ContentRange: "bytes */" + privateTotal,
+                Label: "private v3 object zero-length suffix is unsatisfiable"),
+            (Range: "bytes=" + privateTotal + "-",
+                Status: HttpStatusCode.RequestedRangeNotSatisfiable,
+                Start: 0L, Count: 0L, ContentRange: "bytes */" + privateTotal,
+                Label: "private v3 object range past end is unsatisfiable"),
+            (Range: "bytes=9223372036854775808-", Status: HttpStatusCode.BadRequest,
+                Start: 0L, Count: 0L, ContentRange: (string?)null,
+                Label: "private v3 object overflowing range number is rejected"),
+            (Range: "bytes=0-0,2-2", Status: HttpStatusCode.BadRequest,
+                Start: 0L, Count: 0L, ContentRange: (string?)null,
+                Label: "private v3 object multiple ranges are rejected"),
+            (Range: "bytes=0-" + new string('0', 130), Status: HttpStatusCode.BadRequest,
+                Start: 0L, Count: 0L, ContentRange: (string?)null,
+                Label: "private v3 object oversized Range header is rejected")
+        };
+        foreach (var test in objectRangeCases)
+            await CheckObjectRange(privateObjectPath, privateHash,
+                privateTextureBytes, test.Range, test.Status, test.Start,
+                test.Count, test.ContentRange, test.Label, secret,
+                privateObject: true);
+        using (var privateUnchanged = await SendGetAsync(http,
+            privateObjectPath, ifNoneMatch: "\"" + privateHash + "\"",
+            bearerToken: secret))
+            Check(privateUnchanged.StatusCode == HttpStatusCode.NotModified,
+                "private v3 object conditional GET remains owner-only");
+        using (var privateRangedUnchanged = await SendGetAsync(http,
+            privateObjectPath, "bytes=0-0", "\"" + privateHash + "\"", secret))
+        {
+            byte[] responseBytes = await privateRangedUnchanged.Content.ReadAsByteArrayAsync();
+            Check(privateRangedUnchanged.StatusCode == HttpStatusCode.PartialContent
+                && responseBytes.AsSpan().SequenceEqual(privateTextureBytes.AsSpan(0, 1))
+                && privateRangedUnchanged.Content.Headers.ContentLength == 1
+                && privateRangedUnchanged.Content.Headers.ContentRange?.ToString() == "bytes 0-0/" + privateTotal,
+                "private v3 Range continues to take precedence over If-None-Match");
+        }
+
         CommunityMap map = await publisher.UploadAsync(mapPath, CancellationToken.None);
         Check(map.Hash == firstMapHash,
             "v2 publishing remains authoritative for maps despite generic v3 store");
@@ -431,9 +603,13 @@ try
 }
 finally
 {
-    await StopAsync();
-    try { Directory.Delete(root, recursive: true); }
-    catch (IOException) { }
+    try { await StopAsync(); }
+    finally
+    {
+        Environment.SetEnvironmentVariable(mirrorSetting, previousMirrorSetting);
+        try { Directory.Delete(root, recursive: true); }
+        catch (IOException) { }
+    }
 }
 
 internal sealed class RegistryCheck(CommunityContentRegistry value) : IDisposable

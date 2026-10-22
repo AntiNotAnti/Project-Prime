@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Reflection;
 using System.IO;
 using System.Linq;
@@ -135,6 +136,15 @@ void Check(bool condition, string title)
     if (!condition) throw new InvalidOperationException(title);
     Console.WriteLine("PASS " + title);
     checks++;
+}
+async Task<HttpResponseMessage> SendGetAsync(HttpClient client, string path,
+    string? range = null, string? ifNoneMatch = null)
+{
+    using var request = new HttpRequestMessage(HttpMethod.Get, path);
+    if (range != null) request.Headers.TryAddWithoutValidation("Range", range);
+    if (ifNoneMatch != null)
+        request.Headers.TryAddWithoutValidation("If-None-Match", ifNoneMatch);
+    return await client.SendAsync(request);
 }
 using var stop = new CancellationTokenSource();
 Task? service = null;
@@ -274,6 +284,96 @@ try
             ?? throw new InvalidOperationException("Server did not retain upload.");
         Check(published.Hash == hash && published.Bytes == bytes.LongLength,
             "published catalog preserves exact package metadata");
+
+        using var packageHttp = new HttpClient
+        {
+            BaseAddress = new Uri(endpoint),
+            Timeout = TimeSpan.FromSeconds(20)
+        };
+        string totalText = bytes.LongLength.ToString(CultureInfo.InvariantCulture);
+        var rangeCases = new[]
+        {
+            (Range: "bytes=0-3", Status: HttpStatusCode.PartialContent,
+                Start: 0L, Count: 4L, ContentRange: "bytes 0-3/" + totalText,
+                Label: "package finite range returns exact first bytes and length"),
+            (Range: "bytes=" + (bytes.Length - 2).ToString(CultureInfo.InvariantCulture)
+                + "-" + (bytes.Length + 100).ToString(CultureInfo.InvariantCulture),
+                Status: HttpStatusCode.PartialContent, Start: bytes.LongLength - 2,
+                Count: 2L, ContentRange: "bytes " + (bytes.Length - 2).ToString(CultureInfo.InvariantCulture)
+                    + "-" + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture) + "/" + totalText,
+                Label: "package finite end clamps to the last byte"),
+            (Range: "bytes=-3", Status: HttpStatusCode.PartialContent,
+                Start: bytes.LongLength - 3, Count: 3L,
+                ContentRange: "bytes " + (bytes.Length - 3).ToString(CultureInfo.InvariantCulture)
+                    + "-" + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture) + "/" + totalText,
+                Label: "package suffix range returns exact trailing bytes"),
+            (Range: "bytes=-" + (bytes.Length + 5).ToString(CultureInfo.InvariantCulture),
+                Status: HttpStatusCode.PartialContent, Start: 0L,
+                Count: bytes.LongLength, ContentRange: "bytes 0-"
+                    + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture) + "/" + totalText,
+                Label: "package suffix longer than the file returns the full file"),
+            (Range: "bytes=" + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture) + "-",
+                Status: HttpStatusCode.PartialContent, Start: bytes.LongLength - 1,
+                Count: 1L, ContentRange: "bytes " + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "-" + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture) + "/" + totalText,
+                Label: "package open-ended range returns the last byte"),
+            (Range: "bytes=" + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                + "-" + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture),
+                Status: HttpStatusCode.PartialContent, Start: bytes.LongLength - 1,
+                Count: 1L, ContentRange: "bytes " + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture)
+                    + "-" + (bytes.Length - 1).ToString(CultureInfo.InvariantCulture) + "/" + totalText,
+                Label: "package explicit last-byte range returns one exact byte"),
+            (Range: "bytes=5-3", Status: HttpStatusCode.RequestedRangeNotSatisfiable,
+                Start: 0L, Count: 0L, ContentRange: "bytes */" + totalText,
+                Label: "package reversed range is unsatisfiable"),
+            (Range: "bytes=-0", Status: HttpStatusCode.RequestedRangeNotSatisfiable,
+                Start: 0L, Count: 0L, ContentRange: "bytes */" + totalText,
+                Label: "package zero-length suffix is unsatisfiable"),
+            (Range: "bytes=" + totalText + "-", Status: HttpStatusCode.RequestedRangeNotSatisfiable,
+                Start: 0L, Count: 0L, ContentRange: "bytes */" + totalText,
+                Label: "package range past end is unsatisfiable"),
+            (Range: "bytes=9223372036854775808-", Status: HttpStatusCode.BadRequest,
+                Start: 0L, Count: 0L, ContentRange: (string?)null,
+                Label: "package overflowing range number is rejected"),
+            (Range: "bytes=0-0,2-2", Status: HttpStatusCode.BadRequest,
+                Start: 0L, Count: 0L, ContentRange: (string?)null,
+                Label: "package multiple ranges are rejected"),
+            (Range: "bytes=0-" + new string('0', 130), Status: HttpStatusCode.BadRequest,
+                Start: 0L, Count: 0L, ContentRange: (string?)null,
+                Label: "package oversized Range header is rejected")
+        };
+        foreach (var test in rangeCases)
+        {
+            using var response = await SendGetAsync(packageHttp,
+                "packages/" + hash, test.Range);
+            byte[] responseBytes = await response.Content.ReadAsByteArrayAsync();
+            bool bodyExact = responseBytes.AsSpan().SequenceEqual(
+                bytes.AsSpan((int)test.Start, (int)test.Count));
+            bool contentRangeExact = test.ContentRange == null
+                ? response.Content.Headers.ContentRange == null
+                : response.Content.Headers.ContentRange?.ToString() == test.ContentRange;
+            bool hasByteHeaders = response.Headers.ETag?.Tag == "\"" + hash + "\""
+                && response.Headers.TryGetValues("Accept-Ranges", out var acceptRanges)
+                && acceptRanges.Contains("bytes", StringComparer.OrdinalIgnoreCase);
+            Check(response.StatusCode == test.Status
+                && response.Content.Headers.ContentLength == test.Count
+                && bodyExact && contentRangeExact && hasByteHeaders,
+                test.Label);
+        }
+        using (var unchanged = await SendGetAsync(packageHttp,
+            "packages/" + hash, ifNoneMatch: "\"" + hash + "\""))
+            Check(unchanged.StatusCode == HttpStatusCode.NotModified,
+                "package If-None-Match keeps its existing full-response 304 behavior");
+        using (var rangedUnchanged = await SendGetAsync(packageHttp,
+            "packages/" + hash, "bytes=0-0", "\"" + hash + "\""))
+        {
+            byte[] responseBytes = await rangedUnchanged.Content.ReadAsByteArrayAsync();
+            Check(rangedUnchanged.StatusCode == HttpStatusCode.PartialContent
+                && responseBytes.AsSpan().SequenceEqual(bytes.AsSpan(0, 1))
+                && rangedUnchanged.Content.Headers.ContentLength == 1
+                && rangedUnchanged.Content.Headers.ContentRange?.ToString() == "bytes 0-0/" + totalText,
+                "package Range continues to take precedence over If-None-Match");
+        }
 
         // Persist an interrupted prior network prefix on the same volume.
         // The downloader must issue an HTTP Range continuation for it.
