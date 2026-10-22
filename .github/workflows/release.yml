@@ -672,7 +672,7 @@ jobs:
             ./ProjectPrime -masterserver -port 27889
           NOTE
           cp LICENSE publish/linux-arm64/LICENSE
-          cp SERVER.md publish/linux-arm64/SERVER.md
+          cp docs/SERVER.md publish/linux-arm64/SERVER.md
           python3 tools/write-release-manifest.py publish/linux-arm64
           ( cd publish/linux-arm64 && tar czf "../../dist/ProjectPrime-$TAG-server-linux-arm64.tar.gz" . )
 
@@ -702,7 +702,7 @@ jobs:
           systemd; deploy-server.sh automates that end to end for the ARM64
           build, and the same units work here with the RID changed.
           NOTE
-          cp SERVER.md publish/linux-x64-server/SERVER.md
+          cp docs/SERVER.md publish/linux-x64-server/SERVER.md
           python3 tools/write-release-manifest.py publish/linux-x64-server
           ( cd publish/linux-x64-server && tar czf "../../dist/ProjectPrime-$TAG-server-linux-x64.tar.gz" . )
 
@@ -742,7 +742,7 @@ jobs:
 
             ProjectPrimeServer.exe -servers
           NOTE
-          cp SERVER.md publish/win-x64-server/SERVER.md
+          cp docs/SERVER.md publish/win-x64-server/SERVER.md
           python3 tools/write-release-manifest.py publish/win-x64-server
           ( cd publish/win-x64-server && zip -qr "../../dist/ProjectPrime-$TAG-server-win-x64.zip" . )
 
