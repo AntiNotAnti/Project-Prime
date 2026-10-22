@@ -15,9 +15,12 @@ internal static class NetworkAllocationTests
         {
             byte[] intentBytes = NetArchitectureTests.IntentFixture();
             byte[] bytes = new byte[NetConfig.MaxPacketSize];
+            byte[] playerStateBytes = new byte[PlayerState.Size];
+            const int snapshotPlayerCount = 8;
+            byte[] canonicalSnapshot = new byte[SnapshotHeader.Size + snapshotPlayerCount * PlayerState.Size];
             var intent = IntentPacket.Read(intentBytes);
             var player = new PlayerState();
-            var header = new SnapshotHeader { PlayerCount = 8 };
+            var header = new SnapshotHeader { PlayerCount = snapshotPlayerCount };
             var claim = new HitClaimPacket();
             var envelope = new NetHeader(PacketType.Intent, NetHeaderFlags.AckValid, 7, 9, 8, 255);
             byte[] envelopeBytes = new byte[NetHeader.Size]; envelope.Write(envelopeBytes);
@@ -36,10 +39,10 @@ internal static class NetworkAllocationTests
                 ["Health.ComposeEmpty"] = () => _sink = (uint)NetHealthSync.Write(bytes),
                 ["IntentPacket.Read"] = () => _sink = IntentPacket.Read(intentBytes).Frame,
                 ["IntentPacket.Write"] = () => intent.Write(bytes),
-                ["PlayerState.Read"] = () => _sink = PlayerState.Read(bytes).LifeId,
-                ["PlayerState.Write"] = () => player.Write(bytes),
-                ["Snapshot.Compose"] = () => { header.Write(bytes); for (int i = 0; i < 8; i++) player.Write(bytes.AsSpan(SnapshotHeader.Size + i * PlayerState.Size)); },
-                ["Snapshot.Decode"] = () => { _sink = SnapshotHeader.Read(bytes).Frame; for (int i = 0; i < 8; i++) _sink += PlayerState.Read(bytes.AsSpan(SnapshotHeader.Size + i * PlayerState.Size)).LifeId; }
+                ["PlayerState.Read"] = () => _sink = PlayerState.Read(playerStateBytes).LifeId,
+                ["PlayerState.Write"] = () => player.Write(playerStateBytes),
+                ["Snapshot.Compose"] = () => { header.Write(canonicalSnapshot); for (int i = 0; i < snapshotPlayerCount; i++) player.Write(canonicalSnapshot.AsSpan(SnapshotHeader.Size + i * PlayerState.Size, PlayerState.Size)); },
+                ["Snapshot.Decode"] = () => { _sink = SnapshotHeader.Read(canonicalSnapshot).Frame; for (int i = 0; i < snapshotPlayerCount; i++) _sink += PlayerState.Read(canonicalSnapshot.AsSpan(SnapshotHeader.Size + i * PlayerState.Size, PlayerState.Size)).LifeId; }
             };
             foreach (var (name, action) in operations)
             {
