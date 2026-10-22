@@ -194,12 +194,22 @@ needed to address them; this is not a clean dependency-audit claim.
 | [Project Prime #1024](https://github.com/AntiNotAnti/Project-Prime/pull/1024) | Streamed download verification | Open; stacked on #1023; CI running |
 | [Project Prime #1025](https://github.com/AntiNotAnti/Project-Prime/pull/1025) | Portable conversion reuse and persistent worker cache | Open; stacked on #1024; CI running |
 | [Project Prime #1026](https://github.com/AntiNotAnti/Project-Prime/pull/1026) | Retired prewarm cancellation | Open; stacked on #1025; CI running |
-| [Website #16](https://github.com/projectprimegg/projectprime-website/pull/16) | Mixed bulk uploads and interrupted-chunk recovery | Open; final response-body recovery review in progress |
+| [Project Prime #1027](https://github.com/AntiNotAnti/Project-Prime/pull/1027) | Crash-safe conversion job promotion | Open; stacked on #1026; CI running |
+| [Website #16](https://github.com/projectprimegg/projectprime-website/pull/16) | Mixed bulk uploads and interrupted-chunk recovery | Merged after CI and independent review; merge `ca5697f7` |
 
-No PR has been merged at this update. Earlier CI cancellations are not passes.
+The engine/service PRs remain unmerged at this update. Earlier CI cancellations are not passes.
 The converter workflow now installs the exact SDK from `global.json`; installing
 the latest 10.0 SDK had failed the repository's strict SDK pin. Current-main
 replay test repairs are incorporated without duplicating them in this work.
+
+CI also exposed pre-existing qualification drift on current main. The authored
+Android action inventory includes one additional hidden button (two assertions),
+and profiling storage had not included the two combined-geometry CPU passes.
+Both draw and uniform attribution dimensions now include those passes and a
+separate unknown slot, with a regression checking their actual array indices.
+The render-graph check now verifies shadow input on World, matching the existing
+inline shadow receiver, and its absence from the postprocess pass. The Android
+capability harness passes 800 assertions and `-rendergraphcheck` passes locally.
 
 Additional local checks pass: the frozen baseline with stress enabled, six
 streamed-package checks using a 16 MiB asset size, and a server-only Release
@@ -217,10 +227,17 @@ rotations, frame stalls, Android lifecycle/memory pressure, Linux service
 crash/resource isolation and Windows/macOS/Linux/Android CI. No component
 microbenchmark substitutes for these end-to-end gates.
 
-The startup CLI path currently calls `CustomRooms.GenerateMissing()` for every
-registered custom map, even when selecting one diagnostic map. A real DUST2
-smoke built six rooms. Loading-boundary coverage must be established before
-removing that safety net. Further priorities are cold commit work under the
+Startup previously called `CustomRooms.GenerateMissing()` for every registered
+custom map, even when selecting one diagnostic map. A real DUST2 smoke built six
+rooms. Preparation now occurs for the selected room before the shared scene
+loader reads collision data, with an explicit material-report boundary and the
+existing early launcher/server gates retained. Low-level model reads remain
+unchanged to avoid recursive compiler entry. The isolated regression prepares
+one of two missing custom rooms, leaves the other source/output untouched,
+preserves output lengths/timestamps on repeat preparation, handles a registered
+native room without custom generation, and reports failed selected recipes.
+These work-count and correctness checks do not establish load-time percentiles.
+Further priorities are cold commit work under the
 scene gate, GPU upload/frame captures, dependency-integrity verification cost,
 and production CDN fallback/load evidence. None has a measured improvement
 claim in this report.
