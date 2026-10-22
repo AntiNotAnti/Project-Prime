@@ -18,7 +18,7 @@ internal static class OpenGlDrawAttribution
 {
     [ThreadStatic] private static State? _state;
     private const int OwnerCount = (int)OpenGlDrawOwner.Hud + 1;
-    private const int PassCount = (int)OpenGlCpuPass.PaletteCollection + 2;
+    private const int PassCount = (int)OpenGlCpuPass.CombinedGeometryUpload + 2;
     internal sealed class State
     {
         internal readonly long[] FrameImmediate = new long[OwnerCount * PassCount];
