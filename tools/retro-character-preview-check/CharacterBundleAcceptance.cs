@@ -13,6 +13,106 @@ internal static class CharacterBundleAcceptance
 {
     private const string FinalId = "darksamus-overcharged-echoes";
     private const string NormalId = "darksamus-echoes";
+    private sealed record DroneContract(string Id, string DisplayName, string NativeName,
+        string RecipeHash, string SourceFingerprint, string[] Components);
+    private static readonly DroneContract[] DroneContracts =
+    {
+        new("trooper-drone-alpha", "Alpha Scout Drone (Prime Rev2)", "AlphaDrone",
+            "58d0ba7d290c685108f0e5330566c30409df99a28faf12e35d101044dfa2f2e2",
+            "e8867a3614788a9cad71922bf02f6cbed7f02e7c",
+            new[]
+            {
+                "trooper-drone-alpha.drone.obj", "trooper-drone-alpha.drone.skeleton.json",
+                "trooper-drone-alpha.drone.weights.json", "trooper-drone-alpha.drone.motions.json",
+                "trooper-drone-alpha.drone.cinf.bin", "trooper-drone-alpha.drone.animations.bin",
+                "trooper-drone-alpha.drone.source.glb", "trooper-drone-alpha.drone.source.json",
+                "trooper-drone-alpha.drone.ancs-graph.json", "trooper-drone-alpha.drone.ancs.bin",
+                "trooper-drone-alpha.drone.materials.bin", "characters.json"
+            }),
+        new("trooper-drone-gamma", "Gamma Scout Drone (Prime Rev2)", "Gamma_Drone",
+            "fec914ed6fd6b45ff40f8f1910a8a5609e72934a811492253e2a7580a808e13c",
+            "e8867a3614788a9cad71922bf02f6cbed7f02e7c",
+            new[]
+            {
+                "trooper-drone-gamma.drone.obj", "trooper-drone-gamma.drone.skeleton.json",
+                "trooper-drone-gamma.drone.weights.json", "trooper-drone-gamma.drone.motions.json",
+                "trooper-drone-gamma.drone.cinf.bin", "trooper-drone-gamma.drone.animations.bin",
+                "trooper-drone-gamma.drone.source.glb", "trooper-drone-gamma.drone.source.json",
+                "trooper-drone-gamma.drone.ancs-graph.json", "trooper-drone-gamma.drone.ancs.bin",
+                "trooper-drone-gamma.drone.materials.bin", "characters.json"
+            })
+    };
+
+    private static void RunDroneContract(DroneContract expected)
+    {
+        var source = RetroCharacterPreviewExporter.Sources.Single(s => s.Id == expected.Id);
+        var spec = RetroCharacterPreviewExporter.BundleSpec(expected.Id);
+        var repeated = RetroCharacterPreviewExporter.BundleSpec(expected.Id,
+            ExternalSourceEdition.PrimeUsaRevision2);
+        Check(source.Game == ExternalGameKind.MetroidPrime && source.Ancs == 0x5e058399
+            && source.NativeName == expected.NativeName && source.DisplayName == expected.DisplayName
+            && source.AlternateForm == null,
+            "literal Prime Rev2 drone identity and native source " + expected.Id);
+        Check(spec.Version == 1 && spec.RecipeHash == expected.RecipeHash
+            && spec.SourceFingerprint == expected.SourceFingerprint
+            && repeated.Version == spec.Version && repeated.RecipeHash == spec.RecipeHash
+            && repeated.SourceFingerprint == spec.SourceFingerprint,
+            "literal drone v1 recipe, pinned edition and source hashes " + expected.Id);
+        Check(spec.RequiredComponents.SequenceEqual(expected.Components),
+            "literal drone required authoring component inventory " + expected.Id);
+
+        ExternalArchiveRequirement[] archives = RetroCharacterPreviewExporter.RequiredSourceArchives(
+            expected.Id, ExternalSourceEdition.PrimeUsaRevision2).ToArray();
+        Check(archives.SequenceEqual(new[]
+            {
+                new ExternalArchiveRequirement("Metroid3.pak", "30953a16e8820f7d1a5425084e04541a0439617a"),
+                new ExternalArchiveRequirement("AudioGrp.pak", "157e0841155cc7b699176dd7afc746c7048dbc28")
+            }), "drone authoring requires the literal Prime Rev2 archive pair " + expected.Id);
+
+        var parts = RetroCharacterPreviewExporter.PartsFor(expected.Id);
+        Check(parts.SequenceEqual(new[]
+            { new RetroCharacterPreviewExporter.SourcePart("drone", 0x5e058399, expected.NativeName, 1) })
+            && RetroCharacterPreviewExporter.PartStem(expected.Id, "drone") == expected.Id + ".drone",
+            "drone has one versioned drone part and a qualified artifact stem " + expected.Id);
+        var inspection = new ImportBundleInspection(ImportBundleState.Incomplete, "fixture", null,
+            Array.Empty<string>());
+        var partStatus = RetroCharacterPreviewExporter.InspectParts(expected.Id, inspection).Single();
+        Check(partStatus.Id == "drone" && partStatus.Version == 1
+            && partStatus.Components.Select(c => (c.Role, c.Version)).SequenceEqual(new[]
+            {
+                ("geometry", 1), ("rig", 1), ("weights", 1), ("motion-samples", 1),
+                ("skeleton-source", 1), ("animation-resources", 1),
+                ("source-rig-geometry", 1), ("generated-provenance", 1),
+                ("animation-graph", 1), ("animation-graph-source", 1),
+                ("source-materials", 1), ("source-preview-manifest", 1)
+            }), "drone authoring part exposes its literal required component roles and versions " + expected.Id);
+
+        Check(RetroCharacterPreviewExporter.SelectSourcesForEdition(ExternalGameKind.MetroidPrime,
+                ExternalSourceEdition.PrimeUsaRevision2, new[] { expected.Id })
+                .Select(s => s.Id).SequenceEqual(new[] { expected.Id }),
+            "explicit drone selection is admitted only from Prime Rev2 " + expected.Id);
+        Expect<NotSupportedException>(() => RetroCharacterPreviewExporter.RequiredSourceArchives(
+            expected.Id, ExternalSourceEdition.OriginalRecipe), "drone archive contract refuses original edition " + expected.Id);
+        Expect<NotSupportedException>(() => RetroCharacterPreviewExporter.BundleSpec(
+            expected.Id, ExternalSourceEdition.OriginalRecipe), "drone recipe refuses original edition " + expected.Id);
+        Expect<NotSupportedException>(() => RetroCharacterPreviewExporter.PartsFor(
+            expected.Id, ExternalSourceEdition.OriginalRecipe), "drone part refuses original edition " + expected.Id);
+        Expect<NotSupportedException>(() => RetroCharacterPreviewExporter.SelectSourcesForEdition(
+            ExternalGameKind.MetroidPrime, ExternalSourceEdition.OriginalRecipe, new[] { expected.Id }),
+            "explicit unsupported-edition drone selection fails closed " + expected.Id);
+        foreach (string part in new[] { "body", "ball", "drone.obj", "Drone" })
+            Expect<InvalidDataException>(() => RetroCharacterPreviewExporter.PartStem(expected.Id, part),
+                "noncanonical drone part refused " + expected.Id + "/" + part);
+
+        Check(spec.RecipeHash == repeated.RecipeHash && spec.SourceFingerprint == repeated.SourceFingerprint
+            && spec.RequiredComponents.SequenceEqual(repeated.RequiredComponents),
+            "drone recipe stable across calls " + expected.Id);
+        spec.RequiredComponents[0] = "tampered.obj";
+        Check(RetroCharacterPreviewExporter.BundleSpec(expected.Id).RequiredComponents
+                .SequenceEqual(expected.Components),
+            "drone required inventory detached from caller " + expected.Id);
+    }
+
     private static ImportBundleSpec PreviousNormalV6()
     {
         string[] body={".obj",".skeleton.json",".weights.json",".motions.json",".cinf.bin",".animations.bin",".source.glb",".source.json"};
@@ -52,7 +152,20 @@ internal static class CharacterBundleAcceptance
     internal static void RunContract()
     {
         var specs = RetroCharacterPreviewExporter.Sources.Select(s => RetroCharacterPreviewExporter.BundleSpec(s.Id)).ToArray();
-        foreach (var spec in specs)
+        foreach (var drone in DroneContracts) RunDroneContract(drone);
+        string[] legacyPrimeIds = { "trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma" };
+        string[] revision2PrimeIds = legacyPrimeIds.Concat(DroneContracts.Select(drone => drone.Id)).ToArray();
+        Check(RetroCharacterPreviewExporter.SelectSourcesForEdition(ExternalGameKind.MetroidPrime,
+                ExternalSourceEdition.OriginalRecipe).Select(s => s.Id).SequenceEqual(legacyPrimeIds),
+            "original Prime group keeps the four existing recipes and excludes unsupported drones");
+        var revision2Group = RetroCharacterPreviewExporter.SelectSourcesForEdition(
+            ExternalGameKind.MetroidPrime, ExternalSourceEdition.PrimeUsaRevision2);
+        Check(revision2Group.Select(s => s.Id).SequenceEqual(revision2PrimeIds)
+            && RetroCharacterPreviewExporter.SelectSourcesForEdition(ExternalGameKind.MetroidPrime,
+                ExternalSourceEdition.PrimeUsaRevision2, revision2PrimeIds, sameSourceGroup: true)
+                .Select(s => s.Id).SequenceEqual(revision2PrimeIds),
+            "Prime Rev2 group selection includes both qualified drones and all four existing looks");
+        foreach (var spec in specs.Where(s => !DroneContracts.Any(drone => drone.Id == s.Id)))
         {
             var again = RetroCharacterPreviewExporter.BundleSpec(spec.Id);
             bool echoes=spec.Id.EndsWith("-echoes",StringComparison.Ordinal);
@@ -98,9 +211,16 @@ internal static class CharacterBundleAcceptance
             Check(RetroCharacterPreviewExporter.BundleSpec(spec.Id).RequiredComponents[0] == spec.Id + ".obj",
                 "required inventory detached from caller " + spec.Id);
         }
-        Check(specs.Select(s => s.RecipeHash).Distinct().Count() == 6, "appearance recipes remain independent");
-        Check(specs.Where(s=>s.Id.StartsWith("trooper-",StringComparison.Ordinal)).Select(s => s.SourceFingerprint).Distinct().Count() == 1 && specs[0].SourceFingerprint != specs[1].SourceFingerprint,
-            "four Troopers share pinned Prime source, Echoes has distinct source");
+        Check(specs.Select(s => s.RecipeHash).Distinct().Count() == 8, "eight appearance recipes remain independent");
+        string[] legacyTrooperIds = { "trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma" };
+        string legacyTrooperFingerprint = specs.Single(s => s.Id == legacyTrooperIds[0]).SourceFingerprint;
+        string droneFingerprint = specs.Single(s => s.Id == DroneContracts[0].Id).SourceFingerprint;
+        Check(specs.Where(s => legacyTrooperIds.Contains(s.Id, StringComparer.Ordinal))
+                .All(s => s.SourceFingerprint == legacyTrooperFingerprint)
+            && DroneContracts.All(drone => specs.Single(s => s.Id == drone.Id).SourceFingerprint == droneFingerprint)
+            && legacyTrooperFingerprint != droneFingerprint
+            && specs.Single(s => s.Id == NormalId).SourceFingerprint != legacyTrooperFingerprint,
+            "legacy Troopers retain their Prime source while drones bind their distinct Rev2 source");
         var normal=specs.Single(s=>s.Id=="darksamus-echoes");
         var overcharged=specs.Single(s=>s.Id=="darksamus-overcharged-echoes");
         Check(normal.Version==7&&normal.RecipeHash=="e822d370a5d5d88aff978a901d82f9fe68c39673d7d5bdf2212e6f938447618f"
