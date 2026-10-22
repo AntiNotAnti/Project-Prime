@@ -1,0 +1,7 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "derivativeFiles": 65,
+  "originalsVerified": true,
+  "scope": "Original/derivative SHA256+bytes and scoped numeric equality; no native execution or new image comparison"
+}
