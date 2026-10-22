@@ -170,6 +170,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.RetainedRenderGraphCheck.Run();
                 return true;
             }
+            if (HasFlag(args, "nativepixelbuffercheck"))
+            {
+                Environment.ExitCode = Render.NativeTexturePixelBufferCheck.Run();
+                return true;
+            }
 #endif
 #if !MPHREAD_SERVER
             if (HasFlag(args, "renderbackendprobe"))
