@@ -4,8 +4,10 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / "docs" / "porting" / "second-hunt-manifest.json"
-DOC = ROOT / "docs" / "porting" / "second-hunt-content.md"
+# Keep this frozen metadata with the acceptance tests rather than the
+# independently pruned engineering documentation directory.
+MANIFEST = Path(__file__).with_name("fixtures") / "second-hunt-manifest.json"
+DOC = MANIFEST.with_name("second-hunt-content.md")
 
 class PortManifestContract(unittest.TestCase):
     @classmethod
@@ -109,8 +111,15 @@ class PortManifestContract(unittest.TestCase):
             self.assertRegex(protocol, name + r"\s*=\s*" + str(value) + r"\b")
         self.assertFalse(wire["capabilitiesEnableGameplay"])
         reader = (ROOT / "src/MphRead/Mods/Network/DemoFile.cs").read_text()
-        versions = " or ".join(map(str, replay["readableFormats"]))
-        self.assertIn("header[4] is not (" + versions + ")", reader)
+        # Historical audit formats 1-6 must remain readable even when the
+        # live replay reader gains later compatible formats (currently 7-8).
+        found = re.search(r"header\[4\] is not \((\d+(?: or \d+)*)\)", reader)
+        self.assertIsNotNone(found, "live replay reader must declare explicit formats")
+        current_formats = [int(value) for value in found.group(1).split(" or ")]
+        self.assertEqual(current_formats, list(range(1, max(current_formats) + 1)),
+                         "live replay format admission remains contiguous and unambiguous")
+        self.assertTrue(set(replay["readableFormats"]) <= set(current_formats),
+                        "frozen replay formats cannot become unreadable")
         self.assertEqual(replay["defaultMetadataFormat"], 3)
         self.assertEqual(replay["timedShotCertificateFormat"], 6)
         self.assertTrue(replay["timedShotsAreOptIn"])
