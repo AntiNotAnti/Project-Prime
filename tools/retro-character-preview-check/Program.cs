@@ -32,11 +32,21 @@ try
     GeneratedBallAcceptance.Run();
     GeneratedFinalBallAcceptance.Run();
     var chars = RetroCharacterPreviewExporter.Sources;
-    Check(chars.Count == 6 && chars.Select(x=>x.Id).Distinct().Count()==6,
-        "six independent local model source identities");
-    Check(chars.Count(x => x.Game == ExternalGameKind.MetroidPrime) == 4 &&
-        chars.Count(x => x.Game == ExternalGameKind.Echoes) == 2,
-        "four Trooper looks and two distinct Echoes Dark Samus source bodies");
+    // The original four Trooper and two Echoes sources are joined by two
+    // revision-2-only Scout Drones. Validate the exact owned-source catalog
+    // rather than treating the newer drone identities as duplicate bodies.
+    string[] primeIds = { "trooper-power", "trooper-ice", "trooper-wave",
+        "trooper-plasma", "trooper-drone-alpha", "trooper-drone-gamma" };
+    string[] echoesIds = { "darksamus-echoes", "darksamus-overcharged-echoes" };
+    Check(chars.Count == 8 && chars.Select(x => x.Id).Distinct(StringComparer.Ordinal).Count() == 8,
+        "eight independent local model source identities");
+    Check(chars.Where(x => x.Game == ExternalGameKind.MetroidPrime).Select(x => x.Id)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .SequenceEqual(primeIds.OrderBy(x => x, StringComparer.Ordinal)) &&
+        chars.Where(x => x.Game == ExternalGameKind.Echoes).Select(x => x.Id)
+            .OrderBy(x => x, StringComparer.Ordinal)
+            .SequenceEqual(echoesIds.OrderBy(x => x, StringComparer.Ordinal)),
+        "four Troopers, two Scout Drones and two distinct Echoes Dark Samus sources");
 
     var body = new Cmdl
     {
@@ -99,7 +109,7 @@ try
         RetroCharacterSkinWeights.Write(body, new MemoryStream()),
         "incomplete skin cannot be used as a rig");
 
-    Console.WriteLine("PASS: six source character identities, safe local OBJ output and invalid geometry refusal");
+    Console.WriteLine("PASS: eight source character identities, safe local OBJ output and invalid geometry refusal");
     return 0;
 }
 catch(Exception ex)
