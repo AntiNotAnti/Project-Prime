@@ -590,6 +590,59 @@ public static class MapCommunityServer
                     }, deadline.Token);
                     return;
                 }
+                if(parts.Length==5&&parts[0]=="v3"&&parts[1]=="content"&&parts[2]==CommunityContentKinds.Weapon
+                    &&parts[4]=="reports"&&context.Request.HttpMethod=="POST")
+                {
+                    context.Response.Headers["Cache-Control"] = "private, no-store";
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    if(!Guid.TryParse(parts[3],out var weaponId)){context.Response.StatusCode=400;return;}
+                    try
+                    {
+                        var report=await Body<CommunityWeaponReportRequest>();
+                        var saved=contentRegistry.SubmitReport(CommunityContentKinds.Weapon,weaponId,report.Hash,creator.CreatorId,report.Reason);
+                        await Json(context.Response,new{saved.ReportId},deadline.Token);
+                    }
+                    catch(InvalidDataException){context.Response.StatusCode=400;}
+                    return;
+                }
+                if(parts.Length is 2 or 3&&parts[0]=="v3"&&parts[1]=="content-reports")
+                {
+                    context.Response.Headers["Cache-Control"] = "private, no-store";
+                    if(creator?.Moderator!=true){context.Response.StatusCode=403;return;}
+                    if(parts.Length==2&&context.Request.HttpMethod=="GET")
+                        await Json(context.Response,contentRegistry.ListReports(),deadline.Token);
+                    else if(parts.Length==3&&Guid.TryParse(parts[2],out var reportId)&&context.Request.HttpMethod=="POST")
+                    {
+                        try
+                        {
+                            var decision=await Body<CommunityWeaponModerationRequest>();
+                            await Json(context.Response,contentRegistry.ResolveReport(reportId,creator.CreatorId,decision.Hide,decision.Reason),deadline.Token);
+                        }
+                        catch(InvalidDataException){context.Response.StatusCode=400;}
+                    }
+                    else context.Response.StatusCode=404;
+                    return;
+                }
+                if (parts.Length == 5 && parts[0] == "v3" && parts[1] == "content"
+                    && parts[2] == CommunityContentKinds.Weapon && parts[4] == "visibility"
+                    && context.Request.HttpMethod == "POST")
+                {
+                    if (creator == null) { context.Response.StatusCode = 401; return; }
+                    if (!Guid.TryParse(parts[3], out var visibilityId)) { context.Response.StatusCode = 400; return; }
+                    try
+                    {
+                        var request = await Body<CommunityWeaponVisibilityRequest>();
+                        if (CommunityContentVisibility.Normalize(request.Visibility) != CommunityContentVisibility.Draft
+                            && Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_COMMUNITY_PUBLISH") != "1")
+                        { context.Response.StatusCode = 503; return; }
+                        var changed = contentRegistry.SetWeaponVisibility(visibilityId, creator.CreatorId, request.Hash, request.Visibility);
+                        if (changed == null) { context.Response.StatusCode = 404; return; }
+                        await Json(context.Response, changed, deadline.Token);
+                    }
+                    catch (Exception error) when (error is InvalidDataException or ArgumentException)
+                    { context.Response.StatusCode = 400; }
+                    return;
+                }
                 // Typed upload is separate from legacy .ppmap publication.
                 // Request metadata is bounded and authenticated before a byte
                 // is written. The server derives OwnerId from the ticket.
@@ -605,6 +658,9 @@ public static class MapCommunityServer
                     catch (ArgumentException) { context.Response.StatusCode = 400; return; }
                     if (kind == CommunityContentKinds.Map)
                     { context.Response.StatusCode = 405; return; }
+                    if (kind == CommunityContentKinds.Weapon
+                        && Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_COMMUNITY_PUBLISH") != "1")
+                    { context.Response.StatusCode = 503; return; }
                     string? encoded = context.Request.Headers["X-Prime-Content-Metadata"];
                     string? expectedHash = context.Request.Headers["X-Prime-SHA256"];
                     if (encoded == null || encoded.Length > 8192

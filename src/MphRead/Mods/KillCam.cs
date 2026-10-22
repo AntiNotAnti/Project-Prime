@@ -55,7 +55,7 @@ internal static class KillCam
             scene != null && (uint)local < (uint)scene.Players.Items.Count && scene.Players.Items[local] is { Health: > 0 },
             NetSession.Active && !DemoPlayback.IsActive,
             supported && LauncherPrefs.KillCamEnabled && !Headless.Active && !SpectatorMode.IsSpectating,
-            supported && LauncherPrefs.KillCamEnabled && LauncherPrefs.FinalKillCamEnabled && !Headless.Active);
+            supported && LauncherPrefs.FinalKillCamEnabled && !Headless.Active);
     }
     internal static void NoteKill(ReplayMarker marker, uint recordingFrame)
     {
@@ -133,7 +133,10 @@ internal static class KillCam
     }
     internal static bool BeginFinal(uint authoritativeEndFrame)
     {
-        _finalRequested = Supported() && NetSession.Active && LauncherPrefs.KillCamEnabled && LauncherPrefs.FinalKillCamEnabled;
+        // Final replay is independent from the personal after-death replay
+        // toggle. The settings expose two distinct switches.
+        _finalRequested = Supported() && NetSession.Active && LauncherPrefs.FinalKillCamEnabled;
+        DebugLog.Line("endgame", $"final-replay-v2 requested={_finalRequested} net={NetSession.Active} enabled={LauncherPrefs.FinalKillCamEnabled}");
         _finalRequestedFrame = authoritativeEndFrame;
         _finalIdentityWaitStarted = null;
         _finalRequestedAt = NetSession.NetFrame; Controller.CancelPersonal(); return false;

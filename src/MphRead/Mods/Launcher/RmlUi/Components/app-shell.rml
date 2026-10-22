@@ -23,6 +23,7 @@
                     <button id="nav_studio" class="nav" data-action="studio:open" aria-label="Open Prime Studio"><span class="nav_full">PRIME STUDIO</span><span class="nav_short">STUDIO</span></button>
                 </div>
                 <div id="account_cluster">
+                    <button id="header_required_weapon" class="utility" style="display:none" data-action="weapons:refresh">REVIEW REQUIRED WEAPON</button>
                     <button id="profile" class="utility" data-action="license:open" data-prime-text="{{player_name}}">PROFILE</button>
                     <button id="header_settings" class="utility" data-action="route:settings">SETTINGS</button>
                 </div>

@@ -12,6 +12,7 @@
   <div class="native_community_header">
   <div class="native_community_tools native_community_tabs">
     <button id="native_community_public" data-action="community:tab:0">DISCOVER</button>
+    <button id="native_community_weapons" data-action="weapons:refresh">WEAPONS</button>
     <button id="native_community_installed" data-action="community:tab:4">INSTALLED</button>
     <button id="native_community_favorites" data-action="community:tab:3">FAVORITES</button>
     <button id="native_community_owned" data-action="community:tab:1">MY UPLOADS</button>

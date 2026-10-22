@@ -267,6 +267,7 @@ jobs:
         with:
           name: rmlui-license-native-fixture
           path: |
+            artifacts/rmlui-layout-ci.json
             artifacts/rmlui-license-rml41
             artifacts/rmlui-offline-rules-rml42
             artifacts/rmlui-ingame-rml44

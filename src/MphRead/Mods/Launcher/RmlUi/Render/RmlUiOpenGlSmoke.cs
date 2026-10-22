@@ -91,7 +91,7 @@ internal static partial class RmlUiOpenGlSmoke
         }
         if (Shell.RmlUiMatchStartVisible) { DrawNativeMatchStart(window); return; }
         CloseNativeMatchStart();
-        if (window.HasScene) { CloseNativeQuit(); CloseNativeVersions(); CloseNativeUpdate(); CloseNativeStartup(teardown: true); CloseNativeGameFiles(); CloseNativeCampaignEnding(); CloseNativeCampaignShip(); DrawGameplayOverlay(window); return; }
+        if (window.HasScene) { CloseNativeCommunityWeapons(); CloseNativeQuit(); CloseNativeVersions(); CloseNativeUpdate(); CloseNativeStartup(teardown: true); CloseNativeGameFiles(); CloseNativeCampaignEnding(); CloseNativeCampaignShip(); DrawGameplayOverlay(window); return; }
         if (_settingsReturnToPause) CloseFullSettings();
         if (GameplayOpen) CloseGameplayOverlays();
         if (!BeforeLauncherComposite(window)) return;
@@ -152,7 +152,7 @@ internal static partial class RmlUiOpenGlSmoke
                 // admission. Historical home-only events no longer bypass it.
                 bool baselineIntent = _launcherPages is { Suspended: false }
                     && _news == null && _quickSettings == null && _fullSettings == null && _hudEditor == null && _hunterChoice == null
-                    && _community == null && _license == null && _studio == null && _studioEditor == null
+                    && _community == null && _communityWeapons == null && _license == null && _studio == null && _studioEditor == null && _weaponStudio == null
                     && _social == null && _party == null && _campaignEnding == null && _campaignShip == null && _startupNative == null;
                 if (baselineIntent)
                 {
@@ -161,6 +161,7 @@ internal static partial class RmlUiOpenGlSmoke
                     if (forwarded.Kind == 0) continue;
                     intent = forwarded;
                 }
+                if(HandleNativeCommunityWeapons(intent,baselineIntent))continue;
                 // Native header routes share the controller's admission lock.
                 // Do not let a session finish joining behind another native page.
                 if (controller.Joining && intent.Kind is not
@@ -464,6 +465,7 @@ internal static partial class RmlUiOpenGlSmoke
             TickNativeVersions();
             TickFullSettings();
             _community?.Refresh();
+            _communityWeapons?.Refresh();
             if (_community is { } community && community.TryTakeHostRequest(out var hostedMap)
                 && hostedMap != null)
             {
@@ -493,7 +495,7 @@ internal static partial class RmlUiOpenGlSmoke
                 launcher.SetBool("reduce_motion", LauncherPrefs.ReduceMotion);
                 bool routeOwned = _startupNative != null || _gameFiles != null || _news != null || _quickSettings != null || _fullSettings != null || _hudEditor != null
                     || _hunterChoice != null || _community != null || _license != null
-                    || _studio != null || _studioEditor != null || _social != null || _party != null || _campaignEnding != null || _campaignShip != null;
+                    || _studio != null || _studioEditor != null || _weaponStudio != null || _communityWeapons != null || _social != null || _party != null || _campaignEnding != null || _campaignShip != null;
                 if (routeOwned && !launcher.Suspended) launcher.Suspend();
                 else if (!routeOwned && launcher.Suspended) launcher.Resume();
 
@@ -827,6 +829,7 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static void CloseNativeCommunity()
     {
+        CloseNativeCommunityWeapons();
         var old = _community;
         _community = null;
         old?.Dispose();
@@ -884,6 +887,7 @@ internal static partial class RmlUiOpenGlSmoke
 
     private static void CloseNativeStudio()
     {
+        CloseNativeWeaponStudio();
         CloseNativeStudioProjectChange();
         CloseNativeStudioPublish();
         CloseNativeStudioEditor();

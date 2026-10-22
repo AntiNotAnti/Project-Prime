@@ -106,9 +106,10 @@ internal static class CompactIntentReplayTests
             object stream = constructor.Invoke(new object?[] { null });
             streamType.GetField("_supportsFireEvents", All)!.SetValue(stream, true);
             var index = streamType.GetMethod("IndexFireEvents", All)!;
-            index.Invoke(stream, new object[] { 102u, 0, newer });
-            index.Invoke(stream, new object[] { 104u, 0, older });
-            index.Invoke(stream, new object[] { 105u, 0, older });
+            // Synthetic historical carriers have no post-world availability floor (zero).
+            index.Invoke(stream, new object[] { 102u, 0, newer, 0u });
+            index.Invoke(stream, new object[] { 104u, 0, older, 0u });
+            index.Invoke(stream, new object[] { 105u, 0, older, 0u });
             var fires = (IDictionary)streamType.GetField("_fires", All)!.GetValue(stream)!;
             var events = new Dictionary<uint, FireEvent>();
             foreach (DictionaryEntry entry in fires)
@@ -129,12 +130,12 @@ internal static class CompactIntentReplayTests
             respawnCarrier.FireEventCount = 2;
             respawnCarrier.FireEvents[0] = older.FireEvents[0] with { SourceLife = 1 };
             respawnCarrier.FireEvents[1] = older.FireEvents[1] with { ShotId = 44, SourceLife = 1 };
-            index.Invoke(stream, new object[] { 107u, 0, respawnCarrier });
+            index.Invoke(stream, new object[] { 107u, 0, respawnCarrier, 0u });
             // A separate life may reuse an ID without colliding with its predecessor.
             var newLife = respawnCarrier; newLife.FireEventCount = 1;
             newLife.FireEvents[0] = older.FireEvents[0] with { SourceLife = 2, SourceFrame = 103 };
-            index.Invoke(stream, new object[] { 107u, 0, newLife });
-            index.Invoke(stream, new object[] { 108u, 0, respawnCarrier });
+            index.Invoke(stream, new object[] { 107u, 0, newLife, 0u });
+            index.Invoke(stream, new object[] { 108u, 0, respawnCarrier, 0u });
             int life1Id41 = 0, life2Id41 = 0, oldLifeNewEvent = 0;
             foreach (DictionaryEntry entry in fires)
                 foreach (object scheduled in (IList)entry.Value!)

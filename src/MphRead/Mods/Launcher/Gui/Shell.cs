@@ -146,6 +146,7 @@ namespace MphRead.Mods.Launcher.Gui
         internal static bool RmlUiMatchStartVisible => Active && _window != null && _front != null
             && _front.Prime.Router.Current == PrimeRoute.Lobby
             && NetSession.Active && NetSession.PersistentLobby
+            && NetSession.RequiredWeaponPackagesReady
             && (_window.HasScene ? _matchLoading : NetSession.IsStarting);
 
         internal static bool RmlUiCanPresent

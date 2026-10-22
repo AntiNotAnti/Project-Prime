@@ -157,6 +157,7 @@ internal static partial class RmlUiOpenGlSmoke
         if (_quickSettings != null) { _quickSettings.Back(); if (_quickSettings.Closed) CloseNativeQuickSettings(); return; }
         if (_hunterChoice != null) { _hunterChoice.Back(); if (_hunterChoice.Closed) CloseNativeHunter(); return; }
         if (_news != null) { if (!_news.Back()) CloseNativeNews(); return; }
+        if(_communityWeapons is {} weapons){weapons.Back();if(weapons.Closed)ReturnFromNativeCommunityWeapons();return;}
         if (_community != null) { if (!_community.Back()) CloseNativeCommunity(); return; }
         if (_studio != null) { CloseNativeStudio(); return; }
         if (_launcherPages is { Suspended:false } launcher && launcher.Back(out var intent)
