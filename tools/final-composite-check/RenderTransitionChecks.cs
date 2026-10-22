@@ -41,6 +41,7 @@ internal static class RenderTransitionChecks
             locations.FogMinDistance = G.GetUniformLocation(world, "fog_min");
             locations.FogMaxDistance = G.GetUniformLocation(world, "fog_max");
             locations.LayerAlpha = G.GetUniformLocation(hud, "alpha");
+            locations.HudInk = G.GetUniformLocation(hud, "hud_ink");
             locations.UseMask = G.GetUniformLocation(hud, "use_mask");
             locations.ViewWidth = G.GetUniformLocation(hud, "view_width");
             locations.ViewHeight = G.GetUniformLocation(hud, "view_height");
@@ -107,6 +108,7 @@ internal static class RenderTransitionChecks
             G.Uniform1(G.GetUniformLocation(hud, "tex"), 0);
             G.Uniform1(G.GetUniformLocation(hud, "mask"), 1);
             G.Uniform4(locations.FadeColor, Vector4.Zero);
+            G.Uniform4(locations.HudInk, Vector4.One);
             G.Uniform1(locations.UseMask, 0);
             var layer = new LayerInfo { BindingId = texture, ScaleX = 1, ScaleY = 1 };
             foreach (float alpha in new[] { 0f, -0.5f, 0.5f, 1f })
@@ -121,7 +123,7 @@ internal static class RenderTransitionChecks
                 Check(alpha > 0 || sample.TextureBindRequests == 0, "hidden layer performs no texture work");
                 var pixels = FinalCompositeCapture.Read(width, height);
                 Check(pixels[(height / 2 * width + width / 2) * 3] == (alpha > 0 ? 255 : 0),
-                    "visible HUD pixels retained and hidden pixels untouched");
+                    $"alpha {alpha}: visible HUD pixels retained and hidden pixels untouched (red={pixels[(height / 2 * width + width / 2) * 3]})");
                 string? captures = Environment.GetEnvironmentVariable("PRIME_RENDER_CHECK_CAPTURES");
                 if (captures != null)
                 {
