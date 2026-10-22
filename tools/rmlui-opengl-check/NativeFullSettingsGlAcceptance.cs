@@ -59,8 +59,18 @@ internal static class NativeFullSettingsGlAcceptance
             // a native choice control. Never click a hidden row.
             int displayCategory = Array.IndexOf(NativeFullSettingsController.Categories,"Display");
             Check(displayCategory >= 0,"Display settings category is available");
-            Send(RmlUiIntentKind.SettingsCategory,displayCategory);
-            Send(RmlUiIntentKind.SettingsAction,232+NativeSettingsCatalog.Tab(window));
+            Click("native_settings_overview_"+displayCategory);
+            Check(host.TryTakeIntent(out var categoryIntent) && categoryIntent.Kind==RmlUiIntentKind.SettingsCategory
+                && categoryIntent.Argument==displayCategory && categoryIntent.Document==page.Document
+                && page.Handle(categoryIntent) && !host.TryTakeIntent(out _),
+                "actual native overview card navigates to Display exactly once");
+            Settle();
+            int viewTab = NativeSettingsCatalog.Tab(window);
+            Click("native_settings_subpage_"+viewTab);
+            Check(host.TryTakeIntent(out var sectionIntent) && sectionIntent.Kind==RmlUiIntentKind.SettingsAction
+                && sectionIntent.Argument==232+viewTab && sectionIntent.Document==page.Document
+                && page.Handle(sectionIntent) && !host.TryTakeIntent(out _),
+                "actual native subpage card navigates to Display/View exactly once");
             Settle();
             int windowIndex = Array.IndexOf(VisibleRows(),window);
             Check(windowIndex >= 0 && window.Choices.Length > 0,"Display/View exposes the window choice");
