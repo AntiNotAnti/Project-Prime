@@ -14,6 +14,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const MAX_DISK_BYTES = 2 * 1024 * 1024 * 1024;
 const MAX_JOBS = 16;
 const DISK_MARGIN_BYTES = 256 * 1024 * 1024;
+const UNSUPPORTED_DIRECTORY_SYNC = new Set(["EINVAL", "ENOTSUP", "EISDIR", "EPERM", "EBADF"]);
 
 async function digest(file) {
   const h = createHash("sha256");
@@ -25,19 +26,69 @@ async function readJson(file) {
   try { return JSON.parse(await fs.readFile(file, "utf8")); }
   catch (error) {
     if (error?.code === "ENOENT") return null;
+    if (error instanceof SyntaxError) return null;
     throw error;
   }
 }
+async function syncDirectory(directory) {
+  let handle;
+  try {
+    handle = await fs.open(directory, "r");
+    await handle.sync();
+  } catch (error) {
+    // Directory handles cannot be synced on some supported filesystems.
+    if (!UNSUPPORTED_DIRECTORY_SYNC.has(error?.code)) throw error;
+  } finally { await handle?.close(); }
+}
 async function atomicJson(file, value) {
   const temp = file + "." + randomUUID() + ".tmp";
+  let handle;
   try {
-    await fs.writeFile(temp, JSON.stringify(value), { mode: 0o600, flag: "wx" });
+    handle = await fs.open(temp, "wx", 0o600);
+    await handle.writeFile(JSON.stringify(value));
+    await handle.sync();
+    const completed = handle;
+    handle = null;
+    await completed.close();
     await fs.rename(temp, file);
-  } finally { await fs.rm(temp, { force: true }); }
+    await syncDirectory(path.dirname(file));
+  } finally {
+    try { await handle?.close(); }
+    finally { await fs.rm(temp, { force: true }); }
+  }
 }
 async function files(root) {
   try { return await fs.readdir(root, { withFileTypes: true }); }
   catch (e) { if (e.code === "ENOENT") return []; throw e; }
+}
+function pendingJobId(name) {
+  const prefix = ".pending-";
+  if (!name.startsWith(prefix)) return null;
+  const id = name.slice(prefix.length);
+  return validJobId(id) ? id : null;
+}
+function validCreatorId(value) {
+  return typeof value === "string" && /^hunter:[a-f0-9-]{36}$/i.test(value);
+}
+function jobSessionKey(job) {
+  if (!validCreatorId(job?.creatorId) || !validHash(job?.sourceHash) ||
+      !validRoomName(job?.roomName) || !validLevelName(job?.levelName)) return null;
+  const key = sessionKey(job.creatorId, job.sourceHash, job.roomName, job.levelName ?? "");
+  return job.sessionKey == null || job.sessionKey === key ? key : null;
+}
+function validJobMetadata(job, id, maxBytes) {
+  return !!job && typeof job === "object" && job.id === id && validJobId(id) &&
+    jobSessionKey(job) != null && Number.isSafeInteger(job.bytes) &&
+    job.bytes > 0 && job.bytes <= maxBytes && Number.isFinite(job.createdAt);
+}
+async function regularFileStat(file) {
+  try {
+    const info = await fs.lstat(file);
+    return info.isFile() && !info.isSymbolicLink() ? info : null;
+  } catch (error) {
+    if (error?.code === "ENOENT") return null;
+    throw error;
+  }
 }
 
 export function createPk3UploadService({
@@ -124,7 +175,8 @@ export function createPk3UploadService({
     const key = sessionKey(owner, hash, roomName, levelName ?? "");
     const dir = path.join(uploadRoot, key);
     const meta = await readJson(path.join(dir, "session.json"));
-    if (!canonicalState(meta) || meta.creatorId !== owner || meta.hash !== hash)
+    if (!canonicalState(meta) || meta.creatorId !== owner || meta.hash !== hash ||
+        meta.roomName !== roomName || (meta.levelName ?? null) !== (levelName ?? null))
       return null;
     return { ...meta, dir, key };
   }
@@ -137,14 +189,134 @@ export function createPk3UploadService({
     return { ...job, dir };
   }
 
+  async function sessionForJob(job) {
+    const key = jobSessionKey(job);
+    if (!key) return null;
+    const dir = path.join(uploadRoot, key);
+    const meta = await readJson(path.join(dir, "session.json"));
+    if (!canonicalState(meta) || meta.creatorId !== job.creatorId ||
+        meta.hash !== job.sourceHash || meta.bytes !== job.bytes ||
+        meta.offset !== meta.bytes || meta.roomName !== job.roomName ||
+        (meta.levelName ?? null) !== (job.levelName ?? null) ||
+        (meta.jobId != null && meta.jobId !== job.id)) return null;
+    return { ...meta, dir, key };
+  }
+
+  async function sourceMatchesJob(file, job) {
+    const info = await regularFileStat(file);
+    return !!info && info.size === job.bytes && await digest(file) === job.sourceHash;
+  }
+
+  async function ensureJobInput(folder, job, session) {
+    const input = path.join(folder, "input.pk3");
+    if (await regularFileStat(input)) return sourceMatchesJob(input, job);
+    if (!session) return false;
+    const sourcePart = path.join(session.dir, "source.part");
+    if (!await sourceMatchesJob(sourcePart, job)) return false;
+    await fs.rename(sourcePart, input);
+    await syncDirectory(session.dir);
+    await syncDirectory(folder);
+    return sourceMatchesJob(input, job);
+  }
+
+  async function linkJobSession(job) {
+    const session = await sessionForJob(job);
+    if (!session || session.jobId === job.id) return !!session;
+    const { dir: _dir, key: _key, ...saved } = session;
+    await atomicJson(path.join(session.dir, "session.json"), {
+      ...saved, jobId: job.id, updatedAt: now(),
+    });
+    return true;
+  }
+
+  async function promotePending(directory, id) {
+    const job = await readJson(path.join(directory, "job.json"));
+    if (!validJobMetadata(job, id, maxBytes) || job.status !== "queued") return false;
+    const session = await sessionForJob(job);
+    if (!session || (session.jobId != null && session.jobId !== id)) return false;
+    if (!await ensureJobInput(directory, job, session)) return false;
+
+    const finalDirectory = path.join(jobRoot, id);
+    try { await fs.lstat(finalDirectory); return false; }
+    catch (error) { if (error?.code !== "ENOENT") throw error; }
+    await fs.rename(directory, finalDirectory);
+    await syncDirectory(jobRoot);
+    const finalJob = await readJson(path.join(finalDirectory, "job.json"));
+    if (!validJobMetadata(finalJob, id, maxBytes)) return false;
+    return linkJobSession(finalJob);
+  }
+
+  async function recoverLegacyJob(directory, id) {
+    const manifest = path.join(directory, "job.json");
+    if (await regularFileStat(manifest)) return false;
+    const input = path.join(directory, "input.pk3");
+    const inputInfo = await regularFileStat(input);
+    if (!inputInfo || inputInfo.size < 1 || inputInfo.size > maxBytes) return false;
+    const sourceHash = await digest(input);
+    const matches = [];
+    for (const item of await files(uploadRoot)) {
+      if (!item.isDirectory() || !validHash(item.name)) continue;
+      const sessionFile = path.join(uploadRoot, item.name, "session.json");
+      const session = await readJson(sessionFile);
+      if (!canonicalState(session) || session.jobId != null ||
+          session.hash !== sourceHash || session.bytes !== inputInfo.size ||
+          session.offset !== session.bytes ||
+          sessionKey(session.creatorId, session.hash, session.roomName, session.levelName ?? "") !== item.name ||
+          await regularFileStat(path.join(uploadRoot, item.name, "source.part"))) continue;
+      matches.push({ session, dir: path.join(uploadRoot, item.name), key: item.name });
+      if (matches.length > 1) return false;
+    }
+    if (matches.length !== 1) return false;
+    const { session, key } = matches[0];
+    const job = {
+      id, creatorId: session.creatorId, sourceHash, bytes: inputInfo.size,
+      roomName: session.roomName, levelName: session.levelName ?? null,
+      sessionKey: key, createdAt: Number.isFinite(session.createdAt) ? session.createdAt : now(),
+      updatedAt: now(), status: "queued", stage: "Recovered after interruption",
+    };
+    await atomicJson(manifest, job);
+    return linkJobSession(job);
+  }
+
+  async function recoverJobs() {
+    for (const item of await files(jobRoot)) {
+      const id = pendingJobId(item.name);
+      if (!item.isDirectory() || !id) continue;
+      try { await promotePending(path.join(jobRoot, item.name), id); }
+      catch (error) {
+        console.error("PK3 staged job recovery deferred", id, error?.name || "unknown");
+      }
+    }
+
+    for (const item of await files(jobRoot)) {
+      if (!item.isDirectory() || !validJobId(item.name)) continue;
+      try {
+        const directory = path.join(jobRoot, item.name);
+        let job = await readJson(path.join(directory, "job.json"));
+        if (!job) {
+          await recoverLegacyJob(directory, item.name);
+          job = await readJson(path.join(directory, "job.json"));
+        }
+        if (!validJobMetadata(job, item.name, maxBytes) || job.status !== "queued") continue;
+        const session = await sessionForJob(job);
+        if (session?.jobId === job.id) continue;
+        if (!session || !await ensureJobInput(directory, job, session)) continue;
+        await linkJobSession(job);
+      } catch (error) {
+        console.error("PK3 queued job recovery deferred", item.name, error?.name || "unknown");
+      }
+    }
+  }
+
   async function startJobQueue() {
     if (activeJob || closing) return;
     const candidates = [];
     for (const entry of await files(jobRoot)) {
       if (!entry.isDirectory() || !validJobId(entry.name)) continue;
       const j = await readJson(path.join(jobRoot, entry.name, "job.json"));
-      if (j && j.id === entry.name && j.status === "queued")
-        candidates.push(j);
+      if (!validJobMetadata(j, entry.name, maxBytes) || j.status !== "queued") continue;
+      const session = await sessionForJob(j);
+      if (session?.jobId === j.id) candidates.push(j);
     }
     candidates.sort((a, b) => a.createdAt - b.createdAt);
     const job = candidates[0];
@@ -158,6 +330,8 @@ export function createPk3UploadService({
     const output = path.join(folder, "output.ppmap");
     const saved = { ...job, status: "running", stage: "Converting BSP and textures" };
     try {
+      if (!await sourceMatchesJob(input, job))
+        throw new Error("Worker input did not match its validated source manifest.");
       await atomicJson(path.join(folder, "job.json"), saved);
       const result = await runConverter({
         input, output, roomName: job.roomName,
@@ -197,21 +371,46 @@ export function createPk3UploadService({
 
   async function capacity(creatorId, requestedBytes, forConversion = false) {
     let pending = 0, count = 0;
-    for (const item of await files(uploadRoot)) {
+    const jobSourceSessions = new Set();
+    let jobs = 0, perCreator = 0, used = 0;
+    for (const item of await files(jobRoot)) {
       if (!item.isDirectory()) continue;
+      const stagedId = pendingJobId(item.name);
+      const id = stagedId || (validJobId(item.name) ? item.name : null);
+      if (!id) continue;
+      const directory = path.join(jobRoot, item.name);
+      const job = await readJson(path.join(directory, "job.json"));
+      const valid = validJobMetadata(job, id, maxBytes);
+      const inputInfo = await regularFileStat(path.join(directory, "input.pk3"));
+      jobs++;
+      if (valid && job.creatorId === creatorId) perCreator++;
+      else if (!valid && job && validCreatorId(job.creatorId) && job.creatorId === creatorId)
+        perCreator++;
+      if (valid) {
+        const session = await sessionForJob(job);
+        const key = jobSessionKey(job);
+        if (inputInfo) {
+          used += Math.max(job.bytes, inputInfo.size) +
+            (Number.isSafeInteger(job.outputBytes) && job.outputBytes > 0
+              ? Math.min(job.outputBytes, maxOutputBytes) : 0);
+          if (session && key) jobSourceSessions.add(key);
+        } else if (!session || !await regularFileStat(path.join(session.dir, "source.part"))) {
+          used += job.bytes;
+        }
+      } else if (inputInfo) {
+        used += inputInfo.size;
+      }
+    }
+
+    for (const item of await files(uploadRoot)) {
+      if (!item.isDirectory() || !validHash(item.name)) continue;
       const s = await readJson(path.join(uploadRoot, item.name, "session.json"));
-      if (s && !s.jobId && now() - s.updatedAt < DAY_MS) {
+      if (s && !s.jobId && now() - s.updatedAt < DAY_MS &&
+          !jobSourceSessions.has(item.name)) {
         pending += s.bytes; if (s.creatorId === creatorId) count++;
       }
     }
-    let jobs = 0, perCreator = 0, used = pending;
-    for (const item of await files(jobRoot)) {
-      if (!item.isDirectory()) continue;
-      const j = await readJson(path.join(jobRoot, item.name, "job.json"));
-      if (!j || now() - j.createdAt >= DAY_MS) continue;
-      jobs++; if (j.creatorId === creatorId) perCreator++;
-      used += Number(j.bytes || 0) + Number(j.outputBytes || 0);
-    }
+    used += pending;
     if ((!forConversion && count >= MAX_UPLOADS_PER_CREATOR) ||
         perCreator >= MAX_JOBS_PER_CREATOR ||
         jobs >= MAX_JOBS || used + requestedBytes > MAX_DISK_BYTES)
@@ -225,15 +424,42 @@ export function createPk3UploadService({
   }
   async function cleanup() {
     const cutoff = now() - DAY_MS;
-    for (const [base, manifest] of [[uploadRoot, "session.json"], [jobRoot, "job.json"]]) {
-      for (const item of await files(base)) {
-        if (!item.isDirectory() || locked.has(item.name) ||
-            item.name === activeJob) continue;
-        const dir = path.join(base, item.name);
-        const info = await readJson(path.join(dir, manifest));
-        if (!info || Number(info.updatedAt || info.finishedAt || info.createdAt) < cutoff)
+    const preservedSessions = new Set();
+    const jobEntries = await files(jobRoot);
+    for (const item of jobEntries) {
+      if (!item.isDirectory()) continue;
+      const id = pendingJobId(item.name) || (validJobId(item.name) ? item.name : null);
+      if (!id) continue;
+      const directory = path.join(jobRoot, item.name);
+      const job = await readJson(path.join(directory, "job.json"));
+      if (job && jobSessionKey(job) && await regularFileStat(path.join(directory, "input.pk3")))
+        preservedSessions.add(jobSessionKey(job));
+    }
+    for (const item of await files(uploadRoot)) {
+      if (!item.isDirectory() || !validHash(item.name) || locked.has(item.name)) continue;
+      const dir = path.join(uploadRoot, item.name);
+      const info = await readJson(path.join(dir, "session.json"));
+      if ((!info || !info.jobId) && preservedSessions.has(item.name)) continue;
+      if (!info || Number(info.updatedAt || info.createdAt) < cutoff)
+        await fs.rm(dir, { recursive: true, force: true });
+    }
+    for (const item of jobEntries) {
+      if (!item.isDirectory()) continue;
+      const pendingId = pendingJobId(item.name);
+      const id = pendingId || (validJobId(item.name) ? item.name : null);
+      if (!id || id === activeJob) continue;
+      const dir = path.join(jobRoot, item.name);
+      const info = await readJson(path.join(dir, "job.json"));
+      if (pendingId) {
+        const key = info && jobSessionKey(info);
+        if ((key && locked.has(key)) || await regularFileStat(path.join(dir, "input.pk3"))) continue;
+        if (!info || Number(info.updatedAt || info.createdAt) < cutoff)
           await fs.rm(dir, { recursive: true, force: true });
+        continue;
       }
+      if (!info && await regularFileStat(path.join(dir, "input.pk3"))) continue;
+      if (!info || Number(info.updatedAt || info.finishedAt || info.createdAt) < cutoff)
+        await fs.rm(dir, { recursive: true, force: true });
     }
   }
   async function init() {
@@ -243,6 +469,7 @@ export function createPk3UploadService({
       throw new Error("PK3 service data root must be a private directory.");
     await fs.mkdir(uploadRoot, { recursive: true, mode: 0o700 });
     await fs.mkdir(jobRoot, { recursive: true, mode: 0o700 });
+    await recoverJobs();
     // Jobs interrupted by a service restart may be replayed from the same
     // immutable hashed source, without accepting duplicate source uploads.
     for (const item of await files(jobRoot)) {
@@ -357,7 +584,7 @@ export function createPk3UploadService({
             return send(res, 201, statePublic(meta));
             });
           }
-          const state = await getSession(owner, hash, variantRoom, variantLevel);
+          let state = await getSession(owner, hash, variantRoom, variantLevel);
           if (!state) return send(res, 404, { error: "source_not_found" });
           if (req.method === "PUT" && !operation) {
             if (state.jobId) return send(res, 409, { error: "source_already_converted" });
@@ -395,7 +622,13 @@ export function createPk3UploadService({
           }
           if (req.method === "POST" && operation === "complete") {
             return await withAdmission(async () => {
-            if (state.jobId) return send(res, 202, { jobId: state.jobId });
+            await recoverJobs();
+            state = await getSession(owner, hash, variantRoom, variantLevel);
+            if (!state) return send(res, 404, { error: "source_not_found" });
+            if (state.jobId) {
+              setImmediate(() => void startJobQueue().catch(console.error));
+              return send(res, 202, { jobId: state.jobId });
+            }
             if (state.offset !== state.bytes) return send(res, 409,
               { error: "upload_incomplete", offset: state.offset });
             if (await digest(path.join(dir, "source.part")) !== hash)
@@ -403,18 +636,24 @@ export function createPk3UploadService({
             if (!await capacity(owner, 0, true))
               return send(res, 507, { error: "conversion_queue_full" });
             const id = randomUUID();
+            const pendingFolder = path.join(jobRoot, ".pending-" + id);
             const folder = path.join(jobRoot, id);
-            await fs.mkdir(folder, { mode: 0o700 });
-            await fs.rename(path.join(dir, "source.part"), path.join(folder, "input.pk3"));
             const jobMeta = {
               id, creatorId: owner, sourceHash: hash, bytes: state.bytes,
               roomName: state.roomName, levelName: state.levelName,
+              sessionKey: key,
               createdAt: now(), updatedAt: now(), status: "queued", stage: "Queued",
             };
-            await atomicJson(path.join(folder, "job.json"), jobMeta);
-            state.jobId = id;
-            state.updatedAt = now();
-            await atomicJson(path.join(dir, "session.json"), state);
+            await fs.mkdir(pendingFolder, { mode: 0o700 });
+            await syncDirectory(jobRoot);
+            await atomicJson(path.join(pendingFolder, "job.json"), jobMeta);
+            await fs.rename(path.join(dir, "source.part"), path.join(pendingFolder, "input.pk3"));
+            await syncDirectory(dir);
+            await syncDirectory(pendingFolder);
+            await fs.rename(pendingFolder, folder);
+            await syncDirectory(jobRoot);
+            if (!await linkJobSession(jobMeta))
+              throw new Error("Staged conversion no longer matches its upload session.");
             setImmediate(() => void startJobQueue().catch(console.error));
             return send(res, 202, { jobId: id });
             });

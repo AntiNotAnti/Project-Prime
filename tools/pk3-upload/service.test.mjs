@@ -230,6 +230,361 @@ test("one creator can convert two BSP variants from the same .pk3 independently"
   } finally { await env.cleanup(); }
 });
 
+test("restart promotes each durable staged-job crash state to the same job once", { timeout: 15000 }, async () => {
+  const phases = [
+    ["before input move", "before-input", "11111111-1111-4111-8111-111111111111"],
+    ["after input move", "after-input", "22222222-2222-4222-8222-222222222222"],
+    ["after final directory move", "after-final", "33333333-3333-4333-8333-333333333333"],
+    ["legacy input move before metadata", "legacy-no-metadata", "44444444-4444-4444-8444-444444444444"],
+  ];
+  for (const [label, phase, id] of phases) {
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "prime-pk3-crash-"));
+    const input = Buffer.from("durable recovery source for " + phase);
+    const hash = sum(input), roomName = "Q3_RECOVERY", levelName = "q3dm17";
+    const key = sessionKey(creator, hash, roomName, levelName);
+    const uploadDirectory = path.join(root, "uploads", key);
+    const jobRoot = path.join(root, "jobs");
+    const createdAt = Date.now();
+    const session = {
+      hash, creatorId: creator, bytes: input.length, offset: input.length,
+      roomName, levelName, createdAt, updatedAt: createdAt, jobId: null,
+    };
+    const stagedJob = {
+      id, creatorId: creator, sourceHash: hash, bytes: input.length,
+      roomName, levelName, sessionKey: key, createdAt, updatedAt: createdAt,
+      status: "queued", stage: "Queued",
+    };
+    await fs.mkdir(uploadDirectory, { recursive: true });
+    await fs.mkdir(jobRoot, { recursive: true });
+    await fs.writeFile(path.join(uploadDirectory, "session.json"), JSON.stringify(session));
+    if (phase === "before-input") {
+      await fs.writeFile(path.join(uploadDirectory, "source.part"), input);
+      const pending = path.join(jobRoot, ".pending-" + id);
+      await fs.mkdir(pending);
+      await fs.writeFile(path.join(pending, "job.json"), JSON.stringify(stagedJob));
+    } else if (phase === "after-input") {
+      const pending = path.join(jobRoot, ".pending-" + id);
+      await fs.mkdir(pending);
+      await fs.writeFile(path.join(pending, "job.json"), JSON.stringify(stagedJob));
+      await fs.writeFile(path.join(pending, "input.pk3"), input);
+    } else {
+      const finalDirectory = path.join(jobRoot, id);
+      await fs.mkdir(finalDirectory);
+      if (phase !== "legacy-no-metadata")
+        await fs.writeFile(path.join(finalDirectory, "job.json"), JSON.stringify(stagedJob));
+      await fs.writeFile(path.join(finalDirectory, "input.pk3"), input);
+    }
+
+    let invocations = 0;
+    const api = createPk3UploadService({
+      root, allowedOrigins: ["https://projectprime.gg"],
+      verifyTicket: async () => ({ creatorId: creator }),
+      runConverter: async ({ input: source, output }) => {
+        invocations++;
+        assert.deepEqual(await fs.readFile(source), input);
+        const bytes = Buffer.from("verified " + phase);
+        await fs.writeFile(output, bytes);
+        return { packageHash: sum(bytes), packageBytes: bytes.length,
+          contentHash: "c".repeat(64), mapId: "cccccccc-cccc-4ccc-cccc-cccccccccccc" };
+      },
+    });
+    try {
+      await api.init();
+      await new Promise(resolve => api.server.listen(0, "127.0.0.1", resolve));
+      const address = "http://127.0.0.1:" + api.server.address().port;
+      const finalDirectory = path.join(jobRoot, id);
+      let job;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        job = JSON.parse(await fs.readFile(path.join(finalDirectory, "job.json"), "utf8"));
+        if (job.status === "ready") break;
+        await new Promise(resolve => setTimeout(resolve, 10));
+      }
+      assert.equal(job.status, "ready", label);
+      assert.equal(job.id, id, label);
+      assert.equal(invocations, 1, label);
+      assert.deepEqual(await fs.readFile(path.join(finalDirectory, "input.pk3")), input, label);
+      const linkedSession = JSON.parse(await fs.readFile(path.join(uploadDirectory, "session.json"), "utf8"));
+      assert.equal(linkedSession.jobId, id, label);
+      const completed = await fetch(`${address}/v1/sources/${hash}/complete?roomName=${roomName}&levelName=${levelName}`, {
+        method: "POST", headers: { Authorization: bearer },
+      });
+      assert.equal(completed.status, 202, label);
+      assert.deepEqual(await completed.json(), { jobId: id }, label);
+      assert.equal(invocations, 1, label);
+    } finally {
+      await api.close();
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("staged-job metadata and source must match before restart promotion", { timeout: 10000 }, async () => {
+  const cases = [
+    ["owner", job => { job.creatorId = alternate; }],
+    ["source hash", job => { job.sourceHash = "f".repeat(64); }],
+    ["room variant", job => { job.roomName = "Q3_OTHER_ROOM"; }],
+    ["level variant", job => { job.levelName = "q3dm18"; }],
+    ["byte count", job => { job.bytes++; }],
+    ["source digest", (_job, bytes) => { bytes[0] ^= 0xff; }],
+  ];
+  for (let index = 0; index < cases.length; index++) {
+    const [label, alter] = cases[index];
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "prime-pk3-invalid-stage-"));
+    const input = Buffer.from("staged source validation " + label);
+    const hash = sum(input), roomName = "Q3_VALIDATE", levelName = "q3dm17";
+    const key = sessionKey(creator, hash, roomName, levelName);
+    const id = `${index + 4}4444444-4444-4444-8444-444444444444`;
+    const uploadDirectory = path.join(root, "uploads", key);
+    const pendingDirectory = path.join(root, "jobs", ".pending-" + id);
+    const createdAt = Date.now();
+    const session = {
+      hash, creatorId: creator, bytes: input.length, offset: input.length,
+      roomName, levelName, createdAt, updatedAt: createdAt, jobId: null,
+    };
+    const stagedJob = {
+      id, creatorId: creator, sourceHash: hash, bytes: input.length,
+      roomName, levelName, sessionKey: key, createdAt, updatedAt: createdAt,
+      status: "queued", stage: "Queued",
+    };
+    const stagedBytes = Buffer.from(input);
+    alter(stagedJob, stagedBytes);
+    await fs.mkdir(uploadDirectory, { recursive: true });
+    await fs.mkdir(pendingDirectory, { recursive: true });
+    await fs.writeFile(path.join(uploadDirectory, "session.json"), JSON.stringify(session));
+    await fs.writeFile(path.join(pendingDirectory, "job.json"), JSON.stringify(stagedJob));
+    await fs.writeFile(path.join(pendingDirectory, "input.pk3"), stagedBytes);
+
+    let invocations = 0;
+    const api = createPk3UploadService({
+      root, allowedOrigins: ["https://projectprime.gg"],
+      verifyTicket: async () => ({ creatorId: creator }),
+      runConverter: async () => { invocations++; throw new Error("Invalid staged input was queued."); },
+    });
+    try {
+      await api.init();
+      await new Promise(resolve => api.server.listen(0, "127.0.0.1", resolve));
+      await new Promise(resolve => setTimeout(resolve, 20));
+      const unchangedSession = JSON.parse(await fs.readFile(path.join(uploadDirectory, "session.json"), "utf8"));
+      assert.equal(unchangedSession.jobId, null, label);
+      assert.equal(await fs.stat(path.join(root, "jobs", id)).then(() => true, () => false), false, label);
+      assert.equal(await fs.stat(pendingDirectory).then(() => true, () => false), true, label);
+      assert.deepEqual(await fs.readFile(path.join(pendingDirectory, "input.pk3")), stagedBytes, label);
+      assert.equal(invocations, 0, label);
+    } finally {
+      await api.close();
+      await fs.rm(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("ambiguous legacy inputs stay intact and count toward disk quota", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "prime-pk3-ambiguous-legacy-"));
+  const jobRoot = path.join(root, "jobs");
+  const oldInput = Buffer.from("legacy source shared by two upload variants");
+  const oldHash = sum(oldInput), oldId = "12121212-1212-4121-8121-121212121212";
+  const createdAt = Date.now();
+  await fs.mkdir(jobRoot, { recursive: true });
+  const legacyDirectory = path.join(jobRoot, oldId);
+  await fs.mkdir(legacyDirectory);
+  await fs.writeFile(path.join(legacyDirectory, "input.pk3"), oldInput);
+  const legacySessions = [];
+  for (const roomName of ["Q3_LEGACY_A", "Q3_LEGACY_B"]) {
+    const key = sessionKey(creator, oldHash, roomName, "q3dm17");
+    const directory = path.join(root, "uploads", key);
+    await fs.mkdir(directory, { recursive: true });
+    await fs.writeFile(path.join(directory, "session.json"), JSON.stringify({
+      hash: oldHash, creatorId: creator, bytes: oldInput.length, offset: oldInput.length,
+      roomName, levelName: "q3dm17", createdAt, updatedAt: createdAt, jobId: null,
+    }));
+    legacySessions.push(path.join(directory, "session.json"));
+  }
+
+  const currentInput = Buffer.from("source that must remain if disk quota rejects it");
+  const currentHash = sum(currentInput), currentRoom = "Q3_QUOTA";
+  const currentKey = sessionKey(creator, currentHash, currentRoom, "");
+  const currentDirectory = path.join(root, "uploads", currentKey);
+  await fs.mkdir(currentDirectory, { recursive: true });
+  await fs.writeFile(path.join(currentDirectory, "source.part"), currentInput);
+  await fs.writeFile(path.join(currentDirectory, "session.json"), JSON.stringify({
+    hash: currentHash, creatorId: creator, bytes: currentInput.length,
+    offset: currentInput.length, roomName: currentRoom, levelName: null,
+    createdAt, updatedAt: createdAt, jobId: null,
+  }));
+
+  const sparseBytes = 600 * 1024 * 1024;
+  const orphanIds = [
+    "13131313-1313-4131-8131-131313131313",
+    "14141414-1414-4141-8141-141414141414",
+    "15151515-1515-4151-8151-151515151515",
+    "16161616-1616-4161-8161-161616161616",
+  ];
+  const orphanInputs = [];
+  for (const id of orphanIds) {
+    const directory = path.join(jobRoot, id);
+    await fs.mkdir(directory);
+    const input = path.join(directory, "input.pk3");
+    const handle = await fs.open(input, "w", 0o600);
+    await handle.truncate(sparseBytes);
+    await handle.close();
+    orphanInputs.push(input);
+  }
+
+  let invocations = 0;
+  const api = createPk3UploadService({
+    root, allowedOrigins: ["https://projectprime.gg"],
+    verifyTicket: async () => ({ creatorId: creator }),
+    runConverter: async () => { invocations++; throw new Error("Unlinked legacy input was queued."); },
+  });
+  try {
+    await api.init();
+    await new Promise(resolve => api.server.listen(0, "127.0.0.1", resolve));
+    const address = "http://127.0.0.1:" + api.server.address().port;
+    const response = await fetch(`${address}/v1/sources/${currentHash}/complete?roomName=${currentRoom}`, {
+      method: "POST", headers: { Authorization: bearer },
+    });
+    assert.equal(response.status, 507);
+    assert.deepEqual(await fs.readFile(path.join(currentDirectory, "source.part")), currentInput);
+    assert.equal(await fs.stat(path.join(legacyDirectory, "job.json")).then(() => true, () => false), false);
+    assert.deepEqual(await fs.readFile(path.join(legacyDirectory, "input.pk3")), oldInput);
+    for (const file of legacySessions)
+      assert.equal(JSON.parse(await fs.readFile(file, "utf8")).jobId, null);
+    for (const input of orphanInputs) assert.equal((await fs.stat(input)).size, sparseBytes);
+    assert.equal(invocations, 0);
+  } finally {
+    await api.close();
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("pending conversions remain in creator queue quotas", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "prime-pk3-pending-quota-"));
+  const input = Buffer.from("source waiting for conversion quota");
+  const hash = sum(input), roomName = "Q3_QUOTA", levelName = null;
+  const key = sessionKey(creator, hash, roomName, "");
+  const uploadDirectory = path.join(root, "uploads", key);
+  const jobRoot = path.join(root, "jobs");
+  const createdAt = Date.now();
+  const session = {
+    hash, creatorId: creator, bytes: input.length, offset: input.length,
+    roomName, levelName, createdAt, updatedAt: createdAt, jobId: null,
+  };
+  await fs.mkdir(uploadDirectory, { recursive: true });
+  await fs.mkdir(jobRoot, { recursive: true });
+  await fs.writeFile(path.join(uploadDirectory, "source.part"), input);
+  await fs.writeFile(path.join(uploadDirectory, "session.json"), JSON.stringify(session));
+  const pendingInputs = [];
+  for (const [index, id] of [
+    "55555555-5555-4555-8555-555555555555",
+    "66666666-6666-4666-8666-666666666666",
+  ].entries()) {
+    const bytes = Buffer.from("reserved pending source " + index);
+    const sourceHash = sum(bytes), name = `Q3_PENDING_${index}`;
+    const sessionId = sessionKey(creator, sourceHash, name, "");
+    const directory = path.join(jobRoot, ".pending-" + id);
+    await fs.mkdir(directory);
+    await fs.writeFile(path.join(directory, "job.json"), JSON.stringify({
+      id, creatorId: creator, sourceHash, bytes: bytes.length,
+      roomName: name, levelName: null, sessionKey: sessionId,
+      createdAt, updatedAt: createdAt, status: "queued", stage: "Queued",
+    }));
+    await fs.writeFile(path.join(directory, "input.pk3"), bytes);
+    pendingInputs.push([path.join(directory, "input.pk3"), bytes]);
+  }
+  let invocations = 0;
+  const api = createPk3UploadService({
+    root, allowedOrigins: ["https://projectprime.gg"],
+    verifyTicket: async () => ({ creatorId: creator }),
+    runConverter: async () => { invocations++; throw new Error("Unlinked pending job was queued."); },
+  });
+  try {
+    await api.init();
+    await new Promise(resolve => api.server.listen(0, "127.0.0.1", resolve));
+    const address = "http://127.0.0.1:" + api.server.address().port;
+    const response = await fetch(`${address}/v1/sources/${hash}/complete?roomName=${roomName}`, {
+      method: "POST", headers: { Authorization: bearer },
+    });
+    assert.equal(response.status, 507);
+    assert.deepEqual(await fs.readFile(path.join(uploadDirectory, "source.part")), input);
+    assert.equal(JSON.parse(await fs.readFile(path.join(uploadDirectory, "session.json"), "utf8")).jobId, null);
+    for (const [file, bytes] of pendingInputs) assert.deepEqual(await fs.readFile(file), bytes);
+    assert.equal(invocations, 0);
+  } finally {
+    await api.close();
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
+test("pending source bytes count toward the shared disk quota", async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), "prime-pk3-pending-disk-quota-"));
+  const input = Buffer.from("source reserved against pending disk usage");
+  const hash = sum(input), roomName = "Q3_DISK", key = sessionKey(creator, hash, roomName, "");
+  const uploadDirectory = path.join(root, "uploads", key);
+  const jobRoot = path.join(root, "jobs");
+  const createdAt = Date.now();
+  await fs.mkdir(uploadDirectory, { recursive: true });
+  await fs.mkdir(jobRoot, { recursive: true });
+  await fs.writeFile(path.join(uploadDirectory, "source.part"), input);
+  await fs.writeFile(path.join(uploadDirectory, "session.json"), JSON.stringify({
+    hash, creatorId: creator, bytes: input.length, offset: input.length,
+    roomName, levelName: null, createdAt, updatedAt: createdAt, jobId: null,
+  }));
+
+  const owners = [
+    "hunter:10000000-0000-4000-8000-000000000001",
+    "hunter:20000000-0000-4000-8000-000000000002",
+    "hunter:30000000-0000-4000-8000-000000000003",
+    "hunter:40000000-0000-4000-8000-000000000004",
+  ];
+  const ids = [
+    "77777777-7777-4777-8777-777777777777",
+    "88888888-8888-4888-8888-888888888888",
+    "99999999-9999-4999-8999-999999999999",
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  ];
+  const sparseBytes = 600 * 1024 * 1024;
+  const stagedInputs = [];
+  for (let index = 0; index < owners.length; index++) {
+    const owner = owners[index], id = ids[index];
+    const sourceHash = sum(Buffer.from("pending reservation " + index));
+    const name = `Q3_DISK_${index}`;
+    const directory = path.join(jobRoot, ".pending-" + id);
+    await fs.mkdir(directory);
+    await fs.writeFile(path.join(directory, "job.json"), JSON.stringify({
+      id, creatorId: owner, sourceHash, bytes: 1, roomName: name,
+      levelName: null, sessionKey: sessionKey(owner, sourceHash, name, ""),
+      createdAt, updatedAt: createdAt, status: "queued", stage: "Queued",
+    }));
+    const source = path.join(directory, "input.pk3");
+    const handle = await fs.open(source, "w", 0o600);
+    await handle.truncate(sparseBytes);
+    await handle.close();
+    stagedInputs.push(source);
+  }
+
+  let invocations = 0;
+  const api = createPk3UploadService({
+    root, allowedOrigins: ["https://projectprime.gg"],
+    verifyTicket: async () => ({ creatorId: creator }),
+    runConverter: async () => { invocations++; throw new Error("Unlinked pending job was queued."); },
+  });
+  try {
+    await api.init();
+    await new Promise(resolve => api.server.listen(0, "127.0.0.1", resolve));
+    const address = "http://127.0.0.1:" + api.server.address().port;
+    const response = await fetch(`${address}/v1/sources/${hash}/complete?roomName=${roomName}`, {
+      method: "POST", headers: { Authorization: bearer },
+    });
+    assert.equal(response.status, 507);
+    assert.deepEqual(await fs.readFile(path.join(uploadDirectory, "source.part")), input);
+    for (const source of stagedInputs)
+      assert.equal((await fs.stat(source)).size, sparseBytes);
+    assert.equal(invocations, 0);
+  } finally {
+    await api.close();
+    await fs.rm(root, { recursive: true, force: true });
+  }
+});
+
 test("shutdown aborts active conversion and preserves its immutable input for restart", { timeout: 10000 }, async () => {
   let started;
   const running = new Promise(resolve => { started = resolve; });
