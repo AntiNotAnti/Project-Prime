@@ -157,6 +157,9 @@ jobs:
       - name: telemetry collector and report checks
         run: python3 -m unittest discover -s tools/telemetry -p 'test_*.py'
 
+      - name: isolated map load campaign driver contracts
+        run: python3 tools/map-load-check/test_run.py
+
       - name: native campaign evidence and failure receipts
         run: python3 -m unittest discover -s tools/native-render-check -p 'test_*.py' -v
 
@@ -317,6 +320,10 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+      - name: macOS app signing and resource-seal regression
+        if: startsWith(matrix.rid, 'osx-')
+        shell: bash
+        run: bash tools/test-macos-tools.sh
       - name: build pinned RmlUi GL2 native library for the runner architecture
         shell: bash
         run: |
@@ -829,7 +836,7 @@ jobs:
         run: dotnet run --project tools/map-editor-check -c Release
 
       - name: scoped collision query lifetime and deterministic results
-        run: dotnet run --project tools/collision-query-check -c Release -- --compare docs/audits/engineering-consolidation/collision-query-baseline.txt
+        run: dotnet run --project tools/collision-query-check -c Release -- --compare tools/collision-query-check/fixtures/collision-query-baseline.txt
 
       - name: bounded encoder capabilities and probe reader retirement
         run: dotnet run --project tools/encoder-capability-check -c Release
@@ -981,6 +988,8 @@ jobs:
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -gamepadcheck
       - name: deterministic pointer and stylus checks
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -pointercheck
+      - name: map load receipt readiness and failure contracts
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -maploadreceiptcheck
       - name: native audio ownership, failure fallback and headless lifecycle
         run: dotnet run --project tools/audio-check -c Release
 
@@ -1071,7 +1080,7 @@ jobs:
         run: |
           dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/custom-weapons-check -c Release
-          dotnet run --project tools/custom-weapons-baseline/snapshot.csproj -c Release -- docs/custom-weapons/evidence/CW-00-native-tables.json
+          dotnet run --project tools/custom-weapons-baseline/snapshot.csproj -c Release -- tools/custom-weapons-baseline/fixtures/CW-00-native-tables.json
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --match-rotations
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --display-pose-integration
