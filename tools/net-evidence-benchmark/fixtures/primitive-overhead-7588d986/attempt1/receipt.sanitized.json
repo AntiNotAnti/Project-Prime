@@ -1,0 +1,268 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt1/receipt.json",
+    "sha256": "9283af1cdb8d86aff473d24535d731bbb0d94078174e36c4d47587cd786d8a48",
+    "bytes": 16644
+  },
+  "policy": "Existing portable collector receipt retained; workspace prefixes sanitized. Scope/source/digests/counters unchanged.",
+  "payload": {
+    "schema": 1,
+    "success": false,
+    "scope": "constructed primitive overhead only; no native/admission/payment/FPS coverage",
+    "utc_started": "2026-10-14T11:18:05.544136+00:00",
+    "args": {
+      "repo": "$SOURCE",
+      "runtime": "$QUALIFIED_RUNTIME",
+      "donor": "$DEPENDENCIES",
+      "sdk": "$DOTNET",
+      "out": "$EVIDENCE",
+      "qualification_receipt": "$QUALIFICATION_RECEIPT",
+      "build_receipt": "$BUILD_RECEIPT",
+      "head": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "benchmark_head": "1b020d09130171c567ed766c468cf9b9525f80f0",
+      "client_sha": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "client_mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+      "fixture_sha": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "fixture_mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee",
+      "execution_slot_released": true
+    },
+    "processes": [
+      {
+        "command": [
+          "$DOTNET",
+          "build",
+          "$EVIDENCE/external-entry-source/benchmark.csproj",
+          "-c",
+          "Release",
+          "-o",
+          "$EVIDENCE/runtime",
+          "--nologo",
+          "-p:UseSharedCompilation=false",
+          "-nodeReuse:false"
+        ],
+        "cwd": "$EVIDENCE/external-entry-source",
+        "pid": 53998,
+        "owned_pgid": 53998,
+        "returncode": 0,
+        "timeout": false,
+        "interrupted": false,
+        "leftover_group_after_parent_exit": false,
+        "owned_group_closed": true,
+        "wall_seconds": 1.2372202079999999,
+        "children_cpu_seconds": 1.321588,
+        "log": "$EVIDENCE/external-entry-build.log"
+      },
+      {
+        "command": [
+          "$DOTNET",
+          "$EVIDENCE/runtime/nettest.dll",
+          "$EVIDENCE/results.json",
+          "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+          "5e534c23-57c6-4026-a55a-f8233293a732",
+          "$QUALIFIED_RUNTIME/nettest.dll",
+          "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+          "0151d5f2-81b8-4566-96e3-aadf793388ee"
+        ],
+        "cwd": "$EVIDENCE/runtime",
+        "pid": 54005,
+        "owned_pgid": 54005,
+        "returncode": -6,
+        "timeout": false,
+        "interrupted": false,
+        "leftover_group_after_parent_exit": false,
+        "owned_group_closed": true,
+        "wall_seconds": 1.425113542,
+        "children_cpu_seconds": 1.3918570000000003,
+        "log": "$EVIDENCE/primitive-raw.log"
+      }
+    ],
+    "logs": [
+      {
+        "kind": "sanitized_text_derivative",
+        "original_sha256": "0c2b7b1028f2d6556d267ff4b7a3cdb4b318c33892f20f56361bad867b2b0fc4",
+        "original_bytes": 1459,
+        "derivative": "external-entry-build.sanitized.log",
+        "derivative_sha256": "31ecc00e40f15f3c47f530a8302f295c60fc43f27c3817ae28fa38c40fcbb244",
+        "policy": "input path placeholders and external host paths removed; content otherwise retained"
+      },
+      {
+        "kind": "sanitized_text_derivative",
+        "original_sha256": "3ef1edd9c63fab428418c468f98a0171c9b8c3da42f921a4d14917f73793fc8d",
+        "original_bytes": 33245,
+        "derivative": "primitive-raw.sanitized.log",
+        "derivative_sha256": "3ef1edd9c63fab428418c468f98a0171c9b8c3da42f921a4d14917f73793fc8d",
+        "policy": "input path placeholders and external host paths removed; content otherwise retained"
+      }
+    ],
+    "source_before": {
+      "head": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+      "status_porcelain": ""
+    },
+    "benchmark_source_before": {
+      "head": "1b020d09130171c567ed766c468cf9b9525f80f0",
+      "tree": "e0fc65802a887ea066d978d547623b40ad518357",
+      "status_porcelain": ""
+    },
+    "benchmark_source_digests_before": {
+      "primitives/Program.cs": "f4f79118ebc275eb50d27ae76530db816208d44f068be704f49fbd3203406ffb",
+      "run_primitives.py": "43a91a357aed3fbed2d54d692126cf57e9992287b9e2b0b5156f335cfbd33144",
+      "run.py": "eb8e1c29f5ce7792e73b82607c8e9cee33b383c3b0b0b8d2744d363ec70e300d"
+    },
+    "qualification": {
+      "status": "PASS_AVAILABLE_SOURCE_NATIVE_QUALIFICATION",
+      "source": {
+        "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+        "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+        "dirty": ""
+      },
+      "actual_client": {
+        "sourceQualifiedPhysicalClient": true,
+        "path": "$QUALIFIED_RUNTIME/ProjectPrime.dll",
+        "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+        "buildId": "local+7588d98689899c9868e8a0105b78653c7a1db50d",
+        "protocol": 56,
+        "replicaCheckpoint": 13,
+        "worldCheckpoint": 10,
+        "timedGrantPacket": 77,
+        "timedGrantBootstrapPacket": 79,
+        "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+      },
+      "full_fixture": {
+        "file": "nettest.dll",
+        "sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+        "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+      }
+    },
+    "qualification_receipt_sha256": "6c7e0d1d6207058e02d8b27d74eebd6444ce7b140d66358affc250a63da97757",
+    "build_receipt_sha256": "f2c5c190f4d4c3913ac264683233ad6bdc3d61eb10e244a9e5f45afe4ea73003",
+    "physical_inputs_before": {
+      "$QUALIFIED_RUNTIME/ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "$QUALIFIED_RUNTIME/nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "$DEPENDENCIES/Avalonia.Base.dll": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+      "$DEPENDENCIES/Avalonia.Controls.dll": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+      "$DEPENDENCIES/Avalonia.DesignerSupport.dll": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+      "$DEPENDENCIES/Avalonia.Desktop.dll": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+      "$DEPENDENCIES/Avalonia.Dialogs.dll": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+      "$DEPENDENCIES/Avalonia.Fonts.Inter.dll": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+      "$DEPENDENCIES/Avalonia.FreeDesktop.AtSpi.dll": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+      "$DEPENDENCIES/Avalonia.FreeDesktop.dll": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+      "$DEPENDENCIES/Avalonia.HarfBuzz.dll": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+      "$DEPENDENCIES/Avalonia.Headless.dll": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+      "$DEPENDENCIES/Avalonia.Markup.Xaml.dll": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+      "$DEPENDENCIES/Avalonia.Markup.dll": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+      "$DEPENDENCIES/Avalonia.Metal.dll": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+      "$DEPENDENCIES/Avalonia.MicroCom.dll": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+      "$DEPENDENCIES/Avalonia.Native.dll": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+      "$DEPENDENCIES/Avalonia.OpenGL.dll": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+      "$DEPENDENCIES/Avalonia.Remote.Protocol.dll": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+      "$DEPENDENCIES/Avalonia.Skia.dll": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+      "$DEPENDENCIES/Avalonia.Themes.Fluent.dll": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+      "$DEPENDENCIES/Avalonia.Vulkan.dll": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+      "$DEPENDENCIES/Avalonia.Win32.Automation.dll": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+      "$DEPENDENCIES/Avalonia.Win32.dll": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+      "$DEPENDENCIES/Avalonia.X11.dll": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+      "$DEPENDENCIES/Avalonia.dll": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+      "$DEPENDENCIES/CommunityToolkit.HighPerformance.dll": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+      "$DEPENDENCIES/HarfBuzzSharp.dll": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+      "$DEPENDENCIES/Ktx2.NET.dll": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+      "$DEPENDENCIES/MicroCom.Runtime.dll": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+      "$DEPENDENCIES/MphRead.Protocol.Generator.dll": "da5c675754c258ccf1ea4cbcabb5c1ca472da8bc910f2afa3ef6f55373dcce3a",
+      "$DEPENDENCIES/NcsfPlay.dll": "003a435aa8a89de856cb0660f184bf4ca1c3e9edf3af1bd5a517c9e7addbc3e1",
+      "$DEPENDENCIES/OpenTK.Audio.OpenAL.dll": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+      "$DEPENDENCIES/OpenTK.Compute.dll": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+      "$DEPENDENCIES/OpenTK.Core.dll": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+      "$DEPENDENCIES/OpenTK.Graphics.dll": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+      "$DEPENDENCIES/OpenTK.Input.dll": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+      "$DEPENDENCIES/OpenTK.Mathematics.dll": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+      "$DEPENDENCIES/OpenTK.Windowing.Common.dll": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+      "$DEPENDENCIES/OpenTK.Windowing.Desktop.dll": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+      "$DEPENDENCIES/OpenTK.Windowing.GraphicsLibraryFramework.dll": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+      "$DEPENDENCIES/ReFuel.StbImage.dll": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+      "$DEPENDENCIES/SkiaSharp.dll": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+      "$DEPENDENCIES/SoundFlow.dll": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+      "$DEPENDENCIES/System.IO.Hashing.dll": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+      "$DEPENDENCIES/Tmds.DBus.Protocol.dll": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a"
+    },
+    "thin_entry_source_sha256": "f4f79118ebc275eb50d27ae76530db816208d44f068be704f49fbd3203406ffb",
+    "launcher_sources": [
+      {
+        "file": "run_primitives.py",
+        "sha256": "43a91a357aed3fbed2d54d692126cf57e9992287b9e2b0b5156f335cfbd33144"
+      },
+      {
+        "file": "run.py",
+        "sha256": "eb8e1c29f5ce7792e73b82607c8e9cee33b383c3b0b0b8d2744d363ec70e300d"
+      }
+    ],
+    "error": "RuntimeError: Owned process failed or did not close normally: primitive-raw.log",
+    "source_after": {
+      "head": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+      "status_porcelain": ""
+    },
+    "benchmark_source_after": {
+      "head": "1b020d09130171c567ed766c468cf9b9525f80f0",
+      "tree": "e0fc65802a887ea066d978d547623b40ad518357",
+      "status_porcelain": ""
+    },
+    "benchmark_source_digests_after": {
+      "primitives/Program.cs": "f4f79118ebc275eb50d27ae76530db816208d44f068be704f49fbd3203406ffb",
+      "run_primitives.py": "43a91a357aed3fbed2d54d692126cf57e9992287b9e2b0b5156f335cfbd33144",
+      "run.py": "eb8e1c29f5ce7792e73b82607c8e9cee33b383c3b0b0b8d2744d363ec70e300d"
+    },
+    "physical_inputs_after": {
+      "$QUALIFIED_RUNTIME/ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "$QUALIFIED_RUNTIME/nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "$DEPENDENCIES/Avalonia.Base.dll": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+      "$DEPENDENCIES/Avalonia.Controls.dll": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+      "$DEPENDENCIES/Avalonia.DesignerSupport.dll": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+      "$DEPENDENCIES/Avalonia.Desktop.dll": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+      "$DEPENDENCIES/Avalonia.Dialogs.dll": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+      "$DEPENDENCIES/Avalonia.Fonts.Inter.dll": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+      "$DEPENDENCIES/Avalonia.FreeDesktop.AtSpi.dll": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+      "$DEPENDENCIES/Avalonia.FreeDesktop.dll": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+      "$DEPENDENCIES/Avalonia.HarfBuzz.dll": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+      "$DEPENDENCIES/Avalonia.Headless.dll": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+      "$DEPENDENCIES/Avalonia.Markup.Xaml.dll": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+      "$DEPENDENCIES/Avalonia.Markup.dll": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+      "$DEPENDENCIES/Avalonia.Metal.dll": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+      "$DEPENDENCIES/Avalonia.MicroCom.dll": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+      "$DEPENDENCIES/Avalonia.Native.dll": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+      "$DEPENDENCIES/Avalonia.OpenGL.dll": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+      "$DEPENDENCIES/Avalonia.Remote.Protocol.dll": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+      "$DEPENDENCIES/Avalonia.Skia.dll": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+      "$DEPENDENCIES/Avalonia.Themes.Fluent.dll": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+      "$DEPENDENCIES/Avalonia.Vulkan.dll": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+      "$DEPENDENCIES/Avalonia.Win32.Automation.dll": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+      "$DEPENDENCIES/Avalonia.Win32.dll": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+      "$DEPENDENCIES/Avalonia.X11.dll": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+      "$DEPENDENCIES/Avalonia.dll": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+      "$DEPENDENCIES/CommunityToolkit.HighPerformance.dll": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+      "$DEPENDENCIES/HarfBuzzSharp.dll": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+      "$DEPENDENCIES/Ktx2.NET.dll": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+      "$DEPENDENCIES/MicroCom.Runtime.dll": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+      "$DEPENDENCIES/MphRead.Protocol.Generator.dll": "da5c675754c258ccf1ea4cbcabb5c1ca472da8bc910f2afa3ef6f55373dcce3a",
+      "$DEPENDENCIES/NcsfPlay.dll": "003a435aa8a89de856cb0660f184bf4ca1c3e9edf3af1bd5a517c9e7addbc3e1",
+      "$DEPENDENCIES/OpenTK.Audio.OpenAL.dll": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+      "$DEPENDENCIES/OpenTK.Compute.dll": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+      "$DEPENDENCIES/OpenTK.Core.dll": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+      "$DEPENDENCIES/OpenTK.Graphics.dll": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+      "$DEPENDENCIES/OpenTK.Input.dll": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+      "$DEPENDENCIES/OpenTK.Mathematics.dll": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+      "$DEPENDENCIES/OpenTK.Windowing.Common.dll": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+      "$DEPENDENCIES/OpenTK.Windowing.Desktop.dll": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+      "$DEPENDENCIES/OpenTK.Windowing.GraphicsLibraryFramework.dll": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+      "$DEPENDENCIES/ReFuel.StbImage.dll": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+      "$DEPENDENCIES/SkiaSharp.dll": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+      "$DEPENDENCIES/SoundFlow.dll": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+      "$DEPENDENCIES/System.IO.Hashing.dll": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+      "$DEPENDENCIES/Tmds.DBus.Protocol.dll": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a"
+    },
+    "all_owned_groups_closed": true,
+    "utc_ended": "2026-10-14T11:18:08.420870+00:00"
+  }
+}

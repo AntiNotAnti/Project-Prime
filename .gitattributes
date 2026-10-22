@@ -7,6 +7,9 @@ docs/performance/*.json linguist-generated=true
 # conversion invalidates hashes before the Windows verifier can inspect it.
 docs/engineering-next/gl-evidence/**/*.json text eol=lf
 docs/engineering-next/gl-evidence/**/*.log text eol=lf
+# The same historic evidence is now retained beside the CI harness.
+tools/native-render-check/fixtures/gl-evidence/**/*.json text eol=lf
+tools/native-render-check/fixtures/gl-evidence/**/*.log text eol=lf
 
 # Exact collision-result golden rows use LF on every CI checkout.
 docs/audits/engineering-consolidation/collision-query-baseline.txt text eol=lf

@@ -1,0 +1,790 @@
+{
+  "schema": 1,
+  "room": "MP3 PROVING GROUND",
+  "cap": -1,
+  "shadows": "High",
+  "textureQuality": "Automatic",
+  "lighting": true,
+  "resolutionScale": 100,
+  "vendor": "Apple",
+  "renderer": "Apple M4 Pro",
+  "glVersion": "2.1 Metal - 91.7",
+  "effectiveCap": -1,
+  "softwareFrequency": 0,
+  "vsync": "Off",
+  "assemblyMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+  "framebuffer": [
+    1920,
+    1080
+  ],
+  "renderSize": [
+    1920,
+    1080
+  ],
+  "initialWindow": {
+    "state": "Normal",
+    "visible": false,
+    "focused": false,
+    "framebuffer": [
+      1920,
+      1080
+    ],
+    "renderSize": [
+      1920,
+      1080
+    ]
+  },
+  "finalWindow": {
+    "state": "Normal",
+    "visible": true,
+    "focused": true,
+    "framebuffer": [
+      1920,
+      1080
+    ],
+    "renderSize": [
+      1920,
+      1080
+    ]
+  },
+  "captureKillFeedLifetimeStabilized": true,
+  "focusTransitions": 1,
+  "visibilityTransitions": 1,
+  "windowStateTransitions": 0,
+  "wallSeconds": 7.6670005,
+  "measurementSeconds": 5.5185285,
+  "simulationFrames": 1440,
+  "samples": 1200,
+  "meanCompletedFrameFps": 217.8627205966709,
+  "frameIntervalP50Ms": 3.2757,
+  "frameIntervalP95Ms": 6.6322,
+  "frameIntervalP99Ms": 8.9535,
+  "onePercentLowEstimateFps": 111.68816663874462,
+  "pointOnePercentLowEstimateFps": 4.199870140015271,
+  "allocatedBytes": 231350208,
+  "gcCollections": [
+    8,
+    3,
+    2
+  ],
+  "managedBytes": 230895904,
+  "workingSetBytes": 709427200,
+  "simulationHz": 0,
+  "droppedSimulationSteps": 0,
+  "stalls": 0,
+  "captures": [
+    {
+      "index": 0,
+      "simulationFrame": 240,
+      "camera": "(6.700334, 1.4705094, -16.175806)",
+      "width": 1920,
+      "height": 1080,
+      "worldDepth": {
+        "width": 1920,
+        "height": 1080,
+        "format": "native-endian-float32",
+        "byteLength": 8294400,
+        "sha256": "AED06F1FA437CB19E9C80C82CDDF5CCCE1D92602758113830A7EFAE75D35D23A",
+        "minimum": 0.90375423,
+        "maximum": 0.99681437,
+        "coveredPixels": 2073600
+      },
+      "shadow": {
+        "ready": true,
+        "size": 2048,
+        "depthTexture": 661,
+        "lightSpaceRoomDraws": 12600,
+        "depthSha256": "5CA20F4604CB91A06105920D69EAE895043D0565BC9A26DE7FBC0FF40A9F5187",
+        "minimumDepth": 0.29574713,
+        "maximumDepth": 1
+      },
+      "pickups": [
+        {
+          "type": "HealthSmall",
+          "position": "(-9.285889, 7.252051, -10.230469)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "type": "HealthBig",
+          "position": "(7.581787, 0.3851074, -8.375)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "HealthSmall",
+          "position": "(5.09375, 7.252051, 1.7250977)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileBig",
+          "position": "(-8.060791, 7.252051, -2.6557617)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-3.842041, 0.40024412, -19.03955)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-7.9665527, 7.243506, 23.263428)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(3.0073242, 7.243506, -25.77295)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "Magmaul",
+          "position": "(-7.0546875, 0.65, -11.199463)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "HealthSmall",
+          "position": "(-2.069336, 0.65, 18.273193)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "simulationFrame": 540,
+      "camera": "(7.6495843, 1.4324114, -0.46929434)",
+      "width": 1920,
+      "height": 1080,
+      "worldDepth": {
+        "width": 1920,
+        "height": 1080,
+        "format": "native-endian-float32",
+        "byteLength": 8294400,
+        "sha256": "44AF17A3AD31C536CC32CB99491DB1C80EF010E2DE464BBFA0BDBA56469C00F8",
+        "minimum": 0.3690182,
+        "maximum": 0.9971946,
+        "coveredPixels": 2073600
+      },
+      "shadow": {
+        "ready": true,
+        "size": 2048,
+        "depthTexture": 661,
+        "lightSpaceRoomDraws": 28854,
+        "depthSha256": null,
+        "minimumDepth": null,
+        "maximumDepth": null
+      },
+      "pickups": [
+        {
+          "type": "HealthSmall",
+          "position": "(-9.285889, 7.252051, -10.230469)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "HealthSmall",
+          "position": "(5.09375, 7.252051, 1.7250977)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileBig",
+          "position": "(-8.060791, 7.252051, -2.6557617)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-3.842041, 0.40024412, -19.03955)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-7.9665527, 7.243506, 23.263428)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "Magmaul",
+          "position": "(-7.0546875, 0.65, -11.199463)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "HealthSmall",
+          "position": "(-2.069336, 0.65, 18.273193)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileSmall",
+          "position": "(0.92601514, 7.4498534, -25.899902)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileSmall",
+          "position": "(2.436949, 0.85, -24.159746)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "AffinityWeapon",
+          "position": "(-2.057129, 0.65, 12.637451)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "simulationFrame": 840,
+      "camera": "(2.4573472, 1.4816976, -10.666859)",
+      "width": 1920,
+      "height": 1080,
+      "worldDepth": {
+        "width": 1920,
+        "height": 1080,
+        "format": "native-endian-float32",
+        "byteLength": 8294400,
+        "sha256": "F36F92D64721B77AC86723F6287B8652F198CDF08382C9BDD5F9704D68661F1F",
+        "minimum": 0.38633135,
+        "maximum": 0.9963602,
+        "coveredPixels": 2073600
+      },
+      "shadow": {
+        "ready": true,
+        "size": 2048,
+        "depthTexture": 661,
+        "lightSpaceRoomDraws": 45108,
+        "depthSha256": null,
+        "minimumDepth": null,
+        "maximumDepth": null
+      },
+      "pickups": [
+        {
+          "type": "HealthSmall",
+          "position": "(-9.285889, 7.252051, -10.230469)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "HealthSmall",
+          "position": "(5.09375, 7.252051, 1.7250977)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileBig",
+          "position": "(-8.060791, 7.252051, -2.6557617)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            true
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-3.842041, 0.40024412, -19.03955)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-7.9665527, 7.243506, 23.263428)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "HealthSmall",
+          "position": "(-2.069336, 0.65, 18.273193)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileSmall",
+          "position": "(0.92601514, 7.4498534, -25.899902)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileSmall",
+          "position": "(2.436949, 0.85, -24.159746)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "UASmall",
+          "position": "(-13.328232, 1.3387531, 14.601256)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-3.5195312, 0.65, 13.022705)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "simulationFrame": 1140,
+      "camera": "(-5.4047146, 8.457996, -25.034914)",
+      "width": 1920,
+      "height": 1080,
+      "worldDepth": {
+        "width": 1920,
+        "height": 1080,
+        "format": "native-endian-float32",
+        "byteLength": 8294400,
+        "sha256": "30162C81B4E06FBEA41408088D986AEE9F3F6E95A16E1424513F22FAD2C57ECC",
+        "minimum": 0.94150054,
+        "maximum": 1,
+        "coveredPixels": 2073599
+      },
+      "shadow": {
+        "ready": true,
+        "size": 2048,
+        "depthTexture": 661,
+        "lightSpaceRoomDraws": 60414,
+        "depthSha256": null,
+        "minimumDepth": null,
+        "maximumDepth": null
+      },
+      "pickups": [
+        {
+          "type": "HealthSmall",
+          "position": "(-9.285889, 7.252051, -10.230469)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "HealthSmall",
+          "position": "(5.09375, 7.252051, 1.7250977)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileBig",
+          "position": "(-8.060791, 7.252051, -2.6557617)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            true,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-3.842041, 0.40024412, -19.03955)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-7.9665527, 7.243506, 23.263428)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            false,
+            true
+          ]
+        },
+        {
+          "type": "HealthSmall",
+          "position": "(-2.069336, 0.65, 18.273193)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UASmall",
+          "position": "(-13.328232, 1.3387531, 14.601256)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(-3.5195312, 0.65, 13.022705)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "AffinityWeapon",
+          "position": "(-2.057129, 0.65, 12.637451)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UABig",
+          "position": "(3.0073242, 7.243506, -25.77295)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "Magmaul",
+          "position": "(-7.0546875, 0.65, -11.199463)",
+          "visibleByPickupRule": true,
+          "blockedSamples": [
+            false,
+            false,
+            false,
+            false,
+            false
+          ]
+        },
+        {
+          "type": "HealthBig",
+          "position": "(7.581787, 0.3851074, -8.375)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "MissileSmall",
+          "position": "(-3.5310578, 3.2890868, -15.232457)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        },
+        {
+          "type": "UASmall",
+          "position": "(-6.3767967, 1.8567389, 19.448914)",
+          "visibleByPickupRule": false,
+          "blockedSamples": [
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        }
+      ]
+    }
+  ],
+  "outlineOcclusion": null,
+  "bombVisibility": null,
+  "impactPresentation": null,
+  "windowEvents": [
+    {
+      "wallSeconds": 0.2776205,
+      "state": "Normal",
+      "visible": true,
+      "focused": false,
+      "framebuffer": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "wallSeconds": 0.2917995,
+      "state": "Normal",
+      "visible": true,
+      "focused": true,
+      "framebuffer": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "complete": true,
+  "cleanup": {
+    "detailedRetirement": {
+      "legacyListNamesBefore": 450,
+      "legacyListsRecognizedBefore": 450,
+      "legacyListsRecognizedAfter": 0,
+      "meshListFieldsAfter": 0,
+      "sceneModelLeasesAfter": 0,
+      "bufferNamesBefore": 264,
+      "buffersRecognizedBefore": 264,
+      "bufferNamesRecognizedAfter": 0,
+      "vertexArrayNamesBefore": 132,
+      "vertexArraysRecognizedBefore": 132,
+      "vertexArraysRecognizedAfter": 0,
+      "programNamesBefore": 8,
+      "programsRecognizedBefore": 8,
+      "programsRecognizedAfter": 0,
+      "deletionPendingProgramsAfter": 0,
+      "attachedShaderNamesBefore": 2,
+      "shadersRecognizedAfter": 0,
+      "deletionPendingShadersAfter": 0,
+      "textureNamesBefore": 772,
+      "texturesRecognizedAfter": 0,
+      "framebufferNamesBefore": 3,
+      "framebuffersRecognizedAfter": 0,
+      "renderbufferNamesBefore": 1,
+      "renderbuffersRecognizedAfter": 0,
+      "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+    },
+    "ownedTexturesBefore": 767,
+    "ownedTexturesAfter": 0,
+    "framebufferBefore": 1,
+    "framebufferAfter": 0,
+    "programCountBefore": 4,
+    "programOwnerFieldsReleased": true,
+    "ownedProgramsAfter": 0,
+    "recognizedProgramNamesAfter": 0,
+    "pendingDeletedProgramCountAfter": 0,
+    "currentProgramAfter": 0,
+    "depthSnapshotBytesBefore": 8294400,
+    "depthSnapshotBytesAfter": 0,
+    "proceduralBytesBefore": 0,
+    "proceduralBytesAfter": 0,
+    "shadowReleased": true,
+    "retainedListsBefore": 89,
+    "retainedListsAfter": 0,
+    "combinedBytesBefore": 676272,
+    "combinedBytesAfter": 0,
+    "retainedBytesBefore": 1094088,
+    "retainedBytesAfter": 0,
+    "shadowColorBytesBefore": 0,
+    "glyphCountBefore": 78,
+    "glyphBytesBefore": 19968,
+    "glyphCountAfter": 0,
+    "glyphBytesAfter": 0,
+    "spriteCountBefore": 38,
+    "spriteBytesBefore": 9728,
+    "spriteCountAfter": 0,
+    "spriteBytesAfter": 0
+  }
+}

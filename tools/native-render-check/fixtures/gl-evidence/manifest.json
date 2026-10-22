@@ -1,0 +1,2291 @@
+{
+  "schema": 1,
+  "kind": "historical-gl02-portable-receipts",
+  "complete": true,
+  "source": "9104134633ebe0996934260f6b54e448d1ec6195",
+  "sourceDirty": false,
+  "binary": {
+    "clientSha256": "bba1a0357a94ee9a489aec526bc30c1c78c36d61df9303c9376338d06452b909",
+    "harnessSha256": "2a4b5046965b68566294a9b439ba012afcc30663c16b95fce5dd3efd3fc94b16",
+    "expectedLoadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f"
+  },
+  "fixtureIdentityMatches": true,
+  "files": [
+    {
+      "file": "unprofiled/00-palette-0.json",
+      "sha256": "a3e25a5230c2e73e6012686aee66613e3cdba3fcee50a84d485b583e96da0de0",
+      "derivativeBytes": 4287,
+      "originalSha256": "a3e25a5230c2e73e6012686aee66613e3cdba3fcee50a84d485b583e96da0de0",
+      "originalBytes": 4287,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "3f20d78e4cbb3b3eb338792872e093c19bd9a0f4a87d87625f6518ba7d6dfb52",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/00-palette-0.log",
+      "sha256": "04bd1c5f6ba8a70301d5a65c50d6b97b5d53f22f0134429fffa15eb3626a2a3d",
+      "derivativeBytes": 1580,
+      "originalSha256": "a28448f53ebfbaa32f39d00212135fb27941546586d0671a03204382e83f96b1",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/01-palette-1.json",
+      "sha256": "c7f8f519aa2dc7557f0cf765640a1667dd303615b30c1c44d612b3ae57b8f14e",
+      "derivativeBytes": 4283,
+      "originalSha256": "c7f8f519aa2dc7557f0cf765640a1667dd303615b30c1c44d612b3ae57b8f14e",
+      "originalBytes": 4283,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "4f21cd634d37de47947b37d683a5d327fc8f18606f78e354a2edcf28cb0ceb9a",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/01-palette-1.log",
+      "sha256": "77109c2539a1e5daa88b6b1c5152e158995a1930d35cec683f16118d4e1b4cf6",
+      "derivativeBytes": 1580,
+      "originalSha256": "2973887059c366cbb485b5c33fa82818c4d935fcff20e08fccd2e0dd6196f1ec",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/02-palette-1.json",
+      "sha256": "de22a34efaa0bee0a81bd8b975fab41fde68814bd4baba3ec07b26a0fbac50bf",
+      "derivativeBytes": 4287,
+      "originalSha256": "de22a34efaa0bee0a81bd8b975fab41fde68814bd4baba3ec07b26a0fbac50bf",
+      "originalBytes": 4287,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "2445711faeba91dab3e58471a3fd8bbff411bc9fab9e6be8ca24e6e16af35506",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/02-palette-1.log",
+      "sha256": "13ad59262c6f660db73e14a63287ff11dbc5eb84a18515bae81b056f501f9932",
+      "derivativeBytes": 1580,
+      "originalSha256": "b6816cdaaaee9a8e91b74dc1349be61bede6df0cd2ddf814a14b042acd68278b",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/03-palette-0.json",
+      "sha256": "fd2dc84e9d67014071cd93f10ef08737e9434bcb752d039d08d88ef7f8244cba",
+      "derivativeBytes": 4287,
+      "originalSha256": "fd2dc84e9d67014071cd93f10ef08737e9434bcb752d039d08d88ef7f8244cba",
+      "originalBytes": 4287,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "3d6a295f4747fad89c2ba570987bdd0afe5f4c8bf64de284af123fb85a8b7282",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/03-palette-0.log",
+      "sha256": "0d6cd728cd1bbdd96da1d0c16bb241b9fc89a8e7c15b74e34c48b9157719bff7",
+      "derivativeBytes": 1580,
+      "originalSha256": "148a5aa308fc0aed2f8610f7d5a775ed0704e70f92c56ac7d33f39444cd1cfba",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/04-palette-1.json",
+      "sha256": "fab182938873a3ffed5a1f1500351d9e05fd49dbc33b09b3cd1939c1f465246a",
+      "derivativeBytes": 4288,
+      "originalSha256": "fab182938873a3ffed5a1f1500351d9e05fd49dbc33b09b3cd1939c1f465246a",
+      "originalBytes": 4288,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "fd8fbd560391dbc417b741c06c6197dfd5efe329632f6a4a20c456dee81571a0",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/04-palette-1.log",
+      "sha256": "096414d7e96e10e496c44054addc3dbe1620a056a01feb0f344bfb4da75cddc6",
+      "derivativeBytes": 1580,
+      "originalSha256": "c56b43bd98782cc5f7e761af35c3f9ab4a402738928db8bc95b5d80f8b553065",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/05-palette-0.json",
+      "sha256": "8f77550d60521233d3d16450a98c85e06091fb823f90daaa4c93edd872aba44b",
+      "derivativeBytes": 4287,
+      "originalSha256": "8f77550d60521233d3d16450a98c85e06091fb823f90daaa4c93edd872aba44b",
+      "originalBytes": 4287,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "2623618261d8a5515b70e2b43b6ff44199d04a9a9e068072dd66276d9f01d060",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/05-palette-0.log",
+      "sha256": "4a685407ce510b7b30b9ced8fe394fd3648892e37a977b1073463c1cdd3c4fdc",
+      "derivativeBytes": 1580,
+      "originalSha256": "f6e9772e161cf38f6e529ac590a35ebbafbbfa92c388de5939c3990c74cfbf9b",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/06-palette-0.json",
+      "sha256": "5c4dabf797504a60dea7c839ff6d19b7289a61387b162130efe2a0bad77f2a72",
+      "derivativeBytes": 4285,
+      "originalSha256": "5c4dabf797504a60dea7c839ff6d19b7289a61387b162130efe2a0bad77f2a72",
+      "originalBytes": 4285,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "d853633c6dd5451c995fa68444f0aa0f55c9277f758cef2aac6be5b724c18102",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/06-palette-0.log",
+      "sha256": "5eba3c8d7c2f3839d3fec07c4ecf9ec4db0066786ffbd13f896b5bdbf4f9acee",
+      "derivativeBytes": 1580,
+      "originalSha256": "3cbba8104ea9d1efe46bb7a52ba718806002d1ea5754059c0967e999ea2d5cca",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/07-palette-1.json",
+      "sha256": "bb3593c364f2d4dc9ca12aea039d90994670391169257c0c635f0aea9b7dfd70",
+      "derivativeBytes": 4286,
+      "originalSha256": "bb3593c364f2d4dc9ca12aea039d90994670391169257c0c635f0aea9b7dfd70",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "9395f4ba9b6fdfb249e7561bc07fcfadc259c9414ae4d0ce060a32f522e37672",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/07-palette-1.log",
+      "sha256": "f345e036450d14e88be0a344e5c84f6e8274141b253b354f5d61dedc00d3dfe5",
+      "derivativeBytes": 1580,
+      "originalSha256": "d3dc04c491df40e6200e825ffebc1aa65e6c7fc6194be28f58058d6c1cb76fbc",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/08-palette-0.json",
+      "sha256": "ed6bf99b19f21a0bf87f64987ad1ccddcd4be566d483e819c49059e2070b4738",
+      "derivativeBytes": 4286,
+      "originalSha256": "ed6bf99b19f21a0bf87f64987ad1ccddcd4be566d483e819c49059e2070b4738",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "97017383a7606861625ff7ad197626b8c2cb952c870e75d1e130dfc1355c4d01",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/08-palette-0.log",
+      "sha256": "6ecfedfcd7eeddece5a5fd8124e2f3e519828be3683fbdc9f0f401185928ad5c",
+      "derivativeBytes": 1580,
+      "originalSha256": "b53789170d91a969adc4234dada4019cde6c7528fc237e7b1890d001c698d1f3",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/09-palette-1.json",
+      "sha256": "69034c9394f8b0e7ff00df8e9b5f4144f1ea68df31a9f5d1f439d4ae57f481e4",
+      "derivativeBytes": 4285,
+      "originalSha256": "69034c9394f8b0e7ff00df8e9b5f4144f1ea68df31a9f5d1f439d4ae57f481e4",
+      "originalBytes": 4285,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "5251fac43474c9d171d5bc0c2f775e1d62c326a2acec70a577caaa28fea53976",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/09-palette-1.log",
+      "sha256": "9ebbd11c1d445859416e7da1350ecbff02b2aa062db023aac43dfcb8f7b34e8e",
+      "derivativeBytes": 1580,
+      "originalSha256": "ebf25c2012516279e3869296702705f66f100cf05b38cfea1e466d8bebe1514b",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "profile/00-palette-1.json",
+      "sha256": "6b07fee8e4ca492dc6d19caa26f26fe092839bc7603638405771af92ef5f070d",
+      "derivativeBytes": 4288,
+      "originalSha256": "6b07fee8e4ca492dc6d19caa26f26fe092839bc7603638405771af92ef5f070d",
+      "originalBytes": 4288,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "99999750ac8da2c9f505ec6db94105e2e3cd4efefea82570de0d92d10b97a1cf",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "profile/00-palette-1.log",
+      "sha256": "3eee0e0493c2d4ea29123536b01b2fb4010eeaa0425ddcf0c11f7a961b738633",
+      "derivativeBytes": 434956,
+      "originalSha256": "06fe7ad64b5e2017d2e2584530439356a6b8a36b1b1ac70878c91229acc80e2d",
+      "originalBytes": 435098,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "eb4a763e7ebcad10ea43f5e8416be23aa96da1fed0034a99928bc6bbdbc00c2c",
+        "numericLeaves": 11713,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "profile/01-palette-0.json",
+      "sha256": "5aba99543efe1d148343f437a1f0d6b9b2912d2ad250e48ced79c413f500003a",
+      "derivativeBytes": 4285,
+      "originalSha256": "5aba99543efe1d148343f437a1f0d6b9b2912d2ad250e48ced79c413f500003a",
+      "originalBytes": 4285,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "6a9306814f80e3982925ee50ca0dbca3a7d12608f95d3407bf17827c5df3d7a3",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "profile/01-palette-0.log",
+      "sha256": "a3d68e463522122c4475595a41c652b739c8764853500cb7e4a4a9cf8a61f9d3",
+      "derivativeBytes": 448919,
+      "originalSha256": "ae489a9c236fc402294003c932f6fd69ea71f5add7c023f40f4abf1a96568cea",
+      "originalBytes": 449061,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "3066757255bae9ee665a3c9f4ef117da451848735fd1a51d4cfe3b96ac902a23",
+        "numericLeaves": 12087,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/10-palette-0.json",
+      "sha256": "ff317f37b90d877fa803f9ee952af49e65d7ad14d85d9789e59bc2b783c5b7cd",
+      "derivativeBytes": 4284,
+      "originalSha256": "ff317f37b90d877fa803f9ee952af49e65d7ad14d85d9789e59bc2b783c5b7cd",
+      "originalBytes": 4284,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "d25a956e29f589254383b1d338bd42733889f6c2ff77c2b4e27fac6bb92b0b08",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "unprofiled/10-palette-0.log",
+      "sha256": "302d1f82e3405c43953b55336b20e99fb31570ead93098b6706b23e344fa9882",
+      "derivativeBytes": 1580,
+      "originalSha256": "ed759e3f63b1f725d1f8c8df20e07d1d43f1cdae4a21ea79946276de5e3e9007",
+      "originalBytes": 1722,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity/eight-high-palette-0.json",
+      "sha256": "8002d37cae8976535b1c75dd76b8e7e4deecbe3cbd90ea7971d40530efdd9ccc",
+      "derivativeBytes": 19402,
+      "originalSha256": "8002d37cae8976535b1c75dd76b8e7e4deecbe3cbd90ea7971d40530efdd9ccc",
+      "originalBytes": 19402,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "32cd64692f2f37ae4c41267200979689970da4f64a0a2e2431a8945a330f143f",
+        "numericLeaves": 151,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity/eight-high-palette-0.log",
+      "sha256": "67ff50655c1396acaa05a2f858700811edd91185c6febfe16753f4a1db309c75",
+      "derivativeBytes": 1581,
+      "originalSha256": "32c09c3081085215097f3bd4f0e364e893e4dc8e432a0bc7ee44eec3d60f63e2",
+      "originalBytes": 1723,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity/eight-high-palette-1.json",
+      "sha256": "86bc68bc59e1137ebc868740d3e513cef5800bc2b297fd8e1d473e1d67a82609",
+      "derivativeBytes": 19401,
+      "originalSha256": "86bc68bc59e1137ebc868740d3e513cef5800bc2b297fd8e1d473e1d67a82609",
+      "originalBytes": 19401,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "2cd349e62e37bcbf917f9e208267f70df0e417484910d8c32d45d7638c078b35",
+        "numericLeaves": 151,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity/eight-high-palette-1.log",
+      "sha256": "5a955b3538f408f32598fca66b21c466f475ff7ada85cc76257c10fe3914afa9",
+      "derivativeBytes": 1581,
+      "originalSha256": "ff442c7adfb53b128a20e626d6ec1aeaa6174fdfc67bc1335390a379bfe22910",
+      "originalBytes": 1723,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity/solo-off-palette-1.json",
+      "sha256": "24c48e950ad6dbdea9ef5b743255d2711c834d0dd29567fa594cd5e026d63921",
+      "derivativeBytes": 16698,
+      "originalSha256": "24c48e950ad6dbdea9ef5b743255d2711c834d0dd29567fa594cd5e026d63921",
+      "originalBytes": 16698,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "d3e2aaf96452b2bda179c34661c30f53e26ab5e7df4379bd73bbb551f6bd0767",
+        "numericLeaves": 149,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity/solo-off-palette-1.log",
+      "sha256": "6b46abcce9776b40002fe7313465abbaec2b80b60df027603f43ed4cdf60b8da",
+      "derivativeBytes": 1527,
+      "originalSha256": "5a27428c0a11ef0a9878fa269b107f8176207a7dbdde22627d5a9dad1d6945ed",
+      "originalBytes": 1669,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity/solo-off-palette-0.json",
+      "sha256": "572d2d1f50d88fb70fed3c7d844f862ec16cb6db8c706b712f46120a0773adf1",
+      "derivativeBytes": 16697,
+      "originalSha256": "572d2d1f50d88fb70fed3c7d844f862ec16cb6db8c706b712f46120a0773adf1",
+      "originalBytes": 16697,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "0c3e37b9cb6b5c1135ca7436b98fe1dbdb0c202482356128a9431a58e349016a",
+        "numericLeaves": 149,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity/solo-off-palette-0.log",
+      "sha256": "bf7d15a57c7f2b2ae696e78ee700d7fa1b3bfb3b6b36b993b2c7d0b06e9e83d7",
+      "derivativeBytes": 1527,
+      "originalSha256": "6f4bf6384c68663d7f76470b9917ccce991857d6e46457d369906f326fef99a5",
+      "originalBytes": 1669,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "parity-comparisons.json",
+      "sha256": "bd7e9bed2e437149a60b423cfd955aae42a0f355b4ab51c6a2fd002d11421f59",
+      "derivativeBytes": 25997,
+      "originalSha256": "8d2f19a1c29150f75a4db4dc78b931957691c52c9520c183315c041ddfa68554",
+      "originalBytes": 27133,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "11261f09eca6f712d51ffd61f822b233e8436fc5ceccb4367e7710a9649281db",
+        "numericLeaves": 291,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "historical-results.json",
+      "sha256": "b146fb3830ade228414fc64a81e893031107760276fb1344d11187d5d3194f27",
+      "derivativeBytes": 46051,
+      "originalSha256": "b146fb3830ade228414fc64a81e893031107760276fb1344d11187d5d3194f27",
+      "originalBytes": 46051,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "940fb97850c4827d6d589d3dc5f7ab766ee6b8f2c08f74b3446607fdf84a3453",
+        "numericLeaves": 538,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "gl03-procedural-disposition.json",
+      "sha256": "2e69495ac90ba09d884e0e5606e7aad34fc70af763d5ee87adbe9b338e4d1811",
+      "derivativeBytes": 3762,
+      "originalSha256": "2e69495ac90ba09d884e0e5606e7aad34fc70af763d5ee87adbe9b338e4d1811",
+      "originalBytes": 3762,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "4d41c10714b08f8fbd97e78345781d860baf0045c80e1d23d3344f567e5637e9",
+        "numericLeaves": 26,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/00-palette-0.json",
+      "sha256": "7ac237fa740a93f8dc86e9d73514c4f60b4279c250c9ea873e4c4ba812719e88",
+      "derivativeBytes": 4286,
+      "originalSha256": "7ac237fa740a93f8dc86e9d73514c4f60b4279c250c9ea873e4c4ba812719e88",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "97c3052d924189ca00350bc9c229f288ad03f1eb0235bfb55860b5a42539ec4e",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/00-palette-0.log",
+      "sha256": "40858a32bdedc185e4b7b2b87be2f85bf553ca98fd9657c5ce2ccf87a9506e52",
+      "derivativeBytes": 1550,
+      "originalSha256": "9b824eb2b0c0efd74a7b63b7486d3433e6d4e9a2a6e7146907ca6f58f96856fe",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/01-palette-1.json",
+      "sha256": "1b7ee5714842663664900daa08678345cac27b93ae1de9a1b54e661ac7de2040",
+      "derivativeBytes": 4285,
+      "originalSha256": "1b7ee5714842663664900daa08678345cac27b93ae1de9a1b54e661ac7de2040",
+      "originalBytes": 4285,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "ca353637e01d3b60dc4d0c86226f0027acd9cdef2c8c948c48114de4a139e518",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/01-palette-1.log",
+      "sha256": "40fcf8bccc4400ef9076f91212a0d7b951d1abade9f92a173a71558cfe3255a9",
+      "derivativeBytes": 1550,
+      "originalSha256": "b307e5095fb51fdf72a861eab33ac7ca67a34dd6678889050285eb948e140d23",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/02-palette-1.json",
+      "sha256": "36076d0fbff2384c07748db585bc91e43f871c964500a04242f868ec2db2323d",
+      "derivativeBytes": 4286,
+      "originalSha256": "36076d0fbff2384c07748db585bc91e43f871c964500a04242f868ec2db2323d",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "966421574c44e668f762eb33252147660c11d238b093e6d2ba297e1740122a37",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/02-palette-1.log",
+      "sha256": "9c66c0220e758a25765b757f78dcbb808d1ee50e27b87bd30b5a94f4459f6482",
+      "derivativeBytes": 1550,
+      "originalSha256": "d7065984c97b321ae2228986d52d863ef7068d6d257c415a1233bb2e8ff271c8",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/03-palette-0.json",
+      "sha256": "3bf392e429fb66345358fa88602df9911625ed2c1c7b889c58bd8d2b3a760e8f",
+      "derivativeBytes": 4287,
+      "originalSha256": "3bf392e429fb66345358fa88602df9911625ed2c1c7b889c58bd8d2b3a760e8f",
+      "originalBytes": 4287,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "c59aca440f199295d214f7a68018a29e77675827decd556f3642a14acf4f8bb5",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/03-palette-0.log",
+      "sha256": "b1807f99ae28d17cddd3d71164bdaa649e46e126589b7f5584b831361d572cfc",
+      "derivativeBytes": 1550,
+      "originalSha256": "09afce7122448b08167008625d0ddaf811325ba66841af66069bbbfdd0997b0a",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/04-palette-1.json",
+      "sha256": "842265c5e228f498b8b9086803e00a145712cb916a794e75cde65daff8b9f93c",
+      "derivativeBytes": 4286,
+      "originalSha256": "842265c5e228f498b8b9086803e00a145712cb916a794e75cde65daff8b9f93c",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "b863714b7dca3870b2e8398c80a33dc52b16fa5a48322e3aa7297af88145d5af",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/04-palette-1.log",
+      "sha256": "00375a3ccbc89db1f53c0f8858a6a8435d13fdb77bbb67fc392385db1f341c03",
+      "derivativeBytes": 1550,
+      "originalSha256": "a3d2c90fadbdfa7ba931ddf5e6ecd0a55164c31d16980eb3763fae5294892890",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/05-palette-0.json",
+      "sha256": "d22624eee0314858103a26608e9210a4161b0c29a237c30aac095f00c570f7aa",
+      "derivativeBytes": 4288,
+      "originalSha256": "d22624eee0314858103a26608e9210a4161b0c29a237c30aac095f00c570f7aa",
+      "originalBytes": 4288,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "699401a16dd7b85775f441a67fb5cd5afafd32dbe920389a18dbc810e6cefe76",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/05-palette-0.log",
+      "sha256": "dc326e8a12206a5ab72da62de1f570d1c071a0615d662f37e11b415ee0886bf7",
+      "derivativeBytes": 1550,
+      "originalSha256": "8ee1735a864db9f739101dd2e3fc3885e265aacbda5e99c07a498d619e549996",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/06-palette-0.json",
+      "sha256": "178d491b984b0f4ac8e9a54f8b9e6d8d24b17747834375a92fa0b265a463be18",
+      "derivativeBytes": 4286,
+      "originalSha256": "178d491b984b0f4ac8e9a54f8b9e6d8d24b17747834375a92fa0b265a463be18",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "bdb9d5fb5f7fe7c8ac84489a97e4297e99ec0b279774affc6f1c37548b63f367",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/06-palette-0.log",
+      "sha256": "6c558f7f6880d36fe02d85aba0db3e1a903ad1017cdb45c2433691ad99c1d50d",
+      "derivativeBytes": 1550,
+      "originalSha256": "941bdb4cbd78e499326829dc91b7e32c55a5e7cd60fc46d422467baeacc66a11",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/07-palette-1.json",
+      "sha256": "a93fffba71b34d7336332b84b26683becf71ec5e7df5039e20a495cfb721ad73",
+      "derivativeBytes": 4289,
+      "originalSha256": "a93fffba71b34d7336332b84b26683becf71ec5e7df5039e20a495cfb721ad73",
+      "originalBytes": 4289,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "d0d68d620b2473b9317dc8cc4a5cc051369ded9302261a99a54f65b207f59e9b",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/07-palette-1.log",
+      "sha256": "4a124de813b72591f485c38d7228de76aa41fe9d59b9d7ea648f942226782272",
+      "derivativeBytes": 1550,
+      "originalSha256": "1729602915f99c85d8bca1d627ba11d5b3e984966f8382a4d662f127c68e839c",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/08-palette-0.json",
+      "sha256": "478f7a713f16749bc4c0851ef55f9132e2eb540bf33f8b940d3ea8fcd7ee7a2f",
+      "derivativeBytes": 4286,
+      "originalSha256": "478f7a713f16749bc4c0851ef55f9132e2eb540bf33f8b940d3ea8fcd7ee7a2f",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "0c2014dc414ce2f24716e9454183cb54adae07cd711bc71a552f318357b8d3f5",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/08-palette-0.log",
+      "sha256": "3dc52268004b67a4283b124b9b4aed9cfb99a47d2570f6e0edf7914397c46988",
+      "derivativeBytes": 1550,
+      "originalSha256": "54f24285583e58d2d89f9cab5af85f2b9af6a43bf2dc7bde5b71d5fa5274933f",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/09-palette-1.json",
+      "sha256": "d5d34202453f9bd3e14b4b38e80ab9bbf0474a96532b900585c6b91c81036a72",
+      "derivativeBytes": 4282,
+      "originalSha256": "d5d34202453f9bd3e14b4b38e80ab9bbf0474a96532b900585c6b91c81036a72",
+      "originalBytes": 4282,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "579f3c78ecb6aa6c501576f0c3636635fc46a9b5cc384ca9b319f6bb9e8fc72b",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/09-palette-1.log",
+      "sha256": "1db7739490cafe0f53f0b8dee060c1e14bf7935b22097cfe2ce8c14323d067cd",
+      "derivativeBytes": 1550,
+      "originalSha256": "8d5f2dd26ac9edd85a45d77c032d6330bddf47f223b1909097a1e102aa0a4a37",
+      "originalBytes": 1692,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/EXCLUDED.json",
+      "sha256": "5d71b687325b4e9b6497209017f9be24559d462d59ba79338bdb815123dd700c",
+      "derivativeBytes": 261,
+      "originalSha256": "5d71b687325b4e9b6497209017f9be24559d462d59ba79338bdb815123dd700c",
+      "originalBytes": 261,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-ab/receipts.json",
+      "sha256": "e7e59c57b03aada1c1513f7b460cab28753efa47d02c164b76b7f74ccf10b262",
+      "derivativeBytes": 7803,
+      "originalSha256": "6cab5532f20bd556b7c15a495f65faaa47c2ad35ae8cffbde9ff392c055e0281",
+      "originalBytes": 9933,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "e6d2ad25c21ec20a52790722d5a13cff4a46f34c1633b7bc456ee37c35af7fd5",
+        "numericLeaves": 30,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-profile/EXCLUDED.json",
+      "sha256": "5d71b687325b4e9b6497209017f9be24559d462d59ba79338bdb815123dd700c",
+      "derivativeBytes": 261,
+      "originalSha256": "5d71b687325b4e9b6497209017f9be24559d462d59ba79338bdb815123dd700c",
+      "originalBytes": 261,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+        "numericLeaves": 0,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-profile/palette-0.json",
+      "sha256": "428f0fe65fde2c4648d0e3dd844413551af3b547d380fab78bc05dbabf9f3c66",
+      "derivativeBytes": 4286,
+      "originalSha256": "428f0fe65fde2c4648d0e3dd844413551af3b547d380fab78bc05dbabf9f3c66",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "d1733e917a1471f3e82b341cb29077354d1d0d3d5dd642b791a9f9849e7e7ee9",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-profile/palette-0.log",
+      "sha256": "54b6d3aa25e1e39e9bd64165f772f4753bb10b2a4b167c84015654cf63337ee9",
+      "derivativeBytes": 337312,
+      "originalSha256": "83f4f1880c180dcc03b5027ec56c625ca87c395e68ec0876b3370fafcc7fa453",
+      "originalBytes": 337454,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "a063b0c1d2038e8f820e1121bd2cf4f4b41130d9139cc03f0d56ad6cf41a52f5",
+        "numericLeaves": 9610,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-profile/palette-1.json",
+      "sha256": "ac223766d15bb1abe845b4313853d549525ed7490b0b7d2fb0ee8cfdd78a9c7d",
+      "derivativeBytes": 4286,
+      "originalSha256": "ac223766d15bb1abe845b4313853d549525ed7490b0b7d2fb0ee8cfdd78a9c7d",
+      "originalBytes": 4286,
+      "pathFiltered": false,
+      "numericProjection": {
+        "sha256": "2e9217971c44c0410f3b5ca39e11bc89712ba44688c3db253a20367aab3eb362",
+        "numericLeaves": 97,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-profile/palette-1.log",
+      "sha256": "d9ff126e4b5d1eab33a621ee4c25479e491c636041fc86309440c0e6f05ad05b",
+      "derivativeBytes": 336390,
+      "originalSha256": "099d6d3271f912eb80bed052d5d0ef669b5ceaab735041edb3e590aba2910a7f",
+      "originalBytes": 336532,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "2d4cf1bfaa8e436ff012746c12242da71a02f07db45b9ae4dc07d06ad301dc1d",
+        "numericLeaves": 9566,
+        "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+      },
+      "numericEquality": true
+    },
+    {
+      "file": "excluded/gl02-profile/receipts.json",
+      "sha256": "de789d6b39839580ef966f04ed439e8827b9063e3be1afbe9a0e671c602ca88f",
+      "derivativeBytes": 1185,
+      "originalSha256": "656bed3863933828ef60496e03a2c203208f07c3cd1cf389d222dd772c109388",
+      "originalBytes": 1611,
+      "pathFiltered": true,
+      "numericProjection": {
+        "sha256": "852e9fb0bc796d0ff1547fad5d6a5a8484ce87adcc95cfc76418778b43fc4134",
+        "numericLeaves": 4,
+        "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+      },
+      "numericEquality": true
+    }
+  ],
+  "records": [
+    {
+      "category": "unprofiled",
+      "index": 0,
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/00-palette-0.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+      },
+      "startedUtc": "2026-10-13T19:08:37.528844+00:00",
+      "finishedUtc": "2026-10-13T19:08:51.490169+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "a3e25a5230c2e73e6012686aee66613e3cdba3fcee50a84d485b583e96da0de0",
+      "logSha256": "04bd1c5f6ba8a70301d5a65c50d6b97b5d53f22f0134429fffa15eb3626a2a3d",
+      "complete": true,
+      "status": "EXCLUDED",
+      "reason": "LIFE03 build finished 19:08:40Z, overlapping first 2.5 seconds of this run; repeat conservatively even though simulation warmup was not yet complete.",
+      "result": "unprofiled/00-palette-0.json",
+      "log": "unprofiled/00-palette-0.log",
+      "originalResultSha256": "a3e25a5230c2e73e6012686aee66613e3cdba3fcee50a84d485b583e96da0de0",
+      "originalLogSha256": "a28448f53ebfbaa32f39d00212135fb27941546586d0671a03204382e83f96b1"
+    },
+    {
+      "category": "unprofiled",
+      "index": 1,
+      "arm": 1,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/01-palette-1.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+      },
+      "startedUtc": "2026-10-13T19:08:51.514421+00:00",
+      "finishedUtc": "2026-10-13T19:09:05.177251+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "c7f8f519aa2dc7557f0cf765640a1667dd303615b30c1c44d612b3ae57b8f14e",
+      "logSha256": "77109c2539a1e5daa88b6b1c5152e158995a1930d35cec683f16118d4e1b4cf6",
+      "complete": true,
+      "result": "unprofiled/01-palette-1.json",
+      "log": "unprofiled/01-palette-1.log",
+      "originalResultSha256": "c7f8f519aa2dc7557f0cf765640a1667dd303615b30c1c44d612b3ae57b8f14e",
+      "originalLogSha256": "2973887059c366cbb485b5c33fa82818c4d935fcff20e08fccd2e0dd6196f1ec"
+    },
+    {
+      "category": "unprofiled",
+      "index": 2,
+      "arm": 1,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/02-palette-1.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+      },
+      "startedUtc": "2026-10-13T19:09:05.204100+00:00",
+      "finishedUtc": "2026-10-13T19:09:18.806694+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "de22a34efaa0bee0a81bd8b975fab41fde68814bd4baba3ec07b26a0fbac50bf",
+      "logSha256": "13ad59262c6f660db73e14a63287ff11dbc5eb84a18515bae81b056f501f9932",
+      "complete": true,
+      "result": "unprofiled/02-palette-1.json",
+      "log": "unprofiled/02-palette-1.log",
+      "originalResultSha256": "de22a34efaa0bee0a81bd8b975fab41fde68814bd4baba3ec07b26a0fbac50bf",
+      "originalLogSha256": "b6816cdaaaee9a8e91b74dc1349be61bede6df0cd2ddf814a14b042acd68278b"
+    },
+    {
+      "category": "unprofiled",
+      "index": 3,
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/03-palette-0.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+      },
+      "startedUtc": "2026-10-13T19:09:18.830443+00:00",
+      "finishedUtc": "2026-10-13T19:09:32.437982+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "fd2dc84e9d67014071cd93f10ef08737e9434bcb752d039d08d88ef7f8244cba",
+      "logSha256": "0d6cd728cd1bbdd96da1d0c16bb241b9fc89a8e7c15b74e34c48b9157719bff7",
+      "complete": true,
+      "result": "unprofiled/03-palette-0.json",
+      "log": "unprofiled/03-palette-0.log",
+      "originalResultSha256": "fd2dc84e9d67014071cd93f10ef08737e9434bcb752d039d08d88ef7f8244cba",
+      "originalLogSha256": "148a5aa308fc0aed2f8610f7d5a775ed0704e70f92c56ac7d33f39444cd1cfba"
+    },
+    {
+      "category": "unprofiled",
+      "index": 4,
+      "arm": 1,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/04-palette-1.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+      },
+      "startedUtc": "2026-10-13T19:09:32.460761+00:00",
+      "finishedUtc": "2026-10-13T19:09:46.065751+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "fab182938873a3ffed5a1f1500351d9e05fd49dbc33b09b3cd1939c1f465246a",
+      "logSha256": "096414d7e96e10e496c44054addc3dbe1620a056a01feb0f344bfb4da75cddc6",
+      "complete": true,
+      "result": "unprofiled/04-palette-1.json",
+      "log": "unprofiled/04-palette-1.log",
+      "originalResultSha256": "fab182938873a3ffed5a1f1500351d9e05fd49dbc33b09b3cd1939c1f465246a",
+      "originalLogSha256": "c56b43bd98782cc5f7e761af35c3f9ab4a402738928db8bc95b5d80f8b553065"
+    },
+    {
+      "category": "unprofiled",
+      "index": 5,
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/05-palette-0.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+      },
+      "startedUtc": "2026-10-13T19:09:46.090077+00:00",
+      "finishedUtc": "2026-10-13T19:09:59.678521+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "8f77550d60521233d3d16450a98c85e06091fb823f90daaa4c93edd872aba44b",
+      "logSha256": "4a685407ce510b7b30b9ced8fe394fd3648892e37a977b1073463c1cdd3c4fdc",
+      "complete": true,
+      "result": "unprofiled/05-palette-0.json",
+      "log": "unprofiled/05-palette-0.log",
+      "originalResultSha256": "8f77550d60521233d3d16450a98c85e06091fb823f90daaa4c93edd872aba44b",
+      "originalLogSha256": "f6e9772e161cf38f6e529ac590a35ebbafbbfa92c388de5939c3990c74cfbf9b"
+    },
+    {
+      "category": "unprofiled",
+      "index": 6,
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/06-palette-0.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+      },
+      "startedUtc": "2026-10-13T19:09:59.702725+00:00",
+      "finishedUtc": "2026-10-13T19:10:13.306232+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "5c4dabf797504a60dea7c839ff6d19b7289a61387b162130efe2a0bad77f2a72",
+      "logSha256": "5eba3c8d7c2f3839d3fec07c4ecf9ec4db0066786ffbd13f896b5bdbf4f9acee",
+      "complete": true,
+      "result": "unprofiled/06-palette-0.json",
+      "log": "unprofiled/06-palette-0.log",
+      "originalResultSha256": "5c4dabf797504a60dea7c839ff6d19b7289a61387b162130efe2a0bad77f2a72",
+      "originalLogSha256": "3cbba8104ea9d1efe46bb7a52ba718806002d1ea5754059c0967e999ea2d5cca"
+    },
+    {
+      "category": "unprofiled",
+      "index": 7,
+      "arm": 1,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/07-palette-1.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+      },
+      "startedUtc": "2026-10-13T19:10:13.329630+00:00",
+      "finishedUtc": "2026-10-13T19:10:26.927896+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "bb3593c364f2d4dc9ca12aea039d90994670391169257c0c635f0aea9b7dfd70",
+      "logSha256": "f345e036450d14e88be0a344e5c84f6e8274141b253b354f5d61dedc00d3dfe5",
+      "complete": true,
+      "result": "unprofiled/07-palette-1.json",
+      "log": "unprofiled/07-palette-1.log",
+      "originalResultSha256": "bb3593c364f2d4dc9ca12aea039d90994670391169257c0c635f0aea9b7dfd70",
+      "originalLogSha256": "d3dc04c491df40e6200e825ffebc1aa65e6c7fc6194be28f58058d6c1cb76fbc"
+    },
+    {
+      "category": "unprofiled",
+      "index": 8,
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/08-palette-0.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+      },
+      "startedUtc": "2026-10-13T19:10:26.952290+00:00",
+      "finishedUtc": "2026-10-13T19:10:40.530086+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "ed6bf99b19f21a0bf87f64987ad1ccddcd4be566d483e819c49059e2070b4738",
+      "logSha256": "6ecfedfcd7eeddece5a5fd8124e2f3e519828be3683fbdc9f0f401185928ad5c",
+      "complete": true,
+      "result": "unprofiled/08-palette-0.json",
+      "log": "unprofiled/08-palette-0.log",
+      "originalResultSha256": "ed6bf99b19f21a0bf87f64987ad1ccddcd4be566d483e819c49059e2070b4738",
+      "originalLogSha256": "b53789170d91a969adc4234dada4019cde6c7528fc237e7b1890d001c698d1f3"
+    },
+    {
+      "category": "unprofiled",
+      "index": 9,
+      "arm": 1,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/09-palette-1.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+      },
+      "startedUtc": "2026-10-13T19:10:40.554687+00:00",
+      "finishedUtc": "2026-10-13T19:10:54.155055+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "69034c9394f8b0e7ff00df8e9b5f4144f1ea68df31a9f5d1f439d4ae57f481e4",
+      "logSha256": "9ebbd11c1d445859416e7da1350ecbff02b2aa062db023aac43dfcb8f7b34e8e",
+      "complete": true,
+      "result": "unprofiled/09-palette-1.json",
+      "log": "unprofiled/09-palette-1.log",
+      "originalResultSha256": "69034c9394f8b0e7ff00df8e9b5f4144f1ea68df31a9f5d1f439d4ae57f481e4",
+      "originalLogSha256": "ebf25c2012516279e3869296702705f66f100cf05b38cfea1e466d8bebe1514b"
+    },
+    {
+      "category": "profile",
+      "index": 0,
+      "arm": 1,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "25",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/profile/00-palette-1.json",
+        "-glprofile",
+        "-glgpu"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "1"
+      },
+      "startedUtc": "2026-10-13T19:10:54.179786+00:00",
+      "finishedUtc": "2026-10-13T19:11:20.778502+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "6b07fee8e4ca492dc6d19caa26f26fe092839bc7603638405771af92ef5f070d",
+      "logSha256": "3eee0e0493c2d4ea29123536b01b2fb4010eeaa0425ddcf0c11f7a961b738633",
+      "complete": true,
+      "result": "profile/00-palette-1.json",
+      "log": "profile/00-palette-1.log",
+      "originalResultSha256": "6b07fee8e4ca492dc6d19caa26f26fe092839bc7603638405771af92ef5f070d",
+      "originalLogSha256": "06fe7ad64b5e2017d2e2584530439356a6b8a36b1b1ac70878c91229acc80e2d"
+    },
+    {
+      "category": "profile",
+      "index": 1,
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "25",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/profile/01-palette-0.json",
+        "-glprofile",
+        "-glgpu"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+      },
+      "startedUtc": "2026-10-13T19:11:20.802696+00:00",
+      "finishedUtc": "2026-10-13T19:11:47.377819+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "5aba99543efe1d148343f437a1f0d6b9b2912d2ad250e48ced79c413f500003a",
+      "logSha256": "a3d68e463522122c4475595a41c652b739c8764853500cb7e4a4a9cf8a61f9d3",
+      "complete": true,
+      "result": "profile/01-palette-0.json",
+      "log": "profile/01-palette-0.log",
+      "originalResultSha256": "5aba99543efe1d148343f437a1f0d6b9b2912d2ad250e48ced79c413f500003a",
+      "originalLogSha256": "ae489a9c236fc402294003c932f6fd69ea71f5add7c023f40f4abf1a96568cea"
+    },
+    {
+      "category": "unprofiled",
+      "index": 10,
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "12",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-corrected/unprofiled/10-palette-0.json"
+      ],
+      "environment": {
+        "PROJECT_PRIME_GL_PALETTE_PREP": "0"
+      },
+      "startedUtc": "2026-10-13T19:12:05.806596+00:00",
+      "finishedUtc": "2026-10-13T19:12:19.432183+00:00",
+      "exitCode": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "ff317f37b90d877fa803f9ee952af49e65d7ad14d85d9789e59bc2b783c5b7cd",
+      "logSha256": "302d1f82e3405c43953b55336b20e99fb31570ead93098b6706b23e344fa9882",
+      "complete": true,
+      "replacesIndex": 0,
+      "result": "unprofiled/10-palette-0.json",
+      "log": "unprofiled/10-palette-0.log",
+      "originalResultSha256": "ff317f37b90d877fa803f9ee952af49e65d7ad14d85d9789e59bc2b783c5b7cd",
+      "originalLogSha256": "ed759e3f63b1f725d1f8c8df20e07d1d43f1cdae4a21ea79946276de5e3e9007"
+    },
+    {
+      "fixture": "eight-high",
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-hunter",
+        "Samus",
+        "-shots",
+        "${WORKSPACE}/work/gl-evidence/gl02-parity/eight-high-palette-0/shots",
+        "-stablehud",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-parity/eight-high-palette-0/result.json"
+      ],
+      "startedUtc": "2026-10-13T19:13:27.126054+00:00",
+      "finishedUtc": "2026-10-13T19:13:36.457343+00:00",
+      "exitCode": 0,
+      "loadedMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "8002d37cae8976535b1c75dd76b8e7e4deecbe3cbd90ea7971d40530efdd9ccc",
+      "logSha256": "67ff50655c1396acaa05a2f858700811edd91185c6febfe16753f4a1db309c75",
+      "simulationFrames": [
+        240,
+        540,
+        840,
+        1140
+      ],
+      "cleanup": {
+        "detailedRetirement": {
+          "legacyListNamesBefore": 450,
+          "legacyListsRecognizedBefore": 450,
+          "legacyListsRecognizedAfter": 0,
+          "meshListFieldsAfter": 0,
+          "sceneModelLeasesAfter": 0,
+          "bufferNamesBefore": 264,
+          "buffersRecognizedBefore": 264,
+          "bufferNamesRecognizedAfter": 0,
+          "vertexArrayNamesBefore": 132,
+          "vertexArraysRecognizedBefore": 132,
+          "vertexArraysRecognizedAfter": 0,
+          "programNamesBefore": 8,
+          "programsRecognizedBefore": 8,
+          "programsRecognizedAfter": 0,
+          "deletionPendingProgramsAfter": 0,
+          "attachedShaderNamesBefore": 2,
+          "shadersRecognizedAfter": 0,
+          "deletionPendingShadersAfter": 0,
+          "textureNamesBefore": 772,
+          "texturesRecognizedAfter": 0,
+          "framebufferNamesBefore": 3,
+          "framebuffersRecognizedAfter": 0,
+          "renderbufferNamesBefore": 1,
+          "renderbuffersRecognizedAfter": 0,
+          "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+        },
+        "ownedTexturesBefore": 767,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 676272,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1094088,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 78,
+        "glyphBytesBefore": 19968,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "category": "parity",
+      "index": 0,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "result": "parity/eight-high-palette-0.json",
+      "log": "parity/eight-high-palette-0.log",
+      "originalResultSha256": "8002d37cae8976535b1c75dd76b8e7e4deecbe3cbd90ea7971d40530efdd9ccc",
+      "originalLogSha256": "32c09c3081085215097f3bd4f0e364e893e4dc8e432a0bc7ee44eec3d60f63e2"
+    },
+    {
+      "fixture": "eight-high",
+      "arm": 1,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "8",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1920x1080",
+        "-shadows",
+        "High",
+        "-hunter",
+        "Samus",
+        "-shots",
+        "${WORKSPACE}/work/gl-evidence/gl02-parity/eight-high-palette-1/shots",
+        "-stablehud",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-parity/eight-high-palette-1/result.json"
+      ],
+      "startedUtc": "2026-10-13T19:13:36.457719+00:00",
+      "finishedUtc": "2026-10-13T19:13:45.506702+00:00",
+      "exitCode": 0,
+      "loadedMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "86bc68bc59e1137ebc868740d3e513cef5800bc2b297fd8e1d473e1d67a82609",
+      "logSha256": "5a955b3538f408f32598fca66b21c466f475ff7ada85cc76257c10fe3914afa9",
+      "simulationFrames": [
+        240,
+        540,
+        840,
+        1140
+      ],
+      "cleanup": {
+        "detailedRetirement": {
+          "legacyListNamesBefore": 450,
+          "legacyListsRecognizedBefore": 450,
+          "legacyListsRecognizedAfter": 0,
+          "meshListFieldsAfter": 0,
+          "sceneModelLeasesAfter": 0,
+          "bufferNamesBefore": 264,
+          "buffersRecognizedBefore": 264,
+          "bufferNamesRecognizedAfter": 0,
+          "vertexArrayNamesBefore": 132,
+          "vertexArraysRecognizedBefore": 132,
+          "vertexArraysRecognizedAfter": 0,
+          "programNamesBefore": 8,
+          "programsRecognizedBefore": 8,
+          "programsRecognizedAfter": 0,
+          "deletionPendingProgramsAfter": 0,
+          "attachedShaderNamesBefore": 2,
+          "shadersRecognizedAfter": 0,
+          "deletionPendingShadersAfter": 0,
+          "textureNamesBefore": 772,
+          "texturesRecognizedAfter": 0,
+          "framebufferNamesBefore": 3,
+          "framebuffersRecognizedAfter": 0,
+          "renderbufferNamesBefore": 1,
+          "renderbuffersRecognizedAfter": 0,
+          "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+        },
+        "ownedTexturesBefore": 767,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 8294400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 676272,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1094088,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 78,
+        "glyphBytesBefore": 19968,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 38,
+        "spriteBytesBefore": 9728,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "category": "parity",
+      "index": 1,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "result": "parity/eight-high-palette-1.json",
+      "log": "parity/eight-high-palette-1.log",
+      "originalResultSha256": "86bc68bc59e1137ebc868740d3e513cef5800bc2b297fd8e1d473e1d67a82609",
+      "originalLogSha256": "ff442c7adfb53b128a20e626d6ec1aeaa6174fdfc67bc1335390a379bfe22910"
+    },
+    {
+      "fixture": "solo-off",
+      "arm": 1,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "1",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1280x720",
+        "-shadows",
+        "Off",
+        "-hunter",
+        "Kanden",
+        "-shots",
+        "${WORKSPACE}/work/gl-evidence/gl02-parity/solo-off-palette-1/shots",
+        "-stablehud",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-parity/solo-off-palette-1/result.json"
+      ],
+      "startedUtc": "2026-10-13T19:13:46.028584+00:00",
+      "finishedUtc": "2026-10-13T19:13:50.407647+00:00",
+      "exitCode": 0,
+      "loadedMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "24c48e950ad6dbdea9ef5b743255d2711c834d0dd29567fa594cd5e026d63921",
+      "logSha256": "6b46abcce9776b40002fe7313465abbaec2b80b60df027603f43ed4cdf60b8da",
+      "simulationFrames": [
+        240,
+        540,
+        840,
+        1140
+      ],
+      "cleanup": {
+        "detailedRetirement": {
+          "legacyListNamesBefore": 270,
+          "legacyListsRecognizedBefore": 270,
+          "legacyListsRecognizedAfter": 0,
+          "meshListFieldsAfter": 0,
+          "sceneModelLeasesAfter": 0,
+          "bufferNamesBefore": 328,
+          "buffersRecognizedBefore": 328,
+          "bufferNamesRecognizedAfter": 0,
+          "vertexArrayNamesBefore": 164,
+          "vertexArraysRecognizedBefore": 164,
+          "vertexArraysRecognizedAfter": 0,
+          "programNamesBefore": 7,
+          "programsRecognizedBefore": 7,
+          "programsRecognizedAfter": 0,
+          "deletionPendingProgramsAfter": 0,
+          "attachedShaderNamesBefore": 0,
+          "shadersRecognizedAfter": 0,
+          "deletionPendingShadersAfter": 0,
+          "textureNamesBefore": 342,
+          "texturesRecognizedAfter": 0,
+          "framebufferNamesBefore": 1,
+          "framebuffersRecognizedAfter": 0,
+          "renderbufferNamesBefore": 1,
+          "renderbuffersRecognizedAfter": 0,
+          "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+        },
+        "ownedTexturesBefore": 340,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 3686400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 1281528,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1699344,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 35,
+        "glyphBytesBefore": 8960,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 16,
+        "spriteBytesBefore": 4096,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "category": "parity",
+      "index": 2,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "result": "parity/solo-off-palette-1.json",
+      "log": "parity/solo-off-palette-1.log",
+      "originalResultSha256": "24c48e950ad6dbdea9ef5b743255d2711c834d0dd29567fa594cd5e026d63921",
+      "originalLogSha256": "5a27428c0a11ef0a9878fa269b107f8176207a7dbdde22627d5a9dad1d6945ed"
+    },
+    {
+      "fixture": "solo-off",
+      "arm": 0,
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "${WORKSPACE}/work/gl-evidence/gl02-runtime/native-render-check.dll",
+        "-room",
+        "MP3 PROVING GROUND",
+        "-players",
+        "1",
+        "-seconds",
+        "24",
+        "-hz",
+        "-1",
+        "-size",
+        "1280x720",
+        "-shadows",
+        "Off",
+        "-hunter",
+        "Kanden",
+        "-shots",
+        "${WORKSPACE}/work/gl-evidence/gl02-parity/solo-off-palette-0/shots",
+        "-stablehud",
+        "-output",
+        "${WORKSPACE}/work/gl-evidence/gl02-parity/solo-off-palette-0/result.json"
+      ],
+      "startedUtc": "2026-10-13T19:13:50.408019+00:00",
+      "finishedUtc": "2026-10-13T19:13:54.993548+00:00",
+      "exitCode": 0,
+      "loadedMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "resultSha256": "572d2d1f50d88fb70fed3c7d844f862ec16cb6db8c706b712f46120a0773adf1",
+      "logSha256": "bf7d15a57c7f2b2ae696e78ee700d7fa1b3bfb3b6b36b993b2c7d0b06e9e83d7",
+      "simulationFrames": [
+        240,
+        540,
+        840,
+        1140
+      ],
+      "cleanup": {
+        "detailedRetirement": {
+          "legacyListNamesBefore": 270,
+          "legacyListsRecognizedBefore": 270,
+          "legacyListsRecognizedAfter": 0,
+          "meshListFieldsAfter": 0,
+          "sceneModelLeasesAfter": 0,
+          "bufferNamesBefore": 328,
+          "buffersRecognizedBefore": 328,
+          "bufferNamesRecognizedAfter": 0,
+          "vertexArrayNamesBefore": 164,
+          "vertexArraysRecognizedBefore": 164,
+          "vertexArraysRecognizedAfter": 0,
+          "programNamesBefore": 7,
+          "programsRecognizedBefore": 7,
+          "programsRecognizedAfter": 0,
+          "deletionPendingProgramsAfter": 0,
+          "attachedShaderNamesBefore": 0,
+          "shadersRecognizedAfter": 0,
+          "deletionPendingShadersAfter": 0,
+          "textureNamesBefore": 342,
+          "texturesRecognizedAfter": 0,
+          "framebufferNamesBefore": 1,
+          "framebuffersRecognizedAfter": 0,
+          "renderbufferNamesBefore": 1,
+          "renderbuffersRecognizedAfter": 0,
+          "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+        },
+        "ownedTexturesBefore": 340,
+        "ownedTexturesAfter": 0,
+        "framebufferBefore": 1,
+        "framebufferAfter": 0,
+        "programCountBefore": 4,
+        "programOwnerFieldsReleased": true,
+        "ownedProgramsAfter": 0,
+        "recognizedProgramNamesAfter": 0,
+        "pendingDeletedProgramCountAfter": 0,
+        "currentProgramAfter": 0,
+        "depthSnapshotBytesBefore": 3686400,
+        "depthSnapshotBytesAfter": 0,
+        "proceduralBytesBefore": 0,
+        "proceduralBytesAfter": 0,
+        "shadowReleased": true,
+        "retainedListsBefore": 89,
+        "retainedListsAfter": 0,
+        "combinedBytesBefore": 1281528,
+        "combinedBytesAfter": 0,
+        "retainedBytesBefore": 1699344,
+        "retainedBytesAfter": 0,
+        "shadowColorBytesBefore": 0,
+        "glyphCountBefore": 35,
+        "glyphBytesBefore": 8960,
+        "glyphCountAfter": 0,
+        "glyphBytesAfter": 0,
+        "spriteCountBefore": 16,
+        "spriteBytesBefore": 4096,
+        "spriteCountAfter": 0,
+        "spriteBytesAfter": 0
+      },
+      "category": "parity",
+      "index": 3,
+      "loadedClientMvid": "d846f12d-ce73-4bbb-bb1e-6bb81accec6f",
+      "result": "parity/solo-off-palette-0.json",
+      "log": "parity/solo-off-palette-0.log",
+      "originalResultSha256": "572d2d1f50d88fb70fed3c7d844f862ec16cb6db8c706b712f46120a0773adf1",
+      "originalLogSha256": "6f4bf6384c68663d7f76470b9917ccce991857d6e46457d369906f326fef99a5"
+    }
+  ],
+  "fixtureSha256": "99f5e0128f301d7e5188a0bdde0d07f95d6d532fcff448084be126063ceb2ec8",
+  "host": {
+    "os": "macOS-27.0-arm64-arm-64bit",
+    "architecture": "arm64",
+    "macOsBuild": {
+      "command": [
+        "sw_vers"
+      ],
+      "exitCode": 0,
+      "output": "ProductName:\t\tmacOS\nProductVersion:\t\t27.0\nBuildVersion:\t\t26A428",
+      "error": null
+    },
+    "dotnet": {
+      "command": [
+        "${WORKSPACE}/work/dotnet/dotnet",
+        "--info"
+      ],
+      "exitCode": 0,
+      "output": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   ${WORKSPACE}/work/dotnet/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [${WORKSPACE}/work/dotnet/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [${WORKSPACE}/work/dotnet/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [${WORKSPACE}/work/dotnet/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  Not found\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download",
+      "error": null
+    },
+    "gpuIdentitySource": "Per-context GL vendor/renderer/version; driver build is macOS build.",
+    "otherProjectPrimeProcesses": {
+      "command": [
+        "pgrep",
+        "-x",
+        "ProjectPrime"
+      ],
+      "exitCode": 1,
+      "output": null,
+      "error": null
+    }
+  },
+  "parity": {
+    "recordedComparisons": 29,
+    "recordedPassed": true,
+    "recomputedPixels": "NOT_RUN; original captures remain in external source bundle"
+  },
+  "limits": "Historical measured source 9104134; no performance or fidelity claim for the current integration build. Bundled JSONs/logs are path-sanitized derivatives; original and derivative hashes/lengths plus numeric-projection equality are recorded. Individual completed-frame intervals are unavailable in the harness schema; per-run percentiles and all profiled windows are retained.",
+  "excludedCampaigns": [
+    {
+      "status": "EXCLUDED",
+      "reason": "Initial harness resolved baseline assembly, not intended candidate; no performance inference allowed. Raw results, logs and original invocation receipts preserved.",
+      "files": [
+        {
+          "file": "excluded/gl02-ab/00-palette-0.json",
+          "sha256": "7ac237fa740a93f8dc86e9d73514c4f60b4279c250c9ea873e4c4ba812719e88",
+          "derivativeBytes": 4286,
+          "originalSha256": "7ac237fa740a93f8dc86e9d73514c4f60b4279c250c9ea873e4c4ba812719e88",
+          "originalBytes": 4286,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "97c3052d924189ca00350bc9c229f288ad03f1eb0235bfb55860b5a42539ec4e",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/00-palette-0.log",
+          "sha256": "40858a32bdedc185e4b7b2b87be2f85bf553ca98fd9657c5ce2ccf87a9506e52",
+          "derivativeBytes": 1550,
+          "originalSha256": "9b824eb2b0c0efd74a7b63b7486d3433e6d4e9a2a6e7146907ca6f58f96856fe",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/01-palette-1.json",
+          "sha256": "1b7ee5714842663664900daa08678345cac27b93ae1de9a1b54e661ac7de2040",
+          "derivativeBytes": 4285,
+          "originalSha256": "1b7ee5714842663664900daa08678345cac27b93ae1de9a1b54e661ac7de2040",
+          "originalBytes": 4285,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "ca353637e01d3b60dc4d0c86226f0027acd9cdef2c8c948c48114de4a139e518",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/01-palette-1.log",
+          "sha256": "40fcf8bccc4400ef9076f91212a0d7b951d1abade9f92a173a71558cfe3255a9",
+          "derivativeBytes": 1550,
+          "originalSha256": "b307e5095fb51fdf72a861eab33ac7ca67a34dd6678889050285eb948e140d23",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/02-palette-1.json",
+          "sha256": "36076d0fbff2384c07748db585bc91e43f871c964500a04242f868ec2db2323d",
+          "derivativeBytes": 4286,
+          "originalSha256": "36076d0fbff2384c07748db585bc91e43f871c964500a04242f868ec2db2323d",
+          "originalBytes": 4286,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "966421574c44e668f762eb33252147660c11d238b093e6d2ba297e1740122a37",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/02-palette-1.log",
+          "sha256": "9c66c0220e758a25765b757f78dcbb808d1ee50e27b87bd30b5a94f4459f6482",
+          "derivativeBytes": 1550,
+          "originalSha256": "d7065984c97b321ae2228986d52d863ef7068d6d257c415a1233bb2e8ff271c8",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/03-palette-0.json",
+          "sha256": "3bf392e429fb66345358fa88602df9911625ed2c1c7b889c58bd8d2b3a760e8f",
+          "derivativeBytes": 4287,
+          "originalSha256": "3bf392e429fb66345358fa88602df9911625ed2c1c7b889c58bd8d2b3a760e8f",
+          "originalBytes": 4287,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "c59aca440f199295d214f7a68018a29e77675827decd556f3642a14acf4f8bb5",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/03-palette-0.log",
+          "sha256": "b1807f99ae28d17cddd3d71164bdaa649e46e126589b7f5584b831361d572cfc",
+          "derivativeBytes": 1550,
+          "originalSha256": "09afce7122448b08167008625d0ddaf811325ba66841af66069bbbfdd0997b0a",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/04-palette-1.json",
+          "sha256": "842265c5e228f498b8b9086803e00a145712cb916a794e75cde65daff8b9f93c",
+          "derivativeBytes": 4286,
+          "originalSha256": "842265c5e228f498b8b9086803e00a145712cb916a794e75cde65daff8b9f93c",
+          "originalBytes": 4286,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "b863714b7dca3870b2e8398c80a33dc52b16fa5a48322e3aa7297af88145d5af",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/04-palette-1.log",
+          "sha256": "00375a3ccbc89db1f53c0f8858a6a8435d13fdb77bbb67fc392385db1f341c03",
+          "derivativeBytes": 1550,
+          "originalSha256": "a3d2c90fadbdfa7ba931ddf5e6ecd0a55164c31d16980eb3763fae5294892890",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/05-palette-0.json",
+          "sha256": "d22624eee0314858103a26608e9210a4161b0c29a237c30aac095f00c570f7aa",
+          "derivativeBytes": 4288,
+          "originalSha256": "d22624eee0314858103a26608e9210a4161b0c29a237c30aac095f00c570f7aa",
+          "originalBytes": 4288,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "699401a16dd7b85775f441a67fb5cd5afafd32dbe920389a18dbc810e6cefe76",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/05-palette-0.log",
+          "sha256": "dc326e8a12206a5ab72da62de1f570d1c071a0615d662f37e11b415ee0886bf7",
+          "derivativeBytes": 1550,
+          "originalSha256": "8ee1735a864db9f739101dd2e3fc3885e265aacbda5e99c07a498d619e549996",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/06-palette-0.json",
+          "sha256": "178d491b984b0f4ac8e9a54f8b9e6d8d24b17747834375a92fa0b265a463be18",
+          "derivativeBytes": 4286,
+          "originalSha256": "178d491b984b0f4ac8e9a54f8b9e6d8d24b17747834375a92fa0b265a463be18",
+          "originalBytes": 4286,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "bdb9d5fb5f7fe7c8ac84489a97e4297e99ec0b279774affc6f1c37548b63f367",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/06-palette-0.log",
+          "sha256": "6c558f7f6880d36fe02d85aba0db3e1a903ad1017cdb45c2433691ad99c1d50d",
+          "derivativeBytes": 1550,
+          "originalSha256": "941bdb4cbd78e499326829dc91b7e32c55a5e7cd60fc46d422467baeacc66a11",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/07-palette-1.json",
+          "sha256": "a93fffba71b34d7336332b84b26683becf71ec5e7df5039e20a495cfb721ad73",
+          "derivativeBytes": 4289,
+          "originalSha256": "a93fffba71b34d7336332b84b26683becf71ec5e7df5039e20a495cfb721ad73",
+          "originalBytes": 4289,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "d0d68d620b2473b9317dc8cc4a5cc051369ded9302261a99a54f65b207f59e9b",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/07-palette-1.log",
+          "sha256": "4a124de813b72591f485c38d7228de76aa41fe9d59b9d7ea648f942226782272",
+          "derivativeBytes": 1550,
+          "originalSha256": "1729602915f99c85d8bca1d627ba11d5b3e984966f8382a4d662f127c68e839c",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/08-palette-0.json",
+          "sha256": "478f7a713f16749bc4c0851ef55f9132e2eb540bf33f8b940d3ea8fcd7ee7a2f",
+          "derivativeBytes": 4286,
+          "originalSha256": "478f7a713f16749bc4c0851ef55f9132e2eb540bf33f8b940d3ea8fcd7ee7a2f",
+          "originalBytes": 4286,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "0c2014dc414ce2f24716e9454183cb54adae07cd711bc71a552f318357b8d3f5",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/08-palette-0.log",
+          "sha256": "3dc52268004b67a4283b124b9b4aed9cfb99a47d2570f6e0edf7914397c46988",
+          "derivativeBytes": 1550,
+          "originalSha256": "54f24285583e58d2d89f9cab5af85f2b9af6a43bf2dc7bde5b71d5fa5274933f",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/09-palette-1.json",
+          "sha256": "d5d34202453f9bd3e14b4b38e80ab9bbf0474a96532b900585c6b91c81036a72",
+          "derivativeBytes": 4282,
+          "originalSha256": "d5d34202453f9bd3e14b4b38e80ab9bbf0474a96532b900585c6b91c81036a72",
+          "originalBytes": 4282,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "579f3c78ecb6aa6c501576f0c3636635fc46a9b5cc384ca9b319f6bb9e8fc72b",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/09-palette-1.log",
+          "sha256": "1db7739490cafe0f53f0b8dee060c1e14bf7935b22097cfe2ce8c14323d067cd",
+          "derivativeBytes": 1550,
+          "originalSha256": "8d5f2dd26ac9edd85a45d77c032d6330bddf47f223b1909097a1e102aa0a4a37",
+          "originalBytes": 1692,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/EXCLUDED.json",
+          "sha256": "5d71b687325b4e9b6497209017f9be24559d462d59ba79338bdb815123dd700c",
+          "derivativeBytes": 261,
+          "originalSha256": "5d71b687325b4e9b6497209017f9be24559d462d59ba79338bdb815123dd700c",
+          "originalBytes": 261,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-ab/receipts.json",
+          "sha256": "e7e59c57b03aada1c1513f7b460cab28753efa47d02c164b76b7f74ccf10b262",
+          "derivativeBytes": 7803,
+          "originalSha256": "6cab5532f20bd556b7c15a495f65faaa47c2ad35ae8cffbde9ff392c055e0281",
+          "originalBytes": 9933,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "e6d2ad25c21ec20a52790722d5a13cff4a46f34c1633b7bc456ee37c35af7fd5",
+            "numericLeaves": 30,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        }
+      ]
+    },
+    {
+      "status": "EXCLUDED",
+      "reason": "Initial harness resolved baseline assembly, not intended candidate; no performance inference allowed. Raw results, logs and original invocation receipts preserved.",
+      "files": [
+        {
+          "file": "excluded/gl02-profile/EXCLUDED.json",
+          "sha256": "5d71b687325b4e9b6497209017f9be24559d462d59ba79338bdb815123dd700c",
+          "derivativeBytes": 261,
+          "originalSha256": "5d71b687325b4e9b6497209017f9be24559d462d59ba79338bdb815123dd700c",
+          "originalBytes": 261,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+            "numericLeaves": 0,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-profile/palette-0.json",
+          "sha256": "428f0fe65fde2c4648d0e3dd844413551af3b547d380fab78bc05dbabf9f3c66",
+          "derivativeBytes": 4286,
+          "originalSha256": "428f0fe65fde2c4648d0e3dd844413551af3b547d380fab78bc05dbabf9f3c66",
+          "originalBytes": 4286,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "d1733e917a1471f3e82b341cb29077354d1d0d3d5dd642b791a9f9849e7e7ee9",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-profile/palette-0.log",
+          "sha256": "54b6d3aa25e1e39e9bd64165f772f4753bb10b2a4b167c84015654cf63337ee9",
+          "derivativeBytes": 337312,
+          "originalSha256": "83f4f1880c180dcc03b5027ec56c625ca87c395e68ec0876b3370fafcc7fa453",
+          "originalBytes": 337454,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "a063b0c1d2038e8f820e1121bd2cf4f4b41130d9139cc03f0d56ad6cf41a52f5",
+            "numericLeaves": 9610,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-profile/palette-1.json",
+          "sha256": "ac223766d15bb1abe845b4313853d549525ed7490b0b7d2fb0ee8cfdd78a9c7d",
+          "derivativeBytes": 4286,
+          "originalSha256": "ac223766d15bb1abe845b4313853d549525ed7490b0b7d2fb0ee8cfdd78a9c7d",
+          "originalBytes": 4286,
+          "pathFiltered": false,
+          "numericProjection": {
+            "sha256": "2e9217971c44c0410f3b5ca39e11bc89712ba44688c3db253a20367aab3eb362",
+            "numericLeaves": 97,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-profile/palette-1.log",
+          "sha256": "d9ff126e4b5d1eab33a621ee4c25479e491c636041fc86309440c0e6f05ad05b",
+          "derivativeBytes": 336390,
+          "originalSha256": "099d6d3271f912eb80bed052d5d0ef669b5ceaab735041edb3e590aba2910a7f",
+          "originalBytes": 336532,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "2d4cf1bfaa8e436ff012746c12242da71a02f07db45b9ae4dc07d06ad301dc1d",
+            "numericLeaves": 9566,
+            "scope": "Every numeric leaf in structured *-json log events; unstructured diagnostic text excluded"
+          },
+          "numericEquality": true
+        },
+        {
+          "file": "excluded/gl02-profile/receipts.json",
+          "sha256": "de789d6b39839580ef966f04ed439e8827b9063e3be1afbe9a0e671c602ca88f",
+          "derivativeBytes": 1185,
+          "originalSha256": "656bed3863933828ef60496e03a2c203208f07c3cd1cf389d222dd772c109388",
+          "originalBytes": 1611,
+          "pathFiltered": true,
+          "numericProjection": {
+            "sha256": "852e9fb0bc796d0ff1547fad5d6a5a8484ce87adcc95cfc76418778b43fc4134",
+            "numericLeaves": 4,
+            "scope": "Every numeric JSON leaf, identified by object key/list index; string values excluded"
+          },
+          "numericEquality": true
+        }
+      ]
+    }
+  ],
+  "sanitization": {
+    "schema": 1,
+    "originalManifestSha256": "197fb1d90e66534d009691c945b3fbd039feb0f8bd96db44f93431f0c8681ceb",
+    "originalManifestBytes": 51782,
+    "replacementRoots": [
+      "${WORKSPACE}",
+      "${HOME}"
+    ],
+    "scope": "Private host-path strings only. Numeric result/counter observations unchanged. Command paths are labels, not local dependencies.",
+    "originalPayloads": "Retained external; not bundled. Original and derivative digests/lengths are distinct."
+  }
+}

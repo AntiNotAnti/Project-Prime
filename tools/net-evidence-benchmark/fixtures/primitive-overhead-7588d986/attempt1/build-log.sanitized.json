@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt1/external-entry-build.sanitized.log",
+    "sha256": "31ecc00e40f15f3c47f530a8302f295c60fc43f27c3817ae28fa38c40fcbb244",
+    "bytes": 553
+  },
+  "policy": "Collector-sanitized build log selected unchanged; source warning/failure evidence preserved; earlier original raw digest retained in receipt.",
+  "payload": {
+    "lines": [
+      "  Determining projects to restore...",
+      "  Restored $EVIDENCE/external-entry-source/benchmark.csproj (in 22 ms).",
+      "$EVIDENCE/external-entry-source/Program.cs(171,34): warning CS8602: Dereference of a possibly null reference. [$EVIDENCE/external-entry-source/benchmark.csproj]",
+      "  benchmark -> $EVIDENCE/runtime/nettest.dll",
+      "",
+      "Build succeeded.",
+      "",
+      "$EVIDENCE/external-entry-source/Program.cs(171,34): warning CS8602: Dereference of a possibly null reference. [$EVIDENCE/external-entry-source/benchmark.csproj]",
+      "    1 Warning(s)",
+      "    0 Error(s)",
+      "",
+      "Time Elapsed 00:00:01.09"
+    ]
+  }
+}
