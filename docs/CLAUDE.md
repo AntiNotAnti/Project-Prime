@@ -50,6 +50,13 @@ for implementation contracts.
 
 ## Where things are
 
+The native offline picker includes registered public custom maps before their
+runtime files are generated, including same-session installs while the front
+screen retains an older catalog. Private-source maps retain their explicit local
+qualification gate; built-in arenas still require installed entity data.
+`tools/rmlui-live-menu-check -- --arena-catalog-only` covers catalog refresh,
+installed package search/selection and these exclusions without game assets.
+
 Custom-map pipeline ownership, residual bottlenecks and reproducible conversion /
 transfer measurements are tracked in `docs/performance/map-pipeline-optimization.md`.
 Component timings do not establish live loading or cross-platform acceptance.

@@ -318,10 +318,21 @@ namespace MphRead.Mods.Launcher.Gui
             // Missing built-in data must not remain selectable after a failed
             // load or game-file repair, especially on bot-match return.
             using var files = GameFiles.TryUseConfiguredFiles();
-            if (files == null) return Array.Empty<string>();
-            return CurrentRooms.Where(room =>
-                (Metadata.IsBuiltInRoom(room) || _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase))
-                && (!Metadata.IsBuiltInRoom(room) || ThumbnailGenerator.HasInstalledEntityFile(room))).ToArray();
+            if (files == null || !GameFiles.Ready) return Array.Empty<string>();
+            // Registered public custom maps compile lazily at the launch boundary.
+            // Listing them must not require generated entities or hash archives.
+            // A same-session install publishes metadata without rebuilding the front.
+            var definitions = MapGen.CustomRooms.Definitions;
+            var metadata = Metadata.RoomMetadata;
+            var publicCustomRooms = definitions.Where(map => !map.RequiresPrivateSource
+                    && metadata.TryGetValue(map.Name, out RoomMetadata? room) && room.Multiplayer
+                    && !Metadata.IsBuiltInRoom(map.Name))
+                .Select(map => map.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return CurrentRooms.Concat(publicCustomRooms).Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(room => Metadata.IsBuiltInRoom(room)
+                ? ThumbnailGenerator.HasInstalledEntityFile(room)
+                : _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase)
+                    || publicCustomRooms.Contains(room)).ToArray();
         }
 
         internal static bool RmlUiShowLegacyLobby()

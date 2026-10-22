@@ -7,6 +7,8 @@ using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Launcher.RmlUi.Core;
 using MphRead.Mods.Launcher.RmlUi.Render;
+using MphRead.Mods.MapEditor;
+using MphRead.Mods.MapGen;
 using MphRead.Utility;
 using OpenTK.Mathematics;
 
@@ -95,6 +97,8 @@ internal static class OfflineArenaCatalogChecks
             Check(arenas.All(arena => services.OfflineArenaKeys().Contains(arena)),
                 "repairing the arena restores it through the existing setup-completion owner");
 
+            CheckCustomPackage(front!, services, root, Check);
+
             // Optional read-only validation against an operator's existing
             // extraction. Only paths.txt is copied into this private test root.
             if (Environment.GetEnvironmentVariable("PROJECT_PRIME_ARENA_CATALOG_OWNED_PATHS") is { Length: > 0 } owned)
@@ -126,6 +130,71 @@ internal static class OfflineArenaCatalogChecks
             GameFiles.Root = oldRoot; LauncherPrefs.Directory = oldPrefs;
             Environment.SetEnvironmentVariable("PROJECT_PRIME_USER_DATA", oldUser);
             Directory.SetCurrentDirectory(cwd);
+        }
+    }
+
+    private static void CheckCustomPackage(StartScreen front, RmlUiLiveMenuServices services,
+        string root, Action<bool, string> check)
+    {
+        var idsField = typeof(Metadata).GetField("_roomIds", PrivateStatic)!;
+        var definitionsField = typeof(CustomRooms).GetField("_definitions", PrivateStatic)!;
+        var installedField = typeof(CustomRooms).GetField("_installed", PrivateStatic)!;
+        var localField = typeof(Shell).GetField("_offlineLocalSourceRooms", PrivateStatic)!;
+        object? oldIds = idsField.GetValue(null), oldDefinitions = definitionsField.GetValue(null),
+            oldInstalled = installedField.GetValue(null), oldLocal = localField.GetValue(null);
+        var oldList = Metadata.RoomList;
+        var oldMetadata = Metadata.RoomMetadata;
+        string[] oldRooms = front.RmlUiRoomKeys;
+        try
+        {
+            var authored = MapTemplates.Create("OFFLINE PACKAGE CHECK", true).Definition;
+            authored.InGameName = "Installed Custom Arena";
+            string package = MapPackageBuilder.Build(authored, Path.Combine(root, "offline-check.ppmap"));
+            var installed = MapDefinition.Load(package);
+            var privateMap = MapTemplates.Create("OFFLINE PRIVATE CHECK", true).Definition;
+            privateMap.LocalSourceOnly = true;
+            const string unknown = "OFFLINE UNKNOWN CHECK";
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                Metadata.RegisterDownloadedMap(installed);
+                Metadata.RegisterDownloadedMap(privateMap);
+            });
+            check(installed.BundlePath == package && !ThumbnailGenerator.HasInstalledEntityFile(installed.Name),
+                "installed package fixture has no generated runtime entities");
+            check(Metadata.RoomMetadata.ContainsKey(installed.Name) && !front.RmlUiRoomKeys.Contains(installed.Name)
+                && !services.BuiltInArenaKeys().Contains(installed.Name),
+                "same-session package registration retains the stale front catalog without becoming built-in");
+            check(services.OfflineArenaKeys().Contains(installed.Name),
+                "newly installed custom package appears before front refresh or runtime generation");
+            var draft = new RmlUiOfflineDraft(services.OfflineArenaKeys(), Hunter.Samus, 0, 2, 1);
+            check(draft.OpenArena() && draft.SearchArena("Installed Custom Arena")
+                && draft.ArenaCount == 1 && draft.ArenaChoice(0) == installed.Name
+                && draft.SelectArena(0) && draft.Current.RoomKey == installed.Name && draft.Valid,
+                "offline picker finds the installed custom display name and selects its exact runtime key");
+            check(!ThumbnailGenerator.HasInstalledEntityFile(installed.Name),
+                "enumerating and selecting custom maps does not compile runtime entities");
+            Dispatcher.UIThread.Invoke(() => front.RefreshDeferredRooms(
+                oldRooms.Concat(new[] { installed.Name, privateMap.Name, unknown }).ToArray()));
+            check(services.OfflineArenaKeys().Count(room => room == installed.Name) == 1,
+                "front catalog catchup does not duplicate a newly registered custom map");
+            check(!services.OfflineArenaKeys().Contains(privateMap.Name) && !services.OfflineArenaKeys().Contains(unknown),
+                "unqualified private source and unknown room hints remain excluded");
+            localField.SetValue(null, new[] { privateMap.Name });
+            check(services.OfflineArenaKeys().Contains(privateMap.Name),
+                "existing qualified local-source admission remains available");
+        }
+        finally
+        {
+            Dispatcher.UIThread.Invoke(() =>
+            {
+                idsField.SetValue(null, oldIds);
+                typeof(Metadata).GetProperty(nameof(Metadata.RoomList))!.SetValue(null, oldList);
+                typeof(Metadata).GetProperty(nameof(Metadata.RoomMetadata))!.SetValue(null, oldMetadata);
+                definitionsField.SetValue(null, oldDefinitions);
+                installedField.SetValue(null, oldInstalled);
+                localField.SetValue(null, oldLocal);
+                front.RefreshDeferredRooms(oldRooms);
+            });
         }
     }
 
