@@ -1296,7 +1296,7 @@ services.LobbyView = stageLobby with
 services.AdminState = stageRoster;
 services.Chrome = new RmlUiLobbyChrome("7:00", "7 POINT GOAL",
     "Pilot: Hello world", "CHAT AVAILABLE", "MAP READY",
-    "MAP: SANCTORUS // PREVIEW PENDING", "", "");
+    "MAP: Data Shrine // PREVIEW PENDING", "", "");
 var lobbyChrome = Wait(controller, snap =>
     Text(snap, "lobby_time") == "7:00");
 Check(Text(lobbyChrome, "lobby_score") == "7 POINT GOAL"
