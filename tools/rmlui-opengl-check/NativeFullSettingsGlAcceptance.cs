@@ -104,27 +104,41 @@ internal static class NativeFullSettingsGlAcceptance
             Frame();Check(sawRangeIntent&&VisibleRows()[initialFovIndex].Value!=beforeDrag,"pointer drag changes the native FOV draft");
             Check(controller.Rows.Select(r=>r.Read()).SequenceEqual(original)&&bytes.All(p=>p.Value==null?!File.Exists(p.Key):File.Exists(p.Key)&&File.ReadAllBytes(p.Key).SequenceEqual(p.Value)),"native slider leaves runtime owners and preference bytes unchanged before Apply");
             bool backHandled=page.Back();Frame();
-            Check(backHandled&&!page.Closed&&Read().ContainsText("Unsaved changes"),"dirty Back stays on Settings with an explicit resolution message");
+            Check(backHandled&&!page.Closed&&controller.ConfirmingVideo&&Read().ContainsText("Keep this display mode"),
+                "dirty Back enters the native confirmed video trial without silently committing the window choice");
+            // An active video modal admits only Keep/Revert/Close. A Discard
+            // intent is correctly ignored until the guarded trial is reverted.
+            Send(RmlUiIntentKind.SettingsRevertVideo);
             Send(RmlUiIntentKind.SettingsDiscard);
-            Check(page.CanNavigateAway&&window.Value==saved&&controller.Rows.Select(r=>r.Read()).SequenceEqual(original),"Discard restores draft and leaves engine statics unchanged");
+            Check(page.CanNavigateAway&&window.Value==saved&&controller.Rows.Select(r=>r.Read()).SequenceEqual(original),
+                "Discard cancels the pending video trial and restores all owner settings");
+            Check(!controller.ConfirmingVideo&&modes.Count==2&&modes[^1]==LauncherPrefs.WindowMode,
+                "video trial applies and rolls back only through the fake window callback");
+            modes.Clear(); // The explicit video acceptance below measures its own callback pair.
 
             for(int category=0;category<NativeFullSettingsController.Categories.Length;category++)
             {
                 Send(RmlUiIntentKind.SettingsCategory,category);if(category==3)Send(RmlUiIntentKind.SettingsAction,216);Settle();
                 Check(Read().Label("native_settings_title")==NativeFullSettingsController.Categories[category],"native category title: "+NativeFullSettingsController.Categories[category]);
-                foreach(string id in new[]{"native_settings_title","native_settings_apply","native_settings_status","native_settings_category_"+category})Contained(page.Document,id,"category "+category);
+                foreach(string id in new[]{"native_settings_title","native_settings_back","native_settings_status","native_settings_category_"+category})Contained(page.Document,id,"category "+category);
                 var subpages=NativeFullSettingsPage.Subpages(category);
                 for(int pane=0;pane<Math.Max(1,subpages.Length);pane++)
                 {
                     if(subpages.Length>0){Send(RmlUiIntentKind.SettingsAction,232+pane);Reveal("native_settings_subpage_"+pane,false);Contained(page.Document,"native_settings_subpage_"+pane,"meaningful "+subpages[pane]+" subpage");}
-                    var rows=controller.Rows.Where(r=>r.Category==NativeFullSettingsController.Categories[category]&&(subpages.Length==0||NativeFullSettingsPage.RowSubpage(r)==pane)).ToArray();
-                    Check(rows.Length<=NativeFullSettingsPage.Slots,"complete natural form including Advanced fits bounded authored row slots: "+rows.Length);
+                    bool advanced=(bool)typeof(NativeFullSettingsPage).GetField("_advanced",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(page)!;
+                    var rows=controller.Rows.Where(r=>r.Category==NativeFullSettingsController.Categories[category]
+                        &&(subpages.Length==0||NativeFullSettingsPage.RowSubpage(r)==pane)
+                        &&!r.HudOnly&&!NativeSettingsCatalog.HasVisualEditor(r)&&(advanced||!r.Advanced))
+                        .OrderBy(r=>NativeSettingsCatalog.Group(r),StringComparer.Ordinal).ToArray();
+                    Check(VisibleRows().SequenceEqual(rows),
+                        "real native form shows exactly the canonical, visible and grouped rows for the selected section");
+                    Check(rows.Length<=NativeFullSettingsPage.Slots,"complete visible natural form fits bounded authored row slots: "+rows.Length);
                     NativeFullSettingsPage.RequireRowCapacity(rows.Length);
                     if(rows.Length==0)continue;
                     string first=rows[0].Choices.Length>0||rows[0].IsBinding?"native_settings_cycle_0":"native_settings_value_0";
                     Reveal(first,false);Contained(page.Document,first,"first readable sectioned form control");
                     Check(Read().Label(first).Contains(NativeSemanticReadback.Normalize(rows[0].Label),StringComparison.Ordinal),"first interactive control names actual owner setting");
-                    foreach(string section in rows.Select(r=>r.Group).Distinct())Check(Read().ContainsText(section),"natural form retains section heading without extra navigation: "+section);
+                    foreach(string section in rows.Select(NativeSettingsCatalog.Group).Distinct())Check(Read().ContainsText(section),"natural form retains section heading without extra navigation: "+section);
                     if(rows.Length>10)
                     {
                         int last=rows.Length-1;string id=rows[last].Choices.Length>0||rows[last].IsBinding?"native_settings_cycle_"+last:"native_settings_value_"+last;
@@ -135,18 +149,19 @@ internal static class NativeFullSettingsGlAcceptance
                 if(subpages.Length>0)Send(RmlUiIntentKind.SettingsAction,232);
                 if(category is 0 or 1 or 2 or 3 or 6 or 7)Capture("settings-"+NativeFullSettingsController.Categories[category].ToLowerInvariant());
             }
-            Send(RmlUiIntentKind.SettingsCategory,3);Send(RmlUiIntentKind.SettingsAction,232);
-            var keyboardRows=controller.Rows.Where(r=>r.Group=="Keyboard bindings").ToArray();
+            Send(RmlUiIntentKind.SettingsCategory,3);Send(RmlUiIntentKind.SettingsAction,233);
+            var keyboardRows=controller.Rows.Where(r=>r.Group=="Keyboard bindings"
+                &&NativeFullSettingsPage.RowSubpage(r)==1).ToArray();
+            Check(keyboardRows.Length>=2,"Movement section exposes at least two real keyboard bindings");
             foreach(var row in keyboardRows)controller.Stage(row,"Unknown");
             controller.Stage(keyboardRows[0],"F1");controller.Stage(keyboardRows[1],"F2");
-            Send(RmlUiIntentKind.SettingsAction,232);
             SendRow(keyboardRows[0]);Check(page.KeyDown(Keys.F2,default),"native keyboard capture receives actual key adapter input");Frame();
             Check(Read().Label("native_settings_confirm")=="SWAP"&&Read().ContainsText("REPLACE")&&Read().ContainsText("KEEP BOTH"),"native conflict offers explicit Swap Replace Keep Both and Cancel");
             Capture("settings-binding-conflict");Send(RmlUiIntentKind.SettingsAction,214);
             Check(keyboardRows[0].Value=="F2"&&keyboardRows[1].Value=="F2"&&!controller.BindingConflict,"native Keep Both stages only the proposal");
             SendRow(keyboardRows[0]);Check(page.KeyDown(Keys.Delete,default),"native Delete clears a listening binding");Frame();
             Check(keyboardRows[0].Value=="Unknown"&&!controller.Capturing,"native clear ends capture with unbound draft");Send(RmlUiIntentKind.SettingsDiscard);
-            Send(RmlUiIntentKind.SettingsAction,233);
+            Send(RmlUiIntentKind.SettingsAction,237);
             var nativeLayout=controller.Rows.Single(r=>r.Label=="Control layout");string layoutBefore=nativeLayout.Value;
             SendRow(nativeLayout);
             Check(nativeLayout.Value!=layoutBefore&&!page.CanNavigateAway,"native named controller layout is an explicit staged choice");Capture("settings-controller-layout");
@@ -164,7 +179,7 @@ internal static class NativeFullSettingsGlAcceptance
                 snapshotField.SetValue(null,idle);
                 Send(RmlUiIntentKind.SettingsAction,233);
                 var draftBeforeCover=controller.Rows.Select(r=>r.Value).ToArray();
-                SendRow(controller.Rows.First(r=>r.BindingAction!=null));Check(controller.ControllerCapturing,"connected native controller capture is pending before License covers Settings");
+                SendRow(controller.Rows.First(r=>r.BindingAction!=null&&NativeFullSettingsPage.RowSubpage(r)==1));Check(controller.ControllerCapturing,"connected native controller capture is pending before License covers Settings");
                 var cover=pages.OpenModal(new("settings-input-cover","pages/license/native-overview.rml","native_license_close"));
                 snapshotField.SetValue(null,idle with{State=new GamepadState{Connected=true,Buttons=GamepadButtons.B}});
                 Frame();
@@ -177,7 +192,7 @@ internal static class NativeFullSettingsGlAcceptance
             }
             finally{snapshotField.SetValue(null,snapshotBefore);if(pages.Top!=page.Document&&pages.ModalCount>0)pages.CloseModal();}
             foreach(var row in keyboardRows)controller.Stage(row,"Unknown");controller.Stage(keyboardRows[0],"F1");controller.Stage(keyboardRows[1],"F2");
-            Send(RmlUiIntentKind.SettingsAction,232);SendRow(keyboardRows[0]);
+            SendRow(keyboardRows[0]);
             Check(page.KeyDown(Keys.F2,default)&&controller.BindingConflict,"native duplicate-key proposal is pending before cover");
             var conflictValues=controller.Rows.Select(r=>r.Value).ToArray();
             pages.OpenModal(new("settings-conflict-cover","pages/license/native-overview.rml","native_license_close"));Frame();
@@ -221,6 +236,7 @@ internal static class NativeFullSettingsGlAcceptance
             Check(!controller.ConfirmingVideo&&!controller.CanKeepVideo&&modes.Count==beforeFocusRollback+1&&modes[^1]==LauncherPrefs.WindowMode,"focus loss rolls back an unacknowledged display proposal");
             Send(RmlUiIntentKind.SettingsDiscard);
 
+            Send(RmlUiIntentKind.SettingsCategory,0);
             Send(RmlUiIntentKind.SettingsAction,3);
             Check(page.TryTakeOpenHud(out HudProfile draft)&&!page.TryTakeOpenHud(out _),"Settings emits a single detached HUD draft handoff");
             page.SuspendView(); hud=new NativeHudEditorPage(host,pages,draft);hud.Open();Settle(180);
