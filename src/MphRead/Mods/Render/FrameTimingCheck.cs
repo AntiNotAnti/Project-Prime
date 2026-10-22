@@ -273,12 +273,14 @@ namespace MphRead.Mods.Render
                     && !PlayerEntity.ModDynamicReticlePresentation(
                         Features.ProHud, Features.FixedWeapon);
 
-                bool classicOk = !PlayerEntity.ModDynamicReticlePresentation(
-                    proHud: false, fixedWeapon: false);
+                bool classicOk = PlayerEntity.ModDynamicReticlePresentation(
+                    proHud: false, fixedWeapon: false)
+                    && !PlayerEntity.ModDynamicReticlePresentation(proHud: false, fixedWeapon: true);
                 bool ok = dynamicOk && staticOk && classicOk;
                 Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} Pro HUD dynamic crosshair camera"
                     + $" | dynamic={(dynamicOk ? "responsive camera / moving reticle" : "wrong policy")}"
-                    + $" | static={(staticOk ? "responsive camera / fixed reticle" : "wrong policy")}");
+                    + $" | static={(staticOk ? "responsive camera / fixed reticle" : "wrong policy")}"
+                    + $" | classic={(classicOk ? "weapon-style reticle" : "wrong policy")}");
                 return ok;
             }
             finally
