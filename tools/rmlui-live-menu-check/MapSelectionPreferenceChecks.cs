@@ -27,7 +27,7 @@ internal static class MapSelectionPreferenceChecks
             using (var create = new RmlUiMenuController(new Stub { BuiltInMaps = rooms }))
             {
                 Check(create.Dispatch(RmlUiIntentKind.PlayCreateOpen)
-                    && Text(create, "play_create_map") == LauncherPrefs.DefaultMap,
+                    && Text(create, "play_create_map") == "Combat Hall",
                     "new native lobby opens with Combat Hall selected");
             }
 
@@ -35,12 +35,12 @@ internal static class MapSelectionPreferenceChecks
             using (var controller = new RmlUiMenuController(services))
             {
                 Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
-                    && Text(controller, "offline_arena_value") == LauncherPrefs.DefaultMap,
+                    && Text(controller, "offline_arena_value") == "Combat Hall",
                     "new native bot setup opens with Combat Hall selected");
                 Check(controller.Dispatch(RmlUiIntentKind.OfflineOpenArena)
                     && controller.Dispatch(RmlUiIntentKind.OfflineArenaSearch, arenaSearch: "sanctorus")
                     && controller.Dispatch(RmlUiIntentKind.OfflineSelectArena, 0)
-                    && Text(controller, "offline_arena_value") == "MP1 SANCTORUS"
+                    && Text(controller, "offline_arena_value") == "Data Shrine"
                     && LauncherPrefs.LastSelectedMap == "MP1 SANCTORUS",
                     "changing maps updates the active draft and preferred selection");
                 Check(File.ReadAllText(Path.Combine(sandbox, "launcher.txt"))
@@ -58,7 +58,7 @@ internal static class MapSelectionPreferenceChecks
                 Check(services.OfflineLaunches == 1
                     && services.LastOffline.RoomKey == "MP1 SANCTORUS"
                     && controller.OfflineSessionClosed()
-                    && Text(controller, "offline_arena_value") == "MP1 SANCTORUS",
+                    && Text(controller, "offline_arena_value") == "Data Shrine",
                     "return from a finished round retains the explicitly chosen map");
             }
 
@@ -70,10 +70,10 @@ internal static class MapSelectionPreferenceChecks
             using (var reopened = new RmlUiMenuController(new Stub { BuiltInMaps = rooms }))
             {
                 Check(reopened.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
-                    && Text(reopened, "offline_arena_value") == "MP1 SANCTORUS",
+                    && Text(reopened, "offline_arena_value") == "Data Shrine",
                     "new menu instance restores the last chosen arena");
                 Check(reopened.Dispatch(RmlUiIntentKind.PlayCreateOpen)
-                    && Text(reopened, "play_create_map") == "MP1 SANCTORUS",
+                    && Text(reopened, "play_create_map") == "Data Shrine",
                     "native lobby creation also restores the saved arena");
             }
 
