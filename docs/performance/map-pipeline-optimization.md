@@ -155,7 +155,59 @@ The full combined Windows map-editor suite passed 510 checks. Archive-cache
 checks passed 22 checks, transfer checks 61, and multiplayer acceptance completed
 its isolated clients, rotation, restart, rejection and historical-package cases.
 
-## Acceptance still required
+## Website upload and service recovery
+
+The companion website now uses one structural archive preflight for mixed
+selection and drag/drop. A root package manifest takes precedence over BSP
+entries; an invalid manifest never falls back to conversion. Archive paths,
+entry counts, sizes and symlinks are bounded before routing. Processing remains
+sequential, with a maximum batch of 30 files, individual cancellation and retry.
+The archive library still retains its central directory; this change only
+removes an additional application-side entry array and duplicated inspection.
+
+An authenticated batch shares its owner catalog and requests a fresh ticket for
+each publication. The mock three-publication test uses one catalog read and
+three tickets, preserving each published parent hash. At 30 publications this
+removes 29 catalog reads (96.7%), or 29 of the previous 60 catalog/ticket requests
+(48.3%). These are request counts, not measured live upload latency. Interrupted
+chunk writes reconcile the authoritative server offset before retransmission,
+with bounded exponential backoff, jitter and cancelable waits.
+
+The conversion service stages durable job metadata before moving the verified
+source. It promotes the complete directory atomically before linking the upload
+session. Startup reconciles staged/final jobs and uniquely identifiable legacy
+orphans; ambiguous source files are preserved and counted against disk quotas.
+Fixtures exercise crashes before input movement, after movement and after final
+promotion, plus exact job reuse, mismatched metadata and quota accounting.
+The local service suite passes 13 tests. Linux crash and filesystem behavior
+still requires the platform CI/deployment gate.
+
+The website also pins the compatible Next.js 15.5.28 security patch. Its audit
+record documents remaining transitive advisories and the major-version upgrade
+needed to address them; this is not a clean dependency-audit claim.
+
+## Delivery and validation status
+
+| Pull request | Scope | Status at report update |
+|---|---|---|
+| [Project Prime #1023](https://github.com/AntiNotAnti/Project-Prime/pull/1023) | Audit and reproducible transfer baseline | Open; refreshed onto current main; CI running |
+| [Project Prime #1024](https://github.com/AntiNotAnti/Project-Prime/pull/1024) | Streamed download verification | Open; stacked on #1023; CI running |
+| [Project Prime #1025](https://github.com/AntiNotAnti/Project-Prime/pull/1025) | Portable conversion reuse and persistent worker cache | Open; stacked on #1024; CI running |
+| [Project Prime #1026](https://github.com/AntiNotAnti/Project-Prime/pull/1026) | Retired prewarm cancellation | Open; stacked on #1025; CI running |
+| [Website #16](https://github.com/projectprimegg/projectprime-website/pull/16) | Mixed bulk uploads and interrupted-chunk recovery | Open; final response-body recovery review in progress |
+
+No PR has been merged at this update. Earlier CI cancellations are not passes.
+The converter workflow now installs the exact SDK from `global.json`; installing
+the latest 10.0 SDK had failed the repository's strict SDK pin. Current-main
+replay test repairs are incorporated without duplicating them in this work.
+
+Additional local checks pass: the frozen baseline with stress enabled, six
+streamed-package checks using a 16 MiB asset size, and a server-only Release
+build. Package checks retain byte parity, cancellation preservation and oversized
+sparse-input rejection. These are deterministic local checks, not near-limit
+valid-map gameplay or production load tests.
+
+## Remaining acceptance and bottlenecks
 
 The broad plan's 30% cold-load / 50% warm-load objectives remain unproven until
 the same actual maps run before/after on target devices. Required campaigns
@@ -164,3 +216,11 @@ real render/collision/entity equivalence, gameplay-ready transitions and
 rotations, frame stalls, Android lifecycle/memory pressure, Linux service
 crash/resource isolation and Windows/macOS/Linux/Android CI. No component
 microbenchmark substitutes for these end-to-end gates.
+
+The startup CLI path currently calls `CustomRooms.GenerateMissing()` for every
+registered custom map, even when selecting one diagnostic map. A real DUST2
+smoke built six rooms. Loading-boundary coverage must be established before
+removing that safety net. Further priorities are cold commit work under the
+scene gate, GPU upload/frame captures, dependency-integrity verification cost,
+and production CDN fallback/load evidence. None has a measured improvement
+claim in this report.
