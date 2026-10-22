@@ -22,8 +22,9 @@ using MphRead.Mods.Render;
 using MphRead.Mods.Render.Hud;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using MphRead.Sound;
 
-/// <summary>Real native documents with detached drafts and a fake window callback; never commits settings or invokes maintenance.</summary>
+/// <summary>Real native documents with isolated settings autosave and a fake window callback; never invokes maintenance.</summary>
 internal static class NativeFullSettingsGlAcceptance
 {
     internal static void Run(RmlUiHost host, int width, int height)
@@ -31,12 +32,29 @@ internal static class NativeFullSettingsGlAcceptance
         string root = Environment.GetEnvironmentVariable("PROJECT_PRIME_USER_DATA") ?? throw new InvalidOperationException("Explicit private user data required.");
         if (!Path.IsPathFullyQualified(root) || Path.GetFullPath(LauncherPrefs.Directory) != Path.GetFullPath(root))
             throw new InvalidOperationException("Settings GL fixture requires the explicit private preference directory.");
-        const string scope = "Synthetic native full Settings and detached HUD editor, real DOM/layout/intents/preview renderer, fake window callback only. No settings Apply commit, maintenance, archive, account, gameplay or ROM acquisition effects. Screenshots require visual review.";
+        const string scope = "Synthetic native full Settings and detached HUD editor, real DOM/layout/intents/preview renderer, fake window callback only. Settings autosave uses only this explicitly isolated preference directory; no maintenance, archive, account, gameplay or ROM acquisition effects. Screenshots require visual review.";
         string output = Path.Combine(root, "native-full-settings-gl", width + "x" + height); Directory.CreateDirectory(output);
-        string[] stores = { Path.Combine(root,"launcher.txt"),Path.Combine(root,"controls.txt"),Path.GetFullPath(Path.Combine("Savedata","settings.json")),Path.Combine(root,"Savedata","hud-profiles","active.json") };
+        string[] stores = { Path.Combine(root,"launcher.txt"),Path.Combine(root,"controls.txt"),Path.GetFullPath(Path.Combine("Savedata","settings.json")),Path.Combine(root,"Savedata","hud-profiles","active.json"),Path.Combine(root,"Savedata","hud-profiles","active.json.bak") };
         var bytes = stores.ToDictionary(p => p, p => File.Exists(p) ? File.ReadAllBytes(p) : null);
         string liveHud = HudProfileStore.Serialize(HudProfiles.CopyCurrent());
+        var hudStoreField=typeof(HudProfiles).GetField("_store",BindingFlags.Static|BindingFlags.NonPublic)!;
+        object? hudStoreBefore=hudStoreField.GetValue(null);
+        var isolatedHudStore=new HudProfileStore(Path.Combine(root,"Savedata","hud-profiles"));
         var settings = new MenuSettings(); var modes = new List<WindowStartMode>();
+        byte[] settingsBefore = JsonSerializer.SerializeToUtf8Bytes(settings);
+        MenuSettings? gameSettingsBefore = GameSettings.Current;
+        byte[]? gameSettingsBytesBefore = gameSettingsBefore == null ? null : JsonSerializer.SerializeToUtf8Bytes(gameSettingsBefore);
+        var featuresBefore = Features.Commit();
+        var renderOptionsBefore = CaptureRenderOptions();
+        int frameRateCapBefore = FrameTiming.FrameRateCap;
+        Language languageBefore = Scene.Language;
+        var mixerBefore = Enum.GetValues<AudioBus>().ToDictionary(bus => bus, AudioMixer.GetVolume);
+        float sfxVolumeBefore = Sfx.Volume, musicVolumeBefore = Music.UserVolume;
+        var respawnHunterField = typeof(RespawnChoice).GetField("_hunter",BindingFlags.Static|BindingFlags.NonPublic)!;
+        var respawnColorField = typeof(RespawnChoice).GetField("_color",BindingFlags.Static|BindingFlags.NonPublic)!;
+        object? respawnHunterBefore = respawnHunterField.GetValue(null), respawnColorBefore = respawnColorField.GetValue(null);
+        Action restoreStylusPlacement=StylusZone.CapturePlacement();
+        float stylusLeftBefore=StylusZone.SavedLeft,stylusTopBefore=StylusZone.SavedTop,stylusWidthBefore=StylusZone.SavedWidth;
         using var pages = new RmlUiPageManager(host);
         using var page = new NativeFullSettingsPage(host,pages,settings,modes.Add);
         var controller = (NativeFullSettingsController)typeof(NativeFullSettingsPage).GetField("_controller",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(page)!;
@@ -48,36 +66,49 @@ internal static class NativeFullSettingsGlAcceptance
             .Select(match=>int.Parse(match.Groups[1].Value,CultureInfo.InvariantCulture)).ToArray();
         if(!slots.SequenceEqual(Enumerable.Range(0,NativeFullSettingsPage.Slots)))
             throw new InvalidOperationException("Shipped Settings row slots do not match the presenter capacity.");
-        host.Input.SetFramebufferScale(1,1); page.Open(); Settle();
         try
         {
+            // Full Settings saves the active HUD profile as part of its real
+            // autosave. Isolate that store before opening the page so every
+            // path after the first mutation is covered by the cleanup guard.
+            hudStoreField.SetValue(null,isolatedHudStore);
+            host.Input.SetFramebufferScale(1,1); page.Open(); Settle();
+            // Follow the actual Overview -> category landing -> section route.
+            ClickIntent("native_settings_overview_0",RmlUiIntentKind.SettingsCategory,0,"Overview Display card");
+            Check(Read().Label("native_settings_title")=="Display"&&Read().Label("native_settings_subpage_0")=="View",
+                "Display category opens its View section chooser");
+            ClickIntent("native_settings_subpage_0",RmlUiIntentKind.SettingsAction,232,"Display View section card");
+            Check(Read().Label("native_settings_title")=="Display / View","native View form opens through its native intent");
+
             // Do the real native pointer cycle before synthetic sequence numbers.
             var window = controller.Rows.Single(r=>r.Category=="Display"&&r.Group=="Window");
             string saved = window.Value;
-            // Settings now opens to its overview, not to the flat settings
-            // form. Enter the real Display/View section before exercising
-            // a native choice control. Never click a hidden row.
-            int displayCategory = Array.IndexOf(NativeFullSettingsController.Categories,"Display");
-            Check(displayCategory >= 0,"Display settings category is available");
-            Click("native_settings_overview_"+displayCategory);
-            Check(host.TryTakeIntent(out var categoryIntent) && categoryIntent.Kind==RmlUiIntentKind.SettingsCategory
-                && categoryIntent.Argument==displayCategory && categoryIntent.Document==page.Document
-                && page.Handle(categoryIntent) && !host.TryTakeIntent(out _),
-                "actual native overview card navigates to Display exactly once");
-            Settle();
-            int viewTab = NativeSettingsCatalog.Tab(window);
-            Click("native_settings_subpage_"+viewTab);
-            Check(host.TryTakeIntent(out var sectionIntent) && sectionIntent.Kind==RmlUiIntentKind.SettingsAction
-                && sectionIntent.Argument==232+viewTab && sectionIntent.Document==page.Document
-                && page.Handle(sectionIntent) && !host.TryTakeIntent(out _),
-                "actual native subpage card navigates to Display/View exactly once");
-            Settle();
-            int windowIndex = Array.IndexOf(VisibleRows(),window);
-            Check(windowIndex >= 0 && window.Choices.Length > 0,"Display/View exposes the window choice");
-            Click("native_settings_cycle_"+windowIndex);
+            int windowIndex=Array.IndexOf(VisibleRows(),window);
+            Check(windowIndex>=0,"native Window Mode belongs to the active Display/View form");
+            string windowControl="native_settings_cycle_"+windowIndex;
+            Reveal(windowControl,false);
+            Click(windowControl);
             Check(host.TryTakeIntent(out var cycle) && cycle.Kind==RmlUiIntentKind.SettingsAction && cycle.Argument==32+windowIndex
                 && cycle.Document==page.Document && page.Handle(cycle) && !host.TryTakeIntent(out _), "actual native choice button emits and stages exactly one bounded intent");
             Frame(); Check(window.Value!=saved && !page.CanNavigateAway,"choice stages a guarded draft");
+            Settle(500);
+            Check(controller.ConfirmingVideo&&controller.CanKeepVideo&&modes.Count==1,
+                "native window choice enters the acknowledged autosave display guard");
+            Check(controller.Rows.Select(r=>r.Read()).SequenceEqual(original)&&PreferenceFilesMatchSnapshot(),
+                "guarded display preview leaves runtime owners and private preference files unchanged until Keep");
+            var popup=pages.Top;
+            Check(host.FocusDocument(popup,"native_settings_revert_video"),"native display guard focuses its visible Revert action");
+            Frame();
+            Check(host.TryGetElementBounds(popup,"native_settings_revert_video",out float revertX,out float revertY,out float revertW,out float revertH)
+                &&revertW>0&&revertH>0,"native display guard exposes its Revert target");
+            host.DiscardIntents();host.Input.PointerMoved(revertX+revertW/2,revertY+revertH/2);
+            host.Input.PointerButton(0,revertX+revertW/2,revertY+revertH/2,true);host.Input.PointerButton(0,revertX+revertW/2,revertY+revertH/2,false);host.Update();
+            Check(host.TryTakeIntent(out var revert)&&revert.Kind==RmlUiIntentKind.SettingsRevertVideo&&revert.Document==popup,
+                "native display Revert button emits the owner-bound video intent");
+            Check(page.Handle(revert)&&!host.TryTakeIntent(out _),"native display Revert intent returns to the saved mode");Frame();
+            Check(!controller.ConfirmingVideo&&window.Value==saved&&controller.Rows.Select(r=>r.Read()).SequenceEqual(original)
+                &&PreferenceFilesMatchSnapshot(),"reverting the guarded native choice preserves owner values and preference bytes");
+
             // Native events must precede synthetic sequence numbers used by the remaining fixture.
             int initialFovIndex=Array.FindIndex(VisibleRows(),r=>r.Label=="Field Of View");
             string sliderId="native_settings_slider_"+initialFovIndex;
@@ -102,67 +133,70 @@ internal static class NativeFullSettingsGlAcceptance
                 Check(page.Handle(rangeIntent),"actual range intent stages through native page acceptance");sawRangeIntent=true;
             }
             Frame();Check(sawRangeIntent&&VisibleRows()[initialFovIndex].Value!=beforeDrag,"pointer drag changes the native FOV draft");
-            Check(controller.Rows.Select(r=>r.Read()).SequenceEqual(original)&&bytes.All(p=>p.Value==null?!File.Exists(p.Key):File.Exists(p.Key)&&File.ReadAllBytes(p.Key).SequenceEqual(p.Value)),"native slider leaves runtime owners and preference bytes unchanged before Apply");
+            Settle(500);
+            var fovRow=controller.Rows.Single(r=>r.Label=="Field Of View");int fovRowIndex=Array.IndexOf(controller.Rows.ToArray(),fovRow);
+            string savedFov=fovRow.Value,originalFov=original[fovRowIndex];
+            Check(!savedFov.Equals(originalFov,StringComparison.Ordinal)&&fovRow.Saved==savedFov&&fovRow.Read()==savedFov
+                &&!controller.Dirty&&!controller.AutoApplyPending&&Read().Label("native_settings_status")=="Settings saved automatically.",
+                "native pointer slider auto-saves its exact owner value after the quiet interval");
+            Check(!PreferenceFilesMatchSnapshot(),"native slider autosave produces a private preference-file witness");
             bool backHandled=page.Back();Frame();
-            Check(backHandled&&!page.Closed&&controller.ConfirmingVideo&&Read().ContainsText("Keep this display mode"),
-                "dirty Back enters the native confirmed video trial without silently committing the window choice");
-            // An active video modal admits only Keep/Revert/Close. A Discard
-            // intent is correctly ignored until the guarded trial is reverted.
-            Send(RmlUiIntentKind.SettingsRevertVideo);
-            Send(RmlUiIntentKind.SettingsDiscard);
-            Check(page.CanNavigateAway&&window.Value==saved&&controller.Rows.Select(r=>r.Read()).SequenceEqual(original),
-                "Discard cancels the pending video trial and restores all owner settings");
-            Check(!controller.ConfirmingVideo&&modes.Count==2&&modes[^1]==LauncherPrefs.WindowMode,
-                "video trial applies and rolls back only through the fake window callback");
-            modes.Clear(); // The explicit video acceptance below measures its own callback pair.
+            Check(backHandled&&!page.Closed&&Read().Label("native_settings_title")=="Display",
+                "clean autosaved Back returns from the View form to the Display section chooser");
+            Check(controller.Stage(fovRow,originalFov)&&controller.FlushAutoApply()&&fovRow.Read()==originalFov&&fovRow.Saved==originalFov,
+                "private fixture restores the original live Field Of View through the normal owner transaction");
+            RestoreAutosavedOwners();
+            Check(PreferenceFilesMatchSnapshot(),"native settings fixture restores exact private preference-file bytes after autosave witness");
 
             for(int category=0;category<NativeFullSettingsController.Categories.Length;category++)
             {
                 Send(RmlUiIntentKind.SettingsCategory,category);if(category==3)Send(RmlUiIntentKind.SettingsAction,216);Settle();
                 Check(Read().Label("native_settings_title")==NativeFullSettingsController.Categories[category],"native category title: "+NativeFullSettingsController.Categories[category]);
-                foreach(string id in new[]{"native_settings_title","native_settings_back","native_settings_status","native_settings_category_"+category})Contained(page.Document,id,"category "+category);
+                foreach(string id in new[]{"native_settings_title","native_settings_status","native_settings_back","native_settings_category_"+category})Contained(page.Document,id,"category "+category);
                 var subpages=NativeFullSettingsPage.Subpages(category);
                 for(int pane=0;pane<Math.Max(1,subpages.Length);pane++)
                 {
                     if(subpages.Length>0){Send(RmlUiIntentKind.SettingsAction,232+pane);Reveal("native_settings_subpage_"+pane,false);Contained(page.Document,"native_settings_subpage_"+pane,"meaningful "+subpages[pane]+" subpage");}
+                    var displayedRows=VisibleRows();
                     bool advanced=(bool)typeof(NativeFullSettingsPage).GetField("_advanced",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(page)!;
-                    var rows=controller.Rows.Where(r=>r.Category==NativeFullSettingsController.Categories[category]
-                        &&(subpages.Length==0||NativeFullSettingsPage.RowSubpage(r)==pane)
-                        &&!r.HudOnly&&!NativeSettingsCatalog.HasVisualEditor(r)&&(advanced||!r.Advanced))
-                        .OrderBy(r=>NativeSettingsCatalog.Group(r),StringComparer.Ordinal).ToArray();
-                    Check(VisibleRows().SequenceEqual(rows),
-                        "real native form shows exactly the canonical, visible and grouped rows for the selected section");
-                    Check(rows.Length<=NativeFullSettingsPage.Slots,"complete visible natural form fits bounded authored row slots: "+rows.Length);
-                    NativeFullSettingsPage.RequireRowCapacity(rows.Length);
-                    if(rows.Length==0)continue;
-                    string first=rows[0].Choices.Length>0||rows[0].IsBinding?"native_settings_cycle_0":"native_settings_value_0";
+                    var canonicalRows=controller.Rows.Where(r=>r.Category==NativeFullSettingsController.Categories[category]
+                        &&(subpages.Length==0||NativeFullSettingsPage.RowSubpage(r)==pane)&&!r.HudOnly
+                        &&!NativeSettingsCatalog.HasVisualEditor(r)&&(advanced||!r.Advanced))
+                        .OrderBy(NativeSettingsCatalog.Group,StringComparer.Ordinal).ToArray();
+                    Check(displayedRows.SequenceEqual(canonicalRows),"native pane presents the complete canonical owner row order: "+category+"/"+pane);
+                    Check(displayedRows.Length<=NativeFullSettingsPage.Slots,"complete natural form including Advanced fits bounded authored row slots: "+displayedRows.Length);
+                    NativeFullSettingsPage.RequireRowCapacity(displayedRows.Length);
+                    if(displayedRows.Length==0)continue;
+                    var firstRow=displayedRows[0];
+                    string first=firstRow.Choices.Length>0||firstRow.IsBinding?"native_settings_cycle_0":"native_settings_value_0";
                     Reveal(first,false);Contained(page.Document,first,"first readable sectioned form control");
-                    Check(Read().Label(first).Contains(NativeSemanticReadback.Normalize(rows[0].Label),StringComparison.Ordinal),"first interactive control names actual owner setting");
-                    foreach(string section in rows.Select(NativeSettingsCatalog.Group).Distinct())Check(Read().ContainsText(section),"natural form retains section heading without extra navigation: "+section);
-                    if(rows.Length>10)
+                    Check(Read().Label(first).Contains(NativeSemanticReadback.Normalize(firstRow.Label),StringComparison.Ordinal),"first interactive control names actual owner setting");
+                    foreach(string section in displayedRows.Select(NativeSettingsCatalog.Group).Distinct())Check(Read().ContainsText(section),"natural form retains section heading without extra navigation: "+section);
+                    if(displayedRows.Length>10)
                     {
-                        int last=rows.Length-1;string id=rows[last].Choices.Length>0||rows[last].IsBinding?"native_settings_cycle_"+last:"native_settings_value_"+last;
-                        Reveal(id,true);Contained(page.Document,id,"natural native scrolling reaches last of "+rows.Length+" settings");
-                        Check(Read().Label(id).Contains(NativeSemanticReadback.Normalize(rows[last].Label),StringComparison.Ordinal),"last natural-form control retains owner name");Capture("settings-"+category+"-"+pane+"-scrolled");
+                        int last=displayedRows.Length-1;string id=displayedRows[last].Choices.Length>0||displayedRows[last].IsBinding?"native_settings_cycle_"+last:"native_settings_value_"+last;
+                        Reveal(id,true);Contained(page.Document,id,"natural native scrolling reaches last of "+displayedRows.Length+" settings");
+                        Check(Read().Label(id).Contains(NativeSemanticReadback.Normalize(displayedRows[last].Label),StringComparison.Ordinal),"last natural-form control retains owner name");Capture("settings-"+category+"-"+pane+"-scrolled");
                     }
                 }
                 if(subpages.Length>0)Send(RmlUiIntentKind.SettingsAction,232);
                 if(category is 0 or 1 or 2 or 3 or 6 or 7)Capture("settings-"+NativeFullSettingsController.Categories[category].ToLowerInvariant());
             }
-            Send(RmlUiIntentKind.SettingsCategory,3);Send(RmlUiIntentKind.SettingsAction,233);
-            var keyboardRows=controller.Rows.Where(r=>r.Group=="Keyboard bindings"
-                &&NativeFullSettingsPage.RowSubpage(r)==1).ToArray();
-            Check(keyboardRows.Length>=2,"Movement section exposes at least two real keyboard bindings");
-            foreach(var row in keyboardRows)controller.Stage(row,"Unknown");
+            Send(RmlUiIntentKind.SettingsCategory,3);Send(RmlUiIntentKind.SettingsAction,232);
+            var allKeyboardRows=controller.Rows.Where(r=>r.Group=="Keyboard bindings").ToArray();
+            var keyboardRows=VisibleRows().Where(r=>r.Group=="Keyboard bindings").ToArray();
+            Check(keyboardRows.Length>=2,"Aim section exposes two keyboard bindings for native conflict capture");
+            foreach(var row in allKeyboardRows)controller.Stage(row,"Unknown");
             controller.Stage(keyboardRows[0],"F1");controller.Stage(keyboardRows[1],"F2");
+            Send(RmlUiIntentKind.SettingsAction,232);
             SendRow(keyboardRows[0]);Check(page.KeyDown(Keys.F2,default),"native keyboard capture receives actual key adapter input");Frame();
             Check(Read().Label("native_settings_confirm")=="SWAP"&&Read().ContainsText("REPLACE")&&Read().ContainsText("KEEP BOTH"),"native conflict offers explicit Swap Replace Keep Both and Cancel");
-            Capture("settings-binding-conflict");Send(RmlUiIntentKind.SettingsAction,214);
+            Capture("settings-binding-conflict");ClickPopupIntent("native_settings_conflict_keep",RmlUiIntentKind.SettingsAction,214,"native Keep Both conflict action");
             Check(keyboardRows[0].Value=="F2"&&keyboardRows[1].Value=="F2"&&!controller.BindingConflict,"native Keep Both stages only the proposal");
             SendRow(keyboardRows[0]);Check(page.KeyDown(Keys.Delete,default),"native Delete clears a listening binding");Frame();
             Check(keyboardRows[0].Value=="Unknown"&&!controller.Capturing,"native clear ends capture with unbound draft");Send(RmlUiIntentKind.SettingsDiscard);
-            Send(RmlUiIntentKind.SettingsAction,237);
             var nativeLayout=controller.Rows.Single(r=>r.Label=="Control layout");string layoutBefore=nativeLayout.Value;
+            Send(RmlUiIntentKind.SettingsAction,232+NativeFullSettingsPage.RowSubpage(nativeLayout));
             SendRow(nativeLayout);
             Check(nativeLayout.Value!=layoutBefore&&!page.CanNavigateAway,"native named controller layout is an explicit staged choice");Capture("settings-controller-layout");
             Send(RmlUiIntentKind.SettingsDiscard);
@@ -179,7 +213,8 @@ internal static class NativeFullSettingsGlAcceptance
                 snapshotField.SetValue(null,idle);
                 Send(RmlUiIntentKind.SettingsAction,233);
                 var draftBeforeCover=controller.Rows.Select(r=>r.Value).ToArray();
-                SendRow(controller.Rows.First(r=>r.BindingAction!=null&&NativeFullSettingsPage.RowSubpage(r)==1));Check(controller.ControllerCapturing,"connected native controller capture is pending before License covers Settings");
+                var controllerBinding=VisibleRows().First(r=>r.BindingAction!=null);
+                SendRow(controllerBinding);Check(controller.ControllerCapturing,"connected native controller capture is pending before License covers Settings");
                 var cover=pages.OpenModal(new("settings-input-cover","pages/license/native-overview.rml","native_license_close"));
                 snapshotField.SetValue(null,idle with{State=new GamepadState{Connected=true,Buttons=GamepadButtons.B}});
                 Frame();
@@ -191,8 +226,8 @@ internal static class NativeFullSettingsGlAcceptance
                 Capture("settings-covered-capture-return");
             }
             finally{snapshotField.SetValue(null,snapshotBefore);if(pages.Top!=page.Document&&pages.ModalCount>0)pages.CloseModal();}
-            foreach(var row in keyboardRows)controller.Stage(row,"Unknown");controller.Stage(keyboardRows[0],"F1");controller.Stage(keyboardRows[1],"F2");
-            SendRow(keyboardRows[0]);
+            foreach(var row in allKeyboardRows)controller.Stage(row,"Unknown");controller.Stage(keyboardRows[0],"F1");controller.Stage(keyboardRows[1],"F2");
+            Send(RmlUiIntentKind.SettingsAction,232);SendRow(keyboardRows[0]);
             Check(page.KeyDown(Keys.F2,default)&&controller.BindingConflict,"native duplicate-key proposal is pending before cover");
             var conflictValues=controller.Rows.Select(r=>r.Value).ToArray();
             pages.OpenModal(new("settings-conflict-cover","pages/license/native-overview.rml","native_license_close"));Frame();
@@ -200,8 +235,12 @@ internal static class NativeFullSettingsGlAcceptance
             typeof(NativeFullSettingsController).GetField("_operation",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(controller,System.Threading.Tasks.Task.FromResult("Covered operation completed."));Frame();
             Check(!controller.Busy&&controller.Status=="Covered operation completed.","covered page still polls completed operations without sampling input");
             pages.CloseModal();Frame();Send(RmlUiIntentKind.SettingsDiscard);
+            foreach(var item in controller.Rows.Select((row,index)=>(row,index)))
+                if(item.row.Read()!=original[item.index])Check(controller.Stage(item.row,original[item.index]),"fixture can restore autosaved setting owner: "+item.row.Label);
+            if(controller.Dirty)Check(controller.FlushAutoApply(),"fixture restores autosaved engine owners through the normal Settings transaction");
+            RestoreAutosavedOwners();
             Check(controller.Rows.Select(r=>r.Read()).SequenceEqual(original)
-                &&bytes.All(p=>p.Value==null?!File.Exists(p.Key):File.Exists(p.Key)&&File.ReadAllBytes(p.Key).SequenceEqual(p.Value)),"covered-input lifecycle changes no engine statics or preference bytes");
+                &&PreferenceFilesMatchSnapshot(),"covered-input lifecycle restores all autosaved engine owners and exact preference bytes");
             controller.CalibrationAction(26);page.CancelInputCapture();
             Check(typeof(NativeFullSettingsController).GetField("_calibration",BindingFlags.NonPublic|BindingFlags.Instance)!.GetValue(controller)==null,"native focus-loss cancellation retires unfinished calibration");
 
@@ -221,14 +260,16 @@ internal static class NativeFullSettingsGlAcceptance
             Send(RmlUiIntentKind.SettingsDiscard);
             // Window remains within the same natural Display form.
             controller.Stage(window,window.Choices.First(c=>c!=window.Saved));
-            Check(controller.Apply()&&controller.ConfirmingVideo&&controller.VideoSeconds is >=14 and <=15&&modes.Count==1,
+            int beforeVideoTrial=modes.Count;
+            Check(controller.Apply()&&controller.ConfirmingVideo&&controller.VideoSeconds is >=14 and <=15&&modes.Count==beforeVideoTrial+1,
                 "fake window preview enters fifteen-second confirmation without engine commit");
             Check(!controller.CanKeepVideo&&!controller.KeepVideo()&&controller.ConfirmingVideo,"Keep rejects a display proposal before a usable native frame");
-            Frame();Check(controller.CanKeepVideo,"successful foreground native frame acknowledges display proposal");Contained(page.Document,"native_settings_video","display confirmation card");Contained(page.Document,"native_settings_video_countdown","display confirmation countdown");
+            Frame();Check(controller.CanKeepVideo,"successful foreground native frame acknowledges display proposal");
+            var videoDialog=pages.Top;Contained(videoDialog,"native_settings_video","display confirmation card");Contained(videoDialog,"native_settings_video_countdown","display confirmation countdown");
             Check(Read().Label("native_settings_video_countdown").Contains("Reverting in",StringComparison.Ordinal),"display confirmation countdown is readable native status text"); Capture("settings-video-proposal");
             var videoCover=pages.OpenModal(new("settings-video-cover","pages/license/native-overview.rml","native_license_close"));
             typeof(NativeFullSettingsController).GetField("_videoDeadline",BindingFlags.NonPublic|BindingFlags.Instance)!.SetValue(controller,DateTime.UtcNow.AddMilliseconds(-1));
-            Frame();Check(!controller.ConfirmingVideo&&modes.Count==2&&modes[^1]==LauncherPrefs.WindowMode&&pages.Top==videoCover,"expired fake-window proposal rolls back while another native modal covers Settings");
+            Frame();Check(!controller.ConfirmingVideo&&modes.Count==beforeVideoTrial+2&&modes[^1]==LauncherPrefs.WindowMode&&pages.Top==videoCover,"expired fake-window proposal rolls back while another native modal covers Settings");
             pages.CloseModal();Frame();Send(RmlUiIntentKind.SettingsDiscard);
             controller.Stage(window,window.Choices.First(c=>c!=window.Saved));
             Check(controller.Apply()&&controller.ConfirmingVideo,"second fake display trial begins for focus-loss guard");
@@ -236,7 +277,6 @@ internal static class NativeFullSettingsGlAcceptance
             Check(!controller.ConfirmingVideo&&!controller.CanKeepVideo&&modes.Count==beforeFocusRollback+1&&modes[^1]==LauncherPrefs.WindowMode,"focus loss rolls back an unacknowledged display proposal");
             Send(RmlUiIntentKind.SettingsDiscard);
 
-            Send(RmlUiIntentKind.SettingsCategory,0);
             Send(RmlUiIntentKind.SettingsAction,3);
             Check(page.TryTakeOpenHud(out HudProfile draft)&&!page.TryTakeOpenHud(out _),"Settings emits a single detached HUD draft handoff");
             page.SuspendView(); hud=new NativeHudEditorPage(host,pages,draft);hud.Open();Settle(180);
@@ -262,11 +302,12 @@ internal static class NativeFullSettingsGlAcceptance
             SendHud(RmlUiIntentKind.HudAction,(int)HudEditorAction.Use);
             Check(hud.TryTakeAccepted(out var accepted)&&hud.Closed,"native HUD accepts one detached profile");
             hud.Dispose();hud=null;page.AcceptHud(accepted);page.ResumeView();Settle();
-            Check(!page.CanNavigateAway&&HudProfileStore.Serialize(HudProfiles.CopyCurrent())==liveHud,"resumed Settings owns HUD draft and still requires Apply");
+            Check(!page.CanNavigateAway&&controller.AutoApplyPending&&HudProfileStore.Serialize(HudProfiles.CopyCurrent())==liveHud,
+                "resumed Settings owns the detached HUD draft and reports automatic save pending");
             Send(RmlUiIntentKind.SettingsDiscard);
             Check(controller.Rows.Select(r=>r.Read()).SequenceEqual(original)&&HudProfileStore.Serialize(HudProfiles.CopyCurrent())==liveHud,
                 "discard after native HUD roundtrip preserves all engine settings and original live HUD");
-            NativeSettingsVisualAcceptance.Run(host,pages,new MenuSettings());
+            NativeSettingsVisualAcceptance.Run(host,pages,new MenuSettings(),RestoreAutosavedOwners);
             var retainedPage=pages.Page;
             using(var overlay=new NativeFullSettingsPage(host,pages,new MenuSettings(),asModal:true))
             {
@@ -285,13 +326,108 @@ internal static class NativeFullSettingsGlAcceptance
                 Check(overlay.OwnsForeground&&pages.Page==retainedPage&&host.IsAlive(retainedPage),"resumed modal Settings retains underlying workspace identity");
             }
             Check(pages.Page==retainedPage&&page.OwnsForeground&&host.IsAlive(retainedPage),"closing modal Settings restores the original foreground document");
-            Check(bytes.All(p=>p.Value==null?!File.Exists(p.Key):File.Exists(p.Key)&&File.ReadAllBytes(p.Key).SequenceEqual(p.Value)),"native Settings and HUD functional fixture changes no preference owner bytes");
+            Check(PreferenceFilesMatchSnapshot(),"native Settings and HUD functional fixture changes no preference owner bytes");
             Check(GL.GetError()==ErrorCode.NoError,"native Settings and HUD frames leave no GL error");
             File.WriteAllText(Path.Combine(output,"settings-summary.json"),JsonSerializer.Serialize(new{passed=true,checks,width,height,density=Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_CHECK_DENSITY")??"1",scope,geometry},new JsonSerializerOptions{WriteIndented=true}));
         }
-        finally{hud?.Dispose();}
+        finally
+        {
+            try{hud?.Dispose();}
+            finally{RestoreFixtureState();}
+        }
 
         NativeSemanticReadback Read()=>NativeSemanticReadback.Read(host,pages.Top);
+        bool PreferenceFilesMatchSnapshot()=>bytes.All(p=>p.Value==null?!File.Exists(p.Key):File.Exists(p.Key)&&File.ReadAllBytes(p.Key).SequenceEqual(p.Value));
+        void RestoreFixtureState()
+        {
+            var failures=new List<Exception>();
+            try
+            {
+                controller.Discard();
+                if(HudProfileStore.Serialize(HudProfiles.CopyCurrent())!=liveHud)
+                    HudProfiles.Publish(HudProfileStore.Parse(liveHud));
+                foreach(var item in controller.Rows.Select((row,index)=>(row,index)))
+                    controller.Stage(item.row,original[item.index]);
+                if(controller.Dirty&&!controller.ConfirmingVideo&&!controller.FlushAutoApply())
+                    throw new InvalidOperationException("Private Settings fixture could not restore its original runtime owner values.");
+                if(!controller.Rows.Select(r=>r.Read()).SequenceEqual(original))
+                    throw new InvalidOperationException("Private Settings fixture runtime owners differ from their original snapshot.");
+                if(HudProfileStore.Serialize(HudProfiles.CopyCurrent())!=liveHud)
+                    throw new InvalidOperationException("Private Settings fixture HUD owner differs from its original snapshot.");
+            }
+            catch(Exception ex){failures.Add(ex);}
+            finally
+            {
+                try{RestoreRuntimeOwners();}catch(Exception ex){failures.Add(ex);}
+                try{RestorePreferenceFiles();}catch(Exception ex){failures.Add(ex);}
+            }
+            if(!PreferenceFilesMatchSnapshot())
+                failures.Add(new InvalidOperationException("Private Settings fixture preference bytes differ from their original snapshot."));
+            if(!OwnerSnapshotsMatch())
+                failures.Add(new InvalidOperationException("Private Settings fixture runtime owners differ from their original snapshot."));
+            if(failures.Count>0)throw new AggregateException("Private Settings fixture cleanup did not restore every captured owner.",failures);
+        }
+        void RestoreAutosavedOwners()
+        {
+            RestoreRuntimeOwners(keepHudStoreIsolated:true);
+            RestorePreferenceFiles();
+            if(!OwnerSnapshotsMatch(expectIsolatedHudStore:true))
+                throw new InvalidOperationException("Private Settings fixture could not restore every runtime owner after autosave.");
+        }
+        void RestoreRuntimeOwners(bool keepHudStoreIsolated=false)
+        {
+            var failures=new List<Exception>();
+            void Attempt(Action restore){try{restore();}catch(Exception ex){failures.Add(ex);}}
+            Attempt(()=>RestoreMenuSettings(settings,settingsBefore));
+            if(gameSettingsBefore!=null)
+            {
+                Attempt(()=>RestoreMenuSettings(gameSettingsBefore,gameSettingsBytesBefore!));
+                Attempt(()=>GameSettings.Apply(gameSettingsBefore));
+            }
+            Attempt(()=>HudProfiles.Publish(HudProfileStore.Parse(liveHud)));
+            Attempt(()=>Features.Load(featuresBefore));
+            Attempt(()=>RestoreRenderOptions(renderOptionsBefore));
+            Attempt(()=>FrameTiming.FrameRateCap=frameRateCapBefore);
+            Attempt(()=>Scene.Language=languageBefore);
+            foreach(var item in mixerBefore)Attempt(()=>AudioMixer.SetVolume(item.Key,item.Value));
+            Attempt(()=>Sfx.Volume=sfxVolumeBefore);Attempt(()=>Music.SetUserVolume(musicVolumeBefore));
+            Attempt(()=>respawnHunterField.SetValue(null,respawnHunterBefore));
+            Attempt(()=>respawnColorField.SetValue(null,respawnColorBefore));
+            Attempt(restoreStylusPlacement);
+            Attempt(()=>typeof(GameSettings).GetProperty(nameof(GameSettings.Current),BindingFlags.Public|BindingFlags.Static)!
+                .GetSetMethod(true)!.Invoke(null,new object?[]{gameSettingsBefore}));
+            Attempt(()=>hudStoreField.SetValue(null,keepHudStoreIsolated?isolatedHudStore:hudStoreBefore));
+            if(failures.Count>0)throw new AggregateException("Could not restore captured native Settings runtime owners.",failures);
+        }
+        bool OwnerSnapshotsMatch(bool expectIsolatedHudStore=false)
+        {
+            return JsonSerializer.SerializeToUtf8Bytes(settings).SequenceEqual(settingsBefore)
+                &&(gameSettingsBefore==null?GameSettings.Current==null:ReferenceEquals(GameSettings.Current,gameSettingsBefore)
+                    &&JsonSerializer.SerializeToUtf8Bytes(gameSettingsBefore).SequenceEqual(gameSettingsBytesBefore!))
+                &&featuresBefore.All(item=>Features.Commit().TryGetValue(item.Key,out string? value)&&value==item.Value)
+                &&RenderOptionsMatch(renderOptionsBefore)&&FrameTiming.FrameRateCap==frameRateCapBefore
+                &&Scene.Language==languageBefore&&mixerBefore.All(item=>AudioMixer.GetVolume(item.Key)==item.Value)
+                &&Sfx.Volume==sfxVolumeBefore&&Music.UserVolume==musicVolumeBefore
+                &&Equals(respawnHunterField.GetValue(null),respawnHunterBefore)&&Equals(respawnColorField.GetValue(null),respawnColorBefore)
+                &&StylusZone.SavedLeft==stylusLeftBefore&&StylusZone.SavedTop==stylusTopBefore&&StylusZone.SavedWidth==stylusWidthBefore
+                &&HudProfileStore.Serialize(HudProfiles.CopyCurrent())==liveHud
+                &&ReferenceEquals(hudStoreField.GetValue(null),expectIsolatedHudStore?isolatedHudStore:hudStoreBefore);
+        }
+        static void RestoreMenuSettings(MenuSettings destination,byte[] snapshot)
+        {
+            var saved=JsonSerializer.Deserialize<MenuSettings>(snapshot)??throw new InvalidOperationException("Could not read the fixture MenuSettings snapshot.");
+            foreach(var property in typeof(MenuSettings).GetProperties(BindingFlags.Instance|BindingFlags.Public)
+                .Where(property=>property.CanRead&&property.SetMethod!=null))
+                property.SetValue(destination,property.GetValue(saved));
+        }
+        void RestorePreferenceFiles()
+        {
+            foreach(var item in bytes)
+            {
+                if(item.Value==null){if(File.Exists(item.Key))File.Delete(item.Key);}
+                else{Directory.CreateDirectory(Path.GetDirectoryName(item.Key)!);File.WriteAllBytes(item.Key,item.Value);}
+            }
+        }
         void Check(bool pass,string label)
         {
             if(!pass)
@@ -324,13 +460,35 @@ internal static class NativeFullSettingsGlAcceptance
         void Settle(int ms=65){var watch=Stopwatch.StartNew();do{Frame();Thread.Sleep(5);}while(watch.ElapsedMilliseconds<ms);}
         NativeSettingRow[] VisibleRows()=>(NativeSettingRow[])typeof(NativeFullSettingsPage).GetField("_visible",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(page)!;
         void SendRow(NativeSettingRow row){int i=Array.IndexOf(VisibleRows(),row);Check(i>=0,"requested control belongs to current sectioned form");Send(RmlUiIntentKind.SettingsAction,32+i);}
-        void Send(RmlUiIntentKind kind,int argument=0){Check(page.Handle(new(kind,argument,page.Document,sequence++)),"typed native Settings action "+kind+"/"+argument);Frame();}
+        void Send(RmlUiIntentKind kind,int argument=0)
+        {
+            Check(page.Handle(new RmlUiIntent(kind,argument,page.Document,sequence++)),"typed native Settings action "+kind+"/"+argument);Frame();
+        }
         void SendHud(RmlUiIntentKind kind,int argument){Check(hud!.Handle(new(kind,argument,pages.Top,sequence++)),"typed native HUD action "+kind+"/"+argument);Frame();}
+        void ClickIntent(string id,RmlUiIntentKind kind,int argument,string label)
+        {
+            Click(id);
+            Check(host.TryTakeIntent(out var intent)&&intent.Kind==kind&&intent.Argument==argument&&intent.Document==page.Document,
+                "native pointer emits "+label+" intent");
+            Check(page.Handle(intent)&&!host.TryTakeIntent(out _),"native "+label+" intent opens the requested Settings view");Frame();
+        }
         void Click(string id)
         {
             Check(host.FocusDocument(page.Document,id),"native focus reaches "+id);Settle();Contained(page.Document,id,"pointer target");
             host.TryGetElementBounds(page.Document,id,out float x,out float y,out float w,out float h);
             host.DiscardIntents();host.Input.PointerMoved(x+w/2,y+h/2);host.Input.PointerButton(0,x+w/2,y+h/2,true);host.Input.PointerButton(0,x+w/2,y+h/2,false);host.Update();
+        }
+        void ClickPopupIntent(string id,RmlUiIntentKind kind,int argument,string label)
+        {
+            var target=pages.Top;
+            Check(target!=page.Document&&host.IsAlive(target),"native Settings confirmation owns a distinct foreground modal");
+            Check(host.FocusDocument(target,id),"native popup focus reaches "+id);Settle();Contained(target,id,"popup pointer target");
+            Check(host.TryGetElementBounds(target,id,out float x,out float y,out float w,out float h),"native popup exposes its actual action bounds: "+id);
+            host.DiscardIntents();host.Input.PointerMoved(x+w/2,y+h/2);host.Input.PointerButton(0,x+w/2,y+h/2,true);
+            host.Input.PointerButton(0,x+w/2,y+h/2,false);host.Update();
+            Check(host.TryTakeIntent(out var intent)&&intent.Kind==kind&&intent.Argument==argument&&intent.Document==target,
+                "native popup pointer emits its owner-bound "+label+" intent");
+            Check(page.Handle(intent)&&!host.TryTakeIntent(out _),"native "+label+" intent resolves the actual Settings confirmation");Frame();
         }
         void Reveal(string id,bool bottom)
         {
@@ -375,5 +533,59 @@ internal static class NativeFullSettingsGlAcceptance
             Frame();string path=Path.Combine(output,name+".png");Check(ScreenCapture.SaveWindow(width,height,path),"capture "+name);
             FinalCompositeCapture.WriteEvidence(path,width,height,scope);File.WriteAllText(path+".semantic.json",Read().RawJson);
         }
+    }
+
+    private sealed record RenderOptionsSnapshot(
+        int ResolutionScale,int FieldOfView,bool Lighting,bool BrightSkins,PlayerSkinStyle BrightSkinStyle,
+        PlayerOutlineStyle PlayerOutline,int PlayerOutlineWidth,bool CelShading,bool ShowFps,bool SmoothNativeHud,
+        int CelBands,float CelEdge,bool Fog,bool TextureFiltering,bool TextureMipmaps,int TextureAnisotropy,
+        TextureSamplingMode TextureSampling,TextureUpscaleMode TextureUpscale,GraphicsPreset Preset,
+        AntiAliasingMode AntiAliasing,int SharpenStrength,bool Bloom,int BloomIntensity,ColorGradeProfile ColorGrade,
+        int Gamma,int Contrast,int Saturation,bool EnhancedLighting,bool AdvancedMaterials,bool DeferredPbr,
+        ShadowQuality Shadows,AmbientOcclusionQuality AmbientOcclusion,bool ContactShadows,bool EnhancedFog,
+        bool VolumetricFog,bool InternalHdr,bool Reflections,bool DynamicGlow,bool TextureReplacements,
+        bool CharacterModelReplacements,TextureAssetQuality TextureQuality,bool ShowCustomCosmetics,
+        MphRead.Mods.Cosmetics.CosmeticEffectQuality CosmeticQuality);
+
+    private static RenderOptionsSnapshot CaptureRenderOptions()=>new(
+        RenderOptions.ResolutionScale,RenderOptions.FieldOfView,RenderOptions.Lighting,RenderOptions.BrightSkins,
+        RenderOptions.BrightSkinStyle,RenderOptions.PlayerOutline,RenderOptions.PlayerOutlineWidth,
+        RenderOptions.CelShading,RenderOptions.ShowFps,RenderOptions.SmoothNativeHud,RenderOptions.CelBands,
+        RenderOptions.CelEdge,RenderOptions.Fog,RenderOptions.TextureFiltering,RenderOptions.TextureMipmaps,
+        RenderOptions.TextureAnisotropy,RenderOptions.TextureSampling,RenderOptions.TextureUpscale,RenderOptions.Preset,
+        RenderOptions.AntiAliasing,RenderOptions.SharpenStrength,RenderOptions.Bloom,RenderOptions.BloomIntensity,
+        RenderOptions.ColorGrade,RenderOptions.Gamma,RenderOptions.Contrast,RenderOptions.Saturation,
+        RenderOptions.EnhancedLighting,RenderOptions.AdvancedMaterials,RenderOptions.DeferredPbr,RenderOptions.Shadows,
+        RenderOptions.AmbientOcclusion,RenderOptions.ContactShadows,RenderOptions.EnhancedFog,RenderOptions.VolumetricFog,
+        RenderOptions.InternalHdr,RenderOptions.Reflections,RenderOptions.DynamicGlow,RenderOptions.TextureReplacements,
+        RenderOptions.CharacterModelReplacements,RenderOptions.TextureQuality,RenderOptions.ShowCustomCosmetics,
+        RenderOptions.CosmeticQuality);
+
+    private static bool RenderOptionsMatch(RenderOptionsSnapshot snapshot)=>CaptureRenderOptions()==snapshot;
+
+    private static void RestoreRenderOptions(RenderOptionsSnapshot snapshot)
+    {
+        RenderOptions.ResolutionScale=snapshot.ResolutionScale;RenderOptions.FieldOfView=snapshot.FieldOfView;
+        RenderOptions.Lighting=snapshot.Lighting;RenderOptions.BrightSkins=snapshot.BrightSkins;
+        RenderOptions.BrightSkinStyle=snapshot.BrightSkinStyle;RenderOptions.PlayerOutline=snapshot.PlayerOutline;
+        RenderOptions.PlayerOutlineWidth=snapshot.PlayerOutlineWidth;RenderOptions.CelShading=snapshot.CelShading;
+        RenderOptions.ShowFps=snapshot.ShowFps;RenderOptions.SmoothNativeHud=snapshot.SmoothNativeHud;
+        RenderOptions.CelBands=snapshot.CelBands;RenderOptions.CelEdge=snapshot.CelEdge;RenderOptions.Fog=snapshot.Fog;
+        RenderOptions.TextureFiltering=snapshot.TextureFiltering;RenderOptions.TextureMipmaps=snapshot.TextureMipmaps;
+        RenderOptions.TextureAnisotropy=snapshot.TextureAnisotropy;RenderOptions.TextureSampling=snapshot.TextureSampling;
+        RenderOptions.TextureUpscale=snapshot.TextureUpscale;RenderOptions.Preset=snapshot.Preset;
+        RenderOptions.AntiAliasing=snapshot.AntiAliasing;RenderOptions.SharpenStrength=snapshot.SharpenStrength;
+        RenderOptions.Bloom=snapshot.Bloom;RenderOptions.BloomIntensity=snapshot.BloomIntensity;
+        RenderOptions.ColorGrade=snapshot.ColorGrade;RenderOptions.Gamma=snapshot.Gamma;RenderOptions.Contrast=snapshot.Contrast;
+        RenderOptions.Saturation=snapshot.Saturation;RenderOptions.EnhancedLighting=snapshot.EnhancedLighting;
+        RenderOptions.AdvancedMaterials=snapshot.AdvancedMaterials;RenderOptions.DeferredPbr=snapshot.DeferredPbr;
+        RenderOptions.Shadows=snapshot.Shadows;RenderOptions.AmbientOcclusion=snapshot.AmbientOcclusion;
+        RenderOptions.ContactShadows=snapshot.ContactShadows;RenderOptions.EnhancedFog=snapshot.EnhancedFog;
+        RenderOptions.VolumetricFog=snapshot.VolumetricFog;RenderOptions.InternalHdr=snapshot.InternalHdr;
+        RenderOptions.Reflections=snapshot.Reflections;RenderOptions.DynamicGlow=snapshot.DynamicGlow;
+        RenderOptions.TextureReplacements=snapshot.TextureReplacements;
+        RenderOptions.CharacterModelReplacements=snapshot.CharacterModelReplacements;
+        RenderOptions.TextureQuality=snapshot.TextureQuality;RenderOptions.ShowCustomCosmetics=snapshot.ShowCustomCosmetics;
+        RenderOptions.CosmeticQuality=snapshot.CosmeticQuality;
     }
 }

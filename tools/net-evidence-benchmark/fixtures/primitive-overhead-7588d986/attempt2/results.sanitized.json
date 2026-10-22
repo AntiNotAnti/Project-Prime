@@ -1,0 +1,2167 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt2/results.json",
+    "sha256": "ebeccb59421b944a7b0c66148d8d06a9f6155016d76a8808191dd5fe04fbd6e9",
+    "bytes": 65334
+  },
+  "policy": "Measured result numeric rows and identities unchanged; path policy applied only if present.",
+  "payload": {
+    "Schema": 1,
+    "Scope": "Constructed value primitives only: diagnostics-disabled hook bundle, exact-key/witness scopes, opt-in recorder storage and refusal. No authority session, native collision/Emit/payment, geometry admission, replay, frame-step, gameplay or FPS claim. Storage is the production opt-in recorder implementation; it is not active Shadow gameplay.",
+    "Samples": 30,
+    "WarmupBatches": 8,
+    "FixedFixtureSeed": 11,
+    "QualifiedActualClient": {
+      "File": "ProjectPrime.dll",
+      "Name": "ProjectPrime",
+      "Sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "Mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+    },
+    "ThinBenchmarkEntry": {
+      "File": "nettest.dll",
+      "Name": "nettest",
+      "Sha256": "500b3d33ddca9ac6a1e2c64720aad16a3809530e9ee7b5dd8a8046345cc24048",
+      "Mvid": "73c4899e-e7b6-4e39-ab2c-946301f536d1"
+    },
+    "FullNativeFixtureIdentityOnly": {
+      "File": "nettest.dll",
+      "Name": "nettest",
+      "Sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "Mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee"
+    },
+    "PhysicalRuntimeDependencies": [
+      {
+        "File": "Avalonia.Base.dll",
+        "Name": "Avalonia.Base",
+        "Sha256": "39f7c973a20346b2a0c0e758b875749670a610d63863e9a85ffea22d5f320279",
+        "Mvid": "3850e6d0-d211-4576-a44b-2bef28c3acaa"
+      },
+      {
+        "File": "Avalonia.Controls.dll",
+        "Name": "Avalonia.Controls",
+        "Sha256": "909b7abd1e4b389b3372c4d1c0fcae1106f99ed783cc177fa0fa67ed1147ca24",
+        "Mvid": "86a368bc-708e-4b07-9b43-90b6bb0cfb69"
+      },
+      {
+        "File": "Avalonia.DesignerSupport.dll",
+        "Name": "Avalonia.DesignerSupport",
+        "Sha256": "ee57e6001029f66ff212f4b81024e51f3167abc9461b055f7c829ec617931a2a",
+        "Mvid": "71a1c900-9753-4b36-861b-1d23135692be"
+      },
+      {
+        "File": "Avalonia.Desktop.dll",
+        "Name": "Avalonia.Desktop",
+        "Sha256": "2f3af65d2dace707ea07ad9723b4a4b849622ad9090533d44ac00ef4b0754241",
+        "Mvid": "9538b7d8-cb60-455c-bdb8-13958f91ad98"
+      },
+      {
+        "File": "Avalonia.Dialogs.dll",
+        "Name": "Avalonia.Dialogs",
+        "Sha256": "70aaeffbb3afcfafee5a5b1e19707e13b7ae5f293c4c157332693690e12e3598",
+        "Mvid": "29cfa1a3-8963-434c-801f-7cf46b8c0bfa"
+      },
+      {
+        "File": "Avalonia.dll",
+        "Name": "Avalonia",
+        "Sha256": "ac289895e7fa553ea6be420f9154c452bec6aebf64d0b344aa37827bd29d2fdb",
+        "Mvid": "f23b5d5d-0597-4b60-aad4-558975c30bbb"
+      },
+      {
+        "File": "Avalonia.Fonts.Inter.dll",
+        "Name": "Avalonia.Fonts.Inter",
+        "Sha256": "332d53aa406bcecec75f498fb8c0a91eb3ac1dcddd34a0a1fbeba0b5ddf87585",
+        "Mvid": "3e347248-53e5-46af-a002-b6953ea6f839"
+      },
+      {
+        "File": "Avalonia.FreeDesktop.AtSpi.dll",
+        "Name": "Avalonia.FreeDesktop.AtSpi",
+        "Sha256": "217ee386cbccaece75184e2ac675dc0cfcd2fcf5a7f7bf4e689f401818c945cd",
+        "Mvid": "5cf9c952-c8ad-497c-be8e-8958331589e1"
+      },
+      {
+        "File": "Avalonia.FreeDesktop.dll",
+        "Name": "Avalonia.FreeDesktop",
+        "Sha256": "a0b0918cdeb2d1b34ba86a6f858d2a81180eca919e9b7c05e18f20a02a7ffd5c",
+        "Mvid": "7815a1d9-25fb-49ec-80cf-dcd66be430ad"
+      },
+      {
+        "File": "Avalonia.HarfBuzz.dll",
+        "Name": "Avalonia.HarfBuzz",
+        "Sha256": "77bbaad227444b7dbde768677b4dbfba28fec0365b9021d8f5803b23c1323eaa",
+        "Mvid": "89451f4d-b9ce-4b20-8aba-f806d60585bf"
+      },
+      {
+        "File": "Avalonia.Headless.dll",
+        "Name": "Avalonia.Headless",
+        "Sha256": "5806ec32049e9bbaae3673688c420ce8215ed84af19f1e30cb51edb5e6810200",
+        "Mvid": "3c2f3053-e445-46c2-aa9c-985150cbe623"
+      },
+      {
+        "File": "Avalonia.Markup.dll",
+        "Name": "Avalonia.Markup",
+        "Sha256": "ce634015611862dd6814355a4880c3c718782a017665445d232834615a6120cb",
+        "Mvid": "a6d8312f-6088-4a3e-93d3-f81b06f2956a"
+      },
+      {
+        "File": "Avalonia.Markup.Xaml.dll",
+        "Name": "Avalonia.Markup.Xaml",
+        "Sha256": "1228b0a7359ebfa592408de8e20aa3b8a2775d27c36f19c1f7c8f1e9ff1e14a8",
+        "Mvid": "ffbdf18f-acb1-4f25-ad2f-c36425755ad8"
+      },
+      {
+        "File": "Avalonia.Metal.dll",
+        "Name": "Avalonia.Metal",
+        "Sha256": "d9efd4c5293f90239f2930ae688c98b2ef55925fc3de85c4a6b8422175bd78b9",
+        "Mvid": "6841ac78-f015-4ee3-acab-f2fa9eaee7ec"
+      },
+      {
+        "File": "Avalonia.MicroCom.dll",
+        "Name": "Avalonia.MicroCom",
+        "Sha256": "63457674ab61566ea94a7a089044bb2be7d0cda1530085578109df953ef37d49",
+        "Mvid": "ba19fdcc-39a1-46c9-a1ec-350402ce3ffd"
+      },
+      {
+        "File": "Avalonia.Native.dll",
+        "Name": "Avalonia.Native",
+        "Sha256": "929bd4b42462a0cb9734ff49690dccf4b52a65e86892d23f2b1d60be56a1b913",
+        "Mvid": "db09d37f-1821-48b5-9ae0-96a4ae13738c"
+      },
+      {
+        "File": "Avalonia.OpenGL.dll",
+        "Name": "Avalonia.OpenGL",
+        "Sha256": "365fc038f938088c913db7d067160f985a31f116961dbc527a38703c570119d3",
+        "Mvid": "a5045327-3234-40a1-a82a-79eb82634f74"
+      },
+      {
+        "File": "Avalonia.Remote.Protocol.dll",
+        "Name": "Avalonia.Remote.Protocol",
+        "Sha256": "080f6f41f70cfd4f98863deeb61d15d229aa7d9333e7a3eb17582efb19ed779c",
+        "Mvid": "52af1112-7ed4-4afe-9c11-c9584d94219c"
+      },
+      {
+        "File": "Avalonia.Skia.dll",
+        "Name": "Avalonia.Skia",
+        "Sha256": "449a83a2d086a1cf255b69bc352136aa3a21b9f742bbb165ab9ba9178d28af78",
+        "Mvid": "e860c40e-8a22-48fe-84b9-f72b9ef93d15"
+      },
+      {
+        "File": "Avalonia.Themes.Fluent.dll",
+        "Name": "Avalonia.Themes.Fluent",
+        "Sha256": "71ff087f03da9f484f53ef1aea502eb19b015c8a6a1e8a9161b0d344053ed8ef",
+        "Mvid": "5f448198-03ae-44a4-97bc-9a47cb1d5aca"
+      },
+      {
+        "File": "Avalonia.Vulkan.dll",
+        "Name": "Avalonia.Vulkan",
+        "Sha256": "ba98aeb0319a60c1de28b927c46fd94c75a6adc676dd160faae5bce14080e38d",
+        "Mvid": "0e92926b-acf8-4a3c-b259-ae1e720c259d"
+      },
+      {
+        "File": "Avalonia.Win32.Automation.dll",
+        "Name": "Avalonia.Win32.Automation",
+        "Sha256": "beba00c11bcfff73dd3228d7219c8d80e6a78aca4cb278a71c1122b1974633ec",
+        "Mvid": "dd2a8bf3-5dbd-4311-875b-40cb4a4129de"
+      },
+      {
+        "File": "Avalonia.Win32.dll",
+        "Name": "Avalonia.Win32",
+        "Sha256": "511a118f48b8d029924f3720e62658df72ee7a99c5b810f37378514ad4ea0427",
+        "Mvid": "2ac61393-00ae-4ffd-b4d9-47e3bf212fb7"
+      },
+      {
+        "File": "Avalonia.X11.dll",
+        "Name": "Avalonia.X11",
+        "Sha256": "cfce1f1ba8c47a0e303bd9e37da1908d665910b3818969264a3dd06d7014bfe2",
+        "Mvid": "e9e0f680-d486-4185-838f-d42d2b646bb8"
+      },
+      {
+        "File": "CommunityToolkit.HighPerformance.dll",
+        "Name": "CommunityToolkit.HighPerformance",
+        "Sha256": "196607c6d4d704b5ee95c80f8e3cd799595b7d8a08108701894c211b138d2839",
+        "Mvid": "c64760f8-108a-442f-a87e-4eadaf35aa31"
+      },
+      {
+        "File": "HarfBuzzSharp.dll",
+        "Name": "HarfBuzzSharp",
+        "Sha256": "55e72ac23263f8e12484f3435e02ec22fac9eff6e6d169bb0a8c246be6b99d29",
+        "Mvid": "a73e107b-f97a-46d5-8c0b-9f59605eee25"
+      },
+      {
+        "File": "Ktx2.NET.dll",
+        "Name": "Ktx2.NET",
+        "Sha256": "d7e87f619302fe22451b8d1e49feb8c98b918a095f0c6bf69992b0376dc2a90f",
+        "Mvid": "8072c788-2431-4f4c-a5cb-aa2f51840910"
+      },
+      {
+        "File": "MicroCom.Runtime.dll",
+        "Name": "MicroCom.Runtime",
+        "Sha256": "2538ec6f3c24e901a90e33c37788b9a4e4b6ae8158cab7328a00a00bb28eab9e",
+        "Mvid": "4d49b2b6-5b2e-46a6-a6ee-c55349b80913"
+      },
+      {
+        "File": "MphRead.Protocol.Generator.dll",
+        "Name": "MphRead.Protocol.Generator",
+        "Sha256": "da5c675754c258ccf1ea4cbcabb5c1ca472da8bc910f2afa3ef6f55373dcce3a",
+        "Mvid": "e9a1bccb-cbfe-4811-b44c-54ac7351878a"
+      },
+      {
+        "File": "NcsfPlay.dll",
+        "Name": "NcsfPlay",
+        "Sha256": "003a435aa8a89de856cb0660f184bf4ca1c3e9edf3af1bd5a517c9e7addbc3e1",
+        "Mvid": "99b05855-ce52-4c01-b02a-4ae5237541c2"
+      },
+      {
+        "File": "nettest.dll",
+        "Name": "nettest",
+        "Sha256": "500b3d33ddca9ac6a1e2c64720aad16a3809530e9ee7b5dd8a8046345cc24048",
+        "Mvid": "73c4899e-e7b6-4e39-ab2c-946301f536d1"
+      },
+      {
+        "File": "OpenTK.Audio.OpenAL.dll",
+        "Name": "OpenTK.Audio.OpenAL",
+        "Sha256": "88968377988b018039adeeed92efbbe390ba836bfeaac1885ebccb9c86b0f20b",
+        "Mvid": "1eabf0da-039e-464a-93f9-633fb8e5f70f"
+      },
+      {
+        "File": "OpenTK.Compute.dll",
+        "Name": "OpenTK.Compute",
+        "Sha256": "8aa991eb9a7dfba704f562ef838162136b8dfa461ca7a234947ca8cace09f07c",
+        "Mvid": "43498108-15b5-4fd5-8c04-b6f7152745f1"
+      },
+      {
+        "File": "OpenTK.Core.dll",
+        "Name": "OpenTK.Core",
+        "Sha256": "00e86fd2aa3ec0a518294ac210f2377078570120dfc22889654843e5ccb9e71c",
+        "Mvid": "29a8061f-1d56-40d5-9637-74baf0af9dc9"
+      },
+      {
+        "File": "OpenTK.Graphics.dll",
+        "Name": "OpenTK.Graphics",
+        "Sha256": "5b57957ca9e4c5f7bfb7ec495b991e6b88cfac52863a19e405492ab8c33cb1d2",
+        "Mvid": "56fce2c6-82e9-454c-8c16-a88f90e06a2d"
+      },
+      {
+        "File": "OpenTK.Input.dll",
+        "Name": "OpenTK.Input",
+        "Sha256": "0df16a0035a375313c1f5e0823972748b6d58bf717a08c36edd2cb1afe0f993a",
+        "Mvid": "2762d0f2-4151-4a61-9329-b596b64a2fea"
+      },
+      {
+        "File": "OpenTK.Mathematics.dll",
+        "Name": "OpenTK.Mathematics",
+        "Sha256": "10172a71d9590960bf594fb397e65ee5ebb9fff5d08bd5d358ab047b0a6efff0",
+        "Mvid": "107cf183-20d1-4911-abfa-24c614050cc7"
+      },
+      {
+        "File": "OpenTK.Windowing.Common.dll",
+        "Name": "OpenTK.Windowing.Common",
+        "Sha256": "2f0c74b795c664db5ca8a4d8d426efafda2fa48986ae5e2e0ee62dfaf1da660e",
+        "Mvid": "fd6953a1-21f1-4d75-a1d5-e0380d96340b"
+      },
+      {
+        "File": "OpenTK.Windowing.Desktop.dll",
+        "Name": "OpenTK.Windowing.Desktop",
+        "Sha256": "cd759959d5924a44e5d943693ec63dd65dacbca5fe209546df1f932a0e3ae8ae",
+        "Mvid": "b441354b-344b-43ed-b550-af154ae750ae"
+      },
+      {
+        "File": "OpenTK.Windowing.GraphicsLibraryFramework.dll",
+        "Name": "OpenTK.Windowing.GraphicsLibraryFramework",
+        "Sha256": "b54ec149aa11635dcd09bcc2f0bd2acbd6584f67303b21065935e566d00605cb",
+        "Mvid": "7680671d-685b-4d6b-9a74-86d586fcc254"
+      },
+      {
+        "File": "ProjectPrime.dll",
+        "Name": "ProjectPrime",
+        "Sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+        "Mvid": "5e534c23-57c6-4026-a55a-f8233293a732"
+      },
+      {
+        "File": "ReFuel.StbImage.dll",
+        "Name": "ReFuel.StbImage",
+        "Sha256": "191b521ce25d03c73ae10b716b3e55b1a1fcca988201b50cbac9603fcee10ea3",
+        "Mvid": "f6450b26-3cd1-4402-afe7-be218ce19032"
+      },
+      {
+        "File": "SkiaSharp.dll",
+        "Name": "SkiaSharp",
+        "Sha256": "aaaaa18c68ba1f3a3408b00dff28b11d5705198e17ba9d3aa59222bfd35407c8",
+        "Mvid": "dd18365b-6361-4558-bf3d-753b1b12c13a"
+      },
+      {
+        "File": "SoundFlow.dll",
+        "Name": "SoundFlow",
+        "Sha256": "8e5224ef27f7cd518c22533fd3fbe745eded9da56b1ed4c2f9611dbbe92bb399",
+        "Mvid": "54fd4602-1f29-4a90-b62b-123e130a9199"
+      },
+      {
+        "File": "System.IO.Hashing.dll",
+        "Name": "System.IO.Hashing",
+        "Sha256": "c7798d45633baaa0b0b53487d90b9b7f09d81fddfce681a7cd934cda82e7d18e",
+        "Mvid": "f9a583d0-d1c6-42cf-b1a6-997d89f40a57"
+      },
+      {
+        "File": "Tmds.DBus.Protocol.dll",
+        "Name": "Tmds.DBus.Protocol",
+        "Sha256": "60a1c5255731d8ac843cab53108be8ba1ed02759ce3db0da5b49939ebe97bd8a",
+        "Mvid": "f22413e0-7562-4e25-8be1-e803be2a66c1"
+      }
+    ],
+    "ActualClientUnchanged": true,
+    "EntryUnchanged": true,
+    "FullFixtureUnchanged": true,
+    "DependenciesUnchanged": true,
+    "SemanticAssertionsPassed": true,
+    "DisabledRecorderStayedAbsent": true,
+    "ProofMode": "Shadow",
+    "ByteCapSetup": {
+      "WallMs": 22.542417,
+      "CallerAllocatedBytes": 268478784,
+      "RetainedRows": 1048576,
+      "PayloadBytes": 268435456,
+      "MaximumPayloadBytes": 268435456,
+      "Note": "Payload budget excludes array/list/object headers; caller allocations include those. Initial refusal also occurs in setup."
+    },
+    "RowSizes": {
+      "Claim": 120,
+      "Payment": 256
+    },
+    "Runtime": ".NET 10.0.12",
+    "Os": "macOS 27.0.0",
+    "Architecture": "Arm64",
+    "Frequency": 1000000000,
+    "Measurement": "30 raw serial batch totals after eight warmups per case. Process CPU includes all threads; allocation bytes count the caller thread. Delegate/no-inline wrapper/consume and loop costs included. Preparation, assertions, reflection, enumeration and JSON reporting outside timed intervals. Prior setup/validation GC can affect later timings: no forced collection or sample filtering. Median/p95/p99/p99.9 describe batch totals, never per-operation/frame tails.",
+    "AllocationObservations": [
+      {
+        "Name": "diagnostics_disabled_hook_bundle",
+        "ZeroCallerAllocationBatches": 30,
+        "NonzeroCallerAllocationBatches": 0,
+        "TotalCallerAllocatedBytes": 0,
+        "MaxCallerAllocatedBytes": 0
+      },
+      {
+        "Name": "claim_scope_exact_key",
+        "ZeroCallerAllocationBatches": 30,
+        "NonzeroCallerAllocationBatches": 0,
+        "TotalCallerAllocatedBytes": 0,
+        "MaxCallerAllocatedBytes": 0
+      },
+      {
+        "Name": "constructed_witness_scope",
+        "ZeroCallerAllocationBatches": 30,
+        "NonzeroCallerAllocationBatches": 0,
+        "TotalCallerAllocatedBytes": 0,
+        "MaxCallerAllocatedBytes": 0
+      },
+      {
+        "Name": "typed_claim_payment_in_page",
+        "ZeroCallerAllocationBatches": 23,
+        "NonzeroCallerAllocationBatches": 7,
+        "TotalCallerAllocatedBytes": 38992,
+        "MaxCallerAllocatedBytes": 7456
+      },
+      {
+        "Name": "typed_claim_payment_new_page",
+        "ZeroCallerAllocationBatches": 0,
+        "NonzeroCallerAllocationBatches": 30,
+        "TotalCallerAllocatedBytes": 369669120,
+        "MaxCallerAllocatedBytes": 12322304
+      },
+      {
+        "Name": "full_row_and_byte_budget_refusal",
+        "ZeroCallerAllocationBatches": 30,
+        "NonzeroCallerAllocationBatches": 0,
+        "TotalCallerAllocatedBytes": 0,
+        "MaxCallerAllocatedBytes": 0
+      }
+    ],
+    "AllocationPolicy": "All observed zero/nonzero counts retained for every case; no warmed-zero allocation assertion or guarantee. Unexplained small nonzero in-page counts in prior attempt are preserved, not causally attributed to engine/JIT allocation without further evidence.",
+    "Cases": [
+      {
+        "Name": "diagnostics_disabled_hook_bundle",
+        "Unit": "six-hook bundle",
+        "SetupPolicy": "DTO/static initialization outside measurement",
+        "OperationsPerBatch": 262144,
+        "Raw": [
+          {
+            "Index": 0,
+            "Operations": 262144,
+            "WallMs": 11.583875,
+            "ProcessCpuMs": 11.588,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000209,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 1,
+            "Operations": 262144,
+            "WallMs": 11.609125,
+            "ProcessCpuMs": 11.611,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000166,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 2,
+            "Operations": 262144,
+            "WallMs": 11.544416,
+            "ProcessCpuMs": 11.542,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 3,
+            "Operations": 262144,
+            "WallMs": 11.662917,
+            "ProcessCpuMs": 11.659,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 4,
+            "Operations": 262144,
+            "WallMs": 11.608167,
+            "ProcessCpuMs": 11.597,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000167,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 5,
+            "Operations": 262144,
+            "WallMs": 11.4035,
+            "ProcessCpuMs": 11.404,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 6,
+            "Operations": 262144,
+            "WallMs": 11.625375,
+            "ProcessCpuMs": 11.62,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 7,
+            "Operations": 262144,
+            "WallMs": 11.683625,
+            "ProcessCpuMs": 11.682,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 8,
+            "Operations": 262144,
+            "WallMs": 11.576542,
+            "ProcessCpuMs": 11.577,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 9,
+            "Operations": 262144,
+            "WallMs": 11.589625,
+            "ProcessCpuMs": 11.587,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 10,
+            "Operations": 262144,
+            "WallMs": 11.621292,
+            "ProcessCpuMs": 11.616,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 11,
+            "Operations": 262144,
+            "WallMs": 11.8425,
+            "ProcessCpuMs": 11.841,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 12,
+            "Operations": 262144,
+            "WallMs": 11.774667,
+            "ProcessCpuMs": 11.776,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 13,
+            "Operations": 262144,
+            "WallMs": 11.581709,
+            "ProcessCpuMs": 11.579,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 14,
+            "Operations": 262144,
+            "WallMs": 6.001583,
+            "ProcessCpuMs": 8.207,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 15,
+            "Operations": 262144,
+            "WallMs": 0.216875,
+            "ProcessCpuMs": 0.407,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 16,
+            "Operations": 262144,
+            "WallMs": 0.217834,
+            "ProcessCpuMs": 0.426,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 17,
+            "Operations": 262144,
+            "WallMs": 0.214833,
+            "ProcessCpuMs": 0.262,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 18,
+            "Operations": 262144,
+            "WallMs": 0.216958,
+            "ProcessCpuMs": 0.385,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 19,
+            "Operations": 262144,
+            "WallMs": 0.217584,
+            "ProcessCpuMs": 0.364,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 20,
+            "Operations": 262144,
+            "WallMs": 0.215542,
+            "ProcessCpuMs": 0.215,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 21,
+            "Operations": 262144,
+            "WallMs": 0.212042,
+            "ProcessCpuMs": 0.551,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 22,
+            "Operations": 262144,
+            "WallMs": 0.216041,
+            "ProcessCpuMs": 0.421,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 23,
+            "Operations": 262144,
+            "WallMs": 0.218083,
+            "ProcessCpuMs": 0.362,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 24,
+            "Operations": 262144,
+            "WallMs": 0.215542,
+            "ProcessCpuMs": 0.216,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 25,
+            "Operations": 262144,
+            "WallMs": 0.215417,
+            "ProcessCpuMs": 0.215,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 26,
+            "Operations": 262144,
+            "WallMs": 0.215583,
+            "ProcessCpuMs": 0.216,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 27,
+            "Operations": 262144,
+            "WallMs": 0.215417,
+            "ProcessCpuMs": 0.216,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 28,
+            "Operations": 262144,
+            "WallMs": 0.215417,
+            "ProcessCpuMs": 0.215,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 29,
+            "Operations": 262144,
+            "WallMs": 0.215417,
+            "ProcessCpuMs": 0.217,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          }
+        ],
+        "BatchWallMs": {
+          "Median": 3.109833,
+          "P95": 11.7336981,
+          "P99": 11.82282843,
+          "P999": 11.840532843,
+          "Min": 0.212042,
+          "Max": 11.8425,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "BatchProcessCpuMs": {
+          "Median": 4.3790000000000004,
+          "P95": 11.733699999999999,
+          "P99": 11.822149999999999,
+          "P999": 11.839115,
+          "Min": 0.215,
+          "Max": 11.841,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "MeanCallerAllocatedBytesPerUnit": 0
+      },
+      {
+        "Name": "claim_scope_exact_key",
+        "Unit": "enter/read/dispose",
+        "SetupPolicy": "constructed immutable key; no real Receive/admission",
+        "OperationsPerBatch": 262144,
+        "Raw": [
+          {
+            "Index": 0,
+            "Operations": 262144,
+            "WallMs": 8.515833,
+            "ProcessCpuMs": 8.51,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 1,
+            "Operations": 262144,
+            "WallMs": 8.5095,
+            "ProcessCpuMs": 8.507,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 2,
+            "Operations": 262144,
+            "WallMs": 8.492334,
+            "ProcessCpuMs": 8.49,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 3,
+            "Operations": 262144,
+            "WallMs": 8.531833,
+            "ProcessCpuMs": 8.529,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 4,
+            "Operations": 262144,
+            "WallMs": 8.472458,
+            "ProcessCpuMs": 8.477,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 5,
+            "Operations": 262144,
+            "WallMs": 8.529541,
+            "ProcessCpuMs": 8.527,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 6,
+            "Operations": 262144,
+            "WallMs": 8.499625,
+            "ProcessCpuMs": 8.497,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 7,
+            "Operations": 262144,
+            "WallMs": 8.558416,
+            "ProcessCpuMs": 8.553,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 8,
+            "Operations": 262144,
+            "WallMs": 8.489709,
+            "ProcessCpuMs": 8.487,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 9,
+            "Operations": 262144,
+            "WallMs": 8.542583,
+            "ProcessCpuMs": 8.541,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 10,
+            "Operations": 262144,
+            "WallMs": 8.609125,
+            "ProcessCpuMs": 8.609,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 11,
+            "Operations": 262144,
+            "WallMs": 8.609125,
+            "ProcessCpuMs": 8.607,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 12,
+            "Operations": 262144,
+            "WallMs": 8.540417,
+            "ProcessCpuMs": 8.538,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 13,
+            "Operations": 262144,
+            "WallMs": 8.5405,
+            "ProcessCpuMs": 8.538,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 14,
+            "Operations": 262144,
+            "WallMs": 8.587708,
+            "ProcessCpuMs": 8.588,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 15,
+            "Operations": 262144,
+            "WallMs": 8.815375,
+            "ProcessCpuMs": 8.815,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 16,
+            "Operations": 262144,
+            "WallMs": 8.518125,
+            "ProcessCpuMs": 8.516,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 17,
+            "Operations": 262144,
+            "WallMs": 7.597,
+            "ProcessCpuMs": 13.304,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 18,
+            "Operations": 262144,
+            "WallMs": 7.120583,
+            "ProcessCpuMs": 15.365,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000167,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 19,
+            "Operations": 262144,
+            "WallMs": 7.685208,
+            "ProcessCpuMs": 8.804,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 20,
+            "Operations": 262144,
+            "WallMs": 7.42175,
+            "ProcessCpuMs": 7.42,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 21,
+            "Operations": 262144,
+            "WallMs": 7.544417,
+            "ProcessCpuMs": 7.544,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 22,
+            "Operations": 262144,
+            "WallMs": 7.590875,
+            "ProcessCpuMs": 7.588,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 23,
+            "Operations": 262144,
+            "WallMs": 7.4315,
+            "ProcessCpuMs": 7.43,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 24,
+            "Operations": 262144,
+            "WallMs": 7.403542,
+            "ProcessCpuMs": 7.402,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 25,
+            "Operations": 262144,
+            "WallMs": 7.402708,
+            "ProcessCpuMs": 7.4,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 26,
+            "Operations": 262144,
+            "WallMs": 7.413958,
+            "ProcessCpuMs": 7.414,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 27,
+            "Operations": 262144,
+            "WallMs": 7.405083,
+            "ProcessCpuMs": 7.403,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 28,
+            "Operations": 262144,
+            "WallMs": 7.56725,
+            "ProcessCpuMs": 7.567,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 29,
+            "Operations": 262144,
+            "WallMs": 7.59575,
+            "ProcessCpuMs": 7.596,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          }
+        ],
+        "BatchWallMs": {
+          "Median": 8.491021499999999,
+          "P95": 8.609125,
+          "P99": 8.7555625,
+          "P999": 8.80939375,
+          "Min": 7.120583,
+          "Max": 8.815375,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "BatchProcessCpuMs": {
+          "Median": 8.5085,
+          "P95": 11.283949999999987,
+          "P99": 14.767310000000002,
+          "P999": 15.305231000000001,
+          "Min": 7.4,
+          "Max": 15.365,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "MeanCallerAllocatedBytesPerUnit": 0
+      },
+      {
+        "Name": "constructed_witness_scope",
+        "Unit": "enter/capture/dispose",
+        "SetupPolicy": "valid constructed value; no actual native collision",
+        "OperationsPerBatch": 262144,
+        "Raw": [
+          {
+            "Index": 0,
+            "Operations": 262144,
+            "WallMs": 24.701667,
+            "ProcessCpuMs": 24.635,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 1,
+            "Operations": 262144,
+            "WallMs": 23.468875,
+            "ProcessCpuMs": 32.398,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000167,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 2,
+            "Operations": 262144,
+            "WallMs": 21.386167,
+            "ProcessCpuMs": 22.648,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 3,
+            "Operations": 262144,
+            "WallMs": 21.370834,
+            "ProcessCpuMs": 21.362,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 4,
+            "Operations": 262144,
+            "WallMs": 21.368458,
+            "ProcessCpuMs": 21.367,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000167,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 5,
+            "Operations": 262144,
+            "WallMs": 21.194375,
+            "ProcessCpuMs": 21.192,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 6,
+            "Operations": 262144,
+            "WallMs": 21.373375,
+            "ProcessCpuMs": 21.371,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 7,
+            "Operations": 262144,
+            "WallMs": 22.576458,
+            "ProcessCpuMs": 43.139,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 8,
+            "Operations": 262144,
+            "WallMs": 3.662625,
+            "ProcessCpuMs": 5.855,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000167,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 9,
+            "Operations": 262144,
+            "WallMs": 3.494416,
+            "ProcessCpuMs": 3.495,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 10,
+            "Operations": 262144,
+            "WallMs": 3.591042,
+            "ProcessCpuMs": 3.588,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 11,
+            "Operations": 262144,
+            "WallMs": 3.565708,
+            "ProcessCpuMs": 3.566,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 12,
+            "Operations": 262144,
+            "WallMs": 3.524708,
+            "ProcessCpuMs": 3.525,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 13,
+            "Operations": 262144,
+            "WallMs": 3.592334,
+            "ProcessCpuMs": 3.59,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 14,
+            "Operations": 262144,
+            "WallMs": 3.51475,
+            "ProcessCpuMs": 3.515,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 15,
+            "Operations": 262144,
+            "WallMs": 3.662083,
+            "ProcessCpuMs": 3.64,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 16,
+            "Operations": 262144,
+            "WallMs": 3.552833,
+            "ProcessCpuMs": 3.554,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000167,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 17,
+            "Operations": 262144,
+            "WallMs": 3.540875,
+            "ProcessCpuMs": 3.541,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 18,
+            "Operations": 262144,
+            "WallMs": 3.5845,
+            "ProcessCpuMs": 3.585,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 19,
+            "Operations": 262144,
+            "WallMs": 3.53725,
+            "ProcessCpuMs": 3.538,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 20,
+            "Operations": 262144,
+            "WallMs": 3.65525,
+            "ProcessCpuMs": 3.655,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 21,
+            "Operations": 262144,
+            "WallMs": 3.5975,
+            "ProcessCpuMs": 3.598,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 22,
+            "Operations": 262144,
+            "WallMs": 3.658958,
+            "ProcessCpuMs": 3.659,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 23,
+            "Operations": 262144,
+            "WallMs": 3.5965,
+            "ProcessCpuMs": 3.596,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 24,
+            "Operations": 262144,
+            "WallMs": 3.65275,
+            "ProcessCpuMs": 3.65,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 25,
+            "Operations": 262144,
+            "WallMs": 3.518375,
+            "ProcessCpuMs": 3.519,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 26,
+            "Operations": 262144,
+            "WallMs": 3.516041,
+            "ProcessCpuMs": 3.516,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 27,
+            "Operations": 262144,
+            "WallMs": 3.581625,
+            "ProcessCpuMs": 3.581,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 28,
+            "Operations": 262144,
+            "WallMs": 3.537459,
+            "ProcessCpuMs": 3.539,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 29,
+            "Operations": 262144,
+            "WallMs": 3.630958,
+            "ProcessCpuMs": 3.631,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          }
+        ],
+        "BatchWallMs": {
+          "Median": 3.597,
+          "P95": 23.067287349999997,
+          "P99": 24.34415732,
+          "P999": 24.665916032000002,
+          "Min": 3.494416,
+          "Max": 24.701667,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "BatchProcessCpuMs": {
+          "Median": 3.597,
+          "P95": 28.904649999999982,
+          "P99": 40.024110000000015,
+          "P999": 42.827511,
+          "Min": 3.495,
+          "Max": 43.139,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "MeanCallerAllocatedBytesPerUnit": 0
+      },
+      {
+        "Name": "typed_claim_payment_in_page",
+        "Unit": "claim+payment append pair",
+        "SetupPolicy": "32 recorders and first claim/payment pages prepared per batch; setup costs separate",
+        "OperationsPerBatch": 32736,
+        "Raw": [
+          {
+            "Index": 0,
+            "Operations": 32736,
+            "WallMs": 1.872292,
+            "ProcessCpuMs": 1.875,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.077167,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 1,
+            "Operations": 32736,
+            "WallMs": 1.520541,
+            "ProcessCpuMs": 1.522,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.534625,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 2,
+            "Operations": 32736,
+            "WallMs": 1.563208,
+            "ProcessCpuMs": 1.707,
+            "CallerAllocatedBytes": 2880,
+            "SetupWallMs": 0.166333,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 3,
+            "Operations": 32736,
+            "WallMs": 1.395166,
+            "ProcessCpuMs": 1.398,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.062583,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 4,
+            "Operations": 32736,
+            "WallMs": 1.394458,
+            "ProcessCpuMs": 1.395,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.06125,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 5,
+            "Operations": 32736,
+            "WallMs": 1.387125,
+            "ProcessCpuMs": 1.391,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.061875,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 6,
+            "Operations": 32736,
+            "WallMs": 1.392042,
+            "ProcessCpuMs": 1.393,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.065792,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 7,
+            "Operations": 32736,
+            "WallMs": 1.446583,
+            "ProcessCpuMs": 1.448,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.06175,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 8,
+            "Operations": 32736,
+            "WallMs": 1.39475,
+            "ProcessCpuMs": 1.398,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.063209,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 9,
+            "Operations": 32736,
+            "WallMs": 1.849292,
+            "ProcessCpuMs": 1.853,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.086167,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 10,
+            "Operations": 32736,
+            "WallMs": 1.876666,
+            "ProcessCpuMs": 1.878,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.162875,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 11,
+            "Operations": 32736,
+            "WallMs": 1.899917,
+            "ProcessCpuMs": 1.9,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.080709,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 12,
+            "Operations": 32736,
+            "WallMs": 1.861583,
+            "ProcessCpuMs": 1.862,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.089584,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 13,
+            "Operations": 32736,
+            "WallMs": 2.241208,
+            "ProcessCpuMs": 2.922,
+            "CallerAllocatedBytes": 4832,
+            "SetupWallMs": 0.225375,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 14,
+            "Operations": 32736,
+            "WallMs": 1.391084,
+            "ProcessCpuMs": 1.392,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.06025,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 15,
+            "Operations": 32736,
+            "WallMs": 1.611125,
+            "ProcessCpuMs": 2.034,
+            "CallerAllocatedBytes": 1776,
+            "SetupWallMs": 0.175666,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 16,
+            "Operations": 32736,
+            "WallMs": 1.403583,
+            "ProcessCpuMs": 1.407,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.063791,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 17,
+            "Operations": 32736,
+            "WallMs": 1.397292,
+            "ProcessCpuMs": 1.4,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.072667,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 18,
+            "Operations": 32736,
+            "WallMs": 1.416666,
+            "ProcessCpuMs": 1.417,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.061959,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 19,
+            "Operations": 32736,
+            "WallMs": 1.577,
+            "ProcessCpuMs": 1.736,
+            "CallerAllocatedBytes": 7296,
+            "SetupWallMs": 0.186625,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 20,
+            "Operations": 32736,
+            "WallMs": 1.398292,
+            "ProcessCpuMs": 1.399,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.062167,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 21,
+            "Operations": 32736,
+            "WallMs": 1.529375,
+            "ProcessCpuMs": 1.742,
+            "CallerAllocatedBytes": 7456,
+            "SetupWallMs": 0.151709,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 22,
+            "Operations": 32736,
+            "WallMs": 1.395375,
+            "ProcessCpuMs": 1.398,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.060958,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 23,
+            "Operations": 32736,
+            "WallMs": 1.412166,
+            "ProcessCpuMs": 1.41,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.060084,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 24,
+            "Operations": 32736,
+            "WallMs": 1.404417,
+            "ProcessCpuMs": 1.405,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.059917,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 25,
+            "Operations": 32736,
+            "WallMs": 1.567833,
+            "ProcessCpuMs": 1.821,
+            "CallerAllocatedBytes": 7296,
+            "SetupWallMs": 0.173709,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 26,
+            "Operations": 32736,
+            "WallMs": 1.408458,
+            "ProcessCpuMs": 1.411,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.059875,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 27,
+            "Operations": 32736,
+            "WallMs": 1.562625,
+            "ProcessCpuMs": 1.774,
+            "CallerAllocatedBytes": 7456,
+            "SetupWallMs": 0.155458,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 28,
+            "Operations": 32736,
+            "WallMs": 1.394042,
+            "ProcessCpuMs": 1.397,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.060792,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 29,
+            "Operations": 32736,
+            "WallMs": 1.385333,
+            "ProcessCpuMs": 1.389,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.059875,
+            "SetupCallerAllocatedBytes": 12357912
+          }
+        ],
+        "BatchWallMs": {
+          "Median": 1.4144160000000001,
+          "P95": 1.8894540499999999,
+          "P99": 2.1422336100000003,
+          "P999": 2.231310561,
+          "Min": 1.385333,
+          "Max": 2.241208,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "BatchProcessCpuMs": {
+          "Median": 1.4140000000000001,
+          "P95": 1.9736999999999996,
+          "P99": 2.664480000000001,
+          "P999": 2.8962480000000004,
+          "Min": 1.389,
+          "Max": 2.922,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "MeanCallerAllocatedBytesPerUnit": 0.03970348647768003
+      },
+      {
+        "Name": "typed_claim_payment_new_page",
+        "Unit": "claim+payment page-boundary append pair",
+        "SetupPolicy": "32 recorders with 1024 existing rows per channel; timed append includes new arrays/list growth",
+        "OperationsPerBatch": 32,
+        "Raw": [
+          {
+            "Index": 0,
+            "Operations": 32,
+            "WallMs": 0.060083,
+            "ProcessCpuMs": 0.062,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.899333,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 1,
+            "Operations": 32,
+            "WallMs": 0.079458,
+            "ProcessCpuMs": 0.08,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.9055,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 2,
+            "Operations": 32,
+            "WallMs": 0.072542,
+            "ProcessCpuMs": 0.073,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.923917,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 3,
+            "Operations": 32,
+            "WallMs": 0.327334,
+            "ProcessCpuMs": 0.329,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 2.087042,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 4,
+            "Operations": 32,
+            "WallMs": 0.34375,
+            "ProcessCpuMs": 0.344,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.868166,
+            "SetupCallerAllocatedBytes": 12362856
+          },
+          {
+            "Index": 5,
+            "Operations": 32,
+            "WallMs": 0.334667,
+            "ProcessCpuMs": 0.335,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.604833,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 6,
+            "Operations": 32,
+            "WallMs": 0.065875,
+            "ProcessCpuMs": 0.066,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.747375,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 7,
+            "Operations": 32,
+            "WallMs": 0.069708,
+            "ProcessCpuMs": 0.071,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.923083,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 8,
+            "Operations": 32,
+            "WallMs": 0.07075,
+            "ProcessCpuMs": 0.072,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 2.005166,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 9,
+            "Operations": 32,
+            "WallMs": 0.078167,
+            "ProcessCpuMs": 0.079,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.930167,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 10,
+            "Operations": 32,
+            "WallMs": 0.186125,
+            "ProcessCpuMs": 0.286,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 2.106875,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 11,
+            "Operations": 32,
+            "WallMs": 0.678458,
+            "ProcessCpuMs": 1.074,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.472666,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 12,
+            "Operations": 32,
+            "WallMs": 0.064042,
+            "ProcessCpuMs": 0.064,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.996291,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 13,
+            "Operations": 32,
+            "WallMs": 0.067167,
+            "ProcessCpuMs": 0.068,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.918041,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 14,
+            "Operations": 32,
+            "WallMs": 0.702834,
+            "ProcessCpuMs": 0.712,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.925833,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 15,
+            "Operations": 32,
+            "WallMs": 0.211375,
+            "ProcessCpuMs": 0.212,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.964042,
+            "SetupCallerAllocatedBytes": 12363904
+          },
+          {
+            "Index": 16,
+            "Operations": 32,
+            "WallMs": 0.224959,
+            "ProcessCpuMs": 0.226,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.748083,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 17,
+            "Operations": 32,
+            "WallMs": 0.071083,
+            "ProcessCpuMs": 0.072,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.925916,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 18,
+            "Operations": 32,
+            "WallMs": 0.075333,
+            "ProcessCpuMs": 0.075,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.940417,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 19,
+            "Operations": 32,
+            "WallMs": 0.0715,
+            "ProcessCpuMs": 0.072,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.930625,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 20,
+            "Operations": 32,
+            "WallMs": 0.075125,
+            "ProcessCpuMs": 0.077,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.925542,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 21,
+            "Operations": 32,
+            "WallMs": 0.07325,
+            "ProcessCpuMs": 0.106,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 2.049083,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 22,
+            "Operations": 32,
+            "WallMs": 0.072333,
+            "ProcessCpuMs": 0.303,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 2.065041,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 23,
+            "Operations": 32,
+            "WallMs": 0.113083,
+            "ProcessCpuMs": 0.117,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 3.313875,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 24,
+            "Operations": 32,
+            "WallMs": 0.133375,
+            "ProcessCpuMs": 0.136,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 2.202667,
+            "SetupCallerAllocatedBytes": 12358832
+          },
+          {
+            "Index": 25,
+            "Operations": 32,
+            "WallMs": 0.108666,
+            "ProcessCpuMs": 0.11,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.891541,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 26,
+            "Operations": 32,
+            "WallMs": 0.111417,
+            "ProcessCpuMs": 0.112,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.907708,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 27,
+            "Operations": 32,
+            "WallMs": 0.17675,
+            "ProcessCpuMs": 0.184,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.93875,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 28,
+            "Operations": 32,
+            "WallMs": 0.143583,
+            "ProcessCpuMs": 0.149,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.470792,
+            "SetupCallerAllocatedBytes": 12357912
+          },
+          {
+            "Index": 29,
+            "Operations": 32,
+            "WallMs": 0.070041,
+            "ProcessCpuMs": 0.07,
+            "CallerAllocatedBytes": 12322304,
+            "SetupWallMs": 1.922833,
+            "SetupCallerAllocatedBytes": 12357912
+          }
+        ],
+        "BatchWallMs": {
+          "Median": 0.07881250000000001,
+          "P95": 0.5278393999999991,
+          "P99": 0.69576496,
+          "P999": 0.702127096,
+          "Min": 0.060083,
+          "Max": 0.702834,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "BatchProcessCpuMs": {
+          "Median": 0.108,
+          "P95": 0.5463999999999989,
+          "P99": 0.9690200000000003,
+          "P999": 1.0635020000000002,
+          "Min": 0.062,
+          "Max": 1.074,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "MeanCallerAllocatedBytesPerUnit": 385072
+      },
+      {
+        "Name": "full_row_and_byte_budget_refusal",
+        "Unit": "row-cap+byte-cap refused pair",
+        "SetupPolicy": "real recorder payload cap filled once outside measurement; one-time costs reported separately",
+        "OperationsPerBatch": 262144,
+        "Raw": [
+          {
+            "Index": 0,
+            "Operations": 262144,
+            "WallMs": 1.894792,
+            "ProcessCpuMs": 1.899,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 1,
+            "Operations": 262144,
+            "WallMs": 1.888542,
+            "ProcessCpuMs": 1.889,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 2,
+            "Operations": 262144,
+            "WallMs": 1.894541,
+            "ProcessCpuMs": 1.894,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 3,
+            "Operations": 262144,
+            "WallMs": 1.963125,
+            "ProcessCpuMs": 1.961,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 4,
+            "Operations": 262144,
+            "WallMs": 1.891625,
+            "ProcessCpuMs": 1.892,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000125,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 5,
+            "Operations": 262144,
+            "WallMs": 1.886167,
+            "ProcessCpuMs": 1.887,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 6,
+            "Operations": 262144,
+            "WallMs": 1.888708,
+            "ProcessCpuMs": 1.889,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 7,
+            "Operations": 262144,
+            "WallMs": 1.923042,
+            "ProcessCpuMs": 1.924,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 8,
+            "Operations": 262144,
+            "WallMs": 1.893875,
+            "ProcessCpuMs": 1.894,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 9,
+            "Operations": 262144,
+            "WallMs": 1.888459,
+            "ProcessCpuMs": 1.888,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 10,
+            "Operations": 262144,
+            "WallMs": 1.8985,
+            "ProcessCpuMs": 1.898,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 11,
+            "Operations": 262144,
+            "WallMs": 1.895292,
+            "ProcessCpuMs": 1.896,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 12,
+            "Operations": 262144,
+            "WallMs": 1.932083,
+            "ProcessCpuMs": 1.929,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 13,
+            "Operations": 262144,
+            "WallMs": 1.886291,
+            "ProcessCpuMs": 1.886,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 0.000167,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 14,
+            "Operations": 262144,
+            "WallMs": 1.906375,
+            "ProcessCpuMs": 1.906,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 15,
+            "Operations": 262144,
+            "WallMs": 1.888,
+            "ProcessCpuMs": 1.889,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 16,
+            "Operations": 262144,
+            "WallMs": 1.914416,
+            "ProcessCpuMs": 1.912,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 17,
+            "Operations": 262144,
+            "WallMs": 1.893917,
+            "ProcessCpuMs": 1.894,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 18,
+            "Operations": 262144,
+            "WallMs": 1.892,
+            "ProcessCpuMs": 1.892,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 19,
+            "Operations": 262144,
+            "WallMs": 1.890125,
+            "ProcessCpuMs": 1.891,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 20,
+            "Operations": 262144,
+            "WallMs": 1.89025,
+            "ProcessCpuMs": 1.892,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.1e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 21,
+            "Operations": 262144,
+            "WallMs": 2.001833,
+            "ProcessCpuMs": 2.009,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 22,
+            "Operations": 262144,
+            "WallMs": 1.888041,
+            "ProcessCpuMs": 1.889,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 23,
+            "Operations": 262144,
+            "WallMs": 1.887709,
+            "ProcessCpuMs": 1.888,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 24,
+            "Operations": 262144,
+            "WallMs": 1.88575,
+            "ProcessCpuMs": 1.886,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.4e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 25,
+            "Operations": 262144,
+            "WallMs": 1.923,
+            "ProcessCpuMs": 1.918,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 26,
+            "Operations": 262144,
+            "WallMs": 1.893834,
+            "ProcessCpuMs": 1.894,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 27,
+            "Operations": 262144,
+            "WallMs": 1.888792,
+            "ProcessCpuMs": 1.889,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 28,
+            "Operations": 262144,
+            "WallMs": 1.896875,
+            "ProcessCpuMs": 1.897,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 4.2e-05,
+            "SetupCallerAllocatedBytes": 0
+          },
+          {
+            "Index": 29,
+            "Operations": 262144,
+            "WallMs": 1.94025,
+            "ProcessCpuMs": 1.941,
+            "CallerAllocatedBytes": 0,
+            "SetupWallMs": 8.3e-05,
+            "SetupCallerAllocatedBytes": 0
+          }
+        ],
+        "BatchWallMs": {
+          "Median": 1.8938545,
+          "P95": 1.95283125,
+          "P99": 1.99060768,
+          "P999": 2.000710468,
+          "Min": 1.88575,
+          "Max": 2.001833,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "BatchProcessCpuMs": {
+          "Median": 1.894,
+          "P95": 1.952,
+          "P99": 1.99508,
+          "P999": 2.007608,
+          "Min": 1.886,
+          "Max": 2.009,
+          "Method": "linear interpolation across 30 batch totals; not operation/frame tails"
+        },
+        "MeanCallerAllocatedBytesPerUnit": 0
+      }
+    ],
+    "Sink": 129499149
+  }
+}

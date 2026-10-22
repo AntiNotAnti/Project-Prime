@@ -32,21 +32,15 @@ try
     GeneratedBallAcceptance.Run();
     GeneratedFinalBallAcceptance.Run();
     var chars = RetroCharacterPreviewExporter.Sources;
-    // The original four Trooper and two Echoes sources are joined by two
-    // revision-2-only Scout Drones. Validate the exact owned-source catalog
-    // rather than treating the newer drone identities as duplicate bodies.
-    string[] primeIds = { "trooper-power", "trooper-ice", "trooper-wave",
-        "trooper-plasma", "trooper-drone-alpha", "trooper-drone-gamma" };
-    string[] echoesIds = { "darksamus-echoes", "darksamus-overcharged-echoes" };
-    Check(chars.Count == 8 && chars.Select(x => x.Id).Distinct(StringComparer.Ordinal).Count() == 8,
-        "eight independent local model source identities");
-    Check(chars.Where(x => x.Game == ExternalGameKind.MetroidPrime).Select(x => x.Id)
-            .OrderBy(x => x, StringComparer.Ordinal)
-            .SequenceEqual(primeIds.OrderBy(x => x, StringComparer.Ordinal)) &&
-        chars.Where(x => x.Game == ExternalGameKind.Echoes).Select(x => x.Id)
-            .OrderBy(x => x, StringComparer.Ordinal)
-            .SequenceEqual(echoesIds.OrderBy(x => x, StringComparer.Ordinal)),
-        "four Troopers, two Scout Drones and two distinct Echoes Dark Samus sources");
+    Check(chars.Select(x => x.Id).SequenceEqual(new[]
+        {
+            "darksamus-echoes", "trooper-power", "trooper-ice", "trooper-wave",
+            "trooper-plasma", "darksamus-overcharged-echoes",
+            "trooper-drone-alpha", "trooper-drone-gamma"
+        }), "eight canonical local model source identities");
+    Check(chars.Count(x => x.Game == ExternalGameKind.MetroidPrime) == 6 &&
+        chars.Count(x => x.Game == ExternalGameKind.Echoes) == 2,
+        "six Prime source appearances and two distinct Echoes Dark Samus bodies");
 
     var body = new Cmdl
     {

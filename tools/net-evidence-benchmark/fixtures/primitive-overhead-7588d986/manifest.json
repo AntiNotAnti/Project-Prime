@@ -1,0 +1,146 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derived_evidence_package",
+  "rawOriginalsIncluded": false,
+  "policy": "Portable text derivatives only. Every numeric raw batch record retained unchanged. Original relative filenames/SHA256/bytes recorded separately. No binaries/assets/private paths/tokens shipped. Original collector-sanitized logs retain earlier raw/derivative hashes in receipts. First negative attempt is not relabelled PASS.",
+  "originalRawFiles": [
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt1/primitive-raw.sanitized.log",
+      "sha256": "3ef1edd9c63fab428418c468f98a0171c9b8c3da42f921a4d14917f73793fc8d",
+      "bytes": 33245
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt1/external-entry-build.sanitized.log",
+      "sha256": "31ecc00e40f15f3c47f530a8302f295c60fc43f27c3817ae28fa38c40fcbb244",
+      "bytes": 553
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt1/receipt.json",
+      "sha256": "9283af1cdb8d86aff473d24535d731bbb0d94078174e36c4d47587cd786d8a48",
+      "bytes": 16644
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt1/runtime/nettest.dll",
+      "sha256": "05287666e5ad80166f39fe1527e16fcdb4940f39156fc392b81aa35582f47334",
+      "bytes": 47104
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt2/primitive-raw.sanitized.log",
+      "sha256": "557adfeb7b3578bbe0f922a102d0e59c1033e10e9c5ee9a308ab55b9b262b214",
+      "bytes": 33165
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt2/external-entry-build.sanitized.log",
+      "sha256": "bfc3b0f627ed6dbec8c628d67c5c095102cd8c2a5c0c771a880bc2118698467c",
+      "bytes": 230
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt2/receipt.json",
+      "sha256": "34e62d42b4add2681e35da74b9ce4f75aa7abdd11468e7f0177d0f4a9c416334",
+      "bytes": 28677
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt2/results.json",
+      "sha256": "ebeccb59421b944a7b0c66148d8d06a9f6155016d76a8808191dd5fe04fbd6e9",
+      "bytes": 65334
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt2/review.md",
+      "sha256": "fc3f496c77d679d7e429042e5dea490f8745dcdb0d692cfc3964f13b0dff0334",
+      "bytes": 4394
+    },
+    {
+      "relativePath": "work/plan-completion-evidence/candidate-7588d986/source-native-qualification.json",
+      "sha256": "6c7e0d1d6207058e02d8b27d74eebd6444ce7b140d66358affc250a63da97757",
+      "bytes": 5898
+    }
+  ],
+  "derivedFiles": [
+    {
+      "relativePath": "attempt1/batch-lines.sanitized.json",
+      "sha256": "de070d71585b8d1c751f3163da796b9d28d77fcd109365c735da39f49f4ca6c7",
+      "bytes": 37760,
+      "originalSha256": "3ef1edd9c63fab428418c468f98a0171c9b8c3da42f921a4d14917f73793fc8d"
+    },
+    {
+      "relativePath": "attempt1/build-log.sanitized.json",
+      "sha256": "d4301d0cf30a99b47a06776b357924e2a095ace496019ede12a02f8d98ae8f74",
+      "bytes": 1165,
+      "originalSha256": "31ecc00e40f15f3c47f530a8302f295c60fc43f27c3817ae28fa38c40fcbb244"
+    },
+    {
+      "relativePath": "attempt1/failure.sanitized.json",
+      "sha256": "f1ccf4da8833dddc762247f16e2790f90fb142e3ce637f495c05a0a2d424c8d6",
+      "bytes": 752,
+      "originalSha256": "3ef1edd9c63fab428418c468f98a0171c9b8c3da42f921a4d14917f73793fc8d"
+    },
+    {
+      "relativePath": "attempt1/receipt.sanitized.json",
+      "sha256": "8bafb60272e648fd90a8a5a66d8de3f51c83868bc499799f7b11a2d236f885dc",
+      "bytes": 17591,
+      "originalSha256": "9283af1cdb8d86aff473d24535d731bbb0d94078174e36c4d47587cd786d8a48"
+    },
+    {
+      "relativePath": "attempt1/thin-entry-identity.sanitized.json",
+      "sha256": "b28c65cac3b23c1b68d3fd92d568ba1b2b7d55b8e2bc633d72d21aa346904afa",
+      "bytes": 726,
+      "originalSha256": "05287666e5ad80166f39fe1527e16fcdb4940f39156fc392b81aa35582f47334"
+    },
+    {
+      "relativePath": "attempt2/batch-lines.sanitized.json",
+      "sha256": "ac2af3fc55325015c9f6032c65b38d23be58dbd0e41c76a6aa05ad38ccafcbbf",
+      "bytes": 37799,
+      "originalSha256": "557adfeb7b3578bbe0f922a102d0e59c1033e10e9c5ee9a308ab55b9b262b214"
+    },
+    {
+      "relativePath": "attempt2/build-log.sanitized.json",
+      "sha256": "a05a434e28570c83ec304fab3276f4ad1f9cd1f8be52a504e1f1c93797493789",
+      "bytes": 772,
+      "originalSha256": "bfc3b0f627ed6dbec8c628d67c5c095102cd8c2a5c0c771a880bc2118698467c"
+    },
+    {
+      "relativePath": "attempt2/receipt.sanitized.json",
+      "sha256": "039f58d883f40c10b88f2234d4682e1017a3906139971f6e7324ff729255b41b",
+      "bytes": 30252,
+      "originalSha256": "34e62d42b4add2681e35da74b9ce4f75aa7abdd11468e7f0177d0f4a9c416334"
+    },
+    {
+      "relativePath": "attempt2/results.sanitized.json",
+      "sha256": "756310771e13500c72fe1e20604f9d7ae19b82543b684534816027c2f1198d47",
+      "bytes": 70040,
+      "originalSha256": "ebeccb59421b944a7b0c66148d8d06a9f6155016d76a8808191dd5fe04fbd6e9"
+    },
+    {
+      "relativePath": "attempt2/review.sanitized.json",
+      "sha256": "90d381c6573dd1a5559836f7873324257894c8a3e2f90c0c810715c18be3630c",
+      "bytes": 4854,
+      "originalSha256": "fc3f496c77d679d7e429042e5dea490f8745dcdb0d692cfc3964f13b0dff0334"
+    },
+    {
+      "relativePath": "qualified-engine.sanitized.json",
+      "sha256": "4d1a822ef255cf8fd8563818dd0a49bc4ee19070a1aaa5b5e20e4abea1763379",
+      "bytes": 6465,
+      "originalSha256": "6c7e0d1d6207058e02d8b27d74eebd6444ce7b140d66358affc250a63da97757"
+    }
+  ],
+  "benchmarks": [
+    {
+      "label": "attempt2",
+      "cases": 6,
+      "rawBatches": 180
+    }
+  ],
+  "failedBenchmarks": [
+    {
+      "label": "attempt1",
+      "cases": 6,
+      "rawBatches": 180
+    }
+  ],
+  "negativeEvidence": [
+    {
+      "label": "attempt1",
+      "reason": "All 180 raw batches completed; external harness aborted on incorrect blanket warmed-zero allocation assertion. Seven in-page batches observed small positive caller counts. Engine unchanged; external harness corrected; runtime/JIT policy unchanged."
+    }
+  ]
+}

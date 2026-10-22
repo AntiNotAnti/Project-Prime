@@ -23,3 +23,14 @@ namespace MphRead.Mods
             => throw new InvalidOperationException("The test must use real child processes.");
     }
 }
+
+// Production reads Launcher.GameFiles.Root when starting isolated thumbnail
+// workers. In this asset-free harness, the private capture fixture is the
+// configured writable data root that each child must inherit.
+namespace MphRead.Mods.Launcher
+{
+    public static class GameFiles
+    {
+        public static string Root => global::MphRead.Mods.ThumbnailGenerator.Root;
+    }
+}

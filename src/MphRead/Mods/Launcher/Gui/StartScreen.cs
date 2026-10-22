@@ -320,7 +320,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private bool CanNavigate(PrimeRoute route)
         {
-            if (_startup != null) return false;
+            if (_startup != null || _nativeStartupPending) return false;
             if (_bypassGuard) return true;
             if (_prime.Overlays.IsOpen) return false;
             if (route == PrimeRoute.Lobby && _lobby == null) return false;

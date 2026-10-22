@@ -64,7 +64,7 @@ class PortManifestContract(unittest.TestCase):
 
     def test_delta_has_complete_frozen_commit_and_path_inventory(self):
         audit = self.data["integrationAudit"]
-        delta = json.loads((MANIFEST.parent / audit["sourceDelta"]).read_text())
+        delta = json.loads((MANIFEST.parent / audit["sourceDelta"]).read_text(encoding="utf-8"))
         self.assertEqual(delta["fromExclusive"], audit["previousSourceCommit"])
         self.assertEqual(delta["toInclusive"], audit["sourceCommit"])
         self.assertEqual(delta["commitCount"], len(delta["commits"]))
@@ -111,14 +111,18 @@ class PortManifestContract(unittest.TestCase):
             self.assertRegex(protocol, name + r"\s*=\s*" + str(value) + r"\b")
         self.assertFalse(wire["capabilitiesEnableGameplay"])
         reader = (ROOT / "src/MphRead/Mods/Network/DemoFile.cs").read_text()
-        # Historical audit formats 1-6 must remain readable even when the
-        # live replay reader gains later compatible formats (currently 7-8).
-        found = re.search(r"header\[4\] is not \((\d+(?: or \d+)*)\)", reader)
-        self.assertIsNotNone(found, "live replay reader must declare explicit formats")
-        current_formats = [int(value) for value in found.group(1).split(" or ")]
-        self.assertEqual(current_formats, list(range(1, max(current_formats) + 1)),
+        live_declaration = re.search(
+            r"\bif\s*\(\s*header\[4\]\s+is not\s+\(([^)]*)\)\s*\)", reader)
+        self.assertIsNotNone(live_declaration, "live replay format declaration must remain explicit")
+        declared = live_declaration.group(1)
+        self.assertRegex(declared, r"^\s*\d+(?:\s+or\s+\d+)*\s*$")
+        live_formats = [int(value) for value in re.findall(r"\d+", declared)]
+        self.assertEqual(len(live_formats), len(set(live_formats)), "live replay formats must be unique")
+        # Historical audit formats must stay readable while compatible live
+        # formats may be added. The admission list remains contiguous.
+        self.assertEqual(live_formats, list(range(1, max(live_formats) + 1)),
                          "live replay format admission remains contiguous and unambiguous")
-        self.assertTrue(set(replay["readableFormats"]) <= set(current_formats),
+        self.assertTrue(set(replay["readableFormats"]).issubset(live_formats),
                         "frozen replay formats cannot become unreadable")
         self.assertEqual(replay["defaultMetadataFormat"], 3)
         self.assertEqual(replay["timedShotCertificateFormat"], 6)
@@ -133,10 +137,12 @@ class PortManifestContract(unittest.TestCase):
             self.assertTrue((ROOT / witness["path"]).is_file())
             self.assertRegex(witness["sha256"], r"^[0-9a-f]{64}$")
             self.assertIn(witness["role"], ("contract", "fixture"))
-        ledger = (MANIFEST.parent / audit["ledger"]).read_text()
+        ledger = (MANIFEST.parent / audit["ledger"]).read_text(encoding="utf-8")
         for phase in range(11):
             self.assertIn(f"SH-{phase:02}", ledger)
-        self.assertTrue((MANIFEST.parent / audit["researchMemo"]).is_file())
+        research_memo_path = MANIFEST.parent / audit["researchMemo"]
+        research_memo_path.read_text(encoding="utf-8")
+        self.assertTrue(research_memo_path.is_file())
         self.assertFalse(audit["measurements"]["releaseQualified"])
         self.assertEqual(audit["measurements"]["physicalAndroidTouchBaseline"], "not-captured")
         self.assertEqual(audit["measurements"]["sameHardwareFrameTimeBaseline"], "not-captured")

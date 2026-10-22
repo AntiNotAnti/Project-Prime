@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/plan-completion-evidence/candidate-7588d986/primitive-overhead-attempt1/runtime/nettest.dll",
+    "sha256": "05287666e5ad80166f39fe1527e16fcdb4940f39156fc392b81aa35582f47334",
+    "bytes": 47104
+  },
+  "policy": "Only offline binary identity emitted; original binary is not shipped and remains outside portable package.",
+  "payload": {
+    "Sha256": "05287666e5ad80166f39fe1527e16fcdb4940f39156fc392b81aa35582f47334",
+    "Mvid": "2521496a-38c5-4a12-ba80-30b63e14258c",
+    "Role": "failed thin benchmark entry identity only; not full native fixture",
+    "MetadataMethod": "offline PE CLI Module.Mvid; no assembly execution"
+  }
+}

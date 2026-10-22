@@ -252,7 +252,7 @@ jobs:
               dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll \
               tools/rmlui-opengl-check/bin/Release/net10.0/rmlui --"$fixture_mode" "$fixture_size"
           }
-          for mode in license offline-rules ingame; do
+          for mode in startup license offline-rules ingame; do
             run_native_fixture "$mode" 640x360
           done
           for mode in party input playback map-preview campaign-ending campaign-ship community-history community-publish studio-workspace party-queue adventure-saves adventure-save-work studio-editor; do
@@ -268,6 +268,7 @@ jobs:
           name: rmlui-license-native-fixture
           path: |
             artifacts/rmlui-layout-ci.json
+            artifacts/rmlui-startup
             artifacts/rmlui-license-rml41
             artifacts/rmlui-offline-rules-rml42
             artifacts/rmlui-ingame-rml44
@@ -833,7 +834,7 @@ jobs:
         run: dotnet run --project tools/map-editor-check -c Release
 
       - name: scoped collision query lifetime and deterministic results
-        run: dotnet run --project tools/collision-query-check -c Release -- --compare docs/audits/engineering-consolidation/collision-query-baseline.txt
+        run: dotnet run --project tools/collision-query-check -c Release -- --compare tools/collision-query-check/fixtures/collision-query-baseline.txt
 
       - name: bounded encoder capabilities and probe reader retirement
         run: dotnet run --project tools/encoder-capability-check -c Release
@@ -1075,7 +1076,7 @@ jobs:
         run: |
           dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/custom-weapons-check -c Release
-          dotnet run --project tools/custom-weapons-baseline/snapshot.csproj -c Release -- docs/custom-weapons/evidence/CW-00-native-tables.json
+          dotnet run --project tools/custom-weapons-baseline/snapshot.csproj -c Release -- tools/custom-weapons-baseline/fixtures/CW-00-native-tables.json
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --match-rotations
           dotnet run --no-build --project tools/nettest/nettest.csproj -c Release -- --display-pose-integration
@@ -1473,6 +1474,8 @@ jobs:
       # The same check, on the head it was written for: this is the project
       # whose asset list drifted from the desktop's, and the APK builds and
       # signs perfectly well without the fonts its every label asks for.
+      - name: guard dynamic HudFonts asset declarations
+        run: python3 tools/test_check_avares.py
       - name: the launcher's assets are in the APK
         run: >
           tools/check-avares.py src/MphRead.Android/MphRead.Android.csproj

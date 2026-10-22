@@ -222,7 +222,7 @@ internal static class TurretFireOutcomeTests
     }
     private static void ReplayRecordingAndRestore()
     {
-        var outcome = Emitted();
+        var outcome = Emitted(); var outcomeBytes = Encode(outcome);
         var original = new IntentPacket { AuthorityEpoch = 9, MatchId = 2, SlotGeneration = 4,
             LifeId = 5, Frame = 100, Position = new Vector3(1, 2, 3), MoveX = 32,
             MoveY = -64, HasAnalogMove = true, HasFireEvents = true, FireEventCount = 2 };
@@ -268,20 +268,29 @@ internal static class TurretFireOutcomeTests
         state.Accept(ReplayPacket(outcome with { Key = outcome.Key with { AuthorityEpoch = 10 } }), 133);
         Check(state.PendingTurretOutcomeCount == 1, "foreign authority stream never queues an outcome");
         var checkpoint = state.CaptureCheckpoint();
-        Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 12,
-            "replica checkpoint v12 retains the outcome appendix before pickup data");
+        const int grantTail = 87;
+        const int pickupTail = sizeof(uint) + 3 * sizeof(int) + grantTail;
+        Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 16
+            && checkpoint.Bytes[6] == NetConfig.ProtocolVersion && checkpoint.Bytes[7] == 87,
+            "replica checkpoint v16/protocol85/features87 retains the outcome appendix before pickup data");
+        int outcomesAt = checkpoint.Bytes.Length - pickupTail - 2 * sizeof(int) - 2 * TurretFireOutcome.Size;
+        int pendingAt = outcomesAt + sizeof(int) + TurretFireOutcome.Size;
+        Check(outcomesAt >= 8
+            && BinaryPrimitives.ReadInt32LittleEndian(checkpoint.Bytes[outcomesAt..]) == 1
+            && checkpoint.Bytes.Slice(outcomesAt + sizeof(int), TurretFireOutcome.Size).SequenceEqual(outcomeBytes)
+            && BinaryPrimitives.ReadInt32LittleEndian(checkpoint.Bytes[pendingAt..]) == 1
+            && checkpoint.Bytes.Slice(pendingAt + sizeof(int), TurretFireOutcome.Size).SequenceEqual(outcomeBytes),
+            "v16 seen and pending outcome rows precede the unchanged pickup and grant tails");
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(checkpoint);
         Check(restored.PendingTurretOutcomeCount == 1
             && restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
-            "v12 roundtrip preserves pending outcomes and complete decoder state");
+            "v16 roundtrip preserves pending outcomes and complete decoder state");
         accepted = restored.AcceptedPackets; restored.Accept(packet, 134);
         Check(restored.PendingTurretOutcomeCount == 1 && restored.AcceptedPackets == accepted,
-            "v12 restoration preserves duplicate-terminal suppression");
+            "v16 restoration preserves duplicate-terminal suppression");
 
         // Preserve actual v9 compatibility: its last bytes are the pending
         // outcome; v10 adds an empty room watermark and three pickup counts.
-        const int grantTail = 87;
-        const int pickupTail = sizeof(uint) + 3 * sizeof(int) + grantTail;
         Check(checkpoint.Bytes[^pickupTail..].ToArray()
             .Select((value, index) => value == (index == pickupTail - grantTail ? 83 : 0)).All(value => value),
             "historical v9 fixture strips only empty pickup data");

@@ -170,7 +170,7 @@ export ALSOFT_DRIVERS=null PULSE_SERVER=   # else ALSA retries stall frames
 | `MphRead -tapcheck` | the rule that tells a tap from the start of a scroll, against gestures written down rather than performed: does a finger that goes down on a settings row and then drags the page still answer that row. It must not -- acting on the *press* is what made scrolling the settings on a phone toggle, cycle and re-slide every row the drag passed over. Needs no display, no toolkit and no touchscreen (`Mods/Launcher/Gui/Tap.cs`) |
 | `MphRead -frametimingcheck` | the fixed-step accumulator on its own, against frame times chosen rather than measured: does the game still run at 60.000 Hz when the screen runs at 144, at 165, at a jitter, or at 40. Needs no game files and no display |
 | `MphRead -maptest "ROOM" -drawrate N` | draw each simulation step N times, which is what a 144 Hz screen does to a 60 Hz game. Asserts that drawing did not advance the world. How the decoupled loop is checked from a box with no monitor |
-| `MphRead -shellshot DIR` | the same screens photographed **in the game window**, walking the whole loop: front screen, a key, a click, a match loaded into that window, the pause menu over it, and the front screen again after leaving. What `-uishot` cannot answer -- it renders layouts, not the composite. Needs a display (Xvfb is one) |
+| `MphRead -shellshot DIR` | photographs the actual game-window composite using real input. Native first-run profiles exercise required setup; configured profiles exercise Home, News, Settings and resizing. The scope manifest records the observed coverage. Legacy and explicit lifecycle modes retain their own scripts. Needs a display (Xvfb is one) |
 | `MphRead -uidesign DIR` | everything **behind** the front screen -- Play with maps, Play with servers, settings, the pause menu -- laid out **six** different ways and photographed, for choosing between them by looking rather than by describing. The front screen is deliberately not in it. The six differ in information architecture rather than in where a menu is pinned, since moving anchors around produces six pictures of one design; the photograph, the real content at its real density and `GuiTheme`'s palette are held constant. Nothing it draws ships (`Mods/Launcher/Gui/UiDesigns.cs`) |
 | `MphRead -uishot DIR` | pictures of the launcher's own screens -- home, settings, the map picker, the pause menu -- rendered without anyone looking at a display. The one part of the program that could not otherwise be checked from a headless box |
 | `MphRead -demoinfo FILE [-replay]` | what a recorded match contains -- records, frames, a packet-type histogram, and how well it compressed. `-replay` then runs the file through the real player with no room or window and reports how the packets landed per frame, which is the measurement "the replay stutters" is about. Needs no game files. `.claude/multiplayer/NETWORK-DEMOS.md` |
@@ -406,10 +406,16 @@ front screen is left out on purpose -- it is settled. Nothing in it ships.
 of `play`, `play-vote`, `create-server`, `create-server-dedicated`,
 `create-server-maps`, `create-server-hosts`, `settings`, `settings-player`, `setup`, `confirm`,
 `pausemenu`, `pausemenu-small` and `serverbrowser`. `-shellshot DIR` is the
-other half -- it opens the real window and photographs the composite at each
-stop of the loop (front screen, a key, a click, a match, the pause menu over
-it, the front screen again), which is what `-uishot` cannot answer. That one
-needs a display; Xvfb is one.
+other half: it opens the real window and photographs the composite using real
+keyboard and pointer input. With the default native UI, `shellshot.json` names
+the completed scope. `assetless-setup` proves startup, required Game Files
+input ownership, blocked Escape and resized setup bounds; it does not claim
+Home, Settings or gameplay coverage. `configured-navigation` uses existing
+configured game files and proves Home, News, Settings, Back and resizing.
+Neither scope bypasses setup readiness. Legacy and explicit lifecycle scripts
+retain their own coverage. Success requires a completed script and fresh valid
+PNG captures; early window closure fails even before the first capture. This
+check needs a display; Xvfb is one.
 
 Gotchas worth keeping in view without opening another file:
 

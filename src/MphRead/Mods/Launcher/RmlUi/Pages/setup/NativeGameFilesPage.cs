@@ -18,6 +18,8 @@ internal sealed class NativeGameFilesPage : IDisposable
     private long _revision;
     private bool _disposed, _retired;
     public bool Closed => _retired || _disposed || _controller?.Snapshot().Closed == true;
+    internal NativeGameFilesView Snapshot() => _controller?.Snapshot()
+        ?? throw new InvalidOperationException("The native game-files page is not open.");
     internal bool HasLivePage => !_disposed && !_retired && _document != default
         && _host.IsAlive(_document) && _pages.Page == _document;
     public RmlUiDocumentToken Document => _document;

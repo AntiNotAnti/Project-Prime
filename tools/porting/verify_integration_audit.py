@@ -17,10 +17,10 @@ def verify(root=ROOT, upstream=None):
     # These records are immutable test evidence, not live engineering docs.
     # Resolve alongside this verifier so source documentation cleanup cannot
     # silently disable the provenance and commit-ledger checks.
-    fixtures = Path(__file__).resolve().with_name("fixtures")
-    manifest = json.loads((fixtures / "second-hunt-manifest.json").read_text())
+    fixtures = root / "tools/porting/fixtures"
+    manifest = json.loads((fixtures / "second-hunt-manifest.json").read_text(encoding="utf-8"))
     audit = manifest["integrationAudit"]
-    delta = json.loads((fixtures / audit["sourceDelta"]).read_text())
+    delta = json.loads((fixtures / audit["sourceDelta"]).read_text(encoding="utf-8"))
     baseline = audit["targetBaseline"]
     for witness in audit["frozenSourceFiles"]:
         data = git(root, "show", baseline + ":" + witness["path"])
