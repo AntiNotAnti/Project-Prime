@@ -34,7 +34,7 @@ Validate the committed historical evidence without starting a benchmark or loadi
 
 ```text
 python3 tools/net-evidence-benchmark/verify_evidence.py \
-  --evidence docs/evidence/net-campaign-2026-10-14
+  --evidence tools/net-evidence-benchmark/fixtures/primitive-overhead-7588d986
 ```
 
 This checks every derivative digest, all measured rows against the retained RAW lines, batch indices/counts, source/binary closure guards, entry/fixture identity separation, and excluded private paths/binary types.
