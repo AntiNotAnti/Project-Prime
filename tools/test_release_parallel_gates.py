@@ -49,6 +49,20 @@ class ReleaseParallelGateTests(unittest.TestCase):
         self.assertIn("tools/test-macos-tools.sh", macos)
         self.assertIn("tools/package-macos.sh", macos)
 
+    def test_server_packages_copy_existing_documentation(self):
+        # A cleanup moved the guide under docs/, while the release archives
+        # still promise SERVER.md in the package root. Resolve the actual
+        # tracked source before the expensive release builders begin.
+        source = Path(__file__).resolve().parents[1] / "docs" / "SERVER.md"
+        self.assertTrue(source.is_file(), f"Missing server guide: {source}")
+        package = job("package-release")
+        for target in ("linux-arm64", "linux-x64-server", "win-x64-server"):
+            with self.subTest(target=target):
+                self.assertIn(
+                    f"cp docs/SERVER.md publish/{target}/SERVER.md", package
+                )
+        self.assertNotRegex(package, r"(?m)^\s*cp SERVER\.md\b")
+
     def test_publish_still_requires_all_releases_and_lobby_acceptance(self):
         publish = job("publish")
         match = re.search(r"(?m)^    needs: \[([^\]]+)\]$", publish)

@@ -267,7 +267,7 @@ Project Prime includes standalone dedicated server builds for:
 
 See:
 
-**[`SERVER.md`](SERVER.md)**
+**[`SERVER.md`](docs/SERVER.md)**
 
 A dedicated server runs the match authoritatively and therefore requires access to the extracted game files from your own cartridge dump.
 
@@ -448,7 +448,7 @@ Useful starting points include:
 
 * [`CLAUDE.md`](CLAUDE.md) — repository architecture, commands, diagnostics, and testing
 * [Replay and Map Studio architecture](docs/architecture/replay-map-upgrade-status.md) — implementation, validation, and platform coverage
-* [`SERVER.md`](SERVER.md) — dedicated server setup
+* [`SERVER.md`](docs/SERVER.md) — dedicated server setup
 * [`.claude/multiplayer/`](.claude/multiplayer/) — multiplayer architecture and networking
 * [`.claude/mapgen/`](.claude/mapgen/) — custom map pipeline and Map Studio
 * [`.claude/launcher/`](.claude/launcher/) — launcher and Hunter License architecture

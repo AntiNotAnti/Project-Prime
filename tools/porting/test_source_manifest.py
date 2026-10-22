@@ -4,8 +4,8 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / "docs" / "porting" / "second-hunt-manifest.json"
-DOC = ROOT / "docs" / "porting" / "second-hunt-content.md"
+MANIFEST = ROOT / "tools" / "porting" / "fixtures" / "second-hunt" / "second-hunt-manifest.json"
+DOC = ROOT / "tools" / "porting" / "fixtures" / "second-hunt" / "second-hunt-content.md"
 
 class PortManifestContract(unittest.TestCase):
     @classmethod
@@ -62,7 +62,7 @@ class PortManifestContract(unittest.TestCase):
 
     def test_delta_has_complete_frozen_commit_and_path_inventory(self):
         audit = self.data["integrationAudit"]
-        delta = json.loads((MANIFEST.parent / audit["sourceDelta"]).read_text())
+        delta = json.loads((MANIFEST.parent / audit["sourceDelta"]).read_text(encoding="utf-8"))
         self.assertEqual(delta["fromExclusive"], audit["previousSourceCommit"])
         self.assertEqual(delta["toInclusive"], audit["sourceCommit"])
         self.assertEqual(delta["commitCount"], len(delta["commits"]))
@@ -109,8 +109,14 @@ class PortManifestContract(unittest.TestCase):
             self.assertRegex(protocol, name + r"\s*=\s*" + str(value) + r"\b")
         self.assertFalse(wire["capabilitiesEnableGameplay"])
         reader = (ROOT / "src/MphRead/Mods/Network/DemoFile.cs").read_text()
-        versions = " or ".join(map(str, replay["readableFormats"]))
-        self.assertIn("header[4] is not (" + versions + ")", reader)
+        live_declaration = re.search(
+            r"\bif\s*\(\s*header\[4\]\s+is not\s+\(([^)]*)\)\s*\)", reader)
+        self.assertIsNotNone(live_declaration, "live replay format declaration must remain explicit")
+        declared = live_declaration.group(1)
+        self.assertRegex(declared, r"^\s*\d+(?:\s+or\s+\d+)*\s*$")
+        live_formats = [int(value) for value in re.findall(r"\d+", declared)]
+        self.assertEqual(len(live_formats), len(set(live_formats)), "live replay formats must be unique")
+        self.assertTrue(set(replay["readableFormats"]).issubset(live_formats))
         self.assertEqual(replay["defaultMetadataFormat"], 3)
         self.assertEqual(replay["timedShotCertificateFormat"], 6)
         self.assertTrue(replay["timedShotsAreOptIn"])
@@ -124,10 +130,12 @@ class PortManifestContract(unittest.TestCase):
             self.assertTrue((ROOT / witness["path"]).is_file())
             self.assertRegex(witness["sha256"], r"^[0-9a-f]{64}$")
             self.assertIn(witness["role"], ("contract", "fixture"))
-        ledger = (MANIFEST.parent / audit["ledger"]).read_text()
+        ledger = (MANIFEST.parent / audit["ledger"]).read_text(encoding="utf-8")
         for phase in range(11):
             self.assertIn(f"SH-{phase:02}", ledger)
-        self.assertTrue((MANIFEST.parent / audit["researchMemo"]).is_file())
+        research_memo_path = MANIFEST.parent / audit["researchMemo"]
+        research_memo_path.read_text(encoding="utf-8")
+        self.assertTrue(research_memo_path.is_file())
         self.assertFalse(audit["measurements"]["releaseQualified"])
         self.assertEqual(audit["measurements"]["physicalAndroidTouchBaseline"], "not-captured")
         self.assertEqual(audit["measurements"]["sameHardwareFrameTimeBaseline"], "not-captured")
