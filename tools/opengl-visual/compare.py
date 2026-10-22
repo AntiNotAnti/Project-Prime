@@ -11,18 +11,42 @@ import json
 from pathlib import Path
 import sys
 
-EXPECTED = ("opaque-wall.rgba", "opaque-wall-repeat.rgba",
-            "translucent-window.rgba", "stencil-mask.rgba",
-            "combined-opaque.rgba")
+EXPECTED = (
+    "material-camera-front.rgba",
+    "material-camera-side.rgba",
+    "material-legacy-side.rgba",
+    "material-legacy-front.rgba",
+    "material-original-front.rgba",
+    "material-original-side.rgba",
+    "material-normal-skew.rgba",
+    "material-normal-regular-uv.rgba",
+    "material-normal-mirrored-uv.rgba",
+    "material-normal-degenerate-uv.rgba",
+    "material-normal-degenerate-world.rgba",
+    "material-normal-zero.rgba",
+    "opaque-wall.rgba",
+    "opaque-wall-repeat.rgba",
+    "translucent-window.rgba",
+    "stencil-mask.rgba",
+    "combined-opaque.rgba",
+)
+MIN_CHECKED_PIXELS = 360
 
 
 def load(folder: Path):
     manifest = json.loads((folder / "evidence.json").read_text())
     if manifest.get("schema") != 1 or manifest.get("width") != 64 or manifest.get("height") != 64:
         raise ValueError("unexpected GL fixture schema/dimensions")
+    checked_pixels = manifest.get("checkedPixels")
+    # CharacterSourceGx is validated by production GPU assertions rather than
+    # a separate RGBA file, so require its current assertion floor in evidence.
+    if type(checked_pixels) is not int or checked_pixels < MIN_CHECKED_PIXELS:
+        raise ValueError("required CharacterSourceGx/production pixel checks are missing")
     found = manifest.get("captures")
     if not isinstance(found, dict) or set(found) != set(EXPECTED):
         raise ValueError("required capture set differs")
+    if {path.name for path in folder.glob("*.rgba")} != set(EXPECTED):
+        raise ValueError("capture files differ")
     images = {}
     for filename in EXPECTED:
         pixels = (folder / filename).read_bytes()
