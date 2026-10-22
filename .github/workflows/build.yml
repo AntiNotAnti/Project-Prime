@@ -252,7 +252,7 @@ jobs:
               dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll \
               tools/rmlui-opengl-check/bin/Release/net10.0/rmlui --"$fixture_mode" "$fixture_size"
           }
-          for mode in license offline-rules ingame; do
+          for mode in startup license offline-rules ingame; do
             run_native_fixture "$mode" 640x360
           done
           for mode in party input playback map-preview campaign-ending campaign-ship community-history community-publish studio-workspace party-queue adventure-saves adventure-save-work studio-editor; do
@@ -268,6 +268,7 @@ jobs:
           name: rmlui-license-native-fixture
           path: |
             artifacts/rmlui-layout-ci.json
+            artifacts/rmlui-startup
             artifacts/rmlui-license-rml41
             artifacts/rmlui-offline-rules-rml42
             artifacts/rmlui-ingame-rml44
