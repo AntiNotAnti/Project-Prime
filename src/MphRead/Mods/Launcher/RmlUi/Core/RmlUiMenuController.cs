@@ -637,12 +637,12 @@ public sealed class RmlUiMenuController : IDisposable
                     if (changed) Dirty();
                     return changed;
                 }
-                string previousMap = _offline.Map;
+                string previousMap = _offline.Current.RoomKey;
                 bool offlineChanged = _offline.Change(argument, kind == RmlUiIntentKind.OfflineChoicePrevious);
                 if (offlineChanged)
                 {
-                    if (!String.Equals(previousMap, _offline.Map, StringComparison.OrdinalIgnoreCase))
-                        LauncherPrefs.RememberMap(_offline.Map);
+                    if (!String.Equals(previousMap, _offline.Current.RoomKey, StringComparison.OrdinalIgnoreCase))
+                        LauncherPrefs.RememberMap(_offline.Current.RoomKey);
                     Dirty();
                 }
                 return offlineChanged;
@@ -662,7 +662,7 @@ public sealed class RmlUiMenuController : IDisposable
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineSelectArena:
                 if (_offline == null || _trainingRoute || !_offline.SelectArena(argument)) return false;
-                LauncherPrefs.RememberMap(_offline.Map);
+                LauncherPrefs.RememberMap(_offline.Current.RoomKey);
                 Dirty(); return true;
             case RmlUiIntentKind.OfflineLaunchMatch:
                 if (_offline == null || _trainingRoute || _busy || _offlineLaunched || _offline.ArenaOpen || _trainingOptionsOpen || !_offline.Valid) return false;
