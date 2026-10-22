@@ -227,6 +227,7 @@ public sealed class HudEditorController : IDisposable
     private void ApplyProperty(string value)
     {
         HudEditorProperty row = Properties().ElementAt(_propertyIndex);
+        if (IsTypographyFontPath(row.Path)) value = FontId(value);
         if (row.Path.StartsWith("/options/", StringComparison.Ordinal))
         {
             int index = _options.FindIndex(o => o.Id == row.Path[9..]);
@@ -377,6 +378,7 @@ public sealed class HudEditorController : IDisposable
             if (_selected == 0 && leaf.Path is "/elements/core.crosshair/offsetX" or "/elements/core.crosshair/offsetY" or "/elements/core.crosshair/anchor") continue;
             string text = leaf.Value.GetValueKind() == JsonValueKind.String ? leaf.Value.GetValue<string>() : leaf.Value.ToJsonString();
             string[] choices = leaf.Value.GetValueKind() is JsonValueKind.True or JsonValueKind.False ? new[]{"false", "true"} : Choices(leaf.Path);
+            if (IsTypographyFontPath(leaf.Path)) text = FontName(text);
             string kind = choices.Length > 0 ? "Choice" : leaf.Value.GetValueKind() switch { JsonValueKind.True or JsonValueKind.False => "Boolean", JsonValueKind.Number => "Number", _ => "Text" };
             yield return new(leaf.Path, PropertyLabel(leaf.Path), text, kind, choices.ToImmutableArray());
         }
@@ -434,7 +436,7 @@ public sealed class HudEditorController : IDisposable
     private static string[] Choices(string path)
     {
         string field=path[(path.LastIndexOf('/')+1)..];
-        if (field is "font" or "globalFont" or "gameFont" or "interfaceFont") return HudFonts.All.Select(font=>font.Id).ToArray();
+        if (IsTypographyFontPath(path)) return HudFonts.All.Select(font=>font.Name).ToArray();
         return field switch
         {
             "smoothArtwork" => new[]{"inherit","false","true"}, "mode" => Enum.GetNames<HudMode>(), "motion" => Enum.GetNames<CrosshairMotion>(),
@@ -443,6 +445,20 @@ public sealed class HudEditorController : IDisposable
             "outOfRange" => Enum.GetNames<HudRadarOutOfRangeMode>(), "elevation" => Enum.GetNames<HudRadarElevationMode>(), "queue" => Enum.GetNames<HudNotificationQueue>(),
             "shape" => Enum.GetNames<HudHitMarkerShape>(), "style" when path.StartsWith("/radar/",StringComparison.Ordinal) => Enum.GetNames<HudRadarStyle>(), _ => Array.Empty<string>()
         };
+    }
+    private static bool IsTypographyFontPath(string path)
+    {
+        if (path is "/typography/globalFont" or "/typography/gameFont" or "/typography/interfaceFont") return true;
+        const string stylesPrefix="/typography/styles/";
+        return path.StartsWith(stylesPrefix,StringComparison.Ordinal) && path.EndsWith("/font",StringComparison.Ordinal)
+            && Array.IndexOf(HudTypography.Ids,path[stylesPrefix.Length..^5])>=0;
+    }
+    private static string FontName(string id)
+        => HudFonts.All.FirstOrDefault(font=>font.Id==id)?.Name ?? id;
+    private static string FontId(string nameOrId)
+    {
+        var font=HudFonts.All.FirstOrDefault(candidate=>candidate.Id==nameOrId||candidate.Name==nameOrId);
+        return font?.Id ?? throw new FormatException("Choose a listed font.");
     }
     private static object ParseValue(string value,Type type)
     { if(type==typeof(bool)) return bool.Parse(value); if(type==typeof(int)) return int.Parse(value,CultureInfo.InvariantCulture); if(type==typeof(float)) return ParseNumber(value); if(type.IsEnum) return Enum.Parse(type,value); return value; }

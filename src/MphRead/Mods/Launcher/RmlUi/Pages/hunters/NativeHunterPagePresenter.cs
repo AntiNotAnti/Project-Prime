@@ -242,10 +242,9 @@ internal sealed class NativeHunterPagePresenter : IDisposable
         _cosmeticVisibility = CosmeticVisibility();
         var data = new Dictionary<string, RmlUiBindingValue>(StringComparer.Ordinal)
         {
-            ["visible:hunter_local_body"] = RmlUiBindingValue.FromBoolean(
-                state.Choice.Hunter is Hunter.Samus or Hunter.Weavel && LocalBodyAppearanceRules.Available),
-            ["visible:hunter_local_drone"] = RmlUiBindingValue.FromBoolean(
-                state.Choice.Hunter == Hunter.Weavel && LocalDroneAppearanceRules.Available),
+            // Keep deferred body and practice-drone controls hidden even when local imports exist.
+            ["visible:hunter_local_body"] = RmlUiBindingValue.FromBoolean(false),
+            ["visible:hunter_local_drone"] = RmlUiBindingValue.FromBoolean(false),
             ["native_hunter_name"] = RmlUiBindingValue.FromText(
                 state.Choice.Hunter.ToString().ToUpperInvariant()),
             ["native_hunter_status"] = RmlUiBindingValue.FromText(

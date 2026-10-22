@@ -2,6 +2,8 @@
 
 The neutral harness edits detached `HudProfile` drafts through the real shared profile, history, geometry, migration and serialization authority. It checks atomic rejection, undo/gesture history, independent gauge detachment, context flags, inherited crosshair targets, named storage handoff and once-only settings acceptance without publishing configuration.
 
+Font choices display registered family/style names while profiles keep stable `fontNN` IDs. Checks cover inline names and legacy ID aliases, previous/next selection, invalid-input rejection, reset/history and serialized-profile compatibility. The native fixture also verifies the displayed field and repeated capture after an alias edit.
+
 The optional native harness loads the real RmlUi bridge and authored HUD page. It activates all 14 element controls, verifies native focus and stale-document rejection, canvas keyboard ownership, Unicode JSON fields larger than the default field limit, escaped errors, preview texture upload and draw submission. Heading/body bounds are checked at 1280×720, 1920×1080, 960×540 and 1920×1080 with density 2.
 
 ```sh

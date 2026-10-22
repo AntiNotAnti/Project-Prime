@@ -471,7 +471,9 @@ public sealed class RmlUiMenuController : IDisposable
                     Status(failure);
                     return false;
                 }
-                Begin(Job.Create, "ALLOCATING AUTHORITATIVE LOBBY",
+                Begin(Job.Create, request.Dedicated
+                        ? "PREPARING LOCAL SERVER // INSTALLING IF NEEDED"
+                        : "ALLOCATING AUTHORITATIVE LOBBY",
                     async token => await _services.CreateLobby(request, token).ConfigureAwait(false));
                 _creating = true;
                 _joining = true;

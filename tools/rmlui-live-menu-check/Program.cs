@@ -60,6 +60,13 @@ if (args.Contains("--arena-catalog-only"))
     return;
 }
 
+if (args.Contains("--local-server-install-only"))
+{
+    LocalServerInstallChecks.Run();
+    CreatedLobbyCompletionAcceptance.Run();
+    return;
+}
+
 #if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
 // Source-linked async ownership checks intentionally avoid unrelated fixtures
 // that reflect the prebuilt engine via the controller assembly identity.
@@ -1351,6 +1358,7 @@ SocialConnectionAcceptance.Run();
 PartyQueueAcceptance.Run();
 RandomMatchAcceptance.Run();
 CreatedLobbyCompletionAcceptance.Run();
+LocalServerInstallChecks.Run();
 OfflineArenaInstallChecks.Run();
 Console.WriteLine("RML03 owner-thread launcher service contracts passed.");
 

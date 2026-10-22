@@ -40,6 +40,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     public static class LocalServer
     {
+        private const string IncompleteInstallMarkerName = ".server-install-incomplete";
         internal static readonly object StartLifecycleGate = new();
         /// <summary>Where a downloaded server package is unpacked.</summary>
         public static string Directory =>
@@ -118,12 +119,26 @@ namespace MphRead.Mods.Network
                 }
             }
             string installed = Path.Combine(Directory, UpdateCheck.ServerBinaryName());
-            if (File.Exists(installed))
+            if (HasUsableDownloadedBinary(Directory))
             {
                 return new ServerBinary(installed, Array.Empty<string>(), Directory,
                     downloaded: true);
             }
             return null;
+        }
+
+        internal static bool HasUsableDownloadedBinary(string directory)
+            => !File.Exists(IncompleteInstallMarkerPath(directory))
+                && File.Exists(Path.Combine(directory, UpdateCheck.ServerBinaryName()));
+
+        internal static string IncompleteInstallMarkerPath(string directory)
+            => Path.Combine(directory, IncompleteInstallMarkerName);
+
+        internal static void CompleteInstall(string directory,
+            CancellationToken cancel)
+        {
+            cancel.ThrowIfCancellationRequested();
+            File.Delete(IncompleteInstallMarkerPath(directory));
         }
 
         public static bool Ready => Available() != null;
@@ -221,6 +236,9 @@ namespace MphRead.Mods.Network
                     LastError = UpdateDownload.LastError ?? "the download failed";
                     return false;
                 }
+                string marker = IncompleteInstallMarkerPath(Directory);
+                File.WriteAllText(marker, package.Tag);
+                cancel.ThrowIfCancellationRequested();
                 if (zip)
                 {
                     ZipFile.ExtractToDirectory(archive, Directory, overwriteFiles: true);
@@ -233,6 +251,7 @@ namespace MphRead.Mods.Network
                     // across; a zip has none to carry.
                     TarFile.ExtractToDirectory(plain, Directory, overwriteFiles: true);
                 }
+                cancel.ThrowIfCancellationRequested();
                 File.Delete(archive);
                 string binary = Path.Combine(Directory, UpdateCheck.ServerBinaryName());
                 if (!File.Exists(binary))
@@ -241,6 +260,7 @@ namespace MphRead.Mods.Network
                     return false;
                 }
                 MakeExecutable(binary);
+                CompleteInstall(Directory, cancel);
                 InstalledTag = package.Tag;
                 return true;
             }

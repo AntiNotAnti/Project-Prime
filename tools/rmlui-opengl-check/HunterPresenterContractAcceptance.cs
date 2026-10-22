@@ -57,9 +57,14 @@ internal static class HunterPresenterContractAcceptance
                 presenter.Open();
                 host.Update();
                 Check(host.IsAlive(presenter.PreviewDocument), "real presenter opens shipped picker for " + hunter);
+                Check(!host.FocusDocument(presenter.PreviewDocument, "hunter_body0")
+                    && !host.FocusDocument(presenter.PreviewDocument, "hunter_drone0"),
+                    "deferred body and practice-drone sections stay hidden for " + hunter);
                 ulong sequence = 1;
                 if (hunter == Hunter.Samus && LocalBodyAppearanceRules.Available)
                 {
+                    // Reveal only in this fixture to retain coverage of the deferred draft owner.
+                    host.SetBool(presenter.PreviewDocument, "visible:hunter_local_body", true); host.Update();
                     Check(host.FocusDocument(presenter.PreviewDocument, "hunter_body1"), "local body choice accepts native focus");
                     host.Update(); host.DiscardIntents();
                     Check(host.TryGetElementBounds(presenter.PreviewDocument, "hunter_body1", out float bx, out float by,
@@ -252,6 +257,10 @@ internal static class HunterPresenterContractAcceptance
         RmlUiIntentKind kind, int argument, int viewportWidth, int viewportHeight)
         {
             var document = presenter.PreviewDocument;
+            // Deferred controls are hidden in the product; exercise their retained owners explicitly.
+            if (kind is RmlUiIntentKind.HunterBodySelect or RmlUiIntentKind.HunterDroneSelect)
+                host.SetBool(document, kind == RmlUiIntentKind.HunterBodySelect
+                    ? "visible:hunter_local_body" : "visible:hunter_local_drone", true);
             host.SetBool(document, "class:@document:reduce-motion", true);
             host.SetBool(document, "class:screen:reduce-motion", true);
             Check(host.FocusDocument(document, id), "actual persisted-loadout control focuses: " + id);

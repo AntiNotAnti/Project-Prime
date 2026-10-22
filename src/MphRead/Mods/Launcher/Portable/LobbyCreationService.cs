@@ -112,6 +112,8 @@ public sealed class LobbyCreationPreferences
 /// </summary>
 public static class LobbyCreationService
 {
+    private static readonly SemaphoreSlim s_localServerInstallGate = new(1, 1);
+
     public static (int TimeLimit, ushort Goal) InitialLimits(GameMode mode)
     {
         if (mode == GameMode.OneInTheChamber) return (0, 2);
@@ -122,6 +124,38 @@ public static class LobbyCreationService
             ? (ushort)Math.Clamp(LauncherPrefs.LastLobbyGoal, 0, UInt16.MaxValue)
             : MatchGoalRules.DefaultValue(mode);
         return (seconds, goal);
+    }
+
+    // The installer writes the shared server directory in place. Every local
+    // create request must take this gate before checking Ready, so a retry
+    // cannot mistake a package being extracted by another request for a
+    // complete server. The isolated delegates keep this production sequence
+    // testable without downloading a release package.
+    internal static async Task<string?> EnsureLocalServerReadyAsync(
+        Func<bool> isReady, Func<CancellationToken, string?> install,
+        SemaphoreSlim installGate, CancellationToken token)
+    {
+        await installGate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            token.ThrowIfCancellationRequested();
+            if (isReady()) return null;
+
+            // Install performs network and filesystem work and must never run
+            // on the launcher's render thread. Its result carries LastError
+            // back from the worker before another installation can begin.
+            string? error = await Task.Run(() => install(token), token).ConfigureAwait(false);
+            // Install reports cancellation as false; the token is the
+            // authoritative signal that this create request was cancelled.
+            token.ThrowIfCancellationRequested();
+            if (error != null) return error;
+            if (!isReady()) return "The installed package did not produce a usable dedicated server.";
+            return null;
+        }
+        finally
+        {
+            installGate.Release();
+        }
     }
 
     public static async Task<LobbyCreationOutcome> CreateAsync(
@@ -160,14 +194,20 @@ public static class LobbyCreationService
     {
         if (OperatingSystem.IsAndroid())
             return new(false, default, "Android does not support local dedicated server processes.");
-        if (!LocalServer.Ready)
-            return new(false, default, "Install the dedicated server package in the existing lobby creator.");
         HostedMapPreparation? prepared = null;
         int port = -1;
         Guid localOwnerToken = default;
         string? localStartError = null;
         try
         {
+            string? installError = await EnsureLocalServerReadyAsync(
+                () => LocalServer.Ready,
+                installToken => LocalServer.Install(cancel: installToken) ? null
+                    : LocalServer.LastError ?? "The dedicated server package could not be installed.",
+                s_localServerInstallGate, token).ConfigureAwait(false);
+            if (installError != null)
+                return new(false, default, installError);
+
             if (request.CommunityMap != null)
                 prepared = await Task.Run(() => PrepareLocalPackage(request, token), token).ConfigureAwait(false);
             var started = await Task.Run(() =>

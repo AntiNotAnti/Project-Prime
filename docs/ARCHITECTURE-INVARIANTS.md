@@ -95,6 +95,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - The client-authority fallback is removed. `DedicatedServer` has no `RunsTheMatch=false` mode, no player-authority slot/handover, and clients cannot publish authoritative snapshots or match results. `PacketType.Authority = 12` remains reserved only so wire IDs do not shift; current servers never send it and current clients ignore it.
 - The server is authoritative for combat, health, score, match state and match end. Player movement position is still supplied by the owning client's `IntentPacket.Position`; this is not a fully server-derived movement model.
 - A dedicated game server requires the user's extracted game data and a valid `paths.txt` beside the server binary. It must refuse to start rather than silently fall back to client authority when those files are unavailable.
+- Local Create & Join installs a missing dedicated-server package automatically when the platform publishes one. Installation prefers the client's matching release (latest fallback for local/development builds), preserves digest verification, and runs off the render thread. Installation failure or cancellation before startup prevents spawning; cancellation after startup leaves the independent server running.
 - The directory/master server does not simulate a match and does not require game files.
 
 ## Netcode modernization boundaries

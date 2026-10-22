@@ -42,6 +42,35 @@ internal static class HudInlineSectionCheck
         check(lettering.All(row=>row.Path.StartsWith("/typography/")||row.Path=="/textScale"),"Lettering contains fonts and text scale only");
         check(!lettering.Any(row=>row.Path=="/typography/paletteDefaultsVersion")&&lettering.All(row=>!row.Label.Contains("styles",StringComparison.OrdinalIgnoreCase)
             &&!row.Label.Contains("core.",StringComparison.Ordinal)),"Lettering uses friendly component names and hides migration metadata");
+        controller.Dispatch(HudEditorAction.SearchProperties,"/typography/styles/core.health/font");
+        var fontRow=controller.Snapshot().Properties.Single();
+        check(fontRow.Value==HudFonts.All[0].Name&&fontRow.Choices.SequenceEqual(HudFonts.All.Select(font=>font.Name)),
+            "typography font rows display registered names as their value and choices");
+        check(controller.CyclePropertyRow(0,false)&&controller.CopyDraft().Typography.Get("core.health").Font==HudFonts.All[1].Id
+            &&controller.CyclePropertyRow(0,true)&&controller.CopyDraft().Typography.Get("core.health").Font==HudFonts.All[0].Id,
+            "font choice arrows map friendly names back to canonical profile ids in both directions");
+        check(controller.ApplyPropertyRow(0,HudFonts.All[3].Name)&&controller.CopyDraft().Typography.Get("core.health").Font==HudFonts.All[3].Id,
+            "friendly font names are accepted and stored as canonical ids");
+        string fontProfile=controller.Snapshot().ProfileJson;
+        check(!controller.ApplyPropertyRow(0,"Not a registered font")&&controller.Snapshot().ProfileJson==fontProfile,
+            "unknown font names are rejected without changing profile data");
+        check(controller.CyclePropertyRow(0,true)&&controller.CopyDraft().Typography.Get("core.health").Font==HudFonts.All[2].Id,
+            "previous font choice uses the friendly-name chooser");
+        check(controller.ApplyPropertyRow(0,HudFonts.All[1].Id)&&controller.CopyDraft().Typography.Get("core.health").Font==HudFonts.All[1].Id,
+            "existing fontNN ids remain accepted as edit aliases");
+        controller.Dispatch(HudEditorAction.Undo);
+        check(controller.CopyDraft().Typography.Get("core.health").Font==HudFonts.All[2].Id,"font edits retain authoring undo");
+        controller.Dispatch(HudEditorAction.Redo);
+        check(controller.CopyDraft().Typography.Get("core.health").Font==HudFonts.All[1].Id,"font edits retain authoring redo");
+        check(controller.ResetPropertyRow(0)&&controller.CopyDraft().Typography.Get("core.health").Font==HudFonts.All[0].Id
+            &&controller.Snapshot().Properties[0].Value==HudFonts.All[0].Name,"font reset restores the canonical default and friendly display value");
+        controller.Dispatch(HudEditorAction.SearchProperties,"/typography/globalFont");
+        check(controller.Snapshot().Properties.Single().Value==HudFonts.All[0].Name
+            &&controller.ApplyPropertyRow(0,HudFonts.All[2].Name)&&controller.CopyDraft().Typography.GlobalFont==HudFonts.All[2].Id,
+            "shared typography font rows use the same friendly-name mapping");
+        var fontRoundTrip=HudProfileStore.Parse(HudProfileStore.Serialize(controller.CopyDraft()));
+        check(fontRoundTrip.Typography.Get("core.health").Font==HudFonts.All[0].Id
+            &&fontRoundTrip.Typography.GlobalFont==HudFonts.All[2].Id,"profile serialization round-trips canonical font ids");
         var decorations=Section(HudEditorAction.SectionDecorations);
         check(decorations.All(row=>row.Path.StartsWith("/decorations/"))&&decorations.All(row=>!row.Label.StartsWith("Decorations",StringComparison.OrdinalIgnoreCase)
             &&!row.Label.Contains("styles",StringComparison.OrdinalIgnoreCase)),"decoration labels name the artwork without internal decorations/styles prefixes");

@@ -88,22 +88,57 @@ internal static class NativeHudCheck
                     int row=controller.Snapshot().Properties.Select((property,index)=>(property,index)).Single(item=>item.property.Path==path).index;
                     host.SetField(page.Document,"hud_property"+row+"_input",value);
                 }
+                Activate("hud_section_typography",RmlUiIntentKind.HudAction);
+                host.SetField(page.Document,"hud_property_search","/typography/globalFont");
+                Activate("hud_search",RmlUiIntentKind.HudAction);
+                Check(controller.Snapshot().Properties.Single().Path=="/typography/globalFont"
+                    &&host.ReadField(page.Document,"hud_property0_input")==HudFonts.All[0].Name,
+                    "native lettering field displays the registered friendly font name");
+                host.SetField(page.Document,"hud_property0_input",HudFonts.All[2].Name);
+                Activate("hud_section_global",RmlUiIntentKind.HudAction);
+                Check(controller.CopyDraft().Typography.GlobalFont==HudFonts.All[2].Id,
+                    "native pending font text is converted to its canonical profile id");
+                Activate("hud_section_typography",RmlUiIntentKind.HudAction);
+                host.SetField(page.Document,"hud_property_search","/typography/globalFont");
+                Activate("hud_search",RmlUiIntentKind.HudAction);
+                Check(host.ReadField(page.Document,"hud_property0_input")==HudFonts.All[2].Name,
+                    "native presenter refreshes the committed font as a friendly name");
+                host.SetField(page.Document,"hud_property0_input",HudFonts.All[1].Id);
+                host.SetField(page.Document,"hud_property_search","/typography/globalFont");
+                Activate("hud_search",RmlUiIntentKind.HudAction);
+                Check(controller.CopyDraft().Typography.GlobalFont==HudFonts.All[1].Id
+                    &&host.ReadField(page.Document,"hud_property0_input")==HudFonts.All[1].Name,
+                    "native capture canonicalizes a legacy font id in the visible choice field");
+                Activate("hud_property0_next",RmlUiIntentKind.HudProperty);
+                Check(controller.CopyDraft().Typography.GlobalFont==HudFonts.All[2].Id
+                    &&host.ReadField(page.Document,"hud_property0_input")==HudFonts.All[2].Name,
+                    "native font arrow advances from the canonicalized field value");
+                host.SetField(page.Document,"hud_property_search","/typography/globalFont");
+                Activate("hud_search",RmlUiIntentKind.HudAction);
+                Check(controller.CopyDraft().Typography.GlobalFont==HudFonts.All[2].Id,
+                    "a later native capture does not reapply the stale legacy font id");
+                Activate("hud_property0_reset",RmlUiIntentKind.HudProperty);
+                Check(controller.CopyDraft().Typography.GlobalFont==HudFonts.All[0].Id,
+                    "native font reset restores the fixture's default typography before geometry checks");
+                Activate("hud_section_layout",RmlUiIntentKind.HudAction);
                 Inline("/elements/"+movementId+"/offsetX","100");Inline("/elements/"+movementId+"/offsetY","-220");
                 Inline("/elements/"+movementId+"/scale","1.5");
                 Activate("hud_section_appearance",RmlUiIntentKind.HudAction);
-                Inline("/elements/"+movementId+"/opacity",".4");Inline("/elements/"+movementId+"/color","#44AAFF");
+                Inline("/elements/"+movementId+"/opacity","0.4");Inline("/elements/"+movementId+"/color","#44AAFF");
                 Activate("hud_workspace_profiles",RmlUiIntentKind.HudAction);
                 var movementApplied=controller.CopyDraft().Elements[movementId];
                 var movementAfter=controller.Snapshot().Elements[movementIndex];
+                string movementDiagnostics=$"before={movementBefore}; after={movementAfter.Bounds}; fields=(x={movementApplied.OffsetX}, y={movementApplied.OffsetY}, scale={movementApplied.Scale}, opacity={movementApplied.Opacity}, color={movementApplied.Color}); preview=(selected={movementAfter.Selected}, opacity={movementAfter.Opacity}, color={movementAfter.Color}); expectedWidth={movementBefore.Width*1.5f}";
                 Check(movementApplied.OffsetX==100&&movementApplied.OffsetY==-220&&movementApplied.Scale==1.5f
                     &&movementApplied.Opacity==.4f&&movementApplied.Color=="#44AAFF"
                     &&movementAfter.Selected&&movementAfter.Opacity==.4f&&movementAfter.Color=="#44AAFF"
                     &&Math.Abs(movementAfter.Bounds.Width-movementBefore.Width*1.5f)<.01f,
-                    "real native movement layout fields apply placement, scale, opacity and color to preview and draft");
+                    "real native movement layout fields apply placement, scale, opacity and color to preview and draft; "+movementDiagnostics);
                 for(int edit=0;edit<5;edit++)Activate("hud_undo",RmlUiIntentKind.HudAction);
                 Check(controller.CopyDraft().Elements[movementId].Scale==1
                     &&controller.Snapshot().Elements[movementIndex].Bounds==movementBefore,
                     "native movement inline fields each retain reversible authoring history");
+                Activate("hud_workspace_elements",RmlUiIntentKind.HudAction);
                 Activate("hud_pick1",RmlUiIntentKind.HudElement);float before=controller.CopyDraft().Elements["core.health"].OffsetX;
                 Activate("hud_nudge_right",RmlUiIntentKind.HudAction);Check(controller.CopyDraft().Elements["core.health"].OffsetX==before+1,"native nudge reaches detached shared layout");
                 Activate("hud_undo",RmlUiIntentKind.HudAction);Check(controller.CopyDraft().Elements["core.health"].OffsetX==before,"native undo reverses the layout edit");

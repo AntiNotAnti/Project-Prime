@@ -127,6 +127,12 @@ public sealed class HudEditorPagePresenter : IDisposable
                 if(!discardInvalid)return false;
                 _host.SetField(_document,id,property.Value);
             }
+            else if(!property.Choices.IsEmpty)
+            {
+                string acceptedValue=_controller.Snapshot().Properties[i].Value;
+                if(value!=acceptedValue)_host.SetField(_document,id,acceptedValue);
+                _rowValues[i]=acceptedValue;
+            }
         }
         if(_fieldValidationFailed){_controller.ReportFailure("");_fieldValidationFailed=false;}
         return true;
