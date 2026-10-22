@@ -1,0 +1,794 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "repository": "BountyHunterKanden/SecondHunt",
+    "ref": "master",
+    "commit": "c16a907b3658c2fd4079e394a73711596a85caee",
+    "license": "MIT (code; game assets excluded)",
+    "targetBaseline": "ebbf3c51fa6f205ac3b8c952f4f3ab67d0e7cc80"
+  },
+  "defaultPolicy": {
+    "enabled": false,
+    "clientAssets": "local-import-only",
+    "networkAssets": "none",
+    "dedicatedServerMustHaveContent": true,
+    "legacyHunterIds": "unchanged",
+    "legacyReplayFormat": "unchanged"
+  },
+  "games": [
+    {
+      "id": "mp1",
+      "name": "Metroid Prime",
+      "discPrefixes": [
+        "GM8"
+      ],
+      "platform": "gamecube",
+      "requiredFor": [
+        "trooper"
+      ]
+    },
+    {
+      "id": "mp2",
+      "name": "Metroid Prime 2: Echoes",
+      "discPrefixes": [
+        "G2M"
+      ],
+      "platform": "gamecube",
+      "requiredFor": [
+        "darksamus",
+        "echoes-arenas"
+      ]
+    },
+    {
+      "id": "mp3",
+      "name": "Metroid Prime 3: Corruption",
+      "discPrefixes": [
+        "R3M"
+      ],
+      "platform": "wii",
+      "requiredFor": [
+        "darksamus-corruption"
+      ]
+    }
+  ],
+  "characters": [
+    {
+      "id": "darksamus",
+      "baseHunter": "Samus",
+      "cosmeticSkins": [
+        "MP2DarkSamus",
+        "MP3DarkSamus"
+      ],
+      "importRecipes": [
+        "recipes/bodies/MP2DarkSamus.json",
+        "recipes/bodies/MP3DarkSamus.json"
+      ],
+      "runtimeChanges": [
+        "visual-hover",
+        "native-clips"
+      ],
+      "gameplayChanges": []
+    },
+    {
+      "id": "trooper",
+      "baseHunter": "Weavel",
+      "cosmeticSkins": [
+        "MP1PowerTrooper",
+        "MP1IceTrooper",
+        "MP1WaveTrooper",
+        "MP1PlasmaTrooper"
+      ],
+      "importRecipes": [
+        "recipes/bodies/MP1PowerTrooper.json",
+        "recipes/bodies/MP1IceTrooper.json",
+        "recipes/bodies/MP1WaveTrooper.json",
+        "recipes/bodies/MP1PlasmaTrooper.json"
+      ],
+      "runtimeChanges": [
+        "native-clips",
+        "skin-fallback"
+      ],
+      "gameplayChanges": [
+        "wall-cling",
+        "scout-drone",
+        "pirate-blaster"
+      ]
+    }
+  ],
+  "arenas": [
+    {
+      "key": "M01_SidehopperStation",
+      "name": "Sidehopper Station",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M01_SidehopperStation.json",
+      "features": [
+        "jump-pads",
+        "grates"
+      ]
+    },
+    {
+      "key": "M02_Spires",
+      "name": "Spires",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M02_Spires.json",
+      "features": [
+        "static-props"
+      ]
+    },
+    {
+      "key": "M03_CrossfireChaos",
+      "name": "Crossfire Chaos",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M03_CrossfireChaos.json",
+      "features": [
+        "destructible-walls"
+      ]
+    },
+    {
+      "key": "M04_Pipeline",
+      "name": "Pipeline",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M04_Pipeline.json",
+      "features": [
+        "water",
+        "gravity-boost"
+      ]
+    },
+    {
+      "key": "M05_SpiderComplex",
+      "name": "Spider Complex",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M05_SpiderComplex.json",
+      "features": [
+        "vertical-traversal"
+      ]
+    },
+    {
+      "key": "M06_ShootingGallery",
+      "name": "Shooting Gallery",
+      "sourceGame": "mp2",
+      "recipe": "recipes/arenas/M06_ShootingGallery.json",
+      "features": [
+        "dark-water",
+        "grates"
+      ]
+    }
+  ],
+  "offlineBodyRuntime": {
+    "date": "2026-10-20",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-offline-body-runtime-2026-10-20.md",
+    "donorCommit": "41452f2d053fcfa679e33c00a73d120a53f59e61",
+    "default": "native",
+    "selectionOwner": "Hunters loadout draft",
+    "baseHunter": "Samus",
+    "localAppearanceIds": ["Native", "DarkSamusEchoes", "DarkSamusOvercharged"],
+    "bundles": ["darksamus-echoes", "darksamus-overcharged-echoes"],
+    "admittedPlatforms": ["win-x64", "osx-arm64"],
+    "currentHardwareAcceptance": "win-x64 NVIDIA RTX 5080 OpenGL 4.6",
+    "sourceRigJoints": 39,
+    "maximumDrawPaletteJoints": 32,
+    "gameplayChanges": [],
+    "wireChanges": false,
+    "replayChanges": false,
+    "sourceFirstPersonCannon": false,
+    "sourceFirstPersonCannonFollowup": "subsequent fixed slices; see offlineNormalCannonRuntime and offlineFinalCannonRuntime",
+    "scope": "PR940 body freeze; later normal cannon scope is recorded in offlineNormalCannonRuntime",
+    "sourceBall": false,
+    "sourceBallFollowup": "subsequent independent normal/Final slices; see offlineNormalBallRuntime and offlineFinalBallRuntime",
+    "online": false,
+    "dynamicShadowPolicy": "complete-native-body-fallback",
+    "otherPlatformAcceptance": "not requalified; Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "offlineNormalCannonRuntime": {
+    "date": "2026-10-20",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-normal-cannon-runtime-2026-10-20.md",
+    "selection": "DarkSamusEchoes local body",
+    "weapon": "native PowerBeam",
+    "sourcePose": "fixed ordinal32 time0",
+    "sourceTriangles": 392,
+    "originalMaterialOrdinals": [2, 5],
+    "sourceRigJoints": 39,
+    "sourceMaterials": "same immutable normal body archive and generation",
+    "viewmodelProjection": "native authored camera",
+    "muzzleAndGameplay": "native owners unchanged",
+    "overchargedCannon": false,
+    "overchargedCannonFollowup": "subsequent independent slice; see offlineFinalCannonRuntime",
+    "otherWeaponPresentation": "native fallback",
+    "wireChanges": false,
+    "replayChanges": false,
+    "physicalRefreshAcceptance": false,
+    "otherPlatformAcceptance": "not requalified; Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "offlineTrooperBodyRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-trooper-offline-body-runtime-2026-10-21.md",
+    "donorCommit": "41452f2d053fcfa679e33c00a73d120a53f59e61",
+    "default": "native",
+    "selectionOwner": "Hunters loadout draft, Apply, disk reload and Discard",
+    "baseHunter": "Weavel",
+    "localAppearanceIds": ["TrooperPower", "TrooperIce", "TrooperWave", "TrooperPlasma"],
+    "localAppearanceValues": [3, 4, 5, 6],
+    "bundles": ["trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma"],
+    "currentHardwareAcceptance": "win-x64 NVIDIA RTX 5080 OpenGL 4.6",
+    "sourceRigJoints": 35,
+    "sourceBodyTriangles": 1970,
+    "strictGroundedClips": 7,
+    "maximumDrawPaletteJoints": 32,
+    "motionPolicy": "trooper-pinned-root-pelvis-v1",
+    "simulationHz": 60,
+    "nativeGameplayVariantRequired": true,
+    "gameplayChanges": [],
+    "sourceFirstPersonCannon": false,
+    "sourceFirstPersonCannonFollowup": "subsequent fixed native-PowerBeam slice; see offlineTrooperCannonRuntime",
+    "sourceBall": false,
+    "online": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "dynamicShadowPolicy": "complete-native-body-fallback",
+    "otherPlatformAcceptance": "not requalified; Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "offlineTrooperCannonRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-trooper-cannon-runtime-2026-10-21.md",
+    "bundles": ["trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma"],
+    "bundleVersion": 6,
+    "bodyVersion": 5,
+    "requiredComponentsPerBundle": 13,
+    "previousV5NonManifestFilesPreserved": 44,
+    "weapon": "native PowerBeam",
+    "sourcePose": "fixed A_gunloop_pirate ordinal1 time0 ANIM5528972b",
+    "sourceRigJoints": 35,
+    "sourceTrianglesPerAppearance": 206,
+    "originalMaterialOrdinals": [0, 1, 2],
+    "trianglesPerMaterial": [10, 32, 164],
+    "materials": "same immutable own-body archive, programs, textures and C1",
+    "muzzleAndGameplay": "native owners unchanged",
+    "otherWeaponPresentation": "native fallback",
+    "online": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "physicalRefreshAcceptance": false,
+    "otherPlatformAcceptance": "not requalified; Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "offlineFinalCannonRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-final-cannon-runtime-2026-10-21.md",
+    "bundle": "darksamus-overcharged-echoes",
+    "bundleVersion": 7,
+    "bodyVersion": 6,
+    "ballVersion": 3,
+    "committedFiles": 24,
+    "previousV6NonManifestNonIndexFilesPreserved": 21,
+    "normalBundleRecipeChanged": false,
+    "trooperBundleRecipesChanged": false,
+    "weapon": "native PowerBeam",
+    "sourcePose": "fixed A_MissileBarrage_dark_samus ordinal32 time0",
+    "sourceRigJoints": 39,
+    "completeElbowTriangles": 805,
+    "trimmedTriangles": 12,
+    "sourceTriangles": 793,
+    "originalMaterialOrdinals": [3, 4, 5, 7],
+    "trianglesPerMaterial": [392, 66, 314, 21],
+    "trimPolicy": "material5 any corner raw UV (0.489,0.764), strict axis distance below0.002",
+    "shellAlpha": "cannon-only Alpha pass output multiplier0.55; raw body programs unchanged",
+    "materials": "same own immutable body archive and decoded textures",
+    "normalCannonAlias": false,
+    "muzzleAndGameplay": "native owners unchanged",
+    "otherWeaponPresentation": "native fallback",
+    "online": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "physicalRefreshAcceptance": false,
+    "otherPlatformAcceptance": "not requalified; Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "offlineNormalBallRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-normal-ball-runtime-2026-10-21.md",
+    "bundle": "darksamus-echoes",
+    "bundleVersion": 7,
+    "bodyVersion": 5,
+    "ballVersion": 4,
+    "manifestRoleVersion": 3,
+    "committedFiles": 25,
+    "requiredComponents": 23,
+    "previousV6NonManifestNonIndexFilesPreserved": 22,
+    "sourceTriangles": 2220,
+    "sourceRigJoints": 2,
+    "sourcePose": "fixed B_ready_Dark_Samus_MorphBall ordinal1 ANIM3bf596d0 time0",
+    "materials": "own opaque raw four-TEV/four-texgen program and four CMPR textures, archive profile7",
+    "fit": "complete posed bounds center and native collision radius",
+    "rollPositionBombsGameplay": "native owners unchanged",
+    "simulationHz": 60,
+    "sourceViewer": "unchanged Body/Cannon; ball capability for local matches only",
+    "normalProceduralCoreTrail": false,
+    "trailFollowup": "subsequent native trail tint slice; see offlineSourceBallTrail",
+    "overchargedSourceBall": false,
+    "overchargedSourceBallFollowup": "subsequent independent composite slice; see offlineFinalBallRuntime",
+    "trooperSourceAlternateForm": false,
+    "unsupportedStates": "complete native presentation fallback",
+    "online": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "physicalRefreshAcceptance": false,
+    "otherPlatformAcceptance": "not requalified; Windows machine requested and Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "offlineFinalBallRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-final-ball-runtime-2026-10-21.md",
+    "bundle": "darksamus-overcharged-echoes",
+    "bundleVersion": 8,
+    "bodyVersion": 6,
+    "ballVersion": 4,
+    "manifestRoleVersion": 3,
+    "committedFiles": 27,
+    "requiredComponents": 25,
+    "previousV7NonManifestNonIndexFilesPreserved": 22,
+    "normalBundleRecipeAndAll25FilesChanged": false,
+    "sourcePose": "fixed original Final ordinal52 A_outofBoostBall_toChargeReady_dark_samus ANIMc2c4a405 time0",
+    "sourceAuthoringRigJoints": 39,
+    "staticCompositeBallRigJoints": 2,
+    "semanticParts": ["shell", "vent", "vessel", "blue-lines", "heart"],
+    "materialBatchTriangles": [2220, 2220, 822, 2098, 722, 88],
+    "totalTriangles": 8170,
+    "materials": "own original Final body plus raw ball profile8; six derived programs and private pinned pixel variants",
+    "ventCulling": "front faces only",
+    "additiveCopies": 2,
+    "heartClock": "heart-only Gaussian; exact48 completed unpaused60Hz steps per cycle, reset per life",
+    "fit": "outer shell posed center and native collision radius",
+    "rollPositionBombsGameplay": "native owners unchanged",
+    "sourceViewer": "unchanged Body/Cannon; composite runtime for local matches only",
+    "trooperSourceAlternateForm": false,
+    "unsupportedStates": "complete native presentation fallback",
+    "online": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "physicalRefreshAcceptance": false,
+    "otherPlatformAcceptance": "not requalified; Windows machine requested and Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "offlineSourceBallTrail": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-source-ball-trail-2026-10-21.md",
+    "appearances": ["darksamus-echoes", "darksamus-overcharged-echoes"],
+    "rgbBytes": [90, 200, 255],
+    "admission": "successful source ball submission in the current draw",
+    "trailOwner": "unchanged native18-slot history, fade, texture, geometry and timing",
+    "unsupportedStates": "native ball and native yellow trail",
+    "normalProceduralCore": false,
+    "boostFurlParticleTint": false,
+    "boostFollowup": "subsequent current-picture boost tint slice; see offlineSourceBallBoost",
+    "importRecipeChanges": false,
+    "online": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "physicalRefreshAcceptance": false,
+    "otherPlatformAcceptance": "not requalified; Windows machine requested and Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "offlineSourceBallBoost": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-offline-slice",
+    "evidence": "second-hunt-source-ball-boost-2026-10-21.md",
+    "appearances": ["darksamus-echoes", "darksamus-overcharged-echoes"],
+    "effectId": 136,
+    "admission": "own native boost entry after successful source ball submission in the current picture",
+    "rgbBytes": [90, 200, 255],
+    "brightness": "maximum native sampled RGB component",
+    "alpha": "unchanged native value",
+    "lifetime": "Scene transient map cleared each picture, effect unlink and pool reuse",
+    "nativeFurlTint": false,
+    "normalProceduralCore": false,
+    "importRecipeChanges": false,
+    "online": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "visiblePixelAcceptance": false,
+    "physicalRefreshAcceptance": false,
+    "otherPlatformAcceptance": "not requalified; Windows machine requested and Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "scoutDroneAuthoring": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-source-authoring-only",
+    "evidence": "second-hunt-scout-drone-authoring-2026-10-21.md",
+    "bundles": ["trooper-drone-alpha", "trooper-drone-gamma"],
+    "bundleVersion": 1,
+    "part": "drone",
+    "requiredComponentsPerBundle": 12,
+    "sourceEdition": "prime-usa-rev2",
+    "sourceArchives": ["Metroid3.pak", "AudioGrp.pak"],
+    "sourceAncs": "5e058399",
+    "sourceCinf": "c3af0235",
+    "sourceJoints": 33,
+    "sourceTriangles": 1390,
+    "rawMaterialProfiles": [9, 10],
+    "oldTrooperV6ComponentsPreserved": 52,
+    "oldTrooperRecipeFingerprintsChanged": false,
+    "groupSelection": "detected edition filters documented full-group requests; unsupported explicit drones refuse",
+    "sourceMaterialGpuRendering": false,
+    "runtimePackLoad": false,
+    "practiceGameplayChanged": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "otherPlatformAcceptance": "not requalified; Windows machine requested and Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "scoutDroneRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-local-solo-ready-only",
+    "evidence": "second-hunt-scout-drone-runtime-2026-10-21.md",
+    "bundles": ["trooper-drone-alpha", "trooper-drone-gamma"],
+    "bundleVersionsChanged": false,
+    "hunter": "Weavel",
+    "practice": "TrooperScoutDronePractice",
+    "sourceJoints": 33,
+    "sourceTriangles": 1390,
+    "sourceMaterialBatches": 2,
+    "runtimeClipOrdinals": [13],
+    "runtimeClipPolicy": "private pinned-root-pelvis Ready loop; fixed Ready0 pivot and scale0.3",
+    "attacks": "complete native burst/laser fallback; native laser strips always retained",
+    "admission": "explicit solo Battle/playtest, native movement, zero bots, no body cosmetic or online/replay activation",
+    "actualRuntimeChecks": 176324,
+    "nativeTraceSteps": 1418,
+    "nativeAlphaGammaTraceSha256": "aa44ee6f8e9a3a78fe7ccf1b58b7e79db1d5cdf3fa39731a5218e43bd25acefc",
+    "sourceMaterialGpuRendering": true,
+    "runtimePackLoad": true,
+    "practiceGameplayChanged": false,
+    "nativeIntentAdded": 287,
+    "nativeIntentAbiChanged": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "localCaptureInspections": 2,
+    "capturesIndividuallyDeleted": true,
+    "broadVisualArtAcceptance": false,
+    "physicalRefreshAcceptance": false,
+    "otherPlatformAcceptance": "not requalified; Windows machine requested and Android testing deferred by user",
+    "fullCharacterIntegrationComplete": false
+  },
+  "scoutDroneBurstRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-local-solo-ready-and-burst",
+    "evidence": "second-hunt-scout-drone-burst-2026-10-21.md",
+    "productionSource": "dac883b40e80dd533eafd9e77f0f8c9f36b264c6",
+    "bundles": ["trooper-drone-alpha", "trooper-drone-gamma"],
+    "bundleVersionsChanged": false,
+    "runtimeClipOrdinals": [13, 75, 73, 74],
+    "phasePolicy": "native post-step frame; Snap attack entry; eight-step held Ready return",
+    "sourceJoints": 33,
+    "sourceTriangles": 1390,
+    "sourceMaterialBatches": 2,
+    "actualRuntimeChecks": 244385,
+    "nativeTraceSteps": 1418,
+    "nativeAlphaGammaTraceSha256": "aa44ee6f8e9a3a78fe7ccf1b58b7e79db1d5cdf3fa39731a5218e43bd25acefc",
+    "extraBurstTraceSteps": 420,
+    "extraBurstTraceSha256": "8a738ab661fdb308a8e140142feca62602e83a4e995bb9fb666671d89bea299f",
+    "receiptSha256": "c02863bbaffe16204b99cf670b4702afe88d3bb5e6f4989eebad0551c0f27cdb",
+    "practiceGameplayChanged": false,
+    "nativeIntentAbiChanged": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "laser": "complete native body/beam fallback",
+    "sourceMovementHitLaser": false,
+    "localCaptureInspections": 4,
+    "capturesIndividuallyDeleted": true,
+    "broadVisualArtAcceptance": false,
+    "fullCharacterIntegrationComplete": false
+  },
+  "scoutDroneLaserRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-local-solo-source-laser",
+    "evidence": "second-hunt-scout-drone-laser-2026-10-21.md",
+    "productionSource": "acb64a172896735725acbc7f57645c25304270f9",
+    "runtimeClipOrdinals": [13, 75, 73, 74, 29],
+    "laserAnim": "6d6b6f9f",
+    "laserAnimSha256": "b9fd4217ace08e9431ead637825f8125e28978c212c465395e0c53edb6d8675c",
+    "phasePolicy": "public native next frame0..133 maps to D*(f+1)/134; Snap entry and held eight-step Ready return; source events never drive gameplay",
+    "bundleVersionsChanged": false,
+    "practiceGameplayChanged": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "actualRuntimeChecks": 364571,
+    "captureAndDiagnosticChecks": 366858,
+    "receiptSha256": "425bc0d4ab06a0fd3f4f59095761a08696674a2efac66f4b364d5d347409debc",
+    "nativeTraceSteps": 1418,
+    "nativeAlphaGammaTraceSha256": "aa44ee6f8e9a3a78fe7ccf1b58b7e79db1d5cdf3fa39731a5218e43bd25acefc",
+    "extraLaserTraceSteps": 3083,
+    "extraLaserTraceSha256": "01f2395ccd4525d390e56f1a8285dbbb29b90b2702a174611f2fedc51f12e8e4",
+    "nativePatternsObserved": [2, 3, 0, 1],
+    "nativeBeamOriginEndUnchanged": true,
+    "localCaptureInspections": 26,
+    "capturesIndividuallyDeleted": true,
+    "beamStartOrSourceFitChanged": false,
+    "sourceMovementHit": false,
+    "broadVisualArtAcceptance": false,
+    "fullCharacterIntegrationComplete": false
+  },
+  "scoutDroneMovementRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-local-solo-directional-flight",
+    "evidence": "second-hunt-scout-drone-movement-2026-10-21.md",
+    "productionSource": "4fb92baed6d88bcc7653ace6d6db09359dfd47bd",
+    "runtimeClipOrdinals": [13, 75, 73, 74, 29, 4, 3, 2, 5, 6, 1],
+    "motionPolicy": "completed native center delta*60; float flat-facing direct division; component .9f threshold; eight-step candidate hold except leaving Ready",
+    "cameraPolicy": "complete native fallback until native camera progress reaches CamSwitchTime*2 (40 for Weavel)",
+    "actualRuntimeChecks": 640884,
+    "receiptSha256": "c1e5cc58807b6d2a4a08623a816cd561240c389fef8ffee9a187220a2b0dc874",
+    "movementTraceSteps": 2793,
+    "nativeAlphaGammaMovementTraceSha256": "a4b48705aa9ba59ce7a2c3d6b81d6169b9e19bced85ecb8c789a7e589c94870e",
+    "previous1418Burst420Laser3083TracesUnchanged": true,
+    "practiceGameplayChanged": false,
+    "nativeCameraOrMeshFitChanged": false,
+    "bundleVersionsChanged": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "localCaptureInspections": 18,
+    "capturesIndividuallyDeleted": true,
+    "settledCameraSourceNativePairs": 2,
+    "initialTwoCameraViewsUnqualified": true,
+    "sourceHit": false,
+    "broadVisualArtAcceptance": false,
+    "fullCharacterIntegrationComplete": false
+  },
+  "scoutDroneHitRuntime": {
+    "date": "2026-10-21",
+    "status": "qualified-windows-local-solo-post-flash-hit-tail",
+    "receiptSha256": "a7f87693390c7f41df78cfe390f09ea500cbe938690973547116e01f893f0306",
+    "evidence": "second-hunt-scout-drone-hit-2026-10-21.md",
+    "productionSource": "b2e2924f535cb153bddff949a8cc4f9f10150586",
+    "runtimeClipOrdinals": [13, 75, 73, 74, 29, 4, 3, 2, 5, 6, 1, 18],
+    "hitPhasePolicy": "native damage ages4..71 at age/60d; full native red flash0..3; laser before hit before burst/free",
+    "actualRuntimeChecks": 795909,
+    "desktopCoreSha256": "8555a2307f5c4946ae1a2d0c20ebc63d83cd57d925b46c389371352057c7b074",
+    "hitTraceRecords": 1666,
+    "nativeAlphaGammaHitTraceSha256": "1c5d57cef86dbf6dc8806d86e4cfd8544b1c1f1f30166f4a46b7ef71ee6460fd",
+    "previousFourTracesUnchanged": true,
+    "acceptedOrdinaryDamageCallsPerAppearance": 7,
+    "rejectedInvulnerabilityCallsPerAppearance": 2,
+    "localCaptureInspections": 8,
+    "capturesIndividuallyDeleted": true,
+    "cameraRoamCalls": 0,
+    "practiceGameplayChanged": false,
+    "nativeCameraOrMeshFitChanged": false,
+    "bundleVersionsChanged": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "opponentCombatQualified": false,
+    "broadVisualArtAcceptance": false,
+    "fullCharacterIntegrationComplete": false
+  },
+  "trooperArsenalPresentationRuntime": {
+    "date": "2026-10-21",
+    "receiptSha256": "33ac321e6df3013bc6f044b5616d0134c258cd7978acbabd1c8da9afac8af28e",
+    "status": "qualified-windows-local-body-and-fixed-cannon",
+    "evidence": "second-hunt-trooper-arsenal-body-2026-10-21.md",
+    "productionSource": "9f61b262a9cd7d240fed7ace6b1b5c906d485c32",
+    "sourceTree": "01a37ce29fefc2d68f80888e0e3f0694db879cec",
+    "desktopCoreSha256": "c5e51a5973591e300cf39ab08db6fca7b8c799cec45c3db7a39c99c6b14dc7b2",
+    "appearanceChoices": ["native", "trooper-power", "trooper-ice", "trooper-wave", "trooper-plasma"],
+    "scope": "explicit offline Weavel Arsenal; independent Hunters BODY; zero to seven native bots",
+    "actualRuntimeChecks": 557045,
+    "captureRunChecks": 557095,
+    "nativeTraceRows": 1094,
+    "nativeAndAllFourAppearancesTraceSha256": "9a20d4831737b5ee58084412205ff357916a75e08018fd1354ed4b448d2f6114",
+    "fullRepeatNativeRecordStable": true,
+    "maxNativePreparedTipError": 0.0000019073486328125,
+    "renderedNativeEffectTipChecks": 0,
+    "nativeEffectLimit": "existing Blaster NoMuzzle; prepared transforms qualify alignment, not visible muzzle emergence",
+    "localCaptureInspections": 10,
+    "captureInspectionSha256": "7b0dea93380dc557ba88d9a4733caa488e792deac333642b9c890abdbfdf36c6",
+    "capturesIndividuallyDeleted": true,
+    "cameraRoamCalls": 0,
+    "practiceGameplayChanged": false,
+    "bundleVersionsChanged": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "sourceDroneInArsenal": false,
+    "sourceProjectilePrograms": false,
+    "opponentCombatQualified": false,
+    "broadVisualArtAcceptance": false,
+    "fullCharacterIntegrationComplete": false
+  },
+  "trooperArsenalDroneRuntime": {
+    "date": "2026-10-21",
+    "receiptSha256": "cb1c168e7b901c72a95874960fa416eaf1bf17a0195f85d8fc1c92d6c2c26f24",
+    "status": "qualified-windows-local-independent-drone",
+    "evidence": "second-hunt-trooper-arsenal-drone-2026-10-21.md",
+    "featureProductionSource": "fa125822019b3c51f8c1fc5edd316746c8aebbfb",
+    "compiledIntegrationSource": "1cc12790bab07fc717fd62891affd12fb34c9a0d",
+    "sourceTree": "5936e07bf7155e7b4410494290f82909912e0539",
+    "desktopCoreSha256": "a45d423d7a79b9efa30e4aa04511712e6eec59494387a36bc0b2de1a7a2c83e6",
+    "appearanceChoices": ["native", "trooper-drone-alpha", "trooper-drone-gamma"],
+    "scope": "explicit offline Weavel Arsenal; independent Hunters BODY and DRONE; zero to seven native bots",
+    "actualRuntimeChecks": 792085,
+    "nativeTraceRecords": 1911,
+    "nativeAndFourSourceCasesTraceSha256": "ce661e49dbd51dd2c2a98b4950b457c40b354070a9d3094c89ba7bafec473094",
+    "traceIncludesDeclaredPublicDamageEvents": true,
+    "actualRuntimeNativeBots": 1,
+    "all36SourcePhaseTargetHashesEqualPreIntegrationCore": true,
+    "initialCoreCaptureChecks": 792106,
+    "initialCoreCapturesInspected": 5,
+    "initialCoreInspectionSha256": "82ca80dcb0fe00e4751db53cbbd0911a0b65894696dc4fb5c25c4968e857e4a3",
+    "capturesIndividuallyDeleted": true,
+    "newIntegrationCoreImagesSaved": 0,
+    "cameraRoamCalls": 0,
+    "practiceGameplayChanged": false,
+    "bundleVersionsChanged": false,
+    "wireChanges": false,
+    "replayChanges": false,
+    "sourceProjectilePrograms": false,
+    "onlineOrReplayEnabled": false,
+    "opponentCombatQualified": false,
+    "broadVisualArtAcceptance": false,
+    "fullCharacterIntegrationComplete": false
+  },
+  "integrationAudit": {
+    "date": "2026-10-19",
+    "status": "source-audit-only",
+    "sourceCommit": "41452f2d053fcfa679e33c00a73d120a53f59e61",
+    "previousSourceCommit": "c16a907b3658c2fd4079e394a73711596a85caee",
+    "targetBaseline": "5bc952147ce45f87d777ff0de4b2927f0c27ef9e",
+    "sourceDelta": "second-hunt-delta-2026-10-19.json",
+    "ledger": "second-hunt-integration-audit-2026-10-19.md",
+    "researchMemo": "second-hunt-sh09-feasibility-2026-10-19.md",
+    "provenancePolicy": "provenance and content arrays describe the original PORT inventory; this audit does not claim later recipes are imported or playable.",
+    "openPullRequests": {
+      "count": 0,
+      "evidence": "Coordinator queried open PRs before starting at targetBaseline; refresh before each later slice."
+    },
+    "wire": {
+      "protocol": 61,
+      "modifierStorage": "uint",
+      "modifierBytes": 4,
+      "momentumBit": 15,
+      "quake3Bit": 16,
+      "capabilityPacketIds": {
+        "CustomWeaponManifest": 83,
+        "CustomWeaponReady": 84,
+        "CustomWeaponReadyConfirmed": 85
+      },
+      "capabilitiesEnableGameplay": false
+    },
+    "replay": {
+      "readableFormats": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "ordinaryCaptureFormat": 3,
+      "checkpointClipFormat": 4,
+      "indexedFireContinuationFormat": 5,
+      "timedShotCertificateFormat": 6,
+      "defaultMetadataFormat": 3,
+      "timedShotsAreOptIn": true
+    },
+    "frozenSourceFiles": [
+      {
+        "path": "src/MphRead/Mods/Network/NetProtocol.cs",
+        "role": "contract",
+        "sha256": "ff41d806e344b9326bf71e715c4de704213cfb03ed52b52bf62c1b789c22d9ed"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/MatchDefinition.cs",
+        "role": "contract",
+        "sha256": "306b602e0a7376c53dd58549f05b5a78c5360503bb2c1426c71fc54c9d62ce84"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/DemoFile.cs",
+        "role": "contract",
+        "sha256": "57cf258fe3614cb797c28c45d699fc3870adcee7996c980e8ff2666f73b52dad"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayFormatV3.cs",
+        "role": "contract",
+        "sha256": "c76845063db5a4f3de09abdb8c1cedd9ab7fe3981e37e5ea90058bc52b1c439d"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayCapture.cs",
+        "role": "contract",
+        "sha256": "16e6f77c11085ab386d5b439d95a37ff8962e9fd2104d7d567a3257bc16421a2"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayTimelineArchive.cs",
+        "role": "contract",
+        "sha256": "e19b4c1982187c0b89f11efdd0bb3107dc750eddfc271f74c6582a3a339576c6"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs",
+        "role": "contract",
+        "sha256": "eabc88765dd25a0cc527cf8e210e1d0ccfde821d79b5772642250598a271d010"
+      },
+      {
+        "path": "src/MphRead/Mods/Network/ReplayFormatCheck.cs",
+        "role": "fixture",
+        "sha256": "7b177f18fdb08fb576e4671677b6b174702a686240382572d52388ccc20f7d59"
+      },
+      {
+        "path": "src/MphRead/Mods/Input/NativeTouchChecks.cs",
+        "role": "fixture",
+        "sha256": "bc4be7465f25f6fc7aa2835331f4a608d38614a42459f682cedb357bcccd3018"
+      },
+      {
+        "path": "src/MphRead/Mods/Input/PointerCheck.cs",
+        "role": "fixture",
+        "sha256": "23d994fdb2d38739ef74a881119a49276195f753b1a7217bd7c5e7873e8b2093"
+      },
+      {
+        "path": "tools/nettest/NetArchitectureTests.cs",
+        "role": "fixture",
+        "sha256": "20bd5f7af2bc06f7a4336ead9edd5c29ac2ef1e10a33e7612784137b1648695e"
+      },
+      {
+        "path": "tools/nettest/TimedShotReplayTests.cs",
+        "role": "fixture",
+        "sha256": "20afe094c83855e34ec551c631e1ea40f1b8ea2b49757a4c9130a97851cc3fed"
+      },
+      {
+        "path": "tools/nettest/TimedShotReplaySceneTests.cs",
+        "role": "fixture",
+        "sha256": "f039039da902de7c310a708ee5ccb2166eb544d7b9e9c2e3c727b31ec31b0e9b"
+      },
+      {
+        "path": "tools/nettest/Quake3ReplayCompatibilityTests.cs",
+        "role": "fixture",
+        "sha256": "d24188e78475312612f2f2329dca1a9f3c6bef8bab471f5209b39ebea5ba385b"
+      },
+      {
+        "path": "tools/nettest/NativeTouchCheckpointTests.cs",
+        "role": "fixture",
+        "sha256": "f551f8d7655940dc64ff7be6d3eaa804f3d7849244ec859c5921ff208fedfa33"
+      },
+      {
+        "path": "tools/external-import-check/EchoesOfflineGateFixtureTests.cs",
+        "role": "fixture",
+        "sha256": "aed705e0768ad156e1edd19ad19b2de41a54d7bcba93167612c1888ac85e4b38"
+      },
+      {
+        "path": "tools/external-import-check/EchoesCannonFixtureTests.cs",
+        "role": "fixture",
+        "sha256": "bb1a4356ac5f3ab3410261500592e0eacb2d5a41d6d4cd3e046e974a1aba063e"
+      },
+      {
+        "path": "src/MphRead/Mods/Render/Characters/CharacterModelAssetCheck.cs",
+        "role": "fixture",
+        "sha256": "7ae843deeca23508c5f83a421fc74be193572e6fa1289612b29e04bff416d2ad"
+      },
+      {
+        "path": "src/MphRead/Mods/Render/FrameTimingCheck.cs",
+        "role": "fixture",
+        "sha256": "47dfc5f9077b9f5fc2876b5920da2c2c534f67295b4b7ccc1d2125bfb52b13de"
+      },
+      {
+        "path": "tools/nettest/CampaignMovieLifetimeTests.cs",
+        "role": "fixture",
+        "sha256": "add9d5864f7248df2e0da6e2877b39fd5921ef71e317bc7b6c60d8fb273a0243"
+      },
+      {
+        "path": "tools/rmlui-party-check/PartyTravelAcceptance.cs",
+        "role": "fixture",
+        "sha256": "efb7711848acede6d673599cbb72a4a5c4ec0fa4efd0b4aa4c8157fd1fc409bd"
+      }
+    ],
+    "measurements": {
+      "sameHardwareFrameTimeBaseline": "not-captured",
+      "physicalAndroidTouchBaseline": "not-captured",
+      "releaseQualified": false
+    }
+  }
+}
