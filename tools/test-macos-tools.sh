@@ -76,7 +76,7 @@ echo 'macOS signing gate regressions passed.'
 # Reproduce the full app layout, including non-code map data. A flat publish
 # can sign and launch successfully while its enclosing app cannot be signed.
 fixture="$temp/package-input"
-mkdir -p "$fixture/maps" "$fixture/fidelity-baselines" "$fixture/rmlui/pages/startup" "$fixture/licenses"
+mkdir -p "$fixture/maps" "$fixture/fidelity-baselines" "$fixture/rmlui/pages/startup" "$fixture/licenses" "$fixture/Assets/DsHud"
 cp "$root/ProjectPrime" "$root/libopenal.1.dylib" "$root/libktx.dylib" "$fixture/"
 # Synthetic data keeps the packaging gate independent of controller/fidelity feature branches.
 printf '# Controller mapping packaging fixture\n' > "$fixture/gamecontrollerdb.txt"
@@ -90,6 +90,8 @@ printf 'optional debug symbols are not release resources\n' > "$fixture/MphRead.
 # The corpse physics dependency publishes this Markdown notice into the flat
 # root. App packaging must retain it as signed documentation, not nested code.
 printf 'Synthetic third-party license attribution\n' > "$fixture/THIRD-PARTY-NOTICES.md"
+# Embedded HUD data can include source licenses; these must be sealed as resources.
+printf 'Synthetic HUD font license attribution\n' > "$fixture/Assets/DsHud/DejaVu-LICENSE.txt"
 printf 'Synthetic additional future license notice\n' > "$fixture/EXTRA-NOTICE.txt"
 # The native provenance manifest is adjacent in flat publish for hash verification.
 # Signed .app packaging must relocate that non-executable JSON to Resources.
@@ -106,6 +108,8 @@ for resource in rmlui/prime_home.rml rmlui/pages/startup/startup.rml licenses/Rm
     cmp "$fixture/$resource" "$app/Contents/Resources/$resource"
 done
 [[ ! -e "$app/Contents/MacOS/rmlui" && ! -e "$app/Contents/MacOS/licenses" ]] || exit 1
+cmp "$fixture/Assets/DsHud/DejaVu-LICENSE.txt" "$app/Contents/Resources/Assets/DsHud/DejaVu-LICENSE.txt"
+[[ ! -e "$app/Contents/MacOS/Assets" ]] || exit 1
 [[ ! -e "$app/Contents/MacOS/MphRead.CorpsePhysics.pdb" ]] || exit 1
 cmp "$fixture/PRIME-RMLUI.json" "$app/Contents/Resources/PRIME-RMLUI.json"
 [[ ! -e "$app/Contents/MacOS/PRIME-RMLUI.json" ]] || exit 1
@@ -137,6 +141,10 @@ codesign --verify --deep --strict "$app"
 printf '\n' >> "$app/Contents/Resources/licenses/RmlUi-LICENSE.txt"
 expect_failure codesign --verify --deep --strict "$app"
 cp "$fixture/licenses/RmlUi-LICENSE.txt" "$app/Contents/Resources/licenses/RmlUi-LICENSE.txt"
+codesign --verify --deep --strict "$app"
+printf '\n' >> "$app/Contents/Resources/Assets/DsHud/DejaVu-LICENSE.txt"
+expect_failure codesign --verify --deep --strict "$app"
+cp "$fixture/Assets/DsHud/DejaVu-LICENSE.txt" "$app/Contents/Resources/Assets/DsHud/DejaVu-LICENSE.txt"
 codesign --verify --deep --strict "$app"
 # The manifest is part of the app's resource seal and may not be modified
 # without invalidating its signature. Keep validating this after extraction.
