@@ -54,8 +54,18 @@ internal static class NativeFullSettingsGlAcceptance
             // Do the real native pointer cycle before synthetic sequence numbers.
             var window = controller.Rows.Single(r=>r.Category=="Display"&&r.Group=="Window");
             string saved = window.Value;
-            Click("native_settings_cycle_0");
-            Check(host.TryTakeIntent(out var cycle) && cycle.Kind==RmlUiIntentKind.SettingsAction && cycle.Argument==32
+            // Settings now opens to its overview, not to the flat settings
+            // form. Enter the real Display/View section before exercising
+            // a native choice control. Never click a hidden row.
+            int displayCategory = Array.IndexOf(NativeFullSettingsController.Categories,"Display");
+            Check(displayCategory >= 0,"Display settings category is available");
+            Send(RmlUiIntentKind.SettingsCategory,displayCategory);
+            Send(RmlUiIntentKind.SettingsAction,232+NativeSettingsCatalog.Tab(window));
+            Settle();
+            int windowIndex = Array.IndexOf(VisibleRows(),window);
+            Check(windowIndex >= 0 && window.Choices.Length > 0,"Display/View exposes the window choice");
+            Click("native_settings_cycle_"+windowIndex);
+            Check(host.TryTakeIntent(out var cycle) && cycle.Kind==RmlUiIntentKind.SettingsAction && cycle.Argument==32+windowIndex
                 && cycle.Document==page.Document && page.Handle(cycle) && !host.TryTakeIntent(out _), "actual native choice button emits and stages exactly one bounded intent");
             Frame(); Check(window.Value!=saved && !page.CanNavigateAway,"choice stages a guarded draft");
             // Native events must precede synthetic sequence numbers used by the remaining fixture.
