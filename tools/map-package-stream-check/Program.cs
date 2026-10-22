@@ -12,19 +12,32 @@ using System.Threading;
 using MphRead;
 using MphRead.Mods.MapGen;
 
-// PR-06: source-backed byte-equivalence check against the previous
-// in-memory package algorithm. This is a real .ppmap archive/manifest test,
-// not a benchmark of compiler, network, device rendering or multiplayer Ready.
+// Source-backed byte-equivalence check for the streaming package builder.
+// Default mode compares with the previous in-memory algorithm; near-limit mode
+// compares independent streaming encodes to avoid retaining over 500 MiB of
+// historical payload arrays. These are real .ppmap archive/manifest checks,
+// not benchmarks of compiler, network, device rendering or multiplayer Ready.
 int assetMiB = 3;
+bool nearLimit = false;
+bool assetMiBExplicit = false;
 string? output = null;
 for (int i = 0; i < args.Length; i++)
 {
-    if (args[i] == "--mib" && i + 1 < args.Length) assetMiB = int.Parse(args[++i]);
+    if (args[i] == "--mib" && i + 1 < args.Length)
+    {
+        assetMiB = int.Parse(args[++i]);
+        assetMiBExplicit = true;
+    }
+    else if (args[i] == "--near-limit") nearLimit = true;
     else if (args[i] == "--output" && i + 1 < args.Length)
         output = Path.GetFullPath(args[++i]);
-    else throw new ArgumentException("Usage: map-package-stream-check [--mib N] [--output JSON]");
+    else throw new ArgumentException(
+        "Usage: map-package-stream-check [--mib 1..16 | --near-limit] [--output JSON]");
 }
-if (assetMiB is < 1 or > 16) throw new ArgumentOutOfRangeException(nameof(assetMiB));
+if (nearLimit && assetMiBExplicit)
+    throw new ArgumentException("--near-limit uses fixed 160 MiB assets and cannot be combined with --mib.");
+if (nearLimit) assetMiB = 160;
+else if (assetMiB is < 1 or > 16) throw new ArgumentOutOfRangeException(nameof(assetMiB));
 
 string root = Path.Combine(Path.GetTempPath(),
     "prime-package-stream-" + Guid.NewGuid().ToString("N"));
@@ -165,6 +178,7 @@ try
 
     string oldFile = Path.Combine(root, "reference.ppmap");
     string newFile = Path.Combine(root, "streamed.ppmap");
+    string repeatFile = Path.Combine(root, "streamed-repeat.ppmap");
     (double Ms, long Allocated) Measure(Action action)
     {
         GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect();
@@ -176,13 +190,31 @@ try
             GC.GetAllocatedBytesForCurrentThread() - before);
     }
 
-    var old = Measure(() => Reference(source, oldFile));
-    var streamed = Measure(() => Streamed(source, newFile));
-    string expectedHash = MapBuildFingerprint.HashFile(oldFile);
-    string actualHash = MapBuildFingerprint.HashFile(newFile);
-    Check(expectedHash == actualHash
-        && new FileInfo(oldFile).Length == new FileInfo(newFile).Length,
-        "streamed package is byte-for-byte SHA-256 identical to pre-PR06 builder");
+    (double Ms, long Allocated)? old = null;
+    (double Ms, long Allocated)? streamed = null;
+    string expectedHash;
+    string actualHash;
+    if (nearLimit)
+    {
+        Streamed(source, newFile);
+        Streamed(source, repeatFile);
+        expectedHash = MapBuildFingerprint.HashFile(newFile);
+        actualHash = MapBuildFingerprint.HashFile(repeatFile);
+        Check(expectedHash == actualHash
+            && new FileInfo(newFile).Length == new FileInfo(repeatFile).Length,
+            "two independent streamed near-limit packages have identical SHA-256 and size");
+        File.Delete(repeatFile);
+    }
+    else
+    {
+        old = Measure(() => Reference(source, oldFile));
+        streamed = Measure(() => Streamed(source, newFile));
+        expectedHash = MapBuildFingerprint.HashFile(oldFile);
+        actualHash = MapBuildFingerprint.HashFile(newFile);
+        Check(expectedHash == actualHash
+            && new FileInfo(oldFile).Length == new FileInfo(newFile).Length,
+            "streamed package is byte-for-byte SHA-256 identical to pre-PR06 builder");
+    }
     using (var read = new MapPackageReader(newFile))
     {
         Check(read.Manifest?.MapId == source.MapId
@@ -237,19 +269,43 @@ try
     {
         schemaVersion = 1,
         fixture = "streaming-package-large-authoring-assets",
+        mode = nearLimit ? "near-limit-streaming-equivalence" : "historical-reference-comparison",
         perAssetMiB = assetMiB,
         assetCount = 3,
         archiveBytes = new FileInfo(newFile).Length,
         packageHash = actualHash,
-        historical = new { milliseconds = old.Ms, threadAllocatedBytes = old.Allocated },
-        streaming = new { milliseconds = streamed.Ms, threadAllocatedBytes = streamed.Allocated },
-        caveats = new[]
+        historical = nearLimit || old == null ? null : new
         {
-            "Single-process same-thread encoder measurement; filesystem cache can bias elapsed times.",
-            "Historical reference only exercises loose assets, not imported BSP/collision paths.",
-            "Actual game compile, remote upload, multiplayer Ready and Android memory are excluded.",
-            "The reader and builder preserve exact existing archive identities; no package migration."
-        }
+            milliseconds = old.Value.Ms,
+            threadAllocatedBytes = old.Value.Allocated
+        },
+        streaming = nearLimit
+            ? (object)new
+            {
+                independentEncodes = 2,
+                exactSha256Match = true,
+                exactSizeMatch = true
+            }
+            : new
+            {
+                milliseconds = streamed!.Value.Ms,
+                threadAllocatedBytes = streamed.Value.Allocated
+            },
+        caveats = nearLimit
+            ? new[]
+            {
+                "Near-limit mode compares two independent streaming encodes for exact archive identity; historical is null and no before/after performance claim is made.",
+                "The fixture uses three synthetic 160 MiB PCM WAV assets and does not represent gameplay geometry or a representative map.",
+                "Actual game compile, remote upload, multiplayer Ready and Android memory are excluded.",
+                "The reader and builder preserve exact existing archive identities; no package migration."
+            }
+            : new[]
+            {
+                "Single-process same-thread encoder measurement; filesystem cache can bias elapsed times.",
+                "Historical reference only exercises loose assets, not imported BSP/collision paths.",
+                "Actual game compile, remote upload, multiplayer Ready and Android memory are excluded.",
+                "The reader and builder preserve exact existing archive identities; no package migration."
+            }
     };
     string json = JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true });
     Console.WriteLine(json);
