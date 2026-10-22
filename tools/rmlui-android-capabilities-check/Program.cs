@@ -242,9 +242,9 @@ var canceled = new RmlUiAndroidLauncherAdmission<Request, Plan>();
 Check(canceled.TryRequest(new(2), out var canceledWitness) && canceled.TryAccept(canceledWitness, new(2)), "accepted cancellation setup");
 Task.Run(canceled.Retire).GetAwaiter().GetResult();
 Check(!canceled.TryTakePlan(out _), "retirement discards an already accepted plan before owner consumption");
-Check(checks == 554, $"capability/admission and current authored-action inventory checks remain complete (actual {checks})");
+Check(checks == 556, $"capability/admission and current authored-action inventory checks remain complete (actual {checks})");
 HunterAcceptance.Run(root, Check);
-Check(checks == 730, "existing Hunter checks and current authored-action inventory remain complete");
+Check(checks == 732, "existing Hunter checks and current authored-action inventory remain complete");
 Guid previewOwner = Guid.NewGuid(), replacementOwner = Guid.NewGuid();
 Check(!RmlUiAndroidLauncherPreviewBarrier.Blocked && !RmlUiAndroidLauncherPreviewBarrier.IsOwned(previewOwner),
     "preview barrier begins unowned");
@@ -265,7 +265,7 @@ Check(RmlUiAndroidLauncherPreviewBarrier.Blocked && RmlUiAndroidLauncherPreviewB
     && !RmlUiAndroidLauncherPreviewBarrier.TryAcquire(previewOwner), "stale old-owner release cannot unlock replacement owner");
 RmlUiAndroidLauncherPreviewBarrier.Release(replacementOwner);
 Check(!RmlUiAndroidLauncherPreviewBarrier.Blocked, "barrier fixture leaves production static gate released");
-Check(checks == 739, "existing Hunter/barrier checks and current authored-action inventory remain complete");
+Check(checks == 741, "existing Hunter/barrier checks and current authored-action inventory remain complete");
 
 // Actual admission overload keeps the acknowledged plan private until native
 // launcher owner retirement succeeds. Callback failure consumes it permanently.

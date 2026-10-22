@@ -181,13 +181,13 @@ namespace MphRead.Mods.Render
                 && frameGraph.Passes[1].Kind == FrameRenderPassKind.WorldSetup
                 && frameGraph.Passes[2].Kind == FrameRenderPassKind.World
                 && (frameGraph.Passes[2].Reads & FrameRenderResource.SceneDepth) != 0
+                && (frameGraph.Passes[2].Reads & FrameRenderResource.ShadowDepth) != 0
                 && frameGraph.Passes[3].Kind == FrameRenderPassKind.Outlines
                 && !System.Linq.Enumerable.Any(frameGraph.Passes,
                     pass => pass.Name.Contains("pbr", StringComparison.OrdinalIgnoreCase))
                 && System.Linq.Enumerable.Single(frameGraph.Passes,
                     pass => pass.Kind == FrameRenderPassKind.PostProcess).Reads
-                    == (FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth
-                        | FrameRenderResource.ShadowDepth)
+                    == (FrameRenderResource.SceneColor | FrameRenderResource.SceneDepth)
                 && frameGraph.Passes[^1].Kind == FrameRenderPassKind.Composite
                 && (frameGraph.Passes[^1].Writes & FrameRenderResource.Output) != 0,
                 "OpenGL frame graph excludes retired GPU visibility and Hi-Z passes");
