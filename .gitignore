@@ -50,8 +50,7 @@ Generated\ Files/
 # Project-local tool settings, docs, generated outputs, and source assets.
 # Anchor to the repository root to avoid ignoring similarly named subfolders.
 /.claude/
-/claude/
-/docs/
+/doc/
 /output/
 /source-hd/
 /tmp/
