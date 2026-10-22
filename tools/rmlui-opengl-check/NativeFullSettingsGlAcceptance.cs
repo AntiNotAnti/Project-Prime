@@ -106,6 +106,9 @@ internal static class NativeFullSettingsGlAcceptance
             bool backHandled=page.Back();Frame();
             Check(backHandled&&!page.Closed&&controller.ConfirmingVideo&&Read().ContainsText("Keep this display mode"),
                 "dirty Back enters the native confirmed video trial without silently committing the window choice");
+            // An active video modal admits only Keep/Revert/Close. A Discard
+            // intent is correctly ignored until the guarded trial is reverted.
+            Send(RmlUiIntentKind.SettingsRevertVideo);
             Send(RmlUiIntentKind.SettingsDiscard);
             Check(page.CanNavigateAway&&window.Value==saved&&controller.Rows.Select(r=>r.Read()).SequenceEqual(original),
                 "Discard cancels the pending video trial and restores all owner settings");
