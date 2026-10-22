@@ -856,6 +856,10 @@ jobs:
       - name: exact-byte streaming package parity and large-asset allocation checks
         run: dotnet run --project tools/map-package-stream-check -c Release -- --mib 8 --output "${{ runner.temp }}/map-package-stream-parity.json"
 
+      - name: near-limit valid package streaming and recovery qualification
+        if: runner.os == 'Linux'
+        run: dotnet run --project tools/map-package-stream-check -c Release -- --near-limit --output "${{ runner.temp }}/map-package-near-limit.json"
+
       - name: Community service upload quota, request lanes and capability acceptance
         timeout-minutes: 6
         run: dotnet run --project tools/community-service-check -c Release
@@ -919,6 +923,7 @@ jobs:
             ${{ runner.temp }}/community-baseline.json
             ${{ runner.temp }}/map-install-io-benchmark.json
             ${{ runner.temp }}/map-download-check.json
+            ${{ runner.temp }}/map-package-near-limit.json
             ${{ runner.temp }}/map-package-stream-parity.json
             ${{ runner.temp }}/map-multiplayer-check
             ${{ runner.temp }}/mapviewportcheck

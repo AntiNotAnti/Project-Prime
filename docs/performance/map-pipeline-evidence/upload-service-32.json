@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-22T00:11:49.465Z",
+  "environment": {
+    "node": "v26.7.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpuModel": "AMD Ryzen 7 9850X3D 8-Core Processor           ",
+    "httpTimeoutMs": 30000,
+    "jobTimeoutMs": 60000,
+    "uploadChunkLimitBytes": 8388608,
+    "fixtureStreamBlockBytes": 1048576,
+    "clientStreamHighWaterMarkBytes": 1048576
+  },
+  "fixture": {
+    "bytes": 33554432,
+    "mib": 32,
+    "sha256": "ff765153e613e9971ef87e65bbe239ff2643f8f20b289495b2f635d4b75abbf5",
+    "generatedOnDiskWithoutSparseExtents": true,
+    "format": "deterministic synthetic bytes; not a valid PK3 archive",
+    "generationMs": 75.99
+  },
+  "method": {
+    "http": "loopback HTTP against createPk3UploadService",
+    "ticket": "random fake ppm1 token resolved by an in-process owner verifier; no external identity calls",
+    "converter": "stub verifies the complete source SHA-256 and writes a marker; no PK3 parsing, conversion, or real .ppmap output",
+    "processMetrics": "CPU and sampled RSS cover this Node process, including harness client, service, and stub worker"
+  },
+  "scenarios": {
+    "baseline": {
+      "metrics": {
+        "totalBytes": 33554432,
+        "putRequests": 4,
+        "putRetries": 0,
+        "recoveryGets": 0,
+        "payloadBytesSent": 33554432,
+        "confirmedBytes": 33554432,
+        "completionRequests": 2,
+        "jobPolls": 3,
+        "injectedCutBytes": 0,
+        "cutOffset": null,
+        "offsetAfterCut": null
+      },
+      "job": {
+        "jobId": "e628f67a-a09f-47b7-b3dd-ade8acacf838",
+        "jobStatus": "ready",
+        "duplicateCompleteSameJob": true,
+        "converterInvocations": 1,
+        "jobPolls": 3
+      },
+      "interruption": null,
+      "measurement": {
+        "elapsedMs": 192.82,
+        "processCpuUserMs": 125,
+        "processCpuSystemMs": 125,
+        "processCpuTotalMs": 250,
+        "startRssBytes": 62230528,
+        "peakRssBytes": 99409920,
+        "peakRssGrowthBytes": 37179392,
+        "endRssBytes": 91115520
+      }
+    },
+    "interrupted": {
+      "metrics": {
+        "totalBytes": 33554432,
+        "putRequests": 5,
+        "putRetries": 1,
+        "recoveryGets": 1,
+        "payloadBytesSent": 33816576,
+        "confirmedBytes": 33554432,
+        "completionRequests": 2,
+        "jobPolls": 3,
+        "injectedCutBytes": 262144,
+        "cutOffset": 8388608,
+        "offsetAfterCut": 8388608
+      },
+      "job": {
+        "jobId": "044a62d8-335e-4a5e-8223-c7661f627c1d",
+        "jobStatus": "ready",
+        "duplicateCompleteSameJob": true,
+        "converterInvocations": 1,
+        "jobPolls": 3
+      },
+      "interruption": {
+        "kind": "mid-body connection destroy",
+        "offsetBeforeCut": 8388608,
+        "offsetAfterAuthoritativeGet": 8388608,
+        "bytesSentBeforeCut": 262144,
+        "clientError": "synthetic-client-destroy",
+        "sameOffsetChunkRetried": true
+      },
+      "measurement": {
+        "elapsedMs": 228.22,
+        "processCpuUserMs": 94,
+        "processCpuSystemMs": 172,
+        "processCpuTotalMs": 266,
+        "startRssBytes": 91115520,
+        "peakRssBytes": 117022720,
+        "peakRssGrowthBytes": 25907200,
+        "endRssBytes": 107192320
+      }
+    },
+    "cancellation": {
+      "confirmedPrefixBytes": 8388608,
+      "cutBytes": 262144,
+      "authoritativeOffsetAfterCancel": 8388608,
+      "resumedAtOffset": 8388608,
+      "resumedToCompletion": true,
+      "job": {
+        "jobId": "f7216d91-3ffc-4c63-8929-70afddd25aa9",
+        "jobStatus": "ready",
+        "duplicateCompleteSameJob": true,
+        "converterInvocations": 1,
+        "jobPolls": 3
+      },
+      "requests": {
+        "totalBytes": 33554432,
+        "putRequests": 5,
+        "putRetries": 1,
+        "recoveryGets": 1,
+        "payloadBytesSent": 33816576,
+        "confirmedBytes": 33554432
+      }
+    }
+  },
+  "limitations": [
+    "Synthetic transfer data exercises service admission, streamed PUT storage, recovery, source digest validation, and asynchronous job lifecycle only.",
+    "This is not a valid large PK3 and does not measure ZIP validation, real conversion, geometry, game loading, deployment storage, or remote network throughput."
+  ]
+}

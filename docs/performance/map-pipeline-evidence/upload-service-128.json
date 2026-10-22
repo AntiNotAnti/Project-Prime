@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-22T00:11:51.554Z",
+  "environment": {
+    "node": "v26.7.0",
+    "platform": "win32",
+    "arch": "x64",
+    "cpuModel": "AMD Ryzen 7 9850X3D 8-Core Processor           ",
+    "httpTimeoutMs": 30000,
+    "jobTimeoutMs": 60000,
+    "uploadChunkLimitBytes": 8388608,
+    "fixtureStreamBlockBytes": 1048576,
+    "clientStreamHighWaterMarkBytes": 1048576
+  },
+  "fixture": {
+    "bytes": 134217728,
+    "mib": 128,
+    "sha256": "92ff9e6a1d4ae7dd3d62f2dfcedd24016e2538a5e073bebb4bf0161fe4a63a7f",
+    "generatedOnDiskWithoutSparseExtents": true,
+    "format": "deterministic synthetic bytes; not a valid PK3 archive",
+    "generationMs": 288.35
+  },
+  "method": {
+    "http": "loopback HTTP against createPk3UploadService",
+    "ticket": "random fake ppm1 token resolved by an in-process owner verifier; no external identity calls",
+    "converter": "stub verifies the complete source SHA-256 and writes a marker; no PK3 parsing, conversion, or real .ppmap output",
+    "processMetrics": "CPU and sampled RSS cover this Node process, including harness client, service, and stub worker"
+  },
+  "scenarios": {
+    "baseline": {
+      "metrics": {
+        "totalBytes": 134217728,
+        "putRequests": 16,
+        "putRetries": 0,
+        "recoveryGets": 0,
+        "payloadBytesSent": 134217728,
+        "confirmedBytes": 134217728,
+        "completionRequests": 2,
+        "jobPolls": 6,
+        "injectedCutBytes": 0,
+        "cutOffset": null,
+        "offsetAfterCut": null
+      },
+      "job": {
+        "jobId": "9f8c517b-2484-4560-bd41-4c09b8d0a125",
+        "jobStatus": "ready",
+        "duplicateCompleteSameJob": true,
+        "converterInvocations": 1,
+        "jobPolls": 6
+      },
+      "interruption": null,
+      "measurement": {
+        "elapsedMs": 560.57,
+        "processCpuUserMs": 359,
+        "processCpuSystemMs": 282,
+        "processCpuTotalMs": 641,
+        "startRssBytes": 77959168,
+        "peakRssBytes": 138555392,
+        "peakRssGrowthBytes": 60596224,
+        "endRssBytes": 138571776
+      }
+    },
+    "interrupted": {
+      "metrics": {
+        "totalBytes": 134217728,
+        "putRequests": 17,
+        "putRetries": 1,
+        "recoveryGets": 1,
+        "payloadBytesSent": 134479872,
+        "confirmedBytes": 134217728,
+        "completionRequests": 2,
+        "jobPolls": 6,
+        "injectedCutBytes": 262144,
+        "cutOffset": 8388608,
+        "offsetAfterCut": 8388608
+      },
+      "job": {
+        "jobId": "041e6fe3-7f9d-4041-a160-a7ac12301f38",
+        "jobStatus": "ready",
+        "duplicateCompleteSameJob": true,
+        "converterInvocations": 1,
+        "jobPolls": 6
+      },
+      "interruption": {
+        "kind": "mid-body connection destroy",
+        "offsetBeforeCut": 8388608,
+        "offsetAfterAuthoritativeGet": 8388608,
+        "bytesSentBeforeCut": 262144,
+        "clientError": "synthetic-client-destroy",
+        "sameOffsetChunkRetried": true
+      },
+      "measurement": {
+        "elapsedMs": 585.7,
+        "processCpuUserMs": 281,
+        "processCpuSystemMs": 437,
+        "processCpuTotalMs": 718,
+        "startRssBytes": 138571776,
+        "peakRssBytes": 141230080,
+        "peakRssGrowthBytes": 2658304,
+        "endRssBytes": 118116352
+      }
+    },
+    "cancellation": {
+      "confirmedPrefixBytes": 8388608,
+      "cutBytes": 262144,
+      "authoritativeOffsetAfterCancel": 8388608,
+      "resumedAtOffset": 8388608,
+      "resumedToCompletion": true,
+      "job": {
+        "jobId": "5570e3b1-6433-4235-9ba6-696ea04010e2",
+        "jobStatus": "ready",
+        "duplicateCompleteSameJob": true,
+        "converterInvocations": 1,
+        "jobPolls": 6
+      },
+      "requests": {
+        "totalBytes": 134217728,
+        "putRequests": 17,
+        "putRetries": 1,
+        "recoveryGets": 1,
+        "payloadBytesSent": 134479872,
+        "confirmedBytes": 134217728
+      }
+    }
+  },
+  "limitations": [
+    "Synthetic transfer data exercises service admission, streamed PUT storage, recovery, source digest validation, and asynchronous job lifecycle only.",
+    "This is not a valid large PK3 and does not measure ZIP validation, real conversion, geometry, game loading, deployment storage, or remote network throughput."
+  ]
+}

@@ -30,6 +30,13 @@ jobs:
           node-version: '22'
       - name: Resumable source API, credentials, digest and queue tests
         run: node --test tools/pk3-upload/service.test.mjs
+      - name: Source-limit streamed transfer and interruption qualification
+        run: node tools/pk3-upload/service-bench.mjs --mib 128 --output "${{ runner.temp }}/pk3-service-bench.json"
+      - name: Retain service transfer measurements
+        uses: actions/upload-artifact@v4
+        with:
+          name: pk3-service-transfer
+          path: ${{ runner.temp }}/pk3-service-bench.json
       - name: JavaScript syntax checks
         run: |
           node --check tools/pk3-upload/index.mjs

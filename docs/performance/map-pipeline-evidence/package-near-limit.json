@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "fixture": "streaming-package-large-authoring-assets",
+  "mode": "near-limit-streaming-equivalence",
+  "perAssetMiB": 160,
+  "assetCount": 3,
+  "archiveBytes": 503471463,
+  "packageHash": "4ddec0d179889167beabe2ba9cb16038761d751275f5aa946070c94eee762ba5",
+  "historical": null,
+  "streaming": {
+    "independentEncodes": 2,
+    "exactSha256Match": true,
+    "exactSizeMatch": true
+  },
+  "caveats": [
+    "Near-limit mode compares two independent streaming encodes for exact archive identity; historical is null and no before/after performance claim is made.",
+    "The fixture uses three synthetic 160 MiB PCM WAV assets and does not represent gameplay geometry or a representative map.",
+    "Actual game compile, remote upload, multiplayer Ready and Android memory are excluded.",
+    "The reader and builder preserve exact existing archive identities; no package migration."
+  ]
+}
