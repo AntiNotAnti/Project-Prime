@@ -1,0 +1,127 @@
+{
+  "schema": 1,
+  "kind": "sanitized_derivative",
+  "original": {
+    "relativePath": "work/plan-completion-evidence/candidate-7588d986/source-native-qualification.json",
+    "sha256": "6c7e0d1d6207058e02d8b27d74eebd6444ce7b140d66358affc250a63da97757",
+    "bytes": 5898
+  },
+  "policy": "Full original scoped available-source/native qualification retained with deployment prefixes sanitized. fullPlanStatus NOT_ACCEPTED and remainingCoverage retained unchanged.",
+  "payload": {
+    "schema": 1,
+    "status": "PASS_AVAILABLE_SOURCE_NATIVE_QUALIFICATION",
+    "sourceBefore": {
+      "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+      "dirty": ""
+    },
+    "sourceAfter": {
+      "commit": "7588d98689899c9868e8a0105b78653c7a1db50d",
+      "tree": "82c5d24f326af0420963fa804456a73c284a1cd3",
+      "dirty": ""
+    },
+    "actualLoadedClient": {
+      "sourceQualifiedPhysicalClient": true,
+      "path": "$WORKSPACE/work/plan-completion-evidence/candidate-7588d986/runtime/ProjectPrime.dll",
+      "sha256": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "mvid": "5e534c23-57c6-4026-a55a-f8233293a732",
+      "buildId": "local+7588d98689899c9868e8a0105b78653c7a1db50d",
+      "protocol": 56,
+      "replicaCheckpoint": 13,
+      "worldCheckpoint": 10,
+      "timedGrantPacket": 77,
+      "timedGrantBootstrapPacket": 79,
+      "scope": "Loaded metadata constants only; no network, assets, native context or gameplay coverage"
+    },
+    "actualLoadedNettest": {
+      "sourceQualifiedPhysicalFixture": true,
+      "path": "$WORKSPACE/work/plan-completion-evidence/candidate-7588d986/runtime/nettest.dll",
+      "sha256": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "mvid": "0151d5f2-81b8-4566-96e3-aadf793388ee",
+      "identityMethod": "Actually loaded full nettest reflection via CompactIdentityHook across full fixture processes"
+    },
+    "nettestMvid": "0151d5f2-81b8-4566-96e3-aadf793388ee",
+    "physicalHashesAfter": {
+      "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "physicalHashesBefore": {
+      "ProjectPrime.dll": "2689662ee38f0bac7018937d160953e3d1bbfce56dd34c5eb79abdf6ec3fb694",
+      "ProjectPrime.deps.json": "ced29a0211fcb5687e814c5df126ecf1882f2118ac9873d6236808397ec86ea4",
+      "ProjectPrime.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f",
+      "nettest.dll": "80ad46d74a4eb31228709dcb4909eaae624763229ae2c2ad16629eebccb1650f",
+      "nettest.deps.json": "fc028301811c91e124de7fcca4f7e59e58eb10b2c789e2d4497fd914ade035ff",
+      "nettest.runtimeconfig.json": "9950d4583cfc9a106857c0d5b8a75b53e8774852b57b80bc3823a74d44a4d87f"
+    },
+    "allSixPhysicalFiles": true,
+    "availableGateResults": {
+      "freshFullBuild": "PASS",
+      "focusedPureConfigRoutes": 35,
+      "fullNettestPython": {
+        "status": "PASS",
+        "tests": 554,
+        "skipped": 1
+      },
+      "glComparisonPython": {
+        "status": "PASS",
+        "tests": 11
+      },
+      "nativeFixtureAssertions": {
+        "commonEffectsHelper": 450,
+        "admittedFirstSegmentProfiles": 949,
+        "nativeTimedShots": 6463,
+        "admittedRemoteTimedShots": 343,
+        "unpaidRescue": 5673,
+        "authorityReplayFidelity": 118
+      },
+      "nativeTour": {
+        "status": "PASS",
+        "freshProcesses": 42,
+        "genuineContacts": 42,
+        "nativeShots": 42,
+        "exactOffShadowPairs": 21,
+        "nativeFrames": 75656,
+        "ledgerIncarnationResets": false,
+        "keyOrReplayNormalization": false
+      },
+      "originalProductionPassiveSceneConsumers": {
+        "status": "PASS",
+        "count": 3,
+        "distinctThinEntry": true,
+        "scopes": "Actual original3 recordings consumed by PassiveReplayScene.Step; no renderedpixel/impact claim"
+      }
+    },
+    "allOwnedGroupsClosed": true,
+    "inputsUnchanged": {
+      "source": true,
+      "runtime": true,
+      "nativeAssets": true,
+      "tourInputs": true
+    },
+    "originalCollectorGuard": "Initial closurefalse retained under setup-closure; owned group naturally gone before validated successfulbuild reuse, no signals",
+    "supportingReceipts": {
+      "source-runtime-build-qualification.json": "4fbfd1b92de53949223bd1a1dc7c11acf531b466558e1afbf7d1baaae05d3ff0",
+      "receipt.json": "f2c5c190f4d4c3913ac264683233ad6bdc3d61eb10e244a9e5f45afe4ea73003",
+      "extra-pure-receipt.json": "e9d15a03adf08bb4e5c93ad33f332c3eb35f6e9211994d1e5c8f122f71186870",
+      "net-assets/receipt.json": "946cc1643af28a37342cf66d798725236a1f227fea39931c0cd45bc5dc8dacfd",
+      "native-tour-42/receipt.json": "eda209758e5d5244f8f5d6e9dcd15bf1b8b4cbf9a56831f0a4ec721b3b49afdc",
+      "original3-scene-consumers/receipt.json": "877da6624a3e68ce8841902f32a726fa49b409f9de84e9b820a53b8708443156",
+      "unchanged-ui-reader-source-comparison.json": "960975fa746c1160475fcbb06f83044a724f72c842aaf5723f2137ce3a2e1a23"
+    },
+    "fullPlanStatus": "NOT_ACCEPTED",
+    "scope": "All available dispatched source/runtime/pure/headless native fixture gates PASS for exact frozen source/client/fullnettest. This is not complete engineering-plan acceptance.",
+    "remainingCoverage": [
+      "Authenticated positive2/8-client campaign with strict joined source facts",
+      "Actual current GL fidelity and impact/presentation canaries as dispatched",
+      "Current-qualified primitive/performance evidence and overall performance disposition",
+      "Other plan coverage gaps recorded by root"
+    ],
+    "priorUiScope": "Actual09 fullUI/results13+11 and43capture PASS retained at its ownsource; unchanged production UI blobs explicitly compared, no relabel",
+    "historicalNegatives": "Original09/d345 nativefixture and loader/UI/tour failures remain under original identities, not replaced",
+    "finishedUtc": "2026-10-14T11:09:38.597686+00:00"
+  }
+}

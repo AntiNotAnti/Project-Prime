@@ -13,7 +13,7 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).parent))
 import verify_evidence
 
-PACKAGE = Path(__file__).resolve().parents[2] / "docs/evidence/net-campaign-2026-10-14/primitive-overhead-7588d986"
+PACKAGE = Path(__file__).resolve().parent / "fixtures/primitive-overhead-7588d986"
 
 
 def check(path):
