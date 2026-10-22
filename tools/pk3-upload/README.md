@@ -115,3 +115,25 @@ and use the existing publisher.
   correct spawn, collision, textures and gameplay rules on Windows and Android.
 - Check games joined via exact-hash content transfer, historical replay,
   separate map service uptime and conversion saturation.
+
+## Service transfer benchmark
+
+Run the reproducible local service transfer benchmark from the repository
+root:
+
+```bash
+node tools/pk3-upload/service-bench.mjs --mib 32 --output tmp/pk3-service-bench-32.json
+node tools/pk3-upload/service-bench.mjs --mib 128 --output tmp/pk3-service-bench-128.json
+```
+
+It generates deterministic, fully written synthetic bytes in bounded
+1 MiB blocks, hashes them as they are written, and streams them over loopback
+HTTP in service-sized chunks. The report includes baseline and interrupted
+transfer timing, process CPU and sampled RSS, retries, and authoritative-offset
+recovery. It also checks duplicate completion and that a cancelled partial
+chunk preserves the confirmed prefix for resume. The local verifier uses fake
+in-process tickets and a stub converter that checks the source hash and writes
+a marker file. The fixture is **not a valid PK3**; this benchmark does not
+measure remote networking, archive validation, real conversion, geometry,
+game loading, or deployment storage. The script removes only its own private
+temporary service root when it exits.
