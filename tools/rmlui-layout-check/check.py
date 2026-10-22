@@ -35,7 +35,8 @@ FIXTURES = {
     'pages/social/social.rml': ['social_friends', 'social_search', 'social_row_7', 'social_command_29', 'social_privacy_toggle', 'social_back'],
     'pages/social/native-party.rml': ['party_members', 'party_invite', 'party_row_0', 'party_row_7', 'party_follow', 'party_publish', 'party_back'],
     'pages/settings/quick.rml': ['quick_motion', 'quick_apply', 'quick_close'],
-    'pages/settings/native-full.rml': ['native_settings_category_0', 'native_settings_value_0', 'native_settings_value_19', 'native_settings_apply'],
+    # Full settings saves automatically; Back is its real fixed-footer action.
+    'pages/settings/native-full.rml': ['native_settings_category_0', 'native_settings_value_0', 'native_settings_value_19', 'native_settings_back'],
     'pages/updates/versions.rml': ['versions_row_0', 'versions_close'],
     'pages/adventure/saves.rml': ['adventure_slot1', 'adventure_continue', 'adventure_copy', 'adventure_back'],
     'pages/adventure/confirm.rml': ['adventure_cancel_new_run', 'adventure_confirm_new_run'],
@@ -44,7 +45,8 @@ FIXTURES = {
     'pages/offline/setup.rml': ['offline_arena', 'offline_rules_open', 'offline_start', 'offline_back'],
     'pages/offline/training.rml': ['offline_training_difficulty', 'offline_training_toggle_0', 'offline_training_toggle_4', 'offline_training_done'],
     'pages/offline/rules.rml': ['offline_point_goal', 'offline_rule_0', 'offline_rules_apply', 'offline_rules_cancel'],
-    'pages/offline/arena.rml': ['offline_arena_search', 'offline_arena_pick_0', 'offline_arena_pick_15', 'offline_arena_cancel'],
+    # Arena buttons are six page-local slots; their IDs are not map indices.
+    'pages/offline/arena.rml': ['offline_arena_search', 'offline_arena_pick_0', 'offline_arena_pick_5', 'offline_arena_cancel'],
     'pages/play/browser.rml': ['play_quick', 'play_entry0', 'play_entry7', 'play_join', 'play_back'],
     'pages/play/queue.rml': ['play_queue_accept', 'play_queue_decline', 'play_queue_leave'],
     'pages/news/news.rml': ['news_filter_0', 'news_read', 'news_article_3', 'news_back'],
@@ -437,9 +439,9 @@ def seed(bridge, doc, path, touch=False, large_text=False):
                            'offline_summary':'8 combatants // Alimbic Citadel // 10 minute match'}.items():
             bridge.text(doc, key, value)
     if path == 'pages/offline/arena.rml':
-        bridge.text(doc, 'offline_arena_page', 'PAGE 1 OF 4 // 16 COMPATIBLE ARENAS')
+        bridge.text(doc, 'offline_arena_page', 'PAGE 1 OF 3 // 16 COMPATIBLE ARENAS')
         bridge.boolean(doc, 'visible:offline_arena_picker_error', False)
-        for i in range(16):
+        for i in range(6):
             bridge.text(doc, f'offline_arena_name_{i}', f'{i+1}. ALIMBIC CITADEL // EXTENDED ARENA')
             bridge.text(doc, f'offline_arena_reason_{i}', 'VERIFIED // COMPATIBLE WITH THE SELECTED MATCH RULES')
     if path == 'pages/offline/training.rml':
@@ -550,7 +552,7 @@ def geometry_checks(bridge, doc, path, width, height, density, touch=False, larg
         'pages/offline/training.rml': ['offline_training_done'],
         'pages/offline/rules.rml': ['offline_rules_apply', 'offline_rules_cancel'],
         'pages/settings/quick.rml': ['quick_apply', 'quick_close'],
-        'pages/settings/native-full.rml': ['native_settings_apply'],
+        'pages/settings/native-full.rml': ['native_settings_back'],
         'pages/hunters/native-picker.rml': ['hunter_apply', 'hunter_cancel'],
         'pages/play/browser.rml': ['play_join', 'play_back'],
         'pages/lobby/lobby.rml': ['lobby_ready', 'lobby_start', 'lobby_leave'],
