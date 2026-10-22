@@ -4,8 +4,10 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / "tools" / "porting" / "fixtures" / "second-hunt" / "second-hunt-manifest.json"
-DOC = ROOT / "tools" / "porting" / "fixtures" / "second-hunt" / "second-hunt-content.md"
+# Keep this frozen metadata with the acceptance tests rather than the
+# independently pruned engineering documentation directory.
+MANIFEST = Path(__file__).with_name("fixtures") / "second-hunt-manifest.json"
+DOC = MANIFEST.with_name("second-hunt-content.md")
 
 class PortManifestContract(unittest.TestCase):
     @classmethod
@@ -116,7 +118,12 @@ class PortManifestContract(unittest.TestCase):
         self.assertRegex(declared, r"^\s*\d+(?:\s+or\s+\d+)*\s*$")
         live_formats = [int(value) for value in re.findall(r"\d+", declared)]
         self.assertEqual(len(live_formats), len(set(live_formats)), "live replay formats must be unique")
-        self.assertTrue(set(replay["readableFormats"]).issubset(live_formats))
+        # Historical audit formats must stay readable while compatible live
+        # formats may be added. The admission list remains contiguous.
+        self.assertEqual(live_formats, list(range(1, max(live_formats) + 1)),
+                         "live replay format admission remains contiguous and unambiguous")
+        self.assertTrue(set(replay["readableFormats"]).issubset(live_formats),
+                        "frozen replay formats cannot become unreadable")
         self.assertEqual(replay["defaultMetadataFormat"], 3)
         self.assertEqual(replay["timedShotCertificateFormat"], 6)
         self.assertTrue(replay["timedShotsAreOptIn"])
