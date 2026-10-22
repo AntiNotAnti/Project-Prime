@@ -10,7 +10,7 @@ gameplay-ready latency and other platforms require their own acceptance runs.
 |---|---|---|
 | Website selection | Website `mapUploadFormats`, bulk uploader, guest upload flow | Mixed selection, per-file cancellation and manual retry already exist. **P2:** drag/drop is missing and routing starts from filename extensions. Add a shared structural ZIP preflight and route both selection methods through it; services remain authoritative. |
 | Upload | Website `mapPublishing` / `pk3Publishing`; `MapCommunityClient`; `pk3-upload/service.mjs` | Bounded chunks, offset recovery, exact digests, authentication and quotas exist. **P2:** full owner catalog fetched for every file in a batch; share only within an authenticated batch with explicit invalidation. |
-| Conversion | `Q3ImportService`, `Pk3DiscoveryService`, `Q3Convert`, `MapTextureBake` | **P1:** conversion keys contain job directory paths and hash the source twice. Child process HOME also makes the cache job-local. Use portable content keys, keep dependency precedence, explicit generator invalidation and a bounded persistent service cache. Analysis and texture extraction still repeat archive indexing/parsing. |
+| Conversion | `Q3ImportService`, `Pk3DiscoveryService`, `Q3Convert`, `MapTextureBake` | **P1:** conversion keys contain job directory paths and hash the source twice. Child process HOME also makes the cache job-local. Use portable content keys, keep dependency precedence, explicit generator invalidation and a bounded persistent service cache. Reuse the prepared BSP; archive indexing across texture extraction remains a profiling candidate. |
 | Packaging | `MapBuildScheduler.PackageAsync`, `MapPackageBuilder`, `MapPackageReader` | Deterministic streamed asset payloads and strict readback already exist; preserve golden archive bytes. Packages intentionally remain source-compatible and platform-neutral. |
 | Storage / CDN | `MapCommunityServer`, `CommunityObjectStore` | Immutable exact SHA-256 objects, request admission lanes, Range, conditional catalogs and origin fallback already exist. Production CDN configuration/missing-object recovery needs deployment evidence. |
 | Download | `MapCommunityClient`, `CommunityExactArchiveAcquisition`, `CommunityArchiveCache` | **P2:** full synchronous disk reread after healthy streamed download. Hash while writing; rehash persisted prefixes before resuming; retain exact final digest and bounded retries. Shared handlers and per-hash cross-process acquisition already exist. |
@@ -227,6 +227,7 @@ needed to address them; this is not a clean dependency-audit claim.
 | [Project Prime #1026](https://github.com/AntiNotAnti/Project-Prime/pull/1026) | Retired prewarm cancellation | Open; stacked on #1025; CI running |
 | [Project Prime #1027](https://github.com/AntiNotAnti/Project-Prime/pull/1027) | Crash-safe conversion job promotion | Open; stacked on #1026; CI running |
 | [Project Prime #1028](https://github.com/AntiNotAnti/Project-Prime/pull/1028) | Prepare only the selected room at loading boundaries | Open; stacked on #1027; CI running |
+| [Project Prime #1029](https://github.com/AntiNotAnti/Project-Prime/pull/1029) | Source-limit transfer and near-limit package qualification | Open; stacked on #1028; CI running |
 | [Website #16](https://github.com/projectprimegg/projectprime-website/pull/16) | Mixed bulk uploads and interrupted-chunk recovery | Merged after CI and independent review; merge `ca5697f7` |
 
 The engine/service PRs remain unmerged at this update. Earlier CI cancellations are not passes.
@@ -242,6 +243,18 @@ separate unknown slot, with a regression checking their actual array indices.
 The render-graph check now verifies shadow input on World, matching the existing
 inline shadow receiver, and its absence from the postprocess pass. The Android
 capability harness passes 800 assertions and `-rendergraphcheck` passes locally.
+
+Further current-main qualification repairs preserve the intended Classic and
+Pro reticle policies, enumerate appended Studio/Community actions with exact
+bounds, and update native layout fixtures to the actual auto-save Back control
+and six-slot arena picker. The native Windows layout run against all 157 matching
+Release markup files passes 21,394 checks across 14 viewport/density cases, with
+zero initialization, page, open/close or document-leak failures. Existing RCSS
+compatibility diagnostics remain separate debt. A synthetic HUD pixel fixture
+also initializes the newly introduced `hud_ink` uniform to the production default
+instead of its linked-program zero value; its exact pixel expectations remain.
+These repairs are required to make the existing broad CI meaningful; no camera,
+HUD, Studio, layout or renderer product behavior is changed by the fixtures.
 
 Additional local checks pass: the frozen baseline with stress enabled, six
 streamed-package checks using a 16 MiB asset size, and a server-only Release
