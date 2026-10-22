@@ -1606,17 +1606,6 @@ namespace MphRead.Mods
 
             (int width, int height) = ParseSize(args);
 
-            // Custom maps are registered as rooms from their JSON at startup,
-            // but a room whose binaries are not on disk crashes the moment
-            // something tries to load it. Generating what is missing here --
-            // the one place every entry point passes through, launcher
-            // included, and after the game-file check -- means a map file is
-            // enough to have a working room.
-            if (!HasFlag(args, "mapgen"))
-            {
-                MapGen.CustomRooms.GenerateMissing();
-            }
-
             // Opt-in per-second report of what this process believes about a
             // networked session -- slot occupancy, scoreboard count, which
             // remote slots have state. The failure worth catching is not

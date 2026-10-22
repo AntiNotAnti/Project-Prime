@@ -167,6 +167,7 @@ namespace MphRead.Mods.MapGen
             Model model;
             try
             {
+                CustomRooms.PrepareRoom(room);
                 model = Read.GetRoomModelInstance(room).Model;
             }
             catch (Exception ex)

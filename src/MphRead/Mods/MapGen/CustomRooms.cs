@@ -338,6 +338,19 @@ namespace MphRead.Mods.MapGen
             if (definition != null) GenerateIfNeeded(definition, cancellation);
         }
 
+        /// <summary>
+        /// Prepare the one room selected for loading and fail with the map's
+        /// build explanation before any loader reads its generated files.
+        /// Native rooms are not in the custom catalog, so this is a no-op for
+        /// them.
+        /// </summary>
+        public static void PrepareRoom(string roomName)
+        {
+            GenerateMissing(roomName);
+            if (WhyUnplayable(roomName) is { } reason)
+                throw new ProgramException(reason);
+        }
+
         private static void GenerateIfNeeded(MapDefinition def, CancellationToken cancellation = default)
         {
             // Lobby prewarm, Android preview workers and the real match can ask
