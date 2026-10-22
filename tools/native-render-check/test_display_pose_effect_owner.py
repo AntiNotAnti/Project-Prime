@@ -159,7 +159,10 @@ class Program
         projection=(REPO/"src/MphRead/Mods/Replay/SceneReplayProjection.cs").read_text();self.assertNotIn("DrawTransform",projection)
 
     def test_existing_draw_and_cleanup_owner_clear_before_use(self):
-        text=source("Renderer.cs");draw=body(text,"public void OnDrawFrame()")
+        wrapper=body(source("Mods/Render/SceneDsLayout.cs"),"public void OnDrawFrame()")
+        self.assertEqual(wrapper.count("OnDrawFrameCore();"),1)
+        self.assertNotIn("GetDrawItems();",wrapper)
+        text=source("Renderer.cs");draw=body(text,"private void OnDrawFrameCore()")
         self.assertIn("ClearPresentationEffectTransforms();",draw)
         self.assertLess(draw.index("ClearPresentationEffectTransforms();"),draw.index("GetDrawItems();"))
         self.assertIn("ClearPresentationEffectTransforms();",body(text,"public void ClearEffects()"))
