@@ -182,6 +182,37 @@ promotion, plus exact job reuse, mismatched metadata and quota accounting.
 The local service suite passes 13 tests. Linux crash and filesystem behavior
 still requires the platform CI/deployment gate.
 
+`service-bench.mjs` writes deterministic source bytes in 1 MiB blocks and streams
+service-sized chunks through the actual loopback HTTP service. The fake local
+identity verifier and hash-checking converter stub exclude authentication
+deployment, real archive conversion and valid PK3 geometry. Each scenario
+finishes with exact source SHA-256 and one converter invocation; duplicate
+completion returns the same job. Cancellation resumes from the confirmed 8 MiB
+prefix. One injected mid-body disconnect adds one PUT and one offset GET.
+
+| Source fixture | Healthy scenario (ms) | Interrupted scenario (ms) | Interrupted retries / offset GETs |
+|---|---:|---:|---:|
+| 32 MiB | 192.82 | 228.22 | 1 / 1 |
+| 128 MiB service source ceiling | 560.57 | 585.70 | 1 / 1 |
+
+These are single-run conformance receipts, not pre/post optimization arms or
+remote bandwidth measurements. Times include completion and job polling. Raw
+process CPU and sampled RSS include the client, HTTP service and stub worker in
+one Node process; allocations and GC differ between scenarios. JSON receipts
+are in `map-pipeline-evidence/upload-service-{32,128}.json`. The Node 22 service
+workflow now runs and retains the 128 MiB qualification.
+
+The package harness also has an explicit `--near-limit` mode: three synthetic
+160 MiB PCM assets produce a valid 503,471,463-byte archive, below the 512 MiB
+ceiling. Two independent streaming encodes and a repack preserve SHA-256
+`4ddec0d179889167beabe2ba9cb16038761d751275f5aa946070c94eee762ba5`.
+Strict manifest/project reading, cancellation preservation and oversized-entry
+rejection pass (six checks). This mode skips the historical in-memory encoder;
+its receipt has `historical: null` and makes no performance comparison. It is
+a large valid archive, not a representative large-geometry gameplay map.
+Small historical-reference modes at 1 and 16 MiB per asset also pass six checks.
+Linux map qualification now includes the near-limit case and retains its JSON.
+
 The website also pins the compatible Next.js 15.5.28 security patch. Its audit
 record documents remaining transitive advisories and the major-version upgrade
 needed to address them; this is not a clean dependency-audit claim.
@@ -195,6 +226,7 @@ needed to address them; this is not a clean dependency-audit claim.
 | [Project Prime #1025](https://github.com/AntiNotAnti/Project-Prime/pull/1025) | Portable conversion reuse and persistent worker cache | Open; stacked on #1024; CI running |
 | [Project Prime #1026](https://github.com/AntiNotAnti/Project-Prime/pull/1026) | Retired prewarm cancellation | Open; stacked on #1025; CI running |
 | [Project Prime #1027](https://github.com/AntiNotAnti/Project-Prime/pull/1027) | Crash-safe conversion job promotion | Open; stacked on #1026; CI running |
+| [Project Prime #1028](https://github.com/AntiNotAnti/Project-Prime/pull/1028) | Prepare only the selected room at loading boundaries | Open; stacked on #1027; CI running |
 | [Website #16](https://github.com/projectprimegg/projectprime-website/pull/16) | Mixed bulk uploads and interrupted-chunk recovery | Merged after CI and independent review; merge `ca5697f7` |
 
 The engine/service PRs remain unmerged at this update. Earlier CI cancellations are not passes.
@@ -237,6 +269,13 @@ one of two missing custom rooms, leaves the other source/output untouched,
 preserves output lengths/timestamps on repeat preparation, handles a registered
 native room without custom generation, and reports failed selected recipes.
 These work-count and correctness checks do not establish load-time percentiles.
+The final Release map-editor suite passes 518 checks. A fresh-namespace real
+DUST2 smoke generates only DUST2 (one room, previously six), with the exact same
+eight-player MAPTEST summary. Its existing burn-probe failure remains as noted
+above. Multiplayer acceptance passes again after this loading-boundary change,
+and the final server-only Release build succeeds with one existing unused-field
+warning. These are Windows results; device and cross-platform runtime acceptance
+remain outstanding.
 Further priorities are cold commit work under the
 scene gate, GPU upload/frame captures, dependency-integrity verification cost,
 and production CDN fallback/load evidence. None has a measured improvement
