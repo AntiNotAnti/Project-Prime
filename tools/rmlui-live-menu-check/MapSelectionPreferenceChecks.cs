@@ -37,6 +37,16 @@ internal static class MapSelectionPreferenceChecks
                 Check(controller.Dispatch(RmlUiIntentKind.Navigate, (int)RmlUiRouteArgument.Offline)
                     && Text(controller, "offline_arena_value") == "Combat Hall",
                     "new native bot setup opens with Combat Hall selected");
+                Check(controller.Dispatch(RmlUiIntentKind.OfflineChoice, 0)
+                    && Text(controller, "offline_arena_value") == "CUSTOM TEST ARENA"
+                    && LauncherPrefs.LastSelectedMap == "CUSTOM TEST ARENA"
+                    && controller.Dispatch(RmlUiIntentKind.OfflineChoice, 0)
+                    && Text(controller, "offline_arena_value") == "Data Shrine"
+                    && LauncherPrefs.LastSelectedMap == "MP1 SANCTORUS",
+                    "cycling maps shows display titles while persisting their exact room keys");
+                Check(File.ReadAllText(Path.Combine(sandbox, "launcher.txt"))
+                    .Contains("last_map=MP1 SANCTORUS", StringComparison.Ordinal),
+                    "cycling a display-titled map writes its canonical room key to preferences");
                 Check(controller.Dispatch(RmlUiIntentKind.OfflineOpenArena)
                     && controller.Dispatch(RmlUiIntentKind.OfflineArenaSearch, arenaSearch: "sanctorus")
                     && controller.Dispatch(RmlUiIntentKind.OfflineSelectArena, 0)
