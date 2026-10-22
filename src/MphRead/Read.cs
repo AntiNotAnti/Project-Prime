@@ -803,74 +803,7 @@ namespace MphRead
         }
 
         private static IReadOnlyList<TextureData> GetTextureData(Texture texture, ReadOnlySpan<byte> textureBytes)
-        {
-            var data = new List<TextureData>();
-            int pixelCount = texture.Width * texture.Height;
-            int entriesPerByte = 1;
-            if (texture.Format == TextureFormat.Palette2Bit)
-            {
-                entriesPerByte = 4;
-            }
-            else if (texture.Format == TextureFormat.Palette4Bit)
-            {
-                entriesPerByte = 2;
-            }
-            if (pixelCount % entriesPerByte != 0)
-            {
-                throw new ProgramException($"Pixel count {pixelCount} is not divisible by {entriesPerByte}.");
-            }
-            pixelCount /= entriesPerByte;
-            if (texture.Format == TextureFormat.DirectRgb)
-            {
-                for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++)
-                {
-                    ushort color = SpanReadUshort(textureBytes, (int)(texture.ImageOffset + pixelIndex * 2));
-                    byte alpha = AlphaFromShort(color);
-                    data.Add(new TextureData(color, alpha));
-                }
-            }
-            else
-            {
-                for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++)
-                {
-                    byte entry = textureBytes[(int)(texture.ImageOffset + pixelIndex)];
-                    for (int entryIndex = 0; entryIndex < entriesPerByte; entryIndex++)
-                    {
-                        uint index = (uint)(entry >> ((pixelIndex * entriesPerByte + entryIndex) % entriesPerByte
-                            * (8 / entriesPerByte)));
-                        byte alpha = 255;
-                        if (texture.Format == TextureFormat.Palette2Bit)
-                        {
-                            index &= 0x3;
-                        }
-                        else if (texture.Format == TextureFormat.Palette4Bit)
-                        {
-                            index &= 0xF;
-                        }
-                        else if (texture.Format == TextureFormat.PaletteA5I3)
-                        {
-                            index &= 0x7;
-                            alpha = AlphaFromA5I3(entry);
-                        }
-                        else if (texture.Format == TextureFormat.PaletteA3I5)
-                        {
-                            index &= 0x1F;
-                            alpha = AlphaFromA3I5(entry);
-                        }
-                        if (texture.Format == TextureFormat.Palette2Bit || texture.Format == TextureFormat.Palette4Bit
-                            || texture.Format == TextureFormat.Palette8Bit)
-                        {
-                            if (texture.Opaque == 0 && index == 0)
-                            {
-                                alpha = 0;
-                            }
-                        }
-                        data.Add(new TextureData(index, alpha));
-                    }
-                }
-            }
-            return data;
-        }
+            => Mods.Render.CompactTextureData.Decode(texture, textureBytes);
 
         private static IReadOnlyList<PaletteData> GetPaletteData(Palette palette, ReadOnlySpan<byte> paletteBytes)
         {
@@ -886,13 +819,6 @@ namespace MphRead
             }
             return data;
         }
-
-        // todo: might as well just convert to float early
-        private static byte AlphaFromShort(ushort value) => (value & 0x8000) == 0 ? (byte)0 : (byte)255;
-
-        private static byte AlphaFromA5I3(byte value) => (byte)MathF.Round((value >> 3) / 31.0f * 255.0f);
-
-        private static byte AlphaFromA3I5(byte value) => (byte)MathF.Round((value >> 5) / 7.0f * 255.0f);
 
         public static IReadOnlyList<Entity> GetEntities(string path, int layerId, bool firstHunt, bool allowHook = false)
         {

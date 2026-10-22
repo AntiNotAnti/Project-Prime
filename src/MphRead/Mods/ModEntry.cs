@@ -34,6 +34,11 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            if (HasFlag(args, "maploadreceiptcheck"))
+            {
+                Environment.ExitCode = Network.MapLoadReceiptChecks.Run();
+                return true;
+            }
             if (HasFlag(args, "weaponplay"))
             {
 #if ANDROID || MPHREAD_SERVER
@@ -163,6 +168,11 @@ namespace MphRead.Mods
             if (HasFlag(args, "rendergraphcheck"))
             {
                 Environment.ExitCode = Render.RetainedRenderGraphCheck.Run();
+                return true;
+            }
+            if (HasFlag(args, "nativepixelbuffercheck"))
+            {
+                Environment.ExitCode = Render.NativeTexturePixelBufferCheck.Run();
                 return true;
             }
 #endif
@@ -2059,11 +2069,22 @@ namespace MphRead.Mods
                         Network.MapAudit.WindowSize = new OpenTK.Mathematics.Vector2i(sizeWidth, sizeHeight);
                     }
                 }
+                string? mapLoadReport = ValueAfter(args, "maploadreport");
+                if (HasFlag(args, "maploadreport")
+                    && (args.Count(value => value.TrimStart('-').Equals(
+                            "maploadreport", StringComparison.OrdinalIgnoreCase)) != 1
+                        || String.IsNullOrWhiteSpace(mapLoadReport) || mapLoadReport.StartsWith('-')))
+                {
+                    Console.Error.WriteLine("Usage: -maptest <ROOM> -maploadreport <receipt.json>");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
                 Environment.ExitCode = Network.MapAudit.Run(mapTest, players, seconds, mapMode,
                     bots: HasFlag(args, "bots"), shotDirectory: ValueAfter(args, "shots"),
                     renderProbe: HasFlag(args, "renderprobe"),
                     allNodes: HasFlag(args, "allnodes"),
-                    itemProbe: HasFlag(args, "itemshots"));
+                    itemProbe: HasFlag(args, "itemshots"),
+                    loadReportPath: mapLoadReport);
                 return true;
             }
 
