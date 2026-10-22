@@ -17,6 +17,9 @@ internal static partial class Shell
     {
         AwaitStartup,
         CaptureStartup,
+        PressStartTab,
+        ReleaseStartTab,
+        AwaitStartFocus,
         PressStart,
         ReleaseStart,
         AwaitLanding,
@@ -116,7 +119,25 @@ internal static partial class Shell
                 return;
             case NativeShellShotStep.CaptureStartup:
                 if (CaptureNativeShellShot(window, view, "startup", "shell-native-startup"))
+                    SetNativeShellShotStep(NativeShellShotStep.PressStartTab);
+                return;
+            case NativeShellShotStep.PressStartTab:
+                window.FeedKey(KeyEvent(Keys.Tab));
+                SetNativeShellShotStep(NativeShellShotStep.ReleaseStartTab);
+                RetryNativeShellShot();
+                return;
+            case NativeShellShotStep.ReleaseStartTab:
+                window.FeedKeyUp(KeyEvent(Keys.Tab));
+                SetNativeShellShotStep(NativeShellShotStep.AwaitStartFocus);
+                RetryNativeShellShot();
+                return;
+            case NativeShellShotStep.AwaitStartFocus:
+                if (view.Route == "startup" && view.FocusedElement == "native_startup_continue")
                     SetNativeShellShotStep(NativeShellShotStep.PressStart);
+                else if (++_nativeShellShotPhaseFrames > 120)
+                    FailNativeShellShot(window,
+                        $"native startup Tab did not focus the Continue button (actual '{view.FocusedElement}')");
+                else RetryNativeShellShot();
                 return;
             case NativeShellShotStep.PressStart:
                 window.FeedKey(KeyEvent(Keys.Enter));
@@ -499,7 +520,7 @@ internal static partial class Shell
     }
 
     private static KeyboardKeyEventArgs KeyEvent(Keys key)
-        => new(key, scanCode: 0, 0, isRepeat: false);
+        => new(key, scanCode: GLFW.GetKeyScancode(key), 0, isRepeat: false);
 
     private static void SetNativeShellShotStep(NativeShellShotStep step)
     {
