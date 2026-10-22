@@ -51,7 +51,16 @@ internal static class CharacterBundleAcceptance
     }
     internal static void RunContract()
     {
-        var specs = RetroCharacterPreviewExporter.Sources.Select(s => RetroCharacterPreviewExporter.BundleSpec(s.Id)).ToArray();
+        // The historical body/ball contract below is pinned to the four original
+        // Troopers and two Echoes appearances. Scout Drones have a separate
+        // revision-2-only authoring shape tested by external-import-check.
+        var sourceIds = RetroCharacterPreviewExporter.Sources.Select(s => s.Id).ToArray();
+        Check(sourceIds.Contains("trooper-drone-alpha") && sourceIds.Contains("trooper-drone-gamma")
+            && sourceIds.Distinct(StringComparer.Ordinal).Count() == sourceIds.Length,
+            "Scout Drone source identities remain distinct from legacy body bundles");
+        var specs = RetroCharacterPreviewExporter.Sources
+            .Where(s => s.Id is not ("trooper-drone-alpha" or "trooper-drone-gamma"))
+            .Select(s => RetroCharacterPreviewExporter.BundleSpec(s.Id)).ToArray();
         foreach (var spec in specs)
         {
             var again = RetroCharacterPreviewExporter.BundleSpec(spec.Id);
