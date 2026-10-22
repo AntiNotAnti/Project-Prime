@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Match the opt-in contract of this test and its game reference. -->
+    <MphReadRmlUiGlSmoke>true</MphReadRmlUiGlSmoke>
+    <MphReadReplayPreviewFailureFixture Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'">true</MphReadReplayPreviewFailureFixture>
+    <!-- Focused canvas acceptance runs against the normal shipping DLL. The full
+         replay harness separately requires its explicit failure-injection build. -->
+    <EnableDefaultCompileItems Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'">false</EnableDefaultCompileItems>
+    <DefineConstants Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'">$(DefineConstants);MPHREAD_RMLUI_DRAWLIST_TEST</DefineConstants>
+    <AllowUnsafeBlocks Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'">true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../campaign-credits-check/CreditsFrameFixtures.cs;../campaign-credits-check/CreditsRenderFixture.cs" />
+    <Compile Remove="CanvasProgram.cs" Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'" />
+    <Compile Include="CanvasProgram.cs;CanvasGlAcceptance.cs;CanvasDrawListAcceptance.cs;CreditsPresentationGlAcceptance.cs;EndingGlAcceptance.cs;NativeSemanticReadback.cs;CampaignGlFixture.cs;CharacterSourceGlAcceptance.cs;OfflineCharacterGlAcceptance.cs;HunterPresenterContractAcceptance.cs" Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawList.cs;../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiDrawListReader.cs;../../src/MphRead/Mods/Launcher/RmlUi/Render/RmlUiGlesPlan.cs"
+             Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj"
+                      AdditionalProperties="MphReadRmlUiGlSmoke=true;MphReadReplayPreviewFailureFixture=true"
+                      Condition="'$(MphReadRmlUiCanvasOnly)' != 'true'" />
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj"
+                      AdditionalProperties="MphReadRmlUiGlSmoke=true"
+                      Condition="'$(MphReadRmlUiCanvasOnly)' == 'true'" />
+  </ItemGroup>
+</Project>

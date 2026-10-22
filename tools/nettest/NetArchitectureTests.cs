@@ -1,0 +1,281 @@
+using System;
+using System.Buffers.Binary;
+using System.Linq;
+using MphRead.Entities;
+using MphRead.Mods.Network;
+using OpenTK.Mathematics;
+
+namespace MphRead.NetTest;
+
+internal static class NetArchitectureTests
+{
+    internal static void Check(bool ok, string name)
+    { if (!ok) throw new InvalidOperationException(name); }
+
+    // Independent v30 fixture (empty fire history): constants deliberately do not come from the codec.
+    internal static byte[] IntentFixture()
+    {
+        byte[] bytes = new byte[423];
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes, 0x12345678);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(4), 5);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes.AsSpan(16), 1);
+        bytes[20] = 255;
+        for (int i = 0; i < 8; i++) BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(21 + i * 4), 1u << i);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes.AsSpan(53), 123.25f);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes.AsSpan(57), -42.5f);
+        BinaryPrimitives.WriteSingleLittleEndian(bytes.AsSpan(61), 17.75f);
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(65), 99);
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(67), 25);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(69), 0x87654321);
+        bytes[73] = 128;
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(74), 51);
+        BinaryPrimitives.WriteUInt64LittleEndian(bytes.AsSpan(76), 0x1020304050607080);
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(84), 9);
+        BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(86), 2);
+        bytes[88] = 17; bytes[89] = 19; bytes[90] = 1; bytes[91] = 0x82;
+        bytes[92] = 9; bytes[94] = 2;
+        bytes[96] = 64; bytes[97] = unchecked((byte)-96);
+        BinaryPrimitives.WriteUInt32LittleEndian(bytes.AsSpan(98), 0xCAFEBABE);
+        return bytes;
+    }
+
+    public static int Run()
+    {
+        try
+        {
+            System.Runtime.CompilerServices.RuntimeHelpers.RunClassConstructor(
+                typeof(NetSession).Assembly.GetType("MphRead.Mods.Replay.ReplayWorldCheckpoint", throwOnError: true)!.TypeHandle);
+            var counters = new NetPeerTelemetry();
+            counters.Intent(10, NetIntentRejection.None, 100);
+            counters.Intent(12, NetIntentRejection.None, 200);
+            counters.Intent(12, NetIntentRejection.Duplicate, 201);
+            var captured = counters.Capture(300);
+            Check(captured.Accepted == 2 && captured.Duplicate == 1 && captured.FrameGaps == 1,
+                "telemetry counts accepted and rejected separately");
+            Check(counters.Capture(300) == captured, "telemetry reads are pure");
+            counters.NewLife(); counters.Intent(1, NetIntentRejection.None, 400);
+            Check(counters.Capture(500).FrameGaps == 1, "new life cannot inherit frame gaps");
+            counters.Reset(); Check(counters.Capture().SilenceMilliseconds == null, "unavailable age is explicit");
+            var fixture = IntentFixture();
+            var intent = IntentPacket.Read(fixture);
+            Check(intent.Position == new Vector3(123.25f, -42.5f, 17.75f), "owner position survives wire");
+            byte[] output = new byte[IntentPacket.Protocol38FullSize]; intent.Write(output);
+            Check(output.SequenceEqual(fixture), "protocol 38 legacy intent fixture remains readable");
+            Check(intent.AckFrame == 0x87654321 && intent.AckSubFrame == 128 && IntentPacket.PressHistory == 8,
+                "displayed world ACK and eight-frame edge retention");
+            Check(NetConfig.ProtocolVersion == 85
+                && IntentPacket.Protocol38FullSize == 423
+                && IntentPacket.FullSize == 1287 && intent.HasAnalogMove
+                && intent.MoveX == 64 && intent.MoveY == -96
+                && intent.HasContinuousFireTick && intent.ContinuousFireTick == 0xCAFEBABE
+                && Math.Abs(IntentPacket.UnpackMoveAxis(intent.MoveX) - 64 / 127f) < .00001f,
+                "protocol 85 preserves Balanced ability semantics and exact FireEvent pose");
+            Check((byte)PacketType.TurretFireOutcome == 72
+                && NetReliableChannel.IsReliable(PacketType.TurretFireOutcome),
+                "protocol 85 retains reliable authority turret outcomes and prior intent and pose contracts");
+            Check((byte)PacketType.TimedGrant == 77 && (byte)PacketType.PartyReservationRequest == 80
+                && (byte)PacketType.PartyReservationState == 81 && (byte)PacketType.PartyReservationAction == 82
+                && (byte)PacketType.CustomWeaponManifest == 83 && (byte)PacketType.CustomWeaponReady == 84
+                && (byte)PacketType.CustomWeaponReadyConfirmed == 85,
+                "protocol 85 retains custom readiness IDs after the unchanged native registry");
+            Check((byte)PacketType.CustomWeaponAction == 86 && (byte)PacketType.CustomWeaponReceipt == 87
+                && (byte)PacketType.CustomWeaponContact == 88 && (byte)PacketType.CustomWeaponResultAck == 89
+                && (byte)PacketType.CustomWeaponState == 90,
+                "protocol 85 retains separate custom action/result/state IDs without shifting any prior registry value");
+            Check((byte)PacketType.CustomWeaponControl == 91 && (byte)PacketType.CustomWeaponControlDenied == 92,
+                "protocol 85 retains distinct custom source-control IDs without shifting prior packets");
+            foreach (var customControl in new[] { PacketType.CustomWeaponControl, PacketType.CustomWeaponControlDenied })
+                Check(NetReliableChannel.IsReliable(customControl) && !NetReliableChannel.IsCritical(customControl)
+                    && NetPacketQueue.Priority(customControl) == NetPacketPriority.Background,
+                    "custom source control uses bounded ordinary reliable/background capacity: " + customControl);
+            Check((byte)PacketType.CustomWeaponInput == 93 && !NetReliableChannel.IsReliable(PacketType.CustomWeaponInput)
+                && NetPacketQueue.Priority(PacketType.CustomWeaponInput) == NetPacketPriority.Realtime
+                && NetWireTelemetry.Classify(PacketType.CustomWeaponInput) == NetTrafficKind.Intent,
+                "protocol 85 custom input wrapper is unreliable realtime intent traffic without moving prior IDs");
+            Check((byte)PacketType.CustomWeaponReplicaPage == 94 && (byte)PacketType.CustomWeaponReplicaEvent == 95
+                && (byte)PacketType.CustomWeaponReplicaAck == 96,
+                "protocol 85 retains distinct recipient replica identities after unchanged IDs0–93");
+            Check((byte)PacketType.CustomWeaponPickupState == 97 && (byte)PacketType.CustomWeaponPickupAck == 98,
+                "protocol 85 retains custom pickup state/ack IDs97/98 without shifting native or existing custom packets");
+            foreach (var replica in new[] { PacketType.CustomWeaponReplicaPage, PacketType.CustomWeaponReplicaEvent, PacketType.CustomWeaponReplicaAck,
+                PacketType.CustomWeaponPickupState, PacketType.CustomWeaponPickupAck })
+                Check(NetReliableChannel.IsReliable(replica) && !NetReliableChannel.IsCritical(replica)
+                    && NetPacketQueue.Priority(replica) == NetPacketPriority.Background
+                    && NetWireTelemetry.Classify(replica) == NetTrafficKind.ReliableControl,
+                    "recipient replica uses ordinary reliable/background control capacity: " + replica);
+            Check((byte)PacketType.BombIntent == 68 && (byte)PacketType.BombEvent == 69 && (byte)PacketType.BombState == 70
+                && NetReliableChannel.IsReliable(PacketType.BombIntent) && NetReliableChannel.IsReliable(PacketType.BombEvent)
+                && !NetReliableChannel.IsReliable(PacketType.BombState), "dedicated bomb request/event reliability and state lane");
+            Check(BombStatePage.MaximumSize + NetHeader.Size <= 1200
+                && BombStatePage.MaximumSize + WorldBootstrapIdentity.Size + 1 + 4 + NetHeader.Size <= 1200,
+                "bomb live and bootstrap pages fit realtime MTU");
+            Span<byte> claimBytes = stackalloc byte[63];
+            claimBytes.Clear();
+            BinaryPrimitives.WriteUInt16LittleEndian(claimBytes, 7);
+            BinaryPrimitives.WriteUInt32LittleEndian(claimBytes[55..], 0x87654321);
+            BinaryPrimitives.WriteUInt32LittleEndian(claimBytes[59..], 0x12345678);
+            var componentClaim = HitClaimPacket.Read(claimBytes);
+            Check(HitClaimPacket.Size == 63 && componentClaim.ClaimId == 7
+                && componentClaim.ShotId == 0x87654321 && componentClaim.ComponentId == 0x12345678,
+                "protocol 44 independent shot/component claim offsets");
+            Span<byte> claimRoundtrip = stackalloc byte[63];
+            componentClaim.Write(claimRoundtrip);
+            Check(claimRoundtrip.SequenceEqual(claimBytes), "shot/component claim byte roundtrip");
+            var legacyClaim = HitClaimPacket.Read(claimBytes[..59]);
+            Check(legacyClaim.ShotId == 0x87654321 && legacyClaim.ComponentId == 0,
+                "protocol 43 claim retains ShotId with absent component identity");
+            var posed = new FireEvent(7, 99, 80, 64, FireEventKind.PressFire,
+                (byte)BeamType.Imperialist, 0, 0,
+                (byte)(FireEvent.FlagPose | FireEvent.FlagReticle),
+                new Vector3(1, 2, 3), new Vector3(0, 0, 1), new Vector3(0.1f, 0.2f, 0.97f),
+                new Vector3(0.05f, 0.1f, 0.99f), new Vector2(0.42f, 0.61f));
+            Span<byte> posedBytes = stackalloc byte[FireEvent.Size];
+            posed.Write(posedBytes);
+            FireEvent posedRoundtrip = FireEvent.Read(posedBytes);
+            Check(posedRoundtrip.HasPose && posedRoundtrip.HasReticle
+                && posedRoundtrip.Origin == posed.Origin
+                && posedRoundtrip.Direction == posed.Direction && posedRoundtrip.Aim == posed.Aim
+                && Vector3.Dot(posedRoundtrip.View, posed.View.Normalized()) > 0.9999f
+                && Vector2.Distance(posedRoundtrip.Reticle, posed.Reticle) < 0.00003f,
+                "protocol 41 retains FireEvent shot/view/reticle roundtrip");
+            var resolvedFact = new ReplayShotFact(
+                MatchId: 51, AuthorityEpoch: 9, ResolveTick: 120, LaunchFrame: 111,
+                ShotId: 77, DamageEventId: 5,
+                ShooterSlot: 1, ShooterGeneration: 8, ShooterLifeId: 3,
+                VictimSlot: 2, VictimGeneration: 9, VictimLifeId: 4,
+                Weapon: (byte)BeamType.Imperialist,
+                Flags: ReplayShotFactFlags.Headshot | ReplayShotFactFlags.Direct,
+                Damage: 80, HealthAfter: 19,
+                HalfturretDamage: 0, HalfturretHealthAfter: 0,
+                ImpactPoint: new Vector3(2, 3, 4));
+            Span<byte> resolvedBytes = stackalloc byte[ReplayShotFactPacket.Size];
+            ReplayShotFactPacket.Write(resolvedFact, resolvedBytes);
+            Check(ReplayShotFactPacket.TryRead(resolvedBytes, out var resolvedRoundtrip)
+                && resolvedRoundtrip == resolvedFact,
+                "protocol 41 authoritative replay shot fact roundtrip");
+            var turretFact = resolvedFact with
+            {
+                ShotId = 78, DamageEventId = 6, Damage = 0, HealthAfter = 99,
+                HalfturretDamage = 25, HalfturretHealthAfter = 35,
+                Flags = ReplayShotFactFlags.Direct | ReplayShotFactFlags.HalfturretTarget
+            };
+            ReplayShotFactPacket.Write(turretFact, resolvedBytes);
+            Check(ReplayShotFactPacket.TryRead(resolvedBytes, out var turretRoundtrip)
+                && turretRoundtrip == turretFact,
+                "protocol 41 replay shot fact preserves halfturret-only damage");
+            string[] forbidden = { "MovementCommand", "MovementAck", "ProcessedMovementFrame", "MovementReconciliation",
+                "PredictedMovementState", "IntentBundle", "SnapshotDelta", "SnapshotKeyframe" };
+            Check(!typeof(IntentPacket).Assembly.GetTypes().Any(t => forbidden.Any(n => t.Name.Contains(n))),
+                "no reverted production protocol structures");
+            Check(NetUnlagged.DefaultMaxRewindFrames == 45 && NetUnlagged.HistoryFrames == 128 && NetUnlagged.PressAgeEnabled,
+                "rewind defaults preserved");
+            Check(PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 100),
+                "owner dead state reconciles an authoritative live body");
+            Check(!PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: false, hasState: true, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: false, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: true, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: false, ownerSpectating: true,
+                    serverSpawned: true, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: false, serverHealth: 100)
+                && !PlayerReplicationBridge.ShouldReconcileOwnerDeath(
+                    authority: true, hasState: true, ownerInPlay: false, ownerSpectating: false,
+                    serverSpawned: true, serverHealth: 0),
+                "owner death reconciliation is authority/state/life-body fenced");
+            Check(PlayerEntity.ModForceNetworkVisibility(
+                    replica: false, networkActive: true, slot: 2, localSlot: 1,
+                    active: true, spawned: true, health: 100),
+                "living remote network players bypass portal culling");
+            Check(!PlayerEntity.ModForceNetworkVisibility(
+                    replica: true, networkActive: true, slot: 2, localSlot: 1,
+                    active: true, spawned: true, health: 100)
+                && !PlayerEntity.ModForceNetworkVisibility(
+                    replica: false, networkActive: true, slot: 1, localSlot: 1,
+                    active: true, spawned: true, health: 100)
+                && !PlayerEntity.ModForceNetworkVisibility(
+                    replica: false, networkActive: true, slot: 2, localSlot: 1,
+                    active: true, spawned: true, health: 0)
+                && !PlayerEntity.ModForceNetworkVisibility(
+                    replica: false, networkActive: true, slot: 2, localSlot: 1,
+                    active: false, spawned: true, health: 100)
+                && !PlayerEntity.ModForceNetworkVisibility(
+                    replica: false, networkActive: true, slot: 2, localSlot: 1,
+                    active: true, spawned: false, health: 100),
+                "visibility bypass never revives local, dead, inactive, unspawned or replica players");
+            for (int count = 1; count <= PlayerEntity.SlotCapacity; count++)
+            {
+                byte[] bytes = new byte[SnapshotHeader.Size + count * PlayerState.Size];
+                new SnapshotHeader { MatchId = 51, AuthorityEpoch = 4, Frame = 400, PlayerCount = (byte)count }.Write(bytes);
+                for (int slot = 0; slot < count; slot++)
+                    new PlayerState { SlotIndex = (byte)slot, SlotGeneration = 9, LifeId = 2,
+                        Position = new Vector3(slot + 1, 2, 3), Facing = Vector3.UnitZ }
+                        .Write(bytes.AsSpan(SnapshotHeader.Size + slot * PlayerState.Size));
+                Check(SnapshotHeader.Read(bytes).PlayerCount == count, "independent snapshot header");
+                for (int slot = count - 1; slot >= 0; slot--)
+                    Check(PlayerState.Read(bytes.AsSpan(SnapshotHeader.Size + slot * PlayerState.Size)).Position.X == slot + 1,
+                        "independent full snapshot decode");
+            }
+            HealthShotTests.Session();
+            var player = HealthShotTests.Player(1);
+            NetPlayerBridge.ApplyReportedPosition(player, new IntentPacket { Frame = 10, SlotGeneration = 10, LifeId = 7, Buttons = IntentButtons.InPlayState, Position = intent.Position });
+            Check(player.Position == intent.Position, "production bridge accepts owner movement for authoritative collision");
+            var bridge = (PlayerReplicationBridge)Activator.CreateInstance(typeof(PlayerReplicationBridge),
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic,
+                binder: null, args: new object[] { new OwnerHost() }, culture: null)!;
+            var state = new PlayerState { SlotIndex = 1, SlotGeneration = 10, LifeId = 7,
+                Health = 100, Flags = PlayerState.FlagSpawned, Facing = Vector3.UnitZ };
+            var lives = new ushort[PlayerEntity.SlotCapacity]; lives[1] = 7;
+            var applied = new bool[PlayerEntity.SlotCapacity]; applied[1] = true;
+            HealthShotTests.Field(bridge, "_appliedLifeId", lives);
+            HealthShotTests.Field(bridge, "_lifeApplied", applied);
+            player.Position = new Vector3(100, 20, 30); player.Speed = new Vector3(1, 2, 3);
+            Vector3 position = player.Position, speed = player.Speed, previous = player.PrevPosition;
+            state.Position = new Vector3(-1000, 300, 200); state.Speed = new Vector3(-3, -2, -1);
+            for (int i = 0; i < 180; i++) bridge.ApplyState(player, state, isLocal: true);
+            Check(player.Position == position && player.Speed == speed && player.PrevPosition == previous,
+                "same-life snapshots cannot correct owner's physical position or velocity");
+            Console.WriteLine("PASS: architecture, owner position, full snapshots and v20 byte fixture");
+            return 0;
+        }
+        catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+        finally { NetSession.Stop(); }
+    }
+    private sealed class OwnerHost : IPlayerReplicationHost
+    {
+        public bool IsReplica => true;
+        public bool Active => true;
+        public bool IsAuthority => false;
+        public bool IsHost => false;
+        public int LocalSlot => 1;
+        public uint Frame => 1000;
+        public bool Settling => false;
+        public bool GameplayReady => true;
+        public bool CanSpawn => true;
+        public int Ping(int slot) => 100;
+        public bool Matches(int slot, ushort generation, ushort life) => generation == 10 && life == 7;
+        public bool TryGetIntent(int slot, out IntentPacket intent) { intent = default; return false; }
+        public bool TryGetState(int slot, out PlayerState state) { state = default; return false; }
+        public uint IntentAge(int slot) => 0;
+        public void OnSpawn(PlayerEntity player) { }
+        public void BeginLife(PlayerEntity player, in PlayerState state) { }
+        public void Spawn(PlayerEntity player, in PlayerState state) { }
+        public void ReplayDamage(PlayerEntity player, in PlayerState state) { }
+        public void ReplayDeath(PlayerEntity player) { }
+        public void NoteDeath(int slot) { }
+        public int HealthFor(PlayerEntity player, int health, bool local) => health;
+        public bool SamplePosition(int slot, bool presentation, out Vector3 position, out bool alt)
+        { position = default; alt = false; return false; }
+        public void StampAcknowledgement(ref IntentPacket intent) { }
+    }
+
+}

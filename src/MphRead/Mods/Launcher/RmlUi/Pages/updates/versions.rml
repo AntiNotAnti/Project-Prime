@@ -1,0 +1,30 @@
+<rml><head><title>Version manager</title><link type="text/rcss" href="../../themes/prime.rcss"/><link type="text/rcss" href="available.rcss"/><link type="text/rcss" href="versions.rcss"/></head><body><div id="update_scrim"><div id="update_card"><div class="eyebrow">PROJECT PRIME // RELEASES</div><h1>VERSION MANAGER</h1><div class="update_version"><span>INSTALLED</span><b id="versions_installed"/></div><p id="versions_status" role="status"/><div id="versions_rows"><button id="versions_row_0" data-action="settings:action:0"/>
+<button id="versions_row_1" data-action="settings:action:1"/>
+<button id="versions_row_2" data-action="settings:action:2"/>
+<button id="versions_row_3" data-action="settings:action:3"/>
+<button id="versions_row_4" data-action="settings:action:4"/>
+<button id="versions_row_5" data-action="settings:action:5"/>
+<button id="versions_row_6" data-action="settings:action:6"/>
+<button id="versions_row_7" data-action="settings:action:7"/>
+<button id="versions_row_8" data-action="settings:action:8"/>
+<button id="versions_row_9" data-action="settings:action:9"/>
+<button id="versions_row_10" data-action="settings:action:10"/>
+<button id="versions_row_11" data-action="settings:action:11"/>
+<button id="versions_row_12" data-action="settings:action:12"/>
+<button id="versions_row_13" data-action="settings:action:13"/>
+<button id="versions_row_14" data-action="settings:action:14"/>
+<button id="versions_row_15" data-action="settings:action:16"/>
+<button id="versions_row_16" data-action="settings:action:17"/>
+<button id="versions_row_17" data-action="settings:action:18"/>
+<button id="versions_row_18" data-action="settings:action:19"/>
+<button id="versions_row_19" data-action="settings:action:20"/>
+<button id="versions_row_20" data-action="settings:action:21"/>
+<button id="versions_row_21" data-action="settings:action:22"/>
+<button id="versions_row_22" data-action="settings:action:23"/>
+<button id="versions_row_23" data-action="settings:action:24"/>
+<button id="versions_row_24" data-action="settings:action:25"/>
+<button id="versions_row_25" data-action="settings:action:26"/>
+<button id="versions_row_26" data-action="settings:action:27"/>
+<button id="versions_row_27" data-action="settings:action:28"/>
+<button id="versions_row_28" data-action="settings:action:29"/>
+<button id="versions_row_29" data-action="settings:action:30"/></div><p id="versions_confirmation" role="status"/><p id="versions_progress" role="status"/><div id="update_actions"><button id="versions_close" data-action="settings:close">CLOSE</button><button id="versions_retry" data-action="settings:action:31">RETRY</button><button id="versions_cancel" data-action="settings:discard">CANCEL SWITCH</button><button id="versions_confirm" data-action="settings:apply">CONFIRM SWITCH</button></div></div></div></body></rml>

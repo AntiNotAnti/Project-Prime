@@ -1,0 +1,9 @@
+<rml><head><title>Update available</title><link type="text/rcss" href="../../themes/prime.rcss"/><link type="text/rcss" href="available.rcss"/></head>
+<body><div id="update_scrim"><div id="update_card">
+<div class="eyebrow">PROJECT PRIME // UPDATES</div><h1>UPDATE AVAILABLE</h1>
+<p id="update_intro">A newer release is available. You can update now or continue playing.</p>
+<div class="update_version"><span>INSTALLED</span><b id="update_installed"/></div>
+<div class="update_version"><span>AVAILABLE</span><b id="update_available" role="status"/></div>
+<p id="update_description">The existing update service will guide you through the update for this platform.</p>
+<div id="update_actions"><button id="update_later" data-action="settings:close">LATER</button><button id="update_confirm" data-action="settings:apply">UPDATE NOW</button></div>
+</div></div></body></rml>

@@ -1,0 +1,304 @@
+using System;
+using System.Collections.Generic;
+
+namespace MphRead.Mods.Network;
+
+/// <summary>Single simulation-thread owner for accepted authoritative facts.</summary>
+internal sealed partial class ReplayRecorder
+{
+    internal bool HasMatch => _match.HasValue;
+    public RollingReplayTimeline Timeline { get; } = new(presentationProtocolVersion: NetConfig.ProtocolVersion);
+    internal bool ProducesWorldCheckpoints { get; set; }
+    internal event Action<ReplayTimelineRecord>? Accepted;
+    internal Func<ReplayTimelineRecord, ReplayTimelineRecord>? StampCaptureRecord { get; set; }
+    internal event Action? Resetting;
+    internal event Action<ReplayTimelineRecord>? CheckpointCaptured;
+    private readonly ReplayAuthorityWire _worldWire = new();
+    private readonly Mods.MatchEvents.MatchSemanticReceiver _semantic = new();
+    private ReplayTimelineRecord? _match, _roster, _snapshot, _configuration, _cosmetics;
+    private readonly ReplayTimelineRecord?[] _intents = new ReplayTimelineRecord?[RosterPacket.MaxSlots];
+    private ushort _matchId;
+    private ulong _epoch;
+    private string? _room;
+    private uint _lastRestore;
+    public void Reset()
+    {
+        Resetting?.Invoke();
+        ResetBombFacts(); ResetPickupSeed(); _grantSeed.Reset(); _grantSeedLatestFrame = 0;
+        ResetCustomWeaponFacts();
+        _timedShots.Reset();
+        _worldWire.Reset();
+        _semantic.Begin(0, 0);
+        Timeline.Reset();
+        _cosmetics?.Release(); _cosmetics = null;
+        _match?.Release(); _roster?.Release(); _snapshot?.Release(); _configuration?.Release();
+        foreach (var intent in _intents) intent?.Release();
+        _match = _roster = _snapshot = _configuration = null;
+        Array.Clear(_intents);
+        _matchId = 0; _epoch = 0; _room = null; _lastRestore = 0;
+    }
+    public void AcceptMatch(in MatchStatePacket match, uint frame)
+    {
+        if (_matchId != match.MatchId || _epoch != match.AuthorityEpoch || _room != match.RoomKey) Reset();
+        _matchId = match.MatchId; _epoch = match.AuthorityEpoch; _room = match.RoomKey;
+        _semantic.Begin(_matchId, _epoch);
+        Span<byte> bytes = stackalloc byte[1 + MatchStatePacket.Size];
+        bytes[0] = (byte)PacketType.MatchState; match.Write(bytes[1..]);
+        _match?.Release();
+        _match = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Match, bytes);
+        Publish(_match.Value);
+    }
+    internal void AcceptSemantic(ReadOnlySpan<byte> packet, ushort match, ulong epoch, uint tick, uint frame)
+    {
+        if (match != _matchId || epoch != _epoch || !HasMatch) return;
+        bool accepted = packet.Length > 0 && packet[0] == (byte)PacketType.MatchSemanticEvent
+            ? Mods.MatchEvents.MatchSemanticEventPacket.TryRead(packet, out var fact) && _semantic.Accept(fact)
+            : Mods.MatchEvents.MatchAwardPacket.TryRead(packet, out var award) && _semantic.Accept(award);
+        if (accepted) PublishTransient(new(frame, tick, ReplayFactKind.Presentation, packet));
+    }
+    public void AcceptRoster(in RosterPacket roster, uint frame)
+    {
+        if (_matchId != roster.MatchId || _epoch != roster.AuthorityEpoch) return;
+        Span<byte> bytes = stackalloc byte[1 + RosterPacket.Size];
+        bytes[0] = (byte)PacketType.Roster; roster.Write(bytes[1..]);
+        _roster?.Release();
+        _roster = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Roster, bytes);
+        Publish(_roster.Value);
+    }
+    public void AcceptChat(ReadOnlySpan<byte> packet, uint frame)
+        => PublishTransient(new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Presentation, packet));
+
+    internal bool AcceptShotFact(ReadOnlySpan<byte> payload, uint frame)
+    {
+        if (!ReplayShotFactPacket.TryRead(payload, out var fact)
+            || fact.MatchId != _matchId || fact.AuthorityEpoch != _epoch || !HasMatch)
+        {
+            return false;
+        }
+        Span<byte> packet = stackalloc byte[1 + ReplayShotFactPacket.Size];
+        packet[0] = (byte)PacketType.ReplayShotFact;
+        payload.CopyTo(packet[1..]);
+        PublishTransient(new(frame, fact.ResolveTick, ReplayFactKind.Presentation, packet));
+        return true;
+    }
+
+    public void AcceptCosmetics(ReadOnlySpan<byte> packet, uint frame)
+    {
+        _cosmetics?.Release();
+        _cosmetics = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Presentation, packet);
+        Publish(_cosmetics.Value);
+    }
+    public void AcceptConfiguration(in SessionStatePacket configuration, uint frame)
+    {
+        if (_matchId != configuration.MatchId || _epoch != configuration.AuthorityEpoch) return;
+        Span<byte> bytes = stackalloc byte[1 + SessionStatePacket.Size];
+        bytes[0] = (byte)PacketType.SessionState; configuration.Write(bytes[1..]);
+        _configuration?.Release();
+        _configuration = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Match, bytes);
+        Publish(_configuration.Value);
+    }
+    // Remote callers enter after lifecycle/event acceptance. A local caller records
+    // the submitted input for presentation, never a hit or a damage decision.
+    public void AcceptIntent(int slot, in IntentPacket intent, uint frame)
+    {
+        if ((uint)slot >= (uint)_intents.Length || intent.MatchId != _matchId
+            || intent.AuthorityEpoch != _epoch || intent.SlotGeneration == 0 || intent.LifeId == 0) return;
+        bool newest = true;
+        if (_intents[slot] is { } prior)
+        {
+            var old = IntentPacket.Read(prior.Payload[2..]);
+            if (old.SlotGeneration == intent.SlotGeneration && old.LifeId == intent.LifeId
+                && !NetLifecycleTracker.Newer(intent.Frame, old.Frame)) newest = false;
+        }
+        // Storage stays canonical even when the live protocol uses compact intents.
+        // Accepted live packets have already been decoded into this complete model.
+        Span<byte> bytes = stackalloc byte[2 + IntentPacket.TouchCanonicalSize];
+        bytes[0] = (byte)PacketType.SlotIntent; bytes[1] = (byte)slot;
+        NetFireEvents.WithoutTurretOffers(intent).Write(bytes[2..]);
+        var record = new ReplayTimelineRecord(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Intent, bytes);
+        if (newest)
+        {
+            _intents[slot]?.Release();
+            _intents[slot] = record;
+            Publish(record);
+        }
+        else if (intent.HasFireEvents && intent.FireEventCount > 0)
+            PublishTransient(record); // Event carrier, never the movement bootstrap.
+        else record.Release();
+    }
+    public void AcceptSnapshot(ReadOnlySpan<byte> packet, uint frame, uint tick)
+    {
+        if (packet.Length < 1 + SnapshotHeader.Size || packet[0] != (byte)PacketType.Snapshot) return;
+        var header = SnapshotHeader.Read(packet[1..]);
+        if (header.PlayerCount > RosterPacket.MaxSlots
+            || packet.Length < 1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size) return;
+        if (_matchId == 0 || header.MatchId != _matchId || header.AuthorityEpoch != _epoch || header.Frame != tick) return;
+        // Live callers have already admitted the canonical snapshot. Keep the
+        // new durable clock bounded to that complete native framing too; a
+        // header-only capture cannot advance custom projectile time.
+        int tail = 1 + SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
+        if (packet.Length >= tail + NetMatchTimeSync.Size + NetHealthSync.HeaderSize
+            && NetMatchTimeSync.Validate(packet.Slice(tail, NetMatchTimeSync.Size))
+            && NetHealthSync.Validate(packet[(tail + NetMatchTimeSync.Size)..])
+            && System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(packet[(tail + NetMatchTimeSync.Size)..]) == header.MatchId)
+            AcceptCustomWeaponClock(tick, frame);
+        _snapshot?.Release();
+        _snapshot = new(frame, tick, ReplayFactKind.Snapshot, packet);
+        if (!HasCustomWeaponMatch && !ProducesWorldCheckpoints && (Timeline.NeedsRestorePoint || frame - _lastRestore >= 300))
+        {
+            if (_match != null && _roster != null)
+            {
+                var records = new List<ReplayTimelineRecord> { _match.Value, _roster.Value, _snapshot.Value };
+                if (_configuration != null) records.Insert(0, _configuration.Value);
+                if (_cosmetics != null) records.Add(_cosmetics.Value);
+                // Preserve held input only for an occupant/life actually present
+                // in this baseline. Old firing state must not cross a respawn.
+                for (int i = 0; i < header.PlayerCount; i++)
+                {
+                    var player = PlayerState.Read(packet[(1 + SnapshotHeader.Size + i * PlayerState.Size)..]);
+                    if (player.SlotIndex >= _intents.Length || _intents[player.SlotIndex] is not { } record) continue;
+                    var intent = IntentPacket.Read(record.Payload[2..]);
+                    if (intent.SlotGeneration == player.SlotGeneration && intent.LifeId == player.LifeId)
+                        records.Add(record);
+                }
+                var semantics = new List<ReplayTimelineRecord>();
+                VisitSemanticBaseline(frame, record => { record.Retain(); semantics.Add(record); });
+                SeedGrantFacts(frame, record => { record.Retain(); semantics.Add(record); });
+                SeedTimedShotCertificates(frame, record => { record.Retain(); semantics.Add(record); });
+                records.AddRange(semantics);
+                try
+                {
+                    if (Timeline.AppendRestorePoint(new(frame, tick, ReplayRestoreKind.NetworkBaseline, records))) _lastRestore = frame;
+                }
+                finally { foreach (var record in semantics) record.Release(); }
+            }
+        }
+        // Keep the snapshot in the sequential stream too: a clip starting from an
+        // earlier baseline must not omit the snapshot at a later index boundary.
+        Publish(_snapshot.Value);
+    }
+    internal void AcceptWorldPacket(ReadOnlySpan<byte> payload, uint frame)
+    {
+        if (_worldWire.Accept(payload, _matchId, _epoch) is { } world) AcceptWorld(world, frame);
+    }
+    internal void AcceptWorld(ReplayAuthorityWorld world, uint frame)
+        => AcceptWorld(world, frame, world.Encode());
+    internal void AcceptWorld(ReplayAuthorityWorld world, uint frame, ReadOnlySpan<byte> encoded, bool send = false)
+    {
+        if (world.MatchId != _matchId || world.Epoch != _epoch) return;
+        Span<byte> packet = stackalloc byte[NetConfig.MaxPacketSize];
+        int parts = (encoded.Length + ReplayAuthorityWire.PartBytes - 1) / ReplayAuthorityWire.PartBytes;
+        for (int part = 0; part < parts; part++)
+        {
+            int length = ReplayAuthorityWire.WritePacket(world, encoded, part, packet);
+            PublishTransient(new(frame, world.Tick, ReplayFactKind.AuthorityWorld, packet[..length]));
+            if (send) NetSession.SendReplayWorldPacket(packet.Slice(1, length - 1));
+        }
+    }
+    public void Marker(uint frame, uint tick, ReplayMarker marker)
+    {
+        PublishTransient(new(frame, tick, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty, marker));
+    }
+
+    internal void SeedWorld(Action<ReplayTimelineRecord> accept)
+    {
+        if (HasCustomWeaponMatch) throw new InvalidOperationException("Custom world construction requires an explicit historical archive/world contract.");
+        SeedWorldCore(accept);
+    }
+    private void SeedWorldCore(Action<ReplayTimelineRecord> accept)
+    {
+        if (_match is { } match) accept(match);
+        if (_configuration is { } configuration) accept(configuration);
+        if (_roster is { } roster) accept(roster);
+        if (_snapshot is { } snapshot) accept(snapshot);
+        if (_cosmetics is { } cosmetics) accept(cosmetics);
+        foreach (var intent in _intents) if (intent is { } record) accept(record);
+        VisitSemanticBaseline(_snapshot?.RecordingFrame ?? 0, accept);
+        SeedBombFacts(accept);
+        uint grantFrame = Timeline.LastRecordingFrame ?? _snapshot?.RecordingFrame ?? _grantSeedLatestFrame;
+        if (NetLifecycleTracker.Newer(_grantSeedLatestFrame, grantFrame)) grantFrame = _grantSeedLatestFrame;
+        SeedGrantFacts(grantFrame, accept);
+        SeedTimedShotCertificates(grantFrame, accept);
+    }
+
+    private void VisitSemanticBaseline(uint frame, Action<ReplayTimelineRecord> accept)
+    {
+        Span<byte> bytes = stackalloc byte[Mods.MatchEvents.MatchSemanticEventPacket.Size];
+        if (_semantic.MatchId != 0)
+        {
+            // Cached history belongs to the restored world, not new announcements.
+            var baseline = new Mods.MatchEvents.MatchSemanticEventPacket(_semantic.MatchId, _semantic.Epoch,
+                _semantic.LatestEvent, 0, Mods.MatchEvents.MatchSemanticEventType.MatchStarted,
+                255, 0, 0, 255, 0, 0, -1, 0, -1, 0, true, _semantic.LatestAward);
+            baseline.Write(bytes);
+            var marker = new ReplayTimelineRecord(frame, 0, ReplayFactKind.Presentation, bytes);
+            try { accept(marker); } finally { marker.Release(); }
+        }
+        foreach (var fact in _semantic.Events)
+        {
+            fact.Write(bytes);
+            var record = new ReplayTimelineRecord(frame, fact.Tick, ReplayFactKind.Presentation, bytes);
+            try { accept(record); } finally { record.Release(); }
+        }
+        foreach (var award in _semantic.Awards)
+        {
+            award.Write(bytes);
+            var record = new ReplayTimelineRecord(frame, award.Tick, ReplayFactKind.Presentation,
+                bytes[..Mods.MatchEvents.MatchAwardPacket.Size]);
+            try { accept(record); } finally { record.Release(); }
+        }
+    }
+
+    private void PublishTransient(ReplayTimelineRecord record)
+    { try { Publish(record); } finally { record.Release(); } }
+
+    private void Publish(ReplayTimelineRecord record)
+    {
+        record = StampCaptureRecord?.Invoke(record) ?? record;
+        using (ReplayPerfTelemetry.Measure(ReplayPerfOperation.Timeline))
+            if (!Timeline.NeedsRestorePoint) Timeline.Append(record);
+        Accepted?.Invoke(record);
+    }
+
+    internal bool AppendWorldCheckpoint(uint frame, uint tick, ReplayPayload payload)
+    {
+        payload.Retain();
+        return AppendWorldCheckpoint(new ReplayTimelineRecord(frame, tick, ReplayFactKind.World, payload));
+    }
+    internal bool AppendWorldCheckpoint(uint frame, uint tick, ReadOnlySpan<byte> bytes)
+        => AppendWorldCheckpoint(new ReplayTimelineRecord(frame, tick, ReplayFactKind.World, bytes));
+    private bool AppendWorldCheckpoint(ReplayTimelineRecord world)
+    {
+        if (HasCustomWeaponMatch || _match == null || _roster == null || _snapshot == null) { world.Release(); return false; }
+        uint frame = world.RecordingFrame, tick = world.ServerTick;
+        // Packet baselines remain available to metadata/compatibility tools. Only
+        // the World record is allowed to restore a replica scene.
+        var records = new List<ReplayTimelineRecord> { _match.Value, _roster.Value, _snapshot.Value };
+        if (_configuration != null) records.Insert(0, _configuration.Value);
+        if (_cosmetics != null) records.Add(_cosmetics.Value);
+        records.Add(world);
+        try
+        {
+            if (!Timeline.AppendRestorePoint(new(frame, tick, ReplayRestoreKind.ReplicaCheckpoint, records))) return false;
+            CheckpointCaptured?.Invoke(world); return true;
+        }
+        finally { world.Release(); }
+    }
+
+    internal bool AppendCustomWorldCheckpoint(Replay.ReplayWorldCheckpoint checkpoint)
+    {
+        if (!HasCustomWeaponMatch || !CustomFactScope || _roster == null || _snapshot == null
+            || !checkpoint.HasHeadHistoryContract || Timeline.LastRecordingFrame is uint previous && checkpoint.Frame < previous
+            || checkpoint.CustomWeaponDescriptor == null || CustomWeaponContext == null
+            || !checkpoint.CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(ReplayCustomWeaponDescriptor.ForInspection(CustomWeaponContext).CopyBytes()))
+            return false;
+        checkpoint.Payload.Retain();
+        var world = new ReplayTimelineRecord(checkpoint.Frame, _customReplayState!.World, ReplayFactKind.World, checkpoint.Payload);
+        try
+        {
+            if (!Timeline.AppendRestorePoint(new(checkpoint.Frame, world.ServerTick, ReplayRestoreKind.ReplicaCheckpoint, new[] { world }))) return false;
+            CheckpointCaptured?.Invoke(world); return true;
+        }
+        finally { world.Release(); }
+    }
+}

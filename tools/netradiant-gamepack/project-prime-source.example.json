@@ -1,0 +1,9 @@
+{
+  "schemaVersion": 1,
+  "mapId": "00000000-0000-0000-0000-000000000000",
+  "unitsPerPrimeUnit": 16,
+  "source": "arena.map",
+  "runtimeRoom": "ARENA",
+  "entities": [],
+  "textureAttribution": []
+}

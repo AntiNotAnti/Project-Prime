@@ -1,0 +1,18 @@
+<rml><head><title>Local Hunter selection</title>
+<link type="text/template" href="../../components/app-shell.rml"/>
+<link type="text/rcss" href="selection.rcss"/><link type="text/rcss" href="page.rcss"/>
+</head><body template="prime-shell"><div class="hunter-panel native-hunter-panel">
+<div class="eyebrow">LOCAL LOADOUT // NEXT DEPLOYMENT</div><h1 id="local_hunter_name">SELECT HUNTER</h1>
+<p id="local_hunter_status">APPLY TO SAVE YOUR CHOICE</p>
+<div class="hunter-choices">
+<button id="local_hunter0" data-action="hunter:select:0">SAMUS</button><button id="local_hunter1" data-action="hunter:select:1">KANDEN</button>
+<button id="local_hunter2" data-action="hunter:select:2">TRACE</button><button id="local_hunter3" data-action="hunter:select:3">SYLUX</button>
+<button id="local_hunter4" data-action="hunter:select:4">NOXUS</button><button id="local_hunter5" data-action="hunter:select:5">SPIRE</button>
+<button id="local_hunter6" data-action="hunter:select:6">WEAVEL</button></div>
+<div class="section-title">SUIT COLOR</div><div class="hunter-suits">
+<button id="local_suit0" data-action="hunter:suit:0">SUIT 1</button><button id="local_suit1" data-action="hunter:suit:1">SUIT 2</button>
+<button id="local_suit2" data-action="hunter:suit:2">SUIT 3</button><button id="local_suit3" data-action="hunter:suit:3">SUIT 4</button></div>
+<div class="hunter-actions"><button id="local_apply" class="primary" data-action="hunter:apply">EQUIP HUNTER / SUIT</button>
+<button id="local_discard" data-action="hunter:reset-preview">DISCARD CHANGES</button><button id="local_back" data-action="hunter:cancel">BACK</button></div>
+<p>Apply or discard your changes before returning. The selected Hunter and suit are used by your next local match.</p>
+</div></body></rml>

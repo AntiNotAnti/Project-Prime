@@ -1,0 +1,4 @@
+#native_resource_tabs { display:flex; flex-wrap:wrap; }
+#native_editor_frame #native_asset_detail,#native_editor_frame #native_resource_notices,#native_editor_frame #native_material_selection { display:block; width:98%; white-space:pre-wrap; word-break:break-all; font-size:11dp; color:#b8d7e8; }
+#native_editor_frame #native_asset_detail { max-height:25vh; overflow-y:auto; }
+#native_material_delete_panel,#native_asset_delete_panel { padding:6dp; background-color:#302619; border:1dp #dcb567; }

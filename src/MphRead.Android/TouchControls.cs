@@ -1,0 +1,1742 @@
+using System;
+using System.Collections.Generic;
+using MphRead.Mods.Input;
+
+namespace MphRead.Droid
+{
+    /// <summary>What a thumb can press. Each maps to one of the player's binds.</summary>
+    internal enum TouchAction
+    {
+        /// <summary>
+        /// FIRE, which is both attacks: the gun on foot and the alt form's
+        /// attack in the ball. There is no separate ALT action, because there
+        /// was never a separate button -- the DS had one, and the game's
+        /// defaults still bind both to it.
+        /// </summary>
+        Shoot,
+        Jump,
+        Morph,
+        /// <summary>Opens and closes the scan visor: the desktop's SCAN VISOR (E).</summary>
+        ScanVisor,
+        /// <summary>
+        /// Scans whatever is targeted, held: the desktop's SCAN (Q). Its own
+        /// button, because it is a second step rather than another way to
+        /// press VISOR -- reading an entry is not leaving the visor, and one
+        /// button trying to be both made a press mean either.
+        /// </summary>
+        Scan,
+        /// <summary>
+        /// Missile, and back again. The wheel is the six affinity weapons and
+        /// nothing else -- PlayerHud's weapon select has six slots, none of
+        /// them the Power Beam or the Missile -- so on a screen with no number
+        /// keys there was no way to reach a missile at all, in adventure or in
+        /// a match.
+        /// </summary>
+        Missile,
+        WeaponMenu,
+        Zoom,
+        Pause,
+        /// <summary>
+        /// The DS's own pause button, which is the map and status screen on
+        /// foot and the scoreboard while it is held in a match. MENU stopped
+        /// being that when it became the way to the app's own menu, and it is
+        /// still worth reaching.
+        /// </summary>
+        Scoreboard,
+        /// <summary>
+        /// Opens the chat line and asks for the soft keyboard. The desktop's
+        /// T, which a phone has no way to press.
+        ///
+        /// Hidden unless a networked match is running: offline there is nobody
+        /// to read it, and in the story it does not exist at all.
+        /// </summary>
+        Chat,
+        /// <summary>Save the rolling instant-replay buffer.</summary>
+        Clip,
+        // Optional direct-select weapon buttons. These are off by default and
+        // become useful on phones where a nine-way bank is faster than the
+        // weapon wheel, especially while aiming with a stylus.
+        PowerBeam,
+        MissileSelect,
+        VoltDriver,
+        Battlehammer,
+        Imperialist,
+        Judicator,
+        Magmaul,
+        ShockCoil,
+        OmegaCannon,
+        CustomWeapon,
+        CustomReload,
+        CustomOptic,
+        // Match TouchControl.Grapple; append only for saved instance actions.
+        Grapple = 24
+    }
+
+    internal sealed class TouchButton
+    {
+        public TouchAction Action { get; }
+        public int InstanceId { get; }
+        internal TouchButtonInstance? Instance { get; set; }
+
+        /// <summary>
+        /// What is written on it *now*. Not fixed: a spectator's screen is
+        /// the same dozen circles doing different jobs, and a button that
+        /// still says FIRE while it cycles players is a button nobody
+        /// presses. See <c>TouchControls.ApplyLayoutLocked</c>.
+        /// </summary>
+        public string Label { get; private set; }
+
+        private readonly string _defaultLabel;
+
+        /// <summary>Rename it, or pass null to put its own name back.</summary>
+        public void Relabel(string? label)
+        {
+            Label = label ?? _defaultLabel;
+        }
+        public float CentreX { get; set; }
+        public float CentreY { get; set; }
+        public float Radius { get; set; }
+        /// <summary>
+        /// Whether it is on screen at all. FIRE and SCAN share a place and
+        /// take turns: the visor cannot shoot and the gun cannot scan.
+        /// </summary>
+        public bool Visible { get; set; } = true;
+
+        public TouchButton(TouchAction action, string label, int instanceId = 0)
+        {
+            Action = action;
+            InstanceId = instanceId == 0 ? (int)action + 1 : instanceId;
+            Label = label;
+            _defaultLabel = label;
+        }
+
+        public bool Contains(float x, float y)
+        {
+            float dx = x - CentreX;
+            float dy = y - CentreY;
+            // a little forgiveness: thumbs are not precise and the gap between
+            // these is bigger than the slop
+            float reach = Radius * 1.15f;
+            return dx * dx + dy * dy <= reach * reach;
+        }
+    }
+
+    /// <summary>
+    /// The on-screen controls: where they are, what is being held, and how far
+    /// the aiming finger has moved since the last frame read it.
+    ///
+    /// Deliberately free of any Android type. The view draws what this
+    /// describes and reports touches to it; the game loop reads it. That split
+    /// is what lets the layout be reasoned about (and moved) without going
+    /// through a device.
+    ///
+    /// Touches arrive on the UI thread and are read on the GL thread, so
+    /// everything crossing that line is behind the lock.
+    /// </summary>
+    internal sealed class TouchControls
+    {
+        [Flags]
+        public enum Dir
+        {
+            None = 0,
+            Up = 1,
+            Down = 2,
+            Left = 4,
+            Right = 8
+        }
+
+        private readonly object _lock = new object();
+        private readonly StylusAimResponse _stylusResponse = new();
+        private bool _responseApplies = true;
+
+        // Renderers enumerate a stable publication while settings may rebuild
+        // instances on the game thread. Geometry objects remain managed.
+        private TouchButton[] _buttonSnapshot = Array.Empty<TouchButton>();
+        public IReadOnlyList<TouchButton> Buttons => System.Threading.Volatile.Read(ref _buttonSnapshot);
+        private readonly List<TouchButton> _buttons = new List<TouchButton>
+        {
+            // SCAN before FIRE: they sit in the same place, and the one that
+            // is visible is the one a thumb should find there.
+            new TouchButton(TouchAction.Scan, "SCAN") { Visible = false },
+            new TouchButton(TouchAction.Shoot, "FIRE"),
+            new TouchButton(TouchAction.Jump, "JUMP"),
+            new TouchButton(TouchAction.Morph, "MORPH"),
+            // No ALT button. It shared MouseButton.Left with FIRE -- the
+            // game's own default, the DS having had one attack button -- so
+            // it was a second way to press the thing FIRE presses, and having
+            // both is what stopped FIRE working at all. FIRE is both attacks
+            // now; see GameView.CollectInput. VISOR now sits where ALT did.
+            new TouchButton(TouchAction.ScanVisor, "VISOR"),
+            new TouchButton(TouchAction.Missile, "MSSL"),
+            new TouchButton(TouchAction.WeaponMenu, "WEAPON"),
+            new TouchButton(TouchAction.Zoom, "ZOOM"),
+            new TouchButton(TouchAction.Pause, "MENU"),
+            new TouchButton(TouchAction.Scoreboard, "SCORE"),
+            new TouchButton(TouchAction.Chat, "CHAT") { Visible = false },
+            new TouchButton(TouchAction.Clip, "CLIP") { Visible = false },
+            new TouchButton(TouchAction.PowerBeam, "PB") { Visible = false },
+            new TouchButton(TouchAction.MissileSelect, "MSL") { Visible = false },
+            new TouchButton(TouchAction.VoltDriver, "VOLT") { Visible = false },
+            new TouchButton(TouchAction.Battlehammer, "BH") { Visible = false },
+            new TouchButton(TouchAction.Imperialist, "IMP") { Visible = false },
+            new TouchButton(TouchAction.Judicator, "JUD") { Visible = false },
+            new TouchButton(TouchAction.Magmaul, "MAG") { Visible = false },
+            new TouchButton(TouchAction.ShockCoil, "COIL") { Visible = false },
+            new TouchButton(TouchAction.OmegaCannon, "OMEGA") { Visible = false },
+            // Custom actions remain opt-in layout choices, independent of the native wheel.
+            new TouchButton(TouchAction.CustomWeapon, "CUSTOM") { Visible = false },
+            new TouchButton(TouchAction.CustomReload, "RELOAD") { Visible = false },
+            new TouchButton(TouchAction.CustomOptic, "OPTIC") { Visible = false },
+            new TouchButton(TouchAction.Grapple, "GRAPPLE") { Visible = false }
+        };
+
+        public TouchControls() { _buttonSnapshot = _buttons.ToArray(); }
+
+        public float Width { get; private set; }
+        public float Height { get; private set; }
+        /// <summary>Screen density, so a swipe turns the same amount on any phone.</summary>
+        public float Density { get; private set; } = 1f;
+
+        // the movement stick, which appears where the thumb lands
+        public bool StickActive { get; private set; }
+        public float StickX { get; private set; }
+        public float StickY { get; private set; }
+        public float StickKnobX { get; private set; }
+        public float StickKnobY { get; private set; }
+        public float StickRadius { get; private set; }
+        public float StickKnobRadius { get; private set; }
+
+        // The controls step aside for a pad and come back at the first
+        // touch. See NotePadActivity.
+        private bool _padDriving;
+        private bool _forceVisible;
+
+        private readonly HashSet<TouchAction> _held = new HashSet<TouchAction>();
+        private readonly Dictionary<int, int> _buttonInstancePointers = new();
+        private int _instanceRevision = -1;
+        private readonly Dictionary<int, TouchAction> _buttonPointers = new Dictionary<int, TouchAction>();
+        private int _stickPointer = -1;
+        private int _aimPointer = -1;
+        private float _aimLastX;
+        private float _aimLastY;
+        private float _aimDeltaX;
+        private float _aimDeltaY;
+
+        // Android may deliver several finger positions in one MotionEvent. The
+        // simulation still consumes their exact total at 60 Hz, but rendering
+        // replays the batch over its original short time span so a 90/120/144
+        // Hz display sees motion instead of a hold followed by one large jump.
+        //
+        // These are deltas waiting for their render-time presentation moment.
+        // The fixed ring avoids allocating on the UI thread while a finger is
+        // moving. If Android ever hands us more than it can hold before the GL
+        // thread catches up, the newest entry absorbs the excess rather than
+        // dropping distance.
+        private const int AimPresentationCapacity = 96;
+        private readonly float[] _aimPresentationX = new float[AimPresentationCapacity];
+        private readonly float[] _aimPresentationY = new float[AimPresentationCapacity];
+        private readonly long[] _aimPresentationAt = new long[AimPresentationCapacity];
+        private int _aimPresentationHead;
+        private int _aimPresentationCount;
+        private float _aimPresentationOffsetX;
+        private float _aimPresentationOffsetY;
+
+        private float _aimAbsX;
+        private float _aimAbsY;
+        private bool _aimDown;
+        private Dir _direction;
+
+        // FIRE doubles as an aim drag: a thumb that presses FIRE and then
+        // moves keeps firing and steers the reticle, rather than releasing
+        // FIRE the instant it leaves the button's circle.
+        private int _fireAimPointer = -1;
+        private float _fireAimLastX;
+        private float _fireAimLastY;
+        private float _fireAimOriginX;
+        private float _fireAimOriginY;
+        private float _fireAimX;
+        private float _fireAimY;
+
+        // WEAPON is the same trick for a different reason: the finger that
+        // opens the wheel is also the one that picks off it. Press, drag into
+        // the weapon, let go -- one thumb, and the other one never leaves the
+        // stick. Without this the button releases the moment the finger slides
+        // out of its circle, which closes the wheel before anything can be
+        // chosen, so picking a weapon needed a second finger and standing
+        // still. Only the position is kept: the wheel reads where the finger
+        // is, never how far it moved, so this contributes nothing to the aim.
+        private int _wheelSelectionPointer = -1;
+        private bool _wheelSelectionMade;
+        private float _wheelSelectionX, _wheelSelectionY;
+        private int _wheelPointer = -1;
+        private float _wheelX;
+        private float _wheelY;
+
+        // A quick flick on the right side of the screen -- the aim side,
+        // where nothing else about movement is being controlled -- boosts
+        // in morph ball, the way a stylus flick did on the DS. See
+        // GameView.CollectInput and PlayerInput's boost handling for the
+        // other half of this. Tracked on both the free-look aim pointer and
+        // the FIRE-drag pointer, since either thumb might do the flick.
+        // Kanden/Spire/Noxus treat a drag as an anchored precision stick.
+        // Samus instead follows native Morph Ball semantics: only movement that
+        // happened since the last simulation step applies traction. 24 dp in a
+        // 60 Hz step reaches one full stock roll axis at 1x sensitivity.
+        private const float AltMoveDeadzoneDp = 18f;
+        private const float AltMoveFullScaleDp = 96f;
+        private const float SamusAltMoveFullScaleDp = 24f;
+        private const float SwipeBoostDistanceDp = 50f;
+        private const long SwipeBoostWindowMs = 120;
+        private const long SwipeBoostCooldownMs = 350;
+        private readonly SwipeTracker _aimSwipe = new SwipeTracker();
+        private readonly SwipeTracker _fireAimSwipe = new SwipeTracker();
+        // Zero, not long.MinValue: TickCount64 minus long.MinValue overflows
+        // to a large negative number, and the cooldown below would then never
+        // be satisfied -- which is exactly what stopped this firing at all.
+        private long _lastSwipeBoostTime;
+        private bool _swipeBoostPending;
+        private bool _swipeBoostEnabled;
+        private float _swipeBoostX;
+        private float _swipeBoostY;
+
+        // Two quick taps on the aiming side jump, the way two taps of the
+        // stylus did. A tap is a finger that went down and came up again
+        // without going anywhere, so this cannot be confused with the flick
+        // above it, which is nothing but going somewhere.
+        private const long TapMaxMs = 250;
+        private const long DoubleTapGapMs = 300;
+        private const float TapSlopDp = 16f;
+        private const float DoubleTapSpreadDp = 70f;
+        private long _tapDownTime;
+        private float _tapDownX;
+        private float _tapDownY;
+        private bool _tapMoved;
+        private long _lastTapTime;
+        private float _lastTapX;
+        private float _lastTapY;
+        private bool _doubleTapJumpPending;
+
+        /// <summary>
+        /// Whether a flick means anything right now -- it is the morph ball's
+        /// boost, so only in the ball. Off, the flick is left alone to be the
+        /// aim it looks like.
+        /// </summary>
+        public bool SwipeBoostEnabled
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _swipeBoostEnabled;
+                }
+            }
+            set
+            {
+                lock (_lock)
+                {
+                    _swipeBoostEnabled = value;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether the scan visor is open, which is what swaps FIRE for SCAN.
+        /// Set from the game thread, so a change repaints through
+        /// <see cref="Invalidated"/> rather than waiting for the next touch.
+        /// </summary>
+        public bool ScanVisorActive
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _scanVisorActive;
+                }
+            }
+            set
+            {
+                Change(() =>
+                {
+                    if (_scanVisorActive == value)
+                    {
+                        return false;
+                    }
+                    _scanVisorActive = value;
+                    return true;
+                });
+            }
+        }
+        private bool _scanVisorActive;
+
+        /// <summary>
+        /// Whether the CHAT button is on screen. Set once a frame from the
+        /// game loop, which is the only thing that knows whether a networked
+        /// match is running.
+        /// </summary>
+        public bool ChatEnabled
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _chatEnabled;
+                }
+            }
+            set
+            {
+                Change(() =>
+                {
+                    if (_chatEnabled == value)
+                    {
+                        return false;
+                    }
+                    _chatEnabled = value;
+                    return true;
+                });
+            }
+        }
+        private bool _chatEnabled;
+
+        /// <summary>
+        /// Whether the CLIP button is on screen. The rolling buffer exists only
+        /// during an active network match and may be disabled in Replay settings.
+        /// </summary>
+        public bool ClipEnabled
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _clipEnabled;
+                }
+            }
+            set
+            {
+                Change(() =>
+                {
+                    if (_clipEnabled == value)
+                    {
+                        return false;
+                    }
+                    _clipEnabled = value;
+                    if (!value) _pendingClipPresses = 0;
+                    return true;
+                });
+            }
+        }
+        private bool _clipEnabled;
+        private const int MaxPendingClipPresses = 16;
+        private int _pendingClipPresses;
+
+        /// <summary>
+        /// The screen a spectator gets: the same dozen circles, most of them
+        /// gone and the rest doing something else.
+        ///
+        /// Set once a frame from the game loop, which is the only thing that
+        /// knows either of these. Both at once rather than two properties,
+        /// because the layout depends on the pair and a screen laid out twice
+        /// from two half-answers flickers between them.
+        /// </summary>
+        public void SetSpectator(bool spectating, bool freeCamera)
+        {
+            Change(() =>
+            {
+                if (_spectating == spectating && _spectatorFreeCam == freeCamera)
+                {
+                    return false;
+                }
+                _spectating = spectating;
+                _spectatorFreeCam = freeCamera;
+                return true;
+            });
+        }
+
+        private bool _spectating;
+        private bool _spectatorFreeCam;
+
+        /// <summary>
+        /// The results screen is up, so the glass is a picker rather than a
+        /// pair of thumbsticks.
+        ///
+        /// Set once a frame from the game loop, like the spectator pair above
+        /// and for the same reason. Everything that drives a player goes away
+        /// while it is on: nothing a player presses reaches the world during
+        /// the results, so FIRE, JUMP, MORPH and the rest are twelve circles
+        /// sitting on top of the one thing on screen anybody wants to touch.
+        /// Menu, scoreboard, chat and clip stay -- they still do what they say,
+        /// and CLIP is most useful immediately after something worth saving.
+        /// </summary>
+        public void SetEndScreen(bool active)
+        {
+            Change(() =>
+            {
+                if (_endScreen == active)
+                {
+                    return false;
+                }
+                _endScreen = active;
+                if (!active)
+                {
+                    _tapPending = false;
+                }
+                return true;
+            });
+        }
+
+        private bool _endScreen;
+
+        /// <summary>
+        /// Rectangles on the HUD that take a tap instead of the world, as
+        /// window fractions in groups of four. Pushed once a frame by the
+        /// game loop from whatever it has just drawn -- currently the map
+        /// vote's accept and deny buttons.
+        ///
+        /// Kept as a list of boxes rather than a mode, because during a
+        /// running match the player still has to be able to aim: a tap
+        /// outside these is a tap on the world, and only the two small
+        /// rectangles in the corner are the vote's.
+        /// </summary>
+        public void SetTapTargets(float[] targets)
+        {
+            lock (_lock)
+            {
+                _tapTargets = targets;
+            }
+        }
+
+        private float[] _tapTargets = Array.Empty<float>();
+        private bool _tapPending;
+        private float _tapX;
+        private float _tapY;
+
+        /// <summary>
+        /// Remember a tap for the game loop, in window fractions. Called with
+        /// the lock held.
+        /// </summary>
+        private void NoteTapLocked(float x, float y)
+        {
+            _tapPending = true;
+            _tapX = x / Math.Max(Width, 1);
+            _tapY = y / Math.Max(Height, 1);
+        }
+
+        /// <summary>
+        /// The tap the glass captured for the HUD, in window fractions, or
+        /// nothing. Taken by the game loop, which is the thread that may act
+        /// on it -- touches arrive on the UI thread and the picker's state
+        /// belongs to the simulation.
+        /// </summary>
+        public (bool Got, float X, float Y) TakeTap()
+        {
+            lock (_lock)
+            {
+                if (!_tapPending)
+                {
+                    return (false, 0, 0);
+                }
+                _tapPending = false;
+                return (true, _tapX, _tapY);
+            }
+        }
+
+        /// <summary>
+        /// Whether a touch landed on one of the rectangles the HUD published
+        /// this frame. Called with the lock held.
+        ///
+        /// Asked <i>before</i> the round buttons rather than after them, which
+        /// is the whole of why voting did nothing on a phone: the vote's
+        /// ACCEPT and DENY sat in the top-left corner of the HUD and MENU,
+        /// SCORE and CHAT sit in the top-left corner of the glass, so every
+        /// tap meant for a ballot was eaten by whichever circle was over it.
+        /// These rectangles exist for a handful of seconds and only while
+        /// something is asking a question with them; a permanent control
+        /// underneath one has not been reached for.
+        /// </summary>
+        private bool TapHitsTargetLocked(float x, float y)
+        {
+            if (Width <= 0 || Height <= 0)
+            {
+                return false;
+            }
+            float fx = x / Width;
+            float fy = y / Height;
+            for (int i = 0; i + 3 < _tapTargets.Length; i += 4)
+            {
+                if (fx >= _tapTargets[i] && fx < _tapTargets[i + 2]
+                    && fy >= _tapTargets[i + 1] && fy < _tapTargets[i + 3])
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Whether a touch the buttons did not take belongs to the HUD rather
+        /// than to the world. Called with the lock held.
+        /// </summary>
+        private bool TapIsForHudLocked(float x, float y)
+        {
+            if (Width <= 0 || Height <= 0)
+            {
+                return false;
+            }
+            // The results screen takes everything the buttons did not: there
+            // is no world to aim at while it is up.
+            return _endScreen;
+        }
+
+        /// <summary>
+        /// Apply a change to what the screen shows, and repaint if it moved.
+        ///
+        /// The three callers used to each reach into <see cref="_buttons"/>
+        /// and set the visibility of the ones they knew about, which only
+        /// works while no two of them care about the same button. Spectating
+        /// cares about nine of them, so the layout is worked out in one place
+        /// now (<see cref="ApplyLayoutLocked"/>) from all of the state at
+        /// once, and these only say what changed.
+        ///
+        /// The mutation reports whether it moved anything, and does so from
+        /// inside the lock: these are set once a frame from the game thread
+        /// and read on the UI thread, so a comparison made outside it is a
+        /// comparison against a value that may already be stale.
+        /// </summary>
+        private void Change(Func<bool> mutate)
+        {
+            lock (_lock)
+            {
+                if (!mutate())
+                {
+                    return;
+                }
+                ApplyLayoutLocked();
+            }
+            Invalidated?.Invoke();
+        }
+
+        /// <summary>
+        /// Which buttons are on the screen and what they say, from every
+        /// piece of state that decides it. Called with the lock held.
+        /// </summary>
+        private void RefreshInstancesLocked()
+        {
+            int revision = TouchSettings.InstanceRevision;
+            if (_instanceRevision == revision) return;
+            ReleaseEverything();
+            _buttons.RemoveAll(b => b.Instance.HasValue);
+            foreach (var instance in TouchSettings.ExtraInstances)
+                _buttons.Add(new TouchButton((TouchAction)instance.Action,
+                    TouchSettings.ShortLabel(instance.Action), instance.Id) { Instance = instance });
+            System.Threading.Volatile.Write(ref _buttonSnapshot, _buttons.ToArray());
+            _instanceRevision = revision;
+        }
+
+        private void ApplyLayoutLocked()
+        {
+            RefreshInstancesLocked();
+            foreach (TouchButton button in _buttons)
+            {
+                bool visible;
+                string? label = null;
+                if (_endScreen)
+                {
+                    // The app-level controls that still mean something between
+                    // matches. Keep CLIP here so the last seconds can be saved
+                    // from the results screen instead of requiring a blind tap
+                    // before the match ends.
+                    visible = button.Action == TouchAction.Pause
+                        || button.Action == TouchAction.Scoreboard
+                        || button.Action == TouchAction.Chat && _chatEnabled
+                        || button.Action == TouchAction.Clip && _clipEnabled;
+                }
+                else if (_spectating)
+                {
+                    // Nothing a spectator presses does anything in the world:
+                    // PlayerEntity.ProcessInput skips the local player while
+                    // this is on. So the buttons that would shoot, scan, pick
+                    // a weapon or zoom go away, and the ones that are left are
+                    // renamed to what they now do.
+                    switch (button.Action)
+                    {
+                    case TouchAction.Shoot:
+                        // The desktop's left click.
+                        visible = true;
+                        label = "NEXT";
+                        break;
+                    case TouchAction.ScanVisor:
+                        // The desktop's camera/view switch.
+                        visible = true;
+                        label = "VIEW";
+                        break;
+                    case TouchAction.Missile:
+                        visible = MphRead.Mods.Network.DemoPlayback.IsActive;
+                        label = MphRead.Mods.Network.ReplayController.IsPaused
+                            || MphRead.Mods.Network.ReplayController.AtEnd
+                            ? "PLAY" : "PAUSE";
+                        break;
+                    case TouchAction.WeaponMenu:
+                        visible = MphRead.Mods.Network.DemoPlayback.IsActive;
+                        label = "-5S";
+                        break;
+                    case TouchAction.Zoom:
+                        visible = MphRead.Mods.Network.DemoPlayback.IsActive;
+                        label = "+5S";
+                        break;
+                    case TouchAction.Jump:
+                    case TouchAction.Morph:
+                        // Up and down on the free camera, and nothing at all
+                        // riding along behind somebody's eyes -- so they are
+                        // only there on the camera that can use them.
+                        visible = _spectatorFreeCam;
+                        label = button.Action == TouchAction.Jump ? "UP" : "DOWN";
+                        break;
+                    case TouchAction.Scoreboard:
+                    case TouchAction.Pause:
+                        visible = true;
+                        break;
+                    case TouchAction.Chat:
+                        visible = _chatEnabled;
+                        break;
+                    case TouchAction.Clip:
+                        visible = _clipEnabled;
+                        break;
+                    default:
+                        visible = false;
+                        break;
+                    }
+                }
+                else
+                {
+                    visible = button.Action switch
+                    {
+                        // FIRE and SCAN share a place and take turns: the
+                        // visor cannot shoot and the gun cannot scan.
+                        TouchAction.Scan => _scanVisorActive,
+                        TouchAction.Shoot => !_scanVisorActive,
+                        TouchAction.Chat => _chatEnabled,
+                        TouchAction.Clip => _clipEnabled,
+                        _ => true
+                    };
+                }
+                // And the player's own answer on top of the situation's: a
+                // button they have turned off is off wherever it would
+                // otherwise appear, spectating included. Hidden buttons take
+                // no touches either (see the hit test in Down), which is the
+                // point -- an aim drag that starts where ZOOM used to be is
+                // now an aim drag.
+                bool replayTransport = _spectating
+                    && MphRead.Mods.Network.DemoPlayback.IsActive
+                    && button.Action is TouchAction.Missile or TouchAction.WeaponMenu or TouchAction.Zoom;
+                button.Visible = visible
+                    && (button.Instance is { } instance
+                        ? TouchSettings.ButtonsVisible && instance.Enabled
+                        : replayTransport || TouchSettings.Shown(SettingOf(button.Action)));
+                button.Relabel(label);
+            }
+        }
+
+        /// <summary>
+        /// Which switch on the settings screen answers for this button.
+        /// </summary>
+        private static TouchControl SettingOf(TouchAction action)
+        {
+            return action switch
+            {
+                TouchAction.Shoot => TouchControl.Shoot,
+                TouchAction.Jump => TouchControl.Jump,
+                TouchAction.Morph => TouchControl.Morph,
+                TouchAction.ScanVisor => TouchControl.ScanVisor,
+                TouchAction.Scan => TouchControl.Scan,
+                TouchAction.Missile => TouchControl.Missile,
+                TouchAction.WeaponMenu => TouchControl.WeaponMenu,
+                TouchAction.Zoom => TouchControl.Zoom,
+                TouchAction.Pause => TouchControl.Pause,
+                TouchAction.Scoreboard => TouchControl.Scoreboard,
+                TouchAction.Chat => TouchControl.Chat,
+                TouchAction.Clip => TouchControl.Clip,
+                TouchAction.PowerBeam => TouchControl.PowerBeam,
+                TouchAction.MissileSelect => TouchControl.MissileSelect,
+                TouchAction.VoltDriver => TouchControl.VoltDriver,
+                TouchAction.Battlehammer => TouchControl.Battlehammer,
+                TouchAction.Imperialist => TouchControl.Imperialist,
+                TouchAction.Judicator => TouchControl.Judicator,
+                TouchAction.Magmaul => TouchControl.Magmaul,
+                TouchAction.ShockCoil => TouchControl.ShockCoil,
+                TouchAction.OmegaCannon => TouchControl.OmegaCannon,
+                TouchAction.CustomWeapon => TouchControl.CustomWeapon,
+                TouchAction.CustomReload => TouchControl.CustomReload,
+                TouchAction.CustomOptic => TouchControl.CustomOptic,
+                TouchAction.Grapple => TouchControl.Grapple,
+                _ => TouchControl.Chat
+            };
+        }
+
+        /// <summary>
+        /// The settings screen has been closed: re-read which buttons the
+        /// player wants and repaint. Called from the game loop, which is what
+        /// knows the pause menu has just been away.
+        /// </summary>
+        public void ReloadSettings()
+        {
+            lock (_lock)
+            {
+                _mode = TouchSettings.Mode;
+                ReleaseEverything();
+                // Position/scale/opacity settings may have changed while the
+                // settings UI covered the game. Re-resolve geometry even when
+                // Android did not resize the overlay.
+                if (Width > 0 && Height > 0)
+                {
+                    LayoutLocked(Width, Height, Density);
+                }
+                ApplyLayoutLocked();
+            }
+            Invalidated?.Invoke();
+        }
+
+        /// <summary>
+        /// Asked to repaint, for the changes that do not come from a touch.
+        /// The view sets this; nothing here knows what a view is.
+        /// </summary>
+        public Action? Invalidated { get; set; }
+
+        /// <summary>
+        /// Whether the controls are off the screen because a pad is being
+        /// held. Read by the view, which draws nothing while it is true.
+        /// </summary>
+        public bool PadDriving
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return HiddenLocked;
+                }
+            }
+        }
+
+        /// <summary>Called with the lock held.</summary>
+        private TouchMode _mode = TouchSettings.Mode;
+        private bool HiddenLocked => !_forceVisible && (_mode is TouchMode.AimOnly or TouchMode.Off
+            || _mode == TouchMode.Auto && _padDriving);
+        private bool AimOnlyLocked => !_forceVisible && _mode == TouchMode.AimOnly;
+        private bool InputBlockedLocked => !_forceVisible && (_mode == TouchMode.Off
+            || _mode == TouchMode.Auto && _padDriving);
+
+        /// <summary>One controller snapshot on the simulation owner. Meaningful
+        /// activity latches Auto until disconnect; resting stick noise cannot
+        /// take the touchscreen or repeatedly reveal/hide its buttons.</summary>
+        private string? _controllerDevice;
+        public void UpdateController(GamepadState state) => UpdateController(state, null);
+        public void UpdateControllerSnapshot(GamepadSnapshot snapshot) => UpdateController(snapshot.State, snapshot.DeviceId);
+        private void UpdateController(GamepadState state, string? deviceId)
+        {
+            bool before, after;
+            lock (_lock)
+            {
+                before = HiddenLocked;
+                bool wasBlocked = InputBlockedLocked;
+                string? nextDevice = state.Connected ? deviceId ?? "controller" : null;
+                bool handoff = _controllerDevice != nextDevice;
+                _controllerDevice = nextDevice;
+                if (handoff) _padDriving = false;
+                bool active = state.Connected && (state.Buttons != 0
+                    || MathF.Abs(state.LeftX) > .25f || MathF.Abs(state.LeftY) > .25f
+                    || MathF.Abs(state.RightX) > .25f || MathF.Abs(state.RightY) > .25f
+                    || state.LeftTrigger > .25f || state.RightTrigger > .25f);
+                bool modeChanged = _mode != TouchSettings.Mode;
+                _mode = TouchSettings.Mode;
+                _padDriving = state.Connected && (_padDriving || active);
+                after = HiddenLocked;
+                if (handoff || modeChanged || wasBlocked != InputBlockedLocked) ReleaseEverything();
+            }
+            Settle(before, after);
+        }
+
+        /// <summary>
+        /// Keep the controls on screen whatever the pad is doing.
+        ///
+        /// Set once a frame by the game loop, for the one thing a pad cannot
+        /// do: a dialog box is dismissed by pressing its OK button, which is
+        /// read as a *position* on what used to be a touch screen (see
+        /// PlayerDialog.CheckButtonPressed), and GamepadInput deliberately
+        /// drives no pointer. Hiding the controls through one of those would
+        /// be a story that cannot be continued.
+        ///
+        /// A flag the loop keeps setting rather than a one-shot "show
+        /// yourself", because a thumb still on the stick would otherwise put
+        /// them away again on the very next motion event and the box would
+        /// flicker for as long as the pad was held.
+        /// </summary>
+        public bool ForceVisible
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _forceVisible;
+                }
+            }
+            set
+            {
+                bool before;
+                bool after;
+                lock (_lock)
+                {
+                    before = HiddenLocked;
+                    if (_forceVisible != value) ReleaseEverything();
+                    _forceVisible = value;
+                    after = HiddenLocked;
+                }
+                Settle(before, after);
+            }
+        }
+
+        /// <summary>Re-evaluate the canonical controller snapshot after an event.</summary>
+        public void NotePadActivity()
+        {
+            UpdateControllerSnapshot(GamepadManager.Snapshot);
+        }
+
+        /// <summary>Notify the overlay only when visibility changes.</summary>
+        private void Settle(bool wasHidden, bool isHidden)
+        {
+            if (wasHidden == isHidden)
+            {
+                return;
+            }
+            Invalidated?.Invoke();
+        }
+
+        /// <summary>
+        /// Lay the controls out for a viewport of this size. Defaults still
+        /// resolve to the old phone layout; custom centres are normalized so
+        /// the same profile survives different aspect ratios and resolutions.
+        /// </summary>
+        public void Layout(float width, float height, float density)
+        {
+            lock (_lock)
+            {
+                LayoutLocked(width, height, density);
+            }
+        }
+
+        private void LayoutLocked(float width, float height, float density)
+        {
+            if (Width != width || Height != height || Density != density) ReleaseEverything();
+            RefreshInstancesLocked();
+            Width = width;
+            Height = height;
+            Density = density <= 0 ? 1f : density;
+            float h = Math.Max(1, height);
+            float stickScale = TouchSettings.StickScale;
+            StickRadius = 0.15f * h * stickScale;
+            StickKnobRadius = 0.06f * h * stickScale;
+
+            foreach (TouchButton button in _buttons)
+            {
+                TouchButtonGeometry geometry = button.Instance is { } instance
+                    ? TouchSettings.InstanceGeometry(instance, width, height, TouchSettings.ButtonScale)
+                    : TouchSettings.Geometry(SettingOf(button.Action), width, height);
+                button.CentreX = geometry.X;
+                button.CentreY = geometry.Y;
+                button.Radius = geometry.Radius;
+            }
+            ApplyLayoutLocked();
+        }
+
+        public bool IsInstanceHeld(int instanceId)
+        {
+            lock (_lock)
+            {
+                foreach (var pointer in _buttonInstancePointers)
+                    if (pointer.Value == instanceId) return true;
+                return false;
+            }
+        }
+
+        public bool IsHeld(TouchAction action)
+        {
+            lock (_lock)
+            {
+                return _held.Contains(action);
+            }
+        }
+
+        /// <summary>
+        /// Consume at most one queued physical clip press per game frame. A
+        /// short tap survives its release, and holding a finger never repeats.
+        /// Lifecycle cancellation discards queued presses with all other input.
+        /// </summary>
+        public bool TakeClipPress()
+        {
+            lock (_lock)
+            {
+                if (_pendingClipPresses == 0) return false;
+                _pendingClipPresses--;
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// The aim movement since this was last called, in game-window pixels,
+        /// and cleared by the call -- so a frame that reads it twice does not
+        /// turn twice.
+        ///
+        /// MotionEvent coordinates are already the SurfaceView's pixel
+        /// coordinates, which is exactly the unit the desktop mouse path feeds
+        /// into PlayerInput. Dividing them by Android density here used to
+        /// shrink aiming by 3-4x on modern phones before mouse sensitivity was
+        /// applied. Density still belongs to button sizing, tap slop and gesture
+        /// thresholds; it does not belong in relative camera motion.
+        /// </summary>
+        public (float X, float Y) TakeAimDelta(bool preservePresentation = true, bool useStylusResponse = true)
+        {
+            lock (_lock)
+            {
+                long now = Environment.TickCount64;
+                AdvanceAimPresentationLocked(now);
+                float x = _aimDeltaX;
+                float y = _aimDeltaY;
+                float sourceX = x, sourceY = y;
+                _aimDeltaX = 0;
+                _aimDeltaY = 0;
+                _responseApplies = useStylusResponse;
+                if (preservePresentation && useStylusResponse)
+                    (x, y) = _stylusResponse.Sample(TouchSettings.StylusResponse,
+                        _aimPointer != -1 || _fireAimPointer != -1, x, y);
+                else _stylusResponse.Reset();
+                if (useStylusResponse && TouchSettings.StylusResponse == TouchStylusResponse.Classic)
+                    preservePresentation = false;
+
+                if (preservePresentation)
+                {
+                    // The simulation is about to move its real camera by the
+                    // whole raw delta. Subtract that same amount from the
+                    // render-only offset so the picture does not jump at the
+                    // 60 Hz boundary. Any still-scheduled samples then bring
+                    // the offset smoothly back to zero at their presentation
+                    // times.
+                    _aimPresentationOffsetX -= x;
+                    _aimPresentationOffsetY -= y;
+                }
+                else
+                {
+                    ResetAimPresentationLocked();
+                }
+
+                Mods.Input.AimInputSourceTracker.Pointer(sourceX, sourceY, true, now);
+                return (x, y);
+            }
+        }
+
+        /// <summary>
+        /// Render-time touch movement relative to the most recently simulated
+        /// camera pose. Batched Android samples are advanced by their scheduled
+        /// presentation times; gameplay still receives the exact unsmoothed
+        /// total through <see cref="TakeAimDelta"/>.
+        /// </summary>
+        public (float X, float Y) PeekAimDelta()
+        {
+            lock (_lock)
+            {
+                if (_responseApplies && TouchSettings.StylusResponse == TouchStylusResponse.Classic)
+                {
+                    ResetAimPresentationLocked();
+                    return (0, 0);
+                }
+                AdvanceAimPresentationLocked(Environment.TickCount64);
+                return (_aimPresentationOffsetX, _aimPresentationOffsetY);
+            }
+        }
+
+        private void QueueAimPresentationLocked(float x, float y, long presentAt)
+        {
+            if (x == 0 && y == 0)
+            {
+                return;
+            }
+            if (_aimPresentationCount > 0)
+            {
+                int newest = (_aimPresentationHead + _aimPresentationCount - 1)
+                    % AimPresentationCapacity;
+                // A second MotionEvent can arrive before the tail of the
+                // previous batch has been presented. Keep the ring ordered so
+                // a newly delivered historical sample cannot sit behind a
+                // later timestamp and then release as another clump.
+                if (presentAt < _aimPresentationAt[newest])
+                {
+                    presentAt = _aimPresentationAt[newest];
+                }
+                if (_aimPresentationCount == AimPresentationCapacity)
+                {
+                    _aimPresentationX[newest] += x;
+                    _aimPresentationY[newest] += y;
+                    _aimPresentationAt[newest] = presentAt;
+                    return;
+                }
+            }
+            int index = (_aimPresentationHead + _aimPresentationCount)
+                % AimPresentationCapacity;
+            _aimPresentationX[index] = x;
+            _aimPresentationY[index] = y;
+            _aimPresentationAt[index] = presentAt;
+            _aimPresentationCount++;
+        }
+
+        private void AdvanceAimPresentationLocked(long now)
+        {
+            while (_aimPresentationCount > 0
+                && _aimPresentationAt[_aimPresentationHead] <= now)
+            {
+                _aimPresentationOffsetX += _aimPresentationX[_aimPresentationHead];
+                _aimPresentationOffsetY += _aimPresentationY[_aimPresentationHead];
+                _aimPresentationHead = (_aimPresentationHead + 1)
+                    % AimPresentationCapacity;
+                _aimPresentationCount--;
+            }
+        }
+
+        private void ResetAimPresentationLocked()
+        {
+            _aimPresentationHead = 0;
+            _aimPresentationCount = 0;
+            _aimPresentationOffsetX = 0;
+            _aimPresentationOffsetY = 0;
+        }
+
+        /// <summary>
+        /// Whether a swipe boost fired since this was last called, and which
+        /// way the flick went -- a unit vector in screen terms, X to the
+        /// right and Y downwards. Cleared by the call, so a frame that reads
+        /// it twice does not boost twice.
+        /// </summary>
+        public (bool Fired, float X, float Y) TakeSwipeBoost()
+        {
+            lock (_lock)
+            {
+                bool pending = _swipeBoostPending;
+                _swipeBoostPending = false;
+                return (pending, _swipeBoostX, _swipeBoostY);
+            }
+        }
+
+        /// <summary>
+        /// Whether the aiming side was tapped twice quickly, cleared by the
+        /// call. The DS jumped on a double tap and so does this.
+        /// </summary>
+        public bool TakeDoubleTapJump()
+        {
+            lock (_lock)
+            {
+                bool pending = _doubleTapJumpPending;
+                _doubleTapJumpPending = false;
+                return pending;
+            }
+        }
+
+        /// <summary>
+        /// Treat the whole screen as a place to point at, rather than the left
+        /// half as a stick.
+        ///
+        /// The DS had a touch screen and parts of this game still read a
+        /// position off it -- the dialog boxes and their OK button among them.
+        /// Those parts are drawn across the middle of the screen, which is the
+        /// seam between the stick and the aim, so half of an OK button lands on
+        /// a thumbstick that is not being used: the game is paused behind the
+        /// box. While one of those is up the split does more harm than good.
+        /// </summary>
+        public bool PointerIsAbsolute { get; set; }
+
+        /// <summary>Where the aiming finger is, for the parts that read a position.</summary>
+        /// <summary>The one aim finger eligible for DS Morph Ball contact; not the stick or wheel.</summary>
+        public (bool Down, int X, int Y) NativeMorphBallAim()
+        {
+            lock (_lock)
+            {
+                if (AimOnlyLocked) return (false, 0, 0);
+                float x = 0, y = 0;
+                bool down = false;
+                if (_aimPointer != -1)
+                {
+                    down = true; x = _aimAbsX; y = _aimAbsY;
+                }
+                else if (_fireAimPointer != -1)
+                {
+                    down = true; x = _fireAimX; y = _fireAimY;
+                }
+                return (down, (int)MathF.Round(Math.Clamp(x / Math.Max(1f, Width), 0f, 1f) * 255),
+                    (int)MathF.Round(Math.Clamp(y / Math.Max(1f, Height), 0f, 1f) * 191));
+            }
+        }
+
+        public (bool Down, float X, float Y) AimPosition()
+        {
+            lock (_lock)
+            {
+                return (_aimDown, _aimAbsX, _aimAbsY);
+            }
+        }
+
+        /// <summary>
+        /// Where the weapon wheel should read its cursor from.
+        ///
+        /// The aiming finger when there is one, and otherwise the finger
+        /// holding WEAPON. That order is what keeps both ways of using the
+        /// wheel: press and drag with one thumb, which is what it is for, and
+        /// the older hold-with-one-tap-with-another, which still works and is
+        /// what somebody who learnt it will do. A second finger put down
+        /// while the wheel is open is an explicit choice and wins.
+        ///
+        /// Separate from <see cref="AimPosition"/> rather than folded into it
+        /// because that one also answers for the dialog boxes, and a WEAPON
+        /// press has no business moving a cursor over an OK button.
+        /// </summary>
+        public (bool Down, float X, float Y) WeaponWheelPosition()
+        {
+            lock (_lock)
+            {
+                if (TouchSettings.DirectWeaponSelection && _wheelSelectionMade)
+                    return (true, _wheelSelectionX, _wheelSelectionY);
+                if (!TouchSettings.DirectWeaponSelection && _aimDown)
+                {
+                    return (true, _aimAbsX, _aimAbsY);
+                }
+                if (_wheelPointer != -1)
+                {
+                    return (true, _wheelX, _wheelY);
+                }
+                return (false, _aimAbsX, _aimAbsY);
+            }
+        }
+
+        public Dir Direction
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    return _direction;
+                }
+            }
+        }
+
+        public (bool Engaged, float X, float Y) AltMoveDrive
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    if (AimOnlyLocked) return (false, 0, 0);
+                    float deadZone = AltMoveDeadzoneDp * Density;
+                    float fullScale = AltMoveFullScaleDp * Density;
+                    float dx;
+                    float dy;
+                    if (_aimPointer != -1)
+                    {
+                        dx = _aimAbsX - _tapDownX;
+                        dy = _aimAbsY - _tapDownY;
+                    }
+                    else if (_fireAimPointer != -1)
+                    {
+                        dx = _fireAimX - _fireAimOriginX;
+                        dy = _fireAimY - _fireAimOriginY;
+                    }
+                    else
+                    {
+                        return (false, 0, 0);
+                    }
+                    (float X, float Y) drive = AltFormGesture.Drive(
+                        dx, dy, deadZone, fullScale,
+                        MphRead.Mods.InputSettings.AltSwipeSensitivity);
+                    return (true, drive.X, drive.Y);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Current simulation-step motion for Samus Morph Ball steering.
+        /// This deliberately peeks at the same raw accumulator TakeAimDelta()
+        /// consumes later in CollectInput, so movement and aim see the exact
+        /// same sample in the same frame, matching melonPrimeDS's input model.
+        /// Reading this does not consume or smooth the delta.
+        /// </summary>
+        public (bool Engaged, float X, float Y) SamusAltMoveDrive
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    if (AimOnlyLocked) return (false, 0, 0);
+                    // A release can arrive between the last move and the next
+                    // simulation step. Keep that pending motion eligible for
+                    // roll until TakeAimDelta consumes the same sample for aim.
+                    bool engaged = _aimPointer != -1 || _fireAimPointer != -1
+                        || _aimDeltaX != 0 || _aimDeltaY != 0;
+                    if (!engaged)
+                    {
+                        return (false, 0, 0);
+                    }
+                    float fullScale = MathF.Max(1, SamusAltMoveFullScaleDp * Density);
+                    (float X, float Y) drive = AltFormGesture.StockRollDrive(
+                        _aimDeltaX, _aimDeltaY, fullScale,
+                        MphRead.Mods.InputSettings.AltSwipeSensitivity);
+                    return (true, drive.X, drive.Y);
+                }
+            }
+        }
+
+        public void PointerDown(int pointerId, float x, float y)
+        {
+            if (!Single.IsFinite(x) || !Single.IsFinite(y)) return;
+            lock (_lock)
+            {
+                if (InputBlockedLocked) return;
+                if (AimOnlyLocked)
+                {
+                    if (_aimPointer != -1) return;
+                    _aimPointer = pointerId;
+                    _aimLastX = _aimAbsX = x;
+                    _aimLastY = _aimAbsY = y;
+                    _aimDown = true;
+                    return;
+                }
+                PointerDownLocked(pointerId, x, y);
+            }
+        }
+
+        /// <summary>Called with the lock already held.</summary>
+        private void PointerDownLocked(int pointerId, float x, float y)
+        {
+            if (TapHitsTargetLocked(x, y))
+            {
+                // Straight to the game loop as a point on the screen, and
+                // before the buttons get a look at it: see
+                // TapHitsTargetLocked. Not held, not dragged -- what is under
+                // it is a button on the HUD, and a press and a release in the
+                // same place is the whole gesture.
+                NoteTapLocked(x, y);
+                return;
+            }
+            if (TouchSettings.DirectWeaponSelection && _wheelPointer != -1)
+            {
+                if (_wheelSelectionPointer == -1)
+                {
+                    _wheelSelectionPointer = pointerId;
+                    _wheelSelectionMade = true;
+                    _wheelSelectionX = x;
+                    _wheelSelectionY = y;
+                }
+                return;
+            }
+            foreach (TouchButton button in _buttons)
+            {
+                if (button.Visible && button.Contains(x, y))
+                {
+                    bool newPointer = !_buttonPointers.ContainsKey(pointerId);
+                    _buttonPointers[pointerId] = button.Action;
+                    _buttonInstancePointers[pointerId] = button.InstanceId;
+                    _held.Add(button.Action);
+                    if (newPointer && button.Action == TouchAction.Clip && _clipEnabled)
+                        _pendingClipPresses = Math.Min(MaxPendingClipPresses, _pendingClipPresses + 1);
+                    // Both of the buttons that live under the aiming
+                    // thumb drag the aim as well: keeping a target
+                    // centred matters as much while scanning it as it
+                    // does while shooting at it.
+                    if (button.Action == TouchAction.Shoot || button.Action == TouchAction.Scan)
+                    {
+                        _fireAimPointer = pointerId;
+                        _fireAimLastX = x;
+                        _fireAimLastY = y;
+                        _fireAimOriginX = _fireAimX = x;
+                        _fireAimOriginY = _fireAimY = y;
+                        _fireAimSwipe.Reset();
+                    }
+                    else if (button.Action == TouchAction.WeaponMenu)
+                    {
+                        _wheelSelectionPointer = -1;
+                        _wheelSelectionMade = false;
+                        _wheelPointer = pointerId;
+                        _wheelX = x;
+                        _wheelY = y;
+                    }
+                    return;
+                }
+            }
+            if (TapIsForHudLocked(x, y))
+            {
+                NoteTapLocked(x, y);
+                return;
+            }
+            if (!PointerIsAbsolute && x < Width / 2 && _stickPointer == -1)
+            {
+                _stickPointer = pointerId;
+                StickActive = true;
+                StickX = x;
+                StickY = y;
+                StickKnobX = x;
+                StickKnobY = y;
+                _direction = Dir.None;
+                return;
+            }
+            if (_aimPointer == -1)
+            {
+                _aimPointer = pointerId;
+                _aimLastX = x;
+                _aimLastY = y;
+                _aimAbsX = x;
+                _aimAbsY = y;
+                _aimDown = true;
+                _aimSwipe.Reset();
+                _tapDownTime = Environment.TickCount64;
+                _tapDownX = x;
+                _tapDownY = y;
+                _tapMoved = false;
+            }
+        }
+
+        /// <summary>
+        /// The last few positions of one finger, for telling a flick from a
+        /// drag. Only the newest matter, so it is a small ring.
+        /// </summary>
+        private sealed class SwipeTracker
+        {
+            private const int Capacity = 12;
+            private readonly float[] _x = new float[Capacity];
+            private readonly float[] _y = new float[Capacity];
+            private readonly long[] _time = new long[Capacity];
+            private int _count;
+            private int _newest = -1;
+
+            public void Reset()
+            {
+                _count = 0;
+                _newest = -1;
+            }
+
+            public void Add(float x, float y, long now)
+            {
+                _newest = (_newest + 1) % Capacity;
+                _x[_newest] = x;
+                _y[_newest] = y;
+                _time[_newest] = now;
+                if (_count < Capacity)
+                {
+                    _count++;
+                }
+            }
+
+            /// <summary>
+            /// The furthest the finger has come from any sample still inside
+            /// the window -- and always from at least the one before this,
+            /// however old it is.
+            ///
+            /// That last part is the whole trick. A finger holding still
+            /// sends no MOVE events at all, so a flick that follows one can
+            /// arrive as a single jump whose predecessor is seconds old, and
+            /// a window that only trusted its own age would throw away
+            /// exactly the sample the flick lives in.
+            /// </summary>
+            public (float Distance, float X, float Y) Displacement(long now, long windowMs)
+            {
+                if (_count < 2)
+                {
+                    return (0, 0, 0);
+                }
+                float newestX = _x[_newest];
+                float newestY = _y[_newest];
+                float best = 0;
+                float bestX = 0;
+                float bestY = 0;
+                for (int i = 1; i < _count; i++)
+                {
+                    int index = (_newest - i + Capacity) % Capacity;
+                    if (i > 1 && now - _time[index] > windowMs)
+                    {
+                        break;
+                    }
+                    float dx = newestX - _x[index];
+                    float dy = newestY - _y[index];
+                    float distance = dx * dx + dy * dy;
+                    if (distance > best)
+                    {
+                        best = distance;
+                        bestX = dx;
+                        bestY = dy;
+                    }
+                }
+                return (MathF.Sqrt(best), bestX, bestY);
+            }
+        }
+
+        /// <summary>Called with the lock already held.</summary>
+        private void CheckSwipeBoost(SwipeTracker tracker, float x, float y, long now)
+        {
+            tracker.Add(x, y, now);
+            if (!_swipeBoostEnabled || now - _lastSwipeBoostTime < SwipeBoostCooldownMs)
+            {
+                return;
+            }
+            float threshold = SwipeBoostDistanceDp * Density;
+            (float distance, float dx, float dy) = tracker.Displacement(now, SwipeBoostWindowMs);
+            if (distance > threshold)
+            {
+                _swipeBoostPending = true;
+                // Kept as a direction rather than a length: how hard the flick
+                // was does not set how hard the boost is (it is always a full
+                // charge), only which way it goes.
+                _swipeBoostX = dx / distance;
+                _swipeBoostY = dy / distance;
+                _lastSwipeBoostTime = now;
+                tracker.Reset();
+                // The flick was the boost, not a look. Letting it through as
+                // aim as well would swing the camera through the whole of it.
+                _aimDeltaX = 0;
+                _aimDeltaY = 0;
+                ResetAimPresentationLocked();
+            }
+        }
+
+        public bool PointerMove(int pointerId, float x, float y,
+            long eventTime, long presentAt)
+        {
+            if (!Single.IsFinite(x) || !Single.IsFinite(y)) return false;
+            lock (_lock)
+            {
+                if (InputBlockedLocked) return false;
+                if (pointerId == _wheelSelectionPointer)
+                {
+                    _wheelSelectionX = x;
+                    _wheelSelectionY = y;
+                    return false;
+                }
+                if (pointerId == _stickPointer)
+                {
+                    float dx = x - StickX;
+                    float dy = y - StickY;
+                    float length = MathF.Sqrt(dx * dx + dy * dy);
+                    if (length > StickRadius)
+                    {
+                        // the stick follows a thumb that has slid past its edge,
+                        // rather than sticking at the rim and losing the input
+                        StickX += dx * (1 - StickRadius / length);
+                        StickY += dy * (1 - StickRadius / length);
+                        dx = x - StickX;
+                        dy = y - StickY;
+                        length = StickRadius;
+                    }
+                    StickKnobX = x;
+                    StickKnobY = y;
+                    _direction = Dir.None;
+                    float deadzone = StickRadius * 0.28f;
+                    if (length > deadzone)
+                    {
+                        // eight-way, like the d-pad this stands in for: the
+                        // engine's movement is a set of held keys, not an axis
+                        float angle = MathF.Atan2(-dy, dx) * (180f / MathF.PI);
+                        if (angle < 0)
+                        {
+                            angle += 360f;
+                        }
+                        if (angle > 22.5f && angle < 157.5f)
+                        {
+                            _direction |= Dir.Up;
+                        }
+                        if (angle > 202.5f && angle < 337.5f)
+                        {
+                            _direction |= Dir.Down;
+                        }
+                        if (angle > 112.5f && angle < 247.5f)
+                        {
+                            _direction |= Dir.Left;
+                        }
+                        if (angle < 67.5f || angle > 292.5f)
+                        {
+                            _direction |= Dir.Right;
+                        }
+                    }
+                    return true;
+                }
+                if (pointerId == _aimPointer)
+                {
+                    if (!AimOnlyLocked) CheckSwipeBoost(_aimSwipe, x, y, eventTime);
+                    if (!_tapMoved)
+                    {
+                        float tapDx = x - _tapDownX;
+                        float tapDy = y - _tapDownY;
+                        float slop = TapSlopDp * Density;
+                        _tapMoved = tapDx * tapDx + tapDy * tapDy > slop * slop;
+                    }
+                    float dx = x - _aimLastX;
+                    float dy = y - _aimLastY;
+                    (dx, dy) = StylusAimResponse.BoundDelta(dx, dy);
+                    _aimDeltaX += dx;
+                    _aimDeltaY += dy;
+                    QueueAimPresentationLocked(dx, dy, presentAt);
+                    _aimLastX = x;
+                    _aimLastY = y;
+                    _aimAbsX = x;
+                    _aimAbsY = y;
+                    return false;
+                }
+                if (pointerId == _fireAimPointer)
+                {
+                    // FIRE stays held here regardless of how far the thumb
+                    // drags: this pointer skips the "slides off a button
+                    // releases it" rule below on purpose.
+                    CheckSwipeBoost(_fireAimSwipe, x, y, eventTime);
+                    float dx = x - _fireAimLastX;
+                    float dy = y - _fireAimLastY;
+                    (dx, dy) = StylusAimResponse.BoundDelta(dx, dy);
+                    _aimDeltaX += dx;
+                    _aimDeltaY += dy;
+                    QueueAimPresentationLocked(dx, dy, presentAt);
+                    _fireAimLastX = x;
+                    _fireAimLastY = y;
+                    _fireAimX = x;
+                    _fireAimY = y;
+                    return false;
+                }
+                if (pointerId == _wheelPointer)
+                {
+                    // Same exemption, and for the same reason: the drag off
+                    // WEAPON *is* the gesture, so it must not be read as
+                    // letting go of the button. No aim delta -- see the field.
+                    _wheelX = x;
+                    _wheelY = y;
+                    return false;
+                }
+                // a thumb that slides off a button releases it, and one that
+                // slides onto another does not press it: a button press is
+                // where the finger landed
+                if (_buttonPointers.TryGetValue(pointerId, out TouchAction action))
+                {
+                    foreach (TouchButton button in _buttons)
+                    {
+                        if (_buttonInstancePointers.TryGetValue(pointerId, out int instanceId) && button.InstanceId == instanceId)
+                        {
+                            if (!button.Contains(x, y))
+                            {
+                                _buttonPointers.Remove(pointerId);
+                                _buttonInstancePointers.Remove(pointerId);
+                                ReleaseAction(action);
+                                return true;
+                            }
+                            return false;
+                        }
+                    }
+                }
+                return false;
+            }
+        }
+
+        public void PointerUp(int pointerId)
+        {
+            lock (_lock)
+            {
+                if (pointerId == _wheelSelectionPointer)
+                {
+                    _wheelSelectionPointer = -1;
+                    return;
+                }
+                if (pointerId == _stickPointer)
+                {
+                    _stickPointer = -1;
+                    StickActive = false;
+                    _direction = Dir.None;
+                    return;
+                }
+                if (pointerId == _aimPointer)
+                {
+                    _aimPointer = -1;
+                    _aimDown = false;
+                    if (_fireAimPointer == -1) _stylusResponse.Reset();
+                    _aimSwipe.Reset();
+                    long up = Environment.TickCount64;
+                    if (!AimOnlyLocked && !_tapMoved && up - _tapDownTime <= TapMaxMs)
+                    {
+                        float spread = DoubleTapSpreadDp * Density;
+                        float sinceX = _tapDownX - _lastTapX;
+                        float sinceY = _tapDownY - _lastTapY;
+                        if (up - _lastTapTime <= DoubleTapGapMs
+                            && sinceX * sinceX + sinceY * sinceY <= spread * spread)
+                        {
+                            _doubleTapJumpPending = true;
+                            // Spent: a third tap starts a new pair rather than
+                            // jumping again off the second one.
+                            _lastTapTime = 0;
+                        }
+                        else
+                        {
+                            _lastTapTime = up;
+                            _lastTapX = _tapDownX;
+                            _lastTapY = _tapDownY;
+                        }
+                    }
+                    return;
+                }
+                if (pointerId == _fireAimPointer)
+                {
+                    _fireAimPointer = -1;
+                    if (_aimPointer == -1) _stylusResponse.Reset();
+                    _fireAimSwipe.Reset();
+                }
+                if (pointerId == _wheelPointer)
+                {
+                    // Cleared before the button is released, so the frame that
+                    // sees the wheel close no longer reads a stale position.
+                    _wheelPointer = -1;
+                }
+                _buttonInstancePointers.Remove(pointerId);
+                if (_buttonPointers.Remove(pointerId, out TouchAction action))
+                {
+                    ReleaseAction(action);
+                }
+            }
+        }
+
+        public void ReleaseEverything()
+        {
+            lock (_lock)
+            {
+                _stylusResponse.Reset();
+                _responseApplies = true;
+                _buttonPointers.Clear();
+                _buttonInstancePointers.Clear();
+                _held.Clear();
+                _pendingClipPresses = 0;
+                _stickPointer = -1;
+                _aimPointer = -1;
+                _aimDown = false;
+                _fireAimPointer = -1;
+                _wheelPointer = -1;
+                _wheelSelectionPointer = -1;
+                _wheelSelectionMade = false;
+                _tapPending = false;
+                _swipeBoostPending = false;
+                _doubleTapJumpPending = false;
+                _lastTapTime = 0;
+                _aimSwipe.Reset();
+                _fireAimSwipe.Reset();
+                StickActive = false;
+                _direction = Dir.None;
+                _aimDeltaX = 0;
+                _aimDeltaY = 0;
+                ResetAimPresentationLocked();
+            }
+        }
+
+        private void ReleaseAction(TouchAction action)
+        {
+            // two fingers can hold the same button; it is up when the last one is
+            foreach (KeyValuePair<int, TouchAction> pair in _buttonPointers)
+            {
+                if (pair.Value == action)
+                {
+                    return;
+                }
+            }
+            _held.Remove(action);
+        }
+    }
+}

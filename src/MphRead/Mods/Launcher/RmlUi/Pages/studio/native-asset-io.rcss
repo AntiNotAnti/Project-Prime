@@ -1,0 +1,5 @@
+#native_asset_io_panel { width:100%; margin-bottom:12dp; }
+#native_editor_frame #native_asset_io_panel button { display:block; width:98%; max-width:98%; white-space:normal; text-align:left; margin:3dp 0; }
+#native_asset_io_panel input { width:98%; }
+#native_asset_io_source_name,#native_asset_io_destination_name { font-weight:bold; color:#fff0c1; }
+#native_editor_frame #native_asset_io_source_path,#native_editor_frame #native_asset_io_destination_path,#native_editor_frame #native_asset_io_summary,#native_editor_frame #native_asset_io_status { display:block; width:98%; white-space:pre-wrap; word-break:break-all; max-height:120dp; overflow-y:auto; }

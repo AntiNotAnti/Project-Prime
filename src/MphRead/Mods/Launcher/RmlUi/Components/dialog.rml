@@ -1,0 +1,11 @@
+<template name="prime-dialog" content="dialog_content">
+    <head>
+        <link type="text/rcss" href="../themes/prime.rcss" />
+        <link type="text/rcss" href="controls.rcss" />
+        <link type="text/rcss" href="dialog.rcss" />
+    </head>
+    <body class="prime_modal">
+        <div id="dialog_backdrop" />
+        <div id="dialog_content" />
+    </body>
+</template>

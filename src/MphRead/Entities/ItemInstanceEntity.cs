@@ -1,0 +1,385 @@
+using System;
+using System.Collections.Generic;
+using MphRead.Effects;
+using MphRead.Formats;
+using MphRead.Formats.Culling;
+using MphRead.Formats.Collision;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    public readonly struct ItemInstanceEntityData
+    {
+        public readonly Vector3 Position;
+        public readonly ItemType ItemType;
+        public readonly int DespawnTimer;
+
+        public ItemInstanceEntityData(Vector3 position, ItemType type, int despawnTimer)
+        {
+            Position = position;
+            ItemType = type;
+            DespawnTimer = despawnTimer;
+        }
+    }
+
+    // todo: preallocation
+    public class ItemInstanceEntity : SpinningEntityBase
+    {
+        internal Mods.Network.PowerUpSpawnKey? ModPickupSpawn { get; set; }
+        internal bool ModPickupHidden { get; set; }
+        public int TokenId { get; set; }
+        public int TokenVictimSlot { get; set; } = -1;
+        public int TokenTeam { get; set; } = -1;
+        public int TokenValue { get; set; }
+        public ItemType ItemType { get; }
+        private EffectEntry? _effectEntry = null;
+        private bool _linkDone = false;
+        public int ParentId { get; set; } = -1;
+        private EntityBase? _parent = null;
+        private Vector3 _invPos;
+        private ulong _occlusionFrame = ulong.MaxValue;
+        private Vector3 _occlusionCamera, _occlusionPosition;
+        private bool _occlusionVisible = true;
+
+        // Explicit escape hatch while Ice Hive and authored transparent
+        // collision surfaces receive real-device visual acceptance.
+        private static readonly bool _legacyItemVisibility =
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_LEGACY_ITEM_VIS") == "1"
+            || Array.Exists(Environment.GetCommandLineArgs(), a =>
+                a.Equals("-gllegacyitemvis", StringComparison.OrdinalIgnoreCase));
+
+        public int DespawnTimer { get; set; } = -1;
+        public ItemSpawnEntity? Owner { get; set; }
+        public NodeData3? ClosestNode { get; set; } = null;
+
+        private static readonly IReadOnlyList<int> _scanIds = new int[22]
+        {
+            9, 11, 12, 0, 10, 21, 13, 23, 22, 18, 20, 19, 28, 14, 15, 16, 17, 0, 24, 463, 0, 0
+        };
+
+        public ItemInstanceEntity(ItemInstanceEntityData data, NodeRef nodeRef, Scene scene)
+            : base(0.35f, Vector3.UnitY, 0, 0, EntityType.ItemInstance, nodeRef, scene)
+        {
+            Position = data.Position;
+            // Dynamic drops have no shared spawn ID: use the room fallback rather
+            // than positions, which can differ between authority and replicas.
+            ItemType = Mods.Multiplayer.WeaponResourceRules.Resolve(data.ItemType, scene.GameState.NoImperialist,
+                scene.Room?.Meta.Name ?? "", 0);
+            _scanId = _scanIds[(int)ItemType];
+            if (_scene.GameState.Multiplayer && _scene.GameState.AffinityWeapons && (ItemType == ItemType.VoltDriver
+                || ItemType == ItemType.Battlehammer || ItemType == ItemType.Imperialist
+                || ItemType == ItemType.Judicator || ItemType == ItemType.Magmaul || ItemType == ItemType.ShockCoil))
+            {
+                ItemType = ItemType.AffinityWeapon;
+            }
+            SetUpModel(Metadata.Items[(int)ItemType]);
+            if (data.DespawnTimer > 0)
+            {
+                DespawnTimer = data.DespawnTimer;
+            }
+        }
+
+        internal static ItemInstanceEntity CreateReplayDrop(Mods.Network.ReplayDropState drop, Scene scene)
+        {
+            if (!scene.Services.IsReplica) throw new InvalidOperationException("Historical drops require a private scene.");
+            return new(new(drop.Position, drop.Type, drop.DespawnTimer), scene.Room!.GetNodeRefByPosition(drop.Position), scene)
+            { Id = -2 - drop.Identity };
+        }
+
+        public override void Initialize()
+        {
+            base.Initialize();
+            // Direct dynamic creators do not pass through ItemSpawnEntity.
+            if (!Mods.Network.NetPowerUpLedger.Register(this)) DespawnTimer = 0;
+            if (ItemType == ItemType.ArtifactKey && TokenId == 0)
+            {
+                Matrix4 transform = Matrix.GetTransform4(Vector3.UnitX, Vector3.UnitY, Position);
+                _effectEntry = _scene.SpawnEffectGetEntry(144, transform); // artifactKeyEffect
+                _effectEntry?.SetElementExtension(true);
+            }
+        }
+
+        public override void GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing)
+        {
+            position = Position;
+            up = Vector3.UnitY;
+            facing = Vector3.UnitZ;
+        }
+
+        private static readonly IReadOnlyList<int> _sfxIds = new int[22]
+        {
+            33, 33, 33, -1, 34, -1, 34, -1, -1, -1, -1, -1, -1, 33, 33, 33, 33, -1, -1, -1, -1, -1
+        };
+
+        public override bool Process()
+        {
+            Mods.Network.TimedPickupProjection.Update(this);
+            if (TokenId > 0 && DespawnTimer > 0)
+                Mods.Multiplayer.TokenRules.Process(_scene, this);
+            if (!_linkDone && ParentId != -1)
+            {
+                if (_scene.TryGetEntity(ParentId, out EntityBase? parent))
+                {
+                    _parent = parent;
+                }
+                if (_parent != null)
+                {
+                    _invPos = Matrix.Vec3MultMtx4(Position, _parent.CollisionTransform.Inverted());
+                }
+                _linkDone = true;
+            }
+            if (_linkDone && _parent != null)
+            {
+                Position = Matrix.Vec3MultMtx4(_invPos, _parent.CollisionTransform);
+            }
+            _soundSource.Update(Position, rangeIndex: 7);
+            UpdateNodeRefVolume();
+            if (_effectEntry != null)
+            {
+                Matrix4 transform = GetTransformMatrix(Vector3.UnitX, Vector3.UnitY, Position);
+                _effectEntry.Transform(Position, transform);
+            }
+            if (DespawnTimer > 0)
+            {
+                DespawnTimer--;
+            }
+            if (DespawnTimer == 0)
+            {
+                if (Owner != null)
+                {
+                    if (ReferenceEquals(Owner.Item, this)) Owner.Item = null;
+                    if (_scene.GameState.SinglePlayer)
+                    {
+                        _scene.GameState.StorySave.SetRoomState(_scene.RoomId, Owner.Id, state: 1);
+                        if (!Owner.AlwaysActive)
+                        {
+                            Owner.Active = false;
+                        }
+                    }
+                }
+                if (_effectEntry != null)
+                {
+                    _scene.DetachEffectEntry(_effectEntry, setExpired: false);
+                    _effectEntry = null;
+                }
+                return false;
+            }
+            int sfx = _sfxIds[(int)ItemType];
+            if (sfx != -1)
+            {
+                _soundSource.PlaySfx(sfx, loop: true);
+            }
+            if (Owner == null && _scene.GameState.SinglePlayer && _scene.Players.Main.EquipInfo.Weapon != null)
+            {
+                EquipInfo equip = _scene.Players.Main.EquipInfo;
+                if (equip.ChargeLevel >= equip.Weapon.MinCharge * 2) // todo: FPS stuff
+                {
+                    // todo: visualize
+                    Vector3 between = _scene.Players.Main.Position - Position;
+                    float distSqr = between.LengthSquared;
+                    if (distSqr > 0 && distSqr < 20 * 20)
+                    {
+                        // hyperbolic function -- (20 - x) / (80 * x)
+                        float distance = MathF.Sqrt(distSqr);
+                        float div = distance / 20;
+                        float pct = (1 - div) / distance;
+                        Position += between * (pct / (4 * 2)); // todo: FPS stuff
+                    }
+                }
+            }
+            return base.Process();
+        }
+
+        public void OnPickedUp(PlayerEntity? picker = null)
+        {
+            DespawnTimer = 0;
+            Owner?.OnItemPickedUp(picker);
+            if (_scene.GameState.SinglePlayer)
+            {
+                int scanId = GetScanId();
+                _scene.GameState.StorySave.UpdateLogbook(scanId);
+            }
+        }
+
+        internal static bool FullyOccludedBySamples(
+            bool center, bool left, bool right, bool top, bool bottom)
+            => center && left && right && top && bottom;
+
+        private bool PickupSampleBlocked(Vector3 camera, Vector3 sample)
+        {
+            float length = (sample - camera).Length;
+            if (length < .25f)
+                return false;
+            CollisionResult hit = default;
+            return CollisionDetection.CheckBetweenPoints(
+                camera, sample, TestFlags.Players, _scene, ref hit)
+                && hit.Distance < 1f - MathF.Min(.1f / length, .25f);
+        }
+
+        private bool IsPickupVisuallyVisible()
+        {
+            if (_legacyItemVisibility || _scene.Room == null
+                || (_scene.CameraMode != CameraMode.Player
+                    && !_scene.Services.IsReplica))
+                return true;
+            Vector3 camera = _scene.CameraPosition;
+            Vector3 toPickup = Position - camera;
+            if (toPickup.LengthSquared <= .25f)
+                return true;
+
+            // Cache across render-only frames, not across large camera/item
+            // movements or more than 3 fixed simulation steps.
+            const float motionSquared = .01f;
+            ulong frame = _scene.FrameCount;
+            if (_occlusionFrame != ulong.MaxValue && frame >= _occlusionFrame
+                && frame - _occlusionFrame < 3
+                && (camera - _occlusionCamera).LengthSquared < motionSquared
+                && (Position - _occlusionPosition).LengthSquared < motionSquared)
+                return _occlusionVisible;
+            _occlusionFrame = frame;
+            _occlusionCamera = camera;
+            _occlusionPosition = Position;
+            Vector3 right = Vector3.Cross(toPickup, Vector3.UnitY);
+            right = right.LengthSquared > .0001f ? right.Normalized() : Vector3.UnitX;
+            const float radius = .27f;
+            _occlusionVisible = !FullyOccludedBySamples(
+                PickupSampleBlocked(camera, Position),
+                PickupSampleBlocked(camera, Position + right * radius),
+                PickupSampleBlocked(camera, Position - right * radius),
+                PickupSampleBlocked(camera, Position + Vector3.UnitY * radius),
+                PickupSampleBlocked(camera, Position - Vector3.UnitY * radius));
+            return _occlusionVisible;
+        }
+
+        public override void GetDrawInfo()
+        {
+            bool visible = !ModPickupHidden && IsVisible(NodeRef) && IsPickupVisuallyVisible();
+            // Effects are drawn from a separate queue; keep the artifact
+            // aura's visibility coherent with the physical pickup.
+            _effectEntry?.SetDrawEnabled(visible);
+            if (visible)
+                base.GetDrawInfo();
+        }
+
+        public override void Destroy()
+        {
+            Mods.Network.NetPowerUpLedger.Remove(this);
+            if (_effectEntry != null)
+            {
+                _scene.UnlinkEffectEntry(_effectEntry);
+            }
+            _soundSource.StopAllSfx(force: true);
+            base.Destroy();
+        }
+    }
+
+    public readonly struct FhItemInstanceEntityData
+    {
+        public readonly Vector3 Position;
+        public readonly FhItemType ItemType;
+
+        public FhItemInstanceEntityData(Vector3 position, FhItemType type)
+        {
+            Position = position;
+            ItemType = type;
+        }
+    }
+
+    public class FhItemEntity : SpinningEntityBase
+    {
+        public FhItemEntity(FhItemInstanceEntityData data, Scene scene)
+            : base(0.35f, Vector3.UnitY, 0, 0, EntityType.FhItemInstance, scene)
+        {
+            // note: the actual height at creation is 1.0f greater than the spawner's,
+            // but 0.5f is subtracted when drawing (after the floating calculation)
+            Position = data.Position.AddY(0.5f);
+            SetUpModel(Metadata.FhItems[(int)data.ItemType], firstHunt: true);
+        }
+    }
+
+    public abstract class SpinningEntityBase : EntityBase
+    {
+        private float _spin;
+        private readonly float _spinSpeed;
+        private readonly Vector3 _spinAxis;
+        protected int _spinModelIndex;
+        protected int _floatModelIndex;
+
+        internal static void ResetReplayRotation()
+        {
+            if (global::MphRead.GameState.Current.Owner is Scene scene) scene.NextItemRotation = 0;
+        }
+
+        public SpinningEntityBase(float spinSpeed, Vector3 spinAxis,
+            EntityType type, Scene scene) : base(type, scene)
+        {
+            _spin = GetItemRotation();
+            _spinSpeed = spinSpeed;
+            _spinAxis = spinAxis;
+            _spinModelIndex = -1;
+            _floatModelIndex = -1;
+        }
+
+        public SpinningEntityBase(float spinSpeed, Vector3 spinAxis, int spinModelIndex,
+            EntityType type, Scene scene) : base(type, scene)
+        {
+            _spin = GetItemRotation();
+            _spinSpeed = spinSpeed;
+            _spinAxis = spinAxis;
+            _spinModelIndex = spinModelIndex;
+            _floatModelIndex = -1;
+        }
+
+        public SpinningEntityBase(float spinSpeed, Vector3 spinAxis, int spinModelIndex, int floatModelIndex,
+            EntityType type, Scene scene) : base(type, scene)
+        {
+            _spin = GetItemRotation();
+            _spinSpeed = spinSpeed;
+            _spinAxis = spinAxis;
+            _spinModelIndex = spinModelIndex;
+            _floatModelIndex = floatModelIndex;
+        }
+
+        public SpinningEntityBase(float spinSpeed, Vector3 spinAxis, int spinModelIndex, int floatModelIndex,
+            EntityType type, NodeRef nodeRef, Scene scene) : base(type, nodeRef, scene)
+        {
+            _spin = GetItemRotation();
+            _spinSpeed = spinSpeed;
+            _spinAxis = spinAxis;
+            _spinModelIndex = spinModelIndex;
+            _floatModelIndex = floatModelIndex;
+        }
+
+        public override bool Process()
+        {
+            _spin = (float)(_spin + _scene.FrameTime * 360 * _spinSpeed) % 360;
+            return base.Process();
+        }
+
+        protected override Matrix4 GetModelTransform(ModelInstance inst, int index)
+        {
+            var transform = Matrix4.CreateScale(inst.Model.Scale);
+            if (index == _spinModelIndex)
+            {
+                transform *= Matrix.GetTransformSRT(Vector3.One, new Vector3(
+                    MathHelper.DegreesToRadians(_spinAxis.X * _spin),
+                    MathHelper.DegreesToRadians(_spinAxis.Y * _spin),
+                    MathHelper.DegreesToRadians(_spinAxis.Z * _spin)),
+                    Vector3.Zero);
+            }
+            transform *= _transform;
+            if (index == _floatModelIndex)
+            {
+                transform.M42 += (MathF.Sin(_spin / 180 * MathF.PI) + 1) / 8f;
+            }
+            return transform;
+        }
+
+        private float GetItemRotation()
+        {
+            float rotation = _scene.NextItemRotation / (float)0x10000 * 360f;
+            _scene.NextItemRotation += 0x2000;
+            return rotation;
+        }
+    }
+}

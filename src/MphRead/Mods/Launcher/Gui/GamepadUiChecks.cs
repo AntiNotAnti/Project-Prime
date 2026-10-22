@@ -1,0 +1,665 @@
+#if MPHREAD_SHELL
+using System;
+using System.IO;
+using System.Linq;
+using Avalonia;
+using Avalonia.Headless;
+using Avalonia.VisualTree;
+using Avalonia.Controls;
+using Avalonia.Threading;
+using MphRead.Mods.Input;
+using MphRead.Mods.Campaign;
+using MphRead.Formats;
+
+namespace MphRead.Mods.Launcher.Gui
+{
+    internal static class GamepadUiChecks
+    {
+        public static void Run(string? shots = null)
+        {
+            GamepadChecks.Check(GuiLauncher.EnsureSetup(), "headless UI initialization");
+
+            byte[][] uiCues = Enum.GetValues<Mods.Sound.UiFeedbackCue>()
+                .Select(Mods.Sound.UiFeedbackAudio.Build).ToArray();
+            foreach (byte[] cue in uiCues)
+            {
+                GamepadChecks.Check(cue.Length > 44
+                    && cue[0] == (byte)'R' && cue[1] == (byte)'I'
+                    && cue[2] == (byte)'F' && cue[3] == (byte)'F'
+                    && cue[8] == (byte)'W' && cue[9] == (byte)'A'
+                    && cue[10] == (byte)'V' && cue[11] == (byte)'E'
+                    && BitConverter.ToInt32(cue, 24) == 22050
+                    && BitConverter.ToInt16(cue, 22) == 1,
+                    "synthesized UI feedback cue is valid mono PCM WAV");
+            }
+            GamepadChecks.Check(!uiCues[0].SequenceEqual(uiCues[1])
+                && !uiCues[1].SequenceEqual(uiCues[2])
+                && !uiCues[2].SequenceEqual(uiCues[3]),
+                "navigate confirm back and error cues remain distinct");
+
+            // Android's real view is short in density-independent points. The
+            // readable scale must be capped far enough that the authored
+            // 960x600 menu box still fits instead of switching to a stacked
+            // layout and running below the glass.
+            double phoneScale = UiScaleHost.FactorFor(830, 390);
+            GamepadChecks.Check(Math.Abs(phoneScale - 0.65) < 0.001
+                && 830 / phoneScale >= UiLayout.MinBoxWidth
+                && 390 / phoneScale >= UiLayout.MinBoxHeight,
+                "Android phone scale keeps the authored menu box visible");
+            GamepadChecks.Check(UiScaleHost.FactorFor(1280, 720) >= 0.999,
+                "roomy Android landscape keeps readable-size UI");
+
+            var panel = new StackPanel();
+            var first = new UiWord("First");
+            var hidden = new UiWord("Hidden") { IsVisible = false };
+            var disabled = new UiWord("Disabled") { IsEnabled = false };
+            var last = new UiWord("Last");
+            panel.Children.Add(first); panel.Children.Add(hidden); panel.Children.Add(disabled); panel.Children.Add(last);
+            var window = new Window { Width = 600, Height = 400, Content = panel };
+            window.Show(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            FocusNavigator.Ensure(panel);
+            GamepadChecks.Check(first.IsFocused, "controller establishes focus");
+            FocusNavigator.Move(panel, UiAction.Down);
+            GamepadChecks.Check(last.IsFocused, "navigation skips hidden and disabled controls");
+            int clicked = 0; last.Click += (_, _) => clicked++;
+            FocusNavigator.Key(last, Avalonia.Input.Key.Enter);
+            GamepadChecks.Check(clicked == 1, "controller activates existing UI control");
+
+            GamepadChecks.Check(PrimeUiChecks.Run(null) == 0, "persistent shell navigation and draft checks");
+
+            var browserSample = new[]
+            {
+                new ServerBrowserEntry(
+                    new Network.MasterListing
+                    {
+                        Address = "127.0.0.1",
+                        Port = Network.NetConfig.DefaultPort,
+                        ServerName = "Test Arena",
+                        RoomKey = "MP3 PROVING GROUND",
+                        Mode = GameMode.Battle,
+                        Players = 2,
+                        MaxPlayers = 8,
+                        Protocol = Network.NetConfig.ProtocolVersion
+                    },
+                    new Network.ServerStatus
+                    {
+                        Online = true,
+                        RoomKey = "MP3 PROVING GROUND",
+                        ServerName = "Test Arena",
+                        Mode = GameMode.Battle,
+                        Players = 2,
+                        MaxPlayers = 8,
+                        Protocol = Network.NetConfig.ProtocolVersion,
+                        Latency = 31
+                    })
+            };
+            var multiplayer = new PlayWorkspace(browserSample);
+            int multiplayerClosed = 0, lobbyRequested = 0;
+            multiplayer.Closed += (_, _) => multiplayerClosed++;
+            multiplayer.CreateLobbyRequested += (_, _) => lobbyRequested++;
+            window.Width = 960; window.Height = 660; window.Content = multiplayer;
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+
+            var quickMultiplayer = ControllerNav.Find(multiplayer, "multiplayer.quick");
+            var refreshMultiplayer = ControllerNav.Find(multiplayer, "multiplayer.refresh");
+            var joinMultiplayer = ControllerNav.Find(multiplayer, "multiplayer.join");
+            GamepadChecks.Check(quickMultiplayer is { IsEffectivelyVisible: true }
+                && refreshMultiplayer is { IsEffectivelyVisible: true }
+                && joinMultiplayer is { IsEffectivelyVisible: true },
+                "Multiplayer exposes Quick Play, browser refresh and Join");
+
+            FocusNavigator.Ensure(multiplayer);
+            GamepadChecks.Check(quickMultiplayer!.IsFocused,
+                "Multiplayer defaults controller focus to Quick Play");
+
+            Click(window, quickMultiplayer);
+            GamepadChecks.Check(joinMultiplayer!.IsEnabled,
+                "sample Quick Play selects a compatible server without networking");
+            GamepadChecks.Check(
+                LauncherBackdrop.Scene == LauncherBackdropScene.Multiplayer
+                && LauncherBackdrop.RoomKey == "MP3 PROVING GROUND",
+                "Multiplayer backdrop follows the selected server map");
+
+            Click(window, ControllerNav.Find(multiplayer, "multiplayer.create")!);
+            GamepadChecks.Check(lobbyRequested == 1,
+                "Multiplayer Create Lobby accepts a pointer click");
+
+            Click(window, refreshMultiplayer!);
+            FocusNavigator.Key(FocusNavigator.Ensure(multiplayer)!, Avalonia.Input.Key.Escape);
+            GamepadChecks.Check(multiplayerClosed == 1,
+                "Multiplayer Back accepts a pointer click");
+
+            var emptyMultiplayer = new PlayWorkspace(Array.Empty<ServerBrowserEntry>());
+            window.Content = emptyMultiplayer; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var emptyDirectory = emptyMultiplayer.GetVisualDescendants().OfType<PrimeStatePanel>()
+                .Single(panel => panel.IsEffectivelyVisible);
+            GamepadChecks.Check(emptyDirectory.Kind == PrimeStateKind.Empty
+                && ControllerNav.Find(emptyMultiplayer, "multiplayer.state.refresh") != null,
+                "empty multiplayer directory exposes an actionable Empty state");
+
+            var placeholder = new HubPlaceholderView(
+                "MAP EDITOR", "WORKSHOP PLACEHOLDER", "Coming soon.");
+            int placeholderClosed = 0;
+            placeholder.Closed += (_, _) => placeholderClosed++;
+            window.Content = placeholder; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            Click(window, ControllerNav.Find(placeholder, "placeholder.back")!);
+            GamepadChecks.Check(placeholderClosed == 1,
+                "Map Editor placeholder Back accepts a pointer click");
+
+            var offlineOverlays = new PrimeOverlayHost();
+            var offlineView = new OfflineWorkspace(new MenuSettings { RoomKey = "MP3 PROVING GROUND" },
+                new[] { "MP3 PROVING GROUND" }, offlineOverlays);
+            LaunchPlan? offlinePlan = null;
+            offlineView.Launched += (_, plan) => offlinePlan = plan;
+            var offlineRoot = new Grid(); offlineRoot.Children.Add(offlineView); offlineRoot.Children.Add(offlineOverlays);
+            // This standalone workspace needs the authored desktop layout.
+            // Compact sizes are exercised by PrimeUiChecks through the shell.
+            window.Width = 1280; window.Height = 720;
+            window.Content = offlineRoot; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            string[] offlineHeadings = offlineView.GetVisualDescendants().OfType<TextBlock>()
+                .Select(block => block.Text ?? "").ToArray();
+            GamepadChecks.Check(offlineHeadings.Contains("MATCH FORMAT")
+                && offlineHeadings.Contains("ARENA")
+                && offlineHeadings.Contains("HUNTER")
+                && offlineHeadings.Contains("TRAINING & ADVENTURE"),
+                "Offline exposes shared Match Arena Deployment setup hierarchy");
+            WithOfflineEntityFixture(() =>
+                Click(window, ControllerNav.Find(offlineView, "offline.start")!));
+            GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.Offline, RoomKey: "MP3 PROVING GROUND" },
+                "Offline launches its selected local arena");
+
+            var trainingStart = ControllerNav.Find(offlineView, "offline.training.start");
+            GamepadChecks.Check(trainingStart != null, "Offline trainer has a controller-addressable launch action");
+            if (trainingStart!.IsEnabled)
+            {
+                Click(window, trainingStart);
+                GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.AimTrainer, Mode: GameMode.Battle, Training: not null },
+                    "Aim Trainer launches a local Battle with separate configuration");
+            }
+            offlinePlan = null;
+            Click(window, ControllerNav.Find(offlineView, "offline.adventure.new")!);
+            if (AdventureSave.Read(1).Used)
+            {
+                window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                Click(window, offlineOverlays.GetVisualDescendants().OfType<PrimeButton>().Single(b => b.Label == "START NEW RUN"));
+            }
+            GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.Adventure, SaveSlot: 1, NewGame: true },
+                "Adventure NEW RUN launches a fresh selected save slot");
+
+            // Asset-free guard for the September per-scene migration regression:
+            // Setup must leave SinglePlayer with the Adventure state handler.
+            // Every competitive mode assigns its own handler below this default;
+            // Adventure has no later branch to repair a null value.
+            var adventureState = new SceneGameState(new ScenePlayerRegistry())
+            {
+                Mode = GameMode.SinglePlayer
+            };
+            adventureState.Setup(null!);
+            GamepadChecks.Check(adventureState.ModeState != null,
+                "Adventure setup retains its gameplay state handler");
+
+            var customMatch = new CreateServerScreen(
+                Array.Empty<string>(), discoverHosts: false);
+            int customClosed = 0;
+            customMatch.Closed += (_, _) => customClosed++;
+            window.Width = 960; window.Height = 660; window.Content = customMatch;
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(ControllerNav.Find(customMatch, "custom.create")
+                is { IsEffectivelyVisible: true },
+                "Custom Match exposes Create Lobby");
+            string[] customHeadings = customMatch.GetVisualDescendants().OfType<TextBlock>()
+                .Select(block => block.Text ?? "").ToArray();
+            GamepadChecks.Check(customHeadings.Contains("MATCH FORMAT")
+                && customHeadings.Contains("ARENA")
+                && customHeadings.Contains("HUNTER & HOST"),
+                "Create Lobby exposes shared Match Arena Deployment setup hierarchy");
+            Click(window, ControllerNav.Find(customMatch, "custom.back")!);
+            GamepadChecks.Check(customClosed == 1,
+                "Custom Match Back accepts a pointer click");
+
+            var emptyMapPicker = new MapCardPicker(Array.Empty<string>(), null);
+            window.Content = emptyMapPicker; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var emptyMapState = emptyMapPicker.GetVisualDescendants().OfType<PrimeStatePanel>()
+                .Single(panel => panel.IsEffectivelyVisible);
+            GamepadChecks.Check(emptyMapState.Kind == PrimeStateKind.Warning
+                && ControllerNav.Find(emptyMapPicker, "map-picker.use") is { IsEnabled: false },
+                "arena picker explains missing local maps instead of showing a blank gallery");
+
+            var rotationPicker = new MapRotationPicker(
+                Array.Empty<string>(), Array.Empty<string>());
+            int rotationCancelled = 0;
+            rotationPicker.Cancelled += (_, _) => rotationCancelled++;
+            window.Content = rotationPicker; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            Click(window, ControllerNav.Find(rotationPicker, "rotation.back")!);
+            GamepadChecks.Check(rotationCancelled == 1,
+                "Custom Match map rotation Back accepts a pointer click");
+
+            var hostPicker = new HostPicker(new[]
+            {
+                new Network.HostCandidate
+                {
+                    Label = "Test host",
+                    Host = "127.0.0.1",
+                    Port = Network.NetConfig.DefaultPort,
+                    Answered = true,
+                    CanHost = true,
+                    Latency = 1
+                }
+            }, asking: false);
+            int hostCancelled = 0;
+            hostPicker.Cancelled += (_, _) => hostCancelled++;
+            window.Content = hostPicker; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            Click(window, ControllerNav.Find(hostPicker, "host.back")!);
+            GamepadChecks.Check(hostCancelled == 1,
+                "Custom Match host selection Back accepts a pointer click");
+
+            var replayStudio = new TheatreWorkspace(manageStorage: false);
+            int replayStudioClosed = 0;
+            replayStudio.Closed += (_, _) => replayStudioClosed++;
+            window.Width = 960; window.Height = 660; window.Content = replayStudio;
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(ControllerNav.Find(replayStudio, "studio.import")
+                is { IsEffectivelyVisible: true },
+                "Replay Studio exposes Import");
+            GamepadChecks.Check(replayStudio.GetVisualDescendants().OfType<PrimeHeroPanel>().Any()
+                && ControllerNav.Find(replayStudio, "studio.batch.favorite") != null
+                && ControllerNav.Find(replayStudio, "studio.batch.validate") != null,
+                "Replay Studio exposes cinematic review and batch archive actions");
+            replayStudio.LoadCheckEntries(0);
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var replayEmpty = replayStudio.GetVisualDescendants().OfType<PrimeStatePanel>()
+                .Single(panel => panel.IsEffectivelyVisible);
+            GamepadChecks.Check(replayEmpty.Kind == PrimeStateKind.Empty
+                && ControllerNav.Find(replayStudio, "studio.state.import") != null,
+                "empty Replay Studio exposes an import-ready Empty state");
+            GamepadChecks.Check(
+                LauncherBackdrop.Scene == LauncherBackdropScene.ReplayStudio,
+                "Replay Studio selects its cinematic backdrop");
+            Click(window, ControllerNav.Find(replayStudio, "studio.back")!);
+            GamepadChecks.Check(replayStudioClosed == 1,
+                "Replay Studio Back accepts a pointer click");
+
+            // Retained Android launcher views are detached during playback and
+            // measured again on return. Exercise an actual owned thumbnail,
+            // including environments whose replay library is empty.
+            var flags = System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.NonPublic;
+            var preview = (Image)typeof(TheatreWorkspace)
+                .GetField("_preview", flags)!.GetValue(replayStudio)!;
+            var ownedBitmap = typeof(TheatreWorkspace).GetField("_bitmap", flags)!;
+            preview.Source = null;
+            (ownedBitmap.GetValue(replayStudio) as IDisposable)?.Dispose();
+            var testBitmap = new Avalonia.Media.Imaging.WriteableBitmap(
+                new PixelSize(2, 2), new Vector(96, 96),
+                Avalonia.Platform.PixelFormat.Rgba8888, Avalonia.Platform.AlphaFormat.Opaque);
+            ownedBitmap.SetValue(replayStudio, testBitmap);
+            preview.Source = testBitmap;
+            window.Content = null;
+            GamepadChecks.Check(ReferenceEquals(preview.Source, testBitmap),
+                "Theatre retains its thumbnail while visiting another route");
+            window.Content = replayStudio;
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            if (preview.Source != null)
+                _ = preview.Source.Size;
+            GamepadChecks.Check(true,
+                "Replay Studio can reattach and measure after playback");
+            replayStudio.Dispose();
+            GamepadChecks.Check(preview.Source == null, "Theatre releases its thumbnail when ownership ends");
+
+            GamepadChecks.Check(PrimeMetrics.IsNarrow(new Size(960, 660))
+                && !PrimeMetrics.IsNarrow(new Size(1280, 720))
+                && PrimeMetrics.IsPhoneLayout(new Size(830, 390))
+                && !PrimeMetrics.IsPhoneLayout(new Size(1280, 720)),
+                "Prime responsive breakpoints classify compact and desktop fixtures consistently");
+
+            panel = new StackPanel();
+            window.Width = 600; window.Height = 400; window.Content = panel;
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var choice = new ChoiceRow("Option", new[] { "One", "Two" }, 0);
+            panel.Children.Add(choice); window.UpdateLayout(); FocusNavigator.Focus(choice);
+            FocusNavigator.Key(choice, Avalonia.Input.Key.Right);
+            GamepadChecks.Check(choice.Index == 1, "choice row supports semantic arrows");
+            var text = new TextBox { Text = "Player", Width = 250 };
+            panel.Children.Add(text); window.UpdateLayout();
+            var keyboard = new ControllerKeyboard(text, () => { });
+            Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(FocusNavigator.Ensure(keyboard.NavigationRoot) != null, "controller text entry has focus");
+            keyboard.Close(false);
+            GamepadChecks.Check(text.Text == "Player", "cancel text entry preserves value");
+            var confirm = new ConfirmScreen("Leave the match?");
+            bool? answer = null; confirm.Answered += (_, value) => answer = value;
+            window.Content = confirm; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var cancel = FocusNavigator.Ensure(confirm);
+            GamepadChecks.Check(cancel != null, "confirmation has focus");
+            FocusNavigator.Key(cancel!, Avalonia.Input.Key.Escape);
+            GamepadChecks.Check(answer == false, "controller Back dismisses confirmation");
+            var settings = new SettingsView(new MenuSettings());
+            window.Width = 960; window.Height = 660; window.Content = settings;
+            settings.ShowSection("Graphics"); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var graphicsNav = ControllerNav.Find(settings, "settings.detail.graphics") as HubNavButton;
+            GamepadChecks.Check(graphicsNav is { IsEffectivelyVisible: true, Selected: true },
+                "modern settings detail rail selects Graphics");
+            settings.ShowSection("Controls", 1); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var rows = settings.GetVisualDescendants().OfType<PadRow>()
+                .Where(row => row.IsEffectivelyVisible).ToArray();
+            GamepadChecks.Check(rows.Length == PadBindings.GameplayActions.Count,
+                "every gameplay pad action appears in controller settings");
+            settings.ShowSection("Replays"); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var replayRows = settings.GetVisualDescendants().OfType<PadRow>()
+                .Where(row => row.IsEffectivelyVisible).ToArray();
+            GamepadChecks.Check(replayRows.Length == PadBindings.ReplayActions.Count,
+                "every replay pad action appears in replay settings");
+            settings.ShowSection("Controls", 1); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            rows = settings.GetVisualDescendants().OfType<PadRow>()
+                .Where(row => row.IsEffectivelyVisible).ToArray();
+            FocusNavigator.Focus(rows[^1]); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(rows[^1].IsFocused, "last binding reachable through scrolling");
+            var rowPoint = rows[^1].TranslatePoint(new Point(), window);
+            GamepadChecks.Check(rowPoint.HasValue && rowPoint.Value.Y >= 0
+                && rowPoint.Value.Y + rows[^1].Bounds.Height <= window.Bounds.Height,
+                "focus scrolls binding inside the viewport");
+            if (shots != null)
+            {
+                Directory.CreateDirectory(shots);
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using var bitmap = window.GetLastRenderedFrame();
+                bitmap?.Save(Path.Combine(shots, "controller-bindings.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+                var gamepad = settings.GetVisualDescendants().OfType<GamepadSettingsPanel>().First();
+                FocusNavigator.Focus(gamepad.GetVisualDescendants().OfType<SliderRow>().First());
+                window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                using var calibration = window.GetLastRenderedFrame();
+                calibration?.Save(Path.Combine(shots, "controller-settings.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+            CheckControllerSettings(window, settings, shots);
+            var pause = new PauseMenuView(false);
+            window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(FocusNavigator.Ensure(pause) != null, "pause menu is controller focusable");
+            GamepadChecks.Check(pause.GetVisualDescendants().OfType<PrimePanel>().Count() >= 2
+                && pause.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(block => block.Text == "SESSION & SYSTEM")
+                && ControllerNav.Find(pause, "pause.resume") is { IsEffectivelyVisible: true },
+                "pause separates primary resume context from session and system actions");
+            GamepadChecks.Check(ControllerNav.Find(pause, "pause.campaign.journal") == null,
+                "ordinary pause menus never expose campaign navigation");
+            var storyPause = new PauseMenuView(false, campaignAvailable: true);
+            window.Content = storyPause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var journalButton = ControllerNav.Find(storyPause, "pause.campaign.journal");
+            GamepadChecks.Check(journalButton is { IsEffectivelyVisible: true }
+                && journalButton.Focusable,
+                "story pause menu exposes controller-focusable mission journal");
+            window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            // The ship is now two pages, with its own temporary soundtrack
+            // lease. Headless attach/detach must work with no music device.
+            var shipStatuses = CampaignNavigation.Planets.Select(planet =>
+                new CampaignPlanetStatus(planet, true, false, 0, 2, 0, 6,
+                    AreaState.None, AreaState.None)).ToArray();
+            var shipView = new CampaignShipView(
+                new CampaignDockReceipt(1, CampaignPlanet.CelestialArchives),
+                shipStatuses, () => Hunter.Samus);
+            window.Content = shipView; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(ControllerNav.Find(shipView, "campaign.ship.open-map")
+                    is { IsEffectivelyVisible: true }
+                && ControllerNav.Find(shipView, "campaign.ship.exit")
+                    is { IsEffectivelyVisible: true }
+                && ControllerNav.Find(shipView, "campaign.ship.land")
+                    is { IsEffectivelyVisible: false },
+                "campaign ship opens at dock with map/exit actions and hidden landing");
+            window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            // Android hosts PauseMenuView in StartScreen rather than InGameMenu,
+            // so Back must reach the view's resume callback without a desktop host.
+            int resumed = 0;
+            pause.Resumed += (_, _) => resumed++;
+            var navigation = new GamepadNavigation();
+            GamepadManager.UpdateDevice("pause-test", new GamepadState { Name = "Pause test" }, true);
+            navigation.Update(pause);
+            foreach (var button in new[] { GamepadButtons.B, GamepadButtons.Start })
+            {
+                GamepadManager.UpdateDevice("pause-test", new GamepadState { Name = "Pause test", Buttons = button }, true);
+                navigation.Update(pause);
+                GamepadManager.UpdateDevice("pause-test", new GamepadState { Name = "Pause test" }, true);
+                navigation.Update(pause);
+            }
+            GamepadChecks.Check(resumed == 2, "B and Start resume the Android-hosted pause menu");
+            GamepadManager.RemoveDevice("pause-test");
+
+            var results = new EndPanelView();
+            window.Content = results; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(results.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(block => block.Text == "POST-MATCH REPORT")
+                && results.GetVisualDescendants().OfType<TextBlock>()
+                    .Any(block => block.Text is "NEXT DEPLOYMENT" or "RETURNING TO LOBBY"),
+                "results panel exposes post-match deployment hierarchy");
+
+            window.Content = pause; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            Network.MapVote.Apply(new Network.VoteStatePacket
+            {
+                State = Network.VoteStatePacket.StateRunning, RoomKey = "test", Proposer = "Player", Seconds = 30
+            });
+            pause.RefreshVote(); window.UpdateLayout();
+            var vote = pause.GetVisualDescendants().OfType<HubNavButton>()
+                .First(w => w.Label == "ACCEPT MAP VOTE");
+            FocusNavigator.Focus(vote);
+            GamepadChecks.Check(vote.IsVisible && vote.IsFocused, "active map vote can be reached with controller focus");
+            Network.MapVote.Reset(); pause.RefreshVote(); window.UpdateLayout();
+            GamepadChecks.Check(!vote.IsVisible && !vote.IsFocused, "expired vote restores pause focus");
+            // Exercise binding through the same navigation pump used by the real UI.
+            // The old test called PadRow.Check directly and therefore could not catch
+            // the menu-path regression where physical presses never reached the row.
+            PadBindings.Reset();
+            PadBindings.Set(PadAction.Chat, GamepadButtons.None); // free LeftThumb for an unambiguous capture
+            var routedBindings = new StackPanel();
+            var routedBinding = new PadRow(PadAction.Scan);
+            routedBindings.Children.Add(routedBinding);
+            window.Content = routedBindings; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadManager.UpdateDevice("route-test", new GamepadState
+            {
+                Connected = true, Name = "Route test"
+            }, true);
+            FocusNavigator.Focus(routedBinding);
+            FocusNavigator.Key(routedBinding, Avalonia.Input.Key.Enter);
+            navigation.Update(routedBindings);
+            GamepadManager.UpdateDevice("route-test", new GamepadState
+            {
+                Connected = true, Name = "Route test", Buttons = GamepadButtons.LeftThumb
+            }, true);
+            navigation.Update(routedBindings);
+            GamepadChecks.Check(PadBindings.Slot(PadAction.Scan, 0) == GamepadButtons.LeftThumb
+                && !GamepadContexts.Capturing,
+                "navigation pump delivers physical controller presses to binding capture");
+            GamepadManager.RemoveDevice("route-test");
+
+            // Run the real binding row against synthetic normalized device events.
+            PadBindings.Reset();
+            var binding = new PadRow(PadAction.Scan);
+            window.Content = binding; window.UpdateLayout(); binding.Focus();
+            void Pad(GamepadButtons buttons)
+            {
+                GamepadManager.UpdateDevice("ui-test", new GamepadState { Connected = true, Name = "UI test", Buttons = buttons }, true);
+                binding.Check();
+            }
+            Pad(GamepadButtons.A);
+            FocusNavigator.Key(binding, Avalonia.Input.Key.Enter);
+            binding.Check();
+            GamepadChecks.Check(PadBindings.Get(PadAction.Scan) == GamepadButtons.X, "opening Accept cannot bind itself");
+            Pad(0); Pad(GamepadButtons.RightBumper);
+            GamepadChecks.Check(GamepadContexts.Capturing, "binding conflict waits for a decision");
+            Pad(0); Pad(GamepadButtons.B);
+            GamepadChecks.Check(PadBindings.Get(PadAction.Scan) == GamepadButtons.X, "cancel conflict preserves mapping");
+            Pad(0); FocusNavigator.Key(binding, Avalonia.Input.Key.Enter); Pad(GamepadButtons.Back);
+            GamepadChecks.Check(PadBindings.Get(PadAction.Scan) == 0, "controller can clear a binding");
+            Pad(0); FocusNavigator.Key(binding, Avalonia.Input.Key.Enter);
+            GamepadManager.RemoveDevice("ui-test"); binding.Check();
+            GamepadChecks.Check(!GamepadContexts.Capturing, "disconnect exits binding capture");
+            foreach (var accept in new[] { GamepadButtons.Start, GamepadButtons.A })
+            {
+                using var startup = new PrimeStartupScreen();
+                var startupRoot = new Panel(); startupRoot.Children.Add(startup);
+                int continued = 0; startup.Continued += () => continued++;
+                window.Content = startupRoot; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                var startupNav = new GamepadNavigation();
+                void StartupPad(GamepadButtons buttons)
+                {
+                    GamepadManager.UpdateDevice("startup-test", new GamepadState
+                        { Connected = true, Name = "Startup test", Buttons = buttons }, true);
+                    startupNav.Update(startupRoot);
+                }
+                StartupPad(0); StartupPad(0);
+                StartupPad(GamepadButtons.B); StartupPad(0); StartupPad(GamepadButtons.RightBumper); StartupPad(0);
+                GamepadChecks.Check(continued == 0, "startup ignores controller Back and tab switching");
+                StartupPad(accept); StartupPad(accept);
+                GamepadChecks.Check(continued == 1, "controller " + accept + " continues startup exactly once");
+                GamepadManager.RemoveDevice("startup-test");
+            }
+            using (var startup = new PrimeStartupScreen())
+            {
+                int continued = 0; startup.Continued += () => continued++;
+                window.Content = startup; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                Click(window, startup);
+                GamepadChecks.Check(continued == 1, "pointer continues startup");
+            }
+            window.Close();
+        }
+
+        // Exercise the real capability gate and entity reader without a game
+        // extraction. Only this launch click sees the temporary asset root;
+        // configured paths are restored before any later workspace runs.
+        private static void WithOfflineEntityFixture(Action launch)
+        {
+            const string room = "MP3 PROVING GROUND";
+            string previousKey = Paths.MphKey;
+            string previousRoot = Paths.FileSystem;
+            string directory = Path.Combine(Path.GetTempPath(), "prime-gamepad-entities-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Paths.SetPath(previousKey, directory);
+                string entityFile = Paths.Combine(directory, Metadata.RoomMetadata[room].EntityPath!);
+                Directory.CreateDirectory(Path.GetDirectoryName(entityFile)!);
+                File.WriteAllBytes(entityFile, Utility.Repack.PackEntities(Array.Empty<Editor.EntityEditorBase>()));
+                var profile = Multiplayer.MatchWorldProfile.Resolve(1);
+                GamepadChecks.Check(!Multiplayer.MapModeCapabilities.Supports(room, GameMode.Battle,
+                    profile, out string missing)
+                    && missing.Contains("active player spawns", StringComparison.Ordinal),
+                    "Offline fixture preserves the real missing-spawn capability rejection");
+                File.WriteAllBytes(entityFile, Utility.Repack.PackEntities(new Editor.EntityEditorBase[]
+                {
+                    new Editor.PlayerSpawnEntityEditor
+                    {
+                        Id = 1, LayerMask = ushort.MaxValue, Active = true,
+                        Up = OpenTK.Mathematics.Vector3.UnitY,
+                        Facing = OpenTK.Mathematics.Vector3.UnitZ,
+                        NodeName = "rmMain"
+                    }
+                }));
+                GamepadChecks.Check(Multiplayer.MapModeCapabilities.Supports(room, GameMode.Battle,
+                    profile, out string reason), "Offline fixture has valid production-packed spawns: " + reason);
+                launch();
+            }
+            finally
+            {
+                Paths.SetPath(previousKey, previousRoot);
+                Paths.MphKey = previousKey;
+                if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+            }
+            GamepadChecks.Check(Paths.MphKey == previousKey && Paths.FileSystem == previousRoot,
+                "Offline fixture restores the configured game version and asset root");
+        }
+
+        private static void Click(Window window, Control control,
+            double xFraction = 0.5, double yFraction = 0.5)
+        {
+            control.BringIntoView(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            Point? origin = control.TranslatePoint(new Point(), window);
+            GamepadChecks.Check(origin.HasValue,
+                $"{control.GetType().Name} has a window-space pointer target");
+            Point point = origin!.Value + new Vector(
+                control.Bounds.Width * Math.Clamp(xFraction, 0.05, 0.95),
+                control.Bounds.Height * Math.Clamp(yFraction, 0.05, 0.95));
+            window.MouseMove(point);
+            window.MouseDown(point, Avalonia.Input.MouseButton.Left);
+            window.MouseUp(point, Avalonia.Input.MouseButton.Left);
+        }
+
+        private static void CheckControllerSettings(Window window, SettingsView settings, string? shots)
+        {
+            var panel = settings.GetVisualDescendants().OfType<GamepadSettingsPanel>().First();
+            var advancedButton = ControllerNav.Find(panel, "controller.advanced");
+            GamepadChecks.Check(advancedButton != null, "controller settings expose Advanced");
+            var monitor = panel.GetVisualDescendants().OfType<GamepadMonitor>().Single();
+            GamepadChecks.Check(!monitor.IsEffectivelyVisible, "advanced controller settings are collapsed by default");
+            PadBindings.ApplyPreset("Default"); panel.Reload(); window.UpdateLayout();
+            var preset = panel.Children.OfType<ChoiceRow>().First(r => r.Value == "Default");
+            FocusNavigator.Focus(preset); preset.Index = 1;
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            preset = panel.Children.OfType<ChoiceRow>().First(r => r.Value == "Bumper Jumper");
+            GamepadChecks.Check(preset.IsFocused && PadBindings.Get(PadAction.Jump) == GamepadButtons.LeftBumper,
+                "changing controller preset applies bindings and retains focus");
+            FocusNavigator.Key(preset, Avalonia.Input.Key.Right);
+            Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+            GamepadChecks.Check(GamepadOptions.Southpaw && PadBindings.Preset == "Southpaw",
+                "consecutive controller preset changes remain usable");
+            PadBindings.ApplyPreset("Default"); panel.Reload(); window.UpdateLayout();
+
+            var navigation = new GamepadNavigation();
+            void Pad(GamepadButtons buttons = 0, float rt = 0)
+                => GamepadManager.UpdateDevice("settings-xbox", new GamepadState
+                    { Name = "Xbox Series controller", Buttons = buttons, RightTrigger = rt }, true,
+                    GamepadFamily.Xbox, mapping: "Xbox Bluetooth compatibility");
+            Pad(); navigation.Update(settings);
+            settings.ShowSection("Controls", 0); window.UpdateLayout();
+            var jumpKey = settings.GetVisualDescendants().OfType<KeyRow>().First(r => r.BindingName == "Jump");
+            var jumpProperty = InputSettings.Bindings.First(p => p.Name == "Jump");
+            string keyboardBefore = InputSettings.Describe(InputSettings.Bind(jumpProperty));
+            FocusNavigator.Focus(jumpKey);
+            FocusNavigator.Key(jumpKey, Avalonia.Input.Key.Enter);
+            Pad(rt: 1); navigation.Update(settings); window.UpdateLayout();
+            var jumpPad = settings.GetVisualDescendants().OfType<PadRow>().First(r => r.Action == PadAction.Jump);
+            GamepadChecks.Check(jumpPad.IsFocused && GamepadContexts.Capturing && !jumpKey.Listening,
+                "controller trigger in keyboard capture opens the matching controller action");
+            Pad(); jumpPad.Check(); Pad(GamepadButtons.A); jumpPad.Check();
+            GamepadChecks.Check(PadBindings.Get(PadAction.Jump) == GamepadButtons.RightTrigger
+                && PadBindings.Get(PadAction.Shoot) == GamepadButtons.A && !GamepadContexts.Capturing,
+                "Accept confirms the default Swap instead of silently cancelling a rebind");
+            GamepadChecks.Check(InputSettings.Describe(InputSettings.Bind(jumpProperty)) == keyboardBefore,
+                "controller rebinding preserves the actual keyboard key");
+
+            panel.RefreshLabels();
+            GamepadChecks.Check(panel.Children.OfType<ChoiceRow>().Any(r => r.Value == "Custom"),
+                "binding changes update the displayed controller preset");
+            settings.ShowSection("Controls", 0); window.UpdateLayout(); FocusNavigator.Focus(jumpKey);
+            Pad(); navigation.Update(settings); Pad(GamepadButtons.A); navigation.Update(settings);
+            GamepadChecks.Check(jumpPad.IsFocused && GamepadContexts.Capturing && !jumpKey.Listening,
+                "controller Accept on a keyboard action enters controller capture");
+            Pad(); jumpPad.Check(); Pad(GamepadButtons.B); jumpPad.Check();
+            GamepadChecks.Check(!GamepadContexts.Capturing, "Back cancels redirected capture");
+            settings.ShowSection("Controls", 0); window.UpdateLayout();
+            var moveKey = settings.GetVisualDescendants().OfType<KeyRow>().First(r => r.BindingName == "MoveUp");
+            var moveProperty = InputSettings.Bindings.First(p => p.Name == "MoveUp");
+            string movementBefore = InputSettings.Describe(InputSettings.Bind(moveProperty));
+            FocusNavigator.Focus(moveKey); Pad(); navigation.Update(settings);
+            Pad(GamepadButtons.A); navigation.Update(settings);
+            GamepadChecks.Check(!moveKey.Listening && InputSettings.Describe(InputSettings.Bind(moveProperty)) == movementBefore,
+                "keyboard-only rows never bind synthetic controller Enter");
+            settings.ShowSection("Controls", 1); window.UpdateLayout();
+            FocusNavigator.Focus(advancedButton);
+            FocusNavigator.Key(advancedButton!, Avalonia.Input.Key.Enter);
+            window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            GamepadChecks.Check(monitor.IsEffectivelyVisible, "Advanced reveals controller diagnostics");
+            Pad(rt: 1); monitor.Refresh();
+            GamepadChecks.Check(monitor.Status.Contains("Xbox Bluetooth compatibility"), "live controller test identifies hardware mapping");
+            if (shots != null)
+            {
+                Dispatcher.UIThread.RunJobs(); window.UpdateLayout();
+                FocusNavigator.Focus(panel.Children.OfType<ChoiceRow>().First());
+                window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                // Flush the headless compositor after scrolling and deferred row updates.
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick(3);
+                Dispatcher.UIThread.RunJobs();
+                using var bitmap = window.CaptureRenderedFrame();
+                bitmap?.Save(Path.Combine(shots, "controller-live-test.png"), Avalonia.Media.Imaging.PngBitmapEncoderOptions.Default);
+            }
+            GamepadManager.RemoveDevice("settings-xbox"); PadBindings.Reset(); GamepadOptions.Reset();
+        }
+    }
+}
+#endif

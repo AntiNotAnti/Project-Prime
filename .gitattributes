@@ -1,0 +1,26 @@
+dist/ProjectPrime-macarm-a1f2f84/Project[[:space:]]Prime.app/Contents/MacOS/ProjectPrime filter=lfs diff=lfs merge=lfs -text
+
+# Keep measured evidence in the PR while focusing review on source and findings.
+docs/performance/*.json linguist-generated=true
+
+# Frozen renderer evidence is byte-addressed by its manifest. CRLF checkout
+# conversion invalidates hashes before the Windows verifier can inspect it.
+docs/engineering-next/gl-evidence/**/*.json text eol=lf
+docs/engineering-next/gl-evidence/**/*.log text eol=lf
+
+# Exact collision-result golden rows use LF on every CI checkout.
+docs/audits/engineering-consolidation/collision-query-baseline.txt text eol=lf
+
+# Keep the exact artwork allowlist LF-terminated for Windows Bash checks.
+tools/asset-guard-allow.txt text eol=lf
+
+# Original weapon exports embed exact source bytes on every platform.
+src/MphRead/Assets/Weapons/RiftlineM7/*.json text eol=lf
+src/MphRead/Assets/Weapons/RiftlineM7/*.txt text eol=lf
+src/MphRead/Assets/Weapons/RiftlineM7/*.md text eol=lf
+
+# NCX fixtures and the retained auditor have byte-qualified SHA256 contracts.
+tools/nettest/fixtures/ncx-emulated/*.json text eol=lf
+tools/nettest/form-audit.py text eol=lf
+# Embedded shader specialization has exact LF source-shape boundaries.
+src/MphRead/Shaders.cs text eol=lf

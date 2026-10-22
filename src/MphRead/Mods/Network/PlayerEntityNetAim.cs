@@ -1,0 +1,2574 @@
+using System;
+using MphRead.Formats;
+using MphRead.Mods.Network;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    /// <summary>
+    /// Network aim injection for remote players.
+    ///
+    /// Lives here rather than in PlayerInput.cs because PlayerEntity is
+    /// already a partial class: the aim helpers (UpdateAimX/UpdateAimY) are
+    /// private, and reaching them from a partial declaration costs upstream
+    /// exactly one call site instead of four visibility changes.
+    ///
+    /// The reason remote aim needs its own path at all: the mouse branch in
+    /// PlayerInput is gated on "!IsBot", and a networked player is driven the
+    /// same way a bot is. Without this, remote players would move correctly
+    /// but always face straight ahead.
+    /// </summary>
+    public partial class PlayerEntity
+    {
+        // Do not put the locally controlled hunter one simulation frame
+        // behind itself just to smooth its model. Remote/spectated hunters use
+        // the generic draw interpolation; the local view uses render-time
+        // late latching below.
+        protected override bool InterpolateDrawTransform
+            => _scene.Services.IsReplica
+                || (!NetSession.Active && (!IsMainPlayer || Mods.SpectatorMode.IsSpectating));
+
+        internal bool ModReplayPresentationCamera(double alpha, out Matrix4 view,
+            out Vector3 position, out float fov)
+        {
+            view = CameraInfo.ViewMatrix;
+            position = CameraInfo.Position;
+            fov = CameraInfo.Fov;
+
+            // A watched player's POV is a first-person camera, not an authored
+            // world-space look-at shot. Interpolating its target point linearly
+            // makes fast turns cross through the camera and mixes that camera
+            // timeline with the replicated body's facing. Use the same angular
+            // interpolation as local first-person presentation instead.
+            if (!_scene.Services.IsReplica && !Mods.SpectatorMode.IsSpectating)
+            {
+                return false;
+            }
+
+            Vector3 replicaPosition;
+            Vector3 replicaTarget;
+            Vector3 replicaUp;
+            float replicaFov;
+            bool sampled;
+            if (CameraType == CameraType.First)
+            {
+                sampled = CameraInfo.ModGetFirstPersonDrawPose(alpha,
+                    out replicaPosition, out replicaTarget,
+                    out replicaUp, out replicaFov);
+            }
+            else
+            {
+                sampled = CameraInfo.ModGetDrawPose(alpha,
+                    out replicaPosition, out replicaTarget,
+                    out replicaUp, out replicaFov);
+            }
+            if (!sampled)
+            {
+                return false;
+            }
+
+            if (_scene.Services.IsReplica
+                && _scene.ReplayPoses?.Sample(SlotIndex, (float)alpha,
+                    out Vector3 actorPosition, out _) == true)
+            {
+                // Pose lookahead corrects where the actor is rendered. Shift the
+                // whole camera pose by the same amount, preserving its authored
+                // pitch/yaw/up instead of replacing it with PlayerState.Facing.
+                Vector3 translation = actorPosition - SimulationDrawPosition;
+                replicaPosition += translation;
+                replicaTarget += translation;
+            }
+
+            else if (!_scene.Services.IsReplica && NetSession.Active
+                && SlotIndex != NetHooks.LocalSlot
+                && NetSmoothing.SamplePresentation(SlotIndex, out Vector3 presented, out bool alt))
+            {
+                // The body uses the network playout clock. Keep the watched
+                // camera on that same position, including third-person alt form.
+                Vector3 translation = _scene.PlayerReplication.InFormFor(this, presented, alt)
+                    - SimulationDrawPosition;
+                replicaPosition += translation;
+                replicaTarget += translation;
+            }
+
+            FireEvent shotAnchor = default;
+            bool exactShotPose = _scene.Services.IsReplica && CameraType == CameraType.First
+                && NetFireEvents.TryTiming(this, out shotAnchor) && shotAnchor.HasPose
+                && shotAnchor.Kind != FireEventKind.TurretFire;
+            if (exactShotPose)
+            {
+                Vector3 viewFacing = shotAnchor.View.Normalized();
+                float distance = Math.Max((replicaTarget - replicaPosition).Length, 1f);
+                replicaTarget = replicaPosition + viewFacing * distance;
+                replicaUp -= viewFacing * Vector3.Dot(replicaUp, viewFacing);
+                if (!ModFinite(replicaUp) || replicaUp.LengthSquared < 0.000001f)
+                {
+                    Vector3 reference = MathF.Abs(viewFacing.Y) < 0.999f
+                        ? Vector3.UnitY : Vector3.UnitZ;
+                    replicaUp = reference - viewFacing * Vector3.Dot(reference, viewFacing);
+                }
+                replicaUp = replicaUp.Normalized();
+            }
+
+            replicaFov = _scene.CustomInspectionCameraFov(this, replicaFov);
+            position = replicaPosition;
+            fov = replicaFov;
+            view = Matrix4.LookAt(replicaPosition, replicaTarget, replicaUp);
+
+            // TransformCamera invalidates the local render pose before asking for
+            // the watched/replay camera. Rebuild the arm cannon against this exact
+            // interpolated camera now, otherwise PlayerDraw falls back to raw
+            // 60 Hz _gunDrawPos/_aimVec while the POV itself is sub-frame smooth.
+            if (CameraType == CameraType.First)
+            {
+                ModPrepareObservedFirstPersonViewmodel(alpha,
+                    replicaPosition, replicaTarget, replicaUp, replicaFov, view);
+                if (exactShotPose)
+                {
+                    ModAnchorObservedShotViewmodel(shotAnchor,
+                        replicaPosition, replicaUp, replicaFov, view);
+                }
+            }
+            return true;
+        }
+
+        private bool ModAnchorObservedShotViewmodel(in FireEvent fire,
+            Vector3 cameraPosition, Vector3 cameraUp, float fov, Matrix4 view)
+        {
+            if (!fire.HasPose || !ModFinite(fire.Origin) || !ModFinite(fire.Aim)
+                || fire.Aim.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+
+            Vector3 gunFacing = fire.Aim.Normalized();
+            Vector3 gunUp = _fpRenderPoseValid ? _fpRenderPose.GunUp : cameraUp;
+            gunUp -= gunFacing * Vector3.Dot(gunUp, gunFacing);
+            if (!ModFinite(gunUp) || gunUp.LengthSquared < 0.000001f)
+            {
+                Vector3 reference = MathF.Abs(gunFacing.Y) < 0.999f
+                    ? Vector3.UnitY : Vector3.UnitZ;
+                gunUp = reference - gunFacing * Vector3.Dot(reference, gunFacing);
+            }
+            if (!ModFinite(gunUp) || gunUp.LengthSquared < 0.000001f) return false;
+            gunUp = gunUp.Normalized();
+
+            Vector3 gunPosition = fire.Origin
+                - gunFacing * Fixed.ToFloat(Values.MuzzleOffset);
+            if (!ModFinite(gunPosition)) return false;
+
+            _fpRenderPose = new FirstPersonRenderPose(
+                view, cameraPosition, gunPosition, gunFacing, gunUp, fov);
+            _fpRenderPoseValid = true;
+            return true;
+        }
+
+        internal bool ModPrepareObservedFirstPersonViewmodel(double presentationAlpha,
+            Vector3 cameraPosition, Vector3 cameraTarget, Vector3 cameraUp,
+            float fov, Matrix4 view)
+        {
+            Vector3 renderFacing = cameraTarget - cameraPosition;
+            if (!ModPresentationBasis(renderFacing, cameraUp,
+                    out Vector3 renderRight, out Vector3 renderUp, out Vector3 renderForward)
+                || !ModInterpolatedFirstPersonLocalPose(
+                    presentationAlpha,
+                    out Vector3 gunLocalPosition, out Vector3 gunLocalFacing,
+                    out Vector3 gunLocalUp, interpolate: true))
+            {
+                return false;
+            }
+
+            gunLocalPosition.Y += ModCrouchDrawBobCorrection(presentationAlpha, gun: true);
+            gunLocalPosition += ModGetParkourAnimationPose().GunOffset;
+            Vector3 gunPosition = cameraPosition + ModFromPresentationLocal(
+                gunLocalPosition, renderRight, renderUp, renderForward);
+            Vector3 gunFacing = ModFromPresentationLocal(
+                gunLocalFacing, renderRight, renderUp, renderForward);
+            Vector3 gunUp = ModFromPresentationLocal(
+                gunLocalUp, renderRight, renderUp, renderForward);
+            if (!ModFinite(gunPosition) || !ModFinite(gunFacing) || !ModFinite(gunUp)
+                || gunFacing.LengthSquared < 0.000001f || gunUp.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+
+            gunFacing = gunFacing.Normalized();
+            gunUp = gunUp.Normalized();
+            _fpRenderPose = new FirstPersonRenderPose(
+                view, cameraPosition, gunPosition, gunFacing, gunUp, fov);
+            _fpRenderPoseValid = true;
+            return true;
+        }
+
+        protected override Matrix4 GetModelTransform(ModelInstance inst, int index)
+        {
+            Matrix4 transform = base.GetModelTransform(inst, index);
+            if (_scene.Services.PlayerReplication.Active && SlotIndex != _scene.Services.PlayerReplication.LocalSlot
+                && _scene.Services.PlayerReplication.SamplePosition(SlotIndex, presentation: true,
+                    out Vector3 presented, out bool presentedAlt))
+            {
+                Vector3 drawPosition = _scene.PlayerReplication.InFormFor(this, presented, presentedAlt);
+                transform.Row3.Xyz += drawPosition - Position;
+            }
+            return transform;
+        }
+
+        private const int NetworkHistoryLength = 120;
+        private readonly Vector3[] _networkPositionHistory = new Vector3[NetworkHistoryLength];
+        private readonly uint[] _networkPositionFrames = new uint[NetworkHistoryLength];
+        private int _networkPositionHistoryCount;
+
+        /// <summary>Where this player's next beam will be born. Diagnostics only.</summary>
+        internal OpenTK.Mathematics.Vector3 ModMuzzlePos => _muzzlePos;
+
+        internal void ModResetNetworkHistory() => _networkPositionHistoryCount = 0;
+
+        internal void ModRecordNetworkPosition(uint frame)
+        {
+            int count = Math.Min(_networkPositionHistoryCount, NetworkHistoryLength - 1);
+            for (int i = count; i > 0; i--)
+            {
+                _networkPositionHistory[i] = _networkPositionHistory[i - 1];
+                _networkPositionFrames[i] = _networkPositionFrames[i - 1];
+            }
+            _networkPositionHistory[0] = Position;
+            _networkPositionFrames[0] = frame;
+            _networkPositionHistoryCount = Math.Min(count + 1, NetworkHistoryLength);
+        }
+
+        internal bool ModGetNetworkPosition(uint frame, out Vector3 position)
+        {
+            for (int i = 0; i < _networkPositionHistoryCount; i++)
+            {
+                if (_networkPositionFrames[i] <= frame)
+                {
+                    position = _networkPositionHistory[i];
+                    return true;
+                }
+            }
+            position = default;
+            return false;
+        }
+
+        /// <summary>Where this player's gun points. Sent as the aim in every intent.</summary>
+        internal Vector3 ModGunVector => _gunVec1;
+
+        internal readonly struct FirstPersonRenderPose
+        {
+            public readonly Matrix4 View;
+            public readonly Vector3 CameraPosition;
+            public readonly Vector3 GunPosition;
+            public readonly Vector3 GunFacing;
+            public readonly Vector3 GunUp;
+            public readonly float Fov;
+
+            public FirstPersonRenderPose(Matrix4 view, Vector3 cameraPosition,
+                Vector3 gunPosition, Vector3 gunFacing, Vector3 gunUp, float fov)
+            {
+                View = view;
+                CameraPosition = cameraPosition;
+                GunPosition = gunPosition;
+                GunFacing = gunFacing;
+                GunUp = gunUp;
+                Fov = fov;
+            }
+        }
+
+        // The arm cannon is camera-attached geometry, but its authored bob and
+        // Metroid-style drift are produced by the 60 Hz simulation. Store that
+        // motion in camera-local space. At draw time it can then be blended
+        // smoothly and attached to the exact same render-time camera basis as
+        // the late-latched view, instead of remaining one simulation pose
+        // behind a camera that already consumed newer pointer input.
+        private Vector3 _fpPreviousGunLocalPosition;
+        private Vector3 _fpCurrentGunLocalPosition;
+        private Vector3 _fpPreviousGunLocalFacing = Vector3.UnitZ;
+        private Vector3 _fpCurrentGunLocalFacing = Vector3.UnitZ;
+        private Vector3 _fpPreviousGunLocalUp = Vector3.UnitY;
+        private Vector3 _fpCurrentGunLocalUp = Vector3.UnitY;
+        // Live presentation fences only; historical replay fields and explicit
+        // observed/replay sampling retain their original values and policy.
+        private long _fpPreviousGeneration, _fpCurrentGeneration;
+        private bool _fpDrawStateValid;
+        private bool _fpHistoryFixedWeapon;
+        private FirstPersonRenderPose _fpRenderPose;
+        private bool _fpRenderPoseValid;
+
+        private static bool ModFinite(Vector3 value)
+            => Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
+
+        /// <summary>
+        /// Build the orthonormal basis used by both the camera and the local
+        /// first-person viewmodel. MPH's handedness uses cross(up, facing) for
+        /// the right vector; this intentionally matches GetTransformMatrix.
+        /// </summary>
+        internal static bool ModPresentationBasis(Vector3 facing, Vector3 upHint,
+            out Vector3 right, out Vector3 up, out Vector3 forward)
+        {
+            right = Vector3.Zero;
+            up = Vector3.UnitY;
+            forward = facing;
+            if (!ModFinite(forward) || forward.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+            forward = forward.Normalized();
+
+            if (!ModFinite(upHint) || upHint.LengthSquared < 0.000001f)
+            {
+                upHint = Vector3.UnitY;
+            }
+            else
+            {
+                upHint = upHint.Normalized();
+            }
+            if (MathF.Abs(Vector3.Dot(forward, upHint)) > 0.999f)
+            {
+                upHint = MathF.Abs(forward.Y) < 0.999f ? Vector3.UnitY : Vector3.UnitZ;
+            }
+
+            right = Vector3.Cross(upHint, forward);
+            if (!ModFinite(right) || right.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+            right = right.Normalized();
+            up = Vector3.Cross(forward, right);
+            if (!ModFinite(up) || up.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+            up = up.Normalized();
+            return true;
+        }
+
+        internal static Vector3 ModToPresentationLocal(Vector3 value,
+            Vector3 right, Vector3 up, Vector3 forward)
+            => new Vector3(Vector3.Dot(value, right), Vector3.Dot(value, up),
+                Vector3.Dot(value, forward));
+
+        internal static Vector3 ModFromPresentationLocal(Vector3 value,
+            Vector3 right, Vector3 up, Vector3 forward)
+            => right * value.X + up * value.Y + forward * value.Z;
+
+        /// <summary>
+        /// Rotate a vector from one camera basis to another without changing
+        /// its camera-local coordinates. This is the core invariant for the
+        /// high-refresh viewmodel: whatever render-time rotation the camera
+        /// receives, the arm cannon receives exactly the same one.
+        /// </summary>
+        internal static bool ModRotatePresentationVector(Vector3 value,
+            Vector3 fromFacing, Vector3 fromUp, Vector3 toFacing, Vector3 toUp,
+            out Vector3 rotated)
+        {
+            rotated = value;
+            if (!ModPresentationBasis(fromFacing, fromUp,
+                    out Vector3 fromRight, out Vector3 fromTrueUp, out Vector3 fromForward)
+                || !ModPresentationBasis(toFacing, toUp,
+                    out Vector3 toRight, out Vector3 toTrueUp, out Vector3 toForward))
+            {
+                return false;
+            }
+            Vector3 local = ModToPresentationLocal(
+                value, fromRight, fromTrueUp, fromForward);
+            rotated = ModFromPresentationLocal(
+                local, toRight, toTrueUp, toForward);
+            return ModFinite(rotated);
+        }
+
+        private Vector3 ModCameraUpHint()
+        {
+            if (ModFinite(CameraInfo.TrueUp) && CameraInfo.TrueUp.LengthSquared > 0.000001f)
+            {
+                return CameraInfo.TrueUp;
+            }
+            if (ModFinite(CameraInfo.UpVector) && CameraInfo.UpVector.LengthSquared > 0.000001f)
+            {
+                return CameraInfo.UpVector;
+            }
+            return Vector3.UnitY;
+        }
+
+        private bool ModCurrentFirstPersonLocalPose(out Vector3 position,
+            out Vector3 facing, out Vector3 up)
+        {
+            position = Vector3.Zero;
+            facing = Vector3.UnitZ;
+            up = Vector3.UnitY;
+            // Replicated aim can move Position after CameraInfo.Update. Use
+            // the endpoints captured by camera interpolation, not cached Facing.
+            if (!ModPresentationBasis(CameraInfo.Target - CameraInfo.Position, ModCameraUpHint(),
+                    out Vector3 right, out Vector3 cameraUp, out Vector3 cameraForward))
+            {
+                return false;
+            }
+
+            position = ModToPresentationLocal(
+                _gunDrawPos - CameraInfo.Position, right, cameraUp, cameraForward);
+            facing = ModToPresentationLocal(_aimVec, right, cameraUp, cameraForward);
+            up = ModToPresentationLocal(_upVector, right, cameraUp, cameraForward);
+            if (!ModFinite(position) || !ModFinite(facing) || !ModFinite(up)
+                || facing.LengthSquared < 0.000001f || up.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+            facing = facing.Normalized();
+            up = up.Normalized();
+            return true;
+        }
+
+        internal void ModResetFirstPersonDrawState()
+        {
+            _fpRenderPoseValid = false;
+            if (!ModCurrentFirstPersonLocalPose(
+                    out Vector3 position, out Vector3 facing, out Vector3 up))
+            {
+                _fpDrawStateValid = false;
+                return;
+            }
+            _fpPreviousGunLocalPosition = _fpCurrentGunLocalPosition = position;
+            _fpPreviousGunLocalFacing = _fpCurrentGunLocalFacing = facing;
+            _fpPreviousGunLocalUp = _fpCurrentGunLocalUp = up;
+            _fpPreviousGeneration = _fpCurrentGeneration = Mods.Render.FrameTiming.PresentationGeneration;
+            _fpHistoryFixedWeapon = Features.FixedWeapon;
+            _fpDrawStateValid = true;
+        }
+
+        internal void ModCaptureFirstPersonDrawState()
+        {
+            _fpRenderPoseValid = false;
+            if (!ModCurrentFirstPersonLocalPose(
+                    out Vector3 position, out Vector3 facing, out Vector3 up))
+            {
+                _fpDrawStateValid = false;
+                return;
+            }
+
+            bool fixedWeapon = Features.FixedWeapon;
+            if (!_fpDrawStateValid || fixedWeapon != _fpHistoryFixedWeapon
+                || (position - _fpCurrentGunLocalPosition).LengthSquared > 16f
+                || Vector3.Dot(facing, _fpCurrentGunLocalFacing) < 0f)
+            {
+                _fpPreviousGunLocalPosition = _fpCurrentGunLocalPosition = position;
+                _fpPreviousGunLocalFacing = _fpCurrentGunLocalFacing = facing;
+                _fpPreviousGunLocalUp = _fpCurrentGunLocalUp = up;
+                _fpPreviousGeneration = _fpCurrentGeneration = Mods.Render.FrameTiming.PresentationGeneration;
+                _fpHistoryFixedWeapon = fixedWeapon;
+                _fpDrawStateValid = true;
+                return;
+            }
+
+            _fpPreviousGunLocalPosition = _fpCurrentGunLocalPosition;
+            _fpPreviousGunLocalFacing = _fpCurrentGunLocalFacing;
+            _fpPreviousGunLocalUp = _fpCurrentGunLocalUp;
+            _fpPreviousGeneration = _fpCurrentGeneration;
+            _fpCurrentGunLocalPosition = position;
+            _fpCurrentGunLocalFacing = facing;
+            _fpCurrentGunLocalUp = up;
+            _fpCurrentGeneration = Mods.Render.FrameTiming.PresentationGeneration;
+            _fpHistoryFixedWeapon = fixedWeapon;
+        }
+
+        private bool ModInterpolatedFirstPersonLocalPose(double presentationAlpha,
+            out Vector3 position, out Vector3 facing, out Vector3 up, bool interpolate = false,
+            bool fenceLiveClock = false)
+        {
+            if (!_fpDrawStateValid || fenceLiveClock
+                && (_fpPreviousGeneration != Mods.Render.FrameTiming.PresentationGeneration
+                    || _fpCurrentGeneration != Mods.Render.FrameTiming.PresentationGeneration
+                    || !double.IsFinite(presentationAlpha)))
+            {
+                return ModCurrentFirstPersonLocalPose(out position, out facing, out up);
+            }
+
+            float t = interpolate || Mods.Render.FrameTiming.HighRefreshPresentation
+                ? (float)Math.Clamp(presentationAlpha, 0.0, 1.0)
+                : 1f;
+            // These are camera-local visual offsets, not world-space aim.
+            // Smooth orientation on the same timeline as translation so hit
+            // shake cannot snap the cannon between 60 Hz samples. The shared
+            // render camera basis still applies current/late-latched turns
+            // immediately to both the camera and the cannon.
+            position = Vector3.Lerp(
+                _fpPreviousGunLocalPosition, _fpCurrentGunLocalPosition, t);
+            if (!CameraInfo.ModInterpolateDirection(
+                    _fpPreviousGunLocalFacing, _fpCurrentGunLocalFacing, t, out facing)
+                || !CameraInfo.ModInterpolateDirection(
+                    _fpPreviousGunLocalUp, _fpCurrentGunLocalUp, t, out up))
+            {
+                return ModCurrentFirstPersonLocalPose(out position, out facing, out up);
+            }
+            if (!ModFinite(position) || !ModFinite(facing) || !ModFinite(up)
+                || facing.LengthSquared < 0.000001f || up.LengthSquared < 0.000001f)
+            {
+                return ModCurrentFirstPersonLocalPose(out position, out facing, out up);
+            }
+            facing = facing.Normalized();
+            up = up.Normalized();
+            return true;
+        }
+
+        private const float ImmediateLateAimDegrees = 8f;
+
+        /// <summary>
+        /// Keep ordinary pointer/touch aim fully late-latched, but do not let a
+        /// very large event rotate a draw-only camera tens of degrees in one
+        /// picture while gameplay is still on the previous 60 Hz sample. The
+        /// first eight degrees remain immediate; only the excess is revealed
+        /// over the fractional remainder of the simulation step. At alpha 1
+        /// the full delta is shown, so the following simulation pose meets it
+        /// without a snap.
+        /// </summary>
+        internal static Vector2 ModBoundLateAim(Vector2 aim, double presentationAlpha)
+        {
+            if (!Mods.Render.FrameTiming.HighRefreshPresentation
+                || !Single.IsFinite(aim.X) || !Single.IsFinite(aim.Y))
+            {
+                return aim;
+            }
+            float magnitude = aim.Length;
+            if (!Single.IsFinite(magnitude) || magnitude <= ImmediateLateAimDegrees)
+            {
+                return aim;
+            }
+
+            float t = (float)Math.Clamp(presentationAlpha, 0.0, 1.0);
+            float presented = ImmediateLateAimDegrees
+                + (magnitude - ImmediateLateAimDegrees) * t;
+            return aim * (presented / magnitude);
+        }
+
+        private void ModRenderAimDelta(double presentationAlpha,
+            float pointerX, float pointerY, float controllerX, float controllerY,
+            out float x, out float y)
+        {
+            float mouseSensitivity = Mods.InputSettings.MouseAimSensitivity(
+                EquipInfo.Zoomed && CurrentWeapon == BeamType.Imperialist);
+            float mouseX = -pointerX / 4f * mouseSensitivity * Mods.InputSettings.HorizontalSensitivity
+                * (Mods.InputSettings.InvertMouseX ? -1 : 1);
+            float mouseY = -pointerY / 4f * mouseSensitivity * Mods.InputSettings.VerticalSensitivity
+                * (Mods.InputSettings.InvertMouseY ? -1 : 1);
+            float scopeBlend = AimScopeBlend();
+            float scopedX = 1 + (Mods.Input.GamepadOptions.ScopedX - 1) * scopeBlend;
+            float scopedY = 1 + (Mods.Input.GamepadOptions.ScopedY - 1) * scopeBlend;
+            controllerX *= scopedX;
+            controllerY *= scopedY;
+
+            float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
+            if (normalFov != 0 && (EquipInfo.Zoomed || scopeBlend > 0))
+            {
+                float zoomScale = AimZoomScale();
+                mouseX *= zoomScale;
+                mouseY *= zoomScale;
+                controllerX *= zoomScale;
+                controllerY *= zoomScale;
+            }
+
+            mouseX *= ModCustomScopeSensitivity;
+            mouseY *= ModCustomScopeSensitivity;
+            controllerX *= ModCustomScopeSensitivity;
+            controllerY *= ModCustomScopeSensitivity;
+            Vector2 pointerAim = ModBoundLateAim(
+                new Vector2(mouseX, mouseY), presentationAlpha);
+            if (Mods.Input.GamepadInput.TryRenderCameraAim(Mods.Render.FrameTiming.Alpha,
+                out float appliedX, out float appliedY))
+            {
+                controllerX = appliedX;
+                controllerY = appliedY;
+
+                // Preview only the raw difference between the newest hardware
+                // sample and the stick sample the 60 Hz simulation accepted.
+                // Convert that difference through the same scoped/FOV/inversion
+                // path as ApplyGamepadAim, but never run target selection here.
+                if (Mods.Input.GamepadInput.TryRenderRawAimDelta(
+                    out float lateRawX, out float lateRawY))
+                {
+                    lateRawX *= scopedX;
+                    lateRawY *= scopedY;
+                    var lateCamera = Mods.Input.AimAssist.AimAssistMath.CameraDelta(
+                        new(lateRawX, lateRawY), AimZoomScale() * ModCustomScopeSensitivity,
+                        Controls.InvertAimX, Controls.InvertAimY);
+                    float lateFraction = (float)Math.Clamp(presentationAlpha, 0.0, 1.0);
+                    controllerX += lateCamera.X * lateFraction;
+                    controllerY += lateCamera.Y * lateFraction;
+                }
+            }
+            x = pointerAim.X + controllerX;
+            y = pointerAim.Y + controllerY;
+        }
+
+        private void ModResponsiveCameraBasis(out Vector3 facing, out Vector3 up)
+        {
+            facing = CameraInfo.Facing;
+            up = ModCameraUpHint();
+            if (!Features.ResponsiveAimCamera || Features.FixedAimCamera)
+            {
+                return;
+            }
+
+            // Dynamic/Metroid deliberately keeps an eased simulation-facing
+            // vector for its drifting weapon presentation. Rotate the completed
+            // camera pose from that legacy basis onto the current raw aim for
+            // presentation only. This preserves camera-local shake/tilt while
+            // removing the legacy aim easing from what the player actually
+            // sees. Gameplay fields and the Dynamic visual state are untouched.
+            if (ModRotatePresentationVector(facing,
+                    _facingVector, Vector3.UnitY, _gunVec1, Vector3.UnitY,
+                    out Vector3 responsiveFacing)
+                && ModRotatePresentationVector(up,
+                    _facingVector, Vector3.UnitY, _gunVec1, Vector3.UnitY,
+                    out Vector3 responsiveUp)
+                && responsiveFacing.LengthSquared > 0.000001f
+                && responsiveUp.LengthSquared > 0.000001f)
+            {
+                facing = responsiveFacing.Normalized();
+                up = responsiveUp.Normalized();
+            }
+            else
+            {
+                facing = _gunVec1;
+                up = Vector3.UnitY;
+            }
+        }
+
+        private Vector3 ModLateLatchedFacing(Vector3 baseFacing, float x, float y)
+        {
+            if (x == 0 && y == 0)
+            {
+                return baseFacing;
+            }
+
+            // Continue from the same camera used when the delta is zero.
+            // Starting from the firing ray discarded damage shake/view tilt
+            // as soon as any unsimulated input arrived, then restored it at
+            // the next simulation step when that input was consumed.
+            Vector3 aim = baseFacing;
+            float targetAimY = Math.Clamp(_aimY + y,
+                IsAltForm ? -25f : -85f, IsAltForm ? 5f : 85f);
+            float pitch = MathHelper.DegreesToRadians(targetAimY - _aimY);
+            if (pitch != 0)
+            {
+                Matrix4 pitchBasis = GetTransformMatrix(aim, Vector3.UnitY);
+                Vector3 local = pitch <= 0
+                    ? new Vector3(0, MathF.Sin(pitch), MathF.Cos(pitch))
+                    : new Vector3(0, -MathF.Sin(-pitch), MathF.Cos(-pitch));
+                aim = Matrix.Vec3MultMtx3(local, pitchBasis).Normalized();
+            }
+            if (x != 0)
+            {
+                float angle = MathHelper.DegreesToRadians(x);
+                float sin = angle <= 0 ? MathF.Sin(angle) : -MathF.Sin(-angle);
+                float cos = angle <= 0 ? MathF.Cos(angle) : MathF.Cos(-angle);
+                float oldX = aim.X;
+                float oldZ = aim.Z;
+                aim.X = oldX * cos + oldZ * sin;
+                aim.Z = oldX * -sin + oldZ * cos;
+                aim = aim.Normalized();
+            }
+            return aim;
+        }
+
+        /// <summary>
+        /// Prepare one local first-person presentation pose for this picture.
+        /// Camera and arm cannon are composed from the same basis and the same
+        /// late-latched input exactly once. Gameplay fields remain untouched;
+        /// the following 60 Hz step still consumes the ordinary input stream.
+        /// </summary>
+        internal bool ModPrepareFirstPersonRenderPose(double presentationAlpha,
+            float pointerX, float pointerY, float controllerX, float controllerY,
+            out Matrix4 view, out Vector3 cameraPosition, out float fov)
+        {
+            _fpRenderPoseValid = false;
+            view = CameraInfo.ViewMatrix;
+            cameraPosition = CameraInfo.Position;
+            fov = CameraInfo.Fov;
+            if (CameraType != CameraType.First || Flags1.TestFlag(PlayerFlags1.NoAimInput)
+                || CameraSequence.Current != null)
+            {
+                return false;
+            }
+
+            Vector3 renderFacing;
+            Vector3 upHint;
+            // Classic moving-reticle presentation intentionally keeps the
+            // legacy eased camera. Pro HUD is different: Dynamic/Metroid may
+            // keep that eased simulation state for weapon drift, but
+            // its local rendered camera must still use the responsive raw-aim
+            // path so changing weapon style cannot add mouse latency.
+            Vector3 drawCameraPosition = default;
+            Vector3 drawCameraTarget = default;
+            Vector3 drawCameraUp = default;
+            float drawCameraFov = CameraInfo.Fov;
+            bool smoothLegacyCamera = false;
+            if (!Features.ResponsiveAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
+            {
+                smoothLegacyCamera = CameraInfo.ModGetFirstPersonDrawPose(presentationAlpha,
+                    out drawCameraPosition, out drawCameraTarget,
+                    out drawCameraUp, out drawCameraFov, fenceLiveClock: true);
+            }
+            if (smoothLegacyCamera)
+            {
+                Vector3 drawFacing = drawCameraTarget - drawCameraPosition;
+                if (!ModFinite(drawFacing) || drawFacing.LengthSquared < 0.000001f)
+                {
+                    return false;
+                }
+                cameraPosition = drawCameraPosition;
+                fov = drawCameraFov;
+                renderFacing = drawFacing.Normalized();
+                upHint = drawCameraUp;
+            }
+            else
+            {
+                // Keep responsive local aiming low latency in orientation, but
+                // keep camera translation on the same previous/current
+                // presentation timeline as the world. Forward-extrapolating body
+                // motion made each 60 Hz correction visible as a tiny positional
+                // hitch while walking, strafing, jumping or landing.
+                if (Features.ResponsiveAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
+                {
+                    cameraPosition = CameraInfo.ModGetDrawPosition(presentationAlpha, fenceLiveClock: true);
+                    // Scope magnification belongs to the same picture as the
+                    // interpolated camera and camera-local cannon offsets.
+                    // Orientation below remains responsive to current input.
+                    fov = CameraInfo.ModGetDrawFov(presentationAlpha, fenceLiveClock: true);
+                }
+
+                // Static/Quake and Pro HUD Dynamic/Metroid both use a
+                // low-latency rendered camera. Dynamic retains its eased
+                // simulation basis only for weapon presentation.
+                ModResponsiveCameraBasis(out Vector3 baseFacing, out upHint);
+                ModRenderAimDelta(presentationAlpha,
+                    pointerX, pointerY, controllerX, controllerY,
+                    out float x, out float y);
+                renderFacing = ModLateLatchedFacing(baseFacing, x, y);
+            }
+
+            float eyeCorrection = ModCrouchDrawEyeCorrection(presentationAlpha);
+            if (MathF.Abs(eyeCorrection) > .000001f)
+            {
+                Vector3 easedEye = cameraPosition.AddY(eyeCorrection);
+                CollisionResult obstruction = default;
+                // Cosmetic easing must not lift the view through a low ceiling.
+                // This read-only query uses its own pooled collision workspace.
+                if (CollisionDetection.CheckBetweenPoints(cameraPosition, easedEye,
+                    TestFlags.Players, _scene, ref obstruction))
+                    easedEye = obstruction.Position + obstruction.Plane.Xyz * .01f;
+                cameraPosition = easedEye;
+            }
+
+            if (!ModPresentationBasis(renderFacing, upHint,
+                    out Vector3 renderRight, out Vector3 renderUp, out Vector3 renderForward)
+                || !ModInterpolatedFirstPersonLocalPose(
+                    presentationAlpha,
+                    out Vector3 gunLocalPosition, out Vector3 gunLocalFacing,
+                    out Vector3 gunLocalUp, fenceLiveClock: true))
+            {
+                return false;
+            }
+
+            gunLocalPosition.Y += ModCrouchDrawBobCorrection(presentationAlpha, gun: true);
+            gunLocalPosition += ModGetParkourAnimationPose().GunOffset;
+            Vector3 gunPosition = cameraPosition + ModFromPresentationLocal(
+                gunLocalPosition, renderRight, renderUp, renderForward);
+            Vector3 gunFacing = ModFromPresentationLocal(
+                gunLocalFacing, renderRight, renderUp, renderForward);
+            Vector3 gunUp = ModFromPresentationLocal(
+                gunLocalUp, renderRight, renderUp, renderForward);
+            if (!ModFinite(gunPosition) || !ModFinite(gunFacing) || !ModFinite(gunUp)
+                || gunFacing.LengthSquared < 0.000001f || gunUp.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+            gunFacing = gunFacing.Normalized();
+            gunUp = gunUp.Normalized();
+
+            view = Matrix4.LookAt(
+                cameraPosition, cameraPosition + renderForward, renderUp);
+            _fpRenderPose = new FirstPersonRenderPose(
+                view, cameraPosition, gunPosition, gunFacing, gunUp, fov);
+            _fpRenderPoseValid = true;
+            return true;
+        }
+
+        internal bool ModTryOwnerRenderPose(out FirstPersonRenderPose pose)
+        { pose = _fpRenderPose; return _fpRenderPoseValid; }
+
+        internal void ModApplyOwnerRenderPose(in Mods.Replay.ReplayOwnerPose pose)
+        {
+            _fpRenderPose = new(pose.View, Matrix4.Invert(pose.View).Row3.Xyz,
+                pose.GunPosition, pose.GunFacing, pose.GunUp, MathHelper.RadiansToDegrees(pose.GunFov));
+            _fpRenderPoseValid = true;
+        }
+
+        internal void ModInvalidateFirstPersonRenderPose()
+        { _fpRenderPoseValid = false; _ownerVisual = default; }
+
+        internal bool ModGetFirstPersonRenderCameraPosition(out Vector3 position)
+        {
+            if (!_fpRenderPoseValid)
+            {
+                position = CameraInfo.Position;
+                return false;
+            }
+            position = _fpRenderPose.CameraPosition;
+            return true;
+        }
+
+        internal bool ModGetFirstPersonEffectTransform(out Matrix4 transform)
+        {
+            transform = Matrix4.Identity;
+            if (!_fpRenderPoseValid)
+            {
+                return false;
+            }
+
+            // The linked muzzle/charge effects use a different authored axis
+            // convention from the gun model: their "facing" is the gun's right
+            // axis and their "up" is its forward axis. Rebuild that exact
+            // convention from the already-prepared render pose, with the
+            // emitter at the rendered barrel tip.
+            Vector3 gunRight = Vector3.Cross(
+                _fpRenderPose.GunUp, _fpRenderPose.GunFacing);
+            if (!ModFinite(gunRight) || gunRight.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+            gunRight = gunRight.Normalized();
+            Vector3 muzzle = _fpRenderPose.GunPosition
+                + _fpRenderPose.GunFacing * Fixed.ToFloat(Values.MuzzleOffset);
+            if (!ModFinite(muzzle))
+            {
+                return false;
+            }
+
+            transform = GetTransformMatrix(
+                gunRight, _fpRenderPose.GunFacing, muzzle);
+            return true;
+        }
+
+        internal bool ModGetFirstPersonGunTransform(out Matrix4 transform)
+        {
+            if (!_fpRenderPoseValid)
+            {
+                transform = Matrix4.Identity;
+                return false;
+            }
+            transform = GetTransformMatrix(
+                _fpRenderPose.GunFacing, _fpRenderPose.GunUp, _fpRenderPose.GunPosition);
+            return true;
+        }
+
+        internal void ModRefreshNetworkAim()
+        {
+            if (_scene.Services.PlayerReplication.Active && SlotIndex != _scene.Services.PlayerReplication.LocalSlot
+                && _scene.Services.PlayerReplication.TryGetIntent(SlotIndex, out var recorded)
+                && _scene.PlayerReplication.AimTrusted(SlotIndex))
+            {
+                ModSetAim(recorded.Aim);
+                ModRefreshObservedAimBasis();
+            }
+        }
+
+        internal void ModTranslateReplayPresentation(Vector3 delta)
+        {
+            // Accepted snapshots are applied after the replica movement/camera
+            // step. Carry its camera and viewmodel along with the corrected body
+            // before capturing interpolation history.
+            CameraInfo.Position += delta;
+            CameraInfo.Target += delta;
+            CameraInfo.PrevPosition += delta;
+            _gunDrawPos += delta;
+        }
+
+        internal void ModRefreshObservedAimBasis()
+        {
+            // Movement built these vectors before the replicated facing correction.
+            // Rebuild the gun basis without running movement or camera timers again.
+            Vector3 right = new(_facingVector.Z, 0, -_facingVector.X);
+            if (right.LengthSquared <= 0.000001f) return;
+            _gunVec2 = right.Normalized();
+            _upVector = Vector3.Cross(_facingVector, _gunVec2).Normalized();
+        }
+
+        /// <summary>
+        /// Point a remote player's gun where its owner is pointing it.
+        ///
+        /// Absolute, not a rotation: see IntentPacket.Aim. Everything derived
+        /// from the aim ray is recomputed here, because the authority decides
+        /// what a shot hits from _aimPosition and would otherwise fire along
+        /// last frame's ray.
+        /// </summary>
+        internal void ModSetAim(Vector3 aim)
+        {
+            if (!(aim.LengthSquared > 0.0001f))
+            {
+                return;
+            }
+            if (_scene.Services.PlayerReplication.Active && SlotIndex != _scene.Services.PlayerReplication.LocalSlot)
+            {
+                // A remote player's camera is not the authoritative state.
+                // Repositioning the player without moving this cached camera
+                // made its transmitted aim originate from the previous room
+                // position, so every remote beam missed its target.
+                //
+                // At eye height, which this line used to leave out. Every
+                // shot in the game starts from CameraInfo.Position -- it is
+                // what _gunDrawPos and then _muzzlePos are built from in
+                // UpdateAimVecs -- and UpdateCameraFirst puts it AimYOffset
+                // above the feet, nine tenths of a unit. Assigning the bare
+                // position therefore fired every remote player's beam from
+                // its ankles, along a ray parallel to the one its owner was
+                // looking down and nine tenths of a unit under it. Aimed at
+                // somebody's chest that goes into the floor in front of
+                // them.
+                //
+                // The tell was that it looked exactly like latency and was
+                // not: on the authority the shots that landed were its own,
+                // the one player whose camera the engine still owned. With
+                // eleven milliseconds of ping and three clients on one map,
+                // slot 1's own machine counted 69 of its shots overlapping
+                // slot 2 while the authority counted none at all.
+                CameraInfo.Position = _field6D0
+                    ? Position
+                    : Position.AddY(ModBipedEyeOffset);
+            }
+            _gunVec1 = aim.Normalized();
+            float flat = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
+            _aimY = Math.Clamp(MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, flat)), -85, 85);
+            _aimPosition = CameraInfo.Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
+            UpdateAimFacing();
+        }
+
+        /// <summary>
+        /// Recompute this player's room node after its position was written
+        /// in from the network.
+        ///
+        /// NodeRef is what the renderer culls against (PlayerDraw:
+        /// `IsMainPlayer || IsVisible(NodeRef)`), and the engine normally
+        /// advances it during simulation. A remote player whose position is
+        /// assigned directly skips that step, keeps the node it spawned in,
+        /// and disappears -- or shows only a shadow -- once the viewer is
+        /// somewhere else in the room.
+        /// </summary>
+        /// <summary>
+        /// The furthest one position update may move a player and still be
+        /// walked across portals rather than looked up. A player crosses a
+        /// couple of tenths of a unit in a frame; anything past this is a
+        /// respawn, a teleporter or the authority correcting a divergence,
+        /// and the straight line to it means nothing.
+        /// </summary>
+        private const float _nodeWalkStepMax = 4;
+
+        /// <summary>
+        /// The room part a step from one position to the next walks into, or
+        /// none when this is not a step a walk can describe.
+        ///
+        /// Refused for a jump no walk could make -- a respawn, a teleporter,
+        /// the authority correcting a divergence -- since the straight line
+        /// between those two points crosses whatever it happens to cross, and
+        /// for a result the part's own bounding box says is impossible, which
+        /// is what keeps one bad hop from becoming permanent.
+        ///
+        /// Static so that the map harness can run the same rule alongside the
+        /// engine's own walk and report how far the two drift apart; a copy
+        /// of it there would measure the copy.
+        /// </summary>
+        internal static Formats.Culling.NodeRef ModWalkNodeRef(Scene scene,
+            Formats.Culling.NodeRef current, Vector3 previous, Vector3 position)
+        {
+            if (current == Formats.Culling.NodeRef.None
+                || (position - previous).LengthSquared >= _nodeWalkStepMax * _nodeWalkStepMax)
+            {
+                return Formats.Culling.NodeRef.None;
+            }
+            Formats.Culling.NodeRef walked = scene.UpdateNodeRef(current, previous, position);
+            if (walked.PartIndex == -1 || !scene.PartCouldContain(walked.PartIndex, position))
+            {
+                return Formats.Culling.NodeRef.None;
+            }
+            return walked;
+        }
+
+        /// <summary>Keep collision attachments in the corrected owner's reference frame.</summary>
+        internal void ModTranslateCollisionAttachments(Vector3 delta)
+        {
+            if (Hunter == Hunter.Kanden)
+                for (int i = 0; i < _kandenSegPos.Length; i++) _kandenSegPos[i] += delta;
+            if (Hunter == Hunter.Spire)
+            {
+                _spireRockPosL += delta;
+                _spireRockPosR += delta;
+            }
+        }
+
+        // Query scratch only; deliberately excluded from replay world checkpoints.
+        private bool? _modHistoricalCollisionForm;
+        internal bool ModHistoricalCollisionActive => _modHistoricalCollisionForm.HasValue;
+        internal bool ModCollisionIsAltForm => _modHistoricalCollisionForm ?? IsAltForm;
+        internal AltCollisionPose ModCaptureAltPose() => Hunter == Hunter.Kanden
+            ? new(_kandenSegPos[1], _kandenSegPos[2], _kandenSegPos[3]) : default;
+        internal HistoricalCollisionState ModCaptureCollisionState() => new(Position, PrevPosition,
+            _volume, _volumeUnxf, NodeRef, _modHistoricalCollisionForm, ModCaptureAltPose(), _modHistoricalCrouched, _modHistoricalTucked);
+        internal void ModApplyHistoricalCollisionPose(in HistoricalPlayerPose pose)
+        {
+            Position = PrevPosition = pose.Position;
+            _modHistoricalCollisionForm = pose.AltForm;
+            _modHistoricalCrouched = !pose.AltForm && pose.Crouched;
+            _modHistoricalTucked = !pose.AltForm && pose.Crouched && pose.Tucked;
+            _volumeUnxf = PlayerVolumes[(int)Hunter, pose.AltForm ? 2 : 0];
+            _volume = CollisionVolume.Move(_volumeUnxf, Position);
+            if (Hunter == Hunter.Kanden)
+            {
+                _kandenSegPos[1] = pose.AltPose.Seg1;
+                _kandenSegPos[2] = pose.AltPose.Seg2;
+                _kandenSegPos[3] = pose.AltPose.Seg3;
+            }
+        }
+        internal void ModRestoreCollisionState(in HistoricalCollisionState state)
+        {
+            Position = state.Position; PrevPosition = state.Previous;
+            _volume = state.Volume; _volumeUnxf = state.Untransformed; NodeRef = state.Node;
+            _modHistoricalCollisionForm = state.Form;
+            _modHistoricalCrouched = state.Crouched;
+            _modHistoricalTucked = state.Tucked;
+            if (Hunter == Hunter.Kanden)
+            {
+                _kandenSegPos[1] = state.Segments.Seg1;
+                _kandenSegPos[2] = state.Segments.Seg2;
+                _kandenSegPos[3] = state.Segments.Seg3;
+            }
+        }
+
+        /// <summary>Place a live player, refreshing its collision volume and node reference.</summary>
+        internal void ModPlaceAt(OpenTK.Mathematics.Vector3 position)
+        {
+            OpenTK.Mathematics.Vector3 previous = Position;
+            Position = position;
+            PrevPosition = position;
+            ModRefreshNodeRef(previous);
+        }
+
+        /// <summary>
+        /// Whether a position the authority sent is somewhere this room could
+        /// actually have put a player.
+        ///
+        /// Every placement the authority makes is a spawn point: it runs
+        /// GetRespawnPoint and publishes where that put the player. So a
+        /// placement nowhere near any spawn point in the room this client has
+        /// loaded did not come from this room at all -- it is the authority
+        /// still standing in the map before the rotation, describing
+        /// coordinates that mean something there and nothing here.
+        ///
+        /// Taking one is the report about spawning outside the level: the
+        /// player is teleported to wherever those coordinates land, which is
+        /// usually nowhere, and then falls out of the world in the dark until
+        /// the kill plane catches them. Refusing it costs nothing -- the
+        /// local spawn that is already in place is a real spawn point of this
+        /// room, chosen a moment earlier by the same rule.
+        /// </summary>
+        internal bool ModPlacementBelongsHere(OpenTK.Mathematics.Vector3 position)
+        {
+            bool any = false;
+            return ModNearestSpawn(position, ref any) != null
+                // A room with no spawn points at all is not a room this rule
+                // can say anything about, so it says nothing.
+                || !any;
+        }
+
+        /// <summary>
+        /// The spawn point a placement was made from, or null if it was made
+        /// from none of this room's.
+        ///
+        /// <paramref name="any"/> comes back true when the room has spawn
+        /// points at all, which is what tells "the authority meant a point
+        /// somewhere else" apart from "there is nothing here to mean".
+        /// </summary>
+        private PlayerSpawnEntity? ModNearestSpawn(OpenTK.Mathematics.Vector3 position,
+            ref bool any)
+        {
+            // Generous: the authority may have published a frame or two after
+            // the placement, by which time the player has begun to fall to
+            // the floor, and a spawn point sits above it.
+            const float reach = 12;
+            PlayerSpawnEntity? nearest = null;
+            float nearestDist = reach * reach;
+            foreach (PlayerSpawnEntity spawn in _scene.GetPlayerSpawnEntities())
+            {
+                any = true;
+                OpenTK.Mathematics.Vector3 between = spawn.Position - position;
+                float dist = between.LengthSquared;
+                if (dist <= nearestDist)
+                {
+                    nearestDist = dist;
+                    nearest = spawn;
+                }
+            }
+            return nearest;
+        }
+
+        /// <summary>
+        /// Which way the level author meant a player standing at a placement
+        /// the authority made to be looking.
+        ///
+        /// Read off the spawn point rather than off the snapshot because the
+        /// snapshot's facing is already stale by the time it arrives: the
+        /// authority spawns this player looking down the point's own vector
+        /// and then eases that facing 10% a frame towards whatever aim the
+        /// owner's intents are still carrying from the life that just ended
+        /// (<see cref="ModSetAim"/>, UpdateAimFacing). The point itself does
+        /// not drift, and it is the exact vector the engine's own respawn
+        /// passes to Spawn().
+        ///
+        /// Null when the placement came from no point in this room, which is
+        /// the case <see cref="ModPlacementBelongsHere"/> refuses outright.
+        /// </summary>
+        internal OpenTK.Mathematics.Vector3? ModSpawnFacingAt(OpenTK.Mathematics.Vector3 position)
+        {
+            bool any = false;
+            PlayerSpawnEntity? spawn = ModNearestSpawn(position, ref any);
+            return spawn?.FacingVector;
+        }
+
+        /// <summary>
+        /// Turn this machine's own player to face the way the spawn point the
+        /// authority placed them on faces.
+        ///
+        /// A respawn happens twice: once here the moment the player asks for
+        /// it, and once on the authority, which owns where they end up. The
+        /// two run GetRespawnPoint a few frames apart against different sets
+        /// of living players and rotate their choice with the frame counter,
+        /// so they routinely pick *different* points -- which is why the
+        /// placement is handed over at all. Handing over the position alone
+        /// left the player standing on the authority's point while still
+        /// looking down the local one's vector: the report about facing the
+        /// wrong way after respawning, and it was only ever "sometimes"
+        /// because it needs the two choices to disagree.
+        ///
+        /// Both halves have to move. <see cref="_facingVector"/> is what the
+        /// first-person camera aims (UpdateCameraFirst) and what the body's
+        /// heading is rebuilt from every frame (UpdateAimVecs); _gunVec1 is
+        /// where the gun points and what the next intent publishes. Setting
+        /// only the first leaves the aim behind and UpdateAimFacing drags the
+        /// facing straight back to it.
+        /// </summary>
+        internal void ModSetSpawnFacing(OpenTK.Mathematics.Vector3 facing)
+        {
+            ModSetFacing(facing);
+            ModSetAim(facing);
+        }
+
+        internal void ModRefreshNodeRef(OpenTK.Mathematics.Vector3 previousPosition)
+        {
+            _volume = CollisionVolume.Move(_volumeUnxf, Position);
+            // Walked from the last position first, looked up only when the
+            // walk cannot be trusted.
+            //
+            // This used to be the other way round, on the grounds that a
+            // puppet's position is written in rather than simulated and so
+            // never crosses a portal "properly". That reasoning does not
+            // hold: UpdateNodeRef tests the *segment* between two positions
+            // against the portal planes, and it does not care how either
+            // position was arrived at -- only that they are consecutive and
+            // close, which two snapshots of the same player 1/60 s apart are
+            // exactly as much as two simulation steps of one are.
+            //
+            // What the lookup costs, measured with `-maptest ROOM -players 8`
+            // against the node the engine itself walked: on MP4 HIGHGROUND it
+            // named the wrong part for 73% of the positions players actually
+            // stood in, on MP7 PROCESSOR CORE 84%, and on MP6 HEADSHOT it had
+            // no answer at all for 86%. In more than half of those the part
+            // it named was one the viewer could not see while the real one
+            // was -- which is a hunter standing in front of you, shootable,
+            // with a shadow, and not drawn. That is the report this method
+            // was written for in the first place; it was the cure that was
+            // wrong, not the diagnosis.
+            //
+            // The walk is refused for a jump no walk could make (a respawn, a
+            // teleporter, a correction from the authority) and for a result
+            // the part's own bounding box says is impossible, which is what
+            // stops one bad hop becoming permanent -- the failure the lookup
+            // was reached for.
+            Formats.Culling.NodeRef walked = ModWalkNodeRef(
+                _scene, NodeRef, previousPosition, Position);
+            if (walked != Formats.Culling.NodeRef.None)
+            {
+                NodeRef = walked;
+                ModNodeUnresolved = false;
+                return;
+            }
+            // None means the position is inside no part at all -- a fraction
+            // outside the geometry, which happens -- and the node it had is a
+            // better answer than nothing.
+            Formats.Culling.NodeRef found = _scene.GetNodeRefByPosition(Position);
+            if (found.PartIndex == -1)
+            {
+                // The body rather than the point it is anchored at, and then a
+                // little either side of it. A lookup tests a position against
+                // every portal plane of a part, so a player standing on top of
+                // the level -- or a hair outside it, which is where a jump
+                // lands -- can be outside all of them while the middle of the
+                // same player is comfortably inside one. Cheap, and it is only
+                // reached when the direct answer already failed.
+                found = _scene.GetNodeRefByPosition(_volume.SpherePosition);
+            }
+            if (found.PartIndex == -1)
+            {
+                found = _scene.GetNodeRefByPosition(Position + Vector3.UnitY * 0.5f);
+            }
+            if (found.PartIndex == -1)
+            {
+                found = _scene.GetNodeRefByPosition(Position - Vector3.UnitY * 0.5f);
+            }
+            if (found.PartIndex != -1)
+            {
+                NodeRef = found;
+                ModNodeUnresolved = false;
+                return;
+            }
+            // Nothing placed this player at all. The node it had is still the
+            // best guess for everything that reads one -- but it is a guess,
+            // and a wrong one hides the player outright, so say so and let
+            // PlayerDraw draw them anyway. Reported from AD2 ALINOS PERCH by
+            // several players at once: hunters up at the top of the map who
+            // could be shot and could not be seen, with their shadows still
+            // moving about underneath them. Same shape as the MP4 HIGHGROUND
+            // EXPANDED report that this method was written for, except that
+            // there the position resolved and here it does not resolve at all.
+            ModNodeUnresolved = true;
+            _scene.PlayerReplication.NodeLookupsUnresolved++;
+            if (NodeRef != Formats.Culling.NodeRef.None)
+            {
+                NodeRef = _scene.UpdateNodeRef(NodeRef, previousPosition, Position);
+            }
+        }
+
+        /// <summary>
+        /// Whether this player's last node lookup failed outright, so the node
+        /// it is holding is stale rather than merely old.
+        ///
+        /// Read by <c>PlayerDraw</c>, which culls on the node: a puppet whose
+        /// node cannot be worked out is drawn rather than hidden. Drawing one
+        /// that should have been culled costs a model the depth buffer mostly
+        /// swallows; hiding one that should have been drawn costs a player who
+        /// can shoot you from somewhere you cannot see them, which is the
+        /// report this exists for.
+        /// </summary>
+        internal bool ModNodeUnresolved { get; private set; }
+
+        /// <summary>
+        /// Record the positions a collision query is about to be built from.
+        /// The candidate pool drains when limitMin/limitMax span a huge grid
+        /// range, and those come straight from PrevPosition and Position, so
+        /// logging both says whether a bad position is the cause.
+        /// </summary>
+        internal void ModLogCollisionRange()
+        {
+            if (_scene.Services.IsReplica || !NetLog.Enabled || !NetSession.Active)
+            {
+                return;
+            }
+            NetLog.CollisionRange(SlotIndex, "pre-check", PrevPosition, Position);
+        }
+
+        /// <summary>
+        /// Point a remote player where the authority says it is pointing.
+        ///
+        /// Only the authority runs a remote player's aim (it has the relayed
+        /// deltas); everyone else receives the resulting facing in the
+        /// snapshot. Without applying it, a puppet slid around the map still
+        /// facing whatever direction it spawned in.
+        /// </summary>
+        internal void ModSetFacing(OpenTK.Mathematics.Vector3 facing)
+        {
+            // Not-a-number fails every comparison, including this one, so the
+            // length test has to be written as a test for a good value rather
+            // than a test for a bad one.
+            if (!(facing.LengthSquared > 0.0001f))
+            {
+                return;
+            }
+            _facingVector = facing.Normalized();
+            SetTransform(_facingVector, _upVector, Position);
+        }
+
+        /// <summary>
+        /// Hidden and non-solid on this machine, whether this is the real
+        /// local player (set directly by <see cref="Mods.SpectatorMode"/>) or a
+        /// puppet (set from the FlagSpectating bit in its snapshot).
+        /// </summary>
+        internal void ModSetSpectating(bool value)
+        {
+            if (value)
+            {
+                ModResetTraversalStance();
+                Flags2 |= PlayerFlags2.Spectating;
+                // Spectating is a role, not an invisible living hunter. Keep
+                // the occupied network slot but remove its current world body.
+                // Write the backing health field directly so entering spectator
+                // mode is not scored as a combat death.
+                LoadFlags &= ~LoadFlags.Spawned;
+                _health = 0;
+                Controls.ClearAll();
+            }
+            else
+            {
+                Flags2 &= ~PlayerFlags2.Spectating;
+            }
+        }
+
+        /// <summary>
+        /// In the match, and so worth aiming at: alive, and not sitting this
+        /// one out in the spectator.
+        ///
+        /// What <c>PlayerAi</c>'s opponent and teammate searches ask, in place
+        /// of <c>Health > 0</c> alone. A spectator is already hidden and
+        /// non-solid, so the bots that kept picking one as their target were
+        /// walking towards nobody and shooting through them -- a hunter
+        /// nobody can hit is not an opponent, and one nobody can be hit by is
+        /// not a teammate worth covering either.
+        /// </summary>
+        internal bool ModInPlay => Health > 0 && !Flags2.TestFlag(PlayerFlags2.Spectating);
+
+        /// <summary>
+        /// Whether this player is standing in the map rather than waiting at
+        /// the origin to be placed. Spectator mode deliberately clears
+        /// Spawned and health, so the role is part of this answer as well as
+        /// ordinary alive/dead state.
+        /// </summary>
+        internal bool ModIsInPlay => LoadFlags.TestFlag(LoadFlags.Spawned) && _health > 0
+            && !Flags2.TestFlag(PlayerFlags2.Spectating);
+
+        /// <summary>
+        /// Put a puppet on the map where the authority put the real player.
+        ///
+        /// Spawn() is what clears HideModel, gives the player its health and
+        /// marks the slot Spawned; a puppet that only ever had a position
+        /// written into it stayed hidden, which is why a correctly tracked
+        /// remote player could still be invisible. Only the transition needs
+        /// this -- once spawned, plain position writes are enough.
+        /// </summary>
+        internal void ModNetSpawn(OpenTK.Mathematics.Vector3 position,
+            OpenTK.Mathematics.Vector3 facing)
+        {
+            OpenTK.Mathematics.Vector3 forward = facing.LengthSquared > 0.0001f
+                ? facing.Normalized()
+                : -OpenTK.Mathematics.Vector3.UnitZ;
+            Spawn(position, forward, OpenTK.Mathematics.Vector3.UnitY,
+                ModSpawnNodeRef(_scene, position), respawn: true);
+        }
+
+        /// <summary>
+        /// The room part to spawn into, from the map's own data where the map
+        /// has any to give.
+        ///
+        /// A spawn position is a spawn point, and a spawn point is an entity
+        /// carrying the node ref the level author put on it -- which is what
+        /// the engine's own respawn passes and is not a guess.
+        /// GetNodeRefByPosition is: on MP6 HEADSHOT it answers none for 86%
+        /// of the positions a player actually stands in. That mattered
+        /// because nothing recovers a node ref of none afterwards -- the
+        /// one-hop walk that maintains it needs a part to start from -- so a
+        /// client that joined a match there spent all of it with no node at
+        /// all. See RoomEntity.IsNodeRefVisible for what that cost.
+        ///
+        /// Static so the harness can seed a puppet the way the game does:
+        /// MapAudit's remote-node probe carries a node ref alongside the real
+        /// one, and seeding that from the lookup measured a rule this code
+        /// stopped using -- one bad seed walks wrong for the rest of the run
+        /// and the probe reported it as the game's own behaviour.
+        /// </summary>
+        internal static Formats.Culling.NodeRef ModSpawnNodeRef(Scene scene,
+            OpenTK.Mathematics.Vector3 position)
+        {
+            EntityBase? closest = null;
+            float closestDist = 2 * 2;
+            foreach (EntityBase entity in scene.Entities)
+            {
+                if (entity.Type != EntityType.PlayerSpawn
+                    || entity.NodeRef == Formats.Culling.NodeRef.None)
+                {
+                    continue;
+                }
+                float dist = (entity.Position - position).LengthSquared;
+                if (dist < closestDist)
+                {
+                    closestDist = dist;
+                    closest = entity;
+                }
+            }
+            if (closest != null)
+            {
+                return closest.NodeRef;
+            }
+            return scene.GetNodeRefByPosition(position);
+        }
+
+        /// <summary>
+        /// How far this player would have to turn, in the degrees
+        /// UpdateAimX/UpdateAimY take, to be pointing at a position.
+        ///
+        /// Derived from _gunVec1 rather than the facing vector because that
+        /// is what the aim helpers rotate and what the gun actually fires
+        /// along; the biped's facing lags it while turning.
+        /// </summary>
+        internal (float X, float Y) ModAimDeltaTowards(Vector3 target)
+        {
+            Vector3 desired = ModAimVectorTowards(target);
+            float flatLength = MathF.Sqrt(desired.X * desired.X + desired.Z * desired.Z);
+            float aimFlat = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
+            if (flatLength < 0.001f || aimFlat < 0.001f)
+            {
+                return (0, 0);
+            }
+            float tx = desired.X / flatLength;
+            float tz = desired.Z / flatLength;
+            float ax = _gunVec1.X / aimFlat;
+            float az = _gunVec1.Z / aimFlat;
+            // UpdateAimX rotates (x, z) by the negative of its argument
+            // (x' = x cos + z sin), so the turn to make is the negated
+            // signed angle from the current aim to where it should be.
+            float turn = -MathHelper.RadiansToDegrees(
+                MathF.Atan2(ax * tz - az * tx, ax * tx + az * tz));
+            float targetPitch = MathHelper.RadiansToDegrees(MathF.Atan2(desired.Y, flatLength));
+            float currentPitch = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, aimFlat));
+            return (turn, targetPitch - currentPitch);
+        }
+
+        /// <summary>
+        /// Where _gunVec1 has to point for a shot to hit a position.
+        ///
+        /// Not simply "at the target". A shot travels from the muzzle towards
+        /// _aimPosition, which sits a fixed distance down the aim ray from the
+        /// eye, so the gun and the crosshair only agree at that one distance --
+        /// the game's convergence point, which a person compensates for by
+        /// watching where the shots land. Pointing the aim ray straight at a
+        /// target further away therefore missed low and to the side, every
+        /// time. This solves for the aim direction whose convergence point
+        /// lies on the muzzle-to-target line instead.
+        /// </summary>
+        private Vector3 ModAimVectorTowards(Vector3 target)
+        {
+            Vector3 eye = CameraInfo.Position;
+            float aimDistance = Fixed.ToFloat(Values.AimDistance);
+            Vector3 fromMuzzle = target - _muzzlePos;
+            if (fromMuzzle.LengthSquared < 0.0001f || aimDistance <= 0)
+            {
+                return target - eye;
+            }
+            Vector3 direction = fromMuzzle.Normalized();
+            Vector3 offset = _muzzlePos - eye;
+            float b = Vector3.Dot(offset, direction);
+            float c = Vector3.Dot(offset, offset) - aimDistance * aimDistance;
+            float discriminant = b * b - c;
+            if (discriminant < 0)
+            {
+                // The target line never reaches the convergence sphere -- at
+                // point-blank range the two are close enough that aiming
+                // straight at it is right anyway.
+                return target - eye;
+            }
+            float t = -b + MathF.Sqrt(discriminant);
+            return _muzzlePos + direction * t - eye;
+        }
+
+        /// <summary>Where a shot aimed at this player should be pointed.</summary>
+        internal Vector3 ModAimTarget => Position + PlayerVolumes[(int)Hunter, 0].SpherePosition;
+
+        /// <summary>
+        /// Change which hunter this slot is playing. Initialize() rebuilds the
+        /// models and values from it, so callers must run that afterwards --
+        /// NetSlotManager does, as part of activating the slot.
+        /// </summary>
+        internal void ModSetHunter(Hunter hunter)
+        {
+            if (_scene.GameState.Multiplayer) hunter = Mods.Multiplayer.HunterRules.Sanitize(hunter, _scene.GameState.LowTier);
+            if (hunter != Hunter)
+            {
+                // Sylux's three bomb slots and the count that indexes them
+                // belong to the hunter, not to the player, and this is the one
+                // place a player stops being that hunter. Spawn clears them
+                // when somebody comes back *as* Sylux; leaving here is the
+                // other direction, and the one the respawn hunter picker made
+                // ordinary -- lay a bomb, come back as somebody else, and the
+                // count stayed behind describing bombs that are now nobody's.
+                // BombEntity.Destroy checks that it is still the bomb
+                // registered at its own index, so the ones left in the world
+                // pass over this cleanly rather than decrementing it.
+                SyluxBombs[0] = null;
+                SyluxBombs[1] = null;
+                SyluxBombs[2] = null;
+                SyluxBombCount = 0;
+            }
+            Hunter = hunter;
+        }
+
+        /// <summary>
+        /// Whether the HUD's directional damage indicator is currently lit.
+        ///
+        /// The check that says the damage feedback actually ran: these timers
+        /// are set inside TakeDamage and nowhere else, so a client that had
+        /// its health assigned from a snapshot never lit one.
+        /// </summary>
+        internal bool ModDamageIndicatorActive
+        {
+            get
+            {
+                for (int i = 0; i < _damageIndicatorTimers.Length; i++)
+                {
+                    if (_damageIndicatorTimers[i] > 0)
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Replay-only directional damage feedback. This deliberately does not
+        /// call TakeDamage, change health, apply knockback, shake the camera, or
+        /// touch animation state. ReplayShotFact already owns whether the hit
+        /// happened; this only lights the native HUD sector for the watched
+        /// victim.
+        /// </summary>
+        internal void ModPresentReplayDamageIndicator(Vector3 hitDirection)
+        {
+            if (!_scene.Services.IsReplica || !IsMainPlayer || IsAltForm
+                || hitDirection.LengthSquared < 0.000001f)
+            {
+                return;
+            }
+            int sector = ModReplayDamageIndicatorSector(
+                hitDirection, _gunVec2, _field70, _field74);
+            if ((uint)sector < (uint)_damageIndicatorTimers.Length)
+            {
+                _damageIndicatorTimers[sector] = 63 * 2; // stock HUD lifetime
+            }
+        }
+
+        internal void ModResetReplayDamageIndicators()
+        {
+            if (_scene.Services.IsReplica) Array.Clear(_damageIndicatorTimers);
+        }
+
+        internal static int ModReplayDamageIndicatorSector(Vector3 hitDirection,
+            Vector3 gunVector, float field70, float field74)
+        {
+            float hitZ = hitDirection.Z;
+            float hitX = -hitDirection.X;
+            float v126 = -hitZ * field74;
+            float dirHorizontal = -hitZ * gunVector.Z;
+            float dirLeftRight = hitX * gunVector.X + dirHorizontal;
+            dirHorizontal = MathF.Abs(dirLeftRight);
+            float dirUpDown = hitX * field70 + v126;
+            float dirVertical = MathF.Abs(dirUpDown);
+            if (dirVertical <= dirHorizontal)
+            {
+                return dirLeftRight <= 0 ? 2 : 6; // east / west
+            }
+            return dirUpDown <= 0 ? 4 : 0; // south / north
+        }
+
+        /// <summary>
+        /// Put a remote player into or out of alt form to match the authority.
+        ///
+        /// Morphing is an input the owner performs, and only the authority
+        /// receives that input: everyone else has a puppet with no controls,
+        /// so the snapshot's alt-form bit was written every frame and read by
+        /// nobody. A player who morphed stayed a biped on every other screen.
+        ///
+        /// Routed through the engine's own switch rather than the flag it
+        /// sets, because the form change also swaps the collision volume, the
+        /// model and the transform -- setting the flag alone would leave a
+        /// morph ball standing upright with a hunter's hitbox.
+        /// </summary>
+        /// <summary>
+        /// Begin the transition into or out of alt form, animation and all.
+        ///
+        /// The owner's relayed input normally does this by itself; this is
+        /// for the case where the two machines have ended up disagreeing.
+        /// </summary>
+        internal void ModRestoreHalfturretFlag() => Flags2 |= PlayerFlags2.Halfturret;
+
+        internal void ModStartFormSwitch()
+        {
+            bool switched = TrySwitchForms(force: true);
+            NetLog.Event($"slot {SlotIndex} form switch requested -> {switched}, now {ModFormState()}");
+        }
+
+        /// <summary>
+        /// Put this player in a form outright, skipping the transition.
+        ///
+        /// A last resort, and deliberately not the first thing tried.
+        /// EnterAltForm only sets Morphing and leaves UpdateForm to run when
+        /// the morph animation ends, while ExitAltForm applies the change
+        /// immediately -- so forcing the form as soon as a difference
+        /// appeared removed the morph-in animation and left the morph-out one
+        /// intact, which is exactly the asymmetry that showed up in play.
+        /// </summary>
+        internal void ModForceForm(bool altForm)
+        {
+            if (altForm == IsAltForm)
+            {
+                // Unmorph changes the form bit before its animation ends. If
+                // that animation stalls, UpdateForm must not run a second time:
+                // it would shift the position by the collision-centre offset.
+                // A stalled morph being cancelled back to biped also needs
+                // ExitAltForm to remove Weavel's halfturret and other effects.
+                if (IsMorphing && !altForm)
+                {
+                    ExitAltForm();
+                }
+                if (IsUnmorphing && !altForm)
+                {
+                    NetLog.Event($"slot {SlotIndex} stalled unmorph completed from {ModFormState()}");
+                    if (IsMainPlayer && CameraSequence.Current != null)
+                    {
+                        CameraSequence.Current.InitialCamInfo.NodeRef = NodeRef;
+                    }
+                    else
+                    {
+                        CameraInfo.NodeRef = NodeRef;
+                    }
+                    Flags1 &= ~PlayerFlags1.Unmorphing;
+                    SetBipedAnimation(PlayerAnimation.Idle, AnimFlags.None);
+                    if (_burnTimer > 0)
+                    {
+                        CreateBurnEffect();
+                    }
+                    if (CameraType != CameraType.First)
+                    {
+                        SwitchCamera(CameraType.First, _facingVector);
+                    }
+                }
+                else if (IsMorphing)
+                {
+                    // The form was already applied; only the stale animation
+                    // flag remains. Preserve the alt model and camera.
+                    Flags1 &= ~PlayerFlags1.Morphing;
+                }
+                return;
+            }
+            NetLog.Event($"slot {SlotIndex} form forced to {(altForm ? "alt" : "biped")} "
+                + $"from {ModFormState()}");
+            Flags1 &= ~PlayerFlags1.Morphing;
+            Flags1 &= ~PlayerFlags1.Unmorphing;
+            UpdateForm(altForm);
+            // And the camera, which UpdateForm does not touch.
+            //
+            // The camera type is switched by EnterAltForm and ExitAltForm, and
+            // this path is neither: it skips the transition, so it skipped the
+            // switch too. A player put into alt form this way kept the
+            // first-person camera, and the moment anybody looked through it --
+            // spectating them, or watching a demo, where every player on
+            // screen is a puppet -- the morph ball was filmed from inside its
+            // own head instead of from the third-person camera the game uses
+            // for it. That is the "alt form does not reproduce the original
+            // view" half of the replay report.
+            //
+            // Exactly the switch the two real transitions make, so a forced
+            // form and a walked one end in the same state.
+            if (altForm)
+            {
+                SwitchCamera(Values.AltFormStrafe != 0 ? CameraType.Third2 : CameraType.Third1,
+                    new Vector3(_field70, 0, _field74));
+            }
+            else
+            {
+                SwitchCamera(CameraType.First, _facingVector);
+            }
+        }
+
+        /// <summary>
+        /// Put a remote player on the weapon the authority says it is
+        /// holding.
+        ///
+        /// The weapon travels in every snapshot and was never applied. Input
+        /// alone does not settle it: a NextWeapon press cycles through
+        /// whatever that machine believes is available, and availability
+        /// depends on pickups, which are not replicated -- so two clients
+        /// pressing the same button landed on different beams and drew the
+        /// wrong gun firing the wrong colour.
+        /// </summary>
+        internal void ModSetWeapon(BeamType weapon)
+        {
+            if (!Mods.Multiplayer.WeaponResourceRules.AllowsBeam(weapon, _scene.GameState.InstaGib, _scene.GameState.NoImperialist)) return;
+            if (weapon == CurrentWeapon || weapon < BeamType.PowerBeam
+                || weapon > BeamType.OmegaCannon)
+            {
+                return;
+            }
+            // Availability is a local notion built from local pickups; the
+            // authority saying this player holds the weapon is what settles
+            // it. Charging comes with it: a puppet that could hold a weapon
+            // but not charge it fired uncharged shots for its owner's charged
+            // ones, which is every affliction in the game.
+            _availableWeapons[weapon] = true;
+            _availableCharges[weapon] = true;
+            TryEquipWeapon(weapon, silent: true);
+        }
+
+        /// <summary>
+        /// Universal ammo and missiles, as the owner's own machine counts
+        /// them.
+        /// </summary>
+        internal (int Ua, int Missiles) ModAmmo
+            => (UsesBalancedImperialistAmmo(CurrentWeapon) ? _balancedImperialistAmmo : _ammo[UA],
+                _ammo[Missiles]);
+
+        /// <summary>
+        /// Put a remote player's ammo where its owner says it is.
+        ///
+        /// Not cosmetic, and not a nicety: BeamProjectileEntity refuses to
+        /// spawn a beam whose cost exceeds the shooter's ammo, so a puppet
+        /// that has run dry produces no projectile at all -- on the very
+        /// machine that decides what is hit. The shooter watches their own
+        /// beam leave the gun and connect, the authority never creates one,
+        /// and the target is untouchable. It reads exactly like an invincible
+        /// player, and switching to a weapon on the other ammo pool "fixes"
+        /// it, because that pool still has something in it.
+        ///
+        /// The two drift apart within a round for a reason that cannot be
+        /// closed any other way: every machine simulates the shot and spends
+        /// the ammo, but pickups are collected locally and are not
+        /// replicated, so only the owner's count is ever right. Sending it is
+        /// cheaper and more honest than trying to replicate item state.
+        /// </summary>
+        /// <summary>
+        /// The most universal ammo this player can hold, for the harness's
+        /// top-up. Read rather than assumed: the cap is a per-hunter value and
+        /// the single-player save has a different one again.
+        /// </summary>
+        internal int ModAmmoCap => _ammoMax[UA];
+
+        /// <summary>
+        /// What this player's alt-form ram is worth: the boost charge scaled
+        /// by the hunter's own alt-attack damage, latched when the boost
+        /// starts. Sent in the intent for the same reason the charge is.
+        /// </summary>
+        internal int ModBoostDamage => _boostDamage;
+
+        /// <summary>
+        /// Put a remote player's shot strength where its owner says it is:
+        /// the charge on the gun, the strength of the ram, and whether double
+        /// damage is running.
+        ///
+        /// <b>All three decide the damage of a shot, and all three were
+        /// re-derived here rather than received.</b> The charge was a count of
+        /// frames the relayed trigger had been held -- which is the owner's
+        /// count give or take the send interval, the jitter and whatever was
+        /// dropped -- and on a partial-charge weapon the damage is a
+        /// continuous function of that count, so the two machines put
+        /// different numbers on the same shot every time one was fired. Double
+        /// damage is worse, because it is not a drift but a factor of two: the
+        /// powerup is collected by each machine's own copy of the pickups, on
+        /// its own respawn timer, so the authority's copy of a shooter can
+        /// simply not have one the owner is holding.
+        ///
+        /// Either way the shooter's own machine resolves its hits now
+        /// (<see cref="Mods.Network.NetHitPrediction"/>) and the authority
+        /// resolves them again a round trip later; where the numbers differ
+        /// the client runs a victim's health down faster than the authority
+        /// does, and the shot after that predicts a kill on somebody who is
+        /// still standing.
+        ///
+        /// The same shape as <see cref="ModSetAmmo"/> and the alt-form state:
+        /// whoever is playing a character is the one who knows.
+        /// </summary>
+        private NetTargetIdentity _modPendingHomingTarget;
+        // The owner's morph-ball attack state is state, not a second simulation.
+        // It arrives one packet after the release frame because the owner computes
+        // _boostDamage during that frame's simulation. Keep it separate from the
+        // authority's transient copy so ProcessAlt cannot overwrite the answer.
+        private ushort _modReportedBoostDamage;
+        private bool _modReportedBoostActive;
+        private bool _modReportedBoostConsumed;
+        internal NetTargetIdentity ModContinuousNetworkTarget;
+        internal ContinuousTargetState ModContinuousTargetState;
+        internal uint ModContinuousFireTick;
+
+        internal void ModSetPendingHomingTarget(NetTargetIdentity encodedTarget)
+        {
+            _modPendingHomingTarget = encodedTarget;
+        }
+
+        internal NetTargetIdentity ModConsumePendingHomingTarget()
+        {
+            NetTargetIdentity target = _modPendingHomingTarget;
+            _modPendingHomingTarget = default;
+            return target;
+        }
+
+        /// <summary>
+        /// Pick the same non-continuous homing target the owner's shot will use
+        /// before the release is sent. Only the charged affinity Volt Driver
+        /// needs this: different peers independently choosing from slightly
+        /// different snapshot positions made the visible bolt and authority
+        /// resolution bend toward different players.
+        /// </summary>
+        internal NetTargetIdentity ModPickNetworkHomingTarget()
+        {
+            WeaponInfo weapon = EquipInfo.Weapon;
+            if (_scene.Services.IsReplica || !NetSession.Active || weapon.Beam != BeamType.VoltDriver || !ModChargeReady
+                || !weapon.Afflictions[1].TestFlag(Affliction.Disrupt) || _disruptedTimer > 0)
+            {
+                return default;
+            }
+            Vector3 direction = _aimPosition - _muzzlePos;
+            if (!Single.IsFinite(direction.X) || !Single.IsFinite(direction.Y) || !Single.IsFinite(direction.Z)
+                || direction.LengthSquared < 0.000001f)
+            {
+                return default;
+            }
+            EntityBase? target = BeamProjectileEntity.ModFindNonContinuousHomingTarget(
+                this, EquipInfo, _muzzlePos, direction.Normalized(), _scene);
+            if (target == null)
+            {
+                return NetTargetIdentity.None;
+            }
+            if (target is PlayerEntity player && player.SlotIndex >= 0
+                && player.SlotIndex < IntentPacket.HomingTargetMask)
+            {
+                return NetTargetIdentity.ForSlot(player.SlotIndex);
+            }
+            // The compact field intentionally represents player slots only.
+            // Let non-player targets use the engine's normal local selection.
+            return default;
+        }
+
+        internal void ModSetShotState(int chargeLevel, int boostDamage, bool doubleDamage, bool boostActive)
+        {
+            if (SlotIndex == _scene.Services.PlayerReplication.LocalSlot)
+            {
+                // Never the machine's own player: this is its own state coming
+                // back to it a round trip later.
+                return;
+            }
+            EquipInfo.ChargeLevel = (ushort)Math.Clamp(chargeLevel, 0, UInt16.MaxValue);
+
+            // A client may report the exact value it computed, but it may not
+            // invent a stronger ram. Samus' table tops out at AltAttackDamage
+            // (28 in stock data); Double Damage is applied separately by
+            // TakeDamage just as it is offline.
+            int legalBoostMax = Hunter == Hunter.Samus ? Values.AltAttackDamage : 0;
+            _modReportedBoostDamage = (ushort)Math.Clamp(boostDamage, 0, legalBoostMax);
+            _modReportedBoostActive = boostActive && Hunter == Hunter.Samus
+                && _modReportedBoostDamage > 0;
+            if (!_modReportedBoostActive)
+            {
+                // Seeing the owner's inactive state is the boundary between two
+                // boosts. A ram consumed by a hit may arm again only after this.
+                _modReportedBoostConsumed = false;
+            }
+            _boostDamage = _modReportedBoostDamage;
+
+            // Authority native grants and modern replica grants own this timer.
+            // Neither a true nor a false owner bit may override them.
+            if ((!_scene.Services.IsReplica && NetSession.IsAuthority) || ModUsesTimedGrantPresentation) return;
+            if (doubleDamage)
+            {
+                // Held up rather than counted down: the owner says so again
+                // every couple of frames for as long as it lasts, and the
+                // moment they stop saying so it is gone. A puppet's own
+                // countdown is not the clock that matters, and the engine only
+                // ever asks whether this is above zero.
+                if (_doubleDmgTimer < 8)
+                {
+                    _doubleDmgTimer = 8;
+                }
+            }
+            else
+            {
+                _doubleDmgTimer = 0;
+            }
+        }
+
+        /// <summary>
+        /// Re-apply the owner's boost answer after ProcessAlt has had a chance
+        /// to re-derive it from delayed buttons. This runs immediately before
+        /// authoritative contact resolution.
+        /// </summary>
+        internal void ModApplyReportedBoostState(bool fresh)
+        {
+            if (SlotIndex == _scene.Services.PlayerReplication.LocalSlot)
+            {
+                return;
+            }
+            _boostDamage = _modReportedBoostDamage;
+            bool active = fresh && _modReportedBoostActive && !_modReportedBoostConsumed
+                && Hunter == Hunter.Samus && IsAltForm && _health > 0;
+            if (active)
+            {
+                Flags1 |= PlayerFlags1.Boosting;
+            }
+            else
+            {
+                Flags1 &= ~PlayerFlags1.Boosting;
+            }
+        }
+
+        /// <summary>
+        /// A confirmed ram is one attack. The owner can continue reporting
+        /// Boosting for several packets after contact because clients do not
+        /// apply authoritative player-contact damage locally; do not resurrect
+        /// the same ram until the owner reports the inactive boundary.
+        /// </summary>
+        internal void ModConsumeReportedBoost()
+        {
+            if (_modReportedBoostActive)
+            {
+                _modReportedBoostConsumed = true;
+            }
+        }
+
+        internal void ModResetReportedBoostState()
+        {
+            _modReportedBoostDamage = 0;
+            _modReportedBoostActive = false;
+            _modReportedBoostConsumed = false;
+        }
+
+        internal void ModSetAmmo(int ua, int missiles)
+        {
+            if (_scene.GameState.OneInTheChamber) return; // Only spawn, confirmed kills and authority ammo facts own this pool.
+            // -1 is the engine's "infinite" marker; a puppet must not be
+            // handed one by a malformed packet.
+            if (UsesBalancedImperialistAmmo(CurrentWeapon))
+            {
+                _balancedImperialistAmmo = Math.Clamp(ua, 0, BalancedImperialistAmmoCap);
+            }
+            else
+            {
+                _ammo[UA] = Math.Clamp(ua, 0, _ammoMax[UA]);
+            }
+            _ammo[Missiles] = Math.Clamp(missiles, 0, _ammoMax[Missiles]);
+        }
+
+        /// <summary>
+        /// Put this hunter's own weapon in its hands, with ammo.
+        ///
+        /// The three affliction states -- frozen, burning, disrupted -- exist
+        /// only on the affinity version of a weapon: TryEquipWeapon swaps in
+        /// table entry beam + 9 when the beam is the hunter's own, and only
+        /// those entries carry an Affliction flag. In a match that weapon is
+        /// picked up, not issued, so a scripted tour that never happened to
+        /// walk over the right pickup could not reach three of the states a
+        /// player can be put into. The tour issues it instead.
+        ///
+        /// Test-only: nothing in a normal session calls this.
+        /// </summary>
+        /// <summary>
+        /// Put a remote player's zoom where its owner says it is.
+        ///
+        /// Only for a weapon that can zoom: the engine's own toggle is gated
+        /// the same way, and a player flagged zoomed while holding a weapon
+        /// with no sight would draw a laser it does not have and take the
+        /// Imperialist's unzoomed halving on a beam that has none.
+        /// </summary>
+        internal void ModSetZoom(bool zoomed)
+        {
+            bool canZoom = EquipInfo.Weapon != null
+                && EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.CanZoom);
+            bool wanted = zoomed && canZoom;
+            if (EquipInfo.Zoomed != wanted)
+            {
+                UpdateZoom(wanted);
+            }
+        }
+
+        internal void ModArmAffinityWeapon()
+        {
+            ModArmWeapon(Weapons.GetAffinityBeam(Hunter));
+        }
+
+        /// <summary>
+        /// Issue a weapon outright: available, chargeable, full ammo, equipped.
+        ///
+        /// Everything a probe needs and nothing a match should ever do. In a
+        /// match a weapon is picked up, so a test that waits to walk over the
+        /// right pickup never reaches the thing it was written to measure --
+        /// which is how the affliction states and the zoom phase both went
+        /// untested for months.
+        /// </summary>
+        internal void ModArmWeapon(BeamType beam)
+        {
+            if (beam < BeamType.PowerBeam || beam > BeamType.OmegaCannon)
+            {
+                return;
+            }
+            _availableWeapons[beam] = true;
+            _availableCharges[beam] = true;
+            WeaponInfo info = Weapons.Current[(int)beam];
+            _ammo[info.AmmoType] = _ammoMax[info.AmmoType];
+            if (CurrentWeapon != beam)
+            {
+                TryEquipWeapon(beam, silent: true);
+            }
+        }
+
+        /// <summary>
+        /// Issue a weapon that can zoom, for the tour's zoom phase.
+        ///
+        /// The phase used to press the Imperialist's own key and hope. In a
+        /// match it is picked up, not issued, so a fresh roster has nobody
+        /// holding one, the key press did nothing, and the phase reported
+        /// `untested` run after run -- which reads as "not proven" and was
+        /// really "never attempted". The same reasoning as
+        /// <see cref="ModArmAffinityWeapon"/>: a probe that waits to walk over
+        /// the right pickup never gets there.
+        ///
+        /// Judicator as the fallback because it is the other weapon in the
+        /// table carrying <see cref="WeaponFlags.CanZoom"/>.
+        /// </summary>
+        internal void ModArmZoomWeapon()
+        {
+            BeamType beam = BeamType.Imperialist;
+            if (!Weapons.Current[(int)beam].Flags.TestFlag(WeaponFlags.CanZoom))
+            {
+                beam = BeamType.Judicator;
+            }
+            ModArmWeapon(beam);
+        }
+
+        /// <summary>
+        /// Turn a scripted player without a session behind it.
+        ///
+        /// The map audit runs the tour with no network at all, and the hook
+        /// that normally applies a scripted player's aim (ModApplyRemoteAim)
+        /// returns early when the session is offline. Without this the audit's
+        /// eight players walked, jumped and fired, but faced wherever they
+        /// spawned -- so they rarely hit each other, and everything that only
+        /// happens on a hit went untested.
+        /// </summary>
+        internal void ModApplyScriptAim(float deltaX, float deltaY)
+        {
+            UpdateAimY(deltaY);
+            UpdateAimX(deltaX);
+        }
+
+        /// <summary>
+        /// What this player is holding and how charged it is, for the audit's
+        /// affliction probe -- "the shot landed and nothing happened" has
+        /// several causes and they are not distinguishable from outside.
+        /// </summary>
+        internal string ModWeaponState =>
+            $"{CurrentWeapon} equip={EquipInfo.Weapon.Beam} charge={EquipInfo.ChargeLevel}"
+            + $"/{EquipInfo.Weapon.MinCharge * 2} chargeable={_availableCharges[CurrentWeapon]}"
+            + $" affliction={EquipInfo.Weapon.Afflictions[1]}"
+            + $" shooting={Flags2.TestFlag(PlayerFlags2.Shooting)}";
+
+        /// <summary>Charge built up on the current weapon, for the audit.</summary>
+        internal int ModChargeLevel => EquipInfo.ChargeLevel;
+
+        /// <summary>
+        /// Whether letting go now would fire a *charged* shot.
+        ///
+        /// Not a fixed number of frames: a weapon without the PartialCharge
+        /// flag counts as charged only at FullCharge (60 frames doubled), and
+        /// one with it from MinCharge (15 doubled). A probe that held the
+        /// trigger for what looked like plenty -- 64 frames -- fired shot
+        /// after uncharged shot, and every affliction in the game lives on the
+        /// charged entry of its weapon.
+        /// </summary>
+        internal bool ModChargeReady
+        {
+            get
+            {
+                WeaponInfo weapon = EquipInfo.Weapon;
+                if (!weapon.Flags.TestFlag(WeaponFlags.CanCharge))
+                {
+                    return false;
+                }
+                int needed = weapon.Flags.TestFlag(WeaponFlags.PartialCharge)
+                    ? weapon.MinCharge * 2
+                    : weapon.FullCharge * 2;
+                return EquipInfo.ChargeLevel >= needed;
+            }
+        }
+
+        /// <summary>Frozen by an affinity Judicator, for the audit.</summary>
+        internal bool ModFrozen => _frozenTimer > 0;
+
+        /// <summary>
+        /// Freeze or thaw this player because the authority says so.
+        ///
+        /// The affliction cannot travel with the hit that caused it: the
+        /// freeze is applied inside <c>TakeDamage</c> from the beam entity,
+        /// and <c>NetDamage.Replay</c> has no beam to hand it -- so before
+        /// this, a player frozen on the authority was frozen *nowhere else*.
+        /// They walked around normally on their own screen, and the machine
+        /// running the simulation, which pins a puppet wherever its owner last
+        /// said it was, drew a block of ice gliding across the room. Both
+        /// halves of "either they are frozen and cannot move, or they are
+        /// not".
+        ///
+        /// The countdown still runs locally rather than being carried frame by
+        /// frame: it starts a fraction of a second late, which nobody can see,
+        /// and it is topped up for as long as the flag is still set so it
+        /// cannot expire early. Ending is handed back to the engine -- one
+        /// frame left, and the ordinary tick plays the sound and the ice
+        /// breaking, exactly as it does for the machine that resolved the hit.
+        /// </summary>
+        internal void ModSetFrozen(bool frozen)
+        {
+            if (_health <= 0)
+            {
+                return;
+            }
+            if (frozen)
+            {
+                if (_frozenTimer == 0)
+                {
+                    // The engine's own numbers and the engine's own re-freeze
+                    // rule: a second freeze within two seconds of the last is
+                    // a short one. A relayed freeze always has an attacker, so
+                    // the multiplayer duration is the one that applies.
+                    _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
+                    if (IsMainPlayer)
+                    {
+                        ResetCombatVisor();
+                        _drawIceLayer = true;
+                    }
+                    _frozenTimer = _timeSinceFrozen > 60 * 2 // todo: FPS stuff
+                        ? (ushort)(75 * 2)
+                        : (ushort)(15 * 2);
+                    _frozenGfxTimer = (ushort)(_frozenTimer + 5 * 2); // todo: FPS stuff
+                    EndAltAttack();
+                }
+                else if (_frozenTimer < 2)
+                {
+                    // Still frozen where it matters; do not let this copy thaw
+                    // a round trip early and start moving again.
+                    _frozenTimer = 2;
+                }
+
+                // The authoritative Frozen bit can remain set longer than this
+                // copy's graphics countdown (especially on a quick re-freeze).
+                // Keep the visible ice alive for as long as gameplay says the
+                // player is frozen, then let the engine's normal break/thaw path
+                // run once the authoritative bit clears.
+                ushort gfxFloor = (ushort)Math.Min(UInt16.MaxValue, _frozenTimer + 5 * 2);
+                if (_frozenGfxTimer < gfxFloor)
+                {
+                    _frozenGfxTimer = gfxFloor;
+                }
+                if (IsMainPlayer)
+                {
+                    _drawIceLayer = true;
+                }
+            }
+            else if (_frozenTimer > 1)
+            {
+                _frozenTimer = 1;
+            }
+        }
+
+        /// <summary>
+        /// Put the collision volume back where the player now is.
+        ///
+        /// The engine recomputes it once a frame, at the end of the movement
+        /// step -- and a puppet is moved *after* that, when its owner's
+        /// reported position arrives (see _scene.PlayerReplication.Move). So for every
+        /// remote player the volume described where this machine's own
+        /// simulation had guessed they were, and the correction never reached
+        /// it.
+        ///
+        /// Two things are drawn from that volume rather than from the
+        /// position: the blob shadow under a hunter and the flames of a burn.
+        /// Both therefore came out at the guess while the model was drawn at
+        /// the correction -- which for anybody moving is a shadow trailing a
+        /// step behind them, on the ground they have just left. Reported as
+        /// "the shadow is behind the character instead of under them".
+        ///
+        /// It is also what shots are tested against, so a volume a correction
+        /// behind is a hitbox a correction behind.
+        /// </summary>
+        internal void ModRefreshVolume()
+        {
+            _volume = CollisionVolume.Move(_volumeUnxf, Position);
+        }
+
+        /// <summary>Burning from an affinity Magmaul.</summary>
+        internal bool ModBurning => _burnTimer > 0;
+
+        /// <summary>Visual interference from an affinity Volt Driver.</summary>
+        internal bool ModDisrupted => _disruptedTimer > 0;
+
+        /// <summary>
+        /// Disrupt or un-disrupt this player because the authority says so.
+        ///
+        /// The same shape as <see cref="ModSetFrozen"/>, and there for the
+        /// same reason: the affliction is applied inside <c>TakeDamage</c>
+        /// from the beam that landed the hit, and the replay that reaches
+        /// every other machine has no beam to hand it. Before this, a charged
+        /// Volt Driver disrupted its victim on the authority's copy of them
+        /// and nowhere else -- so the one player who should have seen the
+        /// screen tear apart was the one player who did not.
+        ///
+        /// The timer tracks the live visual affliction on each replica, while
+        /// the HUD state drives the screen distortion on the local victim.
+        /// Neither the raw aim nor the fired projectile direction is modified;
+        /// charged Volt disrupts the screen, not player input accuracy.
+        ///
+        /// The countdown runs locally, like the freeze's: it starts a fraction
+        /// of a second late, which nobody can see, and it is topped up while
+        /// the flag holds so it cannot end early. Ending is the engine's --
+        /// <c>UpdateDisruptedState</c> runs the recovery out through its own
+        /// four states, and cutting it short would leave the screen mid-shift.
+        /// </summary>
+        internal void ModSetDisrupted(bool disrupted)
+        {
+            if (_health <= 0)
+            {
+                return;
+            }
+            if (disrupted)
+            {
+                if (_disruptedTimer == 0)
+                {
+                    _disruptedTimer = 60 * 2; // todo: FPS stuff
+                    if (IsMainPlayer)
+                    {
+                        HudOnDisrupted();
+                        _soundSource.PlaySfx(SfxId.LOB_DISRUPT);
+                    }
+                }
+                else if (_disruptedTimer < 2)
+                {
+                    _disruptedTimer = 2;
+                }
+            }
+            else if (_disruptedTimer > 1)
+            {
+                // One frame left rather than none, so the ordinary tick is
+                // what ends it: the recovery animation is driven from there.
+                _disruptedTimer = 1;
+            }
+        }
+
+        /// <summary>
+        /// Set this player on fire, or put them out, because the authority
+        /// says so.
+        ///
+        /// Cosmetic here and nothing more, which is the point: the burn's own
+        /// tick calls <c>TakeDamage</c> once every eight frames, and
+        /// <see cref="NetDamage.Suppress"/> drops that everywhere but on the
+        /// machine resolving the match -- so the fire burns on every screen
+        /// while the damage still travels as damage, counted once, by the one
+        /// machine entitled to count it. <c>_burnedBy</c> is deliberately left
+        /// alone for the same reason: attribution belongs to the kill the
+        /// authority resolves, not to a copy of the flames.
+        /// </summary>
+        internal void ModSetBurning(bool burning)
+        {
+            if (!burning) ModBurnSource = null;
+            if (_health <= 0)
+            {
+                return;
+            }
+            if (burning)
+            {
+                if (_burnTimer == 0)
+                {
+                    _burnTimer = 150 * 2; // todo: FPS stuff
+                    CreateBurnEffect();
+                }
+                else if (_burnTimer < 2)
+                {
+                    _burnTimer = 2;
+                }
+            }
+            else if (_burnTimer > 1)
+            {
+                // The tick clears the effect when the timer runs out, which is
+                // where the flames should stop being drawn from.
+                _burnTimer = 1;
+            }
+        }
+
+        /// <summary>Whether this player can currently be zoomed, for the test tour.</summary>
+        internal bool ModCanZoom => EquipInfo.Weapon != null
+            && EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.CanZoom);
+
+        /// <summary>
+        /// The form and animation state, for the per-client log.
+        ///
+        /// A puppet stuck between forms and one that simply has not been told
+        /// yet look identical in the alt-form flag alone; the animation it is
+        /// playing, and whether that animation has ended, is what separates
+        /// them.
+        /// </summary>
+        internal string ModFormState()
+        {
+            string form = IsAltForm ? "alt" : "biped";
+            if (IsMorphing)
+            {
+                form += "+morphing";
+            }
+            if (IsUnmorphing)
+            {
+                form += "+unmorphing";
+            }
+            // The frozen timer belongs here because it is the one thing that
+            // stops a form transition without stopping anything else:
+            // ProcessPlayer only advances the biped model's animation while
+            // `_frozenTimer == 0`, and a morph completes when that animation
+            // ends. A puppet frozen mid-morph therefore sits in
+            // "biped+morphing" until the ice runs out, which reads exactly
+            // like a stuck puppet and is not one.
+            return $"{form}/{Biped2Anim}"
+                + (Biped2Flags.TestFlag(AnimFlags.Ended) ? "/ended" : "")
+                + (_frozenTimer > 0 ? $"/frozen:{_frozenTimer}" : "")
+                + (_health == 0 ? "/dead" : "");
+        }
+
+        private OpenTK.Mathematics.Vector3 _modLastGoodFacing = -OpenTK.Mathematics.Vector3.UnitZ;
+        private OpenTK.Mathematics.Vector3 _modLastGoodGunVec = -OpenTK.Mathematics.Vector3.UnitZ;
+        private OpenTK.Mathematics.Vector3 _modLastGoodPosition;
+
+        /// <summary>
+        /// Put back the last usable vectors if this player's have stopped
+        /// being numbers.
+        ///
+        /// UpdateAimFacing normalises (facing - gun * dot), which is the zero
+        /// vector exactly when the aim and the body line up -- and
+        /// normalising zero gives NaN. In a networked match that does not stay
+        /// local: the NaN facing is published, every client applies it, anyone
+        /// aiming at that player computes a NaN aim of their own, and within
+        /// seconds several players are frozen, dying repeatedly, with every
+        /// measurement reading NaN. One frame of stale facing is a far smaller
+        /// price than that.
+        /// </summary>
+        internal void ModRepairVectors()
+        {
+            if (Finite(_facingVector))
+            {
+                _modLastGoodFacing = _facingVector;
+            }
+            else
+            {
+                _facingVector = _modLastGoodFacing;
+                NetLog.Event($"slot {SlotIndex} facing repaired, {ModFormState()}, gun={_gunVec1}");
+            }
+            if (Finite(_gunVec1))
+            {
+                _modLastGoodGunVec = _gunVec1;
+            }
+            else
+            {
+                _gunVec1 = _modLastGoodGunVec;
+                NetLog.Event($"slot {SlotIndex} aim repaired");
+            }
+            if (Finite(Position))
+            {
+                _modLastGoodPosition = Position;
+            }
+            else
+            {
+                Position = _modLastGoodPosition;
+                NetLog.Event($"slot {SlotIndex} position repaired");
+            }
+            if (!Finite(Speed))
+            {
+                Speed = OpenTK.Mathematics.Vector3.Zero;
+            }
+            if (!Finite(_aimPosition))
+            {
+                _aimPosition = Position + _gunVec1;
+            }
+        }
+
+        private static bool Finite(OpenTK.Mathematics.Vector3 value)
+        {
+            return Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
+        }
+
+        /// <summary>
+        /// Run the engine's own death sequence for a player the authority has
+        /// killed by something that was not a hit -- a fall, a kill plane.
+        /// Those never produce a damage record, so the victim only saw its
+        /// health become zero and never counted a death or played any of it.
+        /// </summary>
+        internal void ModNetDie()
+        {
+            _scene.Services.PlayerReplication.ReplayDeath(this);
+        }
+
+        /// <summary>
+        /// The scoreboard's row count and the height it would need, for the
+        /// test report.
+        ///
+        /// The list is drawn from a fixed centre on a 192-pixel screen, so
+        /// past a certain number of players the first and last rows simply
+        /// leave it. Checking the height is how a headless run can tell that
+        /// a six-player scoreboard still fits, since the panel is drawn
+        /// straight to the window and never appears in a captured frame.
+        /// </summary>
+        internal (int Rows, float Height) ModScoreboardSize()
+        {
+            return (_scene.GameState.ActivePlayers, GetScoreboardHeight());
+        }
+
+        /// <summary>
+        /// Whether any beam can hurt this player at all.
+        ///
+        /// BeamEffectiveness is an array of nine multipliers and it defaults
+        /// to Zero for every beam; only Spawn() fills it in. TakeDamage
+        /// returns immediately on a Zero entry, so a player that reached the
+        /// map without going through Spawn is not hard to hit -- it is
+        /// literally invulnerable, and nothing about it looks wrong.
+        /// </summary>
+        internal bool ModCanBeHurt()
+        {
+            for (int i = 0; i < BeamEffectiveness.Length; i++)
+            {
+                if (BeamEffectiveness[i] != Effectiveness.Zero)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void ApplyModAim()
+        {
+            ApplyGamepadAim();
+            if (!_scene.Services.PlayerReplication.Active)
+            {
+                return;
+            }
+            if (SlotIndex == _scene.Services.PlayerReplication.LocalSlot)
+            {
+                // A scripted local player has no mouse, so its rotation has
+                // to enter the same way a remote player's does. Same call
+                // site, same point in the frame -- an autopilot that turned
+                // at a different moment from the engine would be a test of
+                // something the game never does.
+                if (NetTestScript.Enabled)
+                {
+                    UpdateAimY(NetTestScript.AimDeltaY);
+                    UpdateAimX(NetTestScript.AimDeltaX);
+                }
+                return;
+            }
+            if (!_scene.Services.PlayerReplication.TryGetIntent(SlotIndex, out var recorded)
+                || !_scene.PlayerReplication.AimTrusted(SlotIndex))
+            {
+                return;
+            }
+            ModSetAim(recorded.Aim);
+        }
+
+        /// <summary>
+        /// The right stick's turn, in the same place and the same units the
+        /// mouse's goes in.
+        ///
+        /// Here rather than anywhere more obvious because this is the one
+        /// point upstream already offers inside the player's own input step:
+        /// aim applied a few lines earlier or later than the mouse's would
+        /// feel different from the mouse for reasons nobody could name, and
+        /// the alternative is a call site in <c>PlayerInput.cs</c>.
+        ///
+        /// Only the hunter this machine is driving. Every player runs this
+        /// method, including bots and the puppets standing in for other
+        /// people, and a pad that turned all of them would be a very strange
+        /// bug to read about.
+        /// </summary>
+        private void ApplyGamepadAim()
+        {
+            if (_scene.Services.IsReplica || NetHooks.IsPuppet(this)
+                || IsBot || SlotIndex != _scene.Players.MainPlayerIndex
+                || Mods.SpectatorMode.IsSpectating
+                || Flags1.TestFlag(PlayerFlags1.NoAimInput))
+            {
+                _controllerAssist.Reset();
+                ModResetShadowFreezeControllerAssist();
+                Mods.Input.GamepadInput.SetAimPrecisionContext(0, 0);
+                return;
+            }
+            float scopeBlend = AimScopeBlend();
+            float scopedX = 1 + (Mods.Input.GamepadOptions.ScopedX - 1) * scopeBlend;
+            float scopedY = 1 + (Mods.Input.GamepadOptions.ScopedY - 1) * scopeBlend;
+            float x = Mods.Input.GamepadInput.AimDeltaX * scopedX;
+            float y = Mods.Input.GamepadInput.AimDeltaY * scopedY;
+            var cameraDelta = Mods.Input.AimAssist.AimAssistMath.CameraDelta(new(x, y), AimZoomScale() * ModCustomScopeSensitivity,
+                Controls.InvertAimX, Controls.InvertAimY);
+
+            // Production controller assist runs once at the fixed 60 Hz input/simulation
+            // step. It only applies slowdown plus bounded visible-target angular velocity;
+            // there is no positional snap, head pull or projectile lead. Shadow Freeze
+            // remains a separate technique helper and stays disabled here.
+            ModResetShadowFreezeControllerAssist();
+            var assisted = ApplyControllerAssist(cameraDelta.X, cameraDelta.Y);
+            x = assisted.X;
+            y = assisted.Y;
+            if (x == 0 && y == 0)
+            {
+                Mods.Input.GamepadInput.RecordCameraAim(0, 0);
+                return;
+            }
+            ModNoteInput();
+            UpdateHudShiftY(y);
+            UpdateHudShiftX(x);
+            Vector3 previousDirection = _gunVec1;
+            UpdateAimY(y, applyInputSettings: false);
+            UpdateAimX(x, applyInputSettings: false);
+            // Pitch limits can consume less rotation than requested. Motion estimation
+            // must subtract the camera movement that actually happened.
+            _controllerAssist.PreviousOutput = -AssistAngles(CameraInfo.Position + previousDirection);
+            Mods.Input.GamepadInput.RecordCameraAim(_controllerAssist.PreviousOutput.X, _controllerAssist.PreviousOutput.Y);
+        }
+
+        /// <summary>
+        /// Say that this player is being played, when the thing playing it is
+        /// not this machine's keyboard or mouse.
+        ///
+        /// <c>Input.HasInput</c> is written in one place -- the pass in
+        /// <c>ProcessAllInput</c> that turns a <see cref="OpenTK.Windowing.GraphicsLibraryFramework.KeyboardState"/>
+        /// into binds -- and the pad's contribution is *ored* onto those binds
+        /// after that pass has run (see <c>GamepadInput.Apply</c>). So a player
+        /// holding nothing but a controller looked idle to everything that
+        /// asks "has this person touched anything lately", and two of those
+        /// answers are visible from the first minute of a match:
+        ///
+        /// - <c>UpdateGunAnimation</c> lowers the gun after <c>GunIdleTime</c>
+        ///   and only raises it again on a frame where <c>_timeSinceInput</c>
+        ///   is exactly zero. On a pad that frame never came: the gun sank off
+        ///   the bottom of the screen and stayed there, and
+        ///   <c>CanShoot</c>/<c>TryEquipWeapon</c> both refuse while
+        ///   <c>GunAnimation.UpDown</c> is playing -- so the player could
+        ///   neither fire nor change weapon for the rest of the life. Reported
+        ///   from Android as "the weapon falls away and I cannot shoot".
+        /// - the idle sway starts drifting the aim on its own, which is worst
+        ///   with the one weapon whose player is deliberately holding still.
+        ///
+        /// The touch controls do not need this: they press the keys the player
+        /// has bound into a keyboard of their own, so they arrive *inside* the
+        /// pass that sets the flag.
+        ///
+        /// **Three writers, not one.** The pad is the visible case; the other
+        /// two are worse and were found by following it:
+        ///
+        /// - a **remote player** is driven from relayed intents
+        ///   (`_scene.PlayerReplication.ApplyIntent`), and `ProcessAllInput` skips the
+        ///   flag entirely for them. So every puppet on every machine looked
+        ///   idle from the moment it stopped respawning or changing weapon --
+        ///   which lowers its gun, and `CanShoot` refuses to spawn a beam
+        ///   while that animation is playing. The authority is a machine full
+        ///   of puppets: a player holding still and firing, which is what a
+        ///   sniper does, had their shots fail to spawn on the one machine
+        ///   whose shots count. That is "my Imperialist shot went through
+        ///   them and did nothing".
+        /// - a **scripted client** writes into the same binds and is not a
+        ///   bot, so the harness had the fault too, which is why its shot
+        ///   counts were a fraction of what the tour asks for and why the
+        ///   affliction probe could never fire the charged shot it waits to
+        ///   fire.
+        /// </summary>
+        internal void ModNoteInput()
+        {
+            Input.HasInput = true;
+        }
+    }
+}

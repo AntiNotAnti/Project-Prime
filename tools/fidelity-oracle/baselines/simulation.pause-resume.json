@@ -1,0 +1,97 @@
+{
+  "format": 1,
+  "scenario": {
+    "id": "simulation.pause-resume",
+    "version": 1,
+    "ticks": 8,
+    "seed": 0,
+    "content": "none",
+    "captureInterval": 1,
+    "tier": "F1",
+    "description": "Production clock reset, stalled-frame and catch-up policies; no player simulation."
+  },
+  "engineRevision": "e80098f4",
+  "canonicalHash": "97117b0971770013deaf9095b474df153a00f21a0d203eb0419d259255dbf849",
+  "checkpoints": [
+    {
+      "tick": 1,
+      "values": {
+        "alpha4096": 2048,
+        "dropped": 0,
+        "stalls": 0,
+        "steps": 0,
+        "totalSteps": 0
+      }
+    },
+    {
+      "tick": 2,
+      "values": {
+        "alpha4096": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "steps": 1,
+        "totalSteps": 1
+      }
+    },
+    {
+      "tick": 3,
+      "values": {
+        "alpha4096": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "steps": 1,
+        "totalSteps": 2
+      }
+    },
+    {
+      "tick": 4,
+      "values": {
+        "alpha4096": 0,
+        "dropped": 0,
+        "stalls": 0,
+        "steps": 0,
+        "totalSteps": 2
+      }
+    },
+    {
+      "tick": 5,
+      "values": {
+        "alpha4096": 2048,
+        "dropped": 0,
+        "stalls": 0,
+        "steps": 0,
+        "totalSteps": 2
+      }
+    },
+    {
+      "tick": 6,
+      "values": {
+        "alpha4096": 0,
+        "dropped": 0,
+        "stalls": 1,
+        "steps": 1,
+        "totalSteps": 3
+      }
+    },
+    {
+      "tick": 7,
+      "values": {
+        "alpha4096": 0,
+        "dropped": 1,
+        "stalls": 1,
+        "steps": 5,
+        "totalSteps": 8
+      }
+    },
+    {
+      "tick": 8,
+      "values": {
+        "alpha4096": 0,
+        "dropped": 1,
+        "stalls": 1,
+        "steps": 1,
+        "totalSteps": 9
+      }
+    }
+  ]
+}

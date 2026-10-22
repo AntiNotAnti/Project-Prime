@@ -1,0 +1,355 @@
+using System;
+using MphRead.Mods.Multiplayer;
+using System.Buffers.Binary;
+
+namespace MphRead.Mods.Network
+{
+    // Fixed, bounded control packets. TryRead is the only wire entry point.
+    public struct SessionStatePacket
+    {
+        private const int LegacySize = 35 + HostRequestPacket.MaxRoomBytes;
+        public const int AvailabilityOffset = LegacySize + 6 + NetworkMapIdentity.Size;
+        public const int DownloadSourceOffset = AvailabilityOffset + 8;
+        public const int MaxDownloadSourceBytes = 192;
+        public const int Protocol28Size = DownloadSourceOffset + MaxDownloadSourceBytes + 2;
+        public const int Size = Protocol28Size + 4;
+        public ushort MapGeneration;
+        public string? MapDownloadSource;
+        public MapAvailabilityState[]? MapAvailability;
+        public uint StartGeneration;
+        public StartStage StartStage;
+        public ulong AuthorityEpoch;
+        public SessionPhase Phase;
+        public ServerSessionPolicy Policy;
+        public ushort Revision, MatchId;
+        public byte OwnerSlot, MaxPlayers, ExpectedParticipants, LoadedParticipants, WorldReadyParticipants;
+        public ushort StartCountdownMilliseconds;
+        public LobbyRuleFlags RuleFlags;
+        public MatchDefinition Match;
+        public MatchWorldProfile WorldProfile;
+        public bool LockTeams => RuleFlags.HasFlag(LobbyRuleFlags.LockTeams);
+        public bool RequireReady => RuleFlags.HasFlag(LobbyRuleFlags.RequireReady);
+        public bool AllowJoinInProgress => RuleFlags.HasFlag(LobbyRuleFlags.AllowJoinInProgress);
+
+        public void Write(Span<byte> dest)
+        {
+            MatchModifierFlags movementValidatedRules = Match.Rules;
+            dest[..Size].Clear();
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[Protocol28Size..], (uint)movementValidatedRules);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[(Protocol28Size-2)..],MapGeneration);
+            Match.MapIdentity.Write(dest[(LegacySize + 6)..]);
+            NetText.Write(dest.Slice(DownloadSourceOffset, MaxDownloadSourceBytes), MapDownloadSource ?? "");
+            for (int i = 0; i < 8; i++) dest[AvailabilityOffset + i] = MapAvailability != null && i < MapAvailability.Length ? (byte)MapAvailability[i] : (byte)0;
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[LegacySize..], StartGeneration);
+            dest[LegacySize + 4] = (byte)StartStage;
+            dest[LegacySize + 5] = WorldReadyParticipants;
+            dest[0] = (byte)Phase; dest[1] = (byte)Policy;
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[2..], Revision);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[4..], MatchId);
+            dest[6] = OwnerSlot; dest[7] = MaxPlayers;
+            dest[8] = (byte)Match.Format; dest[9] = (byte)Match.Mode;
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[10..], Match.TimeLimitSeconds);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[12..], Match.PointGoal);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[14..], (ushort)(RuleFlags | (Match.HideOpponentHealth ? LobbyRuleFlags.HideOpponentHealth : 0)));
+            dest[16] = ExpectedParticipants; dest[17] = LoadedParticipants;
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[18..], StartCountdownMilliseconds);
+            dest[20] = Match.CustomTeams.TeamCount; dest[21] = Match.CustomTeams.TeamA;
+            dest[22] = Match.CustomTeams.TeamB; dest[23] = Match.CustomTeams.TeamC; dest[24] = Match.CustomTeams.TeamD;
+            dest[25] = WorldProfile.EntityLayerPlayers; dest[26] = (byte)WorldProfile.Resources;
+            NetText.Write(dest.Slice(27, HostRequestPacket.MaxRoomBytes), Match.RoomKey);
+            BinaryPrimitives.WriteUInt64LittleEndian(dest[(LegacySize - 8)..], AuthorityEpoch);
+        }
+
+        // Native archives may retain retired Enhanced rules. Custom manifests
+        // and action reconstruction are not supported until CW-12.
+        public static bool TryReadArchived(ReadOnlySpan<byte> src, out SessionStatePacket state)
+            => TryRead(src, out state, allowRetiredEnhanced: true)
+                && !state.Match.RiftlineM7Available && !state.Match.PackagedWeaponAvailable;
+
+        public static bool TryRead(ReadOnlySpan<byte> src, out SessionStatePacket state,
+            bool validateDefinition = true, bool allowRetiredEnhanced = false)
+        {
+            state = default;
+            if (src.Length != Size || src[LegacySize + 4] > (byte)StartStage.InMatch || src[0] > (byte)SessionPhase.PostMatch
+                || src[1] > (byte)ServerSessionPolicy.Lobby || src[7] is < 1 or > 8
+                || (src[6] != byte.MaxValue && src[6] >= src[7])
+                || (src[16] & ~((1 << src[7]) - 1)) != 0 || (src[17] & ~src[16]) != 0
+                || src[8] > (byte)MatchFormat.Custom
+                || !Enum.IsDefined(typeof(GameMode), src[9])) return false;
+            var flags = (LobbyRuleFlags)BinaryPrimitives.ReadUInt16LittleEndian(src[14..]);
+            var modifiers = (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[Protocol28Size..]);
+            if (!Movement.MovementModelRules.ValidRules(modifiers) || ((ushort)flags & ~15) != 0 || !NetworkMapIdentity.TryRead(src.Slice(LegacySize + 6, NetworkMapIdentity.Size), out var mapIdentity)) return false;
+            var availability = new MapAvailabilityState[8];
+            for (int i = 0; i < 8; i++)
+            {
+                if (src[AvailabilityOffset + i] > (byte)MapAvailabilityState.Failed) return false;
+                availability[i] = (MapAvailabilityState)src[AvailabilityOffset + i];
+            }
+            state = new SessionStatePacket
+            {
+                MapAvailability = availability,
+                MapGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[(Protocol28Size-2)..]),
+                MapDownloadSource = NetText.Read(src.Slice(DownloadSourceOffset, MaxDownloadSourceBytes)),
+                StartGeneration = BinaryPrimitives.ReadUInt32LittleEndian(src[LegacySize..]),
+                StartStage = (StartStage)src[LegacySize + 4],
+                WorldReadyParticipants = src[LegacySize + 5],
+                Phase = (SessionPhase)src[0], Policy = (ServerSessionPolicy)src[1],
+                Revision = BinaryPrimitives.ReadUInt16LittleEndian(src[2..]),
+                MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[4..]),
+                AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[(LegacySize - 8)..]),
+                OwnerSlot = src[6], MaxPlayers = src[7], RuleFlags = flags,
+                ExpectedParticipants = src[16], LoadedParticipants = src[17],
+                StartCountdownMilliseconds = BinaryPrimitives.ReadUInt16LittleEndian(src[18..]),
+                WorldProfile = new MatchWorldProfile(src[25], (ResourceSpawnProfile)src[26]),
+                Match = new MatchDefinition
+                {
+                    MapIdentity = mapIdentity, Format = (MatchFormat)src[8], Mode = (GameMode)src[9],
+                    CustomTeams = new TeamLayout(src[20], src[21], src[22], src[23], src[24]),
+                    TimeLimitSeconds = BinaryPrimitives.ReadUInt16LittleEndian(src[10..]),
+                    PointGoal = BinaryPrimitives.ReadUInt16LittleEndian(src[12..]),
+                    RoomKey = NetText.Read(src.Slice(27, HostRequestPacket.MaxRoomBytes)),
+                    FriendlyFire = modifiers.HasFlag(MatchModifierFlags.FriendlyFire),
+                    AffinityWeapons = modifiers.HasFlag(MatchModifierFlags.AffinityWeapons),
+                    EnhancedHunters = modifiers.HasFlag(MatchModifierFlags.EnhancedHunters),
+                    ShadowFreeze = modifiers.HasFlag(MatchModifierFlags.ShadowFreeze),
+                    HideOpponentHealth = flags.HasFlag(LobbyRuleFlags.HideOpponentHealth),
+                    DisablePowerups = modifiers.HasFlag(MatchModifierFlags.DisablePowerups),
+                    SpawnProtection = modifiers.HasFlag(MatchModifierFlags.SpawnProtection),
+                    VanillaDuelResources = modifiers.HasFlag(MatchModifierFlags.VanillaDuelResources),
+                    Fiesta = modifiers.HasFlag(MatchModifierFlags.Fiesta),
+                    OneInTheChamber = modifiers.HasFlag(MatchModifierFlags.OneInTheChamber),
+                    InstaGib = modifiers.HasFlag(MatchModifierFlags.InstaGib),
+                    LowTier = modifiers.HasFlag(MatchModifierFlags.LowTier),
+                    OctolithAutoReset = modifiers.HasFlag(MatchModifierFlags.OctolithAutoReset),
+                    NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist),
+                    BalancedMode = modifiers.HasFlag(MatchModifierFlags.BalancedMode),
+                    RiftlineM7Available = modifiers.HasFlag(MatchModifierFlags.RiftlineM7Available),
+                    PackagedWeaponAvailable = modifiers.HasFlag(MatchModifierFlags.PackagedWeaponAvailable),
+                    ThirdPersonCamera = modifiers.HasFlag(MatchModifierFlags.ThirdPersonCamera),
+                    MovementModel = Movement.MovementModelRules.FromRules(modifiers)
+                }.NormalizeLegacy()
+            };
+            return (!validateDefinition || LobbyRules.ValidateDefinition(state.Match, out _, allowRetiredEnhanced) == LobbyResultCode.Ok)
+                && (state.Match.Format != MatchFormat.Custom || state.Match.CustomTeams.IsValid)
+                && (state.WorldProfile.IsValid || (state.Phase == SessionPhase.Lobby && state.WorldProfile == default));
+        }
+
+        public static bool IsNewer(ushort value, ushort previous) => (short)(value - previous) > 0;
+    }
+
+    /// <summary>
+    /// Non-map choices carried by the existing post-match MapPick packet.
+    /// Keeping the reserved value in network protocol code lets both the
+    /// headless server and client UI agree without the server depending on UI state.
+    /// </summary>
+    public static class PostMatchChoice
+    {
+        public const string ReturnToLobbyKey = "__RETURN_TO_LOBBY__";
+        public static bool IsReturnToLobby(string roomKey) =>
+            String.Equals(roomKey, ReturnToLobbyKey, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static class PlayerHandicap
+    {
+        public const byte Step = 10;
+        public const byte MaxDamageReduction = 50;
+
+        public static bool IsValid(byte reduction) =>
+            reduction <= MaxDamageReduction && reduction % Step == 0;
+
+        public static uint ScaleDamage(uint damage, byte reduction)
+        {
+            if (damage == 0 || reduction == 0) return damage;
+            if (!IsValid(reduction)) reduction = MaxDamageReduction;
+            uint scaled = (uint)((ulong)damage * (100u - reduction) / 100u);
+            return scaled == 0 ? 1u : scaled;
+        }
+    }
+
+    public enum LobbyCommandType : byte { SetReady, SetTeam, UpdateMatch, StartMatch, KickPlayer, TransferOwner, CloseLobby, AddBot, RemoveBot, UpdateBot, SetHandicap, ReturnToLobby }
+    public enum LobbyResultCode : byte
+    {
+        Ok, NotOwner, InvalidPhase, StaleRevision, InvalidConfiguration, InvalidTeam,
+        TeamFull, PlayersNotReady, NotEnoughPlayers, TargetNotFound, ServerBusy, MapUnavailable
+    }
+
+    public struct LobbyCommandPacket
+    {
+        public const int Size = 14 + SessionStatePacket.Size;
+        public uint CommandId;
+        public ushort ExpectedRevision;
+        public LobbyCommandType Type;
+        public byte TargetSlot;
+        public sbyte TeamIndex;
+        public bool Ready;
+        public byte Hunter, Color, BotLevel;
+        public byte DamageReduction;
+        public SessionStatePacket Configuration;
+        public void Write(Span<byte> dest)
+        {
+            dest[..Size].Clear();
+            BinaryPrimitives.WriteUInt32LittleEndian(dest, CommandId);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[4..], ExpectedRevision);
+            dest[6] = (byte)Type; dest[7] = TargetSlot;
+            dest[8] = unchecked((byte)TeamIndex); dest[9] = Ready ? (byte)1 : (byte)0;
+            dest[10] = Hunter; dest[11] = Color; dest[12] = BotLevel; dest[13] = DamageReduction;
+            Configuration.Write(dest[14..]);
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out LobbyCommandPacket command)
+        {
+            command = default;
+            if (src.Length != Size || src[6] > (byte)LobbyCommandType.ReturnToLobby || src[9] > 1
+                || !PlayerHandicap.IsValid(src[13])) return false;
+            SessionStatePacket config = default;
+            if (src[6] == (byte)LobbyCommandType.UpdateMatch
+                && !SessionStatePacket.TryRead(src[14..], out config, validateDefinition: false)) return false;
+            command = new LobbyCommandPacket
+            {
+                CommandId = BinaryPrimitives.ReadUInt32LittleEndian(src),
+                ExpectedRevision = BinaryPrimitives.ReadUInt16LittleEndian(src[4..]),
+                Type = (LobbyCommandType)src[6], TargetSlot = src[7],
+                TeamIndex = unchecked((sbyte)src[8]), Ready = src[9] != 0, Configuration = config,
+                Hunter = src[10], Color = src[11], BotLevel = src[12], DamageReduction = src[13]
+            };
+            return command.CommandId != 0;
+        }
+    }
+
+    public struct LobbyCommandResultPacket
+    {
+        public const int Size = 7 + 96;
+        public uint CommandId;
+        public LobbyResultCode ResultCode;
+        public ushort CurrentRevision;
+        public string Reason;
+        public void Write(Span<byte> dest)
+        {
+            BinaryPrimitives.WriteUInt32LittleEndian(dest, CommandId);
+            dest[4] = (byte)ResultCode;
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[5..], CurrentRevision);
+            NetText.Write(dest.Slice(7, 96), Reason);
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out LobbyCommandResultPacket result)
+        {
+            result = default;
+            if (src.Length != Size || src[4] > (byte)LobbyResultCode.MapUnavailable) return false;
+            result = new LobbyCommandResultPacket
+            {
+                CommandId = BinaryPrimitives.ReadUInt32LittleEndian(src), ResultCode = (LobbyResultCode)src[4],
+                CurrentRevision = BinaryPrimitives.ReadUInt16LittleEndian(src[5..]),
+                Reason = NetText.Read(src.Slice(7, 96))
+            };
+            return true;
+        }
+    }
+
+    public readonly record struct MatchLoadedPacket(ushort MatchId, ulong AuthorityEpoch = 0, uint StartGeneration = 0)
+    {
+        public const int Size = 14;
+        public MatchStartIdentity Identity => new(MatchId, AuthorityEpoch, StartGeneration);
+        public void Write(Span<byte> dest)
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(dest, MatchId);
+            BinaryPrimitives.WriteUInt64LittleEndian(dest[2..], AuthorityEpoch);
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[10..], StartGeneration);
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out MatchLoadedPacket packet)
+        {
+            packet = src.Length == Size ? new(BinaryPrimitives.ReadUInt16LittleEndian(src),
+                BinaryPrimitives.ReadUInt64LittleEndian(src[2..]), BinaryPrimitives.ReadUInt32LittleEndian(src[10..])) : default;
+            return src.Length == Size;
+        }
+    }
+
+    /// <summary>
+    /// Scene-loaded acknowledgement plus the player's requested role. Kept
+    /// separate from MatchLoadedPacket because that 14-byte identity is also
+    /// embedded in bootstrap/start-control packets.
+    /// </summary>
+    public readonly record struct MatchLoadedRolePacket(ushort MatchId, ulong AuthorityEpoch,
+        uint StartGeneration, bool Spectating)
+    {
+        public const int Size = MatchLoadedPacket.Size + 1;
+        public MatchStartIdentity Identity => new(MatchId, AuthorityEpoch, StartGeneration);
+        public void Write(Span<byte> dest)
+        {
+            new MatchLoadedPacket(MatchId, AuthorityEpoch, StartGeneration).Write(dest);
+            dest[MatchLoadedPacket.Size] = Spectating ? (byte)1 : (byte)0;
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out MatchLoadedRolePacket packet)
+        {
+            packet = default;
+            if (src.Length != Size || src[MatchLoadedPacket.Size] > 1
+                || !MatchLoadedPacket.TryRead(src[..MatchLoadedPacket.Size], out var identity)) return false;
+            packet = new(identity.MatchId, identity.AuthorityEpoch, identity.StartGeneration,
+                src[MatchLoadedPacket.Size] != 0);
+            return true;
+        }
+    }
+
+    public readonly record struct MatchStartCommitPacket(ushort MatchId, ulong AuthorityEpoch,
+        uint StartGeneration, ushort RemainingMilliseconds)
+    {
+        public const int Size = MatchLoadedPacket.Size + 2;
+        public MatchStartIdentity Identity => new(MatchId, AuthorityEpoch, StartGeneration);
+        public void Write(Span<byte> dest)
+        {
+            new MatchLoadedPacket(MatchId, AuthorityEpoch, StartGeneration).Write(dest);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[MatchLoadedPacket.Size..], RemainingMilliseconds);
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out MatchStartCommitPacket packet)
+        {
+            packet = default;
+            if (src.Length != Size
+                || !MatchLoadedPacket.TryRead(src[..MatchLoadedPacket.Size], out var identity)) return false;
+            packet = new(identity.MatchId, identity.AuthorityEpoch, identity.StartGeneration,
+                BinaryPrimitives.ReadUInt16LittleEndian(src[MatchLoadedPacket.Size..]));
+            return true;
+        }
+    }
+
+    public enum MatchLoadStage : byte
+    {
+        None, StartReceived, Preflight, WorldBuild, PresentationLoad, SceneReady
+    }
+
+    public readonly record struct MatchLoadProgressPacket(ushort MatchId, ulong AuthorityEpoch,
+        uint StartGeneration, MatchLoadStage Stage)
+    {
+        public const int Size = MatchLoadedPacket.Size + 1;
+        public MatchStartIdentity Identity => new(MatchId, AuthorityEpoch, StartGeneration);
+        public void Write(Span<byte> dest)
+        {
+            new MatchLoadedPacket(MatchId, AuthorityEpoch, StartGeneration).Write(dest);
+            dest[MatchLoadedPacket.Size] = (byte)Stage;
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out MatchLoadProgressPacket packet)
+        {
+            packet = default;
+            if (src.Length != Size || src[MatchLoadedPacket.Size] is < (byte)MatchLoadStage.StartReceived
+                or > (byte)MatchLoadStage.SceneReady
+                || !MatchLoadedPacket.TryRead(src[..MatchLoadedPacket.Size], out var identity)) return false;
+            packet = new(identity.MatchId, identity.AuthorityEpoch, identity.StartGeneration,
+                (MatchLoadStage)src[MatchLoadedPacket.Size]);
+            return true;
+        }
+    }
+
+    public readonly record struct MatchLoadFailedPacket(ushort MatchId, string Reason, ulong AuthorityEpoch = 0, uint StartGeneration = 0)
+    {
+        public const int Size = MatchLoadedPacket.Size + 96;
+        public MatchStartIdentity Identity => new(MatchId, AuthorityEpoch, StartGeneration);
+        public void Write(Span<byte> dest)
+        {
+            new MatchLoadedPacket(MatchId, AuthorityEpoch, StartGeneration).Write(dest);
+            NetText.Write(dest.Slice(MatchLoadedPacket.Size, 96), Reason);
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out MatchLoadFailedPacket packet)
+        {
+            packet = default;
+            if (src.Length != Size || !MatchLoadedPacket.TryRead(src[..MatchLoadedPacket.Size], out var identity)) return false;
+            packet = new(identity.MatchId, NetText.Read(src.Slice(MatchLoadedPacket.Size, 96)), identity.AuthorityEpoch, identity.StartGeneration);
+            return true;
+        }
+    }
+}

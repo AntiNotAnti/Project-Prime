@@ -1,0 +1,217 @@
+/* The shell stage already excludes navigation and footer chrome. */
+/* Settings is also opened modally over retained replay/Studio documents. Its
+   complete surface must cover their text and controls, including the side rail. */
+body { background-color:#030c14; }
+.native_full_settings { position:absolute; left:4%; right:4%; top:12dp; bottom:12dp; display:flex; flex-direction:column; min-height:0; overflow:hidden; color:#dcecf3; }
+.native_full_settings > .eyebrow { flex-shrink:0; margin-bottom:6dp; }
+.native_settings_layout { display:flex; flex:1; min-height:0; overflow:hidden; }
+.native_settings_sidebar { flex-shrink:0; width:180dp; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:16dp; }
+.native_settings_sidebar h1 { font-size:26dp; line-height:30dp; margin:0 0 12dp; }
+.native_settings_sidebar button { display:block; width:100%; min-height:32dp; text-align:left; margin-bottom:4dp; padding:7dp 10dp; font-size:12dp; border-left:2dp #294a5b; }
+.native_settings_sidebar button:hover, .native_settings_sidebar button:focus { background-color:#14364a; border-left-color:#8cd4e3; color:#ffffff; }
+.native_settings_panel { display:flex; flex-direction:column; flex:1; min-width:0; min-height:0; overflow:hidden; background:#061520e8; border:1dp #2b5269; padding:12dp; }
+.native_settings_heading { display:flex; flex-shrink:0; align-items:center; justify-content:space-between; margin-bottom:8dp; }
+.native_settings_heading h2 { margin:0; font-size:24dp; line-height:28dp; }
+#native_settings_dirty { margin-left:8dp; color:#72c7dc; font-size:11dp; }
+.native_settings_search { display:flex; flex-shrink:0; min-width:0; margin-bottom:6dp; }
+.native_settings_search input { flex:1; min-width:0; margin-right:6dp; padding:5dp 7dp; font-size:12dp; }
+.native_settings_search button { flex-shrink:0; margin-right:4dp; padding:5dp 7dp; font-size:11dp; }
+.native_settings_groups { display:flex; flex-wrap:wrap; flex-shrink:0; max-height:62dp; overflow-y:auto; overflow-x:hidden; margin-bottom:6dp; }
+.native_settings_groups button { flex-shrink:0; margin-right:5dp; margin-bottom:3dp; padding:5dp 8dp; min-height:24dp; font-size:11dp; background-color:#102e40; border-bottom:1dp #31566c; }
+.native_settings_groups button:hover, .native_settings_groups button:focus { background-color:#20475c; border-bottom-color:#8cd4e3; color:#ffffff; }
+.native_settings_scroller { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+.native_settings_row { display:flex; flex-wrap:wrap; align-items:center; min-width:0; padding:9dp 6dp; border-bottom:1dp #204155; }
+.native_settings_caption { width:57%; min-width:0; padding-right:10dp; }
+.native_settings_group { font-size:10dp; line-height:13dp; color:#8cd4e3; margin:0 0 3dp; }
+.native_settings_row label { display:block; font-size:15dp; line-height:18dp; }
+.native_settings_row input { width:42%; min-width:0; padding:7dp; font-size:12dp; }
+.native_settings_row button { width:42%; min-width:0; padding:7dp; font-size:12dp; text-align:center; background-color:#12364b; border:1dp #37677c; }
+.native_settings_row button:hover, .native_settings_row button:focus { background-color:#24556c; border-color:#8cd4e3; color:#ffffff; }
+.native_settings_hint { width:100%; color:#87a3b5; font-size:10dp; line-height:13dp; margin-top:4dp; }
+/* All rows in the selected group are scrolled directly; no page controls remain. */
+.native_settings_paging { display:none; }
+.native_settings_footer { display:flex; flex-shrink:0; margin-top:6dp; }
+.native_settings_footer button { flex-shrink:0; margin-right:8dp; min-height:32dp; padding:7dp 12dp; font-size:11dp; background-color:#102e40; border:1dp #31566c; }
+#native_settings_apply { background:#176377; }
+#native_settings_status { flex-shrink:0; margin:5dp 0 0; min-height:16dp; max-height:32dp; overflow-y:auto; font-size:11dp; line-height:16dp; color:#e9ca87; }
+#native_settings_empty { white-space:pre-wrap; line-height:1.4; padding:12dp; }
+#native_settings_system button, #native_settings_maintenance button, #native_settings_profiles button { display:block; margin-top:7dp; padding:8dp; }
+#native_settings_archive, #native_settings_profile_name { width:95%; margin:8dp 0; }
+#native_settings_summary { white-space:pre-wrap; margin-bottom:10dp; }
+@media (max-width:900dp) {
+ .native_full_settings { left:2%; right:2%; }
+ .native_settings_sidebar { width:140dp; padding-right:10dp; }
+ .native_settings_sidebar h1 { font-size:22dp; }
+ .native_settings_panel { padding:8dp; }
+ .native_settings_caption { width:54%; }
+ .native_settings_row input, .native_settings_row button { width:45%; }
+}
+@media (max-height:520dp) {
+ .native_full_settings > .eyebrow { display:none; }
+ .native_settings_sidebar { width:124dp; padding-right:8dp; }
+ .native_settings_sidebar h1 { font-size:18dp; line-height:20dp; margin-bottom:5dp; }
+ .native_settings_sidebar button { min-height:25dp; margin-bottom:2dp; padding:5dp 6dp; font-size:10dp; }
+ .native_settings_panel { padding:6dp; }
+ .native_settings_heading { margin-bottom:3dp; }
+ .native_settings_heading h2 { font-size:18dp; line-height:20dp; }
+ #native_settings_dirty { font-size:9dp; }
+ .native_settings_search { margin-bottom:3dp; }
+ .native_settings_search input, .native_settings_search button { padding:3dp 5dp; font-size:10dp; }
+ .native_settings_groups { max-height:25dp; margin-bottom:3dp; }
+ .native_settings_groups button { min-height:21dp; padding:3dp 5dp; font-size:10dp; }
+ .native_settings_row { padding:5dp 3dp; }
+ .native_settings_row label { font-size:12dp; line-height:15dp; }
+ .native_settings_row input, .native_settings_row button { padding:5dp; font-size:10dp; }
+ .native_settings_hint { margin-top:2dp; font-size:9dp; line-height:11dp; }
+ .native_settings_footer { margin-top:4dp; }
+ .native_settings_footer button { min-height:25dp; margin-right:5dp; padding:5dp 8dp; font-size:10dp; }
+ #native_settings_status { margin-top:3dp; min-height:13dp; max-height:13dp; line-height:13dp; font-size:9dp; }
+}
+#native_settings_controller_identity { margin-bottom: 8dp; }
+#native_settings_device { padding: 6dp 10dp; }
+
+/* Section headings describe one continuous form; only genuine subpages navigate. */
+.native_settings_groups { display:none; }
+.native_settings_subpages { display:flex; flex-shrink:0; flex-wrap:wrap; max-height:64dp; overflow-y:auto; margin-bottom:6dp; }
+.native_settings_subpages button { flex-shrink:0; padding:6dp 11dp; margin:0 6dp 4dp 0; font-size:12dp; background-color:#102e40; border-bottom:2dp #31566c; }
+.native_settings_subpages button.selected, .native_settings_sidebar button.selected { background-color:#1a4559; border-color:#8cd4e3; color:#ffffff; }
+.native_settings_subpages button:hover, .native_settings_subpages button:focus { background-color:#24556c; border-color:#8cd4e3; color:#ffffff; }
+.native_settings_row > h3 { display:block; width:100%; margin:12dp 0 9dp; padding-bottom:6dp; border-bottom:1dp #376174; font-size:17dp; line-height:21dp; color:#8cd4e3; }
+.native_settings_editors { display:flex; flex-wrap:wrap; align-items:center; width:42%; min-width:0; }
+.native_settings_editors input, .native_settings_editors button { width:100%; min-width:0; }
+.native_settings_editors input[type=range] { flex:1; width:auto; min-width:80dp; height:28dp; margin:0; padding:0; background-color:#102b3c; border:0; }
+.native_settings_editors input[type=range] slidertrack { height:4dp; margin:12dp 5dp; background-color:#35566a; }
+.native_settings_editors input[type=range] sliderbar { width:12dp; height:20dp; margin-top:4dp; background-color:#8cd4e3; border:1dp #d8f4ff; }
+.native_settings_editors output, .native_settings_editors .native_settings_readout { display:block; flex:0 0 100%; width:100%; min-width:0; box-sizing:border-box; font-size:10dp; line-height:14dp; color:#9dc3d1; text-align:right; }
+/* Keep normal text fields wide; numeric precision fields may accompany a slider. */
+.native_settings_editors input[type=text], .native_settings_editors input[type=number] { flex:1; width:100%; }
+.native_settings_editors input.native_settings_precision { flex:0 0 66dp; flex-grow:0; flex-shrink:0; flex-basis:66dp; width:66dp; min-width:66dp; max-width:66dp; box-sizing:border-box; margin-left:6dp; padding:5dp; }
+.native_settings_commands { margin-top:16dp; padding:12dp; border-top:1dp #376174; background-color:#0b2432; }
+.native_settings_commands h3 { margin:0 0 8dp; color:#8cd4e3; font-size:17dp; }
+.native_settings_commands p { margin:5dp 0 8dp; font-size:12dp; line-height:16dp; }
+.native_settings_commands button { margin:4dp 6dp 4dp 0; padding:7dp 10dp; background-color:#17394c; border:1dp #37677c; font-size:11dp; }
+@media (max-width:900dp) {
+ .native_settings_editors { width:45%; }
+}
+/* Match SettingsView: short/narrow surfaces get one category strip and a generous form. */
+@media (max-width:760dp) {
+ .native_full_settings > .eyebrow { display:none; }
+ .native_settings_layout { flex-direction:column; }
+ .native_settings_sidebar { display:flex; flex-shrink:0; flex-direction:row; width:100%; height:34dp; min-height:34dp; padding:0 0 5dp; margin-bottom:5dp; overflow-x:auto; overflow-y:hidden; }
+ .native_settings_sidebar h1 { display:none; }
+ .native_settings_sidebar button { flex-shrink:0; width:auto; min-height:25dp; height:25dp; margin:0 4dp 0 0; padding:5dp 8dp; border-left:0; border-bottom:2dp #294a5b; font-size:10dp; white-space:nowrap; }
+ .native_settings_panel { width:100%; min-height:0; }
+ .native_settings_heading h2 { font-size:18dp; line-height:20dp; }
+ .native_settings_heading { margin-bottom:4dp; }
+ .native_settings_subpages { max-height:27dp; margin-bottom:3dp; }
+ .native_settings_subpages button { padding:4dp 7dp; margin-bottom:3dp; font-size:10dp; }
+ .native_settings_row > h3 { margin:8dp 0 6dp; padding-bottom:4dp; font-size:14dp; line-height:18dp; }
+ .native_settings_caption { width:52%; padding-right:8dp; }
+ .native_settings_editors { width:47%; }
+ .native_settings_editors input, .native_settings_editors button { width:100%; }
+ .native_settings_editors input[type=range] { height:24dp; }
+ .native_settings_commands { margin-top:10dp; padding:8dp; }
+ .native_settings_footer button { padding:5dp 7dp; font-size:10dp; }
+}
+@media (max-height:500dp) {
+ .native_full_settings > .eyebrow { display:none; }
+ .native_settings_layout { flex-direction:column; }
+ .native_settings_sidebar { display:flex; flex-shrink:0; flex-direction:row; width:100%; height:34dp; min-height:34dp; padding:0 0 5dp; margin-bottom:5dp; overflow-x:auto; overflow-y:hidden; }
+ .native_settings_sidebar h1 { display:none; }
+ .native_settings_sidebar button { flex-shrink:0; width:auto; min-height:25dp; height:25dp; margin:0 4dp 0 0; padding:5dp 8dp; border-left:0; border-bottom:2dp #294a5b; font-size:10dp; white-space:nowrap; }
+ .native_settings_panel { width:100%; min-height:0; }
+ .native_settings_heading h2 { font-size:18dp; line-height:20dp; }
+ .native_settings_heading { margin-bottom:4dp; }
+ .native_settings_subpages { max-height:27dp; margin-bottom:3dp; }
+ .native_settings_subpages button { padding:4dp 7dp; margin-bottom:3dp; font-size:10dp; }
+ .native_settings_row > h3 { margin:8dp 0 6dp; padding-bottom:4dp; font-size:14dp; line-height:18dp; }
+ .native_settings_caption { width:52%; padding-right:8dp; }
+ .native_settings_editors { width:47%; }
+ .native_settings_editors input, .native_settings_editors button { width:100%; }
+ .native_settings_editors input[type=range] { height:24dp; }
+ .native_settings_commands { margin-top:10dp; padding:8dp; }
+ .native_settings_footer button { padding:5dp 7dp; font-size:10dp; }
+}
+
+.native_settings_help { flex-shrink:0; margin:4dp 0 0; max-height:28dp; overflow-y:auto; font-size:10dp; line-height:13dp; color:#a3becb; }
+#native_settings_advanced { align-self:flex-start; margin-bottom:5dp; padding:5dp 8dp; font-size:11dp; }
+
+
+/* Fields and actions have a visible affordance on every native settings surface. */
+.native_full_settings button { color:#dcecf3; background-color:#12364b; border:1dp #47738a; }
+.native_full_settings button:hover, .native_full_settings button:focus { color:#ffffff; background-color:#24556c; border-color:#a3e4ed; }
+.native_full_settings input[type=text], .native_full_settings input[type=number] {
+ background-color:#061b2a; border:1dp #527a91; color:#f0f8fc;
+}
+.native_full_settings input[type=text]:hover, .native_full_settings input[type=number]:hover { border-color:#7da8bc; }
+.native_full_settings input[type=text]:focus, .native_full_settings input[type=number]:focus { background-color:#102f42; border-color:#a3e4ed; color:#ffffff; }
+.native_full_settings button:disabled, .native_full_settings input:disabled { opacity:0.72; color:#9bafbd; background-color:#152734; border-color:#384f60; }
+
+/* Compact forms keep precision editing legible without competing with the slider. */
+@media (max-width:760dp) {
+ .native_settings_editors input[type=range] { flex:0 0 100%; width:100%; min-width:0; }
+ .native_settings_editors input.native_settings_precision { flex:0 0 100%; flex-basis:100%; width:100%; min-width:0; max-width:none; margin:4dp 0 0; }
+}
+@media (max-height:500dp) {
+ .native_settings_editors input[type=range] { flex:0 0 100%; width:100%; min-width:0; }
+ .native_settings_editors input.native_settings_precision { flex:0 0 100%; flex-basis:100%; width:100%; min-width:0; max-width:none; margin:4dp 0 0; }
+}
+#native_settings_hud, #native_settings_reset_replay { margin:0 0 8dp; padding:8dp 12dp; font-size:12dp; }
+/* These commands precede normal block sections, rather than sharing an inline
+   text line box that can be shorter than a padded button's painted bounds. */
+#native_settings_advanced, #native_settings_hud, #native_settings_reset_replay,
+#native_settings_touch_visual, #native_settings_stylus_visual, #native_settings_outline_visual,
+#native_settings_device { display:block; }
+
+#native_settings_form_start { display:block; height:1dp; min-height:1dp; margin:0; padding:0; }
+
+/* Touch controls need a complete hit area inside compact category strips. */
+body.touch-targets #screen .native_settings_sidebar button,
+body.touch-targets #screen .native_settings_subpages button { min-height:48dp; height:auto; }
+@media (max-width:760dp) {
+ body.touch-targets #screen .native_settings_sidebar { height:58dp; min-height:58dp; }
+ body.touch-targets #screen .native_settings_subpages { max-height:58dp; }
+}
+@media (max-height:500dp) {
+ body.touch-targets #screen .native_settings_sidebar { height:58dp; min-height:58dp; }
+ body.touch-targets #screen .native_settings_subpages { max-height:58dp; }
+}
+
+/* Short touch layouts keep categories in a scrollable side rail, leaving the
+   form enough height for an entire 48dp field and the Back footer. */
+@media (max-height:500dp) {
+    body.touch-targets #screen .native_settings_layout { flex-direction:row; }
+    body.touch-targets #screen .native_settings_sidebar { flex-direction:column; width:128dp; height:auto; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+    body.touch-targets #screen .native_settings_sidebar button { width:100%; flex-shrink:0; white-space:normal; font-size:11dp; }
+    body.touch-targets #screen .native_settings_panel { display:block; width:auto; padding:8dp; overflow-y:auto; overflow-x:hidden; }
+    body.touch-targets #screen .native_settings_scroller { overflow-y:visible; height:auto; padding-right:0; }
+    body.touch-targets #screen .native_settings_heading { margin-bottom:4dp; }
+    body.touch-targets #screen .native_settings_heading h2 { font-size:18dp; line-height:20dp; }
+    body.touch-targets #screen .native_settings_search { flex-wrap:wrap; }
+    body.touch-targets #screen .native_settings_search input { flex:1; width:60%; }
+    body.touch-targets #screen .native_settings_search button { min-width:0; font-size:10dp; padding:4dp; }
+    body.touch-targets #screen .native_settings_footer { flex-wrap:wrap; }
+    body.touch-targets #screen .native_settings_footer button { flex:1; min-width:0; margin-right:4dp; padding:4dp; white-space:normal; }
+}
+
+/* Previous and next choices share a row so long option lists work in both directions. */
+.native_settings_editors button.native_settings_previous { flex:0 0 29dp; width:29dp; min-width:29dp; margin-right:4dp; font-size:17dp; }
+.native_settings_editors button { flex:1; width:auto; }
+
+/* Overview and category landings expose the next screen without a long form. */
+.native_settings_overview { display:flex; flex-wrap:wrap; align-items:stretch; }
+.native_settings_overview > p { width:100%; margin:0 0 12dp; color:#aac4d1; font-size:13dp; line-height:18dp; }
+.native_settings_overview button.native_settings_category_card { display:block; width:47%; min-height:84dp; margin:0 2% 12dp 0; padding:12dp; text-align:left; }
+.native_settings_category_card strong { display:block; margin-bottom:6dp; color:#c9eff6; font-size:17dp; line-height:21dp; }
+.native_settings_category_card span { display:block; color:#aac4d1; font-size:12dp; line-height:17dp; }
+.native_settings_category_summary { margin:0 0 12dp; font-size:14dp; line-height:20dp; color:#aac4d1; }
+.native_settings_subpages.native_settings_tab_cards { display:flex; flex-wrap:wrap; max-height:none; overflow-y:visible; }
+.native_settings_subpages.native_settings_tab_cards button { width:46%; min-height:60dp; margin:0 2% 10dp 0; padding:12dp; font-size:16dp; text-align:left; }
+body.touch-targets #screen .native_settings_subpages.native_settings_tab_cards { max-height:none; overflow-y:visible; }
+.native_settings_autosave_note { margin:8dp 0 0 8dp; color:#9cb9c9; font-size:11dp; line-height:16dp; }
+@media (max-width:760dp) {
+ .native_settings_overview button.native_settings_category_card { width:47%; min-height:76dp; padding:9dp; margin-bottom:8dp; }
+ .native_settings_category_card strong { font-size:14dp; line-height:18dp; }
+ .native_settings_category_card span { font-size:11dp; line-height:15dp; }
+ .native_settings_subpages.native_settings_tab_cards button { min-height:48dp; font-size:13dp; padding:9dp; }
+}

@@ -1,0 +1,40 @@
+name: Community creator handoff
+
+on:
+  pull_request:
+    paths:
+      - "src/MphRead/Mods/MapGen/Sharing/CommunityTransferManager.cs"
+      - "src/MphRead/Mods/MapGen/Sharing/CommunityTransferCoordination.cs"
+      - "src/MphRead/Mods/MapGen/Sharing/CommunityStudioPublishIntent.cs"
+      - "src/MphRead/Mods/MapGen/Sharing/CommunityCutoverPolicy.cs"
+      - "src/MphRead/Mods/Launcher/Gui/Workspaces/CommunityTransferSession.cs"
+      - "src/MphRead/Mods/Launcher/Gui/Workspaces/StudioCreatorCommunityWorkspace.cs"
+      - "src/MphRead/Mods/Launcher/Gui/Workspaces/CommunityWorkspace.cs"
+      - "src/MphRead/Mods/Launcher/Gui/MapStudioSharing.cs"
+      - "tools/community-transfer-check/**"
+      - ".github/workflows/community-creator-handoff.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-creator-${{ github.event.pull_request.number || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  frozen-creator-upload:
+    name: Cross-process creator transfer (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Verify snapshot ownership, parent checks, restart and immutable uploads
+        run: dotnet run --project tools/community-transfer-check -c Release

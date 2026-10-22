@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Kept because nothing calls them.
+
+     AndroidInput builds a KeyboardState and a MouseState and drives them by
+     reflection: OpenTK keeps their constructors and setters internal, and
+     handing the scene an input state of our own is what lets the touch
+     controls go through the engine's ordinary input path instead of a fork of
+     it. Every use of these two is through a MethodInfo, and a Release publish
+     really does run the trimmer over this assembly, so without this file the
+     touch controls work in Debug and throw on the first frame of a release
+     APK. -->
+<linker>
+  <!-- The custom maps, for the same reason one step removed.
+
+       A map file is read with JsonSerializer.Deserialize, which finds the
+       properties by reflection; the trimmer cannot see that and is entitled to
+       remove every one of them. What that produces is not a crash but
+       something worse to diagnose: a map that loads into an object of
+       defaults, so a release APK would list rooms with no name, no geometry
+       and no spawns while the debug build was perfect. -->
+  <assembly fullname="ProjectPrime">
+    <!-- Local material manifests and observed inventories use System.Text.Json reflection. -->
+    <type fullname="MphRead.Mods.Render.Materials.MaterialPackManifest" preserve="all" />
+    <type fullname="MphRead.Mods.Render.Materials.MaterialPackEntry" preserve="all" />
+    <type fullname="MphRead.Mods.Render.Materials.MaterialObservation" preserve="all" />
+    <!-- Detached replay worlds bind explicit private fields by name. Keep the
+         construction/field contract in the trimmed release APK as well. -->
+    <type fullname="MphRead.Entities.EntityBase" preserve="all" />
+    <type fullname="MphRead.Entities.DynamicLightEntityBase" preserve="all" />
+    <type fullname="MphRead.Entities.PlayerEntity" preserve="all" />
+    <type fullname="MphRead.Entities.BeamProjectileEntity" preserve="all" />
+    <type fullname="MphRead.Entities.BombEntity" preserve="all" />
+    <type fullname="MphRead.Entities.BeamEffectEntity" preserve="all" />
+    <type fullname="MphRead.Entities.SpinningEntityBase" preserve="all" />
+    <type fullname="MphRead.Entities.ItemInstanceEntity" preserve="all" />
+    <type fullname="MphRead.Entities.ItemSpawnEntity" preserve="all" />
+    <type fullname="MphRead.Entities.OctolithFlagEntity" preserve="all" />
+    <type fullname="MphRead.Entities.NodeDefenseEntity" preserve="all" />
+    <type fullname="MphRead.Entities.FlagBaseEntity" preserve="all" />
+    <type fullname="MphRead.Entities.DoorEntity" preserve="all" />
+    <type fullname="MphRead.Entities.PlatformEntity" preserve="all" />
+    <type fullname="MphRead.Entities.TeleporterEntity" preserve="all" />
+    <type fullname="MphRead.Entities.JumpPadEntity" preserve="all" />
+    <type fullname="MphRead.Entities.ObjectEntity" preserve="all" />
+    <type fullname="MphRead.Entities.HalfturretEntity" preserve="all" />
+    <type fullname="MphRead.Entities.PlayerSpawnEntity" preserve="all" />
+    <type fullname="MphRead.Entities.TriggerVolumeEntity" preserve="all" />
+    <type fullname="MphRead.Entities.AreaVolumeEntity" preserve="all" />
+    <type fullname="MphRead.Entities.PointModuleEntity" preserve="all" />
+    <type fullname="MphRead.Entities.MorphCameraEntity" preserve="all" />
+    <type fullname="MphRead.Entities.LightSourceEntity" preserve="all" />
+    <type fullname="MphRead.Entities.ForceFieldEntity" preserve="all" />
+    <type fullname="MphRead.SceneGameState" preserve="all" />
+    <type fullname="MphRead.ScenePlayerRegistry" preserve="all" />
+    <type fullname="MphRead.Mods.Network.PlayerReplicationBridge" preserve="all" />
+    <type fullname="MphRead.EquipInfo" preserve="all" />
+    <type fullname="MphRead.Entities.CameraInfo" preserve="all" />
+    <type fullname="MphRead.Entities.PlayerControls" preserve="all" />
+    <type fullname="MphRead.Entities.PlayerEntity/PlayerInput" preserve="all" />
+    <type fullname="MphRead.Entities.Keybind" preserve="all" />
+    <type fullname="MphRead.Entities.AvailableArray" preserve="all" />
+    <type fullname="MphRead.Effects.EffectEntry" preserve="all" />
+    <type fullname="MphRead.Effects.EffectElementEntry" preserve="all" />
+    <type fullname="MphRead.Effects.EffectParticle" preserve="all" />
+    <type fullname="MphRead.Effects.SingleParticle" preserve="all" />
+    <type fullname="MphRead.Formats.Collision.EntityCollision" preserve="all" />
+    <type fullname="MphRead.Mods.Network.ContinuousWeaponPhase" preserve="all" />
+    <type fullname="MphRead.Mods.Network.ReplaySceneServices" preserve="all" />
+    <type fullname="MphRead.Entities.RoomEntity" preserve="all" />
+    <type fullname="MphRead.Scene" preserve="all" />
+    <type fullname="MphRead.ModelInstance" preserve="all" />
+    <type fullname="MphRead.Node" preserve="all" />
+    <type fullname="MphRead.Mesh" preserve="all" />
+    <type fullname="MphRead.Material" preserve="all" />
+
+    <type fullname="MphRead.Mods.MapGen.MapDefinition" preserve="all" />
+    <type fullname="MphRead.Mods.MapGen.MapPreview" preserve="all" />
+    <type fullname="MphRead.Mods.MapGen.MapImport" preserve="all" />
+    <type fullname="MphRead.Mods.MapGen.MapMaterial" preserve="all" />
+    <type fullname="MphRead.Mods.MapGen.MapBrush" preserve="all" />
+    <type fullname="MphRead.Mods.MapGen.MapSpawn" preserve="all" />
+    <type fullname="MphRead.Mods.MapGen.MapJumpPad" preserve="all" />
+    <type fullname="MphRead.Mods.MapGen.MapItem" preserve="all" />
+
+    <!-- Hunter License/Supabase DTOs are reflection-driven JSON too. -->
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseSnapshot" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseProfile" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseStats" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseMatch" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseCosmetic" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/StoredSession" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/AuthSession" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/AuthUser" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/AuthIdentity" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/OAuthAuthorizeResponse" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/CareerTicketResponse" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient/CommunityMapTicketResponse" preserve="all" />
+  </assembly>
+  <assembly fullname="OpenTK.Windowing.GraphicsLibraryFramework">
+    <type fullname="OpenTK.Windowing.GraphicsLibraryFramework.KeyboardState" preserve="all" />
+    <type fullname="OpenTK.Windowing.GraphicsLibraryFramework.MouseState" preserve="all" />
+  </assembly>
+</linker>

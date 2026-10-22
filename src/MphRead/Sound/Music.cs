@@ -1,0 +1,958 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Diagnostics;
+using System.Threading;
+using System.Threading.Tasks;
+using MphRead.Formats.Sound;
+using NCSF123;
+using NCSFPlayer;
+using SoundFlow.Abstracts.Devices;
+using SoundFlow.Backends.MiniAudio;
+using SoundFlow.Enums;
+using SoundFlow.Providers;
+using SoundFlow.Structs;
+
+namespace MphRead
+{
+    public static class Music
+    {
+        public static float UserVolume { get; set; } = 1;
+
+        /// <summary>
+        /// Set the player's own volume and push it to whatever is playing.
+        ///
+        /// Assigning UserVolume alone is not enough: the gain only reaches the
+        /// stream when a track starts (MusicPlayer.Play) or while a fade is
+        /// running, so a volume changed mid-match took effect at the next
+        /// track and looked like a setting that did nothing.
+        /// </summary>
+        public static void SetUserVolume(float volume)
+        {
+            UserVolume = Math.Clamp(volume, 0, 1);
+            Mods.MapGen.CustomMapMusic.ApplyVolume();
+            if (MusicPlayer.State != PlaybackState.Stopped)
+            {
+                MusicPlayer.Volume = Volume;
+            }
+        }
+        public static float MusicVolume { get; set; } = 1;
+
+        public static float Volume => UserVolume * MusicVolume;
+
+        private static IReadOnlyList<MusicTrack> _musicInfo = null!;
+        private static IReadOnlyList<RoomMusic> _roomMusic = null!;
+
+        private static bool _playing = false;
+        private static bool _paused = false;
+        public static bool IsPaused => _paused;
+        private static bool _nextTrackNotReady = false;
+        private static bool _isReady = false;
+        private static bool _musicQueued = false;
+        private static ushort _nextFadeInFrames = 0;
+
+        private static MusicId _currentMusicId = MusicId.None;
+        private static SeqId _currentMusicSeq = SeqId.None;
+        private static SeqId _nextMusicSeq = SeqId.None;
+
+        /// <summary>
+        /// Read-only sequence ownership for the campaign launcher. A closed
+        /// game scene resets the player on the next Music.Init; older menus
+        /// must never Stop a different scene's new music.
+        /// </summary>
+        public static SeqId ActiveSequence => _playing ? _currentMusicSeq : SeqId.None;
+        public static bool Initialized => _musicInfo != null && _roomMusic != null;
+        private static long _playbackEpoch;
+        /// <summary>
+        /// A value-only lease generation: a new scene or playback preempts any
+        /// temporary ship/credits menu audio, even when it picks the same ID.
+        /// </summary>
+        public static long PlaybackEpoch => Interlocked.Read(ref _playbackEpoch);
+
+        private static int _musicEncounterSuspension = 0;
+        public static int MusicEncounterSuspension => _musicEncounterSuspension;
+        public static MusicId MusicToResume { get; set; } = MusicId.None;
+
+        private static ushort _nextTracks = 0;
+        private static ushort _pendingTracks = 0;
+        private static ushort _activeTracks = 0;
+        private static ushort _mutedTracks = 0;
+        private static ushort _fadingTracks = 0;
+
+        public static void Init()
+        {
+            Interlocked.Increment(ref _playbackEpoch);
+            Mods.MapGen.CustomMapMusic.Stop();
+            _musicInfo = SoundRead.ReadInterMusicInfo();
+            _roomMusic = SoundRead.ReadAssignMusic();
+            _pendingTracks = 0;
+            _currentMusicId = MusicId.None;
+            _playing = false;
+            _paused = false;
+            _nextTrackNotReady = false;
+            _isReady = false;
+            _currentMusicSeq = SeqId.None;
+            _musicQueued = false;
+            _nextMusicSeq = SeqId.None;
+            _nextFadeInFrames = 0;
+            _nextTracks = 0;
+            _musicEncounterSuspension = 0;
+            MusicToResume = MusicId.None;
+            _tempoUpdateStart = 256;
+            _tempoUpdateTarget = 256;
+            _tempoUpdateTimeMs = 0;
+            _tempoUpdateTimer.Reset();
+            _volumeFadeStart = 1;
+            _volumeFadeTarget = 1;
+            _volumeFadeTimeMs = 0;
+            _volumeFadeTimer.Reset();
+            _stopAfterFade = false;
+            for (int i = 0; i < _trackFaders.Length; i++)
+            {
+                _trackFaders[i].Reset();
+            }
+            if (Mods.Headless.Active || !MusicPlayer.Available)
+            {
+                return;
+            }
+            // play empty seq to ensure initialization
+            MusicPlayer.Load(SeqId.WIN);
+            MusicPlayer.WaitForLoad();
+            MusicPlayer.Play(Volume);
+            MusicPlayer.Stop();
+        }
+
+        public static void PlayMusic(MusicId musicId, ushort? tracks = null, bool toggleOnTracks = false, bool toggleOffTracks = false)
+        {
+            int index = (int)musicId;
+            if (index < 0 || index >= _musicInfo.Count)
+            {
+                return;
+            }
+            MusicTrack info = _musicInfo[index];
+            if (info.SeqId == SeqId.None)
+            {
+                return;
+            }
+            if (!tracks.HasValue)
+            {
+                tracks = info.Tracks;
+            }
+            if (toggleOnTracks)
+            {
+                _pendingTracks |= tracks.Value;
+            }
+            else if (toggleOffTracks)
+            {
+                _pendingTracks &= (ushort)(~tracks.Value);
+            }
+            else
+            {
+                _pendingTracks = tracks.Value;
+            }
+            _currentMusicId = musicId;
+            _paused = false;
+            PlaySeq(info.SeqId, _pendingTracks, queue: true, notReady: true, info.FadeOutFrames, info.FadeInFrames);
+        }
+
+        public static void TryPlayRoomMusic(int roomId, int track)
+        {
+            if ((GameState.EscapeTimer == -1 || GameState.EscapeState != EscapeState.Escape) && _musicEncounterSuspension == 0)
+            {
+                PlayRoomMusic(roomId, track);
+            }
+        }
+
+        public static void PlayRoomMusic(int roomId, int track)
+        {
+            if (Mods.MapGen.CustomMapMusic.TryPlay(roomId)) return;
+            track = Math.Clamp(track, 0, 2);
+            for (int i = 0; i < _roomMusic.Count; i++)
+            {
+                RoomMusic room = _roomMusic[i];
+                if (room.RoomId == roomId)
+                {
+                    PlayMusic((MusicId)room.TrackIds[track]);
+                    return;
+                }
+            }
+        }
+
+        public static void PlaySeq(SeqId seqId, bool notReady = true)
+        {
+            PlaySeq(seqId, UInt16.MaxValue, notReady: notReady);
+        }
+
+        public static void PlaySeq(SeqId seqId, ushort tracks, bool queue = false, bool notReady = false,
+            ushort fadeOutFrames = 0, ushort fadeInFrames = 0)
+        {
+            // the game may update the seq ID first using download play values
+            if (!queue)
+            {
+                Interlocked.Increment(ref _playbackEpoch);
+                _nextTrackNotReady = false;
+                Stop();
+                _isReady = !notReady;
+                _activeTracks = tracks;
+                // init seq
+                // the game has a redundant check for stopping the music again that preserves the ready value
+                _currentMusicSeq = seqId;
+                _mutedTracks = 0;
+                _fadingTracks = (ushort)(~_activeTracks);
+                // the game sets up a possible volume factor from the seq here, which NCSF should handle internally
+                MusicVolume = 1;
+                _volumeFadeTarget = 1;
+                _volumeFadeTimer.Stop();
+                for (int i = 0; i < _trackFaders.Length; i++)
+                {
+                    _trackFaders[i].Reset(volume: (byte)((_activeTracks & (1 << i)) != 0 ? 127 : 0));
+                }
+                // start music player
+                MusicPlayer.Load(seqId, tracks);
+                _playing = true;
+                if (_isReady)
+                {
+                    MusicPlayer.WaitForLoad();
+                    MusicPlayer.Play(Volume);
+                    _mutedTracks = 0;
+                    UpdateTrackVolume(_fadingTracks, 0);
+                    _fadingTracks = 0;
+                }
+                UpdateTempo(256, 0);
+                _musicQueued = false;
+                _nextMusicSeq = seqId;
+            }
+            else
+            {
+                if (!_musicQueued)
+                {
+                    if (_nextMusicSeq == seqId)
+                    {
+                        if (_isReady)
+                        {
+                            SetTrackFaders(tracks, target: 127, time: fadeInFrames / 30f);
+                            SetTrackFaders((ushort)(tracks ^ UInt16.MaxValue), target: 0, time: fadeOutFrames / 30f);
+                        }
+                        else
+                        {
+                            _activeTracks = tracks;
+                        }
+                        return;
+                    }
+                    // the game sets the fade out frames in an unused music state field
+                    // the game checks a pause flag we don't have before calling stop
+                    Stop(fadeOutFrames / 30f);
+                    _musicQueued = true;
+                }
+                _nextTrackNotReady = notReady;
+                _nextMusicSeq = seqId;
+                _nextTracks = tracks;
+                _nextFadeInFrames = fadeInFrames;
+            }
+        }
+
+        public static void UpdateMusic()
+        {
+            if (!_isReady && !MusicPlayer.Loading)
+            {
+                _isReady = true;
+                if (_playing)
+                {
+                    MusicPlayer.Volume = Volume;
+                    MusicPlayer.Tempo = _baseTempo;
+                    MusicPlayer.Play(Volume);
+                    // the game applies the likely frontend pause flag to the player, as well as lid mute/unmute
+                    for (int i = 0; i < _trackFaders.Length; i++)
+                    {
+                        if ((_fadingTracks & (1 << i)) == 0)
+                        {
+                            _fadingTracks |= (ushort)(1 << i);
+                            _mutedTracks = 0;
+                            _trackFaders[i].TimeMs = Single.Epsilon;
+                        }
+                    }
+                }
+            }
+            // the game checks the likely frontend pause flag before proceeding
+            if (!_isReady || MusicPlayer.State != PlaybackState.Stopped)
+            {
+                // if not ready, there's no player to update, but we can still update our own fields
+                ProcessVolume();
+                ProcessTempo();
+                ProcessTrackFaders();
+            }
+            else if (_musicQueued)
+            {
+                // if ready and stopped, we can proceed to queued music
+                PlaySeq(_nextMusicSeq, _nextTracks, queue: false, _nextTrackNotReady, fadeOutFrames: 0, _nextFadeInFrames);
+            }
+        }
+
+        public static void UpdateMusicIdIfPaused(MusicId musicId)
+        {
+            if (_paused)
+            {
+                _currentMusicId = musicId;
+            }
+        }
+
+        public static void UpdateEscapeMusic()
+        {
+            if (_currentMusicSeq != SeqId.OREGANO)
+            {
+                return;
+            }
+            if (GameState.EscapeTimer >= 5400 / 30f) // 3 min+
+            {
+                UpdateTempo(245, 1 / 30f); // 95.7%
+            }
+            else if (GameState.EscapeTimer >= 5100 / 30f) // 3 min - 2 min 50 sec
+            {
+                int frames = (int)(GameState.EscapeTimer * 30);
+                int tempo = 266 - ((frames - 5100) << 11) / 30000;
+                UpdateTempo((ushort)tempo, 1 / 30f); // 95.7% --> 103.9%
+            }
+            else if (GameState.EscapeTimer >= 3600 / 30f) // 2 min 50 sec - 2 min
+            {
+                UpdateTempo(266, 1 / 30f); // 103.9%
+            }
+            else if (GameState.EscapeTimer >= 3400 / 30f) // 2 min - 1 min 53 sec
+            {
+                int frames = (int)(GameState.EscapeTimer * 30);
+                int tempo = 281 - 1536 * (frames - 3400) / 20000;
+                UpdateTempo((ushort)tempo, 1 / 30f); // 103.9% --> 109.8%
+            }
+            else if (GameState.EscapeTimer >= 1800 / 30f) // 1 min 53 sec - 1 min
+            {
+                if (GameState.EscapeTimer == 1800)
+                {
+                    SwitchEscapeMusicIfNeeded();
+                }
+                UpdateTempo(281, 1 / 30f); // 109.8%
+            }
+            else if (GameState.EscapeTimer >= 1700 / 30f) // 1 min - 57 sec
+            {
+                SwitchEscapeMusicIfNeeded();
+                int frames = (int)(GameState.EscapeTimer * 30);
+                int tempo = 294 - 1280 * (frames - 1700) / 10000;
+                UpdateTempo((ushort)tempo, 1 / 30f); // 109.8% --> 114.8%
+            }
+            else // 57 sec - 0 sec
+            {
+                SwitchEscapeMusicIfNeeded();
+                UpdateTempo(294, 1 / 30f); // 114.8%
+            }
+        }
+
+        private static void SwitchEscapeMusicIfNeeded()
+        {
+            // switch ASAP at or after 1 min remaining
+            // the game does this on the exact frame the timer hits 1800 (1 min), but we may miss that mark
+            // escape timer (actual escape) is never set to 1 minute or lower, so no issue of a behavior difference w/ at vs. at-or-after
+            if (_currentMusicId != MusicId.SEQ_OREGANO_M56)
+            {
+                PlayMusic(MusicId.SEQ_OREGANO_M56);
+            }
+        }
+
+        public static void UpdateEventMusic(float time)
+        {
+            if (_currentMusicId == MusicId.SEQ_ENERGY_TIMER_M51 && time >= 600 / 30f && time < 1800 / 30f)
+            {
+                int frames = (int)(time * 30);
+                int tempo = 384 - 12800 * (frames - 600) / 120000;
+                UpdateTempo((ushort)tempo, 1 / 30f); // 100.4% --> 150%
+            }
+        }
+
+        private static readonly ImmutableArray<int> _hunterMusicTracks = [16, 4, 1, 0, 2, 5, 3, 16];
+
+        public static void PlayEncounterMusic(Hunter hunter)
+        {
+            if (_musicEncounterSuspension == 0)
+            {
+                MusicToResume = _currentMusicId;
+                // only played if no non-Guardian hunters are in the random encounter, otherwise some suspension bits are already set
+                if (hunter == Hunter.Guardian)
+                {
+                    PlayMusic(MusicId.SEQ_GUARDIAN_M18);
+                }
+            }
+            int bitIndex;
+            if (hunter == Hunter.Guardian)
+            {
+                int i;
+                for (i = 7; i <= 9; i++)
+                {
+                    if ((_musicEncounterSuspension & (1 << i)) == 0)
+                    {
+                        break;
+                    }
+                }
+                bitIndex = i; // always 7/8/9, can't reach 10+ in practice since enemy hunter/Guardian max is 3
+            }
+            else
+            {
+                bitIndex = (int)hunter;
+                if (_currentMusicId != MusicId.SEQ_GUMBO_M3)
+                {
+                    PlayMusic(MusicId.SEQ_GUMBO_M3);
+                    // track 4 is on by default in the mask, but it's only for Kanden, so it's disabled here
+                    PlayMusic(MusicId.SEQ_GUMBO_M3, tracks: 1 << 4, toggleOffTracks: true);
+                }
+                // enable the track specific to this hunter
+                PlayMusic(MusicId.SEQ_GUMBO_M3, tracks: (ushort)(1 << _hunterMusicTracks[bitIndex]), toggleOnTracks: true);
+                if (hunter == Hunter.Spire)
+                {
+                    // disable an addition track that Spire doesn't use
+                    PlayMusic(MusicId.SEQ_GUMBO_M3, tracks: 1 << 9, toggleOffTracks: true);
+                }
+            }
+            _musicEncounterSuspension |= (1 << bitIndex);
+        }
+
+        public static void UpdateEncounterMusic(int clearId)
+        {
+            if (_musicEncounterSuspension == 0)
+            {
+                return;
+            }
+            if (clearId < 0)
+            {
+                _musicEncounterSuspension = 0;
+                if (clearId != -2)
+                {
+                    PlayMusic(MusicToResume);
+                }
+            }
+            else
+            {
+                int bitIndex = clearId;
+                Hunter hunter = (Hunter)clearId;
+                if (hunter == Hunter.Guardian)
+                {
+                    int i;
+                    for (i = 9; i >= 7; i--)
+                    {
+                        if ((_musicEncounterSuspension & (1 << i)) != 0)
+                        {
+                            break;
+                        }
+                    }
+                    bitIndex = i; // always 9/8/7, can't reach 6- in practice since enemy hunter/Guardian max is 3
+                }
+                if ((_musicEncounterSuspension & (1 << bitIndex)) != 0)
+                {
+                    _musicEncounterSuspension &= ~(1 << bitIndex);
+                    if (_musicEncounterSuspension == 0)
+                    {
+                        if (MusicToResume == MusicId.None)
+                        {
+                            // the game doesn't do this, but we don't want eternal encounter music after loading directly into a room
+                            Stop(fadeTime: 1);
+                        }
+                        else
+                        {
+                            PlayMusic(MusicToResume);
+                        }
+                    }
+                    else if (hunter != Hunter.Guardian)
+                    {
+                        // when clearing a Guardian bit, no update is needed
+                        if ((_musicEncounterSuspension & 0x7F) != 0)
+                        {
+                            // hunter defeated, still other hunters remaining
+                            PlayMusic(MusicId.SEQ_GUMBO_M3, tracks: (ushort)(1 << _hunterMusicTracks[bitIndex]), toggleOffTracks: true);
+                            if (hunter == Hunter.Spire)
+                            {
+                                PlayMusic(MusicId.SEQ_GUMBO_M3, tracks: 1 << 9, toggleOnTracks: true);
+                            }
+                        }
+                        else
+                        {
+                            // hunter defeated, only Guardians remaining
+                            PlayMusic(MusicId.SEQ_GUARDIAN_M18);
+                        }
+                    }
+                }
+            }
+        }
+
+        public static void PlayPausedMusic()
+        {
+            if (!_paused)
+            {
+                return;
+            }
+            if(Mods.MapGen.CustomMapMusic.Resume()){_paused=false;return;}
+            int index = (int)_currentMusicId;
+            if (index < 0 || index >= _musicInfo.Count)
+            {
+                return;
+            }
+            MusicTrack info = _musicInfo[index];
+            if (info.SeqId == SeqId.None)
+            {
+                return;
+            }
+            _paused = false;
+            PlaySeq(info.SeqId, _pendingTracks, queue: true, notReady: true);
+        }
+
+        public static void Pause()
+        {
+            if (!_paused)
+            {
+                if(Mods.MapGen.CustomMapMusic.Pause()){_paused=true;return;}
+                Stop();
+                _paused = true;
+            }
+        }
+
+        public static void Stop(float fadeTime = 0)
+        {
+            Interlocked.Increment(ref _playbackEpoch);
+            Mods.MapGen.CustomMapMusic.Stop();
+            _playing = false;
+            _musicQueued = false;
+            _nextMusicSeq = SeqId.None;
+            if (!_isReady && MusicPlayer.Loading)
+            {
+                MusicPlayer.StopLoading = true;
+            }
+            _isReady = true;
+            if (fadeTime <= 0)
+            {
+                MusicPlayer.Stop();
+            }
+            else
+            {
+                FadeVolume(0, fadeTime, stopAfterFade: true);
+            }
+        }
+
+        private static float _volumeFadeStart = 1;
+        private static float _volumeFadeTarget = 1;
+        private static float _volumeFadeTimeMs = 0;
+        private static readonly Stopwatch _volumeFadeTimer = new Stopwatch();
+        // kind of a hack since there's no connection between fading out and stopping
+        private static bool _stopAfterFade = false;
+
+        public static void FadeVolume(float volume, float time, bool stopAfterFade = false)
+        {
+            MusicVolume = volume;
+            _volumeFadeStart = MusicPlayer.Volume;
+            _volumeFadeTarget = volume;
+            _volumeFadeTimeMs = time * 1000;
+            if (_volumeFadeTimeMs <= 0)
+            {
+                _volumeFadeTimeMs = 1;
+            }
+            _volumeFadeTimer.Restart();
+            _stopAfterFade = stopAfterFade;
+        }
+
+        private static void ProcessVolume()
+        {
+            if (_volumeFadeTimer.IsRunning)
+            {
+                float pct = _volumeFadeTimer.ElapsedMilliseconds / _volumeFadeTimeMs;
+                if (pct >= 1)
+                {
+                    MusicVolume = _volumeFadeTarget;
+                    _volumeFadeTimer.Stop();
+                    if (_stopAfterFade)
+                    {
+                        MusicPlayer.Stop();
+                    }
+                    _stopAfterFade = false;
+                }
+                else
+                {
+                    MusicVolume = _volumeFadeStart + (_volumeFadeTarget - _volumeFadeStart) * pct;
+                }
+                MusicPlayer.Volume = Volume;
+            }
+        }
+
+        private static ushort _baseTempo = 256;
+        private static ushort _tempoUpdateStart = 256;
+        private static ushort _tempoUpdateTarget = 256;
+        private static float _tempoUpdateTimeMs = 0;
+        private static readonly Stopwatch _tempoUpdateTimer = new Stopwatch();
+
+        public static void UpdateTempo(ushort tempo, float time)
+        {
+            if (time <= 0)
+            {
+                MusicPlayer.Tempo = tempo;
+                _baseTempo = tempo;
+                _tempoUpdateStart = _tempoUpdateTarget = tempo;
+                _tempoUpdateTimeMs = 0;
+                _tempoUpdateTimer.Reset();
+            }
+            else if (_tempoUpdateTarget != tempo)
+            {
+                _tempoUpdateStart = MusicPlayer.Tempo;
+                _tempoUpdateTarget = tempo;
+                _tempoUpdateTimeMs = time * 1000;
+                _tempoUpdateTimer.Restart();
+            }
+        }
+
+        private static void ProcessTempo()
+        {
+            if (MusicPlayer.Tempo != _tempoUpdateTarget && _tempoUpdateTimer.IsRunning)
+            {
+                float pct = _tempoUpdateTimer.ElapsedMilliseconds / _tempoUpdateTimeMs;
+                if (pct >= 1)
+                {
+                    MusicPlayer.Tempo = _tempoUpdateTarget;
+                    _tempoUpdateTimer.Stop();
+                }
+                else
+                {
+                    MusicPlayer.Tempo = (ushort)(_tempoUpdateStart + (_tempoUpdateTarget - _tempoUpdateStart) * pct);
+                }
+            }
+        }
+
+        private class TrackFader
+        {
+            public byte Start { get; set; } = 127;
+            public byte Target { get; set; } = 127;
+            public float TimeMs { get; set; }
+            public Stopwatch Timer { get; } = new Stopwatch();
+
+            public void Reset(byte volume = 127)
+            {
+                Start = volume;
+                Target = volume;
+                TimeMs = 0;
+                Timer.Reset();
+            }
+        }
+
+        private static readonly ImmutableArray<TrackFader> _trackFaders =
+        [
+            new TrackFader(), new TrackFader(), new TrackFader(), new TrackFader(),
+            new TrackFader(), new TrackFader(), new TrackFader(), new TrackFader(),
+            new TrackFader(), new TrackFader(), new TrackFader(), new TrackFader(),
+            new TrackFader(), new TrackFader(), new TrackFader(), new TrackFader()
+        ];
+
+        private static void UpdateTrackVolume(ushort tracks, byte volume)
+        {
+            if (volume > 0)
+            {
+                for (int i = 0; i < _trackFaders.Length; i++)
+                {
+                    if ((tracks & (1 << i)) != 0)
+                    {
+                        NCSFCommon.Track? track = MusicPlayer.GetTrack(i);
+                        if (track != null)
+                        {
+                            track.Volume = volume;
+                        }
+                    }
+                }
+                if ((_mutedTracks & tracks) != 0)
+                {
+                    if (_isReady)
+                    {
+                        for (int i = 0; i < _trackFaders.Length; i++)
+                        {
+                            if ((tracks & (1 << i)) != 0)
+                            {
+                                NCSFCommon.Track? track = MusicPlayer.GetTrack(i);
+                                if (track != null)
+                                {
+                                    track.Mute = false;
+                                }
+                            }
+                        }
+                    }
+                    _mutedTracks &= (ushort)(~(_mutedTracks & tracks));
+                }
+            }
+            else if ((_mutedTracks & tracks) != tracks)
+            {
+                if (_isReady)
+                {
+                    for (int i = 0; i < _trackFaders.Length; i++)
+                    {
+                        if ((tracks & (1 << i)) != 0)
+                        {
+                            NCSFCommon.Track? track = MusicPlayer.GetTrack(i);
+                            if (track != null)
+                            {
+                                track.Mute = true;
+                            }
+                        }
+                    }
+                }
+                _mutedTracks |= tracks;
+            }
+        }
+
+        private static void SetTrackFaders(ushort tracks, byte target, float time)
+        {
+            if (target == 0)
+            {
+                _activeTracks &= (ushort)~tracks;
+            }
+            else
+            {
+                _activeTracks |= tracks;
+            }
+            for (int i = 0; i < _trackFaders.Length; i++)
+            {
+                if ((tracks & (1 << i)) != 0)
+                {
+                    TrackFader trackFader = _trackFaders[i];
+                    NCSFCommon.Track? track = MusicPlayer.GetTrack(i);
+                    if (track != null)
+                    {
+                        trackFader.Start = track.Volume;
+                    }
+                    trackFader.Target = target;
+                    trackFader.TimeMs = time * 1000;
+                    trackFader.Timer.Restart();
+                }
+            }
+            _fadingTracks |= tracks;
+        }
+
+        private static void ProcessTrackFaders()
+        {
+            if (_fadingTracks == 0)
+            {
+                return;
+            }
+            for (int i = 0; i < _trackFaders.Length; i++)
+            {
+                if ((_fadingTracks & (1 << i)) == 0)
+                {
+                    continue;
+                }
+                TrackFader trackFader = _trackFaders[i];
+                if (trackFader.Timer.IsRunning)
+                {
+                    NCSFCommon.Track? track = MusicPlayer.GetTrack(i);
+                    if (track != null && track.Volume != trackFader.Target)
+                    {
+                        float pct = trackFader.Timer.ElapsedMilliseconds / trackFader.TimeMs;
+                        if (pct >= 1)
+                        {
+                            UpdateTrackVolume((ushort)(1 << i), trackFader.Target);
+                            trackFader.Timer.Stop();
+                            _fadingTracks &= (ushort)(~(1 << i));
+                        }
+                        else
+                        {
+                            UpdateTrackVolume((ushort)(1 << i), (byte)(trackFader.Start + (trackFader.Target - trackFader.Start) * pct));
+                        }
+                        track.Mute = track.Volume == 0;
+                    }
+                }
+            }
+        }
+    }
+
+    public static class MusicPlayer
+    {
+        private static MiniAudioEngine _audioEngine;
+        private static AudioPlaybackDevice _playbackDevice;
+        private static Sound.MusicLoadOwner? _loads;
+        private static Sound.MusicPlaybackGraph? Current => _loads?.Current as Sound.MusicPlaybackGraph;
+        private static readonly AudioFormat _format;
+
+        private static readonly int _sampleRate = 32728;
+
+        /// <summary>
+        /// False when no playback device could be opened. The game then runs
+        /// in silence instead of not running: a machine with no sound card,
+        /// an audio server that is not up yet, or a second copy of the game
+        /// holding the device would otherwise take the whole process down
+        /// with a TypeInitializationException from a static constructor,
+        /// before a single frame was drawn.
+        /// </summary>
+        public static bool Available { get; private set; }
+
+        /// <summary>
+        /// The one output the process mixes into, for anything else that has
+        /// to share it.
+        ///
+        /// Android has no OpenAL native, so the sound effects there are mixed
+        /// by <c>Mods.Sound.AlEs</c> and handed to this same device rather than
+        /// opening a second one: two playback devices on a phone is two audio
+        /// callbacks, two buffers of latency, and whichever one the system
+        /// decides to duck.
+        /// </summary>
+        public static MiniAudioEngine? Engine => Available ? _audioEngine : null;
+
+        public static AudioPlaybackDevice? PlaybackDevice => Available ? _playbackDevice : null;
+
+        public static AudioFormat Format => _format;
+
+        static MusicPlayer()
+        {
+            // A headless process never owns a playback device. Guard the type
+            // initializer too, because callers can read State/Available directly.
+            if (Mods.Headless.Active)
+            {
+                _audioEngine = null!;
+                _playbackDevice = null!;
+                return;
+            }
+#if ANDROID
+#if PROJECTPRIME_ANDROID_NATIVE_AUDIO_RATE
+            // Experiment only: request the Android mixer native rate; NCSF synthesis
+            // and the shared SFX mixer must use the identical selected rate.
+            _sampleRate = MphRead.Droid.AndroidAudioProfile.SelectOutputRate(_sampleRate);
+#endif
+            MphRead.Droid.AndroidAudioProfile.Report(_sampleRate);
+#endif
+            _format = new AudioFormat()
+            {
+                SampleRate = _sampleRate,
+                Channels = 2,
+                Format = SampleFormat.F32
+            };
+            try
+            {
+                _audioEngine = new MiniAudioEngine();
+                _playbackDevice = Sound.MusicStartup.InitializeDevice(_audioEngine,
+                    () => _audioEngine.InitializePlaybackDevice(deviceInfo: null, _format));
+                _loads = new Sound.MusicLoadOwner(CreateGraph,
+                    ex => Console.Error.WriteLine($"[sound] music load/retirement: {ex}"));
+                Available = true;
+                Sound.AudioLifetime.RequestMusicShutdown = RequestShutdown;
+                Sound.AudioLifetime.StopMusic = Shutdown;
+            }
+            catch (Exception ex)
+            {
+                Mods.Diagnostics.PlatformDiagnostics.Report("libminiaudio.dylib", ex);
+                Console.WriteLine($"[sound] no audio device ({ex.Message}); continuing without sound");
+                _audioEngine = null!;
+                _playbackDevice = null!;
+                Available = false;
+            }
+        }
+
+        public static bool Loading => _loads?.Loading == true;
+        public static bool StopLoading
+        {
+            get => _loads?.StopLoading == true;
+            set => _loads?.CancelLoading(value);
+        }
+        private static volatile bool _shutdownRequested;
+
+        internal static void RequestShutdown()
+        {
+            _shutdownRequested = true;
+            _loads?.Remove(shutdown: true);
+        }
+
+        private static void Shutdown()
+        {
+            RequestShutdown();
+            // Decoder construction and callback retirement run on the single
+            // owner worker. Never dispose its engine underneath pending work.
+            if (_loads != null && !_loads.Completion.Wait(TimeSpan.FromSeconds(2)))
+            {
+                Console.Error.WriteLine("[shutdown] music owner exceeded 2 seconds; skipping racing native disposal.");
+                return;
+            }
+            try
+            {
+                Mods.MapGen.CustomMapMusic.Stop();
+                _playbackDevice.Stop();
+            }
+            finally
+            {
+                _audioEngine.Dispose();
+                Available = false;
+            }
+        }
+
+        public static void Load(SeqId seqId, ushort tracks = UInt16.MaxValue, float volume = 1)
+        {
+            if (!Available || _shutdownRequested) return;
+            _loads!.Load(seqId, tracks, volume);
+        }
+
+        private static Sound.IMusicLoadGraph CreateGraph(Sound.MusicLoadRequest request, Func<bool> isCurrent)
+        {
+            using var construction = new Sound.MusicGraphConstruction();
+            string path = Paths.Combine(Paths.FileSystem, "_seq", Metadata.SequenceFiles[(int)request.Sequence]);
+            var stream = new NCSFPlayerStream(path, (uint)_sampleRate, Interpolation.None, skipSilenceOnStartSec: 5,
+                defaultLengthInMS: 115000, defaultFadeInMS: 5000, NCSF123.VolumeType.ReplayGainAlbum,
+                PeakType.ReplayGainTrack, playForever: true, request.Volume,
+                channelMutes: 0, trackMutes: 0, ignoreVolume: false);
+            construction.Stream = stream;
+            if (!isCurrent()) throw new OperationCanceledException();
+            for (int i = 0; i < 16; i++)
+            {
+                if ((request.Tracks & (1 << i)) == 0)
+                {
+                    NCSFCommon.Track? track = stream.Player.GetTrack(i);
+                    if (track != null) { track.Volume = 0; track.Mute = true; }
+                }
+            }
+            var provider = new RawDataProvider(stream, SampleFormat.F32, _sampleRate);
+            construction.Provider = provider;
+            if (!isCurrent()) throw new OperationCanceledException();
+            var component = new Sound.MusicCallbackComponent(_audioEngine, _format, provider);
+            construction.Component = component;
+            if (!isCurrent()) throw new OperationCanceledException();
+            var graph = new Sound.MusicPlaybackGraph(stream, provider, component, _playbackDevice);
+            construction.Transfer();
+            return graph;
+        }
+
+        public static void WaitForLoad(int sleepMs = 100)
+        {
+            if (_loads == null || _loads.WaitForLoad(TimeSpan.FromSeconds(2), sleepMs)) return;
+            // A third-party decoder constructor cannot be interrupted. Keep
+            // the one owner alive, but do not block a synchronous scene/menu
+            // wait indefinitely or publish that request after the timeout.
+            Console.Error.WriteLine("[sound] music load exceeded 2 seconds; continuing without that track.");
+        }
+
+        public static void Play(float volume)
+        {
+            if (!Available) return;
+            var graph = Current;
+            if (graph == null) return;
+            graph.Stream.VolumeModification = Math.Clamp(volume, 0, 1);
+            graph.Component.SetState(PlaybackState.Playing);
+        }
+
+        public static void Pause() => Current?.Component.SetState(PlaybackState.Paused);
+        public static PlaybackState State => Current?.Component.State ?? PlaybackState.Stopped;
+        public static float Volume
+        {
+            get => Current?.Stream.VolumeModification ?? 0;
+            set { var graph = Current; if (graph != null) graph.Stream.VolumeModification = Math.Clamp(value, 0, 1); }
+        }
+        public static ushort Tempo
+        {
+            get => Current?.Stream.Player.TempoRatio ?? 0;
+            set { var graph = Current; if (graph != null) graph.Stream.Player.TempoRatio = value; }
+        }
+        public static NCSFCommon.Track? GetTrack(int index) => Current?.Stream.Player.GetTrack(index);
+        public static void Stop() => Current?.Component.SetState(PlaybackState.Stopped);
+
+        public static void Remove(bool shutdown = false)
+        {
+            // Track retirement does not stop the process-shared output used by
+            // Android effects and launcher cues. Only final Shutdown stops it.
+            _loads?.Remove();
+            // Preserve scene silence without disposing that separate player's
+            // provider under the shared callback. Its normal Stop/Init owns cleanup.
+            if (shutdown) Mods.MapGen.CustomMapMusic.Pause();
+        }
+
+    }
+}

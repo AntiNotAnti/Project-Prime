@@ -1,0 +1,412 @@
+using System;
+using MphRead.Hud;
+using MphRead.Mods.Input;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    /// <summary>
+    /// The DS's bottom screen, drawn on the top one.
+    ///
+    /// Faint on purpose. A player with a tablet is reaching for a button with
+    /// their hand, not looking for it with their eyes -- what they need is
+    /// enough of an outline to know where the row is and that their zone is
+    /// where they left it. Anything more solid is a second HUD sitting on top
+    /// of the game.
+    ///
+    /// It goes bright for one thing only: while the zone is being drawn. That
+    /// is the one moment the player *is* looking at it, and a rectangle you
+    /// are dragging out has to be visible to be dragged.
+    ///
+    /// The fallback guide follows the cartridge geometry too: the three
+    /// weapon quick-selects are boxes, while the change and alt-form controls
+    /// are round. That keeps the visible target and the actual hit test on top
+    /// of each other even when the native artwork is disabled.
+    /// </summary>
+    public partial class PlayerEntity
+    {
+        private static Vector4 StylusGuideColour(float alpha, float brightness = 1f, float lift = 0f)
+        {
+            float red = Math.Clamp(StylusZone.GuideRed * brightness, 0, 1);
+            float green = Math.Clamp(StylusZone.GuideGreen * brightness, 0, 1);
+            float blue = Math.Clamp(StylusZone.GuideBlue * brightness, 0, 1);
+            if (lift > 0)
+            {
+                red += (1 - red) * lift;
+                green += (1 - green) * lift;
+                blue += (1 - blue) * lift;
+            }
+            return new Vector4(red, green, blue, alpha);
+        }
+
+        private static readonly StylusZone.Button _stylusAffinityWeaponSlot =
+            Array.Find(StylusZone.Buttons, button => button.Region == StylusRegion.Weapons);
+
+        private int _stylusBottomTexture = -1;
+        private int _stylusAltTexture = -1;
+        private int _stylusWeaponSelectTexture = -1;
+
+        /// <summary>
+        /// Decode the original DS lower-screen tilemaps once with the rest of
+        /// the player's HUD resources. These are presentation-only textures:
+        /// the existing StylusZone remains the single source of truth for hit
+        /// testing and input ownership.
+        /// </summary>
+        internal void ModSetUpStylusHud()
+        {
+            if (Mods.Headless.Active || OperatingSystem.IsAndroid())
+            {
+                return;
+            }
+
+            string folder = Hunter switch
+            {
+                Hunter.Kanden => "kanden",
+                Hunter.Trace => "trace",
+                Hunter.Sylux => "sylux",
+                Hunter.Noxus => "nox",
+                Hunter.Spire => "spire",
+                Hunter.Weavel => "weavel",
+                _ => "samus"
+            };
+            _stylusBottomTexture = ModLoadStylusTexture($"hud/{folder}/bg_bottom.bin");
+            _stylusAltTexture = ModLoadStylusTexture($"hud/{folder}/bg_altform.bin");
+            _stylusWeaponSelectTexture = ModLoadStylusTexture($"hud/{folder}/bg_wepsel.bin");
+        }
+
+        internal void ModDrawDsBottomScreen()
+        {
+            DrawDsBottom();
+            if (Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) && !_scene.GameState.MenuPause)
+            {
+                float scale = ModPlaceWeaponSelect();
+                for (int i = 0; i < 6; i++)
+                {
+                    _scene.DrawHudObject(_selectBoxInsts[i], mode: 1, scale: scale);
+                    _scene.DrawHudObject(_weaponSelectInsts[i], mode: 1, scale: scale);
+                }
+            }
+        }
+
+        private int ModLoadStylusTexture(string path)
+        {
+            try
+            {
+                // DS screens are 256x192. The source tilemaps may contain
+                // unused rows outside the visible LCD, so cut exactly 32x24
+                // tiles rather than stretching the backing map into the zone.
+                (int texture, _) = HudInfo.CharMapToTexture(path,
+                    startX: 0, startY: 0, tilesX: 32, tilesY: 24, _scene,
+                    padMissingTiles: true);
+                return texture;
+            }
+            catch (Exception ex)
+            {
+                if (Mods.DebugLog.Active)
+                {
+                    Mods.DebugLog.Line("render",
+                        $"native stylus HUD unavailable ({path}): {ex.GetType().Name}");
+                }
+                return -1;
+            }
+        }
+
+        internal void ModDrawStylusZone()
+        {
+            if (!IsMainPlayer || _scene.DsTopPass)
+            {
+                return;
+            }
+
+            // The platform cursor has no portable opacity control. During
+            // stylus gameplay the window hides it without grabbing it, and
+            // this HUD cursor takes its place. Menus, results and placement
+            // keep the normal platform cursor instead.
+            bool drawCursor = PointerInput.StylusMode && !StylusZone.Placing
+                && (_scene.CameraMode == CameraMode.Player || _scene.IsFreeCam)
+                && !_scene.FrameAdvance && !Mods.Network.DemoPlayback.IsActive
+                && !Mods.PauseMenu.Open && !Mods.EndScreen.Available
+                && !_scene.GameState.DialogPause && !_scene.GameState.MenuPause;
+
+            if (StylusZone.Enabled || StylusZone.Placing)
+            {
+                // The overlay is drawn in the HUD's 256x192 space, and the zone is
+                // stated in window fractions, so one is turned into the other
+                // here. HudAspectFix is not wanted: a fraction of the window is
+                // already a fraction of the window, whatever shape it is.
+                float left = StylusZone.Left * 256f;
+                float top = StylusZone.Top * 192f;
+                float width = StylusZone.Width * 256f;
+                float height = StylusZone.Height * 192f;
+                if (width > 1 && height > 1)
+                {
+                    // Never fall out of the native overlay just because one
+                    // of the state-specific cartridge layers cannot be decoded.
+                    // The normal lower screen is a complete, aligned fallback;
+                    // the old red guide is only the final fallback when no
+                    // native lower-screen art exists at all.
+                    int nativeTexture = _stylusBottomTexture;
+                    if (_hudWeaponMenuOpen && _stylusWeaponSelectTexture > 0)
+                    {
+                        nativeTexture = _stylusWeaponSelectTexture;
+                    }
+                    else if (IsAltForm && _stylusAltTexture > 0)
+                    {
+                        nativeTexture = _stylusAltTexture;
+                    }
+
+                    bool nativeAvailable = !StylusZone.Placing && StylusZone.NativeUi && !_scene.UseDsLayout
+                        && nativeTexture > 0;
+                    if (nativeAvailable)
+                    {
+                        float alpha = _scene.UseDsLayout ? 1f : Math.Clamp(StylusZone.NativeUiOpacity, 0, 1);
+                        if (alpha > 0)
+                        {
+                            // Nearest is intentional: this is DS pixel art,
+                            // not a photographic thumbnail.
+                            _scene.DrawHudTexture(left, top, left + width, top + height,
+                                nativeTexture, alpha, smooth: false);
+
+                            // The large WPN square is the affinity quick slot:
+                            // it shows the affinity weapon chosen by the wheel
+                            // and tapping it equips that exact weapon. The
+                            // background owns the box; the icon is dynamic OAM
+                            // art and therefore is not in the tilemap itself.
+                            if (!_hudWeaponMenuOpen && nativeTexture == _stylusBottomTexture)
+                            {
+                                ModDrawStylusAffinityWeapon(alpha);
+                            }
+                        }
+                    }
+
+                    // Placement is deliberately visible even if the normal
+                    // overlay has been set to 0%; otherwise an invisible
+                    // rectangle could not be positioned. If native art could
+                    // not be loaded, fall back to the old guide rather than
+                    // leaving a functional but invisible touch surface.
+                    float outlineAlpha = StylusZone.Placing ? 0.55f
+                        : nativeAvailable ? 0 : StylusZone.OutlineOpacity;
+                    float buttonAlpha = StylusZone.Placing ? 0.275f
+                        : nativeAvailable ? 0 : StylusZone.ButtonOpacity;
+                    float line = Math.Max(0.5f, height / 96f);
+
+                    if (outlineAlpha > 0)
+                    {
+                        Vector4 edge = StylusGuideColour(outlineAlpha);
+                        _scene.DrawHudFlatBox(left, top, left + width, top + line, edge);
+                        _scene.DrawHudFlatBox(left, top + height - line, left + width, top + height, edge);
+                        _scene.DrawHudFlatBox(left, top, left + line, top + height, edge);
+                        _scene.DrawHudFlatBox(left + width - line, top, left + width, top + height, edge);
+                    }
+
+                    if (buttonAlpha > 0)
+                    {
+                        float scaleX = width / StylusZone.DsWidth;
+                        float scaleY = height / StylusZone.DsHeight;
+                        foreach (StylusZone.Button original in StylusZone.Buttons)
+                        {
+                            StylusZone.Button button = StylusZone.EffectiveButton(original);
+                            bool lit = !StylusZone.Placing && StylusZone.Contact
+                                && StylusZone.Region == button.Region;
+                            float alpha = lit ? Math.Min(1, buttonAlpha * 6) : buttonAlpha;
+                            Vector4 colour = lit
+                                ? StylusGuideColour(alpha, lift: 0.45f)
+                                : StylusGuideColour(alpha, brightness: 0.65f);
+                            if (button.Round)
+                            {
+                                DrawStylusCircle(left + button.X * scaleX, top + button.Y * scaleY,
+                                    button.Width / 2 * scaleX, button.Height / 2 * scaleY, colour);
+                            }
+                            else
+                            {
+                                _scene.DrawHudFlatBox(
+                                    left + (button.X - button.Width / 2) * scaleX,
+                                    top + (button.Y - button.Height / 2) * scaleY,
+                                    left + (button.X + button.Width / 2) * scaleX,
+                                    top + (button.Y + button.Height / 2) * scaleY,
+                                    colour);
+                            }
+                        }
+                    }
+                    if (_scene.UseDsLayout)
+                    {
+                        if (!_hudWeaponMenuOpen && !IsAltForm)
+                        {
+                            ModDrawStylusAffinityWeapon(1f);
+                        }
+                        DrawRadar();
+                    }
+                }
+            }
+
+            if (drawCursor)
+            {
+                DrawStylusCursor();
+            }
+        }
+
+        /// <summary>
+        /// DS layout shows the equipped weapon in its matching quick slot.
+        /// The native overlay continues to show the stored affinity weapon.
+        ///
+        /// The button's centre comes from the same StylusZone geometry that
+        /// owns its hit test, so the icon cannot drift after moving/resizing.
+        /// </summary>
+        private void ModDrawStylusAffinityWeapon(float alpha)
+        {
+            int index = (int)(_scene.UseDsLayout ? CurrentWeapon : _weaponSlots[2]);
+            if (index < 0 || index >= _weaponListIcons.Length
+                || index > (int)BeamType.OmegaCannon)
+            {
+                return;
+            }
+            HudObjectInstance icon = _weaponListIcons[index];
+            if (icon == null || _stylusAffinityWeaponSlot.Region != StylusRegion.Weapons)
+            {
+                return;
+            }
+
+            StylusRegion region = _scene.UseDsLayout ? CurrentWeapon switch
+            {
+                BeamType.PowerBeam => StylusRegion.PowerBeam,
+                BeamType.Missile => StylusRegion.Missile,
+                _ => StylusRegion.Weapons
+            } : StylusRegion.Weapons;
+            StylusZone.Button slot = Array.Find(StylusZone.Buttons, button => button.Region == region);
+            IconBounds bounds = _weaponListIconBounds[index];
+            // A 24-pixel ink box leaves padding within each 36-pixel button.
+            float side = 24f * StylusZone.Height;
+            float scale = side / Math.Max(bounds.Width, bounds.Height);
+            float aspect = HudAspectFix;
+            float centerX = (StylusZone.Left
+                + slot.X / StylusZone.DsWidth * StylusZone.Width) * 256f;
+            float centerY = (StylusZone.Top
+                + slot.Y / StylusZone.DsHeight * StylusZone.Height) * 192f;
+
+            // Explicit texture bounds avoid top-HUD icon scaling/centering
+            // changing the lower-screen button geometry in Pro or custom HUDs.
+            Mods.Render.SmoothHudIcon.Tint(icon, _weaponListSheetData, index,
+                _weaponListColors[index], _scene);
+            float left = centerX - bounds.CentreX * scale * aspect;
+            float top = centerY - bounds.CentreY * scale;
+            _scene.DrawHudTexture(left, top, left + icon.Width * scale * aspect,
+                top + icon.Height * scale, icon.BindingId, alpha, smooth: icon.Smooth);
+        }
+
+        private void DrawStylusCursor()
+        {
+            float alpha = Math.Clamp(StylusZone.CursorOpacity, 0, 1);
+            float pointerX = Mods.EndScreen.PointerX;
+            float pointerY = Mods.EndScreen.PointerY;
+            if (alpha <= 0 || pointerX < 0 || pointerX > 1 || pointerY < 0 || pointerY > 1)
+            {
+                return;
+            }
+
+            float x = pointerX * 256f;
+            float y = pointerY * 192f;
+            const float pixel = 0.42f;
+            // One offset black copy gives the white pixel arrow enough edge
+            // contrast to stay readable on both bright and dark rooms.
+            DrawStylusCursorShape(x + pixel, y + pixel, pixel,
+                new Vector4(0, 0, 0, alpha * 0.7f));
+            DrawStylusCursorShape(x, y, pixel, new Vector4(1, 1, 1, alpha));
+        }
+
+        private void DrawStylusCursorShape(float x, float y, float pixel, Vector4 colour)
+        {
+            // A small stepped arrow with the hotspot at its top-left corner.
+            // Flat HUD boxes keep it crisp at the same logical resolution as
+            // the DS overlay and avoid adding a cursor texture/resource.
+            for (int row = 0; row < 7; row++)
+            {
+                _scene.DrawHudFlatBox(x, y + row * pixel,
+                    x + (row + 1) * pixel, y + (row + 1) * pixel, colour);
+            }
+            _scene.DrawHudFlatBox(x + 2 * pixel, y + 6 * pixel,
+                x + 4 * pixel, y + 10 * pixel, colour);
+        }
+
+        /// <summary>
+        /// Put the weapon wheel where the bottom screen is, and say how big to
+        /// draw it.
+        ///
+        /// The wheel is the DS's touch screen: a quarter-arc in the corner of
+        /// it, chosen by putting the stylus on a segment. The port drew it
+        /// across the whole window, which is the right answer when the window
+        /// *is* the bottom screen and the wrong one the moment the player has
+        /// marked out a rectangle and mapped a tablet to it -- the picture was
+        /// then in one place and the hand in another, and the arc filled a
+        /// screen it had no business covering. So with a zone, the wheel is
+        /// drawn in the zone: the same six positions, the same shape, in the
+        /// rectangle the hand already knows.
+        ///
+        /// Returns the scale for <c>DrawHudObject</c>'s mode 1, which derives
+        /// its size from the window's height -- the zone's own height as a
+        /// fraction of the window is exactly the factor that turns "as big as
+        /// the screen" into "as big as the zone", and it goes on both axes so
+        /// the icons keep their shape.
+        ///
+        /// <see cref="PlayerEntity.UpdateWeaponArc"/> measures the arc in the
+        /// same rectangle, from the same four numbers. Two descriptions of
+        /// where the wheel is would drift, and the one that drifts is the
+        /// invisible one.
+        /// </summary>
+        internal float ModPlaceWeaponSelect()
+        {
+            for (int i = 0; i < _weaponSelectHome.Length; i++)
+            {
+                Vector2 home = _weaponSelectHome[i];
+                float x = home.X;
+                float y = home.Y;
+                if (GamepadInput.WheelHeld)
+                {
+                    float angle = (i + .5f) * MathF.PI / 3;
+                    x = .5f + MathF.Sin(angle) * .23f * _scene.Size.Y / Math.Max(1, _scene.Size.X);
+                    y = .5f - MathF.Cos(angle) * .23f;
+                }
+                else if (StylusZone.Enabled)
+                {
+                    x = StylusZone.Left + home.X * StylusZone.Width;
+                    y = StylusZone.Top + home.Y * StylusZone.Height;
+                }
+                _weaponSelectInsts[i].PositionX = x;
+                _weaponSelectInsts[i].PositionY = y;
+                _selectBoxInsts[i].PositionX = x;
+                _selectBoxInsts[i].PositionY = y;
+            }
+            return StylusZone.Enabled && !GamepadInput.WheelHeld ? StylusZone.Height : 1;
+        }
+
+        /// <summary>
+        /// A filled ellipse, as a stack of horizontal spans.
+        ///
+        /// Two radii rather than one: the zone is a fraction of the window in
+        /// x and of its height in y, and a window is not square, so a circle
+        /// in DS units is an ellipse in these.
+        /// </summary>
+        private void DrawStylusCircle(float centreX, float centreY, float radiusX, float radiusY,
+            Vector4 colour)
+        {
+            int rows = (int)MathF.Ceiling(radiusY * 2);
+            if (rows < 2 || radiusX <= 0)
+            {
+                return;
+            }
+            rows = Math.Min(rows, 96);
+            float step = radiusY * 2 / rows;
+            for (int i = 0; i < rows; i++)
+            {
+                float y = -radiusY + (i + 0.5f) * step;
+                float t = y / radiusY;
+                float half = radiusX * MathF.Sqrt(Math.Max(0, 1 - t * t));
+                if (half <= 0)
+                {
+                    continue;
+                }
+                _scene.DrawHudFlatBox(centreX - half, centreY + y,
+                    centreX + half, centreY + y + step, colour);
+            }
+        }
+    }
+}

@@ -1,0 +1,736 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Threading;
+using System.Threading.Tasks;
+using MphRead.Entities;
+
+namespace MphRead.Mods.Network
+{
+    /// <summary>
+    /// Durable authoritative match reporting.
+    ///
+    /// The dedicated server captures facts from the same simulation that owns
+    /// damage and the scoreboard, writes an outbox record before touching the
+    /// network, and posts it to Supabase in the background. A failed request
+    /// leaves the file in place for the next retry/restart.
+    /// </summary>
+    internal static class CareerReportOutbox
+    {
+
+        private static readonly HttpClient Http = new()
+        {
+            Timeout = TimeSpan.FromSeconds(12)
+        };
+        private static readonly JsonSerializerOptions Json = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower
+        };
+        private static int _draining;
+        private static int _probing;
+        private static int _warnedDisabled;
+
+        private static string DirectoryPath => Path.Combine(
+            Platform.AppPaths.UserDataDirectory, "career-outbox");
+
+        private static Uri ReportUrl => BackendServiceConfiguration.Capture().CareerReportUri;
+
+        private static string ServerKey =>
+            Environment.GetEnvironmentVariable("PROJECT_PRIME_CAREER_SERVER_KEY")
+            ?? "";
+
+        public static bool Enabled => ServerKey.Length >= 32;
+
+        // Keep reporter credentials inside the existing credential owner.
+        internal static bool AuthorizeSocialReport(HttpRequestMessage request)
+        {
+            if (!Enabled) return false;
+            var backend = BackendServiceConfiguration.Capture();
+            if (!backend.Owns(request.RequestUri) || request.RequestUri?.Scheme != Uri.UriSchemeHttps) return false;
+            backend.AddApiKey(request);
+            request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + ServerKey);
+            return true;
+        }
+
+
+        public static void Start()
+        {
+            if (!Enabled)
+            {
+                if (Interlocked.Exchange(ref _warnedDisabled, 1) == 0)
+                {
+                    Console.WriteLine("[career] reporting disabled: "
+                        + "PROJECT_PRIME_CAREER_SERVER_KEY is not configured");
+                }
+                return;
+            }
+            Console.WriteLine($"[career] reporting enabled: {ReportUrl}");
+            Kick();
+            Probe();
+        }
+
+        public static void Enqueue(CareerMatchReport report)
+        {
+            if (report.ContainsBots) return;
+            if (!Enabled)
+            {
+                Start();
+                return;
+            }
+            try
+            {
+                System.IO.Directory.CreateDirectory(DirectoryPath);
+                string path = Path.Combine(DirectoryPath, $"{report.MatchId:N}.json");
+                string temp = path + ".tmp";
+                byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(report, Json);
+                if (bytes.Length > 512 * 1024)
+                {
+                    Console.WriteLine($"[career] report {report.MatchId} exceeds the 512 KiB limit");
+                    return;
+                }
+                File.WriteAllBytes(temp, bytes);
+                File.Move(temp, path, overwrite: true);
+                Console.WriteLine($"[career] queued authoritative match {report.MatchId}");
+                Kick();
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Console.WriteLine($"[career] could not spool match {report.MatchId}: {ex.Message}");
+            }
+        }
+
+        private static void Kick()
+        {
+            if (!Enabled || Interlocked.CompareExchange(ref _draining, 1, 0) != 0)
+            {
+                return;
+            }
+            _ = Task.Run(DrainAsync);
+        }
+
+        private static void Probe()
+        {
+            if (!Enabled || Interlocked.CompareExchange(ref _probing, 1, 0) != 0)
+                return;
+
+            FileStream? lease = null;
+            try
+            {
+                Directory.CreateDirectory(DirectoryPath);
+                string marker = Path.Combine(DirectoryPath, ".probe-stamp");
+                string gate = Path.Combine(DirectoryPath, ".probe-lock");
+                try
+                {
+                    lease = new FileStream(gate, FileMode.OpenOrCreate,
+                        FileAccess.ReadWrite, FileShare.None);
+                }
+                catch (IOException)
+                {
+                    Interlocked.Exchange(ref _probing, 0);
+                    return;
+                }
+
+                if (File.Exists(marker)
+                    && DateTime.UtcNow - File.GetLastWriteTimeUtc(marker)
+                        < TimeSpan.FromMinutes(5))
+                {
+                    lease.Dispose();
+                    Interlocked.Exchange(ref _probing, 0);
+                    return;
+                }
+                File.WriteAllText(marker, DateTime.UtcNow.Ticks.ToString(
+                    CultureInfo.InvariantCulture));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                lease?.Dispose();
+                Interlocked.Exchange(ref _probing, 0);
+                return;
+            }
+
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var backend = BackendServiceConfiguration.Capture();
+                    using var request = new HttpRequestMessage(HttpMethod.Get, backend.CareerReportUri);
+                    backend.AddReportApiKey(request);
+                    request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + ServerKey);
+                    using HttpResponseMessage response = await Http.SendAsync(request)
+                        .ConfigureAwait(false);
+                    string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                    Console.WriteLine(response.IsSuccessStatusCode
+                        ? "[career] reporter credential accepted"
+                        : $"[career] reporter probe refused ({(int)response.StatusCode}): {Trim(body, 240)}");
+                }
+                catch (Exception ex) when (ex is HttpRequestException
+                    or TaskCanceledException or IOException)
+                {
+                    Console.WriteLine($"[career] reporter probe deferred: {ex.Message}");
+                }
+                finally
+                {
+                    lease?.Dispose();
+                    Interlocked.Exchange(ref _probing, 0);
+                }
+            });
+        }
+
+        private static async Task DrainAsync()
+        {
+            FileStream? drainLease = null;
+            try
+            {
+                System.IO.Directory.CreateDirectory(DirectoryPath);
+                try
+                {
+                    drainLease = new FileStream(
+                        Path.Combine(DirectoryPath, ".drain-lock"),
+                        FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                }
+                catch (IOException)
+                {
+                    return;
+                }
+
+                // Holding the cross-process drain lock proves no live sender
+                // owns an old .sending-* claim. Recover any file left behind
+                // by a child/process crash before enumerating normal reports.
+                foreach (string stale in Directory.EnumerateFiles(
+                    DirectoryPath, "*.json.sending-*"))
+                {
+                    int marker = stale.LastIndexOf(".sending-", StringComparison.Ordinal);
+                    if (marker <= 0) continue;
+                    string original = stale[..marker];
+                    try
+                    {
+                        if (!File.Exists(original)) File.Move(stale, original);
+                    }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+
+                foreach (string path in System.IO.Directory.EnumerateFiles(
+                    DirectoryPath, "*.json").OrderBy(p => p, StringComparer.Ordinal))
+                {
+                    // Claim by rename before reading. Every hosted child may
+                    // kick the same durable outbox, but only one process can
+                    // successfully move a file out of the enumerable set.
+                    string claim = path + ".sending-" + Environment.ProcessId.ToString(
+                        CultureInfo.InvariantCulture);
+                    try { File.Move(path, claim, overwrite: false); }
+                    catch (IOException) { continue; }
+                    catch (UnauthorizedAccessException) { continue; }
+
+                    byte[] bytes;
+                    try
+                    {
+                        bytes = await File.ReadAllBytesAsync(claim).ConfigureAwait(false);
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                    {
+                        RestoreClaim(claim, path);
+                        Console.WriteLine($"[career] could not read {Path.GetFileName(path)}: {ex.Message}");
+                        continue;
+                    }
+
+                    try
+                    {
+                        var backend = BackendServiceConfiguration.Capture();
+                        using var request = new HttpRequestMessage(HttpMethod.Post, backend.CareerReportUri);
+                        backend.AddReportApiKey(request);
+                        request.Headers.TryAddWithoutValidation("Authorization", "Bearer " + ServerKey);
+                        request.Content = new ByteArrayContent(bytes);
+                        request.Content.Headers.ContentType =
+                            new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+
+                        using HttpResponseMessage response = await Http.SendAsync(request)
+                            .ConfigureAwait(false);
+                        string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        if (response.IsSuccessStatusCode)
+                        {
+                            File.Delete(claim);
+                            Console.WriteLine($"[career] accepted {Path.GetFileNameWithoutExtension(path)}");
+                            continue;
+                        }
+
+                        int status = (int)response.StatusCode;
+                        Console.WriteLine($"[career] report refused ({status}): {Trim(body, 240)}");
+                        if (status is 400 or 401 or 403 or 409 or 413)
+                        {
+                            File.Move(claim, path + ".rejected", overwrite: true);
+                        }
+                        else
+                        {
+                            RestoreClaim(claim, path);
+                        }
+                        // A configuration/auth error will refuse every file.
+                        if (status is 401 or 403) break;
+                    }
+                    catch (Exception ex) when (ex is HttpRequestException
+                        or TaskCanceledException or IOException)
+                    {
+                        RestoreClaim(claim, path);
+                        Console.WriteLine($"[career] report delivery deferred: {ex.Message}");
+                        break;
+                    }
+                }
+            }
+            finally
+            {
+                drainLease?.Dispose();
+                Interlocked.Exchange(ref _draining, 0);
+            }
+        }
+
+        private static void RestoreClaim(string claim, string original)
+        {
+            try
+            {
+                if (File.Exists(claim) && !File.Exists(original))
+                    File.Move(claim, original);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        private static string Trim(string text, int max)
+        {
+            text = text.Replace('\r', ' ').Replace('\n', ' ').Trim();
+            return text.Length <= max ? text : text[..max] + "...";
+        }
+    }
+
+    internal sealed class CareerMatchReport
+    {
+        public int Version { get; set; } = 1;
+        public Guid MatchId { get; set; }
+        public ushort WireMatchId { get; set; }
+        public Guid ServerIncarnation { get; set; }
+        public string BuildVersion { get; set; } = "";
+        public int ProtocolVersion { get; set; }
+        public DateTimeOffset StartedAtUtc { get; set; }
+        public DateTimeOffset EndedAtUtc { get; set; }
+        public long PlayedTicks { get; set; }
+        public string EndReason { get; set; } = "completed";
+        public string RoomKey { get; set; } = "";
+        public int Mode { get; set; }
+        public uint Rules { get; set; }
+        public bool Teams { get; set; }
+        public int TeamCount { get; set; }
+        public bool ContainsBots { get; set; }
+        public bool RatingEligible { get; set; }
+        public List<CareerParticipantReport> Participants { get; set; } = new();
+    }
+
+    internal sealed class CareerParticipantReport
+    {
+        public Guid ParticipantId { get; set; }
+        public uint ClientId { get; set; }
+        public string CareerTicket { get; set; } = "";
+        public string DisplayName { get; set; } = "Player";
+        public int Hunter { get; set; }
+        public bool SingleHunter { get; set; } = true;
+        public int Team { get; set; }
+        public bool StartedMatch { get; set; }
+        public bool Departed { get; set; }
+        public long PlayedTicks { get; set; }
+        public int Standing { get; set; } = 7;
+        public int TeamStanding { get; set; } = 7;
+        public bool Won { get; set; }
+        public bool Tied { get; set; }
+        public CareerMetricsReport Metrics { get; set; } = new();
+    }
+
+    internal sealed class CareerMetricsReport
+    {
+        public long Kills { get; set; }
+        public long Deaths { get; set; }
+        public long Assists { get; set; }
+        public long Damage { get; set; }
+        public long Headshots { get; set; }
+        public long OctolithScores { get; set; }
+        public long NodesCaptured { get; set; }
+        public long KillsAsPrime { get; set; }
+        public long LongestKillStreak { get; set; }
+        public long[] BeamKills { get; set; } = new long[9];
+    }
+
+    public sealed partial class DedicatedServer
+    {
+        private readonly Guid _careerServerIncarnation = Guid.NewGuid();
+        private CareerMatchState? _careerMatch;
+
+        private sealed class CareerMatchState
+        {
+            public Guid MatchId = Guid.NewGuid();
+            public ushort WireMatchId;
+            public long StartedFrame;
+            public DateTimeOffset StartedAtUtc;
+            public string RoomKey = "";
+            public GameMode Mode;
+            public MatchModifierFlags Rules;
+            public bool Teams;
+            public int TeamCount;
+            public bool RatingEligible;
+            public readonly Dictionary<uint, CareerParticipantState> Participants = new();
+        }
+
+        private sealed class CareerParticipantState
+        {
+            public Guid ParticipantId = Guid.NewGuid();
+            public uint ClientId;
+            public string CareerTicket = "";
+            public string DisplayName = "Player";
+            public int Hunter;
+            public bool SingleHunter = true;
+            public int Team;
+            public bool StartedMatch;
+            public bool Active;
+            public bool Departed;
+            public int Slot = -1;
+            public long JoinedFrame;
+            public CareerCounterSnapshot Start;
+            public CareerMetricsReport Metrics = new();
+            public long PlayedTicks;
+            public int Standing = 7;
+            public int TeamStanding = 7;
+        }
+
+        private readonly record struct CareerCounterSnapshot(
+            long Kills, long Deaths, long Assists, long Damage, long Headshots,
+            long OctolithScores, long NodesCaptured, long KillsAsPrime,
+            long LongestKillStreak, long[] BeamKills);
+
+        private long CareerFrame => _sim?.Frames ?? 0;
+
+        /// <summary>
+        /// Begin only once the authoritative room transition has completed.
+        /// Starting earlier would snapshot the previous map's counters and make
+        /// the new match look like they ran backwards when NetRoomChange clears them.
+        /// </summary>
+        private void EnsureCareerMatchStarted(double now)
+        {
+            if (_botAssistedMatch || _careerMatch != null || _sim == null || _phase != SessionPhase.InMatch
+                || _peers.Count == 0 || !NetRoomChange.GameplayReady)
+            {
+                return;
+            }
+
+            CareerMatchStats.Reset();
+            MatchDefinition match = CurrentDefinition;
+            _careerMatch = new CareerMatchState
+            {
+                WireMatchId = _matchId,
+                StartedFrame = CareerFrame,
+                StartedAtUtc = DateTimeOffset.UtcNow
+                    - TimeSpan.FromSeconds(Math.Max(0, now - _matchStarted)),
+                RoomKey = match.RoomKey,
+                Mode = match.Mode, Rules = match.Rules,
+                Teams = GameState.IsTeamMode(match.Mode),
+                TeamCount = Math.Max(1, LobbyRules.TeamCount(match)),
+                // The public continuous rotation is the verified rules lane.
+                // Player-created persistent lobbies still build career history,
+                // but never change rating points.
+                RatingEligible = SessionPolicy == ServerSessionPolicy.Continuous
+                    && Mods.Multiplayer.CareerMatchEligibility.IsStandard(match, _botAssistedMatch)
+            };
+            foreach (Peer peer in _peers)
+            {
+                CareerActivate(peer, startedMatch: true);
+            }
+            Console.WriteLine($"[career] tracking match {_careerMatch.MatchId} "
+                + $"(wire {_matchId}) on {match.RoomKey}");
+        }
+
+        private uint CareerKey(Peer peer)
+            => peer.ClientId != 0 ? peer.ClientId : 0x80000000u | (uint)(peer.SlotIndex + 1);
+
+        private void CareerActivate(Peer peer, bool startedMatch)
+        {
+            if (_botAssistedMatch) return;
+            CareerMatchState? match = _careerMatch;
+            if (match == null) return;
+            uint key = CareerKey(peer);
+            // Connected spectators are observers, not match starters. Retain
+            // their identity for the report, but never open a played segment.
+            bool competing = !peer.Spectating;
+            if (!match.Participants.TryGetValue(key, out CareerParticipantState? p))
+            {
+                p = new CareerParticipantState
+                {
+                    ClientId = peer.ClientId != 0 ? peer.ClientId : key,
+                    StartedMatch = startedMatch && competing
+                };
+                match.Participants.Add(key, p);
+            }
+            else
+            {
+                p.StartedMatch |= startedMatch && competing;
+                if (p.Active)
+                {
+                    // A defensive fallback if a future role path bypasses
+                    // CareerSetSpectating: stop the player segment here.
+                    if (!competing) CareerCaptureSegment(p);
+                    else return;
+                }
+            }
+
+            p.CareerTicket = peer.CareerTicket;
+            p.DisplayName = peer.Name.Length > 0 ? peer.Name : $"Player {peer.SlotIndex + 1}";
+            if (p.Active && p.Hunter != peer.Hunter) p.SingleHunter = false;
+            if (p.PlayedTicks > 0 && p.Hunter != peer.Hunter) p.SingleHunter = false;
+            p.Hunter = Math.Clamp((int)peer.Hunter, 0, Launcher.Hunters.Playable - 1);
+            p.Team = Math.Clamp((int)peer.TeamIndex, 0, 7);
+            p.Slot = peer.SlotIndex;
+            if (!competing) return;
+            p.JoinedFrame = CareerFrame;
+            p.Start = CareerCounters(peer.SlotIndex);
+            p.Active = true;
+            p.Departed = false;
+        }
+
+        /// <summary>
+        /// Apply an authoritative spectator role change to career accounting
+        /// before starting or ending gameplay for this peer. Switching to
+        /// spectator closes the current segment; spectating cannot accrue
+        /// played ticks or manufacture a win/loss eligibility flag.
+        /// </summary>
+        private void CareerSetSpectating(Peer peer, bool spectating)
+        {
+            if (peer.Spectating == spectating) return;
+            if (spectating && _careerMatch != null
+                && _careerMatch.Participants.TryGetValue(CareerKey(peer), out CareerParticipantState? p))
+            {
+                CareerCaptureSegment(p);
+            }
+            peer.Spectating = spectating;
+            if (!spectating)
+            {
+                // Rejoining resumes tracking, but cannot retroactively turn
+                // an opening spectator into a match-start participant.
+                CareerActivate(peer, startedMatch: false);
+            }
+        }
+
+        private void CareerIdentityChanged(Peer peer, int previousHunter)
+        {
+            if (_careerMatch == null) return;
+            uint key = CareerKey(peer);
+            if (!_careerMatch.Participants.TryGetValue(key, out CareerParticipantState? p)) return;
+            if (previousHunter != peer.Hunter) p.SingleHunter = false;
+            p.Hunter = Math.Clamp((int)peer.Hunter, 0, Launcher.Hunters.Playable - 1);
+            p.Team = Math.Clamp((int)peer.TeamIndex, 0, 7);
+            p.DisplayName = peer.Name;
+            p.CareerTicket = peer.CareerTicket;
+        }
+
+        private void CareerTicketChanged(Peer peer)
+        {
+            if (_careerMatch == null) return;
+            if (_careerMatch.Participants.TryGetValue(CareerKey(peer), out CareerParticipantState? p))
+                p.CareerTicket = peer.CareerTicket;
+        }
+
+        private void CareerPeerJoined(Peer peer)
+        {
+            if (_careerMatch != null && _phase == SessionPhase.InMatch)
+                CareerActivate(peer, startedMatch: false);
+        }
+
+        private void CareerPeerLeaving(Peer peer)
+        {
+            if (_careerMatch == null) return;
+            uint key = CareerKey(peer);
+            if (_careerMatch.Participants.TryGetValue(key, out CareerParticipantState? p))
+            {
+                CareerCaptureSegment(p);
+                p.Departed = true;
+            }
+            CareerMatchStats.ForgetSlot(peer.SlotIndex);
+        }
+
+        private CareerCounterSnapshot CareerCounters(int slot)
+        {
+            long[] beams = new long[9];
+            if ((uint)slot < PlayerEntity.SlotCapacity)
+            {
+                for (int beam = 0; beam < beams.Length; beam++)
+                    beams[beam] = Math.Max(0, GameState.BeamKills[slot, beam]);
+                return new CareerCounterSnapshot(
+                    Math.Max(0, GameState.Kills[slot]),
+                    Math.Max(0, GameState.Deaths[slot]),
+                    Math.Max(0, CareerMatchStats.Assists[slot]),
+                    Math.Max(0, CareerMatchStats.Damage[slot]),
+                    Math.Max(0, GameState.HeadshotKills[slot]),
+                    Math.Max(0, GameState.OctolithScores[slot]),
+                    Math.Max(0, GameState.NodesCaptured[slot]),
+                    Math.Max(0, GameState.KillsAsPrime[slot]),
+                    Math.Max(0, CareerMatchStats.LongestKillStreak[slot]),
+                    beams);
+            }
+            return new CareerCounterSnapshot(0,0,0,0,0,0,0,0,0,beams);
+        }
+
+        private static long Delta(long current, long start) => Math.Max(0, current - start);
+
+        private void CareerCaptureSegment(CareerParticipantState p)
+        {
+            if (!p.Active || p.Slot < 0) return;
+            CareerCounterSnapshot now = CareerCounters(p.Slot);
+            p.Metrics.Kills += Delta(now.Kills, p.Start.Kills);
+            p.Metrics.Deaths += Delta(now.Deaths, p.Start.Deaths);
+            p.Metrics.Assists += Delta(now.Assists, p.Start.Assists);
+            p.Metrics.Damage += Delta(now.Damage, p.Start.Damage);
+            p.Metrics.Headshots += Delta(now.Headshots, p.Start.Headshots);
+            p.Metrics.OctolithScores += Delta(now.OctolithScores, p.Start.OctolithScores);
+            p.Metrics.NodesCaptured += Delta(now.NodesCaptured, p.Start.NodesCaptured);
+            p.Metrics.KillsAsPrime += Delta(now.KillsAsPrime, p.Start.KillsAsPrime);
+            p.Metrics.LongestKillStreak = Math.Max(p.Metrics.LongestKillStreak,
+                now.LongestKillStreak);
+            for (int beam = 0; beam < p.Metrics.BeamKills.Length; beam++)
+                p.Metrics.BeamKills[beam] += Delta(now.BeamKills[beam], p.Start.BeamKills[beam]);
+            p.PlayedTicks += Math.Max(0, CareerFrame - p.JoinedFrame);
+            p.Active = false;
+        }
+
+        private void CompleteCareerMatch(double now, string reason)
+        {
+            if (_botAssistedMatch)
+            {
+                Console.WriteLine("[career] bot-assisted match; Hunter License reporting suppressed");
+                AbandonCareerMatch();
+                return;
+            }
+            CareerMatchState? match = _careerMatch;
+            if (match == null || _sim == null)
+            {
+                // Never manufacture a zero-stat report by taking the baseline
+                // at the same instant the round ends. If tracking could not
+                // start while gameplay was actually ready, skip this result.
+                Console.WriteLine("[career] no authoritative career baseline; match not reported");
+                _careerMatch = null;
+                return;
+            }
+
+            GameState.UpdateStandings();
+            foreach (Peer peer in _peers)
+            {
+                uint key = CareerKey(peer);
+                if (!match.Participants.TryGetValue(key, out CareerParticipantState? p))
+                {
+                    CareerActivate(peer, startedMatch: false);
+                    p = match.Participants[CareerKey(peer)];
+                }
+                p.CareerTicket = peer.CareerTicket;
+                p.DisplayName = peer.Name.Length > 0 ? peer.Name : p.DisplayName;
+                p.Hunter = Math.Clamp((int)peer.Hunter, 0, Launcher.Hunters.Playable - 1);
+                p.Team = Math.Clamp((int)peer.TeamIndex, 0, 7);
+                p.Standing = GameState.Teams
+                    ? Math.Clamp(GameState.TeamStandings[peer.SlotIndex], 0, 7)
+                    : Math.Clamp(GameState.Standings[peer.SlotIndex], 0, 7);
+                p.TeamStanding = Math.Clamp(GameState.Standings[peer.SlotIndex], 0, 7);
+                CareerCaptureSegment(p);
+                p.Departed = false;
+            }
+
+            var reports = new List<CareerParticipantReport>(match.Participants.Count);
+            foreach (CareerParticipantState p in match.Participants.Values)
+            {
+                reports.Add(new CareerParticipantReport
+                {
+                    ParticipantId = p.ParticipantId,
+                    ClientId = p.ClientId,
+                    CareerTicket = p.CareerTicket,
+                    DisplayName = SanitizeCareerName(p.DisplayName),
+                    Hunter = p.Hunter,
+                    SingleHunter = p.SingleHunter,
+                    Team = p.Team,
+                    StartedMatch = p.StartedMatch,
+                    Departed = p.Departed,
+                    PlayedTicks = Math.Min(p.PlayedTicks,
+                        Math.Max(0, CareerFrame - match.StartedFrame)),
+                    Standing = p.Standing,
+                    TeamStanding = p.TeamStanding,
+                    Metrics = p.Metrics
+                });
+            }
+
+            foreach (CareerParticipantReport p in reports)
+            {
+                if (!p.StartedMatch || p.Departed) continue;
+                int rank = match.Teams ? p.TeamStanding : p.Standing;
+                List<CareerParticipantReport> opponents = reports.Where(o =>
+                    o.StartedMatch && o.ClientId != p.ClientId
+                    && (!match.Teams || o.Team != p.Team)).ToList();
+                if (opponents.Count == 0) continue;
+                p.Tied = opponents.Any(o => !o.Departed
+                    && (match.Teams ? o.TeamStanding : o.Standing) == rank);
+                p.Won = rank == 0 && !p.Tied;
+            }
+
+            var report = new CareerMatchReport
+            {
+                MatchId = match.MatchId,
+                WireMatchId = match.WireMatchId,
+                ServerIncarnation = _careerServerIncarnation,
+                BuildVersion = Update.BuildVersion.Display,
+                ProtocolVersion = NetConfig.ProtocolVersion,
+                StartedAtUtc = match.StartedAtUtc,
+                EndedAtUtc = DateTimeOffset.UtcNow,
+                PlayedTicks = Math.Max(0, CareerFrame - match.StartedFrame),
+                EndReason = "completed",
+                RoomKey = match.RoomKey,
+                Mode = (int)match.Mode, Rules = (uint)match.Rules,
+                Teams = match.Teams,
+                TeamCount = match.TeamCount,
+                ContainsBots = _botAssistedMatch,
+                RatingEligible = match.RatingEligible && !_botAssistedMatch,
+                Participants = reports
+            };
+            CareerReportOutbox.Enqueue(report);
+            _careerMatch = null;
+            CareerMatchStats.Reset();
+        }
+
+        private void AbandonCareerMatch()
+        {
+            _careerMatch = null;
+            CareerMatchStats.Reset();
+        }
+
+        private static string SanitizeCareerName(string name)
+        {
+            var text = new StringBuilder(Math.Min(name.Length, 64));
+            foreach (char c in name)
+            {
+                if (!Char.IsControl(c)) text.Append(c);
+                if (text.Length == 64) break;
+            }
+            return text.Length == 0 ? "Player" : text.ToString();
+        }
+
+        private void HandleCareerIdentity(ReceivedPacket packet, double now)
+        {
+            Peer? peer = Find(packet.Sender);
+            if (peer == null || packet.Payload.Length is < 20 or > 768) return;
+            for (int i = 0; i < packet.Payload.Length; i++)
+            {
+                byte b = packet.Payload[i];
+                if (b < 0x21 || b > 0x7e) return;
+            }
+            string ticket = Encoding.ASCII.GetString(packet.Payload);
+            if (!ticket.StartsWith("pp1.", StringComparison.Ordinal)) return;
+            peer.LastSeen = now;
+            if (peer.CareerTicket == ticket) return;
+            peer.CareerTicket = ticket;
+            CareerTicketChanged(peer);
+        }
+    }
+}

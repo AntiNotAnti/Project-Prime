@@ -1,0 +1,71 @@
+<rml>
+  <head>
+    <title>Project Prime // Hunter Identity</title>
+    <link type="text/rcss" href="../../themes/prime.rcss" />
+    <link type="text/rcss" href="../../components/controls.rcss" />
+    <link type="text/rcss" href="identity.rcss" />
+  </head>
+  <body id="hunter_page">
+    <div id="identity_modal">
+      <div id="identity_header">
+        <div class="eyebrow">MULTIPLAYER // HUNTER IDENTITY</div>
+        <h1 id="hunter_name">CHOOSE YOUR HUNTER</h1>
+        <button id="hunter_close" data-action="hunter:cancel">CLOSE</button>
+      </div>
+      <div id="hunter_status">Select your Hunter, then apply.</div>
+      <div id="identity_cards" class="hunter-choices">
+        <button id="hunter_choice0" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:0">
+          <div id="hunter_model0" class="hunter-model"><span id="hunter_model_status0" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
+          <span class="hunter-card-name">SAMUS</span>
+        </button>
+        <button id="hunter_placeholder1" class="hunter-card hunter-placeholder" disabled="disabled" tab-index="none">
+          <span class="hunter-placeholder-mark">?</span><span class="hunter-card-name">UNAVAILABLE</span>
+        </button>
+        <button id="hunter_choice5" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:5">
+          <div id="hunter_model5" class="hunter-model"><span id="hunter_model_status5" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
+          <span class="hunter-card-name">SPIRE</span>
+        </button>
+        <button id="hunter_choice1" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:1">
+          <div id="hunter_model1" class="hunter-model"><span id="hunter_model_status1" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
+          <span class="hunter-card-name">KANDEN</span>
+        </button>
+        <button id="hunter_choice2" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:2">
+          <div id="hunter_model2" class="hunter-model"><span id="hunter_model_status2" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
+          <span class="hunter-card-name">TRACE</span>
+        </button>
+        <button id="hunter_choice4" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:4">
+          <div id="hunter_model4" class="hunter-model"><span id="hunter_model_status4" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
+          <span class="hunter-card-name">NOXUS</span>
+        </button>
+        <button id="hunter_choice3" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:3">
+          <div id="hunter_model3" class="hunter-model"><span id="hunter_model_status3" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
+          <span class="hunter-card-name">SYLUX</span>
+        </button>
+        <button id="hunter_choice6" class="hunter-card" data-focus-scroll="center" data-action="hunter:select:6">
+          <div id="hunter_model6" class="hunter-model"><span id="hunter_model_status6" class="hunter-model-status" style="display:none">MODEL UNAVAILABLE</span></div>
+          <span class="hunter-card-name">WEAVEL</span>
+        </button>
+        <button id="hunter_placeholder8" class="hunter-card hunter-placeholder" disabled="disabled" tab-index="none">
+          <span class="hunter-placeholder-mark">?</span><span class="hunter-card-name">UNAVAILABLE</span>
+        </button>
+        <button id="hunter_placeholder9" class="hunter-card hunter-placeholder" disabled="disabled" tab-index="none">
+          <span class="hunter-placeholder-mark">?</span><span class="hunter-card-name">UNAVAILABLE</span>
+        </button>
+        <button id="hunter_random" class="hunter-card hunter-random" data-focus-scroll="center" data-action="hunter:random">
+          <span class="hunter-random-mark">?</span><span class="hunter-card-name">RANDOM</span>
+        </button>
+      </div>
+      <div id="hunter_restriction">Only the Hunter pool allowed by the server can be equipped.</div>
+      <div class="hunter-suits"><span class="identity-suit-label">SUIT COLOR</span>
+        <button id="hunter_suit0" data-action="hunter:suit:0">SUIT 1</button>
+        <button id="hunter_suit1" data-action="hunter:suit:1">SUIT 2</button>
+        <button id="hunter_suit2" data-action="hunter:suit:2">SUIT 3</button>
+        <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
+      </div>
+      <div id="identity_footer">
+        <button id="hunter_cancel" data-action="hunter:cancel">CANCEL</button>
+        <button id="hunter_apply" data-action="hunter:apply">SEND HUNTER / SUIT</button>
+      </div>
+    </div>
+  </body>
+</rml>

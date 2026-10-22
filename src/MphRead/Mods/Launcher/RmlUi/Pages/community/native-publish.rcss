@@ -1,0 +1,19 @@
+body { background-color: rgba(0, 0, 0, 78%); }
+#community_publish { position: absolute; left: 4%; right: 4%; top: 3%; bottom: 3%; display: flex; flex-direction: column; padding: 14dp 18dp; background-color: #081523; border: 1dp #41667f; }
+#community_publish_title { flex-shrink: 0; margin: 4dp 0; font-size: 25dp; line-height: 29dp; }
+#community_publish p { display: block; width: 83vw; font-size: 13dp; line-height: 18dp; white-space: pre-wrap; word-break: break-word; }
+#community_publish_status { flex-shrink: 0; margin: 4dp 0 7dp; color: #72c7ff; }
+#community_publish_scroll { flex: 1; min-height: 0dp; overflow-y: auto; padding-right: 8dp; }
+#community_publish_confirmation { flex-shrink: 0; max-height: 28vh; overflow-y: auto; border: 1dp #ad844c; color: #ffdb9b; padding: 7dp; margin: 4dp 0 7dp; font-size: 12dp; line-height: 16dp; }
+#community_publish_notes { display: block; width: 82vw; height: 84dp; margin: 6dp 0 10dp; padding: 8dp; background-color: #0b2336; border: 1dp #5383a3; color: #edf8ff; }
+.community_publish_choices { display: flex; flex-wrap: wrap; margin: 7dp 0; }
+.community_publish_choices button, .community_publish_footer button { min-height: 34dp; padding: 7dp 9dp; margin: 3dp 5dp 0 0; font-size: 12dp; border: 1dp #5383a3; background-color: #132a40; color: #d7f0ff; }
+.community_publish_choices button.selected { border-color: #83d7ff; background-color: #19435f; }
+.community_publish_footer { flex-shrink: 0; display: flex; flex-wrap: wrap; padding-top: 6dp; }
+@media (max-width: 780dp) {
+    #community_publish { left: 2%; right: 2%; top: 2%; bottom: 2%; padding: 8dp 10dp; }
+    #community_publish_title { font-size: 20dp; line-height: 23dp; }
+    #community_publish p { width: 85vw; font-size: 12dp; line-height: 16dp; }
+    #community_publish_notes { width: 84vw; height: 64dp; }
+    .community_publish_footer button { min-height: 30dp; padding: 5dp 7dp; margin-top: 3dp; font-size: 11dp; }
+}

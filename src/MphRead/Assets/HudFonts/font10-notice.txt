@@ -1,0 +1,5 @@
+Copyright 2010 Oracle and/or its affiliates
+
+Licensed under the Liberation Fonts license, see https://fedoraproject.org/wiki/Licensing/LiberationFontLicense
+
+https://fedoraproject.org/wiki/Licensing/LiberationFontLicense

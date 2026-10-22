@@ -1,0 +1,257 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using MphRead.Mods.Replay;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.Network;
+
+/// <summary>A canonical replica consumes the same accepted facts as the timeline.
+/// It never copies the live scene or borrows its input, RNG, entities or resources.
+/// Network callbacks enqueue values; construction/stepping/disposal stay on the scene thread.</summary>
+internal sealed class ReplayLiveWorld : IDisposable
+{
+    private const int MaximumPendingRecords = 8192;
+    private const int MaximumPendingBytes = 4 * 1024 * 1024;
+    private readonly ReplayRecorder _recorder;
+    private readonly object _captureGate = new();
+    private readonly ReplayReplicaState _bootstrap = new();
+    private readonly List<ReplayTimelineRecord> _pending = new(512);
+    private readonly List<ReplayCaptureRecord> _phasePending = new(512);
+    private ReplayCapturePhaseClock? _phaseClock;
+    private bool _authorityCustom;
+    private bool _phaseCustom;
+    private PassiveReplayScene? _world;
+    private PreparedReplayWeaponPackage? _customPackage;
+    private int _ownerThread, _retireCustom;
+    private bool _advancing;
+    private bool _reset = true, _failed;
+    private long _pendingBytes;
+    private uint _lastCheckpoint;
+    internal string? LastError { get; private set; }
+    internal long CaptureCount { get; private set; }
+    internal double LastCaptureMilliseconds { get; private set; }
+    internal double LastStepMilliseconds { get; private set; }
+    internal PassiveReplayScene? World => _world;
+
+    internal ReplayLiveWorld(ReplayRecorder recorder)
+    {
+        _recorder = recorder; recorder.ProducesWorldCheckpoints = true;
+        recorder.StampCaptureRecord = StampCaptureRecord;
+        recorder.Accepted += Accept; recorder.Resetting += Reset;
+    }
+    private void ClearPending()
+    {
+        foreach (var record in _pending) record.Release();
+        foreach (var record in _phasePending) record.Release();
+        _phasePending.Clear();
+        _pending.Clear(); _pendingBytes = 0;
+    }
+    private void Reset()
+    {
+        ClearPending(); _bootstrap.Reset();
+        _phaseClock = null; _authorityCustom = _phaseCustom = false;
+        _reset = true; _failed = false; LastError = null; _lastCheckpoint = 0;
+    }
+    private bool _enabled = true;
+    internal void SetEnabled(bool enabled)
+    {
+        if (_enabled == enabled) return;
+        _enabled = enabled; Reset(); _recorder.Timeline.Reset();
+        if (enabled && _recorder.CustomWeaponContext == null) _recorder.SeedWorld(Accept);
+    }
+    private void Accept(ReplayTimelineRecord record)
+    {
+        if (_failed || !_enabled) return;
+        if (_phaseClock != null)
+        {
+            try
+            {
+                var item = new ReplayCaptureRecord(record, record.CapturePhase
+                    ?? throw new InvalidDataException("The shared capture phase was not stamped before timeline publication."));
+                // Replica rendering can publish semantic markers reentrantly in
+                // StepReplica. They are metadata in both consumers, so only the
+                // disk sink needs them; never append to the applied live batch.
+                if (!record.Marker.HasValue)
+                {
+                    long cost = record.PayloadBytes + (item.Phase == ReplayCapturePhase.PostWorld ? ReplayPostWorldRecord.HeaderBytes : 0);
+                    if (_phasePending.Count >= ReplayPostWorldFrameState.MaximumRecords
+                        || _pendingBytes + cost > MaximumPendingBytes)
+                        throw new InvalidDataException("Authority replay facts exceeded the pending phase budget.");
+                    item.Retain(); _phasePending.Add(item); _pendingBytes += cost;
+                }
+                if (_authorityCustom) ReplayCapture.AcceptedAuthorityPhase(item);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            {
+                Fail(error.Message);
+                ServerReplayRecorder.InterruptCustomRecording(error.Message);
+            }
+            return;
+        }
+        if (_pending.Count >= MaximumPendingRecords || _pendingBytes + record.PayloadBytes > MaximumPendingBytes)
+        { Fail("Accepted replay facts exceeded the pending budget."); return; }
+        record.Retain(); _pending.Add(record); _pendingBytes += record.PayloadBytes;
+    }
+    private ReplayTimelineRecord StampCaptureRecord(ReplayTimelineRecord record)
+    {
+        if (_phaseClock == null || _failed || !_enabled) return record;
+        try { return record.WithCapturePhase(_phaseClock.Classify(record.RecordingFrame)); }
+        catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+        {
+            Fail(error.Message); ServerReplayRecorder.InterruptCustomRecording(error.Message);
+            return record;
+        }
+    }
+    internal void Advance(uint frame, Vector2i size)
+    {
+        lock (_captureGate) AdvanceCore(frame, size);
+    }
+    private void AdvanceCore(uint frame, Vector2i size)
+    {
+        DrainCustomRetirement();
+        _advancing = true;
+        try
+        {
+            if (_reset || _failed) { ReleaseWorld(); _reset = false; }
+            if (_failed || !_enabled) return;
+            if (_world == null)
+            {
+                if (_recorder.CustomWeaponContext != null)
+                {
+                    var seed = _recorder.CaptureCustomLiveSeed(frame);
+                    var state = new ReplayReplicaState(); state.RestoreCustomCheckpoint(seed);
+                    _authorityCustom = state.CustomWeaponDescriptor!.Bootstrap.OriginKind == ReplayCustomWeaponOriginKind.Authority;
+                    _phaseCustom = _authorityCustom || ReplayCapture.CustomClientRollingScope();
+                    if (_authorityCustom)
+                    {
+                        if (!ServerReplayRecorder.IsCustomRecording || !ReplayCapture.CustomAuthorityRecordingScope())
+                            throw new InvalidOperationException("The authority custom recording scope is no longer available.");
+                        _customPackage = ReplayCapture.RetainAuthorityPackage(state.CustomWeaponDescriptor);
+                    }
+                    else
+                    {
+                        if ((!DemoRecorder.HasCurrentCustomScope && !ReplayCapture.CustomClientRollingScope())
+                            || GameState.Current.Owner is not { } owner)
+                            throw new InvalidOperationException("The accepted custom recording scope is no longer available.");
+                        _customPackage = owner.RetainOnlineReplayPackage(state.CustomWeaponDescriptor);
+                    }
+                    _ownerThread = Environment.CurrentManagedThreadId;
+                    ulong hash = ReplayMapIdentity.Compute(state.Match!.Value.RoomKey);
+                    _world = _phaseCustom ? PassiveReplayScene.CreatePostWorldInspection(seed, _customPackage, hash, size)
+                        : PassiveReplayScene.CreateCustomInspection(seed, _customPackage, hash, size);
+                    _world.BeginCustomHeadHistory();
+                    _recorder.Timeline.CustomArchiveFormat = _phaseCustom ? (byte)8 : (byte)7;
+                }
+                else SeedBootstrap(_bootstrap, _pending, frame);
+                ClearPending();
+                if (_world == null)
+                {
+                    bool any = false;
+                    for (int slot = 0; slot < 8; slot++) any |= _bootstrap.TryGetPlayer(slot, out _);
+                    if (_bootstrap.Match is not { } match || !any) return;
+                    ulong mapHash = ReplayMapIdentity.Compute(match.RoomKey);
+                    if (mapHash == 0) throw new InvalidDataException("The capture room has no content identity.");
+                    _world = new PassiveReplayScene(_bootstrap.CaptureCheckpoint(), frame, mapHash, size);
+                }
+                // Presentation telemetry comes from this canonical reconstruction,
+                // so disk/instant clips count the same shots as the replay world.
+                _world.Scene.ReplayShotPresented = (slot, weapon) => _recorder.Marker(
+                    _world.Session.CurrentFrame, _world.State.ServerTick,
+                    new(ReplayMarkerKind.WeaponFired, (byte)slot, byte.MaxValue, weapon));
+            }
+            else if (_world.Session.CurrentFrame == frame) return;
+            long started = Stopwatch.GetTimestamp();
+            using (ReplayPerfTelemetry.Measure(ReplayPerfOperation.Step))
+            {
+                if (_phaseCustom)
+                {
+                    _world.StepPostWorldInspection(frame, _phasePending);
+                    if (_phaseClock == null) _phaseClock = new(frame);
+                    else _phaseClock.Complete(frame);
+                }
+                else if (_customPackage != null) _world.StepCustomInspection(frame, _pending);
+                else _world.StepLive(frame, _pending);
+            }
+            ClearPending();
+            LastStepMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            if (_recorder.Timeline.NeedsRestorePoint || frame - _lastCheckpoint >= 300)
+            {
+                started = Stopwatch.GetTimestamp();
+                using var checkpoint = _customPackage != null ? ReplayWorldCheckpoint.CaptureCustom(_world) : ReplayWorldCheckpoint.Capture(_world);
+                if (!(_customPackage != null ? _recorder.AppendCustomWorldCheckpoint(checkpoint)
+                    : _recorder.AppendWorldCheckpoint(frame, _world.State.ServerTick, checkpoint.Payload)))
+                    throw new InvalidDataException("The timeline rejected its world checkpoint.");
+                _lastCheckpoint = frame; CaptureCount++;
+                LastCaptureMilliseconds = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+            }
+            // A quiet simulation frame still extends the available clip, even
+            // when no network snapshot or input arrived on that frame.
+            _recorder.Timeline.AdvanceFrame(frame, _world.State.ServerTick);
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            bool authority = _authorityCustom;
+            Fail(ex.Message); ReleaseWorld();
+            if (authority) ServerReplayRecorder.InterruptCustomRecording(ex.Message);
+        }
+        finally { _advancing = false; DrainCustomRetirement(); }
+    }
+    // Cached construction facts arrive in dependency/type order, not clock
+    // order. Install their complete recording frontier before capture; source
+    // and authority clocks remain those carried by the accepted facts.
+    internal static void SeedBootstrap(ReplayReplicaState bootstrap,
+        IReadOnlyList<ReplayTimelineRecord> records, uint frame)
+    {
+        uint frontier = frame;
+        foreach (var record in records)
+        {
+            frontier = Math.Max(frontier, record.RecordingFrame);
+            if (!record.Payload.IsEmpty) bootstrap.Accept(record.Payload, record.RecordingFrame);
+        }
+        bootstrap.Advance(frontier);
+    }
+
+    private void Fail(string error)
+    {
+        _failed = true; LastError = error; ClearPending();
+        _recorder.Timeline.Reset();
+        Console.WriteLine("[replay] Live world capture unavailable: " + error);
+    }
+    private void ReleaseWorld()
+    {
+        try { _world?.Dispose(); }
+        finally { _world = null; _customPackage?.Dispose(); _customPackage = null; _phaseClock = null; _authorityCustom = _phaseCustom = false; _ownerThread = 0; System.Threading.Interlocked.Exchange(ref _retireCustom, 0); }
+    }
+    internal void RetireCustomRecording()
+    {
+        // Serialize against first construction too: a stop cannot be lost in
+        // the interval between checking scope and assigning its package owner.
+        lock (_captureGate)
+        {
+            System.Threading.Volatile.Write(ref _retireCustom, 1);
+            DrainCustomRetirement();
+        }
+    }
+    // Stop is also reachable from launcher callbacks. Dispose GL only on the
+    // construction thread and outside a replica step; the render-loop poll
+    // drains retirement even while simulation is paused.
+    internal void DrainCustomRetirement()
+    {
+        lock (_captureGate)
+        {
+            if (_advancing || _ownerThread != 0 && _ownerThread != Environment.CurrentManagedThreadId
+                || System.Threading.Volatile.Read(ref _retireCustom) == 0) return;
+            System.Threading.Interlocked.Exchange(ref _retireCustom, 0);
+            try { ReleaseWorld(); }
+            finally { ClearPending(); _bootstrap.Reset(); _enabled = false; _reset = true; _recorder.Timeline.Reset(); }
+        }
+    }
+    public void Dispose()
+    {
+        _recorder.Accepted -= Accept; _recorder.Resetting -= Reset;
+        if (_recorder.StampCaptureRecord == StampCaptureRecord) _recorder.StampCaptureRecord = null;
+        ReleaseWorld(); ClearPending();
+    }
+}

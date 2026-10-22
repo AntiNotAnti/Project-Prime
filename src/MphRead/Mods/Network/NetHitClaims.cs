@@ -1,0 +1,3074 @@
+using System;
+using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.Network
+{
+    /// <summary>
+    /// A client tells the authority which of its own shots landed, and the
+    /// authority decides what to do about it.
+    ///
+    /// <b>The fault, stated as a player would.</b> "I shot him, it hit, and
+    /// nothing happened." Lag compensation (<see cref="NetUnlagged"/>) and
+    /// instant hit registration (<see cref="NetHitPrediction"/>) between them
+    /// cover the case where the authority and the shooter can run the same
+    /// test on the same positions -- which is most of the time, and which is
+    /// why those two are worth having. This file is about the cases where they
+    /// cannot:
+    ///
+    /// <list type="number">
+    /// <item>The rewind hit its ceiling. Measured on this box at a 320 ms
+    /// round trip with 80 ms of jitter and 2% loss, over two scenarios:
+    /// <b>80.0% and 88.9% of shots clamped</b>, 2.8 and 3.2 frames of rewind
+    /// refused each, the victims a mean 0.21 units from where their shooter
+    /// saw them and the worst 0.90 -- against a headshot band 0.30 units tall
+    /// and a body about 0.90 across. The requested-depth histogram's *mode*
+    /// was two frames past the ceiling in both: the distribution folded onto
+    /// it rather than a tail touching it. In the first of those runs the
+    /// shooter's own machine resolved 17 of the 23 hits the authority
+    /// credited it with, and 2 of its 9 headshots came back as body
+    /// shots.</item>
+    /// <item>The trigger pull arrived out of a press history, so the packet
+    /// carrying it acks a newer world than the one it happened in.</item>
+    /// <item><b>The shooter was killed during the round trip.</b> The
+    /// authority never runs the shot at all: its copy of that player was
+    /// already dead when the intent arrived, so a dead player's presses do
+    /// nothing. This is the one a player calls unfair rather than laggy --
+    /// they watched the shot land, watched the body drop, and then watched it
+    /// stand back up because the authority had killed them first.</item>
+    /// </list>
+    ///
+    /// <b>What a claim is not.</b> It is not the client being trusted. Five
+    /// things are checked before one is believed -- see <see cref="Judge"/> --
+    /// and the geometric one is the whole point: the authority looks the
+    /// victim up in its own rewind history, at the frame the claim names, and
+    /// refuses a claim whose hit point is nowhere near the body it finds
+    /// there. A claim can only ever rescue a hit that the authority's own
+    /// history says was there to be had.
+    ///
+    /// <b>And it is exactly reciprocal.</b> Every client's claims go through
+    /// the same code with the same tolerances, so a player with a bad line is
+    /// not given an advantage by it, they are given back what the line took.
+    /// The authority's own player claims nothing, because it has nothing to
+    /// claim: it already resolves its shots against the puppets it holds.
+    ///
+    /// <b>The arbitration.</b> A claim carries the world-frame its shooter
+    /// was looking at, and that is what two people who killed each other are
+    /// separated by. A shot is void if its shooter had already been killed
+    /// <i>in that clock</i> -- by a shot aimed at a strictly earlier world --
+    /// and counts otherwise, including when the shooter is dead on the
+    /// authority by the time the claim arrives. Two shots aimed at the same
+    /// world both count: a trade, which is the honest answer to a trade.
+    /// Because the ordering is by the shooters' own stamps and not by which
+    /// datagram won the race, the outcome does not depend on arrival order --
+    /// which is why claims are resolved in fire-frame order at the end of
+    /// their grace window rather than one at a time as they land.
+    /// </summary>
+    public static partial class NetHitClaims
+    {
+        private const int Slots = PlayerEntity.SlotCapacity;
+
+        /// <summary>
+        /// Whether a client declares its hits at all. On restores exactly what
+        /// protocol 6 did: the shooter predicts, the authority resolves, and
+        /// where the two disagree the authority wins in silence.
+        /// </summary>
+        public static bool Enabled { get; set; } = true;
+
+        /// <summary>
+        /// How far apart the two machines' copies of the victim may be, in
+        /// units, before a claim about them is refused.
+        ///
+        /// <b>What is actually compared.</b> The claim carries where the
+        /// <i>shooter's</i> copy of the victim stood when the hit landed, and
+        /// the authority compares it against where its own history says that
+        /// player stood in the frame the shooter was looking at. So this is
+        /// not a tolerance on aim -- it is the one question worth asking of a
+        /// claim, which is whether the two machines were looking at the same
+        /// player in the same place. Anything else the shooter might claim --
+        /// the trajectory, the range, the geometry of the room -- it computed
+        /// itself and the authority cannot check without re-running the shot,
+        /// which it cannot do: that shot happened on another machine, at
+        /// another charge level, with another set of pickups.
+        ///
+        /// 2.0 units against a hunter about 0.90 across and 1.60 tall: it
+        /// covers a client whose puppet is a frame or two of physics away from
+        /// the authority's (measured at up to 0.377 units a frame for a player
+        /// in the air) and refuses a claim about somebody two body-lengths
+        /// from where they were.
+        /// </summary>
+        public const float ClaimRadius = 2.0f;
+
+        /// <summary>
+        /// The same, for a hit with no beam behind it: an alt form's scythe,
+        /// spin or trail, and a bomb. These land at arm's length or in a
+        /// blast, so the two copies of the victim have further to be apart
+        /// before the claim stops being about the same event.
+        /// </summary>
+        public const float MeleeRadius = 4.0f;
+
+        /// <summary>
+        /// How long a validated claim is held before it is applied, in frames.
+        ///
+        /// It exists to stop the same hit landing twice. The authority is
+        /// simulating the same shot from the same intent, and its own answer
+        /// arrives around the same time as the claim -- earlier for a hitscan
+        /// weapon, later for anything that travels. Applying a claim the
+        /// moment it arrives would therefore double the damage on every shot
+        /// the authority was going to resolve anyway, which is almost all of
+        /// them.
+        ///
+        /// So a claim waits, and is dropped the moment the authority resolves
+        /// a hit from that shooter on that victim -- in the window before it
+        /// arrived as well as the window after, since a hitscan weapon's own
+        /// answer comes first. What is left at the end of the window is a hit
+        /// the authority was never going to find, which is the only kind worth
+        /// applying.
+        ///
+        /// <b>It has to be one round trip, and eighteen frames was not.</b> The
+        /// gap between the authority resolving a shot itself and the claim for
+        /// that same shot arriving is <i>not</i> the same for every weapon,
+        /// and the difference is the whole of the "missiles hit twice" report:
+        ///
+        /// <list type="bullet">
+        /// <item><b>Hitscan</b> -- the Imperialist at 200 units a frame -- is
+        /// resolved by the catch-up loop on the frame it is spawned, which is
+        /// one *upstream* trip after the shooter fired. The claim arrives a
+        /// full round trip after that same moment, so the two are separated by
+        /// the <i>downstream</i> half alone: 7-8 frames at 250 ms.</item>
+        /// <item><b>Anything that travels</b> -- the Missile at 0.25 units a
+        /// frame, the Magmaul at 1.7 -- is only advanced by the rewind depth
+        /// at spawn and then flies in real time, so the authority resolves it
+        /// at the same world-frame the shooter did. The claim then arrives a
+        /// <i>full</i> round trip later: 15 frames at 250 ms, 24 at 400.</item>
+        /// </list>
+        ///
+        /// The flight time cancels in both cases; what differs is that the
+        /// hitscan weapon gets half a trip for free from the catch-up. A fixed
+        /// 18-frame window therefore matched every Imperialist hit and started
+        /// missing missiles somewhere past 300 ms -- and a missed match is the
+        /// authority's own hit <i>and</i> the rescued claim, both applied: the
+        /// victim takes the damage, then takes it again when the shot they can
+        /// see finally arrives.
+        ///
+        /// So it is a round trip, measured, plus a margin -- not a constant.
+        /// The shooter waits no longer either way, because their own screen
+        /// showed the hit when they fired it; what waits is the rescue, and a
+        /// rescue is a hit that would otherwise never land at all.
+        /// </summary>
+        public static int GraceFor(int slot)
+        {
+            int ping = slot >= 0 && slot < NetSession.SlotPing.Length
+                ? NetSession.SlotPing[slot]
+                : 0;
+            return Math.Clamp((int)(ping * 0.06f) + 20, MinGraceFrames, MaxGraceFrames);
+        }
+
+        /// <summary>
+        /// The floor, for a shooter whose round trip is not measured yet, and
+        /// the ceiling, past which waiting costs the victim more than the
+        /// double did.
+        /// </summary>
+        /// <summary>
+        /// The floor, for a shooter whose round trip is not measured yet, and
+        /// the ceiling, past which waiting costs the victim more than the
+        /// double did.
+        ///
+        /// The margin of 20 frames on top of the round trip is measured
+        /// rather than guessed: at 400 ms the gap between the authority
+        /// resolving a shot and the claim for it arriving ran from **-41 to
+        /// +34 frames** over sixteen samples -- negative meaning the
+        /// authority answered *after* the claim landed, which happens when
+        /// its own copy of a slow projectile is behind the shooter's. A round
+        /// trip is 24 frames there, so 24 + 20 covers both tails.
+        /// </summary>
+        public const int MinGraceFrames = 24;
+        public const int MaxGraceFrames = 72;
+
+        /// <summary>
+        /// What the client assumes the authority is waiting, so that the hold
+        /// it keeps on the victim's health outlives the rescue. Its own round
+        /// trip, by the same formula -- the authority is computing this from
+        /// the same ping.
+        /// </summary>
+        public static int GraceFrames => GraceFor(NetSession.LocalSlot);
+
+        /// <summary>
+        /// How old a claim may be when it arrives. Past this the history
+        /// cannot serve the frame it names, so there is nothing to check it
+        /// against -- and a claim that cannot be checked is refused rather
+        /// than believed.
+        /// </summary>
+        private const int MaxClaimAge = NetUnlagged.HistoryFrames - 4;
+
+        // ---------------------------------------------------------------
+        // The shooter's side
+        // ---------------------------------------------------------------
+
+        private const int OutboxCapacity = 128;
+
+        private struct Outgoing
+        {
+            public byte ShooterSlot;
+            public ushort MatchId;
+            public ulong AuthorityEpoch;
+            public ushort ShooterGeneration;
+            public ushort ShooterLifeId;
+            public ushort VictimGeneration;
+            public ushort VictimLifeId;
+
+            public ushort Id;
+            public uint Frame;
+            public uint AckFrame;
+            public uint LaunchFrame;
+            public uint ShotId;
+            public uint ComponentId;
+            public byte VictimSlot;
+            public byte Beam;
+            public ushort Damage;
+            public ushort PredictedBodyDamage;
+            public byte Flags;
+            public Vector3 HitPoint;
+            public Vector3 Direction;
+            /// <summary>Frames since it was first sent, for the retry budget.</summary>
+            public int Age;
+            public int LastSentAge;
+            public bool PredictionReleased;
+            public int Sends;
+            public bool Live;
+        }
+
+        private static readonly Outgoing[] _outbox = new Outgoing[OutboxCapacity];
+        private static ushort _nextId = 1;
+
+        /// <summary>
+        /// How many times an unanswered claim is repeated, and how long it
+        /// keeps trying. UDP loses packets and a lost claim is a kill that did
+        /// not happen, so this is the same reasoning as
+        /// <see cref="IntentPacket.PressHistory"/> -- repeat until told to
+        /// stop. At most six sends fit within the separate DeliveryMaxAge deadline;
+        /// the measured round trip sets the spacing between attempts.
+        /// </summary>
+        private const int MaxSends = 6;
+        /// <summary>Release speculative presentation after one second even if
+        /// the terminal receipt is still travelling or needs a retry.</summary>
+        private const int MaxAge = 60;
+        private const int MaxResendInterval = 40;
+        // Pending turret arbitration can outlast every fast retry. Preserve two
+        // attempts for the immutable terminal receipt after its maximum wait,
+        // plus the existing bounded round-trip/jitter margin (also when RTT is
+        // not measured yet). Prediction still expires at MaxAge below.
+        private const int ReservedTerminalSends = 2;
+        private const int TerminalRetryAge = 2 * MaxGraceFrames + MaxResendInterval;
+        // Retain identity for every bounded send opportunity, the authority's
+        // maximum pending window, and a final round trip. This is receipt-only
+        // after MaxAge; it cannot prolong or reinstate speculative health/death.
+        internal const int DeliveryMaxAge = MaxSends * MaxResendInterval
+            + 2 * MaxGraceFrames + MaxResendInterval;
+        /// <summary>
+        /// The least time between repeats of the same claim, in frames, when
+        /// the round trip is not known yet.
+        /// </summary>
+        private const int MinResendInterval = 8;
+
+        /// <summary>
+        /// How long to wait before asking again.
+        ///
+        /// **A round trip, not a fixed eight frames.** Eight is 133 ms, and at
+        /// the 320 ms line this work is about the first repeat always goes out
+        /// before the first answer can possibly arrive -- measured at five
+        /// repeats against ten claims received, which is half the traffic
+        /// spent on questions that were already being answered. The measured
+        /// ping plus a snapshot's gap is the earliest a resend can mean
+        /// anything; before a ping exists the floor stands in for it.
+        /// </summary>
+        private static int ResendInterval
+        {
+            get
+            {
+                int slot = NetSession.LocalSlot;
+                int ping = slot >= 0 && slot < NetSession.SlotPing.Length
+                    ? NetSession.SlotPing[slot]
+                    : 0;
+                return Math.Clamp((int)(ping * 0.06f) + 6, MinResendInterval, MaxResendInterval);
+            }
+        }
+
+        /// <summary>Claims made, answered, and how the answers came back.</summary>
+        public static long Declared { get; private set; }
+        public static long Applied { get; private set; }
+        public static long Duplicate { get; private set; }
+        public static long RefusedDeadShooter { get; private set; }
+        public static long RefusedDeadVictim { get; private set; }
+        public static long RefusedOther { get; private set; }
+        public static long Unanswered { get; private set; }
+        public static long Resends { get; private set; }
+
+        /// <summary>
+        /// Whether this machine has somewhere to send a claim. The authority
+        /// has not: it resolves its own shots against the puppets it holds, so
+        /// there is nothing for anybody to arbitrate.
+        /// </summary>
+        public static bool Claiming => Enabled && NetSession.Active
+            && !NetSession.IsAuthority && !NetSession.IsHost
+            && NetSession.LocalSlot >= 0;
+
+        /// <summary>
+        /// Convert the afflictions caused by one hit into claim flags.
+        ///
+        /// This deliberately takes the hit's affliction mask, not the victim's
+        /// current timers. Reading <c>victim.ModFrozen</c> here made any later
+        /// hit on an already-frozen player look like another Judicator freeze,
+        /// while the first actual freeze could be omitted because Declare runs
+        /// before TakeDamage applies the beam affliction.
+        /// </summary>
+        internal static byte AfflictionClaimFlags(Affliction afflictions)
+        {
+            byte result = 0;
+            if ((afflictions & Affliction.Freeze) != 0)
+            {
+                result |= HitClaimPacket.FlagFrozen;
+            }
+            if ((afflictions & Affliction.Burn) != 0)
+            {
+                result |= HitClaimPacket.FlagBurning;
+            }
+            if ((afflictions & Affliction.Disrupt) != 0)
+            {
+                result |= HitClaimPacket.FlagDisrupted;
+            }
+            return result;
+        }
+
+        /// <summary>
+        /// Record a hit this machine has just resolved for its own player, so
+        /// that the authority is told about it.
+        ///
+        /// Called from <see cref="NetHitPrediction.NoteHit"/>, which is the
+        /// one point at which the damage is final and the victim is known. A
+        /// Owner projectile hits use the constrained self policy. Environment
+        /// damage and unadmitted bomb placement never create self claims.
+        /// </summary>
+        /// <returns>
+        /// The id this claim was filed under, or zero when nothing was
+        /// claimed. The caller stamps it onto the prediction it has just
+        /// filed, so the verdict can retire that exact one --
+        /// <see cref="NetHitPrediction.Settle"/>.
+        /// </returns>
+        internal static ushort ContinuousClaimId(int victim, uint phase)
+        {
+            foreach (var entry in _outbox)
+                if (entry.Live && entry.Beam == (byte)BeamType.ShockCoil && entry.Frame == phase
+                    && entry.VictimSlot == victim && NetPlayerLifecycle.Matches(NetSession.LocalSlot,
+                        entry.ShooterGeneration, entry.ShooterLifeId)) return entry.Id;
+            return 0;
+        }
+
+        public static ushort Declare(PlayerEntity victim, PlayerEntity attacker,
+            BeamType beam, uint damage, DamageFlags flags, bool lethal, Vector3 hitPoint,
+            uint launchFrame, Vector3 direction, Affliction afflictions = Affliction.None, uint? predictedBodyDamage = null, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null, uint componentId = 0)
+        {
+            if (!Claiming || victim == attacker && !NetSelfSplash.Claimable(beam, flags, direct, shotId, componentId) || damage == 0
+                || NetPlayerLifecycle.Get(victim.SlotIndex) == 0 || NetPlayerLifecycle.Get(attacker.SlotIndex) == 0)
+            {
+                return 0;
+            }
+            int slot = victim.SlotIndex;
+            if (slot < 0 || slot >= Slots)
+            {
+                return 0;
+            }
+            byte claimFlags = AfflictionClaimFlags(afflictions);
+            if (direct) claimFlags |= HitClaimPacket.FlagDirect;
+            if (beam == BeamType.ShockCoil && continuousPhase != 0) claimFlags |= HitClaimPacket.FlagContinuousTick;
+            if (flags.TestFlag(DamageFlags.Halfturret)) claimFlags |= HitClaimPacket.FlagHalfturret;
+            if (flags.TestFlag(DamageFlags.Headshot))
+            {
+                claimFlags |= HitClaimPacket.FlagHeadshot;
+            }
+            if (lethal)
+            {
+                claimFlags |= HitClaimPacket.FlagLethal;
+            }
+            int index = -1;
+            for (int i = 0; i < OutboxCapacity; i++)
+            {
+                if (!_outbox[i].Live)
+                {
+                    index = i;
+                    break;
+                }
+            }
+            if (index < 0)
+            {
+                // Full. The oldest is the one least likely to still be worth
+                // answering, and dropping it is better than dropping the hit
+                // that just happened.
+                int oldest = 0;
+                for (int i = 1; i < OutboxCapacity; i++)
+                {
+                    if (_outbox[i].Age > _outbox[oldest].Age)
+                    {
+                        oldest = i;
+                    }
+                }
+                index = oldest;
+                NetHitPrediction.Settle(_outbox[index].VictimSlot, _outbox[index].Id, confirmed: false);
+                RetireReceipt(ref _outbox[index], ClaimReceiptRetirement.CapacityEvicted);
+                Unanswered++;
+            }
+            // The same world the intent is acking, and it has to be: the
+            // authority checks this claim by looking the victim up in its own
+            // history at this number, so a claim naming one frame while the
+            // shooter's screen was showing another is a claim checked against
+            // the wrong picture. When the playout clock is running, the read
+            // point is what the screen was showing -- NetSmoothing -- and the
+            // applied snapshot is a frame or more newer than it.
+            // A continuous pulse is instantaneous in its authored historical
+            // world. Keep the fire event's stamped ACK through collision; a
+            // fresh smoothing read may move either side of that launch frame.
+            // Self splash validates a captured authority body at impact, not a
+            // remote playout body. Keep its admitted launch clock as well.
+            uint ack = (claimFlags & HitClaimPacket.FlagContinuousTick) != 0 || victim == attacker
+                ? launchFrame
+                : NetSmoothing.AckPoint(out uint readFrame, out _) ? readFrame : NetSession.AppliedSnapshotFrame;
+            _outbox[index] = new Outgoing
+            {
+                ShooterSlot = (byte)attacker.SlotIndex,
+                MatchId = NetSession.CurrentMatchId,
+                AuthorityEpoch = NetSession.AuthorityEpoch,
+                ShooterGeneration = shotKey?.Generation ?? NetPlayerLifecycle.Generation(attacker.SlotIndex),
+                ShooterLifeId = shotKey?.LifeId ?? NetPlayerLifecycle.Get(attacker.SlotIndex),
+                VictimGeneration = NetPlayerLifecycle.Generation(slot),
+                VictimLifeId = NetPlayerLifecycle.Get(slot),
+                Id = _nextId,
+                Frame = continuousPhase != 0 ? continuousPhase : NetSession.NetFrame,
+                AckFrame = ack,
+                LaunchFrame = launchFrame,
+                ShotId = shotId,
+                ComponentId = componentId,
+                VictimSlot = (byte)slot,
+                Beam = beam == BeamType.None ? HitClaimPacket.NoBeam : (byte)beam,
+                Damage = (ushort)Math.Min(damage, UInt16.MaxValue),
+                PredictedBodyDamage = (ushort)Math.Min(Math.Min(predictedBodyDamage ?? damage, (uint)Math.Max(0, victim.Health)), ushort.MaxValue),
+                Flags = claimFlags,
+                HitPoint = hitPoint,
+                // Only beam claims can prove an impulse ceiling from weapon
+                // metadata. Bomb/alt-form claims keep their historical
+                // damage-only rescue until they have equivalent validation.
+                Direction = beam == BeamType.None ? Vector3.Zero : direction,
+                Age = 0,
+                Sends = 0,
+                Live = true
+            };
+            ushort id = _nextId;
+            _nextId++;
+            if (_nextId == 0)
+            {
+                _nextId = 1;
+            }
+            Declared++;
+            _receiptsCreated++;
+            NetCampaignEvidence.ClaimDeclared();
+            if (NetCampaignEvidence.Enabled)
+                NetCampaignEvidence.Timeline("claim-declared", shotKey ?? ShotKey.For(attacker.SlotIndex, shotId),
+                    componentId, continuousPhase, NetShotProof.Kind(claimFlags), (byte)slot,
+                    NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot), id,
+                    ackFrame: ack, weapon: beam == BeamType.None ? HitClaimPacket.NoBeam : (byte)beam,
+                    value: (int)Math.Min(damage, int.MaxValue));
+            NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket(beam)]++;
+            if (NetLog.Enabled) NetShotDiagnostics.Trace("claim", shotKey ?? ShotKey.For(attacker.SlotIndex, shotId), beam,
+                $"id={id} victim={slot} ack={ack} damage={damage}");
+            return id;
+        }
+
+        /// <summary>
+        /// Pack the claims that still want an answer into a datagram. Returns
+        /// the bytes written, or zero when there is nothing to say -- which is
+        /// every frame of a match where the authority is agreeing with
+        /// everything, so the cost of this feature on a healthy line is one
+        /// comparison a frame.
+        /// </summary>
+        public static int Compose(Span<byte> dest)
+        {
+            if (!Claiming)
+            {
+                return 0;
+            }
+            int count = 0;
+            int offset = 1;
+            // Read once: it is a property over the ping table and this loop
+            // runs sixty times a second.
+            int interval = ResendInterval;
+            for (int i = 0; i < OutboxCapacity && count < HitClaimPacket.MaxPerPacket; i++)
+            {
+                ref Outgoing entry = ref _outbox[i];
+                if (!entry.Live)
+                {
+                    continue;
+                }
+                if (entry.Sends > 0
+                    && (entry.Sends >= MaxSends || entry.Age - entry.LastSentAge < interval
+                        || entry.Sends >= MaxSends - ReservedTerminalSends && entry.Age < TerminalRetryAge))
+                {
+                    continue;
+                }
+                var packet = new HitClaimPacket
+                {
+                    MatchId = entry.MatchId,
+                    AuthorityEpoch = entry.AuthorityEpoch,
+                    ShooterGeneration = entry.ShooterGeneration,
+                    ShooterLifeId = entry.ShooterLifeId,
+                    VictimGeneration = entry.VictimGeneration,
+                    VictimLifeId = entry.VictimLifeId,
+                    ClaimId = entry.Id,
+                    Frame = entry.Frame,
+                    AckFrame = entry.AckFrame,
+                    LaunchFrame = entry.LaunchFrame,
+                    ShotId = entry.ShotId,
+                    ComponentId = entry.ComponentId,
+                    VictimSlot = entry.VictimSlot,
+                    Beam = entry.Beam,
+                    Damage = entry.Damage,
+                    Flags = entry.Flags,
+                    HitPoint = entry.HitPoint,
+                    Direction = entry.Direction
+                };
+                NetCampaignEvidence.TimelineClaim("claim-offered", NetSession.LocalSlot, packet);
+                packet.Write(dest[offset..]);
+                offset += HitClaimPacket.Size;
+                if (entry.Sends > 0)
+                {
+                    Resends++;
+                }
+                entry.Sends++;
+                // Send on the first opportunity after the deadline. A skipped
+                // Compose call or a changing RTT must not miss an exact age
+                // multiple and silently suppress the remaining retry budget.
+                entry.LastSentAge = entry.Age;
+                count++;
+            }
+            if (count == 0)
+            {
+                return 0;
+            }
+            dest[0] = (byte)count;
+            return offset;
+        }
+
+        internal static int OutgoingReceipts
+        {
+            get
+            {
+                int count = 0;
+                foreach (ref readonly var entry in _outbox.AsSpan()) if (entry.Live) count++;
+                return count;
+            }
+        }
+
+        /// <summary>Age the outbox. One call a frame from the client.</summary>
+        private static void TickOutbox()
+        {
+            for (int i = 0; i < OutboxCapacity; i++)
+            {
+                ref Outgoing entry = ref _outbox[i];
+                if (!entry.Live)
+                {
+                    continue;
+                }
+                entry.Age++;
+                if (entry.Age > MaxAge && !entry.PredictionReleased)
+                {
+                    entry.PredictionReleased = true;
+                    NetHitPrediction.Settle(entry.VictimSlot, entry.Id, confirmed: false);
+                }
+                if (entry.Age > DeliveryMaxAge)
+                {
+                    RetireReceipt(ref entry, ClaimReceiptRetirement.TimedOut);
+                    Unanswered++;
+                    if (NetLog.Enabled) NetShotDiagnostics.Trace("unanswered",
+                        new ShotKey(entry.AuthorityEpoch, entry.MatchId, NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
+                        (BeamType)entry.Beam, $"id={entry.Id} reason=verdict-timeout sends={entry.Sends}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// One or more verdicts from the authority.
+        ///
+        /// A verdict does not tell the shooter whether the hit landed -- the
+        /// snapshot has always carried that. It tells the shooter it may stop
+        /// asking, and on a refusal it says so within a round trip instead of
+        /// leaving the prediction to time out over two seconds with the
+        /// victim's health held wrong for the whole of it.
+        /// </summary>
+        public static void ApplyVerdicts(ReadOnlySpan<byte> payload)
+        {
+            if (payload.Length < 1)
+            {
+                return;
+            }
+            if (payload.Length < HitVerdictPacket.HeaderSize) return;
+            if (!NetSession.MatchesStream(System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(payload[1..]),
+                System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(payload[3..]))
+                || !NetPlayerLifecycle.Matches(NetSession.LocalSlot,
+                    System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(payload[11..]),
+                    System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(payload[13..]))) return;
+            int count = payload[0];
+            if (count > HitVerdictPacket.MaxPerPacket || payload.Length != HitVerdictPacket.HeaderSize + count * HitVerdictPacket.EntrySize) return;
+            for (int i = 0; i < count; i++)
+            {
+                int at = HitVerdictPacket.HeaderSize + i * HitVerdictPacket.EntrySize;
+                if (at + HitVerdictPacket.EntrySize > payload.Length)
+                {
+                    break;
+                }
+                ushort id = (ushort)(payload[at] | (payload[at + 1] << 8));
+                byte result = payload[at + 2];
+                CombatAckEntry ack = CombatAckEntry.Read(payload[at..]);
+                if (result > (byte)CombatAckResult.Corrected) continue;
+                for (int j = 0; j < OutboxCapacity; j++)
+                {
+                    ref Outgoing entry = ref _outbox[j];
+                    if (!entry.Live || entry.Id != id || ack.ShotId != entry.ShotId
+                        || !NetPlayerLifecycle.Matches(entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId))
+                    {
+                        continue;
+                    }
+                    if (ack.VictimSlot != 255 && (ack.VictimSlot != entry.VictimSlot
+                        || ack.VictimGeneration != entry.VictimGeneration || ack.VictimLife != entry.VictimLifeId)) continue;
+                    NetSelfSplash.RecordReceipt(new ShotPaymentKey(new ShotKey(entry.AuthorityEpoch, entry.MatchId,
+                        NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
+                        entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId, entry.ComponentId,
+                        NetShotProof.Kind(entry.Flags)), ack);
+                    NetHitPrediction.RememberAcceptedOutcome(ack);
+                    RetireReceipt(ref entry, ClaimReceiptRetirement.Delivered);
+                    if (NetCampaignEvidence.Enabled)
+                        NetCampaignEvidence.Timeline("terminal-delivered", new ShotKey(entry.AuthorityEpoch,
+                            entry.MatchId, NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
+                            entry.ComponentId, (entry.Flags & HitClaimPacket.FlagContinuousTick) != 0 ? entry.Frame : 0,
+                            NetShotProof.Kind(entry.Flags), entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId,
+                            entry.Id, ack.DamageSequence, ackFrame: entry.AckFrame, weapon: entry.Beam,
+                            value: ack.DamageApplied, result: ack.Result);
+                    if (entry.Beam == (byte)BeamType.ShockCoil) NetHitPrediction.SettleDrain(entry.Id, ack.Accepted);
+                    if (entry.PredictionReleased || !NetHitPrediction.ApplyCombatAck(ack, entry.Age))
+                    {
+                        // After prediction expiry, overflow or lifecycle reset,
+                        // a late receipt stays telemetry-only: it cannot reinstate
+                        // a debit or health/death correction.
+                        bool headCorrection = ((entry.Flags & HitClaimPacket.FlagHeadshot) != 0)
+                            != ((ack.Flags & CombatAckFlags.Headshot) != 0);
+                        byte telemetryWeapon = (byte)(entry.Beam == HitClaimPacket.NoBeam
+                            ? NetShotDiagnostics.WeaponCount - 1 : NetShotDiagnostics.Bucket((BeamType)entry.Beam));
+                        CombatStudyReports.Record(ack, entry.Age,
+                            ack.DamageApplied - entry.PredictedBodyDamage, 0, headCorrection, telemetryWeapon);
+                        Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.CombatAck, NetSession.NetFrame,
+                            Player: (byte)NetSession.LocalSlot, Victim: entry.VictimSlot, Weapon: telemetryWeapon,
+                            Id: id, Result: result, A: entry.Age * (1000.0 / 60),
+                            B: ack.DamageApplied - entry.PredictedBodyDamage, D: headCorrection ? 1 : 0, ShotId: ack.ShotId));
+                    }
+                    int weapon = NetShotDiagnostics.Bucket((BeamType)entry.Beam);
+                    if (result == HitVerdictPacket.ResultApplied) NetShotDiagnostics.Rescues[weapon]++;
+                    else if (result != HitVerdictPacket.ResultDuplicate) NetShotDiagnostics.Refusals[weapon]++;
+                    if (NetLog.Enabled) NetShotDiagnostics.Trace("verdict",
+                        new ShotKey(entry.AuthorityEpoch, entry.MatchId, NetSession.LocalSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId),
+                        (BeamType)entry.Beam, $"id={id} result={HitVerdictPacket.Describe(result)}");
+                    switch (result)
+                    {
+                    case (byte)CombatAckResult.Corrected:
+                    case HitVerdictPacket.ResultApplied:
+                        Applied++;
+                        // The authority has the damage. Retire the prediction
+                        // this claim was declared under, by name: the snapshot
+                        // cannot do it -- it reports only the *last* attacker
+                        // on a victim, so a hit of this machine's own followed
+                        // by somebody else's inside one snapshot window is
+                        // never matched, and its debit goes on being taken off
+                        // a health the authority has already taken it off.
+                        // NetHitPrediction._pendingClaim.
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
+                        break;
+                    case HitVerdictPacket.ResultDuplicate:
+                        Duplicate++;
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: true);
+                        break;
+                    case HitVerdictPacket.ResultDeadShooter:
+                        RefusedDeadShooter++;
+                        // The arbitration said somebody got there first. The
+                        // prediction this machine is holding is wrong and the
+                        // sooner it is let go the shorter the wrong health bar
+                        // lasts -- which is the whole reason a verdict exists.
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        break;
+                    case HitVerdictPacket.ResultDeadVictim:
+                        RefusedDeadVictim++;
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        break;
+                    default:
+                        RefusedOther++;
+                        if (!entry.PredictionReleased) NetHitPrediction.Settle(entry.VictimSlot, id, confirmed: false);
+                        NetLog.Event($"claim {id} on slot {entry.VictimSlot} "
+                            + $"{HitVerdictPacket.Describe(result)}");
+                        break;
+                    }
+                    break;
+                }
+            }
+        }
+
+        // ---------------------------------------------------------------
+        // The authority's side
+        // ---------------------------------------------------------------
+
+        public const int PendingPerShooter = 64;
+        private const int PendingCapacity = Slots * PendingPerShooter;
+
+        private struct Pending
+        {
+            public TimedVictimDamageProfile? TimedProfile;
+            public TimedImperialistImpact? TimedImpact;
+            public Telemetry.NetTelemetryEvent RescueStudy;
+            public uint ContinuousPhase;
+            public ushort MatchId;
+            public ulong AuthorityEpoch;
+            public ushort ShooterGeneration;
+            public ushort ShooterLifeId;
+            public ushort VictimGeneration;
+            public ushort VictimLifeId;
+
+            public ushort Id;
+            public byte ShooterSlot;
+            public byte VictimSlot;
+            public byte Beam;
+            public ushort Damage;
+            public byte Flags;
+            public uint AckFrame;
+            public uint LaunchFrame;
+            public uint ShotId;
+            public uint ComponentId;
+            public Vector3 HitPoint;
+            public Vector3 Direction;
+            /// <summary>The authority frame it arrived on.</summary>
+            public uint Arrived;
+            /// <summary>
+            /// How long this claim waits before it is applied, in frames --
+            /// one measured round trip for *this* shooter plus a margin. A
+            /// number per claim rather than a constant, because the gap
+            /// between the authority's own answer and the claim for the same
+            /// shot is that shooter's round trip. <see cref="GraceFor"/>.
+            /// </summary>
+            public int Grace;
+            public bool AwaitingNativeSelection;
+            public bool Live;
+        }
+
+        private static readonly Pending[] _pending = new Pending[PendingCapacity];
+
+        /// <summary>
+        /// The last claim id accepted from each slot, so that a repeat of a
+        /// claim already dealt with is answered again rather than applied
+        /// again. Ids rise, so "not newer than the newest" is the whole test
+        /// -- with the same restart allowance every other ordering guard on
+        /// this wire has, since a client that rejoins starts counting from one
+        /// and would otherwise have every claim of its new session refused.
+        /// </summary>
+        private static readonly ushort[] _newestId = new ushort[Slots];
+        private static readonly byte[] _lastResult = new byte[Slots];
+        // Covers ordinary multi-component/continuous activity throughout the
+        // receipt retry window. This is bounded; exhaustion refuses new claims.
+        internal const int SeenCapacity = 4096;
+        private const int ClaimIdReorderWindow = 128;
+        private const byte ResultPending = 255;
+        private static readonly ushort[,] _seenIds = new ushort[Slots, SeenCapacity];
+        private static readonly ShotPaymentKey[,] _seenPaymentKeys = new ShotPaymentKey[Slots, SeenCapacity];
+        private static readonly CombatAckEntry[,] _seenOutcomes = new CombatAckEntry[Slots, SeenCapacity];
+        private static readonly CombatAckEntry[,,] _authorityOutcomes = new CombatAckEntry[Slots, Slots, LedgerDepth];
+        private static readonly CombatAckEntry[] _latestOutcome = new CombatAckEntry[Slots];
+        private static CombatAckEntry _takenOutcome;
+        private static readonly int[] _completingLedger = new int[Slots];
+        private static readonly byte[,] _seenResults = new byte[Slots, SeenCapacity];
+        private static readonly BeamType[,] _seenBeams = new BeamType[Slots, SeenCapacity];
+        private static readonly ShotKey[,] _seenKeys = new ShotKey[Slots, SeenCapacity];
+        private static readonly uint[,] _seenTerminalFrames = new uint[Slots, SeenCapacity];
+        private static readonly uint[] _receiptUnsafeUntil = new uint[Slots];
+        private static readonly bool[] _receiptUnsafe = new bool[Slots];
+
+        /// <summary>
+        /// Hits the authority resolved itself, for the duplicate test: the
+        /// last few frames on which each shooter landed something on each
+        /// victim, and whether a claim has already been matched against each.
+        ///
+        /// <b>A ring rather than one number, and that is not tidiness.</b> The
+        /// newest hit alone is enough for a weapon that fires once a second
+        /// and wrong for every other kind: a Battlehammer burst puts four
+        /// claims into one grace window, and matching all four against the one
+        /// hit the authority happens to have resolved throws away three hits
+        /// that really did go missing. Each authority hit retires at most one
+        /// claim, which is the arithmetic that makes "already resolved" mean
+        /// what the report says it means.
+        ///
+        /// Sixty-four entries cover the 72-frame maximum grace at one hit
+        /// every two frames, with room for splash and burst skew.
+        /// </summary>
+        public const int LedgerDepth = 64;
+        private static readonly uint[,,] _authorityComponents = new uint[Slots, Slots, LedgerDepth];
+        private static readonly byte[,,] _authorityKinds = new byte[Slots, Slots, LedgerDepth];
+        private static readonly ShotKey[,,] _authorityKeys = new ShotKey[Slots, Slots, LedgerDepth];
+        private static readonly ushort[,,] _victimGeneration = new ushort[Slots, Slots, LedgerDepth];
+        private static readonly ushort[,,] _victimLife = new ushort[Slots, Slots, LedgerDepth];
+        private static readonly bool[,,] _authorityLive = new bool[Slots, Slots, LedgerDepth];
+        private static readonly uint[,] _ledgerUnsafeUntil = new uint[Slots, Slots];
+        public static long ClaimsCapacityRefused { get; private set; }
+        public static int ClaimsPendingHighWater { get; private set; }
+        public static int ResolvedLedgerHighWater { get; private set; }
+        public static long ResolvedLedgerExpiredUnused { get; private set; }
+        public static long ResolvedLedgerOverwrittenUnused { get; private set; }
+        public static long ResolvedLedgerCapacityRefused { get; private set; }
+        private static int _claimsPendingCurrent, _resolvedLedgerCurrent;
+        public static int ClaimsPendingCurrent => _claimsPendingCurrent;
+        public static int ResolvedLedgerCurrent => _resolvedLedgerCurrent;
+        public static int RescuedLedgerCurrent => _rescueIndex.Count;
+        public static long RescueLookupProbes => _rescueIndex.LookupProbes;
+        public static int RescueLookupHighWater => _rescueIndex.LookupHighWater;
+        private static void ActivatePending(ref Pending entry)
+        { if (!entry.Live) { entry.Live = true; _claimsPendingCurrent++; } }
+        private static void DeactivatePending(ref Pending entry)
+        { if (entry.Live) { entry.Live = false; _claimsPendingCurrent--; } }
+        private static void ActivateResolved(int attacker, int victim, int index)
+        { if (!_authorityLive[attacker, victim, index]) { _authorityLive[attacker, victim, index] = true; _resolvedLedgerCurrent++; } }
+        private static void DeactivateResolved(int attacker, int victim, int index)
+        { if (_authorityLive[attacker, victim, index]) { _authorityLive[attacker, victim, index] = false; _resolvedLedgerCurrent--; } }
+        // Explicit diagnostic entry point, never called from the simulation hot path.
+        public static void ValidateLedgerCounters()
+        {
+            int pending = 0, resolved = 0;
+            _rescueIndex.Validate();
+            int rescued = _rescueIndex.Count;
+            foreach (ref readonly var entry in _pending.AsSpan()) if (entry.Live) pending++;
+            foreach (bool live in _authorityLive) if (live) resolved++;
+            if (pending != ClaimsPendingCurrent || resolved != ResolvedLedgerCurrent || rescued != RescuedLedgerCurrent)
+                throw new InvalidOperationException($"Ledger counters differ: {pending}/{ClaimsPendingCurrent}, {resolved}/{ResolvedLedgerCurrent}, {rescued}/{RescuedLedgerCurrent}");
+        }
+        private static bool ResolvedShooterCurrent(in ShotKey key, int slot)
+            => NetSession.MatchesStream(key.MatchId, key.AuthorityEpoch)
+                && key.ShooterSlot == slot && key.Generation != 0 && key.LifeId != 0
+                && key.Generation == NetPlayerLifecycle.Generation(slot);
+
+        private static bool LedgerLive(int attacker, int victim, int index)
+        {
+            if (!_authorityLive[attacker, victim, index]) return false;
+            if (NetSession.NetFrame - _authorityHit[attacker, victim, index] > MaxGraceFrames
+                || !ResolvedShooterCurrent(_authorityKeys[attacker, victim, index], attacker)
+                || !NetPlayerLifecycle.Matches(victim, _victimGeneration[attacker, victim, index], _victimLife[attacker, victim, index]))
+            {
+                if (!_authorityHitUsed[attacker, victim, index]) ResolvedLedgerExpiredUnused++;
+                DeactivateResolved(attacker, victim, index);
+                return false;
+            }
+            return true;
+        }
+        private static readonly uint[,,] _authorityHit = new uint[Slots, Slots, LedgerDepth];
+        /// <summary>
+        /// The world-frame used by the authority's impact timing. Retained for
+        /// diagnostics and non-projectile time-window pairing; explicit beam
+        /// identity lives in _authorityKeys and never derives from this clock.
+        /// </summary>
+        private static readonly uint[,,] _authorityHitAck = new uint[Slots, Slots, LedgerDepth];
+        /// <summary>
+        /// The launch frame of the shot behind each of the authority's own
+        /// hits -- <c>BeamProjectileEntity.ModLaunchFrame</c>. Zero for a hit
+        /// with no beam behind it.
+        /// </summary>
+        private static readonly uint[,,] _authorityContinuousPhase = new uint[Slots, Slots, LedgerDepth];
+        private static uint _applyingContinuousPhase;
+        private static readonly uint[,,] _authorityHitLaunch = new uint[Slots, Slots, LedgerDepth];
+        private static readonly bool[,,] _authorityHitUsed = new bool[Slots, Slots, LedgerDepth];
+        /// <summary>
+        /// What the authority's own simulation put on the victim for each of
+        /// those hits.
+        ///
+        /// Kept for one purpose: a claim carries the number the *shooter*
+        /// computed for the same shot, so when the two are paired the pair is
+        /// a direct measurement of whether the shooter's prediction and the
+        /// authority's resolution agree about the damage -- per weapon, in a
+        /// real match, with no instrument in the way. They should agree
+        /// exactly, because both machines run the same table over the same
+        /// state; everywhere they do not, one of them is reading a quantity
+        /// the other has not been told (the charge tier, a powerup, the damage
+        /// level, a halfturret's health). See <see cref="DescribeAgreement"/>.
+        /// </summary>
+        private static readonly int[,,] _authorityHitDamage = new int[Slots, Slots, LedgerDepth];
+        private static readonly int[,] _authorityHitHead = new int[Slots, Slots];
+
+        /// <summary>
+        /// How the shooter's number compared with the authority's, per weapon,
+        /// for every pair the ledger matched. The bucket is the beam, with
+        /// <see cref="NetHitPrediction.AltBeam"/> for everything with no beam
+        /// behind it.
+        /// </summary>
+        private static readonly long[] _agreeByBeam = new long[NetHitPrediction.AltBeam + 1];
+        private static readonly long[] _differByBeam = new long[NetHitPrediction.AltBeam + 1];
+        private static readonly long[] _claimedByBeam = new long[NetHitPrediction.AltBeam + 1];
+        private static readonly long[] _resolvedByBeam = new long[NetHitPrediction.AltBeam + 1];
+        private static int _disagreementsLogged;
+
+        /// <summary>
+        /// ACK sanity bound for the legacy fallback when a launch identity
+        /// is unavailable. Exact nonzero ShotKey matching always runs first;
+        /// conflicting valid launch identities are never paired by this window.
+        /// </summary>
+        private const int AckMatchFrames = 120;
+
+        /// <summary>
+        /// File a hit the authority resolved for itself, so that a claim about
+        /// the same one is recognised as a repeat rather than applied twice.
+        /// </summary>
+        private static void NoteLedger(int attacker, int victim, uint ack, uint launch,
+            int damage, bool used = false, uint shotId = 0)
+        {
+            _completingLedger[victim] = -1;
+            int head = -1;
+            for (int n = 0; n < LedgerDepth; n++)
+            {
+                int i = (_authorityHitHead[attacker, victim] + n) % LedgerDepth;
+                // Continuous ticks remain identifiable after claim settlement: a
+                // delayed physical copy or a different claim ID must not pay again.
+                if (!LedgerLive(attacker, victim, i)
+                    || (_authorityHitUsed[attacker, victim, i] && _authorityContinuousPhase[attacker, victim, i] == 0)) { head = i; break; }
+            }
+            if (head < 0)
+            {
+                // Fail closed: preserve every matchable identity and refuse rescue
+                // for this pair until the unrecorded resolution is outside grace.
+                _ledgerUnsafeUntil[attacker, victim] = NetSession.NetFrame + MaxGraceFrames;
+                ResolvedLedgerCapacityRefused++;
+                return;
+            }
+            _completingLedger[victim] = head;
+            ActivateResolved(attacker, victim, head);
+            _authorityKeys[attacker, victim, head] = ShotKey.For(attacker, shotId);
+            _victimGeneration[attacker, victim, head] = NetPlayerLifecycle.Generation(victim);
+            _victimLife[attacker, victim, head] = NetPlayerLifecycle.Get(victim);
+            _authorityHit[attacker, victim, head] = NetSession.NetFrame;
+            _authorityHitAck[attacker, victim, head] = ack;
+            _authorityHitLaunch[attacker, victim, head] = launch;
+            _authorityContinuousPhase[attacker, victim, head] = 0;
+            _authorityComponents[attacker, victim, head] = 0;
+            _authorityKinds[attacker, victim, head] = 0;
+            _authorityHitDamage[attacker, victim, head] = damage;
+            _authorityOutcomes[attacker, victim, head] = default;
+            _authorityHitUsed[attacker, victim, head] = used;
+            _authorityHitHead[attacker, victim] = (head + 1) % LedgerDepth;
+            ResolvedLedgerHighWater = Math.Max(ResolvedLedgerHighWater, ResolvedLedgerCurrent);
+        }
+
+        /// <summary>
+        /// Whether the authority has an unclaimed hit of its own from
+        /// <paramref name="attacker"/> on <paramref name="victim"/> inside this
+        /// claim's window, and take it if so.
+        ///
+        /// The window runs from <see cref="GraceFrames"/> <i>before</i> the
+        /// claim arrived to the present, because a hitscan weapon's own answer
+        /// reaches the authority first and anything that travels reaches it
+        /// after.
+        /// </summary>
+        /// <summary>
+        /// How far the nearest hit this authority resolved itself, for this
+        /// pair, is from the claim's arrival -- searched over the whole ring
+        /// rather than the match window, and counting used entries too.
+        /// Positive means the authority resolved it *before* the claim landed.
+        /// Int32.MinValue when there is nothing at all.
+        /// </summary>
+        private static int NearestLedgerOffset(int attacker, int victim, uint arrived)
+        {
+            int best = Int32.MinValue;
+            for (int i = 0; i < LedgerDepth; i++)
+            {
+                uint at = _authorityHit[attacker, victim, i];
+                if (at == 0)
+                {
+                    continue;
+                }
+                int offset = (int)arrived - (int)at;
+                if (best == Int32.MinValue || Math.Abs(offset) < Math.Abs(best))
+                {
+                    best = offset;
+                }
+            }
+            return best;
+        }
+
+        public static bool ContinuousAlreadyResolved(int attacker, int victim, uint phase)
+        {
+            if ((uint)attacker >= Slots || (uint)victim >= Slots || phase == 0) return false;
+            for (int i = 0; i < LedgerDepth; i++)
+                if (_authorityContinuousPhase[attacker, victim, i] == phase && LedgerLive(attacker, victim, i)) return true;
+            return false;
+        }
+
+        private static bool TakeLegacyContinuousLedger(int attacker, int victim, uint phase, uint shotId, out int damage)
+        { damage = 0; return shotId == 0 && TakeContinuousLedger(attacker, victim, phase, out damage); }
+
+        private static bool TakeContinuousLedger(int attacker, int victim, uint phase, out int damage)
+        {
+            damage = 0;
+            for (int i = 0; i < LedgerDepth; i++)
+            {
+                if (_authorityContinuousPhase[attacker, victim, i] != phase || !LedgerLive(attacker, victim, i)) continue;
+                // One continuous beam can damage this victim only once per firing tick.
+                // New claim IDs for the same tick replay the stored result, never rescue twice.
+                _authorityHitUsed[attacker, victim, i] = true;
+                damage = _authorityHitDamage[attacker, victim, i];
+                _takenOutcome = _authorityOutcomes[attacker, victim, i];
+                MatchedByLaunch++; return true;
+            }
+            return false;
+        }
+
+        private static bool TakeLedger(int attacker, int victim, uint claimAck,
+            uint claimLaunch, uint arrived, int window, out int authorityDamage, uint shotId = 0, ShotKey? claimKey = null, uint componentId = 0, byte damageKind = 0)
+        {
+            authorityDamage = 0;
+            // Pair explicit lifecycle-fenced ShotId, independently of launch/ACK clocks.
+            // A direct hit and splash can share one ID and consume separate entries.
+            if (shotId != 0)
+            {
+                for (int i = 0; i < LedgerDepth; i++)
+                {
+                    if (_authorityHitUsed[attacker, victim, i]
+                        || !LedgerLive(attacker, victim, i))
+                    {
+                        continue;
+                    }
+                    if (_authorityKeys[attacker, victim, i] == (claimKey ?? ShotKey.For(attacker, shotId))
+                        && _authorityComponents[attacker, victim, i] == componentId
+                        && (componentId == 0 || _authorityKinds[attacker, victim, i] == damageKind)
+                        && (componentId != 0 || NetShotProof.Mode != ShotProofMode.Enforce))
+                    {
+                        _authorityHitUsed[attacker, victim, i] = true;
+                        authorityDamage = _authorityHitDamage[attacker, victim, i];
+                        _takenOutcome = _authorityOutcomes[attacker, victim, i];
+                        MatchedByLaunch++;
+                        return true;
+                    }
+                }
+            }
+            // Non-projectile and legacy offline entries can use a time window.
+            // A nonzero ShotId is never eligible for this fallback.
+            uint floor = arrived > (uint)window ? arrived - (uint)window : 0;
+            int best = -1;
+            long bestGap = Int64.MaxValue;
+            for (int i = 0; i < LedgerDepth; i++)
+            {
+                if (_authorityHitUsed[attacker, victim, i] || !LedgerLive(attacker, victim, i))
+                {
+                    continue;
+                }
+                uint at = _authorityHit[attacker, victim, i];
+                // Inside the window either side of the claim's arrival: the
+                // authority answers *before* it for a hitscan weapon and can
+                // answer after it for a slow one.
+                if (at == 0 || at < floor || at > arrived + (uint)window)
+                {
+                    continue;
+                }
+                // Never pair two shots that both carry a stamp and disagree:
+                // pass one already had its chance, and matching them here
+                // would be the window overruling the exact answer.
+                uint launch = _authorityKeys[attacker, victim, i].ShotId;
+                if (launch != 0 || shotId != 0)
+                {
+                    continue;
+                }
+                long gap = Math.Abs((long)_authorityHitAck[attacker, victim, i] - claimAck);
+                if (gap <= AckMatchFrames && gap < bestGap)
+                {
+                    bestGap = gap;
+                    best = i;
+                }
+            }
+            if (best < 0)
+            {
+                return false;
+            }
+            _authorityHitUsed[attacker, victim, best] = true;
+            authorityDamage = _authorityHitDamage[attacker, victim, best];
+            _takenOutcome = _authorityOutcomes[attacker, victim, best];
+            MatchedByWindow++;
+            return true;
+        }
+
+        private static void ClearLedger(int attacker, int victim)
+        {
+            for (int i = 0; i < LedgerDepth; i++)
+            {
+                DeactivateResolved(attacker, victim, i);
+                _authorityHit[attacker, victim, i] = 0;
+                _authorityHitAck[attacker, victim, i] = 0;
+                _authorityHitLaunch[attacker, victim, i] = 0;
+                _authorityHitDamage[attacker, victim, i] = 0;
+                _authorityHitUsed[attacker, victim, i] = false;
+            }
+            _authorityHitHead[attacker, victim] = 0;
+            _ledgerUnsafeUntil[attacker, victim] = 0;
+        }
+
+        /// <summary>
+        /// The world-frame of the shot that killed each slot, and whether the
+        /// slot is currently dead. This is the arbitration's whole state: a
+        /// shot is void if its shooter is down and was put down by a shot
+        /// aimed at a strictly earlier world than the one this shot was aimed
+        /// at.
+        /// </summary>
+        private static readonly uint[] _deathFire = new uint[Slots];
+        private static readonly bool[] _dead = new bool[Slots];
+        /// <summary>
+        /// The world-frame of the newest hit on each slot, stamped as it is
+        /// resolved. Whatever is standing here when a slot goes down is the
+        /// stamp of the shot that killed it.
+        /// </summary>
+        private static readonly uint[] _lastHitFire = new uint[Slots];
+        private static readonly bool[] _wasInPlay = new bool[Slots];
+
+        /// <summary>
+        /// True while <see cref="ApplyOne"/> is inside the one
+        /// <c>TakeDamage</c> that makes a claim real, with the world-frame it
+        /// is applying. <see cref="NoteAuthorityHit"/> reads both so that the
+        /// ledger entry this produces is filed under the claim's own ack and
+        /// marked used -- it is the authority's hit now, and nothing else may
+        /// match against it.
+        /// </summary>
+        private static bool ApplyingClaim;
+        private static uint ApplyingClaimAck;
+        private static uint ApplyingClaimLaunch, ApplyingClaimShotId;
+        private static Vector3 ApplyingClaimHitPoint;
+        private static byte ApplyingClaimFlags;
+        private static ShotKey? ApplyingClaimKey;
+        private static uint ApplyingClaimComponent;
+        internal static ShotKey? CurrentClaimKey => ApplyingClaim ? ApplyingClaimKey : null;
+        internal static uint CurrentClaimComponent => ApplyingClaim ? ApplyingClaimComponent : 0;
+        internal static uint CurrentClaimPhase => ApplyingClaim ? _applyingContinuousPhase : 0;
+        internal static uint CurrentClaimShotId => ApplyingClaim ? ApplyingClaimShotId : 0;
+        internal static uint CurrentClaimLaunch => ApplyingClaim ? ApplyingClaimLaunch : 0;
+        internal static Vector3 CurrentClaimHitPoint => ApplyingClaim ? ApplyingClaimHitPoint : default;
+        internal static bool CurrentClaimDirect => ApplyingClaim
+            && (ApplyingClaimFlags & HitClaimPacket.FlagDirect) != 0;
+        internal static bool CurrentClaimTurret => ApplyingClaim
+            && (ApplyingClaimFlags & HitClaimPacket.FlagHalfturret) != 0;
+        internal static bool CurrentClaimContinuous => ApplyingClaim
+            && (ApplyingClaimFlags & HitClaimPacket.FlagContinuousTick) != 0;
+
+        /// <summary>What the authority did with the claims it was sent.</summary>
+        public static long Received { get; private set; }
+        public static long AppliedHere { get; private set; }
+        public static long DuplicateHere { get; private set; }
+        public static long VoidedDeadShooter { get; private set; }
+        public static long VoidedDeadVictim { get; private set; }
+        public static long RefusedHere { get; private set; }
+        public static long TooOldHere { get; private set; }
+        /// <summary>
+        /// Claims that arrived again because their answer did not. Counted so
+        /// that the report's outcomes add up to what was received: without it
+        /// a line reading "8 received, 1 applied, 2 already resolved" leaves
+        /// five unaccounted for and looks like lost claims rather than
+        /// repeated ones.
+        /// </summary>
+        public static long RepeatsHere { get; private set; }
+        /// <summary>
+        /// How each duplicate was recognised. The pair is the health check on
+        /// this whole mechanism: <see cref="MatchedByLaunch"/> should be
+        /// almost all of it, and <see cref="MatchedByWindow"/> should be the
+        /// alt-form attacks and bombs alone. Window matches climbing for beam
+        /// weapons means the stamp is not surviving the trip.
+        /// </summary>
+        public static long MatchedByLaunch { get; private set; }
+        public static long MatchedByWindow { get; private set; }
+        public static long RescuedDamage { get; private set; }
+        public static long RescuedKills { get; private set; }
+        public static long RescuedHeadshots { get; private set; }
+        /// <summary>
+        /// Imperialist headshots the shooter resolved as lethal but the
+        /// authority paired with a lower-damage body hit for the same shot.
+        /// The claim is already geometry/lifecycle validated before it reaches
+        /// this counter; only the missing damage is applied.
+        /// </summary>
+        public static long HeadshotCorrections { get; private set; }
+
+        /// <summary>
+        /// Whether this machine is the one that arbitrates. The same test
+        /// <see cref="NetUnlagged"/> makes, and for the same reason: only the
+        /// machine composing the snapshots has a history to check a claim
+        /// against.
+        /// </summary>
+        public static bool Arbitrating => Enabled && NetSession.Active
+            && (NetSession.Role == NetRole.Host || NetSession.IsAuthority);
+
+        private static void NoteAuthorityTiming(int victim, uint world, bool clearLedger = true)
+        {
+            _lastHitFire[victim] = world;
+            if (clearLedger) _completingLedger[victim] = -1;
+        }
+
+        /// <summary>Record an owned custom contact's launch world without entering
+        /// native claim/payment ledgers, independently of optional claim policy.</summary>
+        internal static void NoteCustomAuthorityTiming(PlayerEntity victim, BeamProjectileEntity beam, uint world)
+        {
+            int slot = victim.SlotIndex;
+            if ((uint)slot >= Slots || !NetSession.Active || !NetSession.IsAuthority
+                || victim.OwningScene.Services.IsReplica || NetDamage.Replaying || NetDamage.ApplyingClaim
+                || NetHitPrediction.Predicting || world == 0
+                || world != beam.ModCustomShot?.Certificate?.TargetWorldFrame
+                || victim.OwningScene.CustomCombat?.OwnsDamage(victim, beam) != true) return;
+            NoteAuthorityTiming(slot, world);
+        }
+
+        /// <summary>Read the launch-world stamp used for a canonical damage
+        /// transition. This query never allocates a shot or updates a ledger.</summary>
+        internal static uint CanonicalDamageWorld(PlayerEntity? attacker, EntityBase? source, DamageFlags flags)
+        {
+            if (flags.TestFlag(DamageFlags.Burn)) return NetSession.NetFrame;
+            if (ApplyingClaim) return ApplyingClaimLaunch != 0 ? ApplyingClaimLaunch : ApplyingClaimAck;
+            if (source is BeamProjectileEntity { ModLaunchFrame: > 0 } beam) return beam.ModLaunchFrame;
+            return FireFrameOf(attacker?.SlotIndex ?? -1);
+        }
+
+        /// <summary>
+        /// Stamp the world-frame a hit was aimed at, for the arbitration.
+        /// Called from <see cref="NetDamage.Note"/>, which the authority runs
+        /// for every hit it resolves, and directly by <see cref="ApplyOne"/>
+        /// for a hit it is rescuing.
+        /// </summary>
+        public static void NoteAuthorityHit(int attackerSlot, int victimSlot,
+            uint launchFrame = 0, int damage = 0, uint continuousPhase = 0, uint shotId = 0, ShotKey? shotKey = null, uint componentId = 0, byte damageKind = 0)
+        {
+            if (!Arbitrating || victimSlot < 0 || victimSlot >= Slots)
+            {
+                return;
+            }
+            // The world this hit was aimed in. For a beam that is the frame it
+            // was launched in, not the frame its shooter's screen was showing
+            // when it arrived -- see the arbitration in Judge for why the
+            // difference is the whole of the Missile and Magmaul complaint.
+            // FireFrameOf is the fallback for a hit with no beam behind it.
+            uint fire = ApplyingClaim ? ApplyingClaimAck : FireFrameOf(attackerSlot);
+            if (ApplyingClaim) launchFrame = ApplyingClaimLaunch;
+            // Native NoteLedger owns its existing marker reset below. Sources
+            // without a native ledger retain their established behavior.
+            NoteAuthorityTiming(victimSlot, launchFrame != 0 ? launchFrame : fire, clearLedger: false);
+            if (attackerSlot >= 0 && attackerSlot < Slots)
+            {
+                // Filed under the world-frame the shooter was looking at, which
+                // is what a claim for this same shot will name -- and already
+                // used when this hit *is* a claim being applied, so nothing
+                // else can match against it.
+                NoteLedger(attackerSlot, victimSlot,
+                    ApplyingClaim ? ApplyingClaimAck : fire,
+                    ApplyingClaim ? ApplyingClaimLaunch : launchFrame,
+                    damage, used: ApplyingClaim, shotId: ApplyingClaim ? ApplyingClaimShotId : shotId);
+                if (_completingLedger[victimSlot] >= 0 && shotKey.HasValue && !ApplyingClaim)
+                    _authorityKeys[attackerSlot, victimSlot, _completingLedger[victimSlot]] = shotKey.Value;
+                if (_completingLedger[victimSlot] >= 0)
+                {
+                    _authorityComponents[attackerSlot, victimSlot, _completingLedger[victimSlot]] = componentId;
+                    _authorityKinds[attackerSlot, victimSlot, _completingLedger[victimSlot]] = damageKind;
+                    _authorityContinuousPhase[attackerSlot, victimSlot, _completingLedger[victimSlot]] = ApplyingClaim ? _applyingContinuousPhase : continuousPhase;
+                }
+            }
+        }
+
+        /// <summary>
+        /// The world-frame a player of this slot is currently shooting in.
+        ///
+        /// For anybody the authority is holding as a puppet that is the frame
+        /// their own screen is showing, which is exactly what their intent
+        /// acks. For the authority's own player, and for a bot, it is the
+        /// present: they aim at what they hold.
+        /// </summary>
+        public static CombatAckEntry CaptureOutcome(PlayerEntity victim, int damage, CombatAckFlags flags) => new()
+        {
+            VictimSlot = (byte)victim.SlotIndex,
+            VictimGeneration = NetPlayerLifecycle.Generation(victim.SlotIndex),
+            VictimLife = NetPlayerLifecycle.Get(victim.SlotIndex),
+            DamageApplied = (ushort)Math.Clamp(damage, 0, ushort.MaxValue),
+            HealthAfter = (ushort)Math.Clamp(victim.Health, 0, ushort.MaxValue),
+            HalfturretHealthAfter = (ushort)Math.Clamp(victim.Halfturret?.Health ?? 0, 0, ushort.MaxValue),
+            DamageSequence = NetDamage.Sequence(victim.SlotIndex),
+            Flags = flags | CombatAckFlags.OutcomePresent
+                | (victim.Health == 0 ? CombatAckFlags.Lethal : 0)
+                | (victim.ModFrozen ? CombatAckFlags.Frozen : 0)
+                | (victim.ModBurning ? CombatAckFlags.Burning : 0)
+                | (victim.ModDisrupted ? CombatAckFlags.Disrupted : 0)
+        };
+
+        // DOT has its own authority time, not the old projectile's launch world.
+        // It must not replace the reusable component receipt from that impact.
+        internal static void NoteAuthorityBurn(int victim)
+        {
+            if ((uint)victim >= Slots || !Arbitrating) return;
+            NoteAuthorityTiming(victim, NetSession.NetFrame);
+        }
+
+        public static void CompleteAuthorityHit(PlayerEntity victim, PlayerEntity? attacker, int before, DamageFlags flags, ushort sequence, uint launchFrame = 0, BeamType beam = BeamType.None)
+        {
+            if (Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus || !Arbitrating || sequence == 0 || sequence != NetDamage.Sequence(victim.SlotIndex)) return;
+            int slot = victim.SlotIndex;
+            var outcome = CaptureOutcome(victim, before - victim.Health,
+                (flags.TestFlag(DamageFlags.Headshot) ? CombatAckFlags.Headshot : 0)
+                | (flags.TestFlag(DamageFlags.Halfturret) ? CombatAckFlags.HalfturretAffected : 0));
+            _latestOutcome[slot] = outcome;
+            Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.AuthorityResult, NetSession.NetFrame,
+                Player: (byte)(attacker?.SlotIndex ?? 255), Victim: (byte)slot, Weapon: (byte)beam, Generation: outcome.VictimGeneration,
+                Life: outcome.VictimLife, Id: outcome.DamageSequence, Flags: (int)outcome.Flags,
+                A: outcome.DamageApplied, B: outcome.HealthAfter, C: outcome.HalfturretHealthAfter,
+                ShotId: NetBurnSource.Current?.Key.ShotId ?? (ApplyingClaim ? ApplyingClaimShotId : attacker != null && _completingLedger[slot] >= 0
+                    ? _authorityKeys[attacker.SlotIndex, slot, _completingLedger[slot]].ShotId : 0)));
+            if (attacker == null) return;
+            int owner = attacker.SlotIndex;
+            int at = _completingLedger[slot];
+            if (!ApplyingClaim && at >= 0) LagCompensationPolicy.RecordImpact(owner, slot, _authorityKeys[owner, slot, at].ShotId);
+            if (at >= 0 && _authorityLive[owner, slot, at]) _authorityOutcomes[owner, slot, at] = outcome;
+        }
+
+        private static uint FireFrameOf(int slot)
+        {
+            if (slot < 0 || slot >= Slots || slot == NetSession.LocalSlot
+                || !NetSession.RemoteIntentValid[slot])
+            {
+                return NetSession.NetFrame;
+            }
+            uint ack = NetSession.RemoteIntents[slot].AckFrame;
+            return ack == 0 || ack > NetSession.NetFrame ? NetSession.NetFrame : ack;
+        }
+
+        /// <summary>
+        /// A datagram of claims from one slot. Validation that can be done on
+        /// the spot is done here; everything that has to wait for the
+        /// authority's own answer to the same shot goes into
+        /// <see cref="_pending"/> and is settled by <see cref="Tick"/>.
+        /// </summary>
+        // A coil tick cannot fall back to generic rescue: native coil payment is
+        // fenced by its authored phase, not the generic projectile component.
+        // This wire invariant applies even when optional shot proof is off/shadow.
+        internal static bool ValidContinuousClaimShape(in HitClaimPacket claim)
+        {
+            bool continuous = (claim.Flags & HitClaimPacket.FlagContinuousTick) != 0;
+            if (claim.Beam != (byte)BeamType.ShockCoil) return !continuous;
+            return continuous && claim.ShotId != 0 && claim.Frame != 0 && (claim.Frame & 1) == 0
+                && (claim.Flags & (HitClaimPacket.FlagDirect | HitClaimPacket.FlagHeadshot)) == HitClaimPacket.FlagDirect;
+        }
+
+        // Live claims require explicit beam identity. Direct fixture callers
+        // also pass the continuous shape guard below, before any paid receipt.
+        internal static bool ValidateWireClaims(ReadOnlySpan<byte> payload)
+        {
+            if (payload.Length < 1 || payload[0] > HitClaimPacket.MaxPerPacket
+                || payload.Length != 1 + payload[0] * HitClaimPacket.Size) return false;
+            for (int i = 0; i < payload[0]; i++)
+            {
+                var claim = HitClaimPacket.Read(payload[(1 + i * HitClaimPacket.Size)..]);
+                if (claim.Beam != HitClaimPacket.NoBeam && claim.ShotId == 0) return false;
+                if (!ValidContinuousClaimShape(claim)) return false;
+            }
+            return true;
+        }
+
+        public static void Receive(int shooterSlot, ReadOnlySpan<byte> payload)
+        {
+            if (!Arbitrating || shooterSlot < 0 || shooterSlot >= Slots || payload.Length < 1)
+            {
+                return;
+            }
+            int count = Math.Min((int)payload[0], HitClaimPacket.MaxPerPacket);
+            for (int i = 0; i < count; i++)
+            {
+                int at = 1 + i * HitClaimPacket.Size;
+                if (at + HitClaimPacket.Size > payload.Length)
+                {
+                    break;
+                }
+                HitClaimPacket claim = HitClaimPacket.Read(payload[at..]);
+                using var fastRequest = NetCombatFastPath.Request(shooterSlot, claim);
+                Received++;
+                NetCampaignEvidence.ClaimReceived();
+                NetCampaignEvidence.TimelineClaim("claim-received", shooterSlot, claim);
+                using var claimEvidence = NetCampaignEvidence.Enabled
+                    ? NetTimedCampaignJoin.Claim(shooterSlot, claim) : default;
+                if (claim.ShooterLifeId == 0 || claim.VictimLifeId == 0
+                    || !NetSession.MatchesStream(claim.MatchId, claim.AuthorityEpoch)
+                    || claim.ShooterGeneration == 0 || claim.ShooterGeneration != NetPlayerLifecycle.Generation(shooterSlot))
+                {
+                    NetPlayerLifecycle.OldLifeClaims++;
+                    continue;
+                }
+                if (!ValidContinuousClaimShape(claim))
+                {
+                    RefusedHere++;
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultInvalidLaunch,
+                        remember: false, outcome: RequestOutcome(claim));
+                    continue;
+                }
+                // A terminal receipt describes its original lives. Retry it
+                // before checking current bodies, without authoring any damage.
+                int receiptAt = SeenIndex(shooterSlot, claim.ClaimId);
+                if (claim.ClaimId != 0 && _seenIds[shooterSlot, receiptAt] == claim.ClaimId
+                    && _seenKeys[shooterSlot, receiptAt] == NetShotProof.Key(shooterSlot, claim)
+                    && _seenPaymentKeys[shooterSlot, receiptAt] == NetShotProof.PaymentKey(shooterSlot, claim)
+                    && _seenBeams[shooterSlot, receiptAt] == (BeamType)claim.Beam
+                    && _seenResults[shooterSlot, receiptAt] != ResultPending)
+                {
+                    RepeatsHere++;
+                    AnswerRequest(shooterSlot, claim, _seenResults[shooterSlot, receiptAt],
+                        remember: false, outcome: _seenOutcomes[shooterSlot, receiptAt]);
+                    continue;
+                }
+                if (ReceiptAdmissionBlocked(shooterSlot))
+                {
+                    RefuseReceiptCapacity(shooterSlot, claim);
+                    continue;
+                }
+                var nativeSelection=CustomNativeClaimSource.Read(shooterSlot,claim);
+                if(nativeSelection is not (CustomNativeFireDecision.Released or CustomNativeFireDecision.Pending))
+                {
+                    RefusedHere++;
+                    AnswerRequest(shooterSlot,claim,HitVerdictPacket.ResultInvalidLaunch,remember:false,outcome:RequestOutcome(claim));
+                    continue;
+                }
+                // A source explicitly retired before emission cannot be rescued by
+                // optional Shadow proof. Existing immutable paid receipts still ACK.
+                var terminalKey = NetShotProof.Key(shooterSlot, claim);
+                if (NetFireEvents.IsRetiredUnemittedTurret(terminalKey))
+                {
+                    if (TryPaidOutcome(shooterSlot, claim, out var paidTerminal))
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultDuplicate, outcome: paidTerminal);
+                    else
+                    {
+                        RefusedHere++;
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultInvalidLaunch, remember: false,
+                            outcome: RequestOutcome(claim));
+                    }
+                    continue;
+                }
+                if (!NetPlayerLifecycle.Matches(claim.VictimSlot, claim.VictimGeneration, claim.VictimLifeId))
+                {
+                    NetPlayerLifecycle.OldLifeClaims++;
+                    AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultWrongLife, remember: false,
+                        outcome: new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
+                            VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId });
+                    continue;
+                }
+                if (claim.ShooterLifeId != NetPlayerLifecycle.Get(shooterSlot))
+                {
+                    // N3 supports acknowledging an exact authority-resolved old-life
+                    // flight, never rescuing damage using a different present body.
+                    var key = new ShotKey(claim.AuthorityEpoch, claim.MatchId, shooterSlot,
+                        claim.ShooterGeneration, claim.ShooterLifeId, claim.ShotId);
+                    var outcome = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
+                        VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
+                    int seenAt = SeenIndex(shooterSlot, claim.ClaimId);
+                    CombatAckEntry physicalOutcome = default;
+                    if (claim.ClaimId != 0 && _seenIds[shooterSlot, seenAt] == claim.ClaimId
+                        && _seenKeys[shooterSlot, seenAt] == key
+                        && _seenResults[shooterSlot, seenAt] == HitVerdictPacket.ResultDuplicate
+                        && _seenOutcomes[shooterSlot, seenAt].VictimSlot == claim.VictimSlot
+                        && _seenOutcomes[shooterSlot, seenAt].VictimGeneration == claim.VictimGeneration
+                        && _seenOutcomes[shooterSlot, seenAt].VictimLife == claim.VictimLifeId
+                        && (NetShotProof.Mode != ShotProofMode.Enforce
+                            || _seenBeams[shooterSlot, seenAt] == (BeamType)claim.Beam
+                                && _seenPaymentKeys[shooterSlot, seenAt] == NetShotProof.PaymentKey(shooterSlot, claim)))
+                    {
+                        RepeatsHere++;
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultDuplicate,
+                            remember: false, outcome: _seenOutcomes[shooterSlot, seenAt]);
+                    }
+                    else if (claim.ClaimId != 0 && claim.ShotId != 0
+                        && (NetShotProof.Mode == ShotProofMode.Enforce
+                            ? NetShotProof.TryPhysicalOutcome(shooterSlot, claim, out physicalOutcome)
+                            : TakeLedger(shooterSlot, claim.VictimSlot, claim.AckFrame, claim.LaunchFrame,
+                                NetSession.NetFrame, MaxGraceFrames, out _, claim.ShotId, key, claim.ComponentId, NetShotProof.Kind(claim.Flags))))
+                    {
+                        DuplicateHere++;
+                        if (NetShotProof.Mode == ShotProofMode.Enforce)
+                        {
+                            NetShotProof.Observe(shooterSlot, claim,
+                                HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+                            NetShotProof.MarkClaim(shooterSlot, claim);
+                        }
+                        // Do not replace a present-life claim's answer when an
+                        // earlier life reused its ClaimId. Full shot keys remain distinct.
+                        bool cache = _seenIds[shooterSlot, seenAt] != claim.ClaimId
+                            || _seenKeys[shooterSlot, seenAt] == key;
+                        ushort currentNewest = _newestId[shooterSlot];
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultDuplicate,
+                            remember: cache, outcome: NetShotProof.Mode == ShotProofMode.Enforce ? physicalOutcome : _takenOutcome);
+                        _newestId[shooterSlot] = currentNewest;
+                    }
+                    else
+                    {
+                        NetPlayerLifecycle.OldLifeClaims++;
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultWrongLife,
+                            remember: false, outcome: outcome);
+                    }
+                    continue;
+                }
+                // A repeat of something already answered. The answer is
+                // repeated too: the shooter is asking because the first one
+                // did not arrive.
+                var claimKey = new ShotKey(claim.AuthorityEpoch, claim.MatchId, shooterSlot,
+                    claim.ShooterGeneration, claim.ShooterLifeId, claim.ShotId);
+                if (Seen(shooterSlot, claim.ClaimId)
+                    && (_seenIds[shooterSlot, SeenIndex(shooterSlot, claim.ClaimId)] != claim.ClaimId
+                        || _seenKeys[shooterSlot, SeenIndex(shooterSlot, claim.ClaimId)].LifeId == claim.ShooterLifeId))
+                {
+                    RepeatsHere++;
+                    int seenAt = SeenIndex(shooterSlot, claim.ClaimId);
+                    if (_seenIds[shooterSlot, seenAt] == claim.ClaimId
+                        && (_seenKeys[shooterSlot, seenAt] != claimKey
+                            || _seenBeams[shooterSlot, seenAt] != (BeamType)claim.Beam
+                            || _seenPaymentKeys[shooterSlot, seenAt] != NetShotProof.PaymentKey(shooterSlot, claim)))
+                    {
+                        AnswerRequest(shooterSlot, claim, HitVerdictPacket.ResultRefused, remember: false,
+                            outcome: new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot,
+                                VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId });
+                        continue;
+                    }
+                    byte result = _seenIds[shooterSlot, seenAt] == claim.ClaimId
+                        ? _seenResults[shooterSlot, seenAt] : HitVerdictPacket.ResultTooOld;
+                    if (result != ResultPending) AnswerRequest(shooterSlot, claim, result,
+                        remember: _seenIds[shooterSlot, seenAt] == claim.ClaimId,
+                        outcome: _seenIds[shooterSlot, seenAt] == claim.ClaimId ? null : RequestOutcome(claim));
+                    continue;
+                }
+                int claimAt = SeenIndex(shooterSlot, claim.ClaimId);
+                // An outstanding claim owns its receipt slot through settlement.
+                // A later modulo collision must not replace the identity that
+                // will receive the first claim's terminal result.
+                if (_seenIds[shooterSlot, claimAt] != 0 && !ReceiptReusable(shooterSlot, claimAt))
+                {
+                    RefuseReceiptCapacity(shooterSlot, claim);
+                    continue;
+                }
+                _seenBeams[shooterSlot, claimAt] = (BeamType)claim.Beam;
+                _seenPaymentKeys[shooterSlot, claimAt] = NetShotProof.PaymentKey(shooterSlot, claim);
+                _seenKeys[shooterSlot, claimAt] = claimKey;
+                NetShotDiagnostics.Claims[NetShotDiagnostics.Bucket((BeamType)claim.Beam)]++;
+                Remember(shooterSlot, claim.ClaimId, ResultPending);
+                _seenOutcomes[shooterSlot, claimAt] = new CombatAckEntry { ShotId = claim.ShotId, VictimSlot = claim.VictimSlot, VictimGeneration = claim.VictimGeneration, VictimLife = claim.VictimLifeId };
+                if (NetSession.ServerMatch is { Ending: true })
+                {
+                    AnswerEndedMatch(shooterSlot, claim);
+                    continue;
+                }
+                if(nativeSelection==CustomNativeFireDecision.Pending)
+                {
+                    // Preserve arrival-time geometry/life/age eligibility while
+                    // waiting. Source proof and all payments remain deferred.
+                    byte eligibility=Judge(shooterSlot,claim);
+                    if(eligibility!=HitVerdictPacket.ResultApplied)Answer(shooterSlot,claim.ClaimId,eligibility);
+                    else Park(shooterSlot,claim,awaitingNativeSelection:true);
+                    continue;
+                }
+                if (IsContinuous(claim) && TryPaidOutcome(shooterSlot, claim, out var continuousPaid))
+                { DuplicateHere++; Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: continuousPaid); continue; }
+                var fastReceipt = NetCombatFastPath.ClaimReady(shooterSlot, claim);
+                if (NetCombatFastPath.PaidEnabled && fastReceipt.State == FastDecisionState.VerifiedPaid)
+                {
+                    // Every admission/lifecycle/receipt gate above still owns
+                    // this request. The immutable native payment already exists;
+                    // omit only redundant Judge/proof diagnostics, never pay again.
+                    NetCombatFastPath.PaidReceipt(shooterSlot, claim);
+                    DuplicateHere++;
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: fastReceipt.Paid);
+                    continue;
+                }
+                byte immediate = Judge(shooterSlot, claim);
+                var proof = NetShotProof.Observe(shooterSlot, claim, immediate, "arrival");
+                if (TryPaidOutcome(shooterSlot, claim, out var paid)
+                    && !(immediate == HitVerdictPacket.ResultApplied && NeedsHeadCorrection(claim, paid)))
+                {
+                    DuplicateHere++;
+                    Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: paid);
+                    continue;
+                }
+                if (NetShotProof.Mode == ShotProofMode.Enforce && AnswerPhysicalOutcome(shooterSlot, claim))
+                    continue;
+                if (claim.VictimSlot != shooterSlot && NetShotProof.Mode == ShotProofMode.Enforce && proof.Status == ShotProofStatus.Rejected)
+                    immediate = HitVerdictPacket.ResultRefused;
+                if (immediate != HitVerdictPacket.ResultApplied)
+                {
+                    Answer(shooterSlot, claim.ClaimId, immediate);
+                    continue;
+                }
+                Park(shooterSlot, claim);
+            }
+        }
+
+        // Full lookup keeps IDs separated when they share a modulo bucket.
+        // Outstanding claims and retryable terminal receipts are pinned.
+        // Only terminals older than the complete delivery window may be reused.
+        private static int SeenIndex(int slot, ushort id)
+        {
+            int home = id % SeenCapacity, terminal = -1;
+            for (int n = 0; n < SeenCapacity; n++)
+            {
+                int at = (home + n) % SeenCapacity;
+                if (id != 0 && _seenIds[slot, at] == id) return at;
+                // IDs are only cleared for the entire slot, never one cell.
+                // The first empty cell therefore ends this probe chain.
+                if (_seenIds[slot, at] == 0) return at;
+                else if (ReceiptReusable(slot, at) && terminal < 0) terminal = at;
+            }
+            return terminal >= 0 ? terminal : home;
+        }
+
+        private static bool Seen(int slot, ushort id) => id == 0
+            || _seenIds[slot, SeenIndex(slot, id)] == id && !ReceiptReusable(slot, SeenIndex(slot, id))
+            || (_newestId[slot] != 0 && !NetLifecycleTracker.Newer(id, _newestId[slot])
+                && unchecked((ushort)(_newestId[slot] - id)) >= ClaimIdReorderWindow);
+
+        private static void Remember(int slot, ushort id, byte result)
+        {
+            if (_newestId[slot] == 0 || NetLifecycleTracker.Newer(id, _newestId[slot])) _newestId[slot] = id;
+            int at = SeenIndex(slot, id);
+            _seenIds[slot, at] = id;
+            _seenResults[slot, at] = result;
+            if (result != ResultPending) _seenTerminalFrames[slot, at] = NetSession.NetFrame;
+        }
+
+        /// <summary>
+        /// Everything about a claim that can be decided the moment it lands.
+        /// Returns <see cref="HitVerdictPacket.ResultApplied"/> when it
+        /// survives -- which means "worth parking", not "applied yet".
+        ///
+        /// Five tests, in the order that costs least:
+        ///
+        /// <list type="number">
+        /// <item>the slots are real; self hits must have an eligible exact
+        /// owner projectile identity and use their separate witness policy;</item>
+        /// <item>the frame it names is inside the history, so there is
+        /// something to check it against;</item>
+        /// <item>the damage is no more than that weapon can possibly deal,
+        /// with every multiplier in the game applied at once;</item>
+        /// <item>the victim was in play at that frame, and is still somebody
+        /// worth damaging now;</item>
+        /// <item>the victim's body, <i>as the authority's own history holds
+        /// it at that frame</i>, is within <see cref="ClaimRadius"/> of where
+        /// the claim says the hit landed.</item>
+        /// </list>
+        ///
+        /// The last is the one that makes the whole thing safe. A claim can
+        /// only ever rescue a shot the authority's own record agrees was
+        /// there to be taken.
+        /// </summary>
+        private static byte Judge(int shooterSlot, in HitClaimPacket claim)
+        {
+            if (!NetPerformanceEvidence.Enabled) return JudgeCore(shooterSlot, claim);
+            long start = NetPerformanceEvidence.Start();
+            int result = -1;
+            try { result = JudgeCore(shooterSlot, claim); return (byte)result; }
+            finally { NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.Eligibility, start, result); }
+        }
+
+        private static byte JudgeCore(int shooterSlot, in HitClaimPacket claim)
+        {
+            if (!ValidContinuousClaimShape(claim))
+            { RefusedHere++; return HitVerdictPacket.ResultInvalidLaunch; }
+            int victimSlot = claim.VictimSlot;
+            if (Telemetry.ProductionTelemetry.Enabled)
+                LagCompensationPolicy.Study(shooterSlot, victimSlot, NetShotDiagnostics.Bucket((BeamType)claim.Beam),
+                    LagCompensationPolicy.Evaluate(shooterSlot, NetSession.NetFrame, claim.AckFrame, 0, 0), -1);
+            if (shooterSlot < 0 || shooterSlot >= Slots || shooterSlot >= PlayerEntity.Players.Count
+                || victimSlot < 0 || victimSlot >= Slots
+                || victimSlot == shooterSlot && !NetSelfSplash.Shape(shooterSlot, claim)
+                || victimSlot >= PlayerEntity.Players.Count)
+            {
+                RefusedHere++;
+                return HitVerdictPacket.ResultRefused;
+            }
+            uint now = NetSession.NetFrame;
+            if (claim.AckFrame == 0 || claim.AckFrame > now || now - claim.AckFrame > MaxClaimAge)
+            {
+                TooOldHere++;
+                return HitVerdictPacket.ResultTooOld;
+            }
+            if (claim.LaunchFrame > claim.AckFrame)
+            {
+                RefusedHere++;
+                return HitVerdictPacket.ResultInvalidLaunch;
+            }
+            var matchRules = PlayerEntity.Players[shooterSlot].OwningScene.GameState;
+            if (claim.Beam != HitClaimPacket.NoBeam && !Multiplayer.WeaponResourceRules.AllowsBeam(
+                (BeamType)claim.Beam, matchRules.InstaGib, matchRules.NoImperialist))
+            { RefusedHere++; return HitVerdictPacket.ResultDamageLimit; }
+            Hunter shooterHunter = PlayerEntity.Players[shooterSlot].Hunter;
+            int maxDamage = MaxDamageFor(claim.Beam, shooterHunter);
+            if (claim.Damage > maxDamage)
+            {
+                RefusedHere++;
+                NetLog.Event($"slot {shooterSlot} claimed {claim.Damage} damage with beam "
+                    + $"{claim.Beam}, which cannot deal more than {maxDamage}");
+                return HitVerdictPacket.ResultDamageLimit;
+            }
+            bool quake3SelfRocket = victimSlot == shooterSlot
+                && (claim.Beam == (byte)BeamType.Missile || claim.Beam == (byte)BeamType.Magmaul
+                    && (matchRules.MovementModel is Movement.MovementModel.Traversal or Movement.MovementModel.Parkour))
+                && (claim.Flags & HitClaimPacket.FlagDirect) == 0
+                && PlayerEntity.Players[shooterSlot].OwningScene.Quake3TechniquesActive;
+            if (!(quake3SelfRocket ? ValidQuake3RocketCandidate(claim.Direction)
+                : ValidClaimImpulse(claim.Beam, shooterHunter, claim.Direction)))
+            {
+                RefusedHere++;
+                NetLog.Event($"slot {shooterSlot} claimed impact {claim.Direction} with beam "
+                    + $"{claim.Beam}, outside that weapon's impulse limit");
+                return HitVerdictPacket.ResultImpulseLimit;
+            }
+            // Where the authority itself had the victim, at the frame the
+            // shooter was looking at. This is the claim's only evidence and
+            // the authority's own record of it.
+            // A continuous claim may precede its retained source/native pulse.
+            // Wait for that payment first; unpaid rescue checks its hit point in
+            // the same captured fractional world as target selection and LOS.
+            if (!IsContinuous(claim) && victimSlot != shooterSlot)
+            {
+                bool turretClaim = (claim.Flags & HitClaimPacket.FlagHalfturret) != 0;
+                bool historicalAvailable = turretClaim
+                    ? NetUnlagged.TryHistoricalHalfturretPosition(victimSlot, claim.AckFrame,
+                        claim.VictimGeneration, claim.VictimLifeId, out Vector3 was)
+                    : NetUnlagged.PositionAt(victimSlot, claim.AckFrame, claim.VictimGeneration,
+                        claim.VictimLifeId, out was);
+                if (!historicalAvailable)
+                {
+                    // Either the victim/turret was not in play in that world, or the
+                    // ring no longer holds it. A detached turret claim is never
+                    // validated against the owner's body as a substitute.
+                    TooOldHere++;
+                    return HitVerdictPacket.ResultTooOld;
+                }
+                if (!WithinClaimRadius(was, claim.HitPoint, claim.Beam))
+                {
+                    Vector3 offset = claim.HitPoint - was;
+                    RefusedHere++;
+                    NetLog.Event($"slot {shooterSlot} claimed a hit on slot {victimSlot} at "
+                        + $"{claim.HitPoint}, {offset.Length:F2} units from where frame "
+                        + $"{claim.AckFrame} put them");
+                    return HitVerdictPacket.ResultGeometry;
+                }
+            }
+            PlayerEntity shooter = PlayerEntity.Players[shooterSlot];
+            if (shooter.OwningScene.GameState.OneInTheChamber && claim.Beam == (byte)BeamType.Imperialist
+                && !shooter.KnowsChamberShot(claim.ShotId)) return HitVerdictPacket.ResultInvalidLaunch;
+            PlayerEntity victim = PlayerEntity.Players[victimSlot];
+            // Continuous source geometry is settled after native playback's
+            // grace, using its retained fractional world. An early check can
+            // otherwise reject a tick immediately before native payment.
+            if (!victim.LoadFlags.TestFlag(LoadFlags.Active) || !victim.ModIsInPlay)
+            {
+                VoidedDeadVictim++;
+                return HitVerdictPacket.ResultDeadVictim;
+            }
+            // The arbitration. Dead now is not the test -- a player killed
+            // during the round trip still gets the shot they took before it
+            // happened, and that is the whole point. The test is whether
+            // somebody put them down in a world strictly earlier than the one
+            // they fired in.
+            //
+            // <b>Fired in, which is the launch frame and not the ack.</b> A
+            // claim's AckFrame is the world its shooter was reading when the
+            // hit *resolved*, and for anything that travels that is a long way
+            // after the trigger: a Missile is in the air for the better part
+            // of a second. Judging it by the ack asks "were you already dead
+            // when your rocket landed", which voids a shot that left the gun
+            // before the shot that killed you was even aimed -- and it is
+            // invisible on a Power Beam or an Imperialist, whose rounds arrive
+            // in about a frame, which is exactly the shape the complaint came
+            // in: kills undone with the Missile and the Magmaul, none with the
+            // other two. LaunchFrame is the same quantity as _deathFire on
+            // both machines (NetUnlagged.LaunchFrameFor), so this is a
+            // comparison of like with like; the ack is the fallback for the
+            // hits that carry no stamp, where the two coincide anyway.
+            if (ShooterDiedBeforeShot(_dead[shooterSlot], _deathFire[shooterSlot],
+                claim.LaunchFrame, claim.AckFrame))
+            {
+                VoidedDeadShooter++;
+                return HitVerdictPacket.ResultDeadShooter;
+            }
+            return HitVerdictPacket.ResultApplied;
+        }
+
+        /// <summary>
+        /// Pure geometry predicate used by the authority and the asset-free
+        /// regression suite. Keeping the exact radius/finite-value rule in one
+        /// place prevents a test helper from quietly becoming a second policy.
+        /// </summary>
+        internal static bool WithinClaimRadius(Vector3 authorityPosition, Vector3 hitPoint, byte beam)
+        {
+            Vector3 offset = hitPoint - authorityPosition;
+            if (!Single.IsFinite(offset.X) || !Single.IsFinite(offset.Y)
+                || !Single.IsFinite(offset.Z))
+            {
+                return false;
+            }
+            float reach = beam == HitClaimPacket.NoBeam ? MeleeRadius : ClaimRadius;
+            return offset.LengthSquared <= reach * reach;
+        }
+
+        /// <summary>
+        /// Whether the shooter had already been killed in a strictly earlier
+        /// world than the shot was fired in. Equal-world shots trade. A zero
+        /// launch stamp falls back to the ack, matching the claim protocol.
+        /// </summary>
+        private static bool ShooterDiedBeforeShot(bool dead, uint deathFire,
+            uint launchFrame, uint ackFrame)
+        {
+            uint fired = launchFrame != 0 ? launchFrame : ackFrame;
+            return dead && deathFire < fired;
+        }
+
+        /// <summary>
+        /// The measurement this whole ledger makes possible for nothing: the
+        /// shooter's own number for a shot, beside the authority's number for
+        /// the same shot.
+        ///
+        /// Both machines run the same damage table over the same weapon, so a
+        /// difference is never rounding -- it is one of them reading a
+        /// quantity the other was never told. The four that exist are the
+        /// charge tier (the authority rebuilds it by counting frames the
+        /// trigger was held, and a partial-charge weapon's damage is a
+        /// continuous function of that count), a powerup one copy has and the
+        /// other does not, the damage level -- a per-machine *setting* until
+        /// the server started publishing it -- and a halfturret's health,
+        /// which decides how a hit on Weavel is split and lives nowhere but
+        /// the authority.
+        ///
+        /// A zero on the authority's side is not a disagreement: it means the
+        /// ledger entry predates the damage being recorded, which is every
+        /// entry filed by an older build and every hit applied out of a claim.
+        /// </summary>
+        private static void NoteAgreement(int shooter, int victim, byte beam,
+            int claimed, int resolved)
+        {
+            if (resolved <= 0)
+            {
+                return;
+            }
+            int bucket = beam == HitClaimPacket.NoBeam
+                || beam >= NetHitPrediction.AltBeam
+                ? NetHitPrediction.AltBeam
+                : beam;
+            _claimedByBeam[bucket] += claimed;
+            _resolvedByBeam[bucket] += resolved;
+            if (claimed == resolved)
+            {
+                _agreeByBeam[bucket]++;
+                return;
+            }
+            _differByBeam[bucket]++;
+            // Logged a few times and then not again: a mismatch that happens
+            // at all happens on every shot of that weapon, so the first few
+            // say everything and the rest is noise in a server log.
+            if (_disagreementsLogged < 20)
+            {
+                _disagreementsLogged++;
+                NetLog.Event($"slot {shooter} predicted {claimed} damage on slot {victim} "
+                    + $"with beam {beam} and this machine resolved {resolved}");
+            }
+        }
+
+        /// <summary>
+        /// The per-weapon agreement, for the authority's report. Empty when
+        /// nothing was ever paired, which is a match in which no claim and no
+        /// hit of the authority's own ever described the same shot.
+        /// </summary>
+        public static string DescribeAgreement()
+        {
+            var text = new System.Text.StringBuilder();
+            text.Append("predicted vs resolved damage:");
+            bool any = false;
+            for (int i = 0; i < _agreeByBeam.Length; i++)
+            {
+                long paired = _agreeByBeam[i] + _differByBeam[i];
+                if (paired == 0)
+                {
+                    continue;
+                }
+                any = true;
+                string name = i == NetHitPrediction.AltBeam
+                    ? "alt/bomb"
+                    : ((BeamType)i).ToString();
+                text.Append($"\n  {name,-13} {paired,5} paired, {_agreeByBeam[i],5} agreed "
+                    + $"({_agreeByBeam[i] * 100.0 / paired:F0}%), {_differByBeam[i],5} differed"
+                    + $" -- {_claimedByBeam[i]} claimed against {_resolvedByBeam[i]} resolved");
+            }
+            return any ? text.ToString() : "predicted vs resolved damage: nothing paired";
+        }
+
+
+        /// <summary>
+        /// Reconcile the one duplicate that must not be treated as "already
+        /// paid": an Imperialist headshot the shooter resolved for full
+        /// headshot damage while the authority resolved the same launch as a
+        /// body hit.
+        ///
+        /// The claim has already passed Judge, including rewind-age,
+        /// lifecycle, damage-ceiling and geometry checks. TakeLedger has also
+        /// paired it to exactly one authority hit. Applying the whole claim
+        /// would double the body damage; applying only the difference makes
+        /// the final authoritative total equal the validated shooter result
+        /// exactly once.
+        /// </summary>
+        private static void ReconcileImperialistHeadshot(ref Pending entry, int resolved)
+        {
+            if(CustomNativeClaimSource.Read(entry.ShooterSlot,ProofClaim(entry))!=CustomNativeFireDecision.Released)return;
+            if (entry.Beam != (byte)BeamType.Imperialist
+                || (entry.Flags & HitClaimPacket.FlagHeadshot) == 0
+                || entry.Damage <= resolved)
+            {
+                return;
+            }
+            int victimSlot = entry.VictimSlot;
+            int shooterSlot = entry.ShooterSlot;
+            if (victimSlot >= PlayerEntity.Players.Count
+                || shooterSlot >= PlayerEntity.Players.Count)
+            {
+                return;
+            }
+            PlayerEntity victim = PlayerEntity.Players[victimSlot];
+            PlayerEntity shooter = PlayerEntity.Players[shooterSlot];
+            if (!victim.LoadFlags.TestFlag(LoadFlags.Active) || !victim.ModIsInPlay
+                || victim.Health <= 0)
+            {
+                return;
+            }
+
+            uint target = entry.Damage;
+            if (NetTimedShotModifiers.Enforcing)
+            {
+                var claim = ProofClaim(entry);
+                if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, claim, entry.TimedProfile,
+                    out uint limit, out bool headshot, entry.TimedImpact) || !headshot) return;
+                target = Math.Min(target, limit);
+                if (target <= resolved) return;
+            }
+            uint correction = target - (uint)resolved;
+            uint before = (uint)victim.Health;
+            var previousClaimContext = (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
+                ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent);
+            ApplyingClaim = true;
+            ApplyingClaimKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId, entry.ShooterSlot,
+                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
+            ApplyingClaimComponent = entry.ComponentId;
+            ApplyingClaimAck = entry.AckFrame;
+            ApplyingClaimLaunch = entry.LaunchFrame;
+            ApplyingClaimShotId = entry.ShotId;
+            ApplyingClaimHitPoint = entry.HitPoint;
+            ApplyingClaimFlags = entry.Flags;
+            _applyingContinuousPhase = entry.ContinuousPhase;
+            try
+            {
+                using (new NetDamage.ClaimScope(BeamType.Imperialist))
+                {
+                    victim.TakeDamage(correction,
+                        DamageFlags.Headshot | DamageFlags.NoDmgInvuln, null, shooter);
+                }
+            }
+            finally
+            {
+                (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
+                    ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent)
+                    = previousClaimContext;
+            }
+            uint applied = before - (uint)Math.Max(0, victim.Health);
+            if (applied == 0)
+            {
+                return;
+            }
+            _takenOutcome = CaptureOutcome(victim, resolved + (int)applied, CombatAckFlags.Headshot);
+            _takenOutcome.Result = (byte)CombatAckResult.Corrected;
+            if (shooter.Hunter == Hunter.Trace && Mods.EnhancedHunters.EnhancedHunters.HasMark(shooter, victim))
+                Mods.EnhancedHunters.TraceEnhancement.Hit(shooter, victim, perfect: true);
+            HeadshotCorrections++;
+            NetLog.Event($"claim {entry.Id}: reconciled Imperialist headshot on slot "
+                + $"{victimSlot}, authority body={resolved}, shooter headshot={entry.Damage}, "
+                + $"added={applied}");
+        }
+
+        private static HitClaimPacket ProofClaim(in Pending entry) => new()
+        {
+            MatchId=entry.MatchId,AuthorityEpoch=entry.AuthorityEpoch,
+            ShooterGeneration=entry.ShooterGeneration,ShooterLifeId=entry.ShooterLifeId,
+            VictimGeneration=entry.VictimGeneration,VictimLifeId=entry.VictimLifeId,
+            ClaimId=entry.Id,VictimSlot=entry.VictimSlot,Beam=entry.Beam,Damage=entry.Damage,
+            Flags=entry.Flags,AckFrame=entry.AckFrame,LaunchFrame=entry.LaunchFrame,
+            ShotId=entry.ShotId,ComponentId=entry.ComponentId,HitPoint=entry.HitPoint,Direction=entry.Direction,
+            Frame=entry.ContinuousPhase
+        };
+
+        internal static ContinuousPaymentKey ContinuousKey(int slot, in HitClaimPacket claim) => new(
+            NetShotProof.Key(slot, claim) with { ShotId = claim.Frame },
+            new NetTargetIdentity((byte)(NetTargetIdentity.Valid | (claim.VictimSlot + 1)), claim.VictimGeneration, claim.VictimLifeId),
+            (claim.Flags & HitClaimPacket.FlagHalfturret) != 0 ? ContinuousPaymentKey.Turret : ContinuousPaymentKey.Body);
+        private static bool IsContinuous(in HitClaimPacket claim) => claim.Beam == (byte)BeamType.ShockCoil
+            && (claim.Flags & HitClaimPacket.FlagContinuousTick) != 0 && claim.Frame != 0;
+        private static bool HasComponentPayment(in HitClaimPacket claim) => claim.ComponentId != 0
+            && claim.ShotId != 0 && claim.Beam != HitClaimPacket.NoBeam
+            && claim.Beam != (byte)BeamType.ShockCoil;
+        private static bool TryPaidOutcome(int slot, in HitClaimPacket claim, out CombatAckEntry outcome)
+        {
+            outcome = default;
+            if (IsContinuous(claim))
+            {
+                bool found = NetContinuousPayments.TryGet(ContinuousKey(slot, claim), out outcome, out _, out _);
+                return found && outcome.ShotId == claim.ShotId;
+            }
+            return HasComponentPayment(claim)
+                && NetCombatPayments.TryGetClaimOutcome(NetShotProof.PaymentKey(slot, claim), claim.Beam, out outcome);
+        }
+
+        // A delayed claim still owns a terminal receipt after the authority
+        // finalizes its result. Only immutable paid outcomes may be acknowledged;
+        // no rescue, head correction, impulse or score mutation can enter here.
+        // Receive has already bound its receipt cell to this complete claim key;
+        // pending settlement uses that same cell and the same answer writer.
+        private static void AnswerEndedMatch(int slot, in HitClaimPacket claim)
+        {
+            if (TryPaidOutcome(slot, claim, out var paid)
+                || NetShotProof.TryPhysicalOutcome(slot, claim, out paid))
+            {
+                DuplicateHere++;
+                Answer(slot, claim.ClaimId, paid.Result == (byte)CombatAckResult.Corrected
+                    ? paid.Result : HitVerdictPacket.ResultDuplicate, outcome: paid);
+            }
+            else
+            {
+                RefusedHere++;
+                Answer(slot, claim.ClaimId, HitVerdictPacket.ResultRefused);
+            }
+        }
+        private static bool NeedsHeadCorrection(in HitClaimPacket claim, in CombatAckEntry paid)
+            => NetShotProof.Mode != ShotProofMode.Enforce && claim.Beam == (byte)BeamType.Imperialist
+                && (claim.Flags & HitClaimPacket.FlagHeadshot) != 0
+                && (paid.Flags & CombatAckFlags.Headshot) == 0 && claim.Damage > paid.DamageApplied;
+        private static bool AnswerPaidPending(ref Pending entry)
+        {
+            var claim = ProofClaim(entry);
+            if (!TryPaidOutcome(entry.ShooterSlot, claim, out var paid)) return false;
+            _takenOutcome = paid;
+            if (NeedsHeadCorrection(claim, paid))
+            {
+                ReconcileImperialistHeadshot(ref entry, paid.DamageApplied);
+                if (_takenOutcome.Result == (byte)CombatAckResult.Corrected)
+                    NetCombatPayments.Correct(NetShotProof.PaymentKey(entry.ShooterSlot, claim), _takenOutcome);
+            }
+            NetShotProof.Observe(entry.ShooterSlot, claim, HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+            NetShotProof.MarkClaim(entry.ShooterSlot, claim);
+            DuplicateHere++;
+            NoteAgreement(entry.ShooterSlot, entry.VictimSlot, entry.Beam, entry.Damage, paid.DamageApplied);
+            Answer(entry.ShooterSlot, entry.Id,
+                _takenOutcome.Result == (byte)CombatAckResult.Corrected ? _takenOutcome.Result : HitVerdictPacket.ResultDuplicate,
+                outcome: _takenOutcome);
+            return true;
+        }
+
+        // Exact paid identity authorizes only acknowledgement of immutable native
+        // state. Claimed damage, headshot, afflictions and impulse never enter it.
+        private static bool AnswerPhysicalOutcome(int slot, in HitClaimPacket claim)
+        {
+            if (!NetShotProof.TryPhysicalOutcome(slot, claim, out var outcome)) return false;
+            NetShotProof.MarkClaim(slot, claim);
+            DuplicateHere++;
+            Answer(slot, claim.ClaimId, HitVerdictPacket.ResultDuplicate, outcome: outcome);
+            return true;
+        }
+
+        private static void Park(int shooterSlot, in HitClaimPacket claim,bool awaitingNativeSelection=false)
+        {
+            TimedVictimDamageProfile? timedProfile = null;
+            TimedImperialistImpact? timedImpact = null;
+            if (NetTimedShotModifiers.Enforcing && NetTimedDamageProfile.TryGet(claim.VictimSlot,
+                claim.VictimGeneration, claim.VictimLifeId, claim.AckFrame, out var damageProfile))
+                timedProfile = damageProfile;
+            if (NetTimedShotModifiers.Enforcing
+                && NetTimedShotProof.TryGet(NetShotProof.Key(shooterSlot, claim), out var timedShot)
+                && NetTimedImperialistImpact.TryResolve(timedShot, claim, out var impact))
+            {
+                timedImpact = impact;
+                if (NetTimedDamageProfile.TryGet(claim.VictimSlot, claim.VictimGeneration,
+                    claim.VictimLifeId, impact.Frame, out var exactProfile)) timedProfile = exactProfile;
+            }
+            int index = -1;
+            int start = shooterSlot * PendingPerShooter;
+            for (int pass = 0; pass < 2 && index < 0; pass++)
+            {
+                for (int i = start; i < start + PendingPerShooter; i++)
+                    if (!_pending[i].Live) { index = i; break; }
+                // Settle expired/duplicate entries before refusing a new claim.
+                if (index < 0 && pass == 0) Tick();
+            }
+            if (index < 0 || (_ledgerUnsafeUntil[shooterSlot, claim.VictimSlot] != 0
+                && (int)(_ledgerUnsafeUntil[shooterSlot, claim.VictimSlot] - NetSession.NetFrame) >= 0))
+            {
+                ClaimsCapacityRefused++;
+                Answer(shooterSlot, claim.ClaimId, HitVerdictPacket.ResultClaimCapacity);
+                FlushVerdicts();
+                return;
+            }
+            _pending[index] = new Pending
+            {
+                TimedProfile = timedProfile,
+                TimedImpact = timedImpact,
+                // Capture at admission, before arbitration grace elapses or
+                // historical poses expire. Grace is not requested rewind.
+                RescueStudy = Telemetry.ProductionTelemetry.Enabled
+                    ? LagCompensationPolicy.CreateStudyEvent(shooterSlot, claim.VictimSlot,
+                        NetShotDiagnostics.Bucket((BeamType)claim.Beam),
+                        LagCompensationPolicy.Evaluate(shooterSlot, NetSession.NetFrame, claim.AckFrame, 0, 0), 2)
+                    : default,
+                MatchId = claim.MatchId,
+                AuthorityEpoch = claim.AuthorityEpoch,
+                ShooterGeneration = claim.ShooterGeneration,
+                ShooterLifeId = claim.ShooterLifeId,
+                VictimGeneration = claim.VictimGeneration,
+                VictimLifeId = claim.VictimLifeId,
+                Id = claim.ClaimId,
+                ContinuousPhase = claim.Beam == (byte)BeamType.ShockCoil && (claim.Flags & HitClaimPacket.FlagContinuousTick) != 0 ? claim.Frame : 0,
+                ShooterSlot = (byte)shooterSlot,
+                VictimSlot = claim.VictimSlot,
+                Beam = claim.Beam,
+                Damage = claim.Damage,
+                Flags = claim.Flags,
+                AckFrame = claim.AckFrame,
+                LaunchFrame = claim.LaunchFrame,
+                ShotId = claim.ShotId,
+                ComponentId = claim.ComponentId,
+                HitPoint = claim.HitPoint,
+                Direction = claim.Direction,
+                Arrived = NetSession.NetFrame,
+                Grace = GraceFor(shooterSlot),
+                AwaitingNativeSelection=awaitingNativeSelection,
+            };
+            ActivatePending(ref _pending[index]);
+            ClaimsPendingHighWater = Math.Max(ClaimsPendingHighWater, ClaimsPendingCurrent);
+        }
+
+        /// <summary>
+        /// The largest number a weapon can put on somebody, with every
+        /// multiplier in the game stacked: the charged headshot, doubled by
+        /// the powerup, doubled again by a Double effectiveness, and the
+        /// high damage level on top.
+        ///
+        /// A ceiling rather than a check. The point is that a claim cannot
+        /// invent damage, not that the authority recomputes the shot -- which
+        /// it cannot, because the shot happened on another machine with
+        /// another charge level and another set of pickups.
+        /// </summary>
+        private static WeaponInfo? ClaimWeapon(byte beam, Hunter hunter)
+        {
+            if (beam == HitClaimPacket.NoBeam || Weapons.Current == null
+                || beam >= Weapons.Current.Count)
+            {
+                return null;
+            }
+            int index = beam;
+            // The same choice TryEquipWeapon makes. Multiplayer stores the
+            // affinity rows at +9; choosing by the shooter's hunter means a
+            // real affinity Battlehammer gets its 0.5 impulse ceiling without
+            // granting that ceiling to everybody carrying Battlehammer.
+            if ((int)hunter < Weapons.AffinityWeapons.Count
+                && (BeamType)beam == Weapons.GetAffinityBeam(hunter)
+                && beam + 9 < Weapons.Current.Count)
+            {
+                index = beam + 9;
+            }
+            return Weapons.Current[index];
+        }
+
+        private static int MaxDamageFor(byte beam, Hunter hunter)
+        {
+            int raw = 200;
+            WeaponInfo? info = ClaimWeapon(beam, hunter);
+            if (info != null)
+            {
+                raw = Math.Max(info.ChargedHeadshotDamage,
+                    Math.Max(info.HeadshotDamage,
+                    Math.Max(info.MinChargeHeadshotDamage,
+                    Math.Max(info.ChargedDamage,
+                    Math.Max(info.UnchargedDamage,
+                    Math.Max(info.MinChargeDamage,
+                    Math.Max(info.ChargedSplashDamage,
+                    Math.Max(info.SplashDamage, info.MinChargeSplashDamage))))))));
+            }
+            // Battlehammer keeps canonical metadata for fidelity, while the
+            // multiplayer spawn path promotes its standard direct hit to 14.
+            // The affinity row is already 18 and therefore wins this max.
+            if ((BeamType)beam == BeamType.Battlehammer)
+            {
+                raw = Math.Max(raw, 14);
+            }
+            // x2 double damage, x2 the largest effectiveness multiplier,
+            // x1.25 the highest damage level.
+            return (int)(raw * 5.0f) + 1;
+        }
+
+        private static bool ValidClaimImpulse(byte beam, Hunter hunter, Vector3 direction)
+        {
+            if (!Single.IsFinite(direction.X) || !Single.IsFinite(direction.Y)
+                || !Single.IsFinite(direction.Z))
+            {
+                return false;
+            }
+            if (direction == Vector3.Zero)
+            {
+                return true;
+            }
+            // A claim is allowed to restore only an impulse the exact weapon
+            // variant this hunter can fire can produce. Without metadata there
+            // is no trustworthy ceiling, so damage-only rescue remains safe.
+            WeaponInfo? info = ClaimWeapon(beam, hunter);
+            if (info == null)
+            {
+                return false;
+            }
+            int raw = Math.Max(Math.Abs(info.UnchargedDmgDirMag),
+                Math.Max(Math.Abs(info.MinChargeDmgDirMag), Math.Abs(info.ChargedDmgDirMag)));
+            float max = raw / 4096f + 0.001f; // leave room only for wire quantisation
+            if ((BeamType)beam == BeamType.Battlehammer)
+            {
+                // Manual airburst reaches 0.35 standard / 0.525 affinity.
+                // Use the affinity ceiling for rescue so Prime Hunter's
+                // affinity-row Battlehammer does not lose displacement merely
+                // because its hunter's ordinary affinity is another weapon.
+                max = Math.Max(max, 0.526f);
+            }
+            return direction.LengthSquared <= max * max;
+        }
+
+        // This gate admits a bounded candidate only. NetSelfSplash.Validate
+        // still proves the authority explosion and replaces the client vector.
+        private static bool ValidQuake3RocketCandidate(Vector3 direction)
+        {
+            const float maximum = Movement.Quake3MovementProfileV2.MaximumRocketImpulse + .001f;
+            return Single.IsFinite(direction.X) && Single.IsFinite(direction.Y) && Single.IsFinite(direction.Z)
+                && direction.LengthSquared <= maximum * maximum;
+        }
+
+        /// <summary>
+        /// One call a frame, from <see cref="NetHooks.AfterSimulation"/>.
+        ///
+        /// On the authority it ages the parked claims, drops the ones the
+        /// authority has since answered for itself, and applies what is left
+        /// -- <b>in fire-frame order</b>, which is what makes a mutual kill
+        /// come out the same way whichever datagram won the race. On a client
+        /// it ages the outbox.
+        /// </summary>
+        public static void Tick()
+        {
+            if (!NetRoomChange.GameplayReady) return;
+            if (Claiming)
+            {
+                TickOutbox();
+            }
+            if (!Arbitrating)
+            {
+                return;
+            }
+            TrackDeaths();
+            uint now = NetSession.NetFrame;
+            // Oldest fire-frame first. Selection over the bounded per-shooter table with
+            // almost nothing live in it: the loop below normally finds nothing
+            // at all, and the sort only ever orders claims that came due on
+            // the same frame, which is two in the case this exists for.
+            while (true)
+            {
+                int next = -1;
+                int overdue = -1;
+                for (int i = 0; i < PendingCapacity; i++)
+                {
+                    ref Pending entry = ref _pending[i];
+                    if (!entry.Live)
+                    {
+                        continue;
+                    }
+                    // The authority answered this itself. Nothing to rescue,
+                    // and applying it would be the same hit twice. One of its
+                    // hits retires one claim, so a burst that really did lose
+                    // three of four still gets three back.
+                    if (!NetSession.MatchesStream(entry.MatchId, entry.AuthorityEpoch)
+                        || !NetPlayerLifecycle.Matches(entry.ShooterSlot, entry.ShooterGeneration, entry.ShooterLifeId)
+                        || !NetPlayerLifecycle.Matches(entry.VictimSlot, entry.VictimGeneration, entry.VictimLifeId))
+                    {
+                        Answer(entry.ShooterSlot, entry.Id, HitVerdictPacket.ResultWrongLife);
+                        DeactivatePending(ref entry);
+                        NetPlayerLifecycle.OldLifeClaims++;
+                        continue;
+                    }
+                    if (NetSession.ServerMatch is { Ending: true })
+                    {
+                        AnswerEndedMatch(entry.ShooterSlot, ProofClaim(entry));
+                        DeactivatePending(ref entry);
+                        continue;
+                    }
+                    var nativeSelection=CustomNativeClaimSource.Read(entry.ShooterSlot,ProofClaim(entry));
+                    if(nativeSelection!=CustomNativeFireDecision.Released)
+                    {
+                        if(nativeSelection!=CustomNativeFireDecision.Pending||unchecked(now-entry.Arrived)>=2*MaxGraceFrames)
+                        {
+                            RefusedHere++;Answer(entry.ShooterSlot,entry.Id,HitVerdictPacket.ResultInvalidLaunch);
+                            DeactivatePending(ref entry);
+                        }
+                        continue;
+                    }
+                    if(entry.AwaitingNativeSelection)
+                    {
+                        var waitingClaim=ProofClaim(entry);
+                        var proof=NetShotProof.Observe(entry.ShooterSlot,waitingClaim,HitVerdictPacket.ResultApplied,"source-released");
+                        if(NetShotProof.Mode==ShotProofMode.Enforce&&AnswerPhysicalOutcome(entry.ShooterSlot,waitingClaim))
+                        {DeactivatePending(ref entry);continue;}
+                        if(waitingClaim.VictimSlot!=entry.ShooterSlot&&NetShotProof.Mode==ShotProofMode.Enforce
+                            &&proof.Status==ShotProofStatus.Rejected)
+                        {Answer(entry.ShooterSlot,entry.Id,HitVerdictPacket.ResultRefused);DeactivatePending(ref entry);continue;}
+                        entry.AwaitingNativeSelection=false;
+                    }
+                    if (AnswerPaidPending(ref entry))
+                    { DeactivatePending(ref entry); continue; }
+                    var paidClaim = ProofClaim(entry);
+                    if (NetShotProof.Mode == ShotProofMode.Enforce
+                        && NetShotProof.TryPhysicalOutcome(entry.ShooterSlot, paidClaim, out var paidOutcome))
+                    {
+                        NetShotProof.Observe(entry.ShooterSlot, paidClaim,
+                            HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+                        AnswerPhysicalOutcome(entry.ShooterSlot, paidClaim);
+                        DeactivatePending(ref entry);
+                        NoteAgreement(entry.ShooterSlot, entry.VictimSlot, entry.Beam,
+                            entry.Damage, paidOutcome.DamageApplied);
+                        continue;
+                    }
+                    // A client hit cannot create damage for an accepted turret
+                    // source that the authority has not emitted. Its native
+                    // cooldown/target recovery may outlast the normal claim grace.
+                    // Wait within the existing bounded arbitration horizon, without
+                    // holding unrelated claims behind a source that cannot fire.
+                    var sourceKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId,
+                        entry.ShooterSlot, entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
+                    bool retiredTurret = NetFireEvents.IsRetiredUnemittedTurret(sourceKey);
+                    bool pendingTurret = !retiredTurret && NetFireEvents.IsPendingTurret(sourceKey);
+                    if (retiredTurret || pendingTurret)
+                    {
+                        if (retiredTurret || unchecked(now - entry.Arrived) >= 2 * MaxGraceFrames)
+                        {
+                            RefusedHere++;
+                            Answer(entry.ShooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
+                            DeactivatePending(ref entry);
+                        }
+                        continue;
+                    }
+                    int resolved;
+                    if (entry.ContinuousPhase != 0
+                        ? TakeLegacyContinuousLedger(entry.ShooterSlot, entry.VictimSlot, entry.ContinuousPhase, entry.ShotId, out resolved)
+                        : TakeLedger(entry.ShooterSlot, entry.VictimSlot, entry.AckFrame,
+                            entry.LaunchFrame, entry.Arrived, entry.Grace, out resolved, entry.ShotId,
+                            new ShotKey(entry.AuthorityEpoch, entry.MatchId, entry.ShooterSlot,
+                                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId), entry.ComponentId, NetShotProof.Kind(entry.Flags)))
+                    {
+                        // A validated Imperialist headshot can pair with the
+                        // authority's body hit when the two rewinds differ by
+                        // only the narrow head band. "Duplicate" used to throw
+                        // away the missing 128 damage and leave the target
+                        // alive after the shooter had been told HEADSHOT.
+                        var proofClaim = ProofClaim(entry);
+                        var proof = NetShotProof.Observe(entry.ShooterSlot, proofClaim,
+                            HitVerdictPacket.ResultDuplicate, "authority-match", final: true);
+                        if (NetShotProof.Mode != ShotProofMode.Enforce)
+                            ReconcileImperialistHeadshot(ref entry, resolved);
+                        NetShotProof.MarkClaim(entry.ShooterSlot, proofClaim);
+                        DeactivatePending(ref entry);
+                        DuplicateHere++;
+                        NoteAgreement(entry.ShooterSlot, entry.VictimSlot, entry.Beam,
+                            entry.Damage, resolved);
+                        Answer(entry.ShooterSlot, entry.Id, _takenOutcome.Result == (byte)CombatAckResult.Corrected ? _takenOutcome.Result : HitVerdictPacket.ResultDuplicate, outcome: _takenOutcome);
+                        continue;
+                    }
+                    if (next < 0 || (entry.LaunchFrame != 0 ? entry.LaunchFrame : entry.AckFrame)
+                        < (_pending[next].LaunchFrame != 0 ? _pending[next].LaunchFrame : _pending[next].AckFrame))
+                    {
+                        next = i;
+                    }
+                    if (now - entry.Arrived >= 2 * MaxGraceFrames
+                        && (overdue < 0 || entry.Arrived < _pending[overdue].Arrived)) overdue = i;
+                }
+                if (next < 0)
+                {
+                    break;
+                }
+                // A known earlier shot still inside its grace must be decided first.
+                // Packet arrival order must not turn a one-frame winner into a trade.
+                if (now - _pending[next].Arrived < (uint)_pending[next].Grace)
+                {
+                    // A stream of newly arriving older claims must not starve a
+                    // completed grace window indefinitely. Late evidence cannot
+                    // reorder a verdict beyond this bounded arbitration window.
+                    if (overdue < 0) break;
+                    next = overdue;
+                }
+                ApplyOne(ref _pending[next]);
+                DeactivatePending(ref _pending[next]);
+                TrackDeaths();
+            }
+            FlushVerdicts();
+        }
+
+        /// <summary>
+        /// Watch each slot cross from in play to down, and stamp the world it
+        /// was killed in. <see cref="_lastHitFire"/> is whatever the newest
+        /// hit on that slot was aimed at, which for a kill is the killing
+        /// shot -- and a death with no hit behind it (the void, a crusher, the
+        /// clock) is stamped with the present, which is the truth for
+        /// something nobody aimed.
+        /// </summary>
+        private static void TrackDeaths()
+        {
+            for (int i = 0; i < Slots; i++)
+            {
+                bool inPlay = i < PlayerEntity.Players.Count
+                    && PlayerEntity.Players[i].LoadFlags.TestFlag(LoadFlags.Active)
+                    && PlayerEntity.Players[i].ModIsInPlay;
+                if (_wasInPlay[i] && !inPlay)
+                {
+                    _dead[i] = true;
+                    _deathFire[i] = _lastHitFire[i] != 0 ? _lastHitFire[i] : NetSession.NetFrame;
+                }
+                else if (!_wasInPlay[i] && inPlay)
+                {
+                    _dead[i] = false;
+                    _deathFire[i] = 0;
+                    _lastHitFire[i] = 0;
+                    for (int j = 0; j < Slots; j++)
+                    {
+                        ClearLedger(j, i);
+                    }
+                }
+                _wasInPlay[i] = inPlay;
+            }
+        }
+
+        /// <summary>
+        /// Shots this authority has already made real out of a claim, and how
+        /// many hits of each are still owed a refusal.
+        ///
+        /// <b>The other half of not paying twice.</b> Matching a claim against
+        /// hits the authority has already resolved covers the case where its
+        /// answer came first. It cannot cover the opposite one -- the claim is
+        /// applied at the end of its window and the authority's own copy of
+        /// that shot lands *after* -- and measured at 400 ms that is most of
+        /// what was left: rescues with the authority's matching hit 48 frames
+        /// the wrong side of them. So the shot is remembered, and when the
+        /// authority's own copy finally arrives it is refused at the top of
+        /// <c>TakeDamage</c>.
+        ///
+        /// A count rather than a flag, because one shot can land more than
+        /// once on one victim: a Missile's direct hit and its splash are two,
+        /// and both machines produce both. Two claims applied means the next
+        /// two of the authority's own hits for that shot are the same two.
+        /// </summary>
+        private static readonly NetRescueIndex _rescueIndex = new();
+        public static long SuppressedHere { get; private set; }
+        private static bool CanRememberRescue(int attacker, int victim, uint launch)
+            => launch == 0 || _rescueIndex.CanInsert(attacker, victim, ShotKey.For(attacker, launch),
+                NetPlayerLifecycle.Generation(victim), NetPlayerLifecycle.Get(victim), NetSession.NetFrame);
+        private static void NoteRescued(int attacker, int victim, uint launch)
+        {
+            if (launch != 0 && !_rescueIndex.Insert(attacker, victim, ShotKey.For(attacker, launch),
+                NetPlayerLifecycle.Generation(victim), NetPlayerLifecycle.Get(victim), NetSession.NetFrame))
+                throw new InvalidOperationException("Rescue capacity must be reserved before applying damage");
+        }
+        public static bool AlreadyRescued(int attacker, int victim, uint launch, ShotKey? launchKey = null)
+        {
+            if (!Arbitrating || launch == 0 || ApplyingClaim || (uint)attacker >= Slots || (uint)victim >= Slots) return false;
+            if (!_rescueIndex.Consume(attacker, victim, launchKey ?? ShotKey.For(attacker, launch),
+                NetPlayerLifecycle.Generation(victim), NetPlayerLifecycle.Get(victim), NetSession.NetFrame)) return false;
+            SuppressedHere++;
+            return true;
+        }
+
+        /// <summary>
+        /// Make a claim real: the damage the authority's own simulation never
+        /// found, applied through the same <c>TakeDamage</c> every other hit
+        /// goes through, so the damage sequence, the scoreboard, the death and
+        /// the snapshot that carries all three are the ones that already work.
+        /// </summary>
+        private static void ApplyOne(ref Pending entry)
+        {
+            if (!NetPerformanceEvidence.Enabled) { ApplyOneCore(ref entry); return; }
+            long start = NetPerformanceEvidence.Start();
+            int previous = NetPerformanceEvidence.TerminalResult;
+            NetPerformanceEvidence.TerminalResult = -1;
+            try { ApplyOneCore(ref entry); }
+            finally
+            {
+                NetPerformanceEvidence.End(NetPerformanceEvidence.Operation.Settlement, start, NetPerformanceEvidence.TerminalResult);
+                NetPerformanceEvidence.TerminalResult = previous;
+            }
+        }
+
+        private static void ApplyOneCore(ref Pending entry)
+        {
+            int victimSlot = entry.VictimSlot;
+            int shooterSlot = entry.ShooterSlot;
+            if (!NetSession.MatchesStream(entry.MatchId, entry.AuthorityEpoch)
+                || !NetPlayerLifecycle.Matches(shooterSlot, entry.ShooterGeneration, entry.ShooterLifeId)
+                || !NetPlayerLifecycle.Matches(victimSlot, entry.VictimGeneration, entry.VictimLifeId))
+            {
+                NetPlayerLifecycle.OldLifeClaims++;
+                return;
+            }
+            if(CustomNativeClaimSource.Read(shooterSlot,ProofClaim(entry))!=CustomNativeFireDecision.Released)
+            {RefusedHere++;Answer(shooterSlot,entry.Id,HitVerdictPacket.ResultInvalidLaunch);return;}
+            if (AnswerPaidPending(ref entry)) return;
+            var terminalKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId, shooterSlot,
+                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
+            if (NetFireEvents.IsRetiredUnemittedTurret(terminalKey)
+                || NetFireEvents.IsPendingTurret(terminalKey))
+            {
+                RefusedHere++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch);
+                return;
+            }
+            var paidClaim = ProofClaim(entry);
+            if (NetTimedShotModifiers.Enforcing)
+            {
+                if (!NetTimedShotModifiers.TryClaimLimit(shooterSlot, paidClaim, entry.TimedProfile,
+                    out uint limit, out bool headshot, entry.TimedImpact))
+                { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDamageLimit); return; }
+                entry.Damage = (ushort)Math.Min(entry.Damage, limit);
+                if (!headshot) entry.Flags &= unchecked((byte)~HitClaimPacket.FlagHeadshot);
+                if (entry.Damage == 0)
+                { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDamageLimit); return; }
+            }
+            if (NetShotProof.Mode == ShotProofMode.Enforce
+                && NetShotProof.TryPhysicalOutcome(shooterSlot, paidClaim, out _))
+            {
+                NetShotProof.Observe(shooterSlot, paidClaim,
+                    HitVerdictPacket.ResultDuplicate, "settlement", final: true);
+                AnswerPhysicalOutcome(shooterSlot, paidClaim);
+                return;
+            }
+            if (victimSlot >= PlayerEntity.Players.Count
+                || shooterSlot >= PlayerEntity.Players.Count)
+            {
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultRefused);
+                return;
+            }
+            PlayerEntity victim = PlayerEntity.Players[victimSlot];
+            PlayerEntity shooter = PlayerEntity.Players[shooterSlot];
+            if (!victim.LoadFlags.TestFlag(LoadFlags.Active) || !victim.ModIsInPlay)
+            {
+                VoidedDeadVictim++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDeadVictim);
+                return;
+            }
+            // Re-asked at the moment of application, not only on arrival: the
+            // grace window is long enough for somebody to have killed this
+            // shooter in a world earlier than the one it fired in, and the
+            // arbitration is about that ordering rather than about which
+            // packet arrived first.
+            if (ShooterDiedBeforeShot(_dead[shooterSlot], _deathFire[shooterSlot],
+                entry.LaunchFrame, entry.AckFrame))
+            {
+                VoidedDeadShooter++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultDeadShooter);
+                return;
+            }
+            var proofClaim = ProofClaim(entry);
+            var proof = NetShotProof.Observe(shooterSlot, proofClaim, HitVerdictPacket.ResultApplied, "settlement", final: true);
+            if (victimSlot != shooterSlot && NetShotProof.Mode == ShotProofMode.Enforce && proof.Status != ShotProofStatus.Verified)
+            {
+                RefusedHere++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultRefused);
+                return;
+            }
+            if (victimSlot != shooterSlot && NetShotProof.Mode == ShotProofMode.Enforce)
+            {
+                // A physical witness authorizes acknowledgement of that existing
+                // resolution, never another payment after the legacy match ring expires.
+                if (proof.PhysicalMatch)
+                {
+                    if (!AnswerPhysicalOutcome(shooterSlot, proofClaim))
+                        Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultRefused);
+                    return;
+                }
+                if (!NetShotProof.MarkClaim(shooterSlot, proofClaim))
+                { Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity); return; }
+            }
+            if (victimSlot == shooterSlot)
+            {
+                if (!NetSelfSplash.Validate(shooterSlot, proofClaim, out var self))
+                { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch); return; }
+                entry.Damage = self.Damage; entry.Direction = self.Impulse;
+                entry.Flags = (byte)((entry.Flags & HitClaimPacket.FlagLethal) | self.Effects);
+            }
+            bool continuous = IsContinuous(proofClaim);
+            bool lifeDrain = false;
+            if (continuous && !NetContinuousAdmission.Validate(shooterSlot, proofClaim, out lifeDrain))
+            { RefusedHere++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultInvalidLaunch); return; }
+            using var tickPayment = continuous ? NetContinuousPayments.Begin(ContinuousKey(shooterSlot, proofClaim),
+                emittedShotId: proofClaim.ShotId, claimId: proofClaim.ClaimId)
+                : new NetContinuousPayments.Reservation(true);
+            if (!tickPayment.Allowed)
+            { ClaimsCapacityRefused++; Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity); return; }
+            using var payment = HasComponentPayment(proofClaim)
+                ? NetCombatPayments.Begin(NetShotProof.PaymentKey(shooterSlot, proofClaim), entry.Beam, fromClaim: true)
+                : new NetCombatPayments.Reservation(true);
+            if (!payment.Allowed)
+            {
+                ClaimsCapacityRefused++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity);
+                return;
+            }
+            if (!continuous && !HasComponentPayment(proofClaim) && !CanRememberRescue(shooterSlot, victimSlot, entry.ShotId)
+                || (_ledgerUnsafeUntil[shooterSlot, victimSlot] != 0
+                    && (int)(_ledgerUnsafeUntil[shooterSlot, victimSlot] - NetSession.NetFrame) >= 0))
+            {
+                ClaimsCapacityRefused++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultClaimCapacity);
+                return;
+            }
+            DamageFlags flags = DamageFlags.NoDmgInvuln;
+            if ((entry.Flags & HitClaimPacket.FlagHalfturret) != 0)
+            {
+                if (victim.Hunter != Hunter.Weavel || !victim.Flags2.TestFlag(PlayerFlags2.Halfturret))
+                { Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultNoDamage); return; }
+                flags |= DamageFlags.Halfturret;
+            }
+            if ((entry.Flags & HitClaimPacket.FlagHeadshot) != 0)
+            {
+                flags |= DamageFlags.Headshot;
+            }
+            // The killing-world stamp and ledger entry are written by NetDamage.Note on the
+            // way through TakeDamage, filed under this ack and already used.
+            //
+            // It used to be written here *as well*, which put two entries in an
+            // resolved-hit ledger for every rescue: one used, one free for a later
+            // claim to match against by mistake, and the pair evicting genuine
+            // authority hits twice as fast as they arrived.
+            var previousClaimContext = (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
+                ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent);
+            ApplyingClaim = true;
+            ApplyingClaimKey = new ShotKey(entry.AuthorityEpoch, entry.MatchId, entry.ShooterSlot,
+                entry.ShooterGeneration, entry.ShooterLifeId, entry.ShotId);
+            ApplyingClaimComponent = entry.ComponentId;
+            ApplyingClaimAck = entry.AckFrame;
+            ApplyingClaimLaunch = entry.LaunchFrame;
+            ApplyingClaimShotId = entry.ShotId;
+            ApplyingClaimHitPoint = entry.HitPoint;
+            ApplyingClaimFlags = entry.Flags;
+            _applyingContinuousPhase = entry.ContinuousPhase;
+            bool lethal = victim.Health <= entry.Damage;
+            uint before = (uint)victim.Health;
+            bool enhancedWasFrozen = victim.ModFrozen;
+            int turretBefore = victim.Halfturret?.Health ?? 0;
+            // The scope carries two things into TakeDamage: the beam the claim
+            // names, so the victim's own machine replays the right hit rather
+            // than a nameless one, and the fact that this is a claim, so the
+            // damage is not multiplied a second time by a powerup and a damage
+            // level the shooter has already applied.
+            //
+            // Source is the shooter rather than a beam, because there is no
+            // beam: this is a hit that happened on another machine. The claim
+            // therefore carries the exact impact vector that machine resolved.
+            // It is bounded against the named weapon in Judge before reaching
+            // here. Zero remains null so non-knockback hits retain the damage
+            // indicator's existing attacker-position fallback.
+            Vector3? impact = entry.Direction == Vector3.Zero ? null : entry.Direction;
+            try
+            {
+                using (new NetDamage.ClaimScope(entry.Beam == HitClaimPacket.NoBeam
+                    ? BeamType.None : (BeamType)entry.Beam))
+                {
+                    victim.TakeDamage(entry.Damage, flags, impact, shooter);
+                }
+            }
+            finally
+            {
+                (ApplyingClaim, ApplyingClaimAck, ApplyingClaimLaunch, ApplyingClaimShotId,
+                    ApplyingClaimHitPoint, ApplyingClaimFlags, _applyingContinuousPhase, ApplyingClaimKey, ApplyingClaimComponent)
+                    = previousClaimContext;
+            }
+            if (victim.Health >= before && (victim.Halfturret?.Health ?? 0) >= turretBefore)
+            {
+                // Spawn protection, teams and other damage rules can refuse a
+                // geometrically valid hit. Never freeze or prepay that flight.
+                RefusedHere++;
+                Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultNoDamage);
+                return;
+            }
+            NetShotProof.MarkClaim(shooterSlot, proofClaim);
+            if (victim.Health > 0)
+            {
+                // A rescued claim has no beam entity, so its afflictions cannot
+                // be recreated by TakeDamage. Re-apply only the afflictions this
+                // exact hit declared; the next snapshot then carries their state.
+                if ((entry.Flags & HitClaimPacket.FlagFrozen) != 0)
+                {
+                    victim.ModSetFrozen(true);
+                }
+                if ((entry.Flags & HitClaimPacket.FlagBurning) != 0)
+                {
+                    if (NetShotProof.TryBurnSource(shooterSlot, proofClaim, out var burn))
+                    {
+                        if ((entry.Flags & HitClaimPacket.FlagHalfturret) != 0)
+                        {
+                            var burnTurret = victim.Halfturret ?? throw new InvalidOperationException("Half-turret burn requires the owned turret.");
+                            burnTurret.OnSetOnFire(burn);
+                        }
+                        else victim.ModStartBurn(burn);
+                    }
+                }
+                if ((entry.Flags & HitClaimPacket.FlagDisrupted) != 0)
+                {
+                    if (NetTimedShotModifiers.Enforcing)
+                    {
+                        if (NetTimedShotProof.TryGet(terminalKey, out var effectShot))
+                            NetTimedShotEffects.ApplyDisruption(victim, effectShot, proofClaim, entry.TimedProfile);
+                    }
+                    else victim.ModSetDisrupted(true);
+                }
+            }
+            Mods.EnhancedHunters.EnhancedHunters.OnConfirmedHit(shooter, victim,
+                entry.Beam == HitClaimPacket.NoBeam ? BeamType.None : (BeamType)entry.Beam,
+                (entry.Flags & HitClaimPacket.FlagDirect) != 0,
+                (entry.Flags & (HitClaimPacket.FlagFrozen | HitClaimPacket.FlagDisrupted)) != 0,
+                (entry.Flags & HitClaimPacket.FlagHeadshot) != 0, wasFrozen: enhancedWasFrozen);
+            AppliedHere++;
+            NetCampaignEvidence.ClaimApplied();
+            if (entry.RescueStudy.Type == Telemetry.TelemetryEventType.LagStudy)
+                Telemetry.ProductionTelemetry.Emit(entry.RescueStudy);
+            // Remember the shot, so the authority's own copy of it -- which
+            // for a slow projectile can still be in the air -- is refused when
+            // it lands rather than paid a second time.
+            if (!continuous && !HasComponentPayment(proofClaim)) NoteRescued(shooterSlot, victimSlot, entry.ShotId);
+            RescuedDamage += before - (uint)Math.Max(0, victim.Health);
+            if ((entry.Flags & HitClaimPacket.FlagHeadshot) != 0)
+            {
+                RescuedHeadshots++;
+            }
+            if (lethal)
+            {
+                RescuedKills++;
+            }
+            // Every rescue, not only the lethal ones. A rescued hit is a shot
+            // the authority's own simulation never found, so each line here is
+            // an answer to "it went through him" -- and the frame gap is what
+            // says whether it was the rewind's ceiling or the shooter's death
+            // that lost it.
+            // The line that says whether a rescue was really a rescue.
+            //
+            // `nearest` is how far the closest hit this authority resolved
+            // itself, for the same pair, sits from this claim's arrival --
+            // used or not. A rescue with nothing near it is a shot the
+            // authority genuinely never found. A rescue with a hit sitting
+            // right on top of it is either a second claim for one shot (a
+            // direct hit and its splash are two) or the match window being
+            // wrong again, and that is the double-damage report. Keep it:
+            // without it the fault is invisible from either end.
+            NetLog.Event($"rescue {entry.Id} beam="
+                + (entry.Beam == HitClaimPacket.NoBeam ? "none" : ((BeamType)entry.Beam).ToString())
+                + $" nearest={NearestLedgerOffset(shooterSlot, victimSlot, entry.Arrived)}f"
+                + $" window={entry.Grace}f ack={entry.AckFrame} arrived={entry.Arrived}");
+            NetLog.Event($"claim {entry.Id}: slot {shooterSlot} hit slot {victimSlot} for "
+                + $"{before - (uint)Math.Max(0, victim.Health)}"
+                + ((entry.Flags & HitClaimPacket.FlagHeadshot) != 0 ? " (headshot)" : "")
+                + (lethal ? " and killed them" : "")
+                + $", aimed at frame {entry.AckFrame}, "
+                + $"{NetSession.NetFrame - entry.AckFrame} frames ago"
+                + (_dead[shooterSlot] ? " -- and was dead by the time it arrived" : ""));
+            var outcome = CaptureOutcome(victim, (int)(before - victim.Health), _latestOutcome[victimSlot].Flags);
+            payment.Commit(outcome, NetCampaignEvidence.Enabled
+                ? Math.Max(0, turretBefore - (victim.Halfturret?.Health ?? 0)) : 0, entry.Id);
+            if (continuous)
+            {
+                int turretRemoved = Math.Max(0, turretBefore - (victim.Halfturret?.Health ?? 0));
+                var healed = NetContinuousPayments.Heal(shooter, victim, Math.Max(0, (int)before - victim.Health), turretRemoved, lifeDrain);
+                outcome.ShotId = entry.ShotId;
+                tickPayment.Commit(outcome, healed.Body, healed.Turret, turretRemoved);
+                NetContinuousPresentation.Confirm(ContinuousKey(shooterSlot, proofClaim), entry.HitPoint);
+            }
+            Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultApplied, outcome: outcome);
+        }
+
+        /// <summary>
+        /// Where a verdict goes. Filled in by whoever owns the socket -- the
+        /// dedicated server, or a peer host -- because this file has none of
+        /// its own and those two transports do not look alike.
+        /// </summary>
+        public delegate void VerdictWriter(int slot,
+            ReadOnlySpan<(ushort Id, byte Result)> verdicts);
+
+        public static VerdictWriter? VerdictSink { get; set; }
+        public delegate void CombatAckWriter(int slot, ReadOnlySpan<CombatAckEntry> entries);
+        public static CombatAckWriter? CombatAckSink { get; set; }
+
+        /// <summary>
+        /// Verdicts waiting to go out, per shooter.
+        ///
+        /// Buffered for a frame rather than sent one datagram each, because
+        /// they arrive in two different places -- <see cref="Receive"/>
+        /// answers what it can refuse on sight, <see cref="Tick"/> answers
+        /// what had to wait out its grace -- and a client repeating six claims
+        /// into one packet would otherwise be answered with six. One frame is
+        /// 16 ms against the round trip this exists to save, which is
+        /// hundreds.
+        /// </summary>
+        private const int VerdictCapacity = HitVerdictPacket.MaxPerPacket;
+        private static readonly CombatAckEntry[,] _verdicts = new CombatAckEntry[Slots, VerdictCapacity];
+        private static readonly int[] _verdictCount = new int[Slots];
+
+        private static void Answer(int slot, ushort id, byte result, bool remember = true, CombatAckEntry? outcome = null)
+        {
+            if (slot < 0 || slot >= Slots)
+            {
+                return;
+            }
+            int at = SeenIndex(slot, id);
+            // Once terminal, a cached claim cannot acquire a different answer.
+            if (remember && _seenIds[slot, at] == id && _seenResults[slot, at] != ResultPending)
+            { result = _seenResults[slot, at]; outcome = _seenOutcomes[slot, at]; }
+            if (remember && _seenIds[slot, at] == id && _seenResults[slot, at] == ResultPending)
+            {
+                int weapon = NetShotDiagnostics.Bucket(_seenBeams[slot, at]);
+                if (result == HitVerdictPacket.ResultApplied) NetShotDiagnostics.Rescues[weapon]++;
+                else if (result != HitVerdictPacket.ResultDuplicate) NetShotDiagnostics.Refusals[weapon]++;
+                if (NetLog.Enabled) NetShotDiagnostics.Trace("authority-verdict", _seenKeys[slot, at],
+                    _seenBeams[slot, at], $"claim={id} result={HitVerdictPacket.Describe(result)}");
+            }
+            // Remember even when this datagram's answer queue is full: a retry
+            // must repeat the verdict, never park the already applied hit again.
+            CombatAckEntry answer = outcome ?? (_seenIds[slot, at] == id ? _seenOutcomes[slot, at] : new CombatAckEntry { VictimSlot = 255 });
+            answer.ClaimId = id; answer.Result = result;
+            if (NetPerformanceEvidence.Enabled) NetPerformanceEvidence.TerminalResult = answer.Result;
+            NetOperatorEvidence.Answer(answer.Result);
+            // Native outcomes carry victim state, not the claimant's correlation
+            // identity. The first answer must identify the claim just as a retry does.
+            if (answer.ShotId == 0 && _seenIds[slot, at] == id) answer.ShotId = _seenKeys[slot, at].ShotId;
+            Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Claim, NetSession.NetFrame,
+                Player: (byte)slot, Victim: answer.VictimSlot, Id: id, Result: result, Flags: (int)answer.Flags,
+                A: answer.DamageApplied, B: answer.HealthAfter, ShotId: answer.ShotId));
+            if (NetCampaignEvidence.Enabled)
+                NetTimedCampaignJoin.Terminal(slot, NetTimedCampaignJoin.TryRequestKey(slot, id, out var requested)
+                    ? requested : remember && _seenIds[slot, at] == id
+                        && _seenKeys[slot, at].ShotId == answer.ShotId ? _seenKeys[slot, at] : null, answer);
+            if (NetCombatFastPath.TryRequest(slot, id, out var fastKey))
+                NetCombatFastPath.Terminal(fastKey, answer);
+            else if (remember && _seenIds[slot, at] == id && _seenKeys[slot, at].ShotId == answer.ShotId)
+                NetCombatFastPath.Terminal(_seenPaymentKeys[slot, at], answer);
+            if (remember) { Remember(slot, id, result); _seenOutcomes[slot, at] = answer; }
+            if (_verdictCount[slot] >= VerdictCapacity) return;
+            _verdicts[slot, _verdictCount[slot]++] = answer;
+        }
+
+        private static void FlushVerdicts()
+        {
+            if (VerdictSink == null && CombatAckSink == null)
+            {
+                Array.Clear(_verdictCount);
+                return;
+            }
+            Span<CombatAckEntry> scratch = stackalloc CombatAckEntry[VerdictCapacity];
+            Span<(ushort Id, byte Result)> legacy = stackalloc (ushort, byte)[VerdictCapacity];
+            for (int slot = 0; slot < Slots; slot++)
+            {
+                int count = _verdictCount[slot];
+                if (count == 0)
+                {
+                    continue;
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    scratch[i] = _verdicts[slot, i];
+                }
+                _verdictCount[slot] = 0;
+                CombatAckSink?.Invoke(slot, scratch[..count]);
+                if (VerdictSink != null)
+                {
+                    for (int i = 0; i < count; i++) legacy[i] = (scratch[i].ClaimId, scratch[i].Result);
+                    VerdictSink(slot, legacy[..count]);
+                }
+            }
+        }
+
+        public static void Reset()
+        {
+            RetireReceipts(ClaimReceiptRetirement.SessionRetired);
+            RecordPendingCancellation(ClaimReceiptRetirement.SessionRetired);
+            Array.Clear(_outbox);
+            Array.Clear(_pending); _claimsPendingCurrent = 0;
+            Array.Clear(_authorityComponents); Array.Clear(_authorityKinds);
+            Array.Clear(_seenIds);
+            Array.Clear(_seenResults);
+            Array.Clear(_seenTerminalFrames); Array.Clear(_receiptUnsafe); Array.Clear(_receiptUnsafeUntil);
+            Array.Clear(_seenPaymentKeys); Array.Clear(_seenOutcomes); Array.Clear(_authorityOutcomes); Array.Clear(_latestOutcome);
+            Array.Clear(_newestId);
+            Array.Clear(_lastResult);
+            Array.Clear(_authorityLive); _resolvedLedgerCurrent = 0;
+            Array.Clear(_ledgerUnsafeUntil);
+            Array.Clear(_authorityHit);
+            Array.Clear(_authorityHitAck);
+            Array.Clear(_authorityHitLaunch); Array.Clear(_authorityContinuousPhase); _applyingContinuousPhase = 0;
+            Array.Clear(_authorityHitUsed);
+            Array.Clear(_authorityHitHead);
+            Array.Clear(_deathFire);
+            Array.Clear(_dead);
+            Array.Clear(_lastHitFire);
+            Array.Clear(_wasInPlay);
+            Array.Clear(_verdictCount);
+            _rescueIndex.Reset();
+            NetCombatPayments.Reset();
+            NetSelfSplash.Reset(); NetBurnSource.Reset();
+            NetContinuousPayments.Reset(); NetContinuousAdmission.Reset(); NetContinuousPresentation.Reset();
+            _nextId = 1;
+            ClaimsCapacityRefused = ResolvedLedgerExpiredUnused = ResolvedLedgerOverwrittenUnused = ResolvedLedgerCapacityRefused = 0;
+            ClaimsPendingHighWater = ResolvedLedgerHighWater = 0;
+            Declared = 0;
+            Applied = 0;
+            Duplicate = 0;
+            RefusedDeadShooter = 0;
+            RefusedDeadVictim = 0;
+            RefusedOther = 0;
+            Unanswered = 0;
+            Resends = 0;
+            Received = 0;
+            AppliedHere = 0;
+            DuplicateHere = 0;
+            VoidedDeadShooter = 0;
+            VoidedDeadVictim = 0;
+            RefusedHere = 0;
+            TooOldHere = 0;
+            RepeatsHere = 0;
+            SuppressedHere = 0;
+            MatchedByLaunch = 0;
+            MatchedByWindow = 0;
+            RescuedDamage = 0;
+            Array.Clear(_agreeByBeam);
+            Array.Clear(_differByBeam);
+            Array.Clear(_claimedByBeam);
+            Array.Clear(_resolvedByBeam);
+            _disagreementsLogged = 0;
+            RescuedKills = 0;
+            RescuedHeadshots = 0;
+            HeadshotCorrections = 0;
+        }
+
+        /// <summary>
+        /// Forget everything about one slot. A claim describes a hit on a
+        /// particular player in a particular room; kept across either, it
+        /// would be applied to whoever arrives next.
+        /// </summary>
+        public static void ForgetSlot(int slot, bool preserveFlights = false)
+        {
+            if (slot < 0 || slot >= Slots)
+            {
+                return;
+            }
+            for (int i = 0; i < OutboxCapacity; i++)
+            {
+                if (_outbox[i].VictimSlot == slot || slot == NetSession.LocalSlot)
+                {
+                    if (_outbox[i].Live && _outbox[i].Beam == (byte)BeamType.ShockCoil)
+                        NetHitPrediction.SettleDrain(_outbox[i].Id, false);
+                    RetireReceipt(ref _outbox[i], preserveFlights ? ClaimReceiptRetirement.LifeRetired
+                        : ClaimReceiptRetirement.OccupantRetired);
+                }
+            }
+            for (int i = 0; i < PendingCapacity; i++)
+            {
+                if (_pending[i].Live && (_pending[i].VictimSlot == slot || _pending[i].ShooterSlot == slot))
+                {
+                    if (Arbitrating)
+                        Answer(_pending[i].ShooterSlot, _pending[i].Id, HitVerdictPacket.ResultWrongLife);
+                    DeactivatePending(ref _pending[i]);
+                }
+            }
+            if (!preserveFlights)
+            {
+                _receiptUnsafe[slot] = false; _receiptUnsafeUntil[slot] = 0;
+                _verdictCount[slot] = 0;
+                for (int i = 0; i < SeenCapacity; i++) { _seenIds[slot, i] = 0; _seenResults[slot, i] = 0; }
+            }
+            NetCombatPayments.ForgetSlot(slot, preserveFlights);
+            NetContinuousPayments.ForgetSlot(slot, preserveFlights); NetContinuousAdmission.ForgetSlot(slot); NetContinuousPresentation.ForgetSlot(slot);
+            _rescueIndex.ForgetSlot(slot, preserveFlights);
+            _newestId[slot] = 0;
+            _lastResult[slot] = 0;
+            _deathFire[slot] = 0;
+            _dead[slot] = false;
+            _lastHitFire[slot] = 0;
+            _wasInPlay[slot] = false;
+            for (int i = 0; i < Slots; i++)
+            {
+                ClearLedger(slot, i);
+                ClearLedger(i, slot);
+            }
+        }
+
+        /// <summary>Every claim in flight is about a room that is going away.</summary>
+        public static void ForgetPending()
+        {
+            RetireReceipts(ClaimReceiptRetirement.MatchRetired);
+            RecordPendingCancellation(ClaimReceiptRetirement.MatchRetired);
+            Array.Clear(_authorityComponents); Array.Clear(_authorityKinds);
+            Array.Clear(_seenIds);
+            Array.Clear(_seenResults);
+            Array.Clear(_seenTerminalFrames); Array.Clear(_receiptUnsafe); Array.Clear(_receiptUnsafeUntil);
+            Array.Clear(_seenPaymentKeys); Array.Clear(_seenOutcomes); Array.Clear(_authorityOutcomes); Array.Clear(_latestOutcome);
+            Array.Clear(_newestId);
+            Array.Clear(_verdictCount);
+            _rescueIndex.Reset();
+            NetCombatPayments.Reset();
+            NetSelfSplash.Reset(); NetBurnSource.Reset();
+            NetContinuousPayments.Reset(); NetContinuousAdmission.Reset(); NetContinuousPresentation.Reset();
+            Array.Clear(_outbox);
+            Array.Clear(_pending); _claimsPendingCurrent = 0;
+            Array.Clear(_authorityLive); _resolvedLedgerCurrent = 0;
+            Array.Clear(_ledgerUnsafeUntil);
+            Array.Clear(_authorityHit);
+            Array.Clear(_authorityHitAck);
+            Array.Clear(_authorityHitUsed);
+            Array.Clear(_authorityHitHead);
+            Array.Clear(_deathFire);
+            Array.Clear(_dead);
+            Array.Clear(_lastHitFire);
+            Array.Clear(_wasInPlay);
+        }
+
+        /// <summary>
+        /// The shooter's line in a report. Absent from a run that claimed
+        /// nothing, which is what the authority's own report says.
+        /// </summary>
+        public static string? Describe()
+        {
+            if (Declared == 0 && Received == 0)
+            {
+                return null;
+            }
+            if (Received > 0)
+            {
+                return $"hit claims (as authority): {Received} received, {AppliedHere} applied "
+                    + $"({RescuedDamage} damage, {RescuedKills} kills, {RescuedHeadshots} "
+                    + $"headshots rescued, {HeadshotCorrections} duplicate headshots corrected), "
+                    + $"{DuplicateHere} already resolved, "
+                    + $"{VoidedDeadShooter} from a shooter already dead, "
+                    + $"{VoidedDeadVictim} on a victim already down, "
+                    + $"{RefusedHere} refused, {TooOldHere} too old, "
+                    + $"{RepeatsHere} repeats "
+                    + $"(matched {MatchedByLaunch} by shot, {MatchedByWindow} by window, "
+                    + $"{SuppressedHere} of its own refused as already rescued)";
+            }
+            long answered = Applied + Duplicate + RefusedDeadShooter
+                + RefusedDeadVictim + RefusedOther;
+            double pct = answered > 0 ? 100.0 * (Applied + Duplicate) / answered : 0;
+            return $"hit claims: {Declared} declared, {Applied} applied, "
+                + $"{Duplicate} already resolved ({pct:F1}% stood), "
+                + $"{RefusedDeadShooter} void (dead shooter), "
+                + $"{RefusedDeadVictim} void (victim down), {RefusedOther} refused, "
+                + $"{Unanswered} unanswered, {Resends} repeats";
+        }
+    }
+}

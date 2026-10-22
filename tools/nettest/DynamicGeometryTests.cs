@@ -1,0 +1,161 @@
+using System;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using MphRead;
+using MphRead.Entities;
+using MphRead.Formats.Collision;
+using MphRead.Mods.Network;
+using OpenTK.Mathematics;
+namespace MphRead.NetTest;
+internal static class DynamicGeometryTests
+{
+    private sealed class Geometry(int id, bool continuous) : INetRewindableGeometry
+    {
+        public int NetGeometryId => id;
+        public bool Continuous => continuous;
+        public NetGeometryState State;
+        public NetGeometryState CaptureNetworkCollisionState() => State;
+        public void ApplyNetworkCollisionState(in NetGeometryState state) => State = state;
+    }
+    // The original large Run loop allocates during tiered on-stack replacement
+    // on the preserved Windows binary; disabling only OSR removes that failure.
+    // Measure the same warmed production calls in a fixed optimized helper,
+    // retaining strict zero bytes, exact call counts and state restoration.
+    [MethodImpl(MethodImplOptions.NoInlining | MethodImplOptions.AggressiveOptimization)]
+    private static long MeasureRewind(NetDynamicGeometryHistory history, out int applied)
+    {
+        applied = 0;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        for (int i = 0; i < 10000; i++)
+        {
+            using var scope = history.Begin(149);
+            if (scope.Applied) applied++;
+        }
+        return GC.GetAllocatedBytesForCurrentThread() - before;
+    }
+    public static int Run()
+    {
+        try
+        {
+            var door = new Geometry(1, false); var field = new Geometry(2, false); var platform = new Geometry(3, true);
+            var history = new NetDynamicGeometryHistory(new INetRewindableGeometry[] { door, field, platform });
+            var origin = Matrix4.Identity;
+            door.State = new(origin, origin, origin, Vector3.Zero, false);
+            field.State = door.State with { Enabled = true };
+            platform.State = door.State with { Enabled = true };
+            history.Record(20);
+            door.State = door.State with { Enabled = true }; field.State = field.State with { Enabled = false };
+            var moved = Matrix4.CreateTranslation(10, 0, 0);
+            platform.State = new(moved, moved.Inverted(), moved.Inverted(), new Vector3(10, 0, 0), true);
+            history.Record(21);
+            var liveDoor = door.State; var liveField = field.State; var livePlatform = platform.State;
+            using (var scope = history.Begin(20))
+            {
+                NetArchitectureTests.Check(scope.Applied && !door.State.Enabled, "door closing after shot: historical trace passes");
+                NetArchitectureTests.Check(field.State.Enabled, "force field disabling after shot: historical trace blocks");
+                NetArchitectureTests.Check(platform.State.Center == Vector3.Zero, "platform and projectile use frame 20");
+            }
+            NetArchitectureTests.Check(door.State == liveDoor && field.State == liveField && platform.State == livePlatform, "exact present restoration");
+            using (history.Begin(20.5))
+            {
+                NetArchitectureTests.Check(!door.State.Enabled && field.State.Enabled, "discrete flags never interpolate");
+                NetArchitectureTests.Check(platform.State.Center.X == 5 && platform.State.Transform.Row3.X == 5, "continuous transform interpolation");
+            }
+            door.State = liveDoor with { Enabled = false }; field.State = liveField with { Enabled = true }; history.Record(22);
+            using (history.Begin(21)) NetArchitectureTests.Check(door.State.Enabled && !field.State.Enabled, "door opening / field enabling retains source-frame obstruction");
+            for (uint frame = 20; frame <= 22; frame++)
+            {
+                using var scope = history.Begin(frame);
+                NetArchitectureTests.Check(scope.Applied && door.State.Enabled == (frame == 21), "catch-up walks obstacle history each frame");
+            }
+            var presentDoor = door.State;
+            try { using var scope = history.Begin(20); throw new InvalidOperationException("injected projectile failure"); }
+            catch (InvalidOperationException) { }
+            NetArchitectureTests.Check(door.State == presentDoor && platform.State == livePlatform, "exception restores all geometry");
+            using (var scope = history.Begin(1)) NetArchitectureTests.Check(!scope.Applied && door.State == presentDoor, "missing history uses present world");
+            history.Record(148); // overwrite frame 20 at exactly 128 history cells
+            using (var scope = history.Begin(20)) NetArchitectureTests.Check(!scope.Applied, "ring wrap cannot use another frame");
+            history.Record(149);
+            long warmupBytes = MeasureRewind(history, out int warmupApplied);
+            Console.WriteLine($"[dynamic-geometry] fixed measurement helper warmup: {warmupBytes} bytes");
+            var measuredDoor = door.State; var measuredField = field.State; var measuredPlatform = platform.State;
+            long framesBefore = NetDynamicGeometryHistory.RewindFrames;
+            long objectsBefore = NetDynamicGeometryHistory.GeometryObjectsConsidered;
+            long allocated = MeasureRewind(history, out int measuredApplied);
+            NetArchitectureTests.Check(warmupApplied == 10000 && measuredApplied == 10000
+                && NetDynamicGeometryHistory.RewindFrames - framesBefore == 10000
+                && NetDynamicGeometryHistory.GeometryObjectsConsidered - objectsBefore == 30000,
+                "measured rewind executes all 10000 Begin/Dispose calls over three geometry objects");
+            NetArchitectureTests.Check(door.State == measuredDoor && field.State == measuredField && platform.State == measuredPlatform,
+                "measured rewind restores all current geometry exactly");
+            NetArchitectureTests.Check(allocated == 0, $"warmed rewind has no allocations (actual {allocated} bytes)");
+            // Exercise the production adapters with engine collision objects,
+            // including exact cached-inverse restoration and discrete door bits.
+            INetRewindableGeometry Adapter(string name, int id, object entity) => (INetRewindableGeometry)Activator.CreateInstance(
+                typeof(NetDynamicGeometryHistory).GetNestedType(name, BindingFlags.NonPublic)!, new object[] { id, entity })!;
+            var engineDoor = (DoorEntity)RuntimeHelpers.GetUninitializedObject(typeof(DoorEntity));
+            var engineField = (ForceFieldEntity)RuntimeHelpers.GetUninitializedObject(typeof(ForceFieldEntity));
+            var collision = new EntityCollision(new CollisionInstance("fixture", null!, true), engineDoor)
+                { Transform = Matrix4.Identity, Inverse1 = Matrix4.Identity, Inverse2 = Matrix4.CreateTranslation(1, 2, 3) };
+            var doorAdapter = Adapter("DoorGeometry", 1, engineDoor);
+            var fieldAdapter = Adapter("FieldGeometry", 2, engineField);
+            var meshAdapter = Adapter("MeshGeometry", 3, collision);
+            var engineHistory = new NetDynamicGeometryHistory(new[] { doorAdapter, fieldAdapter, meshAdapter });
+            engineDoor.Flags = DoorFlags.Open; engineHistory.Record(30);
+            engineDoor.Flags = DoorFlags.Locked;
+            fieldAdapter.ApplyNetworkCollisionState(fieldAdapter.CaptureNetworkCollisionState() with { Enabled = true });
+            collision.Transform = Matrix4.CreateTranslation(20, 0, 0); collision.Inverse1 = collision.Transform.Inverted();
+            var meshPresent = meshAdapter.CaptureNetworkCollisionState();
+            using (engineHistory.Begin(30))
+            {
+                NetArchitectureTests.Check(engineDoor.Flags.TestFlag(DoorFlags.Open) && !engineField.Active
+                    && collision.Transform == Matrix4.Identity, "production adapters apply historical door/field/platform collision");
+                engineDoor.Flags |= DoorFlags.ShotOpen;
+            }
+            NetArchitectureTests.Check(engineDoor.Flags.TestFlag(DoorFlags.Locked) && engineDoor.Flags.TestFlag(DoorFlags.ShotOpen)
+                && !engineDoor.Flags.TestFlag(DoorFlags.Open) && engineField.Active && meshAdapter.CaptureNetworkCollisionState() == meshPresent,
+                "restore collision exactly while preserving new shot effects");
+            var rotating = new Geometry(4, true);
+            var rotationHistory = new NetDynamicGeometryHistory(new INetRewindableGeometry[] { rotating });
+            rotating.State = new(Matrix4.Identity, Matrix4.Identity, Matrix4.Identity, Vector3.UnitX, true);
+            rotationHistory.Record(1);
+            var quarterTurn = Matrix4.CreateRotationZ(MathF.PI / 2);
+            rotating.State = new(quarterTurn, quarterTurn.Inverted(), quarterTurn.Inverted(), Vector3.UnitY, true);
+            rotationHistory.Record(2);
+            using (rotationHistory.Begin(1.5))
+            {
+                var expectedCenter = Matrix.Vec3MultMtx4(Vector3.UnitX, rotating.State.Transform);
+                NetArchitectureTests.Check((rotating.State.Center - expectedCenter).Length < .00001f
+                    && MathF.Abs(rotating.State.Center.Length - 1) < .00001f,
+                    "rotating mesh broadphase center follows the interpolated transform, not the chord");
+            }
+            var scale2 = Matrix4.CreateScale(2); var scale4 = Matrix4.CreateScale(4);
+            rotating.State = new(scale2, scale2.Inverted(), scale2.Inverted(), Vector3.UnitX * 2, true);
+            rotationHistory.Record(3);
+            rotating.State = new(scale4, scale4.Inverted(), scale4.Inverted(), Vector3.UnitX * 4, true);
+            rotationHistory.Record(4);
+            using (rotationHistory.Begin(3.5))
+                NetArchitectureTests.Check(rotating.State.Transform.ExtractScale() == new Vector3(3)
+                    && rotating.State.Center == Vector3.UnitX * 3, "animated collision scale and transformed center are preserved");
+            var identical = new Geometry(9, true) { State = new(Matrix4.Identity, Matrix4.Identity,
+                Matrix4.CreateTranslation(1, 2, 3), Vector3.Zero, true) };
+            var identicalHistory = new NetDynamicGeometryHistory(new INetRewindableGeometry[] { identical });
+            identicalHistory.Record(10); identicalHistory.Record(11);
+            long applied = NetDynamicGeometryHistory.GeometryApplyPerformed;
+            long inverses = NetDynamicGeometryHistory.GeometryInversePerformed;
+            var exact = identical.State;
+            using (identicalHistory.Begin(10.5))
+                NetArchitectureTests.Check(identical.State == exact, "identical-frame interpolation preserves distinct cached inverses exactly");
+            NetArchitectureTests.Check(NetDynamicGeometryHistory.GeometryApplyPerformed == applied
+                && NetDynamicGeometryHistory.GeometryInversePerformed == inverses, "identical frames avoid applies and inversions");
+            identical.State = exact with { Center = Vector3.UnitX };
+            using (identicalHistory.Begin(10))
+                NetArchitectureTests.Check(identical.State == exact, "unrecorded live mutation uses safety capture");
+            NetArchitectureTests.Check(identical.State.Center == Vector3.UnitX, "unrecorded live mutation restores exactly");
+            identical.State = exact; identicalHistory.Record(12);
+            using (identicalHistory.Begin(10)) NetArchitectureTests.Check(identical.State == exact, "return to old transform is exact");
+            Console.WriteLine("PASS: doors, force fields, moving collision, fractional sampling, catch-up, exception restoration, misses and 0 rewind allocations"); return 0;
+        }
+        catch (Exception e) { Console.Error.WriteLine(e); return 1; }
+    }
+}

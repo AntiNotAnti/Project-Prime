@@ -1,0 +1,603 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using Avalonia;
+using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Media;
+using Avalonia.VisualTree;
+using MphRead.Mods.Input;
+
+namespace MphRead.Mods.Launcher.Gui
+{
+    /// <summary>
+    /// Phone-layout preview/editor for the Android touch overlay.
+    ///
+    /// It deliberately mirrors the HUD Studio interaction: tap a control to
+    /// select it, drag to move it, pinch to resize it, and use the inspector
+    /// rows around the canvas for precise selection and scaling.
+    /// </summary>
+    internal sealed class TouchLayoutEditor : Control
+    {
+        private readonly Dictionary<TouchControl, TouchButtonLayout> _layout;
+        private readonly List<TouchButtonInstance> _instances = new(TouchSettings.CopyInstances());
+        private int _selectedInstance;
+        private readonly HashSet<TouchControl> _enabled = new();
+        private readonly Dictionary<IPointer, Point> _touches = new();
+
+        private TouchControl _selected = TouchControl.Shoot;
+        private IPointer? _dragPointer;
+        private bool _dragging;
+        private Vector _dragGrabOffset;
+        private ScrollViewer? _lockedScroller;
+        private Vector _lockedScrollOffset;
+        private bool _restoringScroll;
+        private double _pinchDistance;
+        private float _pinchScale = 1f;
+        private float _buttonScale;
+        private float _stickScale;
+
+        public event Action? SelectionChanged;
+        public event Action? Changed;
+
+        public TouchLayoutEditor()
+        {
+            _layout = TouchSettings.CopyLayout();
+            foreach ((TouchControl control, _) in TouchSettings.Order)
+            {
+                if (TouchSettings.IsEnabled(control))
+                {
+                    _enabled.Add(control);
+                }
+            }
+            _buttonScale = TouchSettings.ButtonScale;
+            _stickScale = TouchSettings.StickScale;
+            Height = 320;
+            MinHeight = 240;
+            Focusable = true;
+        }
+
+        public TouchControl Selected => _selected;
+        public bool SelectedIsExtra => _selectedInstance != 0;
+        public TouchButtonInstance[] CopyInstances() => _instances.ToArray();
+        public void DuplicateSelected()
+        {
+            int id = TouchSettings.NextInstanceId(_instances);
+            if (id < 0) return;
+            var layout = LayoutOf(_selected);
+            _instances.Add(new(id, _selected, true, Math.Clamp(layout.X + .06f, 0, 1),
+                Math.Clamp(layout.Y + .06f, 0, 1), layout.Scale));
+            SelectInstance(id); Changed?.Invoke();
+        }
+        public void DeleteSelectedInstance()
+        {
+            if (_selectedInstance == 0) return;
+            _instances.RemoveAll(x => x.Id == _selectedInstance);
+            Select(TouchControl.Shoot); Changed?.Invoke();
+        }
+        public void SelectNextInstance()
+        {
+            if (_instances.Count == 0) return;
+            int index = _instances.FindIndex(x => x.Id == _selectedInstance);
+            SelectInstance(_instances[(index + 1) % _instances.Count].Id);
+        }
+        public void ReassignSelected(TouchControl action)
+        {
+            int index = _instances.FindIndex(x => x.Id == _selectedInstance);
+            if (index < 0) return;
+            _instances[index] = _instances[index] with { Action = action }; _selected = action;
+            Changed?.Invoke(); SelectionChanged?.Invoke(); InvalidateVisual();
+        }
+        public void ToggleSelectedInstance()
+        {
+            int index = _instances.FindIndex(x => x.Id == _selectedInstance);
+            if (index < 0) return;
+            _instances[index] = _instances[index] with { Enabled = !_instances[index].Enabled };
+            Changed?.Invoke(); InvalidateVisual();
+        }
+        private void SelectInstance(int id)
+        {
+            var value = _instances.Find(x => x.Id == id);
+            _selectedInstance = id; _selected = value.Action;
+            SelectionChanged?.Invoke(); InvalidateVisual();
+        }
+
+        public float ButtonScale
+        {
+            get => _buttonScale;
+            set
+            {
+                _buttonScale = Math.Clamp(value,
+                    TouchSettings.MinButtonScale, TouchSettings.MaxButtonScale);
+                InvalidateVisual();
+            }
+        }
+
+        public float StickScale
+        {
+            get => _stickScale;
+            set
+            {
+                _stickScale = Math.Clamp(value,
+                    TouchSettings.MinStickScale, TouchSettings.MaxStickScale);
+                InvalidateVisual();
+            }
+        }
+
+        public float SelectedScale => LayoutOf(_selected).Scale;
+
+        public Dictionary<TouchControl, TouchButtonLayout> CopyLayout()
+        {
+            return new Dictionary<TouchControl, TouchButtonLayout>(_layout);
+        }
+
+        public void Select(TouchControl control)
+        {
+            if (_selected == control && _selectedInstance == 0)
+            {
+                return;
+            }
+            _selectedInstance = 0;
+            _selected = control;
+            SelectionChanged?.Invoke();
+            InvalidateVisual();
+        }
+
+        public void SetEnabled(TouchControl control, bool enabled)
+        {
+            if (enabled)
+            {
+                _enabled.Add(control);
+            }
+            else
+            {
+                _enabled.Remove(control);
+            }
+            InvalidateVisual();
+        }
+
+        public void SetSelectedScale(float scale)
+        {
+            TouchButtonLayout value = LayoutOf(_selected);
+            SetLayout(_selected, value.X, value.Y, scale);
+        }
+
+        public void ResetSelected()
+        {
+            if (_selectedInstance != 0)
+            {
+                var g = TouchSettings.DefaultGeometry(_selected, 1920, 1080);
+                SetLayout(_selected, g.X / 1920, g.Y / 1080, 1);
+                SelectionChanged?.Invoke(); return;
+            }
+            if (_layout.Remove(_selected))
+            {
+                Changed?.Invoke();
+                SelectionChanged?.Invoke();
+                InvalidateVisual();
+            }
+        }
+
+        public void ResetAll()
+        {
+            if (_layout.Count == 0 && _instances.Count == 0)
+            {
+                return;
+            }
+            _layout.Clear(); _instances.Clear(); _selectedInstance = 0;
+            Changed?.Invoke();
+            SelectionChanged?.Invoke();
+            InvalidateVisual();
+        }
+
+        private Rect Surface
+        {
+            get
+            {
+                double maxWidth = Math.Max(1, Bounds.Width - 12);
+                double maxHeight = Math.Max(1, Bounds.Height - 12);
+                double width = Math.Min(maxWidth, maxHeight * 16.0 / 9.0);
+                double height = width * 9.0 / 16.0;
+                if (height > maxHeight)
+                {
+                    height = maxHeight;
+                    width = height * 16.0 / 9.0;
+                }
+                return new Rect(
+                    (Bounds.Width - width) / 2,
+                    (Bounds.Height - height) / 2,
+                    width, height);
+            }
+        }
+
+        private TouchButtonLayout LayoutOf(TouchControl control)
+        {
+            if (_selectedInstance != 0 && control == _selected)
+            {
+                var instance = _instances.Find(x => x.Id == _selectedInstance);
+                return new(instance.X, instance.Y, instance.Scale);
+            }
+            if (_layout.TryGetValue(control, out TouchButtonLayout custom))
+            {
+                return custom;
+            }
+            TouchButtonGeometry baseline = TouchSettings.DefaultGeometry(control, 1920, 1080);
+            return new TouchButtonLayout(
+                baseline.X / 1920f,
+                baseline.Y / 1080f,
+                1f);
+        }
+
+        private TouchButtonGeometry GeometryOf(TouchControl control)
+        {
+            Rect surface = Surface;
+            return TouchSettings.Geometry(control,
+                (float)surface.Width, (float)surface.Height,
+                _layout, _buttonScale);
+        }
+
+        private Point CentreOf(TouchControl control)
+        {
+            Rect surface = Surface;
+            TouchButtonGeometry geometry = _selectedInstance != 0
+                ? TouchSettings.InstanceGeometry(_instances.Find(x => x.Id == _selectedInstance),
+                    (float)surface.Width, (float)surface.Height, _buttonScale) : GeometryOf(control);
+            return new Point(surface.X + geometry.X, surface.Y + geometry.Y);
+        }
+
+        private void SetLayout(TouchControl control, float x, float y, float scale)
+        {
+            if (_selectedInstance != 0)
+            {
+                int index = _instances.FindIndex(v => v.Id == _selectedInstance);
+                if (index >= 0) _instances[index] = _instances[index] with
+                { X = Math.Clamp(x, 0, 1), Y = Math.Clamp(y, 0, 1),
+                    Scale = Math.Clamp(scale, TouchSettings.MinIndividualScale, TouchSettings.MaxIndividualScale) };
+                Changed?.Invoke(); InvalidateVisual(); return;
+            }
+            _layout[control] = new TouchButtonLayout(
+                Math.Clamp(x, 0f, 1f),
+                Math.Clamp(y, 0f, 1f),
+                Math.Clamp(scale,
+                    TouchSettings.MinIndividualScale,
+                    TouchSettings.MaxIndividualScale));
+            Changed?.Invoke();
+            InvalidateVisual();
+        }
+
+        private static IBrush ButtonFill(bool enabled, bool selected)
+        {
+            if (selected)
+            {
+                return new SolidColorBrush(Color.FromArgb(145, 41, 197, 255));
+            }
+            return enabled
+                ? new SolidColorBrush(Color.FromArgb(105, 30, 47, 62))
+                : new SolidColorBrush(Color.FromArgb(38, 30, 47, 62));
+        }
+
+        public override void Render(DrawingContext context)
+        {
+            base.Render(context);
+            Rect surface = Surface;
+            if (surface.Width <= 0 || surface.Height <= 0)
+            {
+                return;
+            }
+
+            context.FillRectangle(new SolidColorBrush(Color.Parse("#0D141D")), surface);
+            context.DrawRectangle(null,
+                new Pen(new SolidColorBrush(Color.Parse("#405064")), 1), surface);
+
+            // The floating movement stick can appear anywhere on the left half.
+            // Show its reachable half and a sample stick without pretending the
+            // runtime stick has a fixed position.
+            Rect left = new Rect(surface.X, surface.Y, surface.Width / 2, surface.Height);
+            context.FillRectangle(new SolidColorBrush(Color.FromArgb(20, 70, 120, 160)), left);
+            context.DrawLine(new Pen(new SolidColorBrush(Color.FromArgb(80, 120, 140, 160)), 1),
+                new Point(surface.Center.X, surface.Top),
+                new Point(surface.Center.X, surface.Bottom));
+
+            double stickRadius = surface.Height * 0.15 * _stickScale;
+            Point stick = new Point(surface.X + surface.Width * 0.16,
+                surface.Bottom - surface.Height * 0.22);
+            context.DrawEllipse(new SolidColorBrush(Color.FromArgb(35, 138, 147, 166)),
+                new Pen(new SolidColorBrush(Color.FromArgb(90, 138, 147, 166)), 1),
+                stick, stickRadius, stickRadius);
+            DrawLabel(context, "FLOATING STICK", new Point(stick.X, stick.Y),
+                Math.Max(8, stickRadius * 0.16), Brushes.LightGray);
+
+            foreach ((TouchControl control, _) in TouchSettings.Order)
+            {
+                TouchButtonGeometry geometry = GeometryOf(control);
+                Point centre = new Point(surface.X + geometry.X, surface.Y + geometry.Y);
+                bool enabled = _enabled.Contains(control);
+                bool selected = _selectedInstance == 0 && control == _selected;
+                using (context.PushOpacity(enabled ? 1 : 0.38))
+                {
+                    IBrush fill = ButtonFill(enabled, selected);
+                    IBrush edge = selected ? Brushes.Cyan
+                        : enabled ? Brushes.LightSlateGray : Brushes.DimGray;
+                    context.DrawEllipse(fill, new Pen(edge, selected ? 2 : 1),
+                        centre, geometry.Radius, geometry.Radius);
+                    DrawLabel(context, TouchSettings.ShortLabel(control), centre,
+                        Math.Max(7, geometry.Radius * 0.31),
+                        selected ? Brushes.White : Brushes.LightGray);
+                }
+            }
+
+            foreach (var instance in _instances)
+            {
+                var geometry = TouchSettings.InstanceGeometry(instance, (float)surface.Width, (float)surface.Height, _buttonScale);
+                var centre = new Point(surface.X + geometry.X, surface.Y + geometry.Y);
+                bool selected = instance.Id == _selectedInstance;
+                using (context.PushOpacity(instance.Enabled ? 1 : .38))
+                {
+                    context.DrawEllipse(ButtonFill(instance.Enabled, selected),
+                        new Pen(selected ? Brushes.Cyan : Brushes.LightSlateGray, selected ? 2 : 1), centre, geometry.Radius, geometry.Radius);
+                    DrawLabel(context, TouchSettings.ShortLabel(instance.Action) + " +", centre,
+                        Math.Max(7, geometry.Radius * .31), Brushes.White);
+                }
+            }
+            string hint = $"{TouchSettings.LabelOf(_selected)}  •  drag to move  •  pinch to resize";
+            var text = new FormattedText(hint, CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight, new Typeface("monospace"), 11, Brushes.White);
+            context.FillRectangle(new SolidColorBrush(Color.FromArgb(175, 0, 0, 0)),
+                new Rect(surface.X + 6, surface.Bottom - text.Height - 10,
+                    Math.Min(surface.Width - 12, text.Width + 12), text.Height + 6));
+            context.DrawText(text, new Point(surface.X + 12, surface.Bottom - text.Height - 7));
+        }
+
+        private static void DrawLabel(DrawingContext context, string label,
+            Point centre, double size, IBrush brush)
+        {
+            var text = new FormattedText(label, CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight, new Typeface("monospace"), size, brush);
+            context.DrawText(text, new Point(
+                centre.X - text.Width / 2,
+                centre.Y - text.Height / 2));
+        }
+
+        private int? Hit(Point point)
+        {
+            Rect surface = Surface;
+            for (int i = _instances.Count - 1; i >= 0; i--)
+            {
+                var geometry = TouchSettings.InstanceGeometry(_instances[i], (float)surface.Width, (float)surface.Height, _buttonScale);
+                double dx = point.X - surface.X - geometry.X, dy = point.Y - surface.Y - geometry.Y;
+                if (dx * dx + dy * dy <= (geometry.Radius + 7) * (geometry.Radius + 7)) return _instances[i].Id;
+            }
+            for (int i = TouchSettings.Order.Length - 1; i >= 0; i--)
+            {
+                TouchControl control = TouchSettings.Order[i].Control;
+                TouchButtonGeometry geometry = GeometryOf(control);
+                double dx = point.X - (surface.X + geometry.X);
+                double dy = point.Y - (surface.Y + geometry.Y);
+                double radius = geometry.Radius + 7;
+                if (dx * dx + dy * dy <= radius * radius)
+                {
+                    return (int)control + 1;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Freeze the Settings page while a button is being manipulated.
+        ///
+        /// TouchLayoutEditor lives inside the Controls page ScrollViewer. On a
+        /// phone that viewer can recognize the same drag as a page pan even
+        /// after this control captures the pointer, which makes the preview
+        /// move underneath the finger. Pin its offset for the lifetime of the
+        /// edit gesture and restore normal scrolling as soon as every editing
+        /// pointer is released.
+        /// </summary>
+        private void LockPageScroll()
+        {
+            if (_lockedScroller != null)
+            {
+                return;
+            }
+            _lockedScroller = this.GetVisualAncestors()
+                .OfType<ScrollViewer>()
+                .FirstOrDefault();
+            if (_lockedScroller == null)
+            {
+                return;
+            }
+            _lockedScrollOffset = _lockedScroller.Offset;
+            _lockedScroller.ScrollChanged += OnLockedScrollChanged;
+        }
+
+        private void UnlockPageScroll()
+        {
+            if (_lockedScroller == null)
+            {
+                return;
+            }
+            _lockedScroller.ScrollChanged -= OnLockedScrollChanged;
+            _lockedScroller.Offset = _lockedScrollOffset;
+            _lockedScroller = null;
+            _restoringScroll = false;
+        }
+
+        private void OnLockedScrollChanged(object? sender, ScrollChangedEventArgs e)
+        {
+            if (_lockedScroller == null || _restoringScroll)
+            {
+                return;
+            }
+            Vector offset = _lockedScroller.Offset;
+            if (Math.Abs(offset.X - _lockedScrollOffset.X) < 0.01
+                && Math.Abs(offset.Y - _lockedScrollOffset.Y) < 0.01)
+            {
+                return;
+            }
+            _restoringScroll = true;
+            _lockedScroller.Offset = _lockedScrollOffset;
+            _restoringScroll = false;
+        }
+
+        private void UnlockPageScrollIfIdle()
+        {
+            if (!_dragging && _touches.Count == 0)
+            {
+                UnlockPageScroll();
+            }
+        }
+
+        protected override void OnPointerPressed(PointerPressedEventArgs e)
+        {
+            base.OnPointerPressed(e);
+            Focus();
+            Point point = e.GetPosition(this);
+            if (!Surface.Contains(point))
+            {
+                return;
+            }
+
+            if (e.Pointer.Type == PointerType.Touch)
+            {
+                _touches[e.Pointer] = point;
+                if (_touches.Count == 2)
+                {
+                    _pinchDistance = TouchDistance();
+                    _pinchScale = SelectedScale;
+                    _dragging = false;
+                    LockPageScroll();
+                    e.Pointer.Capture(this);
+                    e.Handled = true;
+                    return;
+                }
+            }
+
+            int? hit = Hit(point);
+            if (hit.HasValue)
+            {
+                if (hit.Value >= TouchSettings.FirstExtraInstanceId) SelectInstance(hit.Value);
+                else Select((TouchControl)(hit.Value - 1));
+                _dragPointer = e.Pointer;
+                _dragging = true;
+                // Preserve where the player grabbed the icon instead of
+                // teleporting its centre under the finger on first movement.
+                _dragGrabOffset = CentreOf(_selected) - point;
+                LockPageScroll();
+                e.Pointer.Capture(this);
+                e.Handled = true;
+            }
+        }
+
+        protected override void OnPointerMoved(PointerEventArgs e)
+        {
+            base.OnPointerMoved(e);
+            if (_touches.ContainsKey(e.Pointer))
+            {
+                _touches[e.Pointer] = e.GetPosition(this);
+            }
+            if (_touches.Count >= 2 && _pinchDistance > 0)
+            {
+                double distance = TouchDistance();
+                SetSelectedScale(_pinchScale * (float)(distance / _pinchDistance));
+                SelectionChanged?.Invoke();
+                e.Handled = true;
+                return;
+            }
+            if (!_dragging || _dragPointer != e.Pointer)
+            {
+                return;
+            }
+
+            Rect surface = Surface;
+            Point point = e.GetPosition(this) + _dragGrabOffset;
+            TouchButtonLayout current = LayoutOf(_selected);
+            float x = (float)((point.X - surface.X) / Math.Max(1, surface.Width));
+            float y = (float)((point.Y - surface.Y) / Math.Max(1, surface.Height));
+            SetLayout(_selected, x, y, current.Scale);
+            e.Handled = true;
+        }
+
+        protected override void OnPointerReleased(PointerReleasedEventArgs e)
+        {
+            base.OnPointerReleased(e);
+            _touches.Remove(e.Pointer);
+            if (_dragPointer == e.Pointer)
+            {
+                _dragging = false;
+                _dragPointer = null;
+            }
+            if (_touches.Count < 2)
+            {
+                _pinchDistance = 0;
+            }
+            UnlockPageScrollIfIdle();
+            e.Pointer.Capture(null);
+        }
+
+        protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+        {
+            base.OnPointerCaptureLost(e);
+            _touches.Remove(e.Pointer);
+            if (_dragPointer == e.Pointer)
+            {
+                _dragPointer = null;
+                _dragging = false;
+            }
+            if (_touches.Count < 2)
+            {
+                _pinchDistance = 0;
+            }
+            UnlockPageScrollIfIdle();
+        }
+
+        protected override void OnKeyDown(KeyEventArgs e)
+        {
+            base.OnKeyDown(e);
+            if (e.Key == Key.R)
+            {
+                ResetSelected();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key is not (Key.Left or Key.Right or Key.Up or Key.Down))
+            {
+                return;
+            }
+
+            Rect surface = Surface;
+            TouchButtonGeometry geometry = GeometryOf(_selected);
+            float step = e.KeyModifiers.HasFlag(KeyModifiers.Shift) ? 10f : 2f;
+            float x = geometry.X
+                + (e.Key == Key.Left ? -step : e.Key == Key.Right ? step : 0);
+            float y = geometry.Y
+                + (e.Key == Key.Up ? -step : e.Key == Key.Down ? step : 0);
+            TouchButtonLayout current = LayoutOf(_selected);
+            SetLayout(_selected,
+                x / Math.Max(1f, (float)surface.Width),
+                y / Math.Max(1f, (float)surface.Height),
+                current.Scale);
+            e.Handled = true;
+        }
+
+        private double TouchDistance()
+        {
+            Point first = default;
+            bool found = false;
+            foreach (Point point in _touches.Values)
+            {
+                if (!found)
+                {
+                    first = point;
+                    found = true;
+                }
+                else
+                {
+                    double dx = point.X - first.X;
+                    double dy = point.Y - first.Y;
+                    return Math.Sqrt(dx * dx + dy * dy);
+                }
+            }
+            return 0;
+        }
+    }
+}

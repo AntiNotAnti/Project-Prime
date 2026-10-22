@@ -1,0 +1,303 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using MphRead.Entities;
+using MphRead.Mods.Input;
+using MphRead.Mods.Replay;
+using OpenTK.Mathematics;
+#if !ANDROID
+using OpenTK.Graphics.OpenGL;
+using OpenTK.Windowing.Desktop;
+using GLFWBindingsContext = OpenTK.Windowing.GraphicsLibraryFramework.GLFWBindingsContext;
+#endif
+
+namespace MphRead.Mods.Network;
+
+internal static class ReplayKillcamCheck
+{
+    private sealed class DelayedTimeline(IReplayTimeline source, ReplayKillIdentity kill, uint death) : IReplayTimeline
+    {
+        private readonly uint _death = death;
+        internal uint Frontier { get; set; } = death;
+        public uint? FirstRecordingFrame => source.FirstRecordingFrame;
+        public uint? LastRecordingFrame => Frontier;
+        public bool TryGetRestorePoint(uint frame, out ReplayRestorePoint? restore) => source.TryGetRestorePoint(frame, out restore);
+        public bool TryFreeze(uint start, uint end, out ReplayTimelineClip? clip) => source.TryFreeze(start, end, out clip);
+        public bool TryMapServerTickToRecordingFrame(uint tick, out uint frame) => source.TryMapServerTickToRecordingFrame(tick, out frame);
+        public bool TryMapKillToRecordingFrame(ReplayKillIdentity identity, out uint frame)
+        { frame = _death; return identity == kill; }
+    }
+    internal static int Run(string path, string? shots)
+    {
+#if !ANDROID
+        NativeWindow? window = null;
+        Render.DesktopGraphicsSession? graphics = null;
+        if (shots != null)
+        {
+            Directory.CreateDirectory(shots);
+            var settings = Render.DesktopGlContext.Settings(background: true); settings.ClientSize = new(640, 480);
+            window = new NativeWindow(settings); graphics = new Render.DesktopGraphicsSession(window);
+        }
+        else
+#endif
+            Headless.Enter();
+        var live = new Scene(new Vector2i(640, 480), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(),
+            _ => { }, () => { }, initializeRuntime: false);
+        live.AddPlayer(Hunter.Samus); live.GameState.Points[0] = 572; live.Random.SetRng1(8943);
+        string sentinel = ReplayStateHash.Compute(live, 0);
+        var recorder = new ReplayRecorder();
+        using var capture = new ReplayLiveWorld(recorder);
+        using var controller = new KillcamController(recorder.Timeline);
+        try
+        {
+            using var reader = DemoReader.Open(path, out var result) ?? throw new InvalidDataException(result.ToString());
+            if (reader.Metadata is { } metadata)
+                foreach (var packet in metadata.Bootstrap.Packets.OrderBy(p => p[0] == (byte)PacketType.MatchState ? 0 : 1))
+                    ReplayLiveCaptureCheck.Accept(recorder, packet, 0);
+            var hashes = new Dictionary<uint, string>();
+            const uint death = 1602;
+            PlayerState? fixtureAttackerAtDeath = null;
+            ReplayReplicaCheckpoint? fixtureStateAtDeath = null;
+            DemoRecord? pending = reader.ReadNext(); uint frame = 0;
+            while (pending != null)
+            {
+                while (pending is DemoRecord record && record.Frame <= frame)
+                { ReplayLiveCaptureCheck.Accept(recorder, record.Data, frame); pending = reader.ReadNext(); }
+                capture.Advance(frame, live.Size);
+                if (capture.LastError != null) throw new InvalidDataException(capture.LastError);
+                if (capture.World is { } world)
+                {
+                    hashes[frame] = ReplayStateHash.Compute(world.Scene, frame);
+                    if (frame == death && world.State.TryGetPlayer(1, out var historicalAttacker))
+                    {
+                        fixtureAttackerAtDeath = historicalAttacker;
+                        fixtureStateAtDeath = world.State.CaptureCheckpoint();
+                    }
+                }
+                frame++;
+            }
+            var state = capture.World!.State;
+            if (frame < 1800 || state.Match is not { } match || !state.TryGetPlayer(0, out var victim))
+                throw new InvalidDataException("Use the eight-actor world-coverage fixture for killcam lifecycle checks.");
+            int checks = 0;
+            void Require(bool value, string message) { if (!value) throw new InvalidDataException(message); checks++; }
+            if (fixtureAttackerAtDeath is not { LifeId: > 0 } fixtureAttacker)
+                throw new InvalidDataException("Killcam fixture has no attacker life at its declared death frame.");
+            var identity = new ReplayKillIdentity(match.MatchId, match.AuthorityEpoch, death, 2,
+                1, fixtureAttacker.SlotGeneration, 0, state.Occupant(0).Generation, 1, fixtureAttacker.LifeId);
+            var strictIdentity = identity;
+            if (fixtureStateAtDeath == null) throw new InvalidDataException("Killcam fixture has no exact death decoder.");
+            var deathState = new ReplayReplicaState(); deathState.RestoreCheckpoint(fixtureStateAtDeath);
+            Require(KillcamController.ResolveAttackerSlot(strictIdentity, deathState) == 1,
+                "Exact attacker life did not resolve.");
+            Require(KillcamController.ResolveAttackerSlot(strictIdentity with
+                { KillerLifeId = NetLifecycleTracker.Next(fixtureAttacker.LifeId) }, deathState) == -1,
+                "Respawned attacker slot bypassed its life fence or fell back to victim.");
+            var marker = new ReplayMarker(ReplayMarkerKind.Kill, 1, 0, Kill: identity, Weapon: 1, DamageFlags: (byte)DamageFlags.Headshot);
+            var context = new KillcamContext(match.MatchId, match.AuthorityEpoch, death, 0,
+                identity.VictimGeneration, 1, false, true, true, true);
+            var missingPlayer = live.Players.Values[1]; live.Players.Values[1] = null!;
+            Require(!KillcamController.IsValidIdentity(identity, context, live), "Incomplete scene collection admitted for team lookup.");
+            live.Players.Values[1] = missingPlayer;
+            var delayedTimeline = new DelayedTimeline(recorder.Timeline, identity, death);
+            using (var delayed = new KillcamController(delayedTimeline))
+            {
+                delayed.NoteKill(marker, death + 25, context); // delayed notification must use the marker's recording frame
+                for (uint i = 0; i < KillcamController.PostRollFrames; i++)
+                {
+                    delayedTimeline.Frontier = death + i;
+                    delayed.Update(live, context with { Frame = death + i });
+                    Require(!delayed.Active, "Killcam started before the full post-roll arrived.");
+                }
+                delayedTimeline.Frontier = death + KillcamController.PostRollFrames;
+                for (int i = 0; i < 8 && !delayed.Visible; i++) delayed.Update(live, context);
+                Require(delayed.Visible && delayed.Frame == death - KillcamController.PreRollFrames,
+                    "Delayed kill notification shifted the replay away from the actual kill.");
+                bool rejectedSeek = false;
+                try { delayed.Replica!.Session.Transport.Seek(death); }
+                catch (InvalidOperationException) { rejectedSeek = true; }
+                Require(rejectedSeek, "Linear replay exposed a seek through its transport.");
+            }
+            void Begin()
+            {
+                controller.NoteKill(marker, death, context);
+                for (int warm = 0; warm < 8 && !controller.Visible; warm++) controller.Update(live, context);
+                Require(controller.Visible && controller.Kind == KillCamKind.Personal, "Personal killcam did not become visible.");
+            }
+            var shortContext = context with { Frame = 120 };
+            uint firstRetainedFrame = recorder.Timeline.FirstRecordingFrame
+                ?? throw new InvalidDataException("Killcam fixture has no retained history.");
+            Require(firstRetainedFrame < shortContext.Frame,
+                "Short-history fixture needs retained history before frame 120.");
+            controller.NoteKill(marker with { Kill = identity with { ServerTick = 120 } }, 120, shortContext);
+            for (int i = 0; i < 8 && !controller.Visible; i++) controller.Update(live, shortContext);
+            // Actual accepted snapshots may establish the first retained frame
+            // after recording zero. Initial Update may advance once on reveal.
+            Require(controller.Visible && controller.Frame >= firstRetainedFrame
+                && controller.Frame - firstRetainedFrame <= 1,
+                "Short history did not clamp its start to the available boundary.");
+            controller.Reset(KillcamEndReason.Completed);
+            Begin();
+            var liveInput = (PlayerEntity.PlayerInput)typeof(PlayerEntity).GetProperty("Input",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(live.Players.Main)!;
+            void SeedLiveInput()
+            {
+                live.Players.Main.Controls.MoveUp.IsDown = true;
+                liveInput.KeyboardState = SyntheticInput.CreateKeyboard();
+                liveInput.MouseState = SyntheticInput.CreateMouse();
+            }
+            SeedLiveInput();
+            Require(controller.Input(true, true) && controller.Active, "Held fire skipped before release.");
+            controller.Input(false, false); controller.Input(true, true);
+            Require(!controller.Active && controller.EndReason == KillcamEndReason.Skipped, "Rising fire did not skip.");
+            Require(!live.Players.Main.Controls.MoveUp.IsDown
+                && liveInput.KeyboardState == null && liveInput.MouseState == null,
+                "Leaving an active killcam must release held controls and pointer history.");
+            SeedLiveInput();
+            controller.Reset(KillcamEndReason.Disconnected);
+            controller.Update(live, context with { Connected = false });
+            Require(live.Players.Main.Controls.MoveUp.IsDown
+                && liveInput.KeyboardState != null && liveInput.MouseState != null,
+                "Repeated cleanup after a killcam must preserve resumed gameplay input.");
+            live.Players.Main.Controls.ClearAll(); live.Players.Main.ModForgetInputDeltas();
+            for (int cycle = 0; cycle < 24; cycle++)
+            {
+                Begin();
+                if (cycle % 3 == 0)
+                    controller.Update(live, context with { LocalLife = 2, LocalAlive = true });
+                else if (cycle % 3 == 1) controller.Skip();
+                else controller.Update(live, context with { Connected = false });
+                Require(!controller.Active, "A completed lifecycle retained replay presentation.");
+                Require(ReplayStateHash.Compute(live, 0) == sentinel, "Killcam changed live simulation state.");
+            }
+            Begin();
+            Require(controller.Frame == death - 210 && controller.Progress == 0, "Personal replay does not begin 3.5 seconds before death.");
+            Require(controller.Playing == marker, "Kill identity, weapon or headshot changed.");
+            int compared = 0;
+            uint priorFrame = controller.Frame;
+            bool reachedEnd = false;
+            while (controller.Active)
+            {
+                if (controller.Replica is { } replica)
+                {
+                    Require(ReplayStateHash.Compute(replica.Scene, replica.Session.CurrentFrame) == hashes[replica.Session.CurrentFrame],
+                        "Killcam world differs from captured historical state.");
+                    if (shots != null && compared is 0 or 40 or 90)
+                    {
+                        replica.Scene.OnDrawFrame(); replica.Scene.OnRenderFrame();
+                        ScreenCapture.SaveWindow(replica.Scene, Path.Combine(shots, $"personal-{compared}.png"));
+                    }
+                }
+                if (controller.Progress == 1) reachedEnd = true;
+                Require(controller.CheckpointCount == 0 && controller.CheckpointBytes == 0, "Linear killcam captured seek checkpoints.");
+                compared++;
+                controller.Update(live, context);
+                if (controller.Active)
+                {
+                    Require(controller.Frame == Math.Min(death + 90, priorFrame + 1), "Personal playback must advance at 1x.");
+                    priorFrame = controller.Frame;
+                }
+                Require(compared < 400, "Personal killcam did not complete.");
+            }
+            Require(reachedEnd && compared >= 300, "Personal progress never completed 300 frames.");
+            Require(controller.EndReason == KillcamEndReason.Completed, "Personal end hold did not finish.");
+            Begin(); live.Size = new(960, 600); controller.Camera(live.Size);
+            Require(controller.Presentation?.Size == live.Size, "Resize did not reach the private scene.");
+            controller.Update(live, context with { MatchId = (ushort)(match.MatchId + 1) });
+            Require(!controller.Active && controller.EndReason == KillcamEndReason.MatchChanged, "Match transition retained replay.");
+            Begin();
+            controller.Update(live, context with { Epoch = (ushort)(context.Epoch + 1) });
+            Require(!controller.Active && controller.EndReason == KillcamEndReason.MatchChanged, "Authority handover retained replay.");
+            Begin();
+            controller.Update(live, context with { LocalGeneration = (ushort)(context.LocalGeneration + 1) });
+            Require(!controller.Active && controller.EndReason == KillcamEndReason.Respawn, "Slot reuse retained replay.");
+            Begin();
+            GamepadManager.UpdateDevice("killcam-check", new GamepadState { Connected = true,
+                Buttons = GamepadButtons.RightTrigger }, mapped: true);
+            GamepadInput.BeginFrame();
+            GamepadManager.RemoveDevice("killcam-check");
+            GamepadInput.BeginFrame();
+            controller.Input(false, false);
+            controller.Update(live, context);
+            Require(controller.Visible && !GamepadInput.Active && GamepadInput.AimDeltaX == 0
+                && GamepadInput.AimDeltaY == 0, "Controller disconnect interrupted replay or retained input.");
+            controller.Skip();
+            Require(KillcamController.FinalEligible(100, 220, false, true), "Causal boundary rejected.");
+            Require(!KillcamController.FinalEligible(100, 221, false, true), "Stale causal kill admitted.");
+            Require(KillcamController.FinalEligible(100, 580, true, false), "Timed boundary rejected.");
+            Require(!KillcamController.FinalEligible(100, 581, true, false), "Stale timed kill admitted.");
+            Require(!KillcamController.FinalEligible(101, 100, true, true), "Future kill admitted.");
+            Require(FinalKillPresentation.Rate(death - 6, death, false) == 1f
+                && FinalKillPresentation.Rate(death - 5, death, false) == .5f
+                && FinalKillPresentation.Rate(death + 3, death, false) == .5f
+                && FinalKillPresentation.Rate(death + 4, death, false) == 1f
+                && FinalKillPresentation.Rate(death, death, true) == 1f,
+                "Final half-speed beat was not aligned to the exact recorded kill frame.");
+            Require(FinalKillPresentation.Impact(4) == FinalImpactStyle.Precision
+                && FinalKillPresentation.Impact(3) == FinalImpactStyle.Explosive
+                && FinalKillPresentation.Impact(7) == FinalImpactStyle.Electrical
+                && FinalKillPresentation.Impact(5) == FinalImpactStyle.Cryo
+                && FinalKillPresentation.Impact(6) == FinalImpactStyle.Thermal,
+                "Distinct final impact effects have incorrect recorded weapon mappings.");
+            Require(FinalKillPresentation.ImpactStrength(death - 1, death, false) == 0f
+                && FinalKillPresentation.ImpactStrength(death, death, false) == 1f
+                && FinalKillPresentation.ImpactStrength(death + 18, death, false) == 0f
+                && FinalKillPresentation.ImpactStrength(death, death, true) == 0f
+                && FinalKillPresentation.TransitionCover(0, 300) == 1f
+                && FinalKillPresentation.TransitionCover(150, 300) == 0f,
+                "Final impact effects must fade and respect reduced motion.");
+            controller.NoteKill(marker, death, context);
+            Require(controller.BeginFinal(live, context, death, timedEnd: false, causalEnd: true), "Eligible final did not start.");
+            for (int i = 0; i < 8 && !controller.Visible; i++) controller.Update(live, context);
+            Require(controller.Visible && controller.Kind == KillCamKind.Final, "Final did not become visible.");
+            recorder.Reset(); // the final clip was frozen before room/lobby handoff
+            Require(controller.Frame == death - FinalKillPresentation.PreRollFrames
+                && controller.Progress == 0, "Final did not begin at its compensating pre-roll.");
+            int frozenFrames = 0, finalChecks = 0;
+            while (controller.State != KillcamState.AwaitCompletion)
+            {
+                uint before = controller.Frame;
+                controller.Update(live, context);
+                finalChecks++;
+                Require(controller.CheckpointCount == 0 && controller.CheckpointBytes == 0,
+                    "Final playback captured unexpected seek checkpoints.");
+                Require(controller.Frame == before || controller.Frame == before + 1,
+                    "Half-speed replay skipped or rewound an authoritative frame.");
+                if (controller.Frame == before) frozenFrames++;
+                Require(ReplayStateHash.Compute(controller.Replica!.Scene, controller.Frame) == hashes[controller.Frame],
+                    "Final historical world changed during impact slow motion.");
+                Require(finalChecks <= 300, "Final exceeded its five-second replay clock.");
+            }
+            Require(frozenFrames is >= 8 and <= 15, "The recorded impact was not shown at half speed.");
+            Require(controller.FinalPresentationTicks == (int)KillcamController.FinalReplayFrames,
+                "Final presentation did not end at the five-second budget.");
+            Require(controller.Frame == death + FinalKillPresentation.PostRollFrames
+                && controller.Progress == 1, "Final did not reach the recorded post-impact frame.");
+            Require(controller.State == KillcamState.AwaitCompletion,
+                "Final did not release the scoreboard transition.");
+            if (shots != null && controller.Presentation is { } final)
+            { final.OnDrawFrame(); final.OnRenderFrame(); ScreenCapture.SaveWindow(final, Path.Combine(shots, "final.png")); }
+            var presented = controller.Presentation!;
+            ulong oldLease = ReplayAudioOwner.Acquire(presented, live);
+            ulong currentLease = ReplayAudioOwner.Acquire(live, live);
+            ReplayAudioOwner.Release(oldLease);
+            Require(ReplayAudioOwner.MayPlay(live) && !ReplayAudioOwner.MayPlay(presented), "Stale audio release changed current ownership.");
+            ReplayAudioOwner.Release(currentLease);
+            controller.Stop(KillcamEndReason.Completed);
+            Require(ReplayStateHash.Compute(live, 0) == sentinel, "Final teardown changed live state.");
+            Console.WriteLine($"[killcam] PASS: {checks} checks, 24 death/skip/respawn/disconnect cycles, {compared} historical frames, resize, match change, final eligibility/freeze and versioned audio handoff.");
+            return 0;
+        }
+        catch (Exception ex) { Console.WriteLine("[killcam] FAIL: " + ex); return 1; }
+        finally
+        {
+            GamepadManager.RemoveDevice("killcam-check");
+            controller.Dispose(); capture.Dispose(); live.DoCleanup(); live.UnloadGl();
+#if !ANDROID
+            graphics?.Dispose();
+            window?.Dispose();
+#endif
+        }
+    }
+}

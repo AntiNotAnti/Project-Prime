@@ -1,0 +1,863 @@
+using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
+using System.Text;
+
+namespace MphRead.Mods.Network
+{
+    internal readonly record struct ReplayChunkIndex(uint FirstFrame, uint LastFrame,
+        long Offset, int CompressedLength);
+
+    internal readonly record struct ReplayCheckpointIndex(uint Frame, long Offset,
+        int CompressedLength, int RawLength, uint Crc);
+
+    internal static partial class ReplayFormatV3
+    {
+        internal const uint ChunkMagic = 0x334B4843; // CHK3
+        internal const uint FooterMagic = 0x33584449; // IDX3
+        internal const uint TrailerMagic = 0x33444E45; // END3
+        internal const uint HashMagic = 0x33485348; // HSH3, optional footer extension
+        internal const int MaxHeader = 128 * 1024;
+        internal const int MaxWorldHeader = MaxHeader + 12 + Replay.ReplayWorldCheckpoint.MaximumBytes + 5;
+        internal const int MaxTimedConstruction = ReplayReplicaCheckpoint.MaximumBytes + 65536 + 1;
+        internal const int MaxTimedHeader = MaxHeader + MaxTimedConstruction + 128;
+        internal const int MaxTimedWorldHeader = MaxTimedHeader + 12 + Replay.ReplayWorldCheckpoint.MaximumBytes + 6;
+        private const uint FireContinuationMagic = 0x31504650; // PFP1
+        private const uint TimedShotCapabilityMagic = 0x31544350; // PCT1
+        internal const int MaxChunk = 2 * 1024 * 1024;
+        internal const int MaxFooter = 16 * 1024 * 1024;
+        internal const int MaxChunks = 200000;
+        internal const int MaxEvents = 200000;
+        internal const int MaxHashes = 200000;
+        internal const int MaxCheckpoints = 4096;
+        internal const long MaxCheckpointStorage = 256L * 1024 * 1024;
+        internal const uint MaxFrame = 60 * 60 * 24 * 7;
+        internal const int ChunkHeaderSize = 28;
+        private static readonly UTF8Encoding Utf8 = new(false, true);
+        private static readonly uint[] CrcTable = MakeCrcTable();
+
+        private static uint[] MakeCrcTable()
+        {
+            var table = new uint[256];
+            for (uint i = 0; i < table.Length; i++)
+            {
+                uint value = i;
+                for (int bit = 0; bit < 8; bit++) value = (value & 1) != 0
+                    ? (value >> 1) ^ 0xEDB88320U : value >> 1;
+                table[i] = value;
+            }
+            return table;
+        }
+
+        internal static uint Crc(ReadOnlySpan<byte> data)
+        {
+            uint value = uint.MaxValue;
+            foreach (byte b in data) value = CrcTable[(value ^ b) & 255] ^ (value >> 8);
+            return ~value;
+        }
+
+        internal static void WriteString(BinaryWriter writer, string value)
+        {
+            byte[] bytes = Utf8.GetBytes(value);
+            if (bytes.Length > 1024) throw new InvalidDataException("Replay string exceeds 1024 bytes.");
+            writer.Write((ushort)bytes.Length);
+            writer.Write(bytes);
+        }
+
+        internal static string ReadString(BinaryReader reader)
+        {
+            int size = reader.ReadUInt16();
+            if (size > 1024) throw new InvalidDataException("Invalid replay string size.");
+            return Utf8.GetString(ReadBytes(reader, size));
+        }
+
+        internal static byte[] ReadBytes(BinaryReader reader, int size)
+        {
+            if (size < 0 || size > MaxFooter || size > reader.BaseStream.Length - reader.BaseStream.Position)
+                throw new EndOfStreamException("Truncated replay section.");
+            byte[] bytes = reader.ReadBytes(size);
+            if (bytes.Length != size) throw new EndOfStreamException();
+            return bytes;
+        }
+
+        internal static byte[] EncodeMetadata(ReplayMetadata metadata)
+        {
+            if (metadata.FormatVersion is not (3 or 4 or 5 or 6 or 7 or 8)
+                || metadata.FormatVersion == 3 && (metadata.WorldCheckpoint.Length != 0 || metadata.OriginRecordingFrame != 0 || metadata.LeadInFrames != 0)
+                || metadata.FormatVersion < 6 && (metadata.FormatVersion == 5) != metadata.IndexedFireContinuation.HasValue
+                || metadata.FormatVersion is not (7 or 8) && (metadata.FormatVersion == 6) != metadata.TimedShotCertificates
+                || metadata.TimedShotCertificates && metadata.ProtocolVersion is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82 or 83 or 84 or 85))
+                throw new InvalidDataException("Invalid replay metadata version.");
+            ValidateCustomArchiveMetadata(metadata);
+            using var buffer = new MemoryStream();
+            using var writer = new BinaryWriter(buffer, Encoding.UTF8, true);
+            writer.Write(metadata.TickRate);
+            writer.Write(metadata.RecordedAtUtc.ToUniversalTime().Ticks);
+            writer.Write((byte)metadata.Type);
+            writer.Write(metadata.Recovered);
+            writer.Write(metadata.MapHash);
+            writer.Write((byte)metadata.Mode);
+            WriteString(writer, metadata.BuildVersion);
+            WriteString(writer, metadata.BuildId);
+            WriteString(writer, metadata.RoomKey);
+            if (metadata.Players.Count > RosterPacket.MaxSlots) throw new InvalidDataException("Too many players.");
+            writer.Write((byte)metadata.Players.Count);
+            foreach (var player in metadata.Players)
+            {
+                writer.Write(player.Slot); writer.Write(player.Hunter); writer.Write(player.Team);
+                WriteString(writer, player.Name);
+                if (metadata.ProtocolVersion >= 26)
+                { writer.Write(player.IsBot); writer.Write(player.BotLevel); }
+            }
+            if (metadata.Bootstrap.Packets.Count > 32) throw new InvalidDataException("Bootstrap too large.");
+            writer.Write((byte)metadata.Bootstrap.Packets.Count);
+            foreach (byte[] packet in metadata.Bootstrap.Packets)
+            {
+                int limit = metadata.FormatVersion is 7 or 8 ? MaxCustomConstruction
+                    : metadata.FormatVersion == 6 && packet.Length > 0 && packet[0] == 253 ? MaxTimedConstruction : NetConfig.MaxSnapshotSize;
+                if (packet.Length < 1 || packet.Length > limit
+                    || metadata.FormatVersion >= 6 && buffer.Length + packet.Length + 4 > (metadata.FormatVersion is 7 or 8 ? MaxCustomHeader : MaxTimedHeader))
+                    throw new InvalidDataException("Invalid bootstrap packet.");
+                if (metadata.FormatVersion >= 6) writer.Write((uint)packet.Length);
+                else writer.Write((ushort)packet.Length);
+                writer.Write(packet);
+            }
+            if (buffer.Length > (metadata.FormatVersion is 7 or 8 ? MaxCustomHeader : metadata.FormatVersion == 6 ? MaxTimedHeader : MaxHeader))
+                throw new InvalidDataException("Metadata too large.");
+            if (metadata.FormatVersion >= 4)
+            {
+                if (metadata.WorldCheckpoint.Length > Replay.ReplayWorldCheckpoint.MaximumBytes || metadata.LeadInFrames > MaxFrame)
+                    throw new InvalidDataException("Invalid initial replay world length.");
+                writer.Write(metadata.OriginRecordingFrame);
+                writer.Write(metadata.LeadInFrames);
+                writer.Write(metadata.WorldCheckpoint.Length);
+                writer.Write(metadata.WorldCheckpoint);
+                if (metadata.FormatVersion is 7 or 8) WriteCustomArchiveCapability(writer, metadata);
+                else if (metadata.FormatVersion == 6)
+                {
+                    writer.Write(TimedShotCapabilityMagic);
+                    writer.Write((byte)1); // authority-recorded certificate schema
+                    writer.Write((byte)(metadata.IndexedFireContinuation is null ? 0 : metadata.IndexedFireContinuation.Value ? 2 : 1));
+                }
+                else if (metadata.IndexedFireContinuation is { } indexed)
+                { writer.Write(FireContinuationMagic); writer.Write(indexed); }
+            }
+            return buffer.ToArray();
+        }
+
+        internal static ReplayMetadata DecodeMetadata(byte protocol, byte[] bytes, byte version = 3)
+        {
+            if (version is not (3 or 4 or 5 or 6 or 7 or 8)) throw new InvalidDataException("Unsupported replay metadata version.");
+            using var reader = new BinaryReader(new MemoryStream(bytes), Utf8);
+            ushort tickRate = reader.ReadUInt16();
+            long ticks = reader.ReadInt64();
+            byte type = reader.ReadByte();
+            byte recovered = reader.ReadByte();
+            if (tickRate != 60 || ticks < DateTime.MinValue.Ticks || ticks > DateTime.MaxValue.Ticks
+                || type > 1 || recovered > 1) throw new InvalidDataException("Invalid replay metadata.");
+            ulong mapHash = reader.ReadUInt64();
+            byte mode = reader.ReadByte();
+            if (!Enum.IsDefined(typeof(GameMode), mode)) throw new InvalidDataException("Invalid game mode.");
+            string build = ReadString(reader), buildId = ReadString(reader), room = ReadString(reader);
+            int count = reader.ReadByte();
+            if (count > RosterPacket.MaxSlots) throw new InvalidDataException("Invalid player count.");
+            var players = new List<ReplayPlayerInfo>(count);
+            int seen = 0;
+            for (int i = 0; i < count; i++)
+            {
+                byte slot = reader.ReadByte(), hunter = reader.ReadByte();
+                sbyte team = reader.ReadSByte();
+                if (slot >= RosterPacket.MaxSlots || hunter >= 7 || team is < -1 or > 3 || (seen & (1 << slot)) != 0)
+                    throw new InvalidDataException("Invalid replay roster.");
+                seen |= 1 << slot;
+                string name = ReadString(reader);
+                byte bot = protocol >= 26 ? reader.ReadByte() : (byte)0;
+                byte level = protocol >= 26 ? reader.ReadByte() : (byte)0;
+                if (bot > 1 || level > 3 || (bot == 0 && level != 0))
+                    throw new InvalidDataException("Invalid replay bot identity.");
+                players.Add(new(slot, hunter, team, name, bot != 0, level));
+            }
+            int packetCount = reader.ReadByte();
+            if (packetCount > 32) throw new InvalidDataException("Invalid bootstrap count.");
+            var packets = new List<byte[]>(packetCount);
+            for (int i = 0; i < packetCount; i++)
+            {
+                uint declaredLength = version >= 6 ? reader.ReadUInt32() : reader.ReadUInt16();
+                int limit = version is 7 or 8 ? MaxCustomConstruction : version == 6 ? MaxTimedConstruction : NetConfig.MaxSnapshotSize;
+                if (declaredLength < 1 || declaredLength > limit
+                    || version >= 6 && reader.BaseStream.Position + declaredLength > (version is 7 or 8 ? MaxCustomHeader : MaxTimedHeader))
+                    throw new InvalidDataException("Invalid bootstrap packet length.");
+                int length = (int)declaredLength;
+                byte[] packet = ReadBytes(reader, length);
+                if (length > NetConfig.MaxSnapshotSize && packet[0] != 253)
+                    throw new InvalidDataException("Only a format6 construction bootstrap may exceed the wire packet budget.");
+                if (!ValidBootstrap(packet, protocol, version)) throw new InvalidDataException("Invalid bootstrap packet.");
+                packets.Add(packet);
+            }
+            uint origin = 0, leadIn = 0;
+            byte[] world = Array.Empty<byte>();
+            if (version >= 4)
+            {
+                origin = reader.ReadUInt32();
+                leadIn = reader.ReadUInt32();
+                int length = reader.ReadInt32();
+                if (length is < 0 or > Replay.ReplayWorldCheckpoint.MaximumBytes || leadIn > MaxFrame)
+                    throw new InvalidDataException("Invalid initial replay world length.");
+                world = ReadBytes(reader, length);
+            }
+            bool? indexedFireContinuation = null;
+            if (version == 5)
+            {
+                if (bytes.Length - reader.BaseStream.Position != 5 || reader.ReadUInt32() != FireContinuationMagic)
+                    throw new InvalidDataException("Unexpected metadata tail.");
+                byte policy = reader.ReadByte();
+                if (policy > 1) throw new InvalidDataException("Invalid replay firing continuation policy.");
+                indexedFireContinuation = policy != 0;
+            }
+            bool timedShots = false;
+            ReplayCustomWeaponDescriptor? customWeapons = null;
+            if (version is 7 or 8)
+                (customWeapons, timedShots, indexedFireContinuation) = ReadCustomArchiveCapability(reader, protocol);
+            if (version == 6)
+            {
+                if (protocol is not (56 or 57 or 58 or 59 or 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82 or 83 or 84 or 85) || bytes.Length - reader.BaseStream.Position != 6
+                    || reader.ReadUInt32() != TimedShotCapabilityMagic || reader.ReadByte() != 1)
+                    throw new InvalidDataException("Invalid timed shot recording capability.");
+                byte policy = reader.ReadByte();
+                if (policy > 2) throw new InvalidDataException("Invalid replay firing continuation policy.");
+                indexedFireContinuation = policy == 0 ? null : policy == 2;
+                timedShots = true;
+            }
+            if (reader.BaseStream.Position != bytes.Length) throw new InvalidDataException("Unexpected metadata tail.");
+            var metadata = new ReplayMetadata
+            {
+                FormatVersion = version, OriginRecordingFrame = origin, LeadInFrames = leadIn, WorldCheckpoint = world,
+                IndexedFireContinuation = indexedFireContinuation,
+                TimedShotCertificates = timedShots,
+                CustomWeapons = customWeapons,
+                ProtocolVersion = protocol, TickRate = tickRate, RecordedAtUtc = new DateTime(ticks, DateTimeKind.Utc),
+                Type = (ReplayType)type, Recovered = recovered != 0, MapHash = mapHash, Mode = (GameMode)mode,
+                BuildVersion = build, BuildId = buildId, RoomKey = room, Players = players,
+                Bootstrap = new ReplayBootstrap { Packets = packets }
+            };
+            ValidateCustomArchiveMetadata(metadata);
+            return metadata;
+        }
+
+        private static bool ValidBootstrap(byte[] packet, byte protocol, byte version)
+        {
+            if (packet.Length == 0 || packet[0] is ReplayCustomWeaponFact.Tag or ReplayPostWorldRecord.Tag) return false;
+            if (version is 7 or 8)
+            {
+                if (protocol is not (83 or 84 or 85) || packet.Length < 2 || packet[0] != 253) return false;
+                ReplayReplicaState.InspectCustomCheckpointLayout(ReplayTimelineArchive.ReadConstruction(packet, custom: true));
+                return true;
+            }
+            // Keep historical layouts and unknown protocols inspectable without
+            // handing them to current wire parsers. Reviewed protocol70+ native bootstrap
+            // widths are stable; their custom archive refusal must survive bumps.
+            if (protocol < CustomReplayBoundary.FirstFrozenAvailabilityProtocol
+                || !ReplayIdentityCompatibility.Supports(protocol)) return true;
+            if (packet[0] == ReplayTimedShotScope.Tag)
+                return version == 6 && ReplayTimedShotScope.TryRead(packet, out _);
+            if (packet[0] == ReplayTimedShotFact.Tag)
+                return version == 6 && ReplayTimedShotFact.TryRead(packet, out _);
+            if (version >= 4 && packet[0] == 253)
+            {
+                var construction = ReplayTimelineArchive.ReadConstruction(packet);
+                var layout = ReplayReplicaState.InspectCheckpointLayout(construction);
+                if (layout.Has(ReplayReplicaCheckpointFeatures.TimedShots) != (version == 6)) return false;
+                new ReplayReplicaState().RestoreCheckpoint(construction);
+                return true;
+            }
+            packet = ReplayIdentityCompatibility.Convert(packet, protocol).ToArray();
+            ReadOnlySpan<byte> payload = packet.AsSpan(1);
+            return (PacketType)packet[0] switch
+            {
+                PacketType.SessionState => payload.Length == SessionStatePacket.Size
+                    && SessionStatePacket.TryReadArchived(payload, out _),
+                PacketType.MatchState => payload.Length == MatchStatePacket.Size
+                    && ((MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(payload[103..])
+                        & (MatchModifierFlags.RiftlineM7Available | MatchModifierFlags.PackagedWeaponAvailable)) == 0,
+                PacketType.BombState => BombStatePage.TryRead(payload, out _),
+                PacketType.TimedGrantBootstrap => ReplayGrantBootstrap.TryRead(payload, out _, out _),
+                PacketType.TimedGrant => TimedGrantFact.TryRead(payload, out _),
+                PacketType.PickupPrediction => ReplayPickupPrediction.TryRead(payload, out _, out _),
+                PacketType.PickupClaim => PickupClaim.TryRead(payload, out _),
+                PacketType.PickupVerdict => PickupVerdict.TryRead(payload, out _),
+                PacketType.PickupItem => PickupItemFact.TryRead(payload, out _),
+                PacketType.TurretFireOutcome => TurretFireOutcome.TryRead(payload, out _),
+                PacketType.BombEvent => BombEvent.TryRead(payload, out _),
+                PacketType.CosmeticState => payload.Length > 0 && payload.Length % CosmeticStatePacket.Size == 0
+                    && payload.Length <= Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size,
+                PacketType.Roster => payload.Length == RosterPacket.Size,
+                PacketType.Snapshot => ValidSnapshotBootstrap(payload),
+                PacketType.SlotIntent => (payload.Length == 1 + IntentPacket.TouchCanonicalSize || payload.Length == 1 + IntentPacket.FullSize || payload.Length == 1 + IntentPacket.Protocol42FullSize) && payload[0] < RosterPacket.MaxSlots,
+                _ => false
+            };
+        }
+
+        private static bool ValidSnapshotBootstrap(ReadOnlySpan<byte> payload)
+        {
+            if (payload.Length < SnapshotHeader.Size) return false;
+            SnapshotHeader header = SnapshotHeader.Read(payload);
+            if (header.PlayerCount > RosterPacket.MaxSlots) return false;
+            int timeOffset = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
+            int healthOffset = timeOffset + NetMatchTimeSync.Size;
+            if (healthOffset > payload.Length) return false;
+            for (int i = 0; i < header.PlayerCount; i++)
+                if (!ParkourWallVisualCodec.TryReadGrapple(payload.Slice(SnapshotHeader.Size + i * PlayerState.Size + PlayerState.Protocol80Size, PlayerGrappleState.Size), out _, out _)) return false;
+            ReadOnlySpan<byte> health = payload[healthOffset..];
+            return NetMatchTimeSync.Validate(payload.Slice(timeOffset, NetMatchTimeSync.Size))
+                && NetHealthSync.Validate(health)
+                && System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(health) == header.MatchId;
+        }
+
+        internal static ReplayOpenResult Failure(Exception ex) => ex switch
+        {
+            FileNotFoundException or DirectoryNotFoundException => ReplayOpenResult.FileMissing,
+            EndOfStreamException => ReplayOpenResult.Truncated,
+            InvalidDataException or DecoderFallbackException or OverflowException => ReplayOpenResult.Corrupt,
+            _ => ReplayOpenResult.IoError
+        };
+    }
+
+    /// <summary>Each completed chunk is durable; only a successfully closed file gets its final name.</summary>
+    internal sealed class ReplayWriterV3 : IDisposable
+    {
+        private readonly string _path;
+        private readonly FileStream _stream;
+        private readonly BinaryWriter _writer;
+        private readonly MemoryStream _chunk = new();
+        private readonly BinaryWriter _records;
+        private readonly List<ReplayChunkIndex> _index = new();
+        private readonly List<ReplayEvent> _events = new();
+        private readonly List<ReplayCheckpointIndex> _checkpoints = new();
+        private FileStream? _checkpointSpool;
+        private readonly byte _version;
+        private readonly bool _timedShotCertificates;
+        private readonly ReplayCustomWeaponContext? _customContext;
+        private readonly ReplayMetadata _metadata;
+        private readonly ReplayPostWorldFrameState _phases = new();
+        internal bool HasCustomWeaponContract => _customContext != null;
+        private readonly uint _origin;
+        private readonly string _producerBuild;
+        private readonly List<ReplayExpectedHash> _hashes = new();
+        private ushort _hashSchema;
+        private string _hashBuildId = "";
+        private uint _first, _last, _count;
+        private bool _disposed, _faulted;
+        public string PartialPath => _path + ".part";
+
+        public ReplayWriterV3(string path, ReplayMetadata metadata)
+        {
+            _version = metadata.FormatVersion; _origin = metadata.OriginRecordingFrame; _producerBuild = metadata.BuildId;
+            _timedShotCertificates = metadata.TimedShotCertificates;
+            _customContext = metadata.CustomWeapons?.InspectContext();
+            _path = Path.GetFullPath(path);
+            Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
+            // Never truncate an existing recording, including an orphan from a previous crash.
+            if (File.Exists(_path)) throw new IOException("A replay already exists at that path.");
+            byte[] header = ReplayFormatV3.EncodeMetadata(metadata);
+            // The writer can also receive bootstrap packets extracted from an external v2
+            // replay. Validate those before creating a file we would subsequently refuse.
+            // Keep the validated header's owned arrays. A caller may retire or
+            // reuse its bootstrap buffer after construction; optional worlds
+            // must still be checked against the header committed to this file.
+            _metadata = ReplayFormatV3.DecodeMetadata(metadata.ProtocolVersion, header, metadata.FormatVersion);
+            _stream = new FileStream(PartialPath, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+            _writer = new BinaryWriter(_stream, Encoding.UTF8, true);
+            _records = new BinaryWriter(_chunk, Encoding.UTF8, true);
+            try
+            {
+                _writer.Write(DemoFile.Magic); _writer.Write(metadata.FormatVersion); _writer.Write(metadata.ProtocolVersion);
+                _writer.Write(header.Length); _writer.Write(ReplayFormatV3.Crc(header)); _writer.Write(header);
+                _stream.Flush(true);
+            }
+            catch { Abort(); throw; }
+        }
+
+        public void WriteRecord(uint frame, ReadOnlySpan<byte> data)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            int maximum = data.Length > 0 && data[0] == ReplayPostWorldRecord.Tag && _version == 8
+                ? ReplayPostWorldRecord.MaximumBytes : data.Length > 0 && data[0] == ReplayCustomWeaponFact.Tag
+                ? ReplayFormatV3.MaximumRecordBytes(HasCustomWeaponContract) : NetConfig.MaxSnapshotSize;
+            if (data.Length < 1 || data.Length > maximum || frame < _last || frame > ReplayFormatV3.MaxFrame
+                || HasCustomWeaponContract && (ulong)frame + _origin > uint.MaxValue)
+                throw new InvalidDataException("Invalid replay packet/frame.");
+            ReplayFormatV3.ValidateArchiveRecord(data, _customContext, _version, _timedShotCertificates);
+            if (_version == 8) _phases.Observe(frame, data);
+            try
+            {
+                if (_count > 0 && (frame - _first >= 120 || _chunk.Length + data.Length + 6 > ReplayFormatV3.MaxChunk)) FlushChunk();
+                if (_count == 0) _first = frame;
+                _last = frame;
+                _records.Write(frame); _records.Write((ushort)data.Length); _records.Write(data);
+                _count++;
+            }
+            catch { _faulted = true; throw; }
+        }
+
+        internal void WriteCheckpoint(uint frame, ReadOnlySpan<byte> bytes)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (_version < 4 || bytes.Length is < 1 or > Replay.ReplayWorldCheckpoint.MaximumBytes
+                || frame > ReplayFormatV3.MaxFrame)
+                throw new InvalidDataException("Invalid durable replay checkpoint.");
+            using var checkpoint = HasCustomWeaponContract ? Replay.ReplayWorldCheckpoint.FromCustomBytes(bytes, _producerBuild)
+                : Replay.ReplayWorldCheckpoint.FromBytes(bytes, _producerBuild);
+            if (HasCustomWeaponContract) checkpoint.ValidateCustomArchive(_metadata);
+            if (checkpoint.HasTimedShotContract != _timedShotCertificates)
+                throw new InvalidDataException("Durable timed shot contract differs from the recording capability.");
+            if (checkpoint.Frame != (ulong)frame + _origin) throw new InvalidDataException("Invalid durable replay checkpoint clock.");
+            if (_checkpoints.Count > 0 && frame <= _checkpoints[^1].Frame) return;
+            if (_checkpoints.Count >= ReplayFormatV3.MaxCheckpoints) return;
+            using var compressed = new MemoryStream();
+            using (var deflate = new DeflateStream(compressed, CompressionLevel.Fastest, true)) deflate.Write(bytes);
+            if ((_checkpointSpool?.Length ?? 0) + compressed.Length > ReplayFormatV3.MaxCheckpointStorage) return;
+            _checkpointSpool ??= new FileStream(Path.Combine(Path.GetTempPath(), "prime-replay-checkpoints-" + Guid.NewGuid().ToString("N")),
+                FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None, 65536, FileOptions.DeleteOnClose);
+            _checkpoints.Add(new(frame, _checkpointSpool.Position, (int)compressed.Length, bytes.Length, ReplayFormatV3.Crc(bytes)));
+            compressed.Position = 0; compressed.CopyTo(_checkpointSpool);
+        }
+
+        public void WriteEvent(ReplayEvent value)
+        {
+            if (_events.Count < ReplayFormatV3.MaxEvents) _events.Add(value);
+        }
+
+        public void WriteExpectedHash(ReplayExpectedHash value, ushort schema, string buildId)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            if (schema == 0 || buildId.Length == 0 || Encoding.UTF8.GetByteCount(buildId) > 1024
+                || value.Frame > ReplayFormatV3.MaxFrame || value.Value.Length != 64
+                || _hashes.Count >= ReplayFormatV3.MaxHashes
+                || (_hashes.Count > 0 && (value.Frame <= _hashes[^1].Frame || schema != _hashSchema || buildId != _hashBuildId)))
+                throw new InvalidDataException("Invalid replay state hash.");
+            try { _ = Convert.FromHexString(value.Value); }
+            catch (FormatException ex) { throw new InvalidDataException("Invalid replay state hash.", ex); }
+            _hashes.Add(value);
+            _hashSchema = schema;
+            _hashBuildId = buildId;
+        }
+
+        private void FlushChunk()
+        {
+            if (_count == 0) return;
+            if (_index.Count >= ReplayFormatV3.MaxChunks) throw new IOException("Replay chunk limit reached.");
+            using var compressed = new MemoryStream();
+            using (var deflate = new DeflateStream(compressed, CompressionLevel.Fastest, true))
+                deflate.Write(_chunk.GetBuffer().AsSpan(0, (int)_chunk.Length));
+            if (compressed.Length > ReplayFormatV3.MaxChunk + 65536) throw new InvalidDataException("Compressed chunk too large.");
+            _index.Add(new(_first, _last, _stream.Position, (int)compressed.Length));
+            _writer.Write(ReplayFormatV3.ChunkMagic); _writer.Write(_first); _writer.Write(_last); _writer.Write(_count);
+            _writer.Write((int)compressed.Length); _writer.Write((int)_chunk.Length);
+            _writer.Write(ReplayFormatV3.Crc(_chunk.GetBuffer().AsSpan(0, (int)_chunk.Length)));
+            _writer.Write(compressed.GetBuffer().AsSpan(0, (int)compressed.Length));
+            _stream.Flush(true);
+            _count = 0; _chunk.SetLength(0);
+        }
+
+        public void Abort()
+        {
+            _faulted = true;
+            if (_disposed) return;
+            _disposed = true;
+            _records.Dispose(); _chunk.Dispose(); _writer.Dispose(); _stream.Dispose(); _checkpointSpool?.Dispose();
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            try
+            {
+                if (_faulted) return;
+                FlushChunk();
+                long checkpointStart = _stream.Position;
+                if (_checkpointSpool != null) { _checkpointSpool.Position = 0; _checkpointSpool.CopyTo(_stream); }
+                using var footer = new MemoryStream();
+                using (var output = new BinaryWriter(footer, Encoding.UTF8, true))
+                {
+                    output.Write(_last); output.Write(_index.Count);
+                    foreach (var entry in _index)
+                    {
+                        output.Write(entry.FirstFrame); output.Write(entry.LastFrame);
+                        output.Write(entry.Offset); output.Write(entry.CompressedLength);
+                    }
+                    _events.Sort((a, b) => a.Frame.CompareTo(b.Frame));
+                    _events.RemoveAll(e => e.Frame > _last);
+                    output.Write(_events.Count);
+                    foreach (var e in _events)
+                    {
+                        output.Write(e.Frame); output.Write((byte)e.Type); output.Write(e.ActorSlot);
+                        output.Write(e.TargetSlot); output.Write(e.Value);
+                    }
+                    output.Write(_checkpoints.Count);
+                    foreach (var checkpoint in _checkpoints)
+                    {
+                        if (checkpoint.Frame > _last) throw new InvalidDataException("Checkpoint beyond replay duration.");
+                        output.Write(checkpoint.Frame); output.Write(checkpointStart + checkpoint.Offset);
+                        output.Write(checkpoint.CompressedLength); output.Write(checkpoint.RawLength); output.Write(checkpoint.Crc);
+                    }
+                    if (_hashes.Count > 0)
+                    {
+                        if (_hashes[^1].Frame > _last) throw new InvalidDataException("Hash beyond replay duration.");
+                        output.Write(ReplayFormatV3.HashMagic);
+                        output.Write(_hashSchema);
+                        ReplayFormatV3.WriteString(output, _hashBuildId);
+                        output.Write(_hashes.Count);
+                        foreach (ReplayExpectedHash hash in _hashes)
+                        {
+                            output.Write(hash.Frame);
+                            output.Write(Convert.FromHexString(hash.Value));
+                        }
+                    }
+                }
+                if (footer.Length > ReplayFormatV3.MaxFooter) throw new IOException("Replay index too large.");
+                long offset = _stream.Position;
+                _writer.Write(ReplayFormatV3.FooterMagic); _writer.Write((int)footer.Length);
+                _writer.Write(ReplayFormatV3.Crc(footer.GetBuffer().AsSpan(0, (int)footer.Length)));
+                _writer.Write(footer.GetBuffer().AsSpan(0, (int)footer.Length));
+                _writer.Write(offset); _writer.Write(ReplayFormatV3.TrailerMagic);
+                _stream.Flush(true);
+            }
+            catch { _faulted = true; throw; }
+            finally
+            {
+                _disposed = true;
+                _records.Dispose(); _chunk.Dispose(); _writer.Dispose(); _stream.Dispose(); _checkpointSpool?.Dispose();
+            }
+            if (!_faulted) File.Move(PartialPath, _path);
+        }
+    }
+
+    internal sealed class ReplayReaderV3 : IDisposable
+    {
+        private readonly FileStream _stream;
+        private readonly BinaryReader _reader;
+        private readonly List<ReplayChunkIndex> _index = new();
+        private readonly List<ReplayCheckpointIndex> _checkpoints = new();
+        internal IReadOnlyList<ReplayCheckpointIndex> Checkpoints => _checkpoints;
+        private BinaryReader? _chunk;
+        private uint _remaining, _first, _last, _previous;
+        private int _chunkNumber;
+        private readonly long _dataStart;
+        private readonly bool _metadataOnly;
+        private readonly ReplayCustomWeaponContext? _customContext;
+        private long _dataEnd;
+        private bool _hasFooter, _ended;
+        private ReplayPostWorldFrameState _phases = new();
+        public ReplayMetadata Metadata { get; }
+        public ReplayOpenResult LastResult { get; private set; } = ReplayOpenResult.Success;
+        public uint DurationFrames => Metadata.DurationFrames;
+
+        // stream is positioned immediately after the six-byte dispatch header.
+        public ReplayReaderV3(FileStream stream, byte protocol, bool metadataOnly = false, byte version = 3)
+        {
+            _stream = stream;
+            _metadataOnly = metadataOnly;
+            _reader = new BinaryReader(stream, Encoding.UTF8, true);
+            int size = _reader.ReadInt32();
+            uint crc = _reader.ReadUInt32();
+            if (size < 1 || size > (version is 7 or 8 ? ReplayFormatV3.MaxCustomHeader : version == 6 ? ReplayFormatV3.MaxTimedWorldHeader
+                : version >= 4 ? ReplayFormatV3.MaxWorldHeader : ReplayFormatV3.MaxHeader))
+                throw new InvalidDataException("Invalid metadata length.");
+            byte[] header = ReplayFormatV3.ReadBytes(_reader, size);
+            if (ReplayFormatV3.Crc(header) != crc) throw new InvalidDataException("Metadata checksum failed.");
+            Metadata = ReplayFormatV3.DecodeMetadata(protocol, header, version);
+            _customContext = Metadata.CustomWeapons?.InspectContext();
+            _dataStart = stream.Position;
+            _dataEnd = stream.Length;
+            ReadFooter();
+            if (!_hasFooter) Metadata.Integrity = ReplayIntegrity.Truncated;
+            stream.Position = _dataStart;
+        }
+
+        private void ReadFooter()
+        {
+            if (_stream.Length - _dataStart < 12) return;
+            _stream.Position = _stream.Length - 12;
+            long offset = _reader.ReadInt64();
+            if (_reader.ReadUInt32() != ReplayFormatV3.TrailerMagic) return;
+            if (offset < _dataStart || offset > _stream.Length - 24) throw new InvalidDataException("Invalid footer offset.");
+            _stream.Position = offset;
+            if (_reader.ReadUInt32() != ReplayFormatV3.FooterMagic) throw new InvalidDataException("Invalid footer magic.");
+            int length = _reader.ReadInt32();
+            uint crc = _reader.ReadUInt32();
+            if (length < 16 || length > ReplayFormatV3.MaxFooter || offset + 12 + length != _stream.Length - 12)
+                throw new InvalidDataException("Invalid footer length.");
+            byte[] bytes = ReplayFormatV3.ReadBytes(_reader, length);
+            if (ReplayFormatV3.Crc(bytes) != crc) throw new InvalidDataException("Footer checksum failed.");
+            using var footer = new BinaryReader(new MemoryStream(bytes));
+            uint duration = footer.ReadUInt32();
+            int count = footer.ReadInt32();
+            if (duration > ReplayFormatV3.MaxFrame || count < 0 || count > ReplayFormatV3.MaxChunks
+                || (long)count * 20 > length - 16) throw new InvalidDataException("Invalid chunk index count.");
+            long nextOffset = _dataStart;
+            uint previous = 0;
+            for (int i = 0; i < count; i++)
+            {
+                var entry = new ReplayChunkIndex(footer.ReadUInt32(), footer.ReadUInt32(), footer.ReadInt64(), footer.ReadInt32());
+                if (entry.FirstFrame < previous || entry.LastFrame < entry.FirstFrame || entry.LastFrame > duration
+                    || entry.Offset != nextOffset || entry.CompressedLength is < 1 or > ReplayFormatV3.MaxChunk + 65536)
+                    throw new InvalidDataException("Invalid chunk index entry.");
+                nextOffset = entry.Offset + ReplayFormatV3.ChunkHeaderSize + entry.CompressedLength;
+                if (nextOffset > offset) throw new InvalidDataException("Chunk overlaps footer.");
+                previous = entry.LastFrame;
+                if (!_metadataOnly) _index.Add(entry);
+            }
+            long packetEnd = nextOffset;
+            if ((count != 0 && previous != duration) || (count == 0 && duration != 0))
+                throw new InvalidDataException("Invalid replay duration or data extent.");
+            int events = footer.ReadInt32();
+            if (events < 0 || events > ReplayFormatV3.MaxEvents || (long)events * 11 > bytes.Length - footer.BaseStream.Position - 4)
+                throw new InvalidDataException("Invalid event count.");
+            var annotations = new List<ReplayEvent>(_metadataOnly ? 0 : events);
+            uint lastEvent = 0;
+            for (int i = 0; i < events; i++)
+            {
+                var e = new ReplayEvent(footer.ReadUInt32(), (ReplayEventType)footer.ReadByte(),
+                    footer.ReadByte(), footer.ReadByte(), footer.ReadInt32());
+                if (e.Frame < lastEvent || e.Frame > duration || e.Type > ReplayEventType.TokenBanked
+                    || (e.ActorSlot != byte.MaxValue && e.ActorSlot >= RosterPacket.MaxSlots)
+                    || (e.TargetSlot != byte.MaxValue && e.TargetSlot >= RosterPacket.MaxSlots))
+                    throw new InvalidDataException("Invalid replay event.");
+                if (!_metadataOnly && e.Frame >= Metadata.LeadInFrames)
+                    annotations.Add(e with { Frame = e.Frame - Metadata.LeadInFrames });
+                lastEvent = e.Frame;
+            }
+            int checkpoints = footer.ReadInt32();
+            if (checkpoints < 0 || checkpoints > ReplayFormatV3.MaxCheckpoints || Metadata.FormatVersion < 4 && checkpoints != 0
+                || (long)checkpoints * 24 > bytes.Length - footer.BaseStream.Position)
+                throw new InvalidDataException("Invalid checkpoint index.");
+            uint priorCheckpoint = 0;
+            for (int i = 0; i < checkpoints; i++)
+            {
+                var entry = new ReplayCheckpointIndex(footer.ReadUInt32(), footer.ReadInt64(), footer.ReadInt32(), footer.ReadInt32(), footer.ReadUInt32());
+                if (entry.Frame > duration || i > 0 && entry.Frame <= priorCheckpoint || entry.Offset != nextOffset
+                    || entry.RawLength is < 1 or > Replay.ReplayWorldCheckpoint.MaximumBytes
+                    || entry.CompressedLength is < 1 or > Replay.ReplayWorldCheckpoint.MaximumBytes + 65536)
+                    throw new InvalidDataException("Invalid replay checkpoint extent.");
+                nextOffset += entry.CompressedLength; priorCheckpoint = entry.Frame;
+                if (nextOffset > offset || nextOffset - packetEnd > ReplayFormatV3.MaxCheckpointStorage)
+                    throw new InvalidDataException("Replay checkpoint overlaps footer or exceeds storage budget.");
+                if (!_metadataOnly) _checkpoints.Add(entry);
+            }
+            if (nextOffset != offset) throw new InvalidDataException("Invalid replay data extent.");
+            // Early v3 recordings ended after the checkpoint count. Later optional hash
+            // sections are fully length/CRC protected by the same footer envelope.
+            if (footer.BaseStream.Position < bytes.Length)
+            {
+                if (footer.ReadUInt32() != ReplayFormatV3.HashMagic) throw new InvalidDataException("Unknown replay footer extension.");
+                Metadata.HashSchema = footer.ReadUInt16();
+                Metadata.HashBuildId = ReplayFormatV3.ReadString(footer);
+                int hashCount = footer.ReadInt32();
+                if (Metadata.HashSchema == 0 || Metadata.HashBuildId.Length == 0
+                    || hashCount < 1 || hashCount > ReplayFormatV3.MaxHashes
+                    || (long)hashCount * 36 != bytes.Length - footer.BaseStream.Position)
+                    throw new InvalidDataException("Invalid replay hash index.");
+                var hashes = new List<ReplayExpectedHash>(_metadataOnly ? 0 : hashCount);
+                uint priorHash = 0;
+                for (int i = 0; i < hashCount; i++)
+                {
+                    uint frame = footer.ReadUInt32();
+                    if (frame > duration || (i > 0 && frame <= priorHash)) throw new InvalidDataException("Invalid replay hash frame.");
+                    if (_metadataOnly) footer.BaseStream.Position += 32;
+                    else
+                    {
+                        string value = Convert.ToHexString(ReplayFormatV3.ReadBytes(footer, 32));
+                        if (frame >= Metadata.LeadInFrames) hashes.Add(new(frame - Metadata.LeadInFrames, value));
+                    }
+                    priorHash = frame;
+                }
+                Metadata.ExpectedHashes = hashes;
+            }
+            if (footer.BaseStream.Position != bytes.Length) throw new InvalidDataException("Unexpected replay footer tail.");
+            Metadata.Events = annotations;
+            if (duration < Metadata.LeadInFrames || (ulong)duration + Metadata.OriginRecordingFrame > uint.MaxValue)
+                throw new InvalidDataException("Replay has an invalid visible/recording range.");
+            Metadata.DurationFrames = duration - Metadata.LeadInFrames;
+            // Header/footer validity does not prove chunk health. Only a full validation does.
+            Metadata.Integrity = Metadata.Recovered ? ReplayIntegrity.Recovered : ReplayIntegrity.Unknown;
+            _dataEnd = packetEnd;
+            _hasFooter = true;
+        }
+
+        internal byte[] ReadCheckpoint(ReplayCheckpointIndex entry)
+        {
+            if (_metadataOnly || !_checkpoints.Contains(entry)) throw new InvalidDataException("Unknown replay checkpoint.");
+            long position = _stream.Position;
+            try
+            {
+                _stream.Position = entry.Offset;
+                byte[] compressed = ReplayFormatV3.ReadBytes(_reader, entry.CompressedLength);
+                byte[] raw = new byte[entry.RawLength];
+                using var deflate = new DeflateStream(new MemoryStream(compressed), CompressionMode.Decompress);
+                deflate.ReadExactly(raw);
+                if (deflate.ReadByte() != -1 || ReplayFormatV3.Crc(raw) != entry.Crc)
+                    throw new InvalidDataException("Replay checkpoint checksum/length failed.");
+                if (Metadata.CustomWeapons != null)
+                {
+                    using var world = Replay.ReplayWorldCheckpoint.FromCustomBytes(raw, Metadata.BuildId);
+                    world.ValidateCustomArchive(Metadata);
+                    if ((ulong)entry.Frame + Metadata.OriginRecordingFrame != world.Frame)
+                        throw new InvalidDataException("Custom archive checkpoint clock differs from its index.");
+                }
+                return raw;
+            }
+            finally { _stream.Position = position; }
+        }
+
+        public DemoRecord? SeekAfter(uint frame) => Seek(frame, inclusive: false);
+
+        // A complete WorldK already includes ordinary K facts, but format8 may
+        // retain post-world K facts needed before simulation K+1.
+        public DemoRecord? SeekAtOrAfter(uint frame) => Seek(frame, inclusive: true);
+
+        private DemoRecord? Seek(uint frame, bool inclusive)
+        {
+            if (_metadataOnly) throw new InvalidOperationException("Metadata-only readers cannot seek packets.");
+
+            _chunk?.Dispose();
+            _chunk = null;
+            _remaining = 0;
+            _previous = 0;
+            _phases = new();
+            _ended = false;
+            LastResult = ReplayOpenResult.Success;
+
+            // Warm the preceding phase for the shared application budget. The
+            // first matching chunk can itself be one of several ending at K.
+            // Filtering below still returns exactly the requested inclusive or
+            // exclusive record, without retagging any stored frame.
+            if (!_hasFooter && (inclusive || Metadata.FormatVersion == 8))
+            {
+                // A recoverable .part has no index. Scan its bounded, validated
+                // chunks from the start so phase budgets and equal clocks remain
+                // meaningful. Existing native exclusive-seek behavior is retained.
+                _stream.Position = _dataStart;
+                _chunkNumber = 0;
+            }
+            else
+            {
+                uint warm = inclusive && frame > 0 ? frame - 1 : frame;
+                int index = _index.FindIndex(entry => Metadata.FormatVersion == 8
+                    ? entry.LastFrame >= warm : inclusive ? entry.LastFrame >= frame : entry.LastFrame > frame);
+                if (index < 0)
+                {
+                    _stream.Position = _dataEnd;
+                    _chunkNumber = _index.Count;
+                    _ended = true;
+                    return null;
+                }
+                _stream.Position = _index[index].Offset;
+                _chunkNumber = index;
+            }
+            DemoRecord? record;
+            do
+            {
+                record = ReadNext();
+            }
+            while (record is DemoRecord value && (inclusive ? value.Frame < frame : value.Frame <= frame));
+            return record;
+        }
+
+        public DemoRecord? ReadNext()
+        {
+            if (_metadataOnly) throw new InvalidOperationException("Metadata-only readers cannot read packets.");
+            if (_ended) return null;
+            try
+            {
+                if (_remaining == 0 && !ReadChunk()) return null;
+                uint frame = _chunk!.ReadUInt32();
+                int size = _chunk.ReadUInt16();
+                if (frame < _first || frame > _last || frame < _previous || size < 1
+                    || size > ReplayFormatV3.MaximumRecordBytes(_customContext != null, Metadata.FormatVersion))
+                    throw new InvalidDataException("Invalid packet record.");
+                byte[] data = ReplayFormatV3.ReadBytes(_chunk, size);
+                _remaining--; _previous = frame;
+                if (_remaining == 0 && (frame != _last || _chunk.BaseStream.Position != _chunk.BaseStream.Length))
+                    throw new InvalidDataException("Invalid chunk record count or frame range.");
+                if (!_hasFooter) Metadata.DurationFrames = frame >= Metadata.LeadInFrames ? frame - Metadata.LeadInFrames : 0;
+                return new DemoRecord(frame, data);
+            }
+            catch (Exception ex) when (ex is IOException || ex is InvalidDataException || ex is OverflowException)
+            {
+                LastResult = ReplayFormatV3.Failure(ex);
+                Metadata.Integrity = LastResult == ReplayOpenResult.Truncated ? ReplayIntegrity.Truncated : ReplayIntegrity.Corrupt;
+                _ended = true;
+                return null;
+            }
+        }
+
+        private bool ReadChunk()
+        {
+            _chunk?.Dispose(); _chunk = null;
+            if (_stream.Position == _dataEnd)
+            {
+                _ended = true;
+                LastResult = _hasFooter ? ReplayOpenResult.Success : ReplayOpenResult.Truncated;
+                Metadata.Integrity = !_hasFooter ? ReplayIntegrity.Truncated : Metadata.Recovered
+                    ? ReplayIntegrity.Recovered : ReplayIntegrity.Healthy;
+                return false;
+            }
+            long offset = _stream.Position;
+            if (_dataEnd - offset < ReplayFormatV3.ChunkHeaderSize) throw new EndOfStreamException();
+            if (_reader.ReadUInt32() != ReplayFormatV3.ChunkMagic) throw new InvalidDataException("Invalid chunk magic.");
+            _first = _reader.ReadUInt32(); _last = _reader.ReadUInt32(); _remaining = _reader.ReadUInt32();
+            int compressedLength = _reader.ReadInt32(), rawLength = _reader.ReadInt32();
+            uint crc = _reader.ReadUInt32();
+            if (_first < _previous || _last < _first || _last > ReplayFormatV3.MaxFrame
+                || rawLength is < 7 or > ReplayFormatV3.MaxChunk || _remaining == 0 || _remaining > rawLength / 7
+                || compressedLength is < 1 or > ReplayFormatV3.MaxChunk + 65536)
+                throw new InvalidDataException("Invalid chunk header.");
+            if (_hasFooter && (_chunkNumber >= _index.Count
+                || _index[_chunkNumber] != new ReplayChunkIndex(_first, _last, offset, compressedLength)))
+                throw new InvalidDataException("Chunk differs from index.");
+            if (compressedLength > _dataEnd - _stream.Position) throw new EndOfStreamException();
+            byte[] compressed = ReplayFormatV3.ReadBytes(_reader, compressedLength);
+            byte[] raw = new byte[rawLength];
+            using (var deflate = new DeflateStream(new MemoryStream(compressed), CompressionMode.Decompress))
+            {
+                deflate.ReadExactly(raw);
+                if (deflate.ReadByte() != -1) throw new InvalidDataException("Decompressed chunk exceeds declared size.");
+            }
+            if (ReplayFormatV3.Crc(raw) != crc) throw new InvalidDataException("Chunk checksum failed.");
+            // Validate every record before returning any part of a chunk. Recovery must never
+            // copy the valid prefix of a malformed chunk and label it recovered data.
+            using (var check = new BinaryReader(new MemoryStream(raw)))
+            {
+                uint prior = _first;
+                for (uint i = 0; i < _remaining; i++)
+                {
+                    uint frame = check.ReadUInt32(); int size = check.ReadUInt16();
+                    if (frame < prior || frame > _last || (i == 0 && frame != _first)
+                        || size < 1 || size > ReplayFormatV3.MaximumRecordBytes(_customContext != null, Metadata.FormatVersion) || size > raw.Length - check.BaseStream.Position)
+                        throw new InvalidDataException("Invalid chunk packet bounds.");
+                    byte tag = raw[check.BaseStream.Position];
+                    if (size > NetConfig.MaxSnapshotSize && tag != ReplayCustomWeaponFact.Tag
+                        && !(Metadata.FormatVersion == 8 && tag == ReplayPostWorldRecord.Tag))
+                        throw new InvalidDataException("Only declared custom facts may exceed the native packet budget.");
+                    ReplayFormatV3.ValidateArchiveRecord(raw.AsSpan((int)check.BaseStream.Position, size),
+                        _customContext, Metadata.FormatVersion, Metadata.TimedShotCertificates);
+                    if (Metadata.FormatVersion == 8)
+                        _phases.Observe(frame, raw.AsSpan((int)check.BaseStream.Position, size));
+                    if (Metadata.FormatVersion >= 4 && tag == 254)
+                        _ = ReplayTimelineArchive.DecodeMarker(frame, raw.AsSpan((int)check.BaseStream.Position, size).ToArray());
+                    if ((ulong)frame + Metadata.OriginRecordingFrame > uint.MaxValue)
+                        throw new InvalidDataException("Replay recording clock overflow.");
+                    check.BaseStream.Position += size; prior = frame;
+                }
+                if (prior != _last || check.BaseStream.Position != raw.Length) throw new InvalidDataException("Invalid chunk records.");
+            }
+            _chunk = new BinaryReader(new MemoryStream(raw));
+            _chunkNumber++;
+            return true;
+        }
+
+        public void Dispose() { _chunk?.Dispose(); _reader.Dispose(); _stream.Dispose(); }
+    }
+}

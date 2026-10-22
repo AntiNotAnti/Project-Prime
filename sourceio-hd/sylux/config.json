@@ -1,0 +1,128 @@
+{
+  "format": 1,
+  "hunter": "Sylux",
+  "sourceRelative": "models/sylux/sylux_a.glb",
+  "sourceMeshes": [
+    "MPH/Sylux_A.mdl_ShockCoil_ShockCoil.smd_MESH",
+    "MPH/Sylux_A.mdl_Head_Sylux.smd_MESH"
+  ],
+  "bodygroups": [
+    "Sylux.smd",
+    "ShockCoil.smd"
+  ],
+  "expectedSourceBones": 47,
+  "expectedTriangles": 10686,
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "Pelvis",
+  "yawDegrees": 180,
+  "fit": {
+    "Pelvis": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "L_hip": {
+      "anchor": "ValveBiped.Bip01_L_Thigh",
+      "endSource": "ValveBiped.Bip01_L_Calf",
+      "endNative": "L_knee"
+    },
+    "L_knee": {
+      "anchor": "ValveBiped.Bip01_L_Calf",
+      "endSource": "ValveBiped.Bip01_L_Foot",
+      "endNative": "L_ankle"
+    },
+    "L_ankle": {
+      "anchor": "ValveBiped.Bip01_L_Foot",
+      "groundShape": true
+    },
+    "R_hip": {
+      "anchor": "ValveBiped.Bip01_R_Thigh",
+      "endSource": "ValveBiped.Bip01_R_Calf",
+      "endNative": "R_knee"
+    },
+    "R_knee": {
+      "anchor": "ValveBiped.Bip01_R_Calf",
+      "endSource": "ValveBiped.Bip01_R_Foot",
+      "endNative": "R_ankle"
+    },
+    "R_ankle": {
+      "anchor": "ValveBiped.Bip01_R_Foot",
+      "groundShape": true
+    },
+    "Spine_1": {
+      "anchor": "ValveBiped.Bip01_Spine",
+      "endSource": "ValveBiped.Bip01_Spine1",
+      "endNative": "Spine_2",
+      "preserveSourceShape": true
+    },
+    "Spine_2": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "endSource": "ValveBiped.Bip01_Head1",
+      "endNative": "Head_1",
+      "preserveSourceShape": true
+    },
+    "Head_1": {
+      "anchor": "ValveBiped.Bip01_Head1",
+      "preserveSourceShape": true
+    },
+    "L_shoulder": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm",
+      "endSource": "ValveBiped.Bip01_L_Forearm",
+      "endNative": "L_elbow"
+    },
+    "L_elbow": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "endSource": "bip_hand_L",
+      "endNative": "L_wrist"
+    },
+    "L_wrist": {
+      "anchor": "bip_hand_L",
+      "orientFrom": "ValveBiped.Bip01_L_Forearm",
+      "orientNative": "L_elbow"
+    },
+    "L_varias2_SDK": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm"
+    },
+    "R_shoulder": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm",
+      "endSource": "ValveBiped.Bip01_R_Forearm",
+      "endNative": "R_elbow"
+    },
+    "R_elbow": {
+      "anchor": "ValveBiped.Bip01_R_Forearm",
+      "muzzle": true
+    },
+    "R_varias2_SDK": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm"
+    }
+  },
+  "muzzle": {
+    "object": "ShockCoil.smd",
+    "sourceBone": "ValveBiped.Bip01_R_Forearm",
+    "nativeBone": "R_elbow",
+    "axis": [
+      -0.41699127659917434,
+      -0.2548662459676791,
+      -0.8724456842156613
+    ],
+    "frontBand": 0.015,
+    "nativeLocalPoint": [
+      0.765,
+      -0.05,
+      -0.16
+    ],
+    "method": "ShockCoil.smd distal rigid weapon cap -> native Metadata.MuzzleOffests[Sylux] through R_elbow"
+  },
+  "reuseSingleMaterialTextures": true,
+  "sourceSha256": "0a537d4470039e8a146570bbe9d3f5b294c82d694f7afed9dbf203019005f784",
+  "emissiveMaterials": [
+    "biped"
+  ],
+  "powerOfTwoAtlases": false,
+  "teamRecolorMaterials": [
+    "biped1"
+  ],
+  "globalAnchor": "floor",
+  "preserveSourceNormals": true,
+  "sourceShapeChains": true,
+  "preserveSourceMaterialAlpha": true
+}

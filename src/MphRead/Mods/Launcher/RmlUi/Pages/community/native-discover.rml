@@ -1,0 +1,83 @@
+<rml>
+<head>
+  <title>Project Prime Community Discover</title>
+  <link type="text/template" href="../../components/app-shell.rml"/>
+  <link type="text/rcss" href="../../themes/prime.rcss"/>
+  <link type="text/rcss" href="../../components/controls.rcss"/>
+  <link type="text/rcss" href="native-discover.rcss"/>
+</head>
+<body template="prime-shell">
+<div id="native_community" class="native_community">
+  <h1>COMMUNITY MAPS</h1>
+  <div class="native_community_header">
+  <div class="native_community_tools native_community_tabs">
+    <button id="native_community_public" data-action="community:tab:0">DISCOVER</button>
+    <button id="native_community_weapons" data-action="weapons:refresh">WEAPONS</button>
+    <button id="native_community_installed" data-action="community:tab:4">INSTALLED</button>
+    <button id="native_community_favorites" data-action="community:tab:3">FAVORITES</button>
+    <button id="native_community_owned" data-action="community:tab:1">MY UPLOADS</button>
+    <button id="native_community_transfers" data-action="community:tab:2">DOWNLOADS &amp; HISTORY</button>
+    <button id="native_community_import" data-action="community:import">IMPORT PACKAGE</button>
+  </div>
+  <div class="native_community_tools">
+    <input id="native_community_search" placeholder="Search maps or creators" maxlength="128" type="text"/>
+    <button id="native_community_find" data-action="community:search">SEARCH</button>
+    <button id="native_community_refresh" data-action="community:refresh">REFRESH</button>
+    <button id="native_community_name_sort" data-action="community:sort:0">NAME</button>
+    <button id="native_community_new_sort" data-action="community:sort:1">UPDATED</button>
+    <button id="native_community_popular_sort" data-action="community:sort:2">POPULAR</button>
+  <div class="native_community_paging">
+    <button id="native_community_previous" data-action="community:page:previous">PREVIOUS</button>
+    <button id="native_community_next" data-action="community:page:next">NEXT</button>
+  </div>
+  </div>
+  </div>
+  <div class="native_community_columns collection_columns">
+    <div class="native_community_collection">
+
+    <div class="native_community_list">
+      <button id="native_community_row0" data-action="community:select:0"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail0"/></span><b id="native_community_name0"/><span id="native_community_meta0"/></button>
+      <button id="native_community_row1" data-action="community:select:1"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail1"/></span><b id="native_community_name1"/><span id="native_community_meta1"/></button>
+      <button id="native_community_row2" data-action="community:select:2"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail2"/></span><b id="native_community_name2"/><span id="native_community_meta2"/></button>
+      <button id="native_community_row3" data-action="community:select:3"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail3"/></span><b id="native_community_name3"/><span id="native_community_meta3"/></button>
+      <button id="native_community_row4" data-action="community:select:4"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail4"/></span><b id="native_community_name4"/><span id="native_community_meta4"/></button>
+      <button id="native_community_row5" data-action="community:select:5"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail5"/></span><b id="native_community_name5"/><span id="native_community_meta5"/></button>
+      <button id="native_community_row6" data-action="community:select:6"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail6"/></span><b id="native_community_name6"/><span id="native_community_meta6"/></button>
+      <button id="native_community_row7" data-action="community:select:7"><span class="native_community_card_art"><span class="native_community_thumbnail_fallback">MAP PREVIEW</span><img id="native_community_thumbnail7"/></span><b id="native_community_name7"/><span id="native_community_meta7"/></button>
+    </div>
+    </div>
+    <div class="native_community_detail">
+      <div class="native_community_detail_scroll">
+      <h2 id="native_community_title">SELECT A MAP</h2>
+  <p id="native_community_status" class="native_community_status" role="status" aria-live="polite"></p>
+  <p id="native_community_notice" role="status" aria-live="polite"/>
+
+      <img id="native_community_preview"/>
+      <p id="native_community_preview_status" class="hint" role="status"/>
+      <p id="native_community_description" role="group">Select a map to view its details.</p>
+      <p id="native_community_notes" role="group"/>
+      <button id="native_community_favorite" data-action="community:detail:2">ADD TO FAVORITES</button>
+      <button id="native_community_details" data-action="community:detail:7">PACKAGE DETAILS</button>
+      <div id="native_community_technical" style="display:none;">
+      <p id="native_community_hash" role="group"></p>
+      <button id="native_community_copy_link" data-action="community:detail:6">COPY PACKAGE LINK</button>
+      <button id="native_community_report" data-action="community:report">REPORT MAP</button>
+      <button id="native_community_history" data-action="community:detail:3">REVISION HISTORY</button>
+      </div>
+      <button id="native_community_archive" data-action="community:creator:0">ARCHIVE OWNED MAP</button>
+      <button id="native_community_restore" data-action="community:creator:1">RESTORE OWNED MAP</button>
+      <button id="native_community_creator_confirm" data-action="community:confirm">CONFIRM CHANGE</button>
+      <button id="native_community_creator_cancel" data-action="community:cancel">CANCEL CHANGE</button>
+      <button id="native_community_full" data-action="studio:open">OPEN MAP STUDIO</button>
+      <button id="native_community_back" data-action="route:home">BACK TO HOME</button>
+      </div>
+      <div class="native_community_primary action_bar">
+        <button id="native_community_install" data-action="community:detail:0" aria-label="Install verified map">INSTALL MAP</button>
+        <button id="native_community_install_host" data-action="community:detail:1">INSTALL &amp; HOST</button>
+        <button id="native_community_cancel_install" data-action="community:cancel-work">CANCEL HANDOFF</button>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</rml>

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <!-- Existing engine acceptance friend; linked fixtures also inspect current internal settings/replay owners. -->
+    <AssemblyName>nettest</AssemblyName>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <DefineConstants>$(DefineConstants);PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT</DefineConstants>
+    <!-- Linked current menu/Host owners intentionally shadow the prebuilt engine's copies. -->
+    <NoWarn>$(NoWarn);CS0436</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
+    <Content Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/identity.rml" Link="lobby-hunter-identity.rml" CopyToOutputDirectory="PreserveNewest" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Core/*.cs" Link="Core/%(Filename)%(Extension)" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/RmlUi/Host/*.cs" Link="Host/%(Filename)%(Extension)" />
+    <Compile Include="../../src/MphRead/Mods/Launcher/Portable/RmlUiPointerMapping.cs" Link="RmlUiPointerMapping.cs" />
+    <Compile Include="../../src/MphRead.Android/RmlUiAndroidSaveWork.cs" Link="RmlUiAndroidSaveWork.cs" />
+    <Compile Include="../../src/MphRead.Android/RmlUiAndroidOfflineRulesWork.cs" Link="RmlUiAndroidOfflineRulesWork.cs" />
+    <Compile Include="../rmlui-live-menu-check/*.cs" Link="ExistingAcceptance/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

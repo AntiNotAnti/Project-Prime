@@ -1,0 +1,25 @@
+body { background-color: #000000b8; }
+.journal-panel { position: absolute; left: 5%; top: 5%; width: 90%; height: 90%; background-color: #081523; border: 1px #41667f; padding: 12dp; box-sizing: border-box; display: flex; flex-direction: column; overflow: hidden; }
+.journal-header { flex-shrink: 0; height: auto; }
+.journal-header h1 { margin: 3dp 0; font-size: 21dp; }
+.journal-header .eyebrow, #journal_summary { font-size: 11dp; color: #9eb6c9; }
+.journal-actions { display: flex; flex-wrap: wrap; margin-top: 6dp; }
+.journal-actions button { margin-right: 5dp; margin-bottom: 4dp; min-height: 36dp; font-size: 12dp; padding: 5dp; }
+.journal-entries { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; }
+.journal-entry { border-bottom: 1px #254056; padding: 5dp 0; }
+.journal-entry h2 { font-size: 14dp; color: #a9dcfa; margin: 4dp 0; }
+.journal-entry p, #journal_empty { white-space: pre-wrap; font-size: 12dp; margin: 4dp 0; }
+.journal-footer { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; padding-top: 8dp; }
+.journal-footer button { min-height: 36dp; font-size: 12dp; margin-right: 6dp; margin-bottom: 4dp; padding: 6dp; }
+#journal_page { margin-right: 10dp; font-size: 11dp; }
+.touch-targets .journal-actions button, .touch-targets .journal-footer button { min-height: 48dp; }
+.large-text .journal-actions button, .large-text .journal-footer button { font-size:16dp; line-height:20dp; }
+.large-text .journal-entry p, .large-text #journal_summary { font-size:16dp; line-height:21dp; }
+
+/* Text and touch controls determine header height; entries use the remainder. */
+.journal-entry h2, .journal-entry p, #journal_summary { word-break: break-word; }
+@media (max-height: 400dp) {
+    .journal-panel { top: 2%; height: 96%; padding: 8dp; }
+    .journal-header h1 { font-size: 18dp; margin: 2dp 0; }
+    .journal-footer { padding-top: 4dp; }
+}

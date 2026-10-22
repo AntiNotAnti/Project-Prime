@@ -1,0 +1,2068 @@
+using System;
+using System.Diagnostics;
+using System.Threading;
+using Android.Content;
+using Android.Graphics;
+using Android.Opengl;
+using Android.Text;
+using Android.Views;
+using Android.Views.InputMethods;
+using MphRead.Entities;
+using MphRead.Mods.Render;
+using OpenTK.Mathematics;
+using Keys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
+
+namespace MphRead.Droid
+{
+    /// <summary>
+    /// The match, on a surface, with the EGL context and the thread that owns
+    /// it belonging to this class rather than to <c>GLSurfaceView</c>.
+    ///
+    /// **That is the whole reason this is not a GLSurfaceView.** Everything the
+    /// engine does with GL -- loading a room's textures, baking its geometry,
+    /// compiling the shaders, drawing -- has to happen on the thread that holds
+    /// the context, so the scene is *built* there, and building it takes
+    /// seconds. GLSurfaceView answers a window event by handing the new size to
+    /// that thread and then **waiting on the UI thread until it has been all
+    /// the way round its loop**: `surfaceChanged`, `onPause` and `onResume` all
+    /// do it. So any window event that landed while a room was loading froze
+    /// the UI thread for the length of the load, and Android put its own "isn't
+    /// responding" dialog over the loading screen -- a white box over a black
+    /// one, with nothing to press, which is what starting a match from portrait
+    /// did.
+    ///
+    /// Waiting for the window to hold still before creating the view made that
+    /// rarer and could not make it impossible: a phone can resize its own
+    /// window at any moment, for the system bars, for insets, for a call. Here
+    /// the callbacks write a field and return, and the loop picks it up when it
+    /// is next between frames. Nothing on the UI thread ever waits for a load.
+    ///
+    /// Two things come free from owning the context. It survives the surface
+    /// going away and coming back, so a match is not lost to it (GLSurfaceView
+    /// only kept it as a favour, through `PreserveEGLContextOnPause`); and
+    /// pausing is a flag rather than a handshake.
+    ///
+    /// The loop is the desktop's, in the same order: pause, update, render.
+    /// What is not the desktop's is the pacing. <c>RenderWindow</c> asks OpenTK
+    /// for 60 updates a second; here the buffer swaps at the display's rate,
+    /// which on a modern phone is 90 or 120, and the engine's update *is* its
+    /// frame -- a render with no update in front of it draws nothing, because
+    /// the render item lists are built during the update and cleared after the
+    /// draw. So the thread waits for the next 60 Hz tick instead of rendering
+    /// more often than the game ticks.
+    /// </summary>
+    internal sealed partial class GameView : SurfaceView, ISurfaceHolderCallback
+    {
+        private readonly RenderLoop _loop;
+
+        public GameView(Context context, TouchControls controls, AndroidInput input,
+            Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
+            Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            , RmlUiAndroidPauseOptions? nativePause = null
+            , RmlUiAndroidLauncherOptions? nativeLauncher = null
+#endif
+            )
+            : base(context)
+        {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            Func<RmlUiAndroidPauseRoute?> pauseFactory = () => nativePause == null ? null : new(nativePause.AssetRoot,
+                (scene, root) => new RmlUiAndroidPausePresentation((Scene)scene, root),
+                notification => nativePause.Notified(this, notification),
+                line => Console.WriteLine("[android/rmlui] " + line));
+            var launcher = nativeLauncher == null ? null : new RmlUiAndroidLauncherSession(this, nativeLauncher);
+#endif
+            _loop = new RenderLoop(controls, input, build, onEnd, onLoaded, onError,
+                onPauseMenu, onSoftKeyboard
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                , pauseFactory, nativePause?.Density ?? 1, launcher, options => new RmlUiAndroidLauncherSession(this, options)
+#endif
+                );
+            Holder?.AddCallback(this);
+            // So this view can receive key events at all: from a keyboard
+            // plugged into the phone, from one paired over Bluetooth, from the
+            // emulator's, and from the soft keyboard the CHAT button asks for.
+            // Nothing else here wants them -- the touch overlay sits on top and
+            // takes every touch, and focus and touch are separate things.
+            Focusable = true;
+            FocusableInTouchMode = true;
+            RequestFocus();
+        }
+
+        /// <summary>
+        /// Yes, when chat is open -- which is what makes the system offer a
+        /// soft keyboard for this view rather than refusing to show one.
+        /// </summary>
+        public override bool OnCheckIsTextEditor()
+        {
+            return MphRead.Mods.Chat.ChatBox.Composing;
+        }
+
+        /// <summary>
+        /// An editor with no text in it.
+        ///
+        /// <see cref="InputTypes.Null"/> is doing the work: it tells the IME
+        /// that this view cannot be edited through the usual commitText path,
+        /// and every keyboard worth the name answers that by sending plain key
+        /// events instead -- which is exactly what
+        /// <see cref="OnKeyDown"/> below already handles for a real keyboard.
+        /// The alternative is an <c>InputConnection</c> that maintains an
+        /// editable buffer and keeps it in step with <c>ChatBox</c>'s, which is
+        /// two copies of one string and a second set of rules for composing
+        /// text.
+        /// </summary>
+        public override IInputConnection? OnCreateInputConnection(EditorInfo? outAttrs)
+        {
+            if (outAttrs != null)
+            {
+                outAttrs.InputType = InputTypes.Null;
+                // NoFullscreen and NoExtractUi together are what stop the IME
+                // replacing the whole screen with its own text box in
+                // landscape -- which is every phone playing this, and which
+                // would put an editor over the match rather than a keyboard
+                // under it.
+                outAttrs.ImeOptions = (ImeFlags)((int)ImeAction.Done
+                    | (int)ImeFlags.NoFullscreen | (int)ImeFlags.NoExtractUi);
+            }
+            return new BaseInputConnection(this, fullEditor: false);
+        }
+
+        /// <summary>
+        /// The key whose press chat took, so its release can be taken too.
+        ///
+        /// Not a check on "is chat open": Back closes the prompt on the way
+        /// down, so by the time its release arrives the prompt is shut and the
+        /// release would fall through to the activity -- which is where
+        /// <c>onBackPressed</c> lives, and which would leave the match. One
+        /// key at a time is enough; nothing here is chorded.
+        /// </summary>
+        private Keycode _keyTaken = Keycode.Unknown;
+
+        public override bool OnKeyDown(Keycode keyCode, KeyEvent? e)
+        {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (TryNativePauseKey(e)) return true;
+#endif
+            // The pad first: its buttons are their own key codes and overlap
+            // nothing a keyboard sends, so this only ever claims events a
+            // keyboard could not have produced. A fallback in practice --
+            // MainActivity.DispatchKeyEvent takes a pad's events before any
+            // view sees them, so that rebinding one works on the settings
+            // screen too -- and kept because it costs a comparison and this
+            // class should still work if it is ever hosted somewhere else.
+            if (GamepadBridge.HandleKey(keyCode, e, down: true))
+            {
+                return true;
+            }
+            if (HandleKey(keyCode, e))
+            {
+                _keyTaken = keyCode;
+                return true;
+            }
+            return base.OnKeyDown(keyCode, e);
+        }
+
+        public override bool OnKeyUp(Keycode keyCode, KeyEvent? e)
+        {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            if (TryNativePauseKey(e)) return true;
+#endif
+            if (GamepadBridge.HandleKey(keyCode, e, down: false))
+            {
+                return true;
+            }
+            if (_keyTaken == keyCode)
+            {
+                _keyTaken = Keycode.Unknown;
+                return true;
+            }
+            return base.OnKeyUp(keyCode, e);
+        }
+
+        /// <summary>
+        /// The sticks and triggers. Android has no way to poll a pad, so this
+        /// is the only place their positions are ever reported -- see
+        /// <see cref="GamepadBridge"/>.
+        /// </summary>
+        public override bool OnGenericMotionEvent(MotionEvent? e)
+        {
+            return GamepadBridge.HandleMotion(e) || base.OnGenericMotionEvent(e);
+        }
+
+        /// <summary>
+        /// One key, from whatever is attached. Returns true when chat took it.
+        ///
+        /// Android delivers the character *with* the key event, where GLFW
+        /// raises two callbacks for one press -- so this is both of the
+        /// desktop's paths in one method, and the opening key does not have to
+        /// be swallowed on its way back round.
+        /// </summary>
+        private bool HandleKey(Keycode keyCode, KeyEvent? e)
+        {
+            bool composing = MphRead.Mods.Chat.ChatBox.Composing;
+            bool control = e?.IsCtrlPressed ?? false;
+            bool alt = e?.IsAltPressed ?? false;
+            if (!composing)
+            {
+                if (MphRead.Mods.Replay.ReplayInput.HandleKey(Map(keyCode))) return true;
+                // The results screen's hunter picker owns the arrow keys
+                // while it is up. The panel is drawn by the shared HUD, so it
+                // appears here whether or not this head hooks it -- and a
+                // picker that cannot be operated is worse than none. Only a
+                // real keyboard or a pad's d-pad reaches this; there is no
+                // touch control for it.
+                if (MphRead.Mods.EndScreen.HandleKeyDown(Map(keyCode)))
+                {
+                    return true;
+                }
+                // The one key that opens it, and only where there is a match
+                // to talk in. Everything else belongs to whoever asked next.
+                return MphRead.Mods.Chat.ChatBox.HandleKeyDown(Map(keyCode), control, alt,
+                    canOpen: Scene != null && !Mods.Network.DemoPlayback.IsActive, swallowOpeningChar: false);
+            }
+            Keys key = Map(keyCode);
+            if (key == Keys.Enter || key == Keys.Escape || key == Keys.Backspace)
+            {
+                MphRead.Mods.Chat.ChatBox.HandleKeyDown(key, control, alt, canOpen: false);
+                return true;
+            }
+            int unicode = e?.GetUnicodeChar(e.MetaState) ?? 0;
+            if (unicode != 0)
+            {
+                MphRead.Mods.Chat.ChatBox.HandleText(unicode);
+            }
+            // Everything while the prompt is up, character or not: a key that
+            // fell through here would reach the activity, and Back would leave
+            // the match in the middle of a sentence.
+            return true;
+        }
+
+        /// <summary>
+        /// Android key codes to the ones <c>InputSettings.ChatKey</c> is
+        /// expressed in. Only what chat needs: the letters and digits any
+        /// sensible chat key could be bound to, and the four keys that drive
+        /// the prompt.
+        /// </summary>
+        private static Keys Map(Keycode code)
+        {
+            if (code >= Keycode.A && code <= Keycode.Z)
+            {
+                return Keys.A + (code - Keycode.A);
+            }
+            if (code >= Keycode.Num0 && code <= Keycode.Num9)
+            {
+                return Keys.D0 + (code - Keycode.Num0);
+            }
+            return code switch
+            {
+                Keycode.Enter or Keycode.NumpadEnter => Keys.Enter,
+                Keycode.Escape or Keycode.Back => Keys.Escape,
+                Keycode.Del => Keys.Backspace,
+                Keycode.Space => Keys.Space,
+                Keycode.Tab => Keys.Tab,
+                Keycode.Period => Keys.Period,
+                Keycode.Comma => Keys.Comma,
+                Keycode.LeftBracket => Keys.LeftBracket,
+                Keycode.RightBracket => Keys.RightBracket,
+                Keycode.MoveHome => Keys.Home,
+                Keycode.MoveEnd => Keys.End,
+                Keycode.PageUp => Keys.PageUp,
+                Keycode.PageDown => Keys.PageDown,
+                // The arrows, which nothing here used to need: they are the
+                // results screen's picker, and a pad's d-pad arrives as these
+                // same codes on Android.
+                Keycode.DpadLeft => Keys.Left,
+                Keycode.DpadRight => Keys.Right,
+                Keycode.DpadUp => Keys.Up,
+                Keycode.DpadDown => Keys.Down,
+                _ => Keys.Unknown
+            };
+        }
+
+        public Scene? Scene => _loop.Scene is { } shell ? Mods.Network.DemoPlayback.Presentation(shell) ?? shell : null;
+
+        public void Stop()
+        {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _nativePause?.RequestStop();
+            _nativeLauncher?.RequestStop();
+#endif
+            _loop.RequestStop();
+        }
+
+        public void RequestSpectate()
+        {
+            _loop.RequestSpectatorMode(spectate: true);
+        }
+
+        public void RequestRejoin()
+        {
+            _loop.RequestSpectatorMode(spectate: false);
+        }
+
+        public void OnPause()
+        {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _nativePause?.SuspendInput();
+            _nativeLauncher?.SuspendInput();
+#endif
+            _loop.SetPaused(true);
+        }
+
+        public void OnResume()
+        {
+            _loop.SetPaused(false);
+        }
+
+        // The three callbacks. None of them waits for the render thread; that
+        // is the point of the class.
+
+        public void SurfaceCreated(ISurfaceHolder holder)
+        {
+            // Nothing to do: surfaceChanged always follows, with the size.
+        }
+
+        public void SurfaceChanged(ISurfaceHolder holder, Format format, int width, int height)
+        {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _loop.SetNativePauseDensity(Resources?.DisplayMetrics?.Density ?? 1);
+#endif
+            _loop.SurfaceReady(holder, width, height);
+        }
+
+        public void SurfaceDestroyed(ISurfaceHolder holder)
+        {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+            _nativePause?.SuspendInput();
+            _nativeLauncher?.SuspendInput();
+#endif
+            _loop.SurfaceGone();
+        }
+
+        /// <summary>
+        /// The GL context, the thread that owns it, and the game loop that
+        /// runs on it.
+        /// </summary>
+        private sealed partial class RenderLoop
+        {
+            /// <summary>
+            /// Density-independent pixels of drag per unit of mouse movement.
+            /// One means a swipe turns as far as a mouse moved the same
+            /// distance would, which the player's own sensitivity setting then
+            /// scales the way it does everywhere else.
+            /// </summary>
+            private const float AimScale = 1f;
+
+            // EGL_OPENGL_ES3_BIT_KHR. EGL14 exposes the ES2 bit and stops
+            // there, and an ES2 config will happily give an ES3 context on most
+            // drivers -- but "most" is how a phone gets a context that fails
+            // every call in GlEs with no message.
+            private const int OpenGlEs3Bit = 0x40;
+
+            /// <summary>
+            /// How long <see cref="SurfaceGone"/> will wait for the render
+            /// thread to let go. Android wants the surface unused by the time
+            /// that callback returns, and this is the one place where that is
+            /// worth a wait at all -- but not an unbounded one: the thread
+            /// cannot answer from inside a room load, and hanging the UI thread
+            /// is the thing this class exists to stop.
+            /// </summary>
+            private const int SurfaceReleaseMs = 2000;
+
+            private readonly TouchControls _controls;
+            private readonly AndroidInput _input;
+            private Func<AndroidInput, Vector2i, Scene> _build;
+            private readonly Action _onEnd;
+            private readonly Action _onLoaded;
+            private readonly Action<string> _onError;
+            private readonly Stopwatch _clock = new Stopwatch();
+            private readonly object _lock = new object();
+            private readonly Thread _thread;
+
+            private ISurfaceHolder? _holder;
+            private Vector2i _wanted;
+            private bool _paused;
+            // Set by the UI thread on resume and consumed only by the GL
+            // thread. Background time must not become one giant render/sim
+            // interval when the app returns.
+            private bool _resetPacingOnResume;
+            private bool _stopping;
+            private bool _holdingSurface;
+            private bool _ended;
+            // 1 = enter spectator mode, -1 = rejoin, 0 = nothing pending.
+            // Written by the Avalonia/UI thread and consumed only by the GL
+            // thread, where HUD and camera state are safe to touch.
+            private int _spectatorRequest;
+            private bool _dialogClickDown;
+            private readonly Action _onPauseMenu;
+            /// <summary>
+            /// Show or hide the soft keyboard. An IME call belongs to the UI
+            /// thread and this is the GL one, so it is asked for rather than
+            /// done here -- the same arrangement <see cref="_onPauseMenu"/>
+            /// has, and for the same reason.
+            /// </summary>
+            private readonly Action<bool> _onSoftKeyboard;
+            private bool _menuWasHeld;
+            private bool _spectateCycleHeld;
+            private bool _spectateViewHeld;
+            private bool _replayPlayHeld;
+            private bool _replayBackHeld;
+            private bool _replayForwardHeld;
+            private bool _replayPausedShown;
+            private bool _missileWasHeld;
+            private bool _chatWasHeld;
+            private bool _keyboardShown;
+            private PlayerEntity? _touchPlayer;
+            private ushort _touchLife;
+            private bool _touchAlive, _touchAltForm;
+            private long _presentationInputRevision =
+                MphRead.Mods.Input.GamepadContexts.Revision;
+
+            private EGLDisplay? _display;
+            private EGLConfig? _config;
+            private EGLSurface? _eglSurface;
+            private EGLContext? _context;
+            private bool _contextBindingsReady;
+            private ISurfaceHolder? _boundTo;
+            private Vector2i _size;
+            private readonly AndroidFramePacer _framePacer = new(FrameTiming.MaxCap);
+            private AndroidPerformanceHints? _performanceHints;
+            private readonly AndroidPresentationRequest _frameRateRequest = new();
+            private readonly AndroidPresentationRequest _swapRequest = new();
+            private int _surfaceGeneration;
+            private int _boundGeneration;
+            private int _pacingDisplayGeneration = -1;
+            private int _surfaceFailures;
+            private long _lastSurfaceDiagnostic;
+            private int _appliedSwapInterval = -1;
+
+            public Scene? Scene { get; private set; }
+            private Scene? PresentedScene => Scene is { } shell ? Mods.Network.DemoPlayback.Presentation(shell) ?? shell : null;
+
+            public RenderLoop(TouchControls controls, AndroidInput input,
+                Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
+                Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                , Func<RmlUiAndroidPauseRoute?> nativePauseFactory, float nativeDensity, RmlUiAndroidLauncherSession? nativeLauncher
+                , Func<RmlUiAndroidLauncherOptions, RmlUiAndroidLauncherSession> nativeLauncherFactory
+#endif
+                )
+            {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                _nativePauseFactory = nativePauseFactory; _nativePause = nativePauseFactory();
+                _nativeLauncher = nativeLauncher; _nativeLauncherFactory = nativeLauncherFactory;
+                _nativeCycle = nativeLauncher == null ? null : new();
+                SetNativePauseDensity(nativeDensity);
+#endif
+                _onPauseMenu = onPauseMenu;
+                _onSoftKeyboard = onSoftKeyboard;
+                _controls = controls;
+                _input = input;
+                _build = build;
+                _onEnd = onEnd;
+                _onLoaded = onLoaded;
+                _onError = onError;
+                _thread = new Thread(Run) { Name = "ProjectPrime GL", IsBackground = true };
+                _thread.Start();
+            }
+
+            public void RequestStop()
+            {
+                lock (_lock)
+                {
+                    _stopping = true;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    _nativeCycle?.Stop();
+                    _nativePause?.RequestStop();
+                    _nativeLauncher?.RequestStop();
+#endif
+                    Monitor.PulseAll(_lock);
+                }
+            }
+
+            public void SetPaused(bool paused)
+            {
+                lock (_lock)
+                {
+                    if (_paused == paused)
+                    {
+                        return;
+                    }
+                    _paused = paused;
+                    if (!paused)
+                    {
+                        _resetPacingOnResume = true;
+                    }
+                    Monitor.PulseAll(_lock);
+                }
+            }
+
+            public void RequestSpectatorMode(bool spectate)
+            {
+                lock (_lock)
+                {
+                    _spectatorRequest = spectate ? 1 : -1;
+                    Monitor.PulseAll(_lock);
+                }
+            }
+
+            public void SurfaceReady(ISurfaceHolder holder, int width, int height)
+            {
+                if (width <= 0 || height <= 0)
+                {
+                    return;
+                }
+                lock (_lock)
+                {
+                    _holder = holder;
+                    _surfaceGeneration++;
+                    _wanted = new Vector2i(width, height);
+                    Monitor.PulseAll(_lock);
+                }
+            }
+
+            public void SurfaceGone()
+            {
+                lock (_lock)
+                {
+                    _holder = null;
+                    _surfaceGeneration++;
+                    Monitor.PulseAll(_lock);
+                    long deadline = Environment.TickCount64 + SurfaceReleaseMs;
+                    while (_holdingSurface)
+                    {
+                        int left = (int)(deadline - Environment.TickCount64);
+                        if (left <= 0)
+                        {
+                            // Mid-load, almost certainly. The thread drops the
+                            // surface the moment it looks up, and a swap
+                            // against a surface the framework has taken back
+                            // fails rather than crashing -- which is handled.
+                            Console.WriteLine("[android] the surface went away while the GL thread "
+                                + "was busy; carrying on without waiting for it");
+                            break;
+                        }
+                        Monitor.Wait(_lock, left);
+                    }
+                }
+            }
+
+            private void Run()
+            {
+                try
+                {
+                    Loop();
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[android] the render thread stopped: {ex}");
+                    if (!_ended)
+                    {
+                        _ended = true;
+                        _onError(ex.Message);
+                    }
+                }
+                finally
+                {
+                    try
+                    {
+                        // Private corpse pools are CPU-owned; release them on
+                        // this original render thread even if EGL was lost.
+                        Scene?.ModReleasePhysicalCorpseWorlds();
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                        // An exception can unwind Loop before its ordinary
+                        // End path. Retain and retire the exact registered
+                        // candidate before native/context teardown.
+                        if (Scene is { } unfinished) RetireTerminalNativeScene(unfinished);
+#endif
+                        if (Scene is { } abandoned)
+                        {
+                            // Loop may unwind before End on context loss. Retire
+                            // CPU/audio/replay owners on their original thread;
+                            // no replacement context ever receives these names.
+                            try { abandoned.DoCleanup(); }
+                            catch (Exception error) { Console.WriteLine("[android] scene cleanup: " + error.Message); }
+                            finally { Scene = null; }
+                        }
+                    }
+                    finally
+                    {
+                        try
+                        {
+                            try { _performanceHints?.Dispose(); }
+                            catch (Exception error) { Console.WriteLine("[android] performance hint cleanup: " + error.Message); }
+                            finally { _performanceHints = null; }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                            try { _nativeLauncher?.DisposeOwner(); }
+                            finally { _nativePause?.DisposeOwner(); }
+#endif
+                        }
+                        finally
+                        {
+                            try { ReleaseSurface(); }
+                            finally
+                            {
+                                try { DestroyContext(); }
+                                finally
+                                {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                                    _nativeStopped.TrySetResult();
+#endif
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            private void Loop()
+            {
+                // Created here, on the long-lived render thread, so ADPF gets
+                // the correct Linux TID rather than the Activity/UI thread.
+                _performanceHints = AndroidPerformanceHints.TryCreate();
+                while (true)
+                {
+                    ISurfaceHolder holder;
+                    Vector2i wanted;
+                    bool resetPacing;
+                    int surfaceGeneration;
+                    lock (_lock)
+                    {
+                        while (!_stopping && (_holder == null || _paused))
+                        {
+                            // A system pause is an ownership boundary even when
+                            // SurfaceView has not emitted SurfaceDestroyed yet.
+                            // Keeping an EGL window surface current while Android
+                            // backgrounds or replaces that window is device-
+                            // dependent and is the source of resume crashes on
+                            // stricter drivers. Release only the EGLSurface on
+                            // this GL thread; keep the context and loaded scene.
+                            if (_holdingSurface && (_holder == null || _paused))
+                            {
+                                Monitor.Exit(_lock);
+                                try
+                                {
+                                    ReleaseSurface();
+                                }
+                                finally
+                                {
+                                    Monitor.Enter(_lock);
+                                }
+                                Monitor.PulseAll(_lock);
+                                continue;
+                            }
+                            Monitor.Wait(_lock);
+                        }
+                        if (_stopping)
+                        {
+                            break;
+                        }
+                        surfaceGeneration = _surfaceGeneration;
+                        holder = _holder!;
+                        wanted = _wanted;
+                    }
+                    // A new window starts a fresh retry budget; do not carry
+                    // the old surface's maximum delay into a resume/rotation.
+                    if (surfaceGeneration != _boundGeneration) _surfaceFailures = 0;
+                    if (!BindSurface(holder, wanted, surfaceGeneration))
+                    {
+                        // Monitor waiting is interruptible by pause, stop and a new surface.
+                        lock (_lock)
+                        {
+                            if (!_stopping && !_paused && surfaceGeneration == _surfaceGeneration)
+                                Monitor.Wait(_lock, AndroidPresentationRequest.RetryDelayMs(++_surfaceFailures));
+                        }
+                        continue;
+                    }
+                    _surfaceFailures = 0;
+                    lock (_lock)
+                    {
+                        // BindSurface may have released/replaced a stale window.
+                        // Consume that reset before drawing the first new frame.
+                        resetPacing = _resetPacingOnResume;
+                        _resetPacingOnResume = false;
+                    }
+                    if (resetPacing)
+                    {
+                        // Do not feed time spent in the background into either
+                        // the render deadline or the 60 Hz accumulator.
+                        double now = _clock.Elapsed.TotalSeconds;
+                        _framePacer.Reset(now);
+                        FrameTiming.Reset();
+                        AndroidPerformance.ResetPresentTiming();
+                        Scene?.ModSetLateAim(0, 0);
+                    }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    if (_nativeCycle != null && _nativeCycle.Current.Phase is not (RmlUiAndroidLocalPhase.Match or RmlUiAndroidLocalPhase.Loading))
+                    {
+                        if (!ProcessNativeLocalMode()) break;
+                        continue;
+                    }
+#endif
+                    if (Scene == null)
+                    {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                        if (_nativeCycle != null && _nativeCycle.Current.Phase != RmlUiAndroidLocalPhase.Loading)
+                            throw new InvalidOperationException("The local host has no admitted scene build in this phase.");
+#endif
+                        if (_ended)
+                        {
+                            break;
+                        }
+                        BuildScene();
+                        continue;
+                    }
+                    if (!DrawFrame())
+                    {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                        if (_nativeCycle?.Current.Phase == RmlUiAndroidLocalPhase.AwaitingHomeAck) continue;
+#endif
+                        break;
+                    }
+                }
+                Scene? scene = Scene;
+                if (scene != null)
+                {
+                    End(scene);
+                }
+            }
+
+            /// <summary>
+            /// Make sure there is a context, a surface for this holder, and a
+            /// viewport at the size the window last reported.
+            /// </summary>
+            private bool BindSurface(ISurfaceHolder holder, Vector2i wanted, int generation)
+            {
+                if (_display == null && !CreateContext())
+                {
+                    return false;
+                }
+                if (!ReferenceEquals(_boundTo, holder) || _eglSurface == null || _boundGeneration != generation)
+                {
+                    ReleaseSurface();
+                    _boundGeneration = generation;
+                    if (!CreateSurface(holder))
+                    {
+                        return false;
+                    }
+                }
+                if (wanted != _size)
+                {
+                    _size = wanted;
+                    GL.Viewport(0, 0, _size.X, _size.Y);
+                    if (Scene != null)
+                    {
+                        // A resize is one frame's work here and nothing on the
+                        // UI thread is waiting for it.
+                        Scene.Size = _size;
+                        Scene.OnResize();
+                    }
+                }
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                _nativePause?.SurfaceReady();
+                _nativeLauncher?.SurfaceReady();
+#endif
+                return true;
+            }
+
+            private bool CreateContext()
+            {
+                _display = EGL14.EglGetDisplay(EGL14.EglDefaultDisplay);
+                if (_display == null || _display.Equals(EGL14.EglNoDisplay))
+                {
+                    return Fail("no EGL display");
+                }
+                int[] version = new int[2];
+                if (!EGL14.EglInitialize(_display, version, 0, version, 1))
+                {
+                    return Fail($"eglInitialize failed (0x{EGL14.EglGetError():X})");
+                }
+                // 8/8/8 colour, 24-bit depth and 8 bits of stencil: the
+                // renderer's translucency passes mark faces in the stencil
+                // buffer, and a config without one draws the transparent
+                // surfaces wrong rather than failing.
+                int surfaceTypes = EGL14.EglWindowBit;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                // A cyclic local View may retire after Android has taken its
+                // window surface. Its one context must also support the
+                // bounded cleanup pbuffer when surfaceless binding is absent.
+                if (_nativeCycle != null) surfaceTypes |= EGL14.EglPbufferBit;
+#endif
+                int[] attributes =
+                {
+                    EGL14.EglRenderableType, OpenGlEs3Bit,
+                    EGL14.EglSurfaceType, surfaceTypes,
+                    EGL14.EglRedSize, 8,
+                    EGL14.EglGreenSize, 8,
+                    EGL14.EglBlueSize, 8,
+                    EGL14.EglAlphaSize, 0,
+                    EGL14.EglDepthSize, 24,
+                    EGL14.EglStencilSize, 8,
+                    EGL14.EglNone
+                };
+                var configs = new EGLConfig[1];
+                int[] found = new int[1];
+                if (!EGL14.EglChooseConfig(_display, attributes, 0, configs, 0, 1, found, 0)
+                    || found[0] < 1 || configs[0] == null)
+                {
+                    return Fail("no EGL config with a window, depth and stencil");
+                }
+                _config = configs[0];
+                _context = EGL14.EglCreateContext(_display, _config, EGL14.EglNoContext,
+                    new[] { EGL14.EglContextClientVersion, 3, EGL14.EglNone }, 0);
+                if (_context == null || _context.Equals(EGL14.EglNoContext))
+                {
+                    return Fail($"eglCreateContext failed (0x{EGL14.EglGetError():X})");
+                }
+                return true;
+            }
+
+            private bool CreateSurface(ISurfaceHolder holder)
+            {
+                if (_display == null || _config == null || _context == null)
+                {
+                    return false;
+                }
+                Surface? window = holder.Surface;
+                if (window == null || !window.IsValid)
+                {
+                    return false;
+                }
+                _eglSurface = EGL14.EglCreateWindowSurface(_display, _config, window,
+                    new[] { EGL14.EglNone }, 0);
+                if (_eglSurface == null || _eglSurface.Equals(EGL14.EglNoSurface))
+                {
+                    _eglSurface = null;
+                    // Not fatal on its own: the window can be on its way out.
+                    int error = EGL14.EglGetError();
+                    if (error == 0x300E) throw ContextLost();
+                    SurfaceDiagnostic($"eglCreateWindowSurface failed (0x{error:X})");
+                    return false;
+                }
+                if (!EGL14.EglMakeCurrent(_display, _eglSurface, _eglSurface, _context))
+                {
+                    int error = EGL14.EglGetError();
+                    EGLSurface? failedSurface = _eglSurface;
+                    _eglSurface = null;
+                    // The native window can be between generations while a
+                    // SurfaceView is being resumed, translated back on screen,
+                    // or otherwise relaid out. These errors describe that
+                    // window/surface boundary, not a lost GL context. Destroy
+                    // the failed wrapper and let the render loop retry once
+                    // Android has a usable native window instead of ending the
+                    // match.
+                    try
+                    {
+                        if (failedSurface != null
+                            && !failedSurface.Equals(EGL14.EglNoSurface))
+                        {
+                            EGL14.EglDestroySurface(_display, failedSurface);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[android] discarding a failed EGL surface failed: {ex.Message}");
+                    }
+
+                    const int EglBadCurrentSurface = 0x3007;
+                    const int EglBadNativeWindow = 0x300B;
+                    const int EglBadSurface = 0x300D;
+                    if (error == EglBadCurrentSurface
+                        || error == EglBadNativeWindow
+                        || error == EglBadSurface)
+                    {
+                        SurfaceDiagnostic($"eglMakeCurrent is waiting for a replacement surface (0x{error:X})");
+                        return false;
+                    }
+
+                    // EGL_CONTEXT_LOST and configuration/context errors are not
+                    // recoverable without rebuilding every GL resource owned by
+                    // the loaded scene, so keep those fatal rather than limping
+                    // on with invalid objects.
+                    if (error == 0x300E) throw ContextLost();
+                    return Fail($"eglMakeCurrent failed (0x{error:X})");
+                }
+                lock (_lock)
+                {
+                    _boundTo = holder;
+                    _holdingSurface = true;
+                }
+                // A replacement native surface inherits no pacing promise from
+                // the previous one. Re-apply the policy before its first real
+                // game frame.
+                _appliedSwapInterval = -1;
+                ApplySwapInterval();
+                // Function pointers are per-process; everything GlEs holds --
+                // buffers, textures, uniform locations -- belongs to a context.
+                // This one outlives the surface, so the reset only belongs with
+                // a *new* context, which is the first surface after one.
+                if (!_contextBindingsReady)
+                {
+                    EsBindings.Load();
+                    GlEs.Reset();
+                    AndroidTextureCompressionPolicy.ProbeCurrentContext();
+                    _contextBindingsReady = true;
+                    // Something rather than whatever was in the buffer, for the
+                    // seconds the room takes to load.
+                    GL.ClearColor(new OpenTK.Mathematics.Color4(10 / 255f, 12 / 255f, 16 / 255f, 1f));
+                    GL.Clear(OpenTK.Graphics.OpenGL.ClearBufferMask.ColorBufferBit);
+                    if (!EGL14.EglSwapBuffers(_display, _eglSurface))
+                    {
+                        int error = EGL14.EglGetError();
+                        HandleFailedPresent(error);
+                        return false;
+                    }
+                }
+                _size = Vector2i.Zero;
+                return true;
+            }
+
+            private void ReleaseSurface()
+            {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                _nativePause?.SurfaceLost();
+                _nativeLauncher?.SurfaceLost();
+#endif
+                EGLSurface? surface;
+                lock (_lock)
+                {
+                    surface = _eglSurface;
+                    _eglSurface = null;
+                    _boundTo = null;
+                    _holdingSurface = false;
+                    // SetFrameRate belongs to the Android window surface, not
+                    // the long-lived EGL context. A replacement surface must be
+                    // told again even when the requested cap did not change.
+                    _frameRateRequest.Reset();
+                    _appliedSwapInterval = -1;
+                    _swapRequest.Reset();
+                    _resetPacingOnResume = true;
+                    Monitor.PulseAll(_lock);
+                }
+                if (_display == null || surface == null)
+                {
+                    return;
+                }
+                try
+                {
+                    EGL14.EglMakeCurrent(_display, EGL14.EglNoSurface, EGL14.EglNoSurface,
+                        EGL14.EglNoContext);
+                    EGL14.EglDestroySurface(_display, surface);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[android] releasing the surface failed: {ex.Message}");
+                }
+            }
+
+            private void DestroyContext()
+            {
+                if (_display == null)
+                {
+                    return;
+                }
+                try
+                {
+                    EGL14.EglMakeCurrent(_display, EGL14.EglNoSurface, EGL14.EglNoSurface,
+                        EGL14.EglNoContext);
+                    if (_context != null)
+                    {
+                        EGL14.EglDestroyContext(_display, _context);
+                    }
+                    EGL14.EglTerminate(_display);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[android] tearing the context down failed: {ex.Message}");
+                }
+                _context = null;
+                _contextBindingsReady = false;
+                _config = null;
+                _display = null;
+            }
+
+            private void HandleFailedPresent(int error)
+            {
+                AndroidPerformance.RecordFailedPresent(error);
+                if (error == 0x300E) throw ContextLost();
+                if (error is not (0x3007 or 0x300B or 0x300D))
+                    throw new InvalidOperationException($"EGL presentation failed (0x{error:X}). Restart the match.");
+                SurfaceDiagnostic($"surface stopped accepting frames (0x{error:X}); waiting to rebind");
+                ReleaseSurface();
+                lock (_lock)
+                {
+                    if (!_stopping && !_paused) Monitor.Wait(_lock, 50);
+                }
+            }
+
+            private static Exception ContextLost() => new InvalidOperationException(
+                "The Android graphics context was lost. Return to the launcher and restart the match; loaded graphics cannot be reused.");
+
+            private void SurfaceDiagnostic(string message)
+            {
+                long now = Environment.TickCount64;
+                if (_lastSurfaceDiagnostic != 0 && now - _lastSurfaceDiagnostic < 2000) return;
+                _lastSurfaceDiagnostic = now;
+                Console.WriteLine($"[android] {message}");
+            }
+
+            private bool Fail(string message)
+            {
+                Console.WriteLine($"[android] {message}");
+                if (!_ended)
+                {
+                    _ended = true;
+                    _onError(message);
+                }
+                lock (_lock)
+                {
+                    _stopping = true;
+                }
+                return false;
+            }
+
+            /// <summary>
+            /// Load the room, on this thread. It takes seconds; nothing is
+            /// waiting on it, which is the difference this class makes.
+            /// </summary>
+            private void BuildScene()
+            {
+                if (_size.X <= 0 || _size.Y <= 0)
+                {
+                    return;
+                }
+                try
+                {
+                    AndroidPerformance.PrepareForWindow(_size.X, _size.Y);
+                    Scene = _build(_input, _size);
+                    Scene.OnLoad();
+                    // Compile/execute the real presentation path once while the
+                    // loading notice still covers the surface. OnLoad has loaded
+                    // the scene resources; this hidden draw warms driver state,
+                    // render-item paths and texture residency before the first
+                    // frame the player can see.
+                    long warmStart = Stopwatch.GetTimestamp();
+                    Scene.OnDrawFrame();
+                    if (Scene.OnRenderFrame())
+                    {
+                        Scene.AfterRenderFrame();
+                    }
+                    MphRead.Mods.DebugLog.Line("androidperf",
+                        $"presentation prewarm {Milliseconds(warmStart, Stopwatch.GetTimestamp()):0.00} ms");
+                    MphRead.Mods.Network.NetSession.ReportMatchLoadProgress(
+                        MphRead.Mods.Network.MatchLoadStage.SceneReady);
+                    MphRead.Mods.Network.NetSession.MarkMatchLoaded();
+                }
+                catch (Exception ex)
+                {
+                    // A missing room, a shader the driver would not take, a set
+                    // of game files that is not there. Any of them ends the
+                    // match with what went wrong on screen, rather than taking
+                    // the process down from a thread nobody is watching.
+                    Console.WriteLine($"[android] the match could not start: {ex}");
+                    MphRead.Mods.Network.NetSession.ReportMatchLoadFailed(ex.Message);
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    if (Scene is { } failed) RetireTerminalNativeScene(failed);
+#endif
+                    Scene = null;
+                    _ended = true;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    _nativeCycle?.Fault();
+#endif
+                    _onError(ex.Message);
+                    lock (_lock)
+                    {
+                        _stopping = true;
+                    }
+                    return;
+                }
+                _clock.Start();
+                _framePacer.Reset(_clock.Elapsed.TotalSeconds);
+                FrameTiming.Reset();
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (_nativeLoading is { } loading)
+                {
+                    _nativeSceneGeneration = Scene!.LifetimeGeneration;
+                    if (!_nativeCycle!.MarkMatchReady(loading)) { RequestStop(); return; }
+                }
+#endif
+                _onLoaded();
+            }
+
+            /// <summary>
+            /// Apply the pause-menu spectator command on the thread that owns
+            /// the scene and GL context. Android's pause menu is an Avalonia
+            /// view on the UI thread; SetUpHud and camera changes are not.
+            /// </summary>
+            private void ApplySpectatorRequest()
+            {
+                int request;
+                lock (_lock)
+                {
+                    request = _spectatorRequest;
+                    _spectatorRequest = 0;
+                }
+                if (request > 0)
+                {
+                    Mods.SpectatorMode.Start();
+                }
+                else if (request < 0)
+                {
+                    Mods.SpectatorMode.Rejoin();
+                }
+            }
+
+            /// <summary>One frame. False means the match is over.</summary>
+            ///
+            /// <remarks>
+            /// The same split the desktop window makes (see
+            /// <c>RenderWindow.OnRenderFrame</c>): the simulation runs on a
+            /// fixed 60 Hz accumulator whatever the picture is doing, and the
+            /// picture runs at the player's FPS limit. This used to be one
+            /// <c>OnUpdateFrame</c> paced at a hard 1/60, which is why a
+            /// 120 Hz phone drew 60.
+            ///
+            /// Input is inside the step loop rather than beside it, because
+            /// that is what it is: <see cref="ApplyInput"/> works out this
+            /// step's rising edges, and running it per *picture* would give a
+            /// tap on FIRE two presses on a 120 Hz screen.
+            /// </remarks>
+            private bool DrawFrame()
+            {
+                Scene scene = Scene!;
+                RequestFrameRate();
+                ApplySwapInterval();
+                long limiterStart = Stopwatch.GetTimestamp();
+                double elapsed = WaitForTick();
+                long workStart = Stopwatch.GetTimestamp();
+                ulong latencyFrame = MphRead.Mods.Render.LowLatencyController.BeginFrame();
+                MphRead.Mods.Render.LowLatencyController.WaitForFrame(latencyFrame);
+                long allocatedStart = GC.GetAllocatedBytesForCurrentThread();
+                ApplySpectatorRequest();
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                ProcessNativePause();
+#endif
+                GameState.ApplyPause();
+                int steps = MphRead.Mods.Network.NetSession.HoldLoadingFrame()
+                    ? 0 : FrameTiming.Advance(elapsed);
+                if (steps > 0)
+                {
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.InputSample);
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.SimulationStart);
+                }
+                for (int i = 0; i < steps; i++)
+                {
+                    ApplyInput();
+                    scene.OnSimulationFrame();
+                    if (!MphRead.Mods.Chat.ChatBox.Composing
+                        && MphRead.Mods.Network.DemoClip.Active
+                        && MphRead.Mods.Input.GamepadInput.TakeActionPress(
+                            MphRead.Mods.Input.PadAction.SaveClip))
+                    {
+                        MphRead.Mods.Network.DemoClip.SaveWithFeedback();
+                    }
+                }
+                if (steps > 0)
+                {
+                    MphRead.Mods.Render.LowLatencyController.Mark(
+                        latencyFrame, MphRead.Mods.Render.LowLatencyMarker.SimulationEnd);
+                }
+                // Loading can pump a disconnect or lobby return with zero
+                // gameplay steps. Handle those transitions on every draw.
+                if (MphRead.Mods.Network.NetSession.Refused || MphRead.Mods.Network.NetSession.SessionTimedOut)
+                {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    OpenGlPassProfiler.CancelFrame();
+                    End(scene);
+                    return false;
+                }
+                if (MphRead.Mods.Network.NetSession.PersistentLobby && MphRead.Mods.Network.NetSession.IsInLobby)
+                {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    End(scene, keepSession: true);
+                    return false;
+                }
+                if (Mods.Network.ReplayController.IsSeeking)
+                {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    return true;
+                }
+                long simulationEnd = Stopwatch.GetTimestamp();
+
+                long presentationRevision = MphRead.Mods.Input.GamepadContexts.Revision;
+                bool inputOwnershipChanged =
+                    presentationRevision != _presentationInputRevision;
+                _presentationInputRevision = presentationRevision;
+                if (inputOwnershipChanged)
+                {
+                    // A menu/chat can open and close between two render frames.
+                    // Release pending touch state even when the current state has
+                    // already returned to Gameplay.
+                    _controls.ReleaseEverything();
+                }
+                bool gameplayOwnsPresentationAim =
+                    !inputOwnershipChanged
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                    && _nativePause?.OwnsInput != true
+#endif
+                    && !MphRead.Mods.Input.GamepadContexts.MenuVisible
+                    && !MphRead.Mods.Input.GamepadContexts.TextEntryActive
+                    && !MphRead.Mods.Chat.ChatBox.Composing
+                    && !Mods.SpectatorMode.IsSpectating
+                    && !GameState.DialogPause
+                    && !GameState.MenuPause
+                    && !_controls.IsHeld(TouchAction.WeaponMenu);
+
+                // Android pad motion events may arrive between 60 Hz simulation
+                // steps. Capture the newest aim axes for the same render-only
+                // preview used on desktop; the next simulation consumes the
+                // exact captured axes. UI ownership cancels any older preview
+                // immediately, even on a zero-step high-refresh frame.
+                if (FrameTiming.HighRefreshPresentation
+                    && !MphRead.Mods.Network.DemoPlayback.IsActive
+                    && gameplayOwnsPresentationAim)
+                {
+                    MphRead.Mods.Input.GamepadInput.CapturePresentationSample();
+                }
+                else if (!gameplayOwnsPresentationAim)
+                {
+                    MphRead.Mods.Input.GamepadInput.InvalidatePresentationAim();
+                }
+
+                // A 90/120 Hz phone often draws a picture between two 60 Hz
+                // simulation steps. Preserve fresh gameplay touch delta, but
+                // never preview movement accumulated while chat/menu owns glass.
+                if (gameplayOwnsPresentationAim)
+                {
+                    (float X, float Y) lateAim = _controls.PeekAimDelta();
+                    scene.ModSetLateAim(lateAim.X * AimScale, lateAim.Y * AimScale);
+                }
+                else
+                {
+                    scene.ModSetLateAim(0, 0);
+                }
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitStart);
+                // Terminal UI passes use Android GLES directly; never infer
+                // the next scene's VAO binding from the previous picture.
+                GlEs.InvalidateVertexArrayBinding();
+                OpenGlPassProfiler.BeginFrame();
+                scene.OnDrawFrame();
+                if (!scene.OnRenderFrame())
+                {
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    OpenGlPassProfiler.CancelFrame();
+                    End(scene);
+                    return false;
+                }
+                GlEs.FlushPending();
+                Mods.Replay.ReplayVideoExporter.AfterSceneDraw(scene);
+                scene.AfterRenderFrame();
+                long renderEnd = Stopwatch.GetTimestamp();
+                GlEs.FlushPending();
+                DrawUi();
+                GlEs.FlushPending();
+                long uiEnd = Stopwatch.GetTimestamp();
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.RenderSubmitEnd);
+                long swapStart = uiEnd;
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentStart);
+                if (_display == null || _eglSurface == null || !EGL14.EglSwapBuffers(_display, _eglSurface))
+                {
+                    int error = EGL14.EglGetError();
+                    OpenGlPassProfiler.CancelFrame();
+                    MphRead.Mods.Render.LowLatencyController.CancelFrame(latencyFrame);
+                    HandleFailedPresent(error);
+                    return true;
+                }
+                long swapEnd = Stopwatch.GetTimestamp();
+                OpenGlPassProfiler.EndFrame();
+                MphRead.Mods.Render.LowLatencyController.Mark(
+                    latencyFrame, MphRead.Mods.Render.LowLatencyMarker.PresentEnd);
+                // Report CPU-side frame work only. Presentation can block on
+                // SurfaceFlinger/FIFO and is not CPU load the scheduler should
+                // try to "fix" by boosting clocks.
+                _performanceHints?.ReportFrame(workStart, uiEnd, FrameTiming.FrameRateCap);
+                AndroidPerformance.RecordFrame(swapEnd, Milliseconds(limiterStart, workStart),
+                    Milliseconds(workStart, simulationEnd),
+                    Milliseconds(simulationEnd, renderEnd),
+                    Milliseconds(renderEnd, uiEnd),
+                    Milliseconds(swapStart, swapEnd),
+                    GC.GetAllocatedBytesForCurrentThread() - allocatedStart,
+                    _size.X, _size.Y, _appliedSwapInterval);
+                return true;
+            }
+
+            private byte[] _uiPixels = Array.Empty<byte>();
+            private int _uiVersion;
+            private int _uiDrawn;
+            private int _uiSkipped;
+            private int _uiHole;
+            private long _uiSaid;
+
+            /// <summary>
+            /// The launcher's own picture, over the finished frame -- which on
+            /// this head is the results panel and nothing else.
+            ///
+            /// The desktop does the same thing in the same place (see
+            /// RenderWindow.OnRenderFrame and Mods/Render/UiOverlay.cs). The
+            /// frame is rendered by Skia on the UI thread and comes across as
+            /// pixels; an unchanged version means the texture already on the
+            /// card is still the right one, which is most frames.
+            /// </summary>
+            // Frames the panel was composited on against frames it was not,
+            // while the engine says it is up: the split "the model appears and
+            // disappears" is a report of.
+            private void SayUi()
+            {
+                if (!MphRead.Mods.EndScreen.PanelUp)
+                {
+                    return;
+                }
+                long now = Environment.TickCount64;
+                if (_uiSaid == 0)
+                {
+                    _uiSaid = now;
+                    return;
+                }
+                if (now - _uiSaid < 1000)
+                {
+                    return;
+                }
+                _uiSaid = now;
+                MphRead.Mods.DebugLog.Line("ui", $"end panel drawn {_uiDrawn}, "
+                    + $"skipped {_uiSkipped}, hole {_uiHole}");
+                _uiDrawn = 0;
+                _uiSkipped = 0;
+                _uiHole = 0;
+            }
+
+            private void DrawUi()
+            {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (DrawNativePause())
+                {
+                    AndroidUiOverlay.Visible = false;
+                    MphRead.Scene.LauncherPreview = false;
+                    return;
+                }
+#endif
+                AndroidUiSurface? surface = AndroidUiSurface.Current;
+                SayUi();
+                if (surface == null || !surface.Visible)
+                {
+                    _uiSkipped++;
+                    AndroidUiOverlay.Visible = false;
+                    MphRead.Scene.LauncherPreview = false;
+                    return;
+                }
+                _uiDrawn++;
+                if (MphRead.Mods.Render.HunterShot.HoleWanted)
+                {
+                    _uiHole++;
+                }
+                if (surface.TakeFrame(ref _uiPixels, ref _uiVersion, out int w, out int h))
+                {
+                    AndroidUiOverlay.Upload(_uiPixels, w, h);
+                }
+                AndroidUiOverlay.Visible = true;
+                AndroidUiOverlay.Draw(_size.X, _size.Y);
+                // The real hunter, *over* the screens rather than under them:
+                // the panel it stands in is opaque, so under is behind a card.
+                // The stand draws nothing where it goes (see HunterStand) and
+                // this fills that rectangle afterwards. Same order, same
+                // reason and the same call as the desktop's LauncherHunter.
+                if (MphRead.Mods.Render.HunterShot.HoleWanted && Scene != null)
+                {
+                    MphRead.Scene.LauncherPreview = true;
+                    MphRead.Scene.LauncherHunter = MphRead.Mods.Render.HunterShot.HoleHunter;
+                    MphRead.Scene.LauncherSuit = MphRead.Mods.Render.HunterShot.HoleSuit;
+                    MphRead.Scene.PreviewWanted = true;
+                    MphRead.Scene.PreviewLeft = MphRead.Mods.Render.HunterShot.HoleLeft;
+                    MphRead.Scene.PreviewTop = MphRead.Mods.Render.HunterShot.HoleTop;
+                    MphRead.Scene.PreviewRight = MphRead.Mods.Render.HunterShot.HoleRight;
+                    MphRead.Scene.PreviewBottom = MphRead.Mods.Render.HunterShot.HoleBottom;
+                    Scene.ModDrawPreviewAlone(_size);
+                }
+                else
+                {
+                    // The results HUD publishes a preview slot of its own and
+                    // is stepped whether or not it is drawn, so saying "not
+                    // this frame" has to be said to *both* of them or the
+                    // model turns up in the HUD's rectangle, over the
+                    // scoreboard, on a face of the panel that has no hunter on
+                    // it.
+                    MphRead.Scene.LauncherPreview = false;
+                    MphRead.Scene.PreviewWanted = false;
+                }
+            }
+
+            /// <summary>
+            /// Tell SurfaceFlinger what this surface actually intends to draw.
+            /// Display mode requests the fastest mode the device reports rather
+            /// than clearing the preference; an explicit cap requests that rate.
+            /// </summary>
+            private void RequestFrameRate()
+            {
+                int cap = FrameTiming.FrameRateCap;
+                int displayGeneration = AndroidPerformance.DisplayGeneration;
+                if (_pacingDisplayGeneration != displayGeneration)
+                {
+                    _pacingDisplayGeneration = displayGeneration;
+                    _frameRateRequest.Reset();
+                    _swapRequest.Reset();
+                }
+                if (!OperatingSystem.IsAndroidVersionAtLeast(30))
+                {
+                    return;
+                }
+                Surface? window;
+                lock (_lock)
+                {
+                    window = _boundTo?.Surface;
+                }
+                if (window == null || !window.IsValid)
+                {
+                    // Ask again when there is a surface to ask about.
+                    _frameRateRequest.Reset();
+                    return;
+                }
+                float requested = cap == FrameTiming.DisplayRate || cap == FrameTiming.Unlimited
+                    ? AndroidPerformance.DisplayRefreshRate
+                    : Math.Min(cap, AndroidPerformance.DisplayRefreshRate);
+                long now = Environment.TickCount64;
+                if (!_frameRateRequest.ShouldAttempt(cap, requested, now)) return;
+                try
+                {
+                    window.SetFrameRate(requested,
+                        (int)SurfaceFrameRateCompatibility.Default);
+                    _frameRateRequest.Complete(cap, requested, now, true);
+                }
+                catch (Exception ex)
+                {
+                    _frameRateRequest.Complete(cap, requested, now, false);
+                    SurfaceDiagnostic($"the display would not be asked for "
+                        + $"{requested:0.#} fps: {ex.Message}");
+                }
+            }
+
+            /// <summary>
+            /// EGL and the managed limiter must never pace the same cadence.
+            /// Display mode and explicit caps that map to native panel refresh
+            /// rates stay vsync-driven. Only non-native numeric caps use
+            /// interval 0 and let WaitForTick own the deadline.
+            /// </summary>
+            private void ApplySwapInterval()
+            {
+                int wanted = AndroidPerformance.UseDisplayPacing(FrameTiming.FrameRateCap) ? 1 : 0;
+                if (_appliedSwapInterval == wanted) return;
+                long now = Environment.TickCount64;
+                if (!_swapRequest.ShouldAttempt(wanted, wanted, now)) return;
+                if (_display == null)
+                {
+                    return;
+                }
+                try
+                {
+                    if (EGL14.EglSwapInterval(_display, wanted))
+                    {
+                        _appliedSwapInterval = wanted;
+                        _swapRequest.Complete(wanted, wanted, now, true);
+                    }
+                    else
+                    {
+                        _swapRequest.Complete(wanted, wanted, now, false);
+                        SurfaceDiagnostic($"eglSwapInterval({wanted}) failed "
+                            + $"(0x{EGL14.EglGetError():X})");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _swapRequest.Complete(wanted, wanted, now, false);
+                    SurfaceDiagnostic($"eglSwapInterval({wanted}) failed: {ex.Message}");
+                }
+            }
+
+            private void End(Scene scene, bool keepSession = false)
+            {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (!keepSession && TryEndNativeLocalScene(scene)) return;
+                if (RetireTerminalNativeScene(scene)) { _ended = true; _onEnd(); return; }
+#endif
+                _ended = true;
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                _nativePause?.DisposeOwner();
+#endif
+                scene.DoCleanup();
+                Scene = null;
+                // Whatever the session asked to have saved, before anything
+                // else can run and before the front screen comes back. This is
+                // the desktop's line after its render loop returns; nothing is
+                // written unless the match was the story, so every other kind
+                // of match passes straight through.
+                try
+                {
+                    AndroidMatch.Finish();
+                }
+                catch (Exception ex)
+                {
+                    // A save that cannot be written is not a reason to leave
+                    // the player on a dead view.
+                    Console.WriteLine($"[android] the save could not be written: {ex}");
+                }
+                if (keepSession) MainActivity.Instance?.RunOnUiThread(() => MainActivity.Instance?.EndMatchToLobby());
+                else _onEnd();
+            }
+
+            /// <summary>
+            /// Hold until the next picture is due, and answer how long the
+            /// last one actually took -- which is what the simulation's
+            /// accumulator is owed.
+            /// </summary>
+            private double WaitForTick()
+            {
+                double now = _clock.Elapsed.TotalSeconds;
+                int cap = FrameTiming.FrameRateCap;
+                bool presentationPaced = AndroidFramePacer.PresentationOwnsCadence(
+                    cap, AndroidPerformance.ObservedDisplayRefreshRate, _appliedSwapInterval);
+                double deadline = _framePacer.Deadline(now, cap, presentationPaced,
+                    AndroidPerformance.ObservedDisplayRefreshRate);
+                double wait = deadline - now;
+                if (wait > 0)
+                {
+                    // Sleep for the coarse part, then use only a very short
+                    // spin for the sub-millisecond remainder. Sleeping the
+                    // entire truncated millisecond deadline caused visible
+                    // 15/17/16 ms cadence on some Android schedulers.
+                    const double spinWindow = 0.0005;
+                    if (wait > spinWindow + 0.001)
+                    {
+                        int sleepMs = Math.Max(1,
+                            (int)((wait - spinWindow) * 1000));
+                        Thread.Sleep(sleepMs);
+                        now = _clock.Elapsed.TotalSeconds;
+                    }
+                    while (now < deadline)
+                    {
+                        Thread.SpinWait(16);
+                        now = _clock.Elapsed.TotalSeconds;
+                    }
+                }
+                return _framePacer.BeginFrame(now);
+            }
+
+            private static double Milliseconds(long start, long end)
+            {
+                return Math.Max(0, end - start) * 1000.0 / Stopwatch.Frequency;
+            }
+
+            /// <summary>
+            /// One frame of touch, turned into key and button presses.
+            ///
+            /// The presses are collected and committed as a set rather than
+            /// written one action at a time, because actions share binds --
+            /// see <see cref="AndroidInput.Apply"/> for the FIRE/ALT bug that
+            /// came of writing them through.
+            /// </summary>
+            private void ApplyInput()
+            {
+#if PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT
+                if (_nativePause?.OwnsInput == true)
+                {
+                    _input.BeginFrame(); _input.CommitFrame();
+                    return;
+                }
+#endif
+                // Before the check below, and before the spectator's early
+                // return in CollectInput: chat and instant clips are app-level
+                // actions and remain useful while watching somebody else.
+                _controls.ClipEnabled = MphRead.Mods.Network.DemoClip.Active;
+                HandleChat();
+                HandleClip();
+                // The one thing a pad cannot do. A dialog's OK button is
+                // pressed by *position* -- PlayerDialog.CheckButtonPressed
+                // reads Input.ClickX/Y, because on the DS it was a touch
+                // screen -- and GamepadInput deliberately drives no pointer.
+                // So the touch controls stay on screen through one whether or
+                // not a pad is in the player's hands, or the story stops at
+                // the first scan with nothing to press.
+                _controls.UpdateControllerSnapshot(Mods.Input.GamepadManager.Snapshot);
+                _controls.ForceVisible = GameState.DialogPause;
+                PlayerEntity main = PresentedScene?.Players.Main ?? PlayerEntity.Main;
+                if (main == null || !main.LoadFlags.TestFlag(LoadFlags.Active))
+                {
+                    return;
+                }
+                ushort life = Mods.Network.NetPlayerLifecycle.Get(main.SlotIndex);
+                bool alive = main.Health > 0;
+                if (!ReferenceEquals(_touchPlayer, main) || _touchLife != life
+                    || _touchAlive != alive || _touchAltForm != main.IsAltForm)
+                {
+                    _controls.ReleaseEverything();
+                    _touchPlayer = main;
+                    _touchLife = life;
+                    _touchAlive = alive;
+                    _touchAltForm = main.IsAltForm;
+                }
+                _input.BeginFrame();
+                try
+                {
+                    CollectInput(main);
+                }
+                finally
+                {
+                    _input.CommitFrame();
+                }
+            }
+
+            /// <summary>
+            /// One frame of a spectator's screen.
+            ///
+            /// Nothing here goes near the player: <c>PlayerEntity.ProcessInput</c>
+            /// skips the local player's input entirely while spectating, and
+            /// the hunter the camera is on is somebody else's. What is left is
+            /// four things -- who to watch, which camera, the scoreboard, and,
+            /// on the free camera, driving it.
+            ///
+            /// The free camera is the room viewer's Roam camera (see
+            /// <c>Scene.SetFreeCamera</c>), and it is not driven through binds
+            /// at all: <c>Scene.OnKeyHeld</c> reads W/A/S/D, E and V off
+            /// the keyboard and <c>Scene.OnMouseMove</c> turns it. This head
+            /// already owns a keyboard nobody is holding, so the stick presses
+            /// those keys and the aim drag is handed to the same method the
+            /// desktop's mouse move calls. The letters are a copy of that
+            /// method's own table and the one place they could go out of step
+            /// with it.
+            /// </summary>
+            private void Spectate()
+            {
+                bool freeCamera = Mods.SpectatorMode.FreeCamera;
+                _controls.SetSpectator(spectating: true, freeCamera);
+                // NEXT: the desktop's left click.
+                bool cycle = _controls.IsHeld(TouchAction.Shoot);
+                if (cycle && !_spectateCycleHeld)
+                {
+                    Mods.SpectatorMode.CycleNext();
+                }
+                _spectateCycleHeld = cycle;
+                // VIEW: the desktop's Space -- the map, or the player being
+                // watched. Without it the free camera was a one-way trip on
+                // this head: NEXT leaves it and nothing brought it back.
+                bool view = _controls.IsHeld(TouchAction.ScanVisor);
+                if (view && !_spectateViewHeld)
+                {
+                    if (Mods.Network.DemoPlayback.IsActive) Mods.Replay.ReplayCamera.ToggleFree();
+                    else Mods.SpectatorMode.ToggleView();
+                }
+                _spectateViewHeld = view;
+
+                // Replay transport is available directly on the touch HUD.
+                // These reuse buttons that are otherwise hidden while spectating,
+                // so normal live-spectator controls stay exactly as they were.
+                if (Mods.Network.DemoPlayback.IsActive)
+                {
+                    bool paused = Mods.Network.ReplayController.IsPaused
+                        || Mods.Network.ReplayController.AtEnd;
+                    if (paused != _replayPausedShown)
+                    {
+                        _replayPausedShown = paused;
+                        _controls.ReloadSettings();
+                    }
+
+                    bool play = _controls.IsHeld(TouchAction.Missile);
+                    if (play && !_replayPlayHeld)
+                        Mods.Network.ReplayController.TogglePause();
+                    _replayPlayHeld = play;
+
+                    bool back = _controls.IsHeld(TouchAction.WeaponMenu);
+                    if (back && !_replayBackHeld)
+                    {
+                        uint frame = Mods.Network.ReplayController.CurrentFrame;
+                        Mods.Network.ReplayController.Seek(frame > 300 ? frame - 300 : 0);
+                    }
+                    _replayBackHeld = back;
+
+                    bool forward = _controls.IsHeld(TouchAction.Zoom);
+                    if (forward && !_replayForwardHeld)
+                    {
+                        Mods.Network.ReplayController.Seek((uint)Math.Min(
+                            (ulong)Mods.Network.ReplayController.CurrentFrame + 300,
+                            Mods.Network.ReplayController.DurationFrames));
+                    }
+                    _replayForwardHeld = forward;
+                }
+                else
+                {
+                    _replayPlayHeld = _replayBackHeld = _replayForwardHeld = false;
+                    _replayPausedShown = false;
+                }
+
+                bool menuHeld = _controls.IsHeld(TouchAction.Pause);
+                if (menuHeld && !_menuWasHeld)
+                {
+                    _onPauseMenu();
+                }
+                _menuWasHeld = menuHeld;
+                // The one control a spectator keeps. Read off the keyboard
+                // against the binding itself rather than through a player --
+                // see PlayerInput.ProcessInput and SpectatorMode.NoteScoreboard
+                // -- so the bind is what has to be pressed here, and the
+                // watched player's own controls would be the wrong set.
+                _input.Apply(Mods.InputSettings.Current.Pause,
+                    _controls.IsHeld(TouchAction.Scoreboard));
+                if (freeCamera)
+                {
+                    TouchControls.Dir dir = _controls.Direction;
+                    _input.ApplyKey(Keys.W, (dir & TouchControls.Dir.Up) != 0);
+                    _input.ApplyKey(Keys.S, (dir & TouchControls.Dir.Down) != 0);
+                    _input.ApplyKey(Keys.A, (dir & TouchControls.Dir.Left) != 0);
+                    _input.ApplyKey(Keys.D, (dir & TouchControls.Dir.Right) != 0);
+                    _input.ApplyKey(Keys.E, _controls.IsHeld(TouchAction.Jump));
+                    _input.ApplyKey(Keys.V, _controls.IsHeld(TouchAction.Morph));
+                    (float X, float Y) look = _controls.TakeAimDelta(preservePresentation: false);
+                    if (look.X != 0 || look.Y != 0)
+                    {
+                        // The same call the desktop's mouse move makes, in the
+                        // same units: OnMouseMove applies the player's own
+                        // sensitivity and inversion, so the free camera turns
+                        // the way their game does.
+                        PresentedScene?.OnMouseMove(look.X * AimScale, look.Y * AimScale);
+                    }
+                }
+                else
+                {
+                    // Riding along behind somebody's eyes: their view, not
+                    // ours. Taken rather than left, so it cannot arrive as a
+                    // lurch on the frame the free camera comes back.
+                    _controls.TakeAimDelta(preservePresentation: false);
+                }
+                _controls.TakeSwipeBoost();
+                _controls.TakeDoubleTapJump();
+                // Nothing to scan or boost from here, and FIRE has to be the
+                // button that cycles players rather than a SCAN left over from
+                // whatever the visor was doing.
+                _controls.ScanVisorActive = false;
+                _controls.SwipeBoostEnabled = false;
+            }
+
+            /// <summary>
+            /// The CHAT button, and the soft keyboard that has to follow it.
+            ///
+            /// A phone has no T to press, so the button is the whole of how
+            /// chat is opened without a keyboard attached -- and asking for
+            /// the keyboard is the other half, since an open prompt with
+            /// nothing to type on is worse than no prompt.
+            /// </summary>
+            private void HandleChat()
+            {
+                // Offline there is nobody to read a line, and in the story
+                // chat does not exist at all; the button goes away rather than
+                // sitting there doing nothing.
+                _controls.ChatEnabled = MphRead.Mods.Chat.ChatBox.Available
+                    && MphRead.Mods.Network.NetSession.Active;
+                // Start, on a pad, is the MENU button. Same call, same
+                // reason it is a request rather than a call: the menu is a
+                // view swap on the UI thread and this is the GL one.
+                MphRead.Mods.Chat.ChatBox.HandleController();
+                if (MphRead.Mods.Input.GamepadInput.TakeMenuPress())
+                {
+                    _onPauseMenu();
+                }
+                bool chat = _controls.IsHeld(TouchAction.Chat);
+                if (chat && !_chatWasHeld)
+                {
+                    // Not a key, so nothing is about to arrive as a character.
+                    MphRead.Mods.Chat.ChatBox.Open(swallowOpeningChar: false);
+                }
+                _chatWasHeld = chat;
+                bool wanted = MphRead.Mods.Chat.ChatBox.Composing;
+                if (wanted != _keyboardShown)
+                {
+                    // Both edges are ownership changes. Drop held touch actions
+                    // and render-only aim so opening chat cannot keep walking/
+                    // turning and closing it cannot manufacture a resume edge.
+                    _controls.ReleaseEverything();
+                    MphRead.Mods.Input.GamepadInput.InvalidatePresentationAim();
+                    Scene?.ModSetLateAim(0, 0);
+                    _keyboardShown = wanted;
+                    _onSoftKeyboard(wanted);
+                }
+            }
+
+            /// <summary>One touch press saves the rolling instant-replay buffer.</summary>
+            private void HandleClip()
+            {
+                bool clip = _controls.TakeClipPress();
+                if (clip
+                    && MphRead.Mods.Network.DemoClip.Active
+                    && !MphRead.Mods.Chat.ChatBox.Composing)
+                {
+                    MphRead.Mods.Network.DemoClip.SaveWithFeedback();
+                }
+            }
+
+            private void CollectInput(PlayerEntity main)
+            {
+                // Never retain a touch across menus, spectator transitions or a paused frame.
+                Mods.Input.NativeTouchHost.Publish(false);
+                // The results screen owns the glass while it is up: the
+                // hunter picker is the one thing on it that does anything,
+                // and it was being covered by a dozen buttons that did
+                // nothing. See TouchControls.SetEndScreen.
+                bool endScreen = Mods.EndScreen.Available;
+                _controls.SetEndScreen(endScreen);
+                // And the vote's two buttons, while there are any, so a tap
+                // that lands on one answers the vote instead of turning the
+                // camera.
+                _controls.SetTapTargets(Mods.Network.MapVote.TouchTargets());
+                (bool got, float tapX, float tapY) = _controls.TakeTap();
+                if (got)
+                {
+                    // Exactly what the desktop's left button does, in the
+                    // order it does it: the pointer first, because both of
+                    // these test against where it is.
+                    Mods.EndScreen.NotePointer(tapX, tapY);
+                    if (!Mods.Network.MapVote.HandleClick())
+                    {
+                        Mods.EndScreen.HandleClick();
+                    }
+                }
+                if (Mods.SpectatorMode.IsSpectating)
+                {
+                    Spectate();
+                    return;
+                }
+                _controls.SetSpectator(spectating: false, freeCamera: false);
+                _spectateCycleHeld = false;
+                _spectateViewHeld = false;
+                _replayPlayHeld = _replayBackHeld = _replayForwardHeld = false;
+                _replayPausedShown = false;
+                PlayerControls controls = main.Controls;
+                TouchControls.Dir dir = _controls.Direction;
+                bool classicSamus = main.Hunter == MphRead.Hunter.Samus
+                    && Mods.InputSettings.ClassicMorphBallTouch && main.IsAltForm
+                    && !main.IsMorphing && !main.IsUnmorphing;
+                (bool nativeDown, int nativeX, int nativeY) = _controls.NativeMorphBallAim();
+                Mods.Input.NativeTouchHost.Publish(classicSamus && nativeDown
+                    && !GameState.DialogPause && !_controls.IsHeld(TouchAction.WeaponMenu),
+                    nativeX, nativeY);
+                bool up = (dir & TouchControls.Dir.Up) != 0;
+                bool down = (dir & TouchControls.Dir.Down) != 0;
+                bool left = (dir & TouchControls.Dir.Left) != 0;
+                bool right = (dir & TouchControls.Dir.Right) != 0;
+                // Both sets: walking reads Move and the morph ball reads Roll,
+                // and a player who has bound them to different keys expects
+                // the stick to drive whichever form they are in.
+                _input.Apply(controls.MoveUp, up);
+                _input.Apply(controls.MoveDown, down);
+                _input.Apply(controls.MoveLeft, left);
+                _input.Apply(controls.MoveRight, right);
+                _input.Apply(controls.RollUp, up);
+                _input.Apply(controls.RollDown, down);
+                _input.Apply(controls.RolltLeft, left);
+                _input.Apply(controls.RollRight, right);
+
+                // Samus uses current-frame aim-side motion, just like
+                // native Morph Ball steering. The other rolling hunters keep
+                // the anchored precision stick. Neither path consumes the aim
+                // delta here, so the normal aim collector sees the same sample
+                // later in this frame.
+                (bool Engaged, float X, float Y) altDrive = main.Hunter == MphRead.Hunter.Samus
+                    ? _controls.SamusAltMoveDrive
+                    : _controls.AltMoveDrive;
+                bool swipeOwnsMovement = main.IsAltForm
+                    && !main.IsMorphing && !main.IsUnmorphing
+                    && Mods.Input.AltFormGesture.UsesRollMovement(main.Hunter)
+                    && dir == TouchControls.Dir.None
+                    && !GameState.DialogPause
+                    && !_controls.IsHeld(TouchAction.WeaponMenu)
+                    && altDrive.Engaged && !classicSamus;
+                main.ModSetAltSwipeDrive(swipeOwnsMovement,
+                    swipeOwnsMovement ? altDrive.X : 0,
+                    swipeOwnsMovement ? altDrive.Y : 0);
+
+                // JUMP, or two quick taps on the aiming side, which is how the
+                // DS jumped with a stylus in hand.
+                //
+                // Taken every frame whether it is wanted or not, so it cannot
+                // go stale and jump later. It is not wanted while a dialog or
+                // the wheel is up: both turn the screen into a thing to press,
+                // and pressing OK twice, or two weapons in a row, is not a
+                // request to jump.
+                bool doubleTap = _controls.TakeDoubleTapJump();
+                bool jump = _controls.IsHeld(TouchAction.Jump)
+                    || (doubleTap && !GameState.DialogPause
+                        && !_controls.IsHeld(TouchAction.WeaponMenu));
+                // FIRE is the only attack button, and it is both attacks.
+                //
+                // There used to be an ALT button beside it, which is what the
+                // DS did not have: one fire button served the gun on foot and
+                // the alt form's attack in the ball, and the game's own
+                // defaults still say so -- shoot and altAttack are both
+                // MouseButton.Left. A second button for the same bind bought
+                // nothing and cost the first one (see AndroidInput.Apply), so
+                // it is gone and FIRE presses whichever of the two the form
+                // the player is actually in will read. Both while morphing, so
+                // a thumb already down on FIRE as the ball closes is not
+                // dropped on the frame the form changes.
+                bool fire = _controls.IsHeld(TouchAction.Shoot);
+                bool altForm = main.IsAltForm || _controls.IsHeld(TouchAction.Morph);
+                _input.Apply(controls.Shoot, fire && !main.IsAltForm);
+                _input.Apply(controls.AltAttack, fire && altForm);
+                _input.Apply(controls.Jump, jump);
+                // One button on the DS, and the same key here by default:
+                // jumping on foot is boosting in the ball.
+                _input.Apply(controls.Boost, jump);
+                // Fast gestures layer a one-shot movement effect on top of the
+                // drag: Samus gets the aimed native boost and Spire gets a
+                // directional momentum shove. No swipe synthesizes Spire's
+                // AltAttack press. Other transformed hunters keep the drag.
+                _controls.SwipeBoostEnabled = main.IsAltForm && !classicSamus
+                    && Mods.Input.AltFormGesture.FlickAction(main.Hunter)
+                        != Mods.Input.AltFlickAction.None;
+                (bool Fired, float X, float Y) swipe = _controls.TakeSwipeBoost();
+                if (swipe.Fired && main.IsAltForm && !classicSamus)
+                {
+                    main.SwipeBoostRequested = true;
+                    // Which way the thumb went, for the boost to follow. The
+                    // engine turns it into a world direction; here it is still
+                    // just the screen's.
+                    main.SwipeBoostX = swipe.X;
+                    main.SwipeBoostY = swipe.Y;
+                }
+                _input.Apply(controls.Morph, _controls.IsHeld(TouchAction.Morph));
+                // Two binds, two buttons, exactly as the desktop has them:
+                // VISOR opens and closes the scan visor (E) and SCAN reads
+                // what is targeted while it is held (Q). One button trying to
+                // be both could not tell "read this again" from "put the
+                // visor away", and answered a press with both.
+                //
+                // SCAN is only there while the visor is: it takes FIRE's
+                // place, which is idle in the visor anyway. See
+                // TouchControls.ScanVisorActive.
+                _controls.ScanVisorActive = main.ScanVisor;
+                _input.Apply(controls.ScanVisor, _controls.IsHeld(TouchAction.ScanVisor));
+                _input.Apply(controls.Scan, _controls.IsHeld(TouchAction.Scan));
+                _input.Apply(controls.Zoom, _controls.IsHeld(TouchAction.Zoom));
+
+                // Optional direct-select buttons. They press the exact same
+                // weapon bindings as the keyboard number row, so inventory,
+                // affinity and weapon-switch legality stay in the engine's
+                // normal path rather than being reimplemented by Android.
+                _input.Apply(controls.PowerBeam, _controls.IsHeld(TouchAction.PowerBeam));
+                _input.Apply(controls.Missile, _controls.IsHeld(TouchAction.MissileSelect));
+                _input.Apply(controls.VoltDriver, _controls.IsHeld(TouchAction.VoltDriver));
+                _input.Apply(controls.Battlehammer, _controls.IsHeld(TouchAction.Battlehammer));
+                _input.Apply(controls.Imperialist, _controls.IsHeld(TouchAction.Imperialist));
+                _input.Apply(controls.Judicator, _controls.IsHeld(TouchAction.Judicator));
+                _input.Apply(controls.Magmaul, _controls.IsHeld(TouchAction.Magmaul));
+                _input.Apply(controls.ShockCoil, _controls.IsHeld(TouchAction.ShockCoil));
+                _input.Apply(controls.OmegaCannon, _controls.IsHeld(TouchAction.OmegaCannon));
+
+                // The shared custom controller owns readiness and selection legality.
+                _input.Apply(controls.CustomWeapon, _controls.IsHeld(TouchAction.CustomWeapon));
+                _input.Apply(controls.CustomReload, _controls.IsHeld(TouchAction.CustomReload));
+                _input.Apply(controls.CustomOptic, _controls.IsHeld(TouchAction.CustomOptic));
+                _input.Apply(controls.Grapple, _controls.IsHeld(TouchAction.Grapple));
+
+                // MSSL swaps to the Missile and back to the Power Beam, since
+                // neither is on the wheel and a thumb has no number row. The
+                // press decides which of the two binds to hold for the frame;
+                // both are read as presses (PlayerInput.ProcessTouchInput), so
+                // one frame is a switch.
+                bool missile = _controls.IsHeld(TouchAction.Missile);
+                if (missile && !_missileWasHeld)
+                {
+                    _input.Apply(main.CurrentWeapon == BeamType.Missile
+                        ? controls.PowerBeam : controls.Missile, true);
+                }
+                _missileWasHeld = missile;
+                // The DS pause button -- map and status on foot, scoreboard
+                // while it is held in a match -- is SCORE now. MENU is the
+                // app's own menu, which is the thing a player looks for first
+                // and had no way to reach at all.
+                _input.Apply(controls.Pause, _controls.IsHeld(TouchAction.Scoreboard));
+                bool menu = _controls.IsHeld(TouchAction.Pause);
+                if (menu && !_menuWasHeld)
+                {
+                    // On the press, not the release, and once per press: the
+                    // menu is a view swap on the UI thread and this is the GL
+                    // thread, so it is asked for rather than done here.
+                    _onPauseMenu();
+                }
+                _menuWasHeld = menu;
+
+                // A dialog box waiting to be dismissed reads a click position
+                // and nothing else: PlayerDialog.CheckButtonPressed compares
+                // Input.ClickX/Y against the button rectangle, and on this
+                // platform nothing ever set them. The pointer was only ever
+                // *moved*, for aiming, and no touch ever pressed the left
+                // mouse button -- so the OK button could not be pressed at all,
+                // and a scan or a prompt could only be left by quitting.
+                //
+                // While one is up, the screen is the DS's touch screen: a
+                // finger is a position and holding it is holding the button.
+                if (GameState.DialogPause)
+                {
+                    _controls.PointerIsAbsolute = true;
+                    (bool Down, float X, float Y) tap = _controls.AimPosition();
+                    if (tap.Down)
+                    {
+                        _input.PlacePointer(tap.X, tap.Y);
+                    }
+                    _input.ApplyButton(OpenTK.Windowing.GraphicsLibraryFramework.MouseButton.Left, tap.Down);
+                    _dialogClickDown = tap.Down;
+                    // Swallowed, so the aim does not lurch by however far the
+                    // finger travelled once the box is gone.
+                    _controls.TakeAimDelta(preservePresentation: false);
+                    return;
+                }
+                // The weapon wheel is the other part that reads a position off
+                // what used to be a touch screen, so while it is open the
+                // screen is one -- the left half stops being a thumbstick.
+                //
+                // Without that, four of the six weapons could not be picked at
+                // all. PlayerHud lays the wheel out from x = 0.30 to x = 0.785
+                // of the width, so most of it is in the half where a finger
+                // becomes the stick instead of the pointer, and a tap there
+                // was a movement input the wheel never saw: the menu opened,
+                // the icons appeared, and choosing one did nothing but play
+                // the "cannot switch" sound.
+                _controls.PointerIsAbsolute = _controls.IsHeld(TouchAction.WeaponMenu);
+                if (_dialogClickDown)
+                {
+                    // Released explicitly rather than left to the next tap:
+                    // the box can close on the same frame the finger is still
+                    // down, and a mouse button stuck down outlives the dialog.
+                    // Nothing to do but stop asking for it: CommitFrame
+                    // releases every button no action asked for this frame.
+                    _dialogClickDown = false;
+                }
+                bool weaponMenu = _controls.IsHeld(TouchAction.WeaponMenu);
+                _input.Apply(controls.WeaponMenu, weaponMenu);
+                if (weaponMenu)
+                {
+                    // The wheel is a touchscreen mechanic: it reads where the
+                    // pointer is, not how far it moved. While it is open the
+                    // pointer is the finger -- the one holding WEAPON, or an
+                    // aiming finger if one is down. See WeaponWheelPosition.
+                    (bool Down, float X, float Y) aim = _controls.WeaponWheelPosition();
+                    if (aim.Down)
+                    {
+                        _input.PlacePointer(aim.X, aim.Y);
+                    }
+                    _controls.TakeAimDelta(preservePresentation: false);
+                }
+                else
+                {
+                    (float X, float Y) delta = _controls.TakeAimDelta(useStylusResponse:
+                        !main.IsAltForm && !main.IsMorphing && !main.IsUnmorphing);
+                    _input.MovePointer(delta.X * AimScale, delta.Y * AimScale);
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,162 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using MphRead.Entities;
+
+namespace MphRead.Mods.MapGen;
+
+/// <summary>Prime gameplay adaptation shared by preflight, conversion and legacy BSP imports.</summary>
+public static class Q3Gameplay
+{
+        public static ItemType MapPickupType(string classname)
+        {
+            return classname.ToLowerInvariant() switch
+            {
+                "weapon_railgun" => ItemType.Imperialist,
+                "weapon_rocketlauncher" => ItemType.Magmaul,
+                "weapon_lightning" => ItemType.ShockCoil,
+                "weapon_plasmagun" => ItemType.VoltDriver,
+                "weapon_shotgun" => ItemType.Battlehammer,
+                "weapon_grenadelauncher" => ItemType.Judicator,
+                "weapon_bfg" => ItemType.OmegaCannon,
+                "item_quad" => ItemType.DoubleDamage,
+                "item_invis" => ItemType.Cloak,
+                "item_health" => ItemType.HealthMedium,
+                "item_health_small" => ItemType.HealthSmall,
+                "item_health_large" => ItemType.HealthBig,
+                "item_health_mega" => ItemType.HealthBig,
+                "item_armor_shard" => ItemType.UASmall,
+                "item_armor_combat" => ItemType.UABig,
+                "item_armor_body" => ItemType.UABig,
+                "ammo_rockets" => ItemType.MissileBig,
+                "ammo_slugs" => ItemType.UABig,
+                "ammo_cells" => ItemType.UASmall,
+                "ammo_shells" => ItemType.UASmall,
+                "ammo_bullets" => ItemType.UASmall,
+                "ammo_grenades" => ItemType.MissileSmall,
+                "ammo_lightning" => ItemType.UASmall,
+                _ => ItemType.None
+            };
+        }
+
+
+    /// <summary>
+    /// Deterministic, explicitly lossy-on-source-name canonical spellings for
+    /// Prime-authored pickup roundtrips. Unsupported Prime items cannot be
+    /// exported as fake Quake entities.
+    /// </summary>
+    public static string? CanonicalQuakePickup(string primeType)
+    {
+        if (!Enum.TryParse<ItemType>(primeType, true, out var item))
+            return null;
+        return item switch
+        {
+            ItemType.Imperialist => "weapon_railgun",
+            ItemType.Magmaul => "weapon_rocketlauncher",
+            ItemType.ShockCoil => "weapon_lightning",
+            ItemType.VoltDriver => "weapon_plasmagun",
+            ItemType.Battlehammer => "weapon_shotgun",
+            ItemType.Judicator => "weapon_grenadelauncher",
+            ItemType.OmegaCannon => "weapon_bfg",
+            ItemType.DoubleDamage => "item_quad",
+            ItemType.Cloak => "item_invis",
+            ItemType.HealthMedium => "item_health",
+            ItemType.HealthSmall => "item_health_small",
+            ItemType.HealthBig => "item_health_large",
+            ItemType.UASmall => "item_armor_shard",
+            ItemType.UABig => "item_armor_combat",
+            ItemType.MissileBig => "ammo_rockets",
+            ItemType.MissileSmall => "ammo_grenades",
+            _ => null
+        };
+    }
+
+    public static bool IsPlayerStart(string classname) => classname.ToLowerInvariant() is
+        "info_player_start" or "info_player_deathmatch" or "team_ctf_redplayer"
+        or "team_ctf_blueplayer" or "team_ctf_redspawn" or "team_ctf_bluespawn";
+
+    public static bool TryVector(string? text, out float[] value)
+    {
+        value = new float[3];
+        var parts = text?.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
+        if (parts?.Length != 3) return false;
+        for (int i = 0; i < 3; i++)
+            if (!float.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out value[i])
+                || !float.IsFinite(value[i])) return false;
+        return true;
+    }
+
+    public static IReadOnlyList<MapSpawn> Spawns(Q3Bsp bsp, float unitsPerUnit)
+    {
+        if (!float.IsFinite(unitsPerUnit) || unitsPerUnit <= 0)
+            throw new ArgumentOutOfRangeException(nameof(unitsPerUnit), "Import scale must be finite and positive.");
+        var result = new List<MapSpawn>();
+        foreach (var entity in bsp.Entities)
+        {
+            if (!IsPlayerStart(entity.GetValueOrDefault("classname") ?? "")
+                || !TryVector(entity.GetValueOrDefault("origin"), out var origin)) continue;
+            float angle = 0;
+            if (TryVector(entity.GetValueOrDefault("angles"), out var angles)) angle = angles[1];
+            else if (float.TryParse(entity.GetValueOrDefault("angle"), NumberStyles.Float,
+                CultureInfo.InvariantCulture, out float yaw) && float.IsFinite(yaw)) angle = yaw;
+            var position = new[] { origin[0] / unitsPerUnit, (origin[2] - 24) / unitsPerUnit, -origin[1] / unitsPerUnit };
+            if (position.Any(v => !float.IsFinite(v) || Math.Abs(v) >= 524288)) continue;
+            // CTF start/respawn entities can occupy the same spot. Prime uses neutral starts
+            // by default; team assignments remain an explicit authoring choice.
+            if (result.Any(s => s.Position.SequenceEqual(position))) continue;
+            result.Add(new MapSpawn { Position = position, Yaw = (90 + angle % 360 + 360) % 360 });
+        }
+        return result;
+    }
+
+    public static IReadOnlyList<MapDiagnostic> Inspect(Q3Bsp bsp, float unitsPerUnit, bool typedTraversal = true)
+    {
+        var result = new List<MapDiagnostic>();
+        void Warn(string message) => result.Add(new("FP-MAP-023", MapDiagnosticSeverity.Warning, message));
+        int starts = Spawns(bsp, unitsPerUnit).Count;
+        if (starts == 0) Warn("No usable source player starts were found. Add Prime spawns before playtesting; script targets and spectator cameras are not safe spawn locations.");
+        else if (starts < 4) Warn($"Source has only {starts} player start(s). If using these starts alone, add well-spaced Prime spawns before hosting larger matches.");
+        int invalidStarts = bsp.Entities.Count(e => IsPlayerStart(e.GetValueOrDefault("classname") ?? ""))
+            - bsp.Entities.Count(e => IsPlayerStart(e.GetValueOrDefault("classname") ?? "") && TryVector(e.GetValueOrDefault("origin"), out _));
+        if (invalidStarts > 0) Warn($"Skipped {invalidStarts} player start(s) with missing or invalid coordinates.");
+        var traversal = typedTraversal ? Q3Traversal.Extract(bsp, unitsPerUnit) : Array.Empty<MapQ3Trigger>();
+        foreach (var group in bsp.Entities.GroupBy(e => (e.GetValueOrDefault("classname") ?? "").ToLowerInvariant()))
+        {
+            string name = group.Key;
+            if (name == "trigger_teleport")
+            {
+                int unsupported = group.Count() - traversal.Count(t => t.Kind == "teleport");
+                if (unsupported > 0) Warn($"{unsupported} trigger_teleport entity/entities lack a usable model or destination, or use legacy native traversal. Repair or convert before playtesting.");
+            }
+            else if (name == "target_teleporter")
+                Warn($"{group.Count()} target_teleporter entity/entities require scripted activation that Prime does not simulate. Replace essential scripted routes.");
+            else if (name.StartsWith("func_", StringComparison.Ordinal) && name != "func_group")
+            {
+                int validated = group.Count(e => TryModel(e.GetValueOrDefault("model"), bsp.Models.Count, out int model)
+                    && Q3MoverSource.TryRead(e, bsp.Models[model], model, 0, unitsPerUnit, out _, out _));
+                Warn($"{group.Count()} {name} entity/entities are not simulated ({validated} have valid source mover descriptors). Their visible faces may remain, but dynamic brush-model collision and passenger movement are not imported. Replace essential doors/lifts/platforms with native Prime geometry until runtime mover support is complete.");
+            }
+            else if ((name.StartsWith("trigger_", StringComparison.Ordinal) && name != "trigger_push")
+                || (name.StartsWith("target_", StringComparison.Ordinal) && name is not ("target_position" or "target_location"))
+                || name.StartsWith("shooter_", StringComparison.Ordinal))
+                Warn($"{group.Count()} {name} entity/entities have no Prime gameplay behavior. Replace required scripted actions or hazards before playtesting.");
+        }
+        var targets = bsp.Entities.Where(e => e.ContainsKey("targetname") && TryVector(e.GetValueOrDefault("origin"), out _))
+            .Select(e => e["targetname"]).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        int brokenPads = bsp.Entities.Count(e => string.Equals(e.GetValueOrDefault("classname"), "trigger_push", StringComparison.OrdinalIgnoreCase)
+            && (!targets.Contains(e.GetValueOrDefault("target") ?? "")
+                || !TryModel(e.GetValueOrDefault("model"), bsp.Models.Count, out _)));
+        if (typedTraversal) brokenPads = bsp.Entities.Count(e => e.GetValueOrDefault("classname") == "trigger_push")
+            - traversal.Count(t => t.Kind == "push");
+        if (brokenPads > 0) Warn($"{brokenPads} jump pad(s) have no valid trigger model or target and cannot be imported. Add or repair their Prime jump pads.");
+        return result;
+    }
+
+    public static bool TryModel(string? text, int modelCount, out int index)
+    {
+        index = -1;
+        return text?.StartsWith('*') == true && int.TryParse(text.AsSpan(1), NumberStyles.None,
+            CultureInfo.InvariantCulture, out index) && index > 0 && index < modelCount;
+    }
+}

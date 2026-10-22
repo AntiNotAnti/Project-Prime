@@ -1,0 +1,20 @@
+<rml>
+<head><title>Settings confirmation</title><link type="text/template" href="../../components/dialog.rml"/><link type="text/rcss" href="native-popup.rcss"/></head>
+<body template="prime-dialog">
+    <div class="prime_dialog native_settings_popup" role="dialog" aria-modal="true" aria-labelledby="native_settings_popup_title">
+        <h2 id="native_settings_popup_title">SETTINGS</h2>
+        <div id="native_settings_video">
+            <p id="native_settings_video_countdown" role="status" aria-live="polite"/>
+            <div class="dialog_actions"><button id="native_settings_keep_video" data-action="settings:keep-video">KEEP DISPLAY MODE</button><button id="native_settings_revert_video" data-action="settings:revert-video">REVERT</button></div>
+        </div>
+        <div id="native_settings_capture">
+            <p id="native_settings_capture_text"/>
+            <div class="dialog_actions"><button id="native_settings_capture_modifier" data-action="settings:action:215">MODIFIER: NONE</button><button id="native_settings_capture_cancel" data-action="settings:action:24">CANCEL CAPTURE</button></div>
+        </div>
+        <div id="native_settings_confirmation">
+            <p id="native_settings_confirmation_text"/>
+            <div class="dialog_actions"><button id="native_settings_confirm" data-action="settings:action:23">CONFIRM</button><button id="native_settings_conflict_replace" data-action="settings:action:213">REPLACE</button><button id="native_settings_conflict_keep" data-action="settings:action:214">KEEP BOTH</button><button id="native_settings_confirmation_cancel" data-action="settings:action:24">CANCEL</button></div>
+        </div>
+    </div>
+</body>
+</rml>

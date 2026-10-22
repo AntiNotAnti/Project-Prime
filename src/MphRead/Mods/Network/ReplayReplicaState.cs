@@ -1,0 +1,415 @@
+using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.IO;
+using MphRead.Entities;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.Network
+{
+    internal readonly record struct ReplayOccupant(ushort Generation, Hunter Hunter,
+        byte Color, sbyte Team, string Name, bool IsBot = false, byte BotLevel = 0,
+        byte DamageReduction = 0);
+
+    /// <summary>Packet-visible replica values, with private lifecycle/order tracking.
+    /// This decoder deliberately has no NetSession or NetPlayerLifecycle dependency.</summary>
+    internal sealed partial class ReplayReplicaState
+    {
+        internal List<(uint Frame, ChatPacket Packet)> ChatLines { get; } = new();
+        private readonly List<ReplayShotFact> _shotFacts = new(16);
+        private readonly uint[] _lastShotHitFrame = new uint[PlayerEntity.SlotCapacity];
+        private readonly ushort[] _lastShotHitGeneration = new ushort[PlayerEntity.SlotCapacity];
+        private readonly ushort[] _lastShotHitLife = new ushort[PlayerEntity.SlotCapacity];
+        private readonly bool[] _lastShotHitHeadshot = new bool[PlayerEntity.SlotCapacity];
+        private uint _shotFactsFrame = uint.MaxValue;
+        internal IReadOnlyList<ReplayShotFact> ShotFacts => _shotFacts;
+        private const uint ShotHitMarkerFrames = 12;
+        internal float ShotHitMarkerAlpha(int shooterSlot, out bool headshot)
+        {
+            headshot = false;
+            if ((uint)shooterSlot >= (uint)_lastShotHitFrame.Length) return 0;
+            uint at = _lastShotHitFrame[shooterSlot];
+            if (at == uint.MaxValue || RecordingFrame < at
+                || RecordingFrame - at >= ShotHitMarkerFrames
+                || _roster[shooterSlot].Generation != _lastShotHitGeneration[shooterSlot]
+                || !MatchesLife(shooterSlot,
+                    _lastShotHitGeneration[shooterSlot], _lastShotHitLife[shooterSlot]))
+            {
+                return 0;
+            }
+            headshot = _lastShotHitHeadshot[shooterSlot];
+            uint age = RecordingFrame - at;
+            const uint fade = 6;
+            return age + fade <= ShotHitMarkerFrames
+                ? 1f : (ShotHitMarkerFrames - age) / (float)fade;
+        }
+        internal Mods.MatchEvents.MatchSemanticReceiver SemanticEvents { get; private set; } = new();
+        public NetCosmetics Cosmetics { get; private set; } = new();
+        private readonly ReplayOccupant[] _roster = new ReplayOccupant[PlayerEntity.SlotCapacity];
+        private readonly PlayerState[] _players = new PlayerState[PlayerEntity.SlotCapacity];
+        private readonly IntentPacket[] _intents = new IntentPacket[PlayerEntity.SlotCapacity];
+        private readonly bool[] _hasPlayer = new bool[PlayerEntity.SlotCapacity];
+        private readonly bool[] _hasIntent = new bool[PlayerEntity.SlotCapacity];
+        private readonly uint[] _intentReceivedFrame = new uint[PlayerEntity.SlotCapacity];
+        private readonly NetLifecycleTracker[] _lives = new NetLifecycleTracker[PlayerEntity.SlotCapacity];
+        private uint? _rosterRevision;
+        private bool _hasSnapshot;
+        private readonly Dictionary<short, HealthSpawnState> _healthSpawns = new();
+        public MatchStatePacket? Match { get; private set; }
+        public SessionStatePacket? Configuration { get; private set; }
+        public uint ServerTick { get; private set; }
+        public uint RecordingFrame { get; private set; }
+        public uint MatchRecordingFrame { get; private set; }
+        public uint Rng1 { get; private set; } = Rng.Rng1StartValue;
+        public uint Rng2 { get; private set; } = Rng.Rng2StartValue;
+        private readonly ReplayAuthorityWire _authorityWire = new();
+        internal ReplayAuthorityWorld? AuthorityWorld { get; private set; }
+        internal uint? AuthorityAppliedTick { get; set; }
+        private byte[] _worldTail = Array.Empty<byte>();
+        public ReadOnlySpan<byte> WorldTail => _worldTail;
+        public bool TryGetHealthSpawn(short id, out HealthSpawnState state) => _healthSpawns.TryGetValue(id, out state);
+        public bool ContainsBots { get; private set; }
+        public long AcceptedPackets { get; private set; }
+        public long IgnoredPackets { get; private set; }
+        public ReplayReplicaState()
+        {
+            for (int i = 0; i < _lives.Length; i++) _lives[i] = new NetLifecycleTracker();
+        }
+        public ReplayOccupant Occupant(int slot) => _roster[slot];
+        public bool MatchesLife(int slot, ushort generation, ushort life) => (uint)slot < (uint)_lives.Length
+            && generation != 0 && _lives[slot].Generation == generation && _lives[slot].LifeId == life;
+        public bool TryGetPlayer(int slot, out PlayerState player)
+        { player = _players[slot]; return _hasPlayer[slot]; }
+        public bool TryGetIntent(int slot, out IntentPacket intent)
+        { intent = _intents[slot]; return _hasIntent[slot]; }
+        public uint IntentAge(int slot) => _hasIntent[slot] ? RecordingFrame - _intentReceivedFrame[slot] : uint.MaxValue;
+        internal void Advance(uint frame)
+        {
+            RecordingFrame = frame;
+            TimedGrants.Advance(frame);
+            if (_shotFactsFrame != frame)
+            {
+                _shotFacts.Clear();
+                _shotFactsFrame = frame;
+            }
+        }
+        public void Reset()
+        {
+            _bombPackets.Clear();
+            ContainsBots = false;
+            Match = null;
+            Configuration = null;
+            Array.Clear(_roster);
+            foreach (var life in _lives) life.SetOccupant(0);
+            Rewind();
+        }
+        public void Rewind()
+        {
+            CustomWeaponDescriptor = null; CustomWeapons = null;
+            ResetTurretOutcomes(); ResetPickupFacts(); TimedGrants.Reset();
+            TimedShots.Reset();
+            _bombPackets.Clear();
+            ChatLines.Clear();
+            _shotFacts.Clear();
+            Array.Fill(_lastShotHitFrame, uint.MaxValue);
+            Array.Clear(_lastShotHitGeneration);
+            Array.Clear(_lastShotHitLife);
+            Array.Clear(_lastShotHitHeadshot);
+            _shotFactsFrame = uint.MaxValue;
+            SemanticEvents = new();
+            SemanticEvents.Begin(Match?.MatchId ?? 0, Match?.AuthorityEpoch ?? 0);
+            Cosmetics.Reset();
+            Array.Clear(_players);
+            Array.Clear(_intents);
+            Array.Clear(_hasPlayer);
+            Array.Clear(_hasIntent);
+            foreach (var life in _lives) life.ResetLife();
+            _rosterRevision = null;
+            _hasSnapshot = false;
+            ServerTick = RecordingFrame = MatchRecordingFrame = 0;
+            AcceptedPackets = IgnoredPackets = 0;
+            Rng1 = Rng.Rng1StartValue;
+            Rng2 = Rng.Rng2StartValue;
+            _worldTail = Array.Empty<byte>();
+            _healthSpawns.Clear(); AuthorityWorld = null; AuthorityAppliedTick = null; _authorityWire.Reset();
+        }
+        private static void ValidateMovementRules(MatchStatePacket? match, SessionStatePacket? configuration)
+        {
+            if (match is not { } world || configuration is not { } rules
+                || rules.Phase == SessionPhase.Lobby || world.MatchId != rules.MatchId
+                || world.AuthorityEpoch != rules.AuthorityEpoch) return;
+            if (Movement.MovementModelRules.FromRules((MatchModifierFlags)world.RuleBits) != rules.Match.MovementModel)
+                throw new InvalidDataException("Recorded frozen movement rules contradict match state.");
+        }
+
+        private bool Matches(ushort match, ulong authority) => Match is MatchStatePacket current
+            && current.MatchId == match && current.AuthorityEpoch == authority;
+        public void Accept(ReadOnlySpan<byte> packet, uint frame) => Accept(packet, frame, frame);
+
+        internal void AcceptPostWorld(ReadOnlySpan<byte> packet, uint sourceFrame, uint applicationFrame)
+        {
+            if ((ulong)sourceFrame + 1 != applicationFrame)
+                throw new InvalidDataException("Post-world facts apply before exactly the following fixed step.");
+            Accept(packet, sourceFrame, applicationFrame);
+        }
+
+        private void Accept(ReadOnlySpan<byte> packet, uint frame, uint applicationFrame)
+        {
+            if (packet.IsEmpty) throw new InvalidDataException("Empty replay packet.");
+            if (packet[0] == ReplayCustomWeaponFact.Tag)
+            { AcceptCustomWeaponRecord(packet, frame); return; }
+            if (packet[0] == 253)
+            {
+                RestoreCheckpoint(ReplayTimelineArchive.ReadConstruction(packet)); return;
+            }
+            ReadOnlySpan<byte> payload = packet[1..];
+            bool accepted = false;
+            if (packet[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag)
+            {
+                accepted = AcceptTimedShotRecord(packet);
+                RecordingFrame = frame;
+                if (accepted) AcceptedPackets++; else IgnoredPackets++;
+                return;
+            }
+            switch ((PacketType)packet[0])
+            {
+                case PacketType.TimedGrantBootstrap:
+                    accepted = AcceptGrantBootstrap(payload, frame); break;
+                case PacketType.TimedGrant:
+                    accepted = AcceptTimedGrant(payload, frame); break;
+                case PacketType.PickupPrediction:
+                    accepted = AcceptPickupPrediction(payload, frame); break;
+                case PacketType.PickupClaim:
+                    accepted = AcceptPickupClaim(payload); break;
+                case PacketType.PickupVerdict:
+                    accepted = AcceptPickupVerdict(payload, frame); break;
+                case PacketType.PickupItem:
+                    accepted = AcceptPickupItem(payload); break;
+                case PacketType.TurretFireOutcome:
+                    accepted = AcceptTurretOutcome(payload); break;
+                case PacketType.BombEvent:
+                case PacketType.BombState:
+                    accepted = AcceptBombPacket((PacketType)packet[0], payload);
+                    break;
+                case PacketType.MatchState:
+                    if (payload.Length != MatchStatePacket.Size) throw Malformed();
+                    var match = MatchStatePacket.Read(payload);
+                    if (!CustomMatchAllowed(match)
+                        || !Movement.MovementModelRules.ValidRules((MatchModifierFlags)match.RuleBits)
+                        || Movement.MovementModelRules.UsesMomentumSolver(Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits))
+                            && ((MatchModifierFlags)match.RuleBits & (MatchModifierFlags.BalancedMode | MatchModifierFlags.EnhancedHunters)) != 0
+                        || string.IsNullOrEmpty(match.RoomKey) || !Enum.IsDefined(typeof(GameMode), match.Mode)
+                        || !float.IsFinite(match.TimeRemaining) || !float.IsFinite(match.TimeElapsed)) throw Malformed();
+                    if (Match is MatchStatePacket previous && !Matches(match.MatchId, match.AuthorityEpoch))
+                    {
+                        if (match.AuthorityEpoch < previous.AuthorityEpoch
+                            || match.AuthorityEpoch == previous.AuthorityEpoch
+                            && !SessionStatePacket.IsNewer(match.MatchId, previous.MatchId)) break;
+                        Reset();
+                    }
+                    ValidateMovementRules(match, Configuration);
+                    Match = match;
+                    SemanticEvents.Begin(match.MatchId, match.AuthorityEpoch);
+                    MatchRecordingFrame = frame;
+                    if (Configuration is { } rules && !Matches(rules.MatchId, rules.AuthorityEpoch)) Configuration = null;
+                    accepted = true;
+                    break;
+                case PacketType.SessionState:
+                    if (!ReadReplicaConfiguration(payload, CustomWeaponDescriptor != null, out var configuration)
+                        || !CustomConfigurationAllowed(configuration)) throw Malformed();
+                    if (Match.HasValue && !Matches(configuration.MatchId, configuration.AuthorityEpoch)) break;
+                    if (Configuration is SessionStatePacket old && configuration.Revision != old.Revision
+                        && !SessionStatePacket.IsNewer(configuration.Revision, old.Revision)) break;
+                    ValidateMovementRules(Match, configuration);
+                    Configuration = configuration;
+                    accepted = true;
+                    break;
+                case PacketType.Roster:
+                    if (!RosterPacket.TryRead(payload, out var roster)) throw Malformed();
+                    if (!Matches(roster.MatchId, roster.AuthorityEpoch)
+                        || _rosterRevision is uint revision && !NetLifecycleTracker.Newer(roster.Revision, revision)) break;
+                    _rosterRevision = roster.Revision;
+                    ContainsBots |= roster.ContainsBots;
+                    Span<bool> present = stackalloc bool[PlayerEntity.SlotCapacity];
+                    for (int i = 0; i < roster.Count; i++)
+                    {
+                        int slot = roster.Slots[i];
+                        present[slot] = true;
+                        SetOccupant(slot, new(roster.Generations[i], (Hunter)roster.Hunters[i],
+                            roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i],
+                            roster.DamageReductions[i]));
+                    }
+                    for (int i = 0; i < present.Length; i++) if (!present[i]) SetOccupant(i, default);
+                    accepted = true;
+                    break;
+                case PacketType.CosmeticState:
+                    if (payload.Length == 0 || payload.Length % CosmeticStatePacket.Size != 0
+                        || payload.Length > Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size) throw Malformed();
+                    for (int at = 0; at < payload.Length; at += CosmeticStatePacket.Size)
+                        if (CosmeticStatePacket.TryRead(payload.Slice(at, CosmeticStatePacket.Size), out var cosmetic)
+                            && Match is { } cosmeticMatch)
+                            accepted |= Cosmetics.Accept(cosmetic, cosmeticMatch.MatchId, cosmeticMatch.AuthorityEpoch,
+                                _roster[cosmetic.Slot].Generation);
+                    break;
+                case PacketType.MatchSemanticEvent:
+                    if (!Mods.MatchEvents.MatchSemanticEventPacket.TryRead(packet, out var semantic)) throw Malformed();
+                    accepted = semantic.IsBaseline ? SemanticEvents.RestorePresentationBaseline(semantic) : SemanticEvents.Accept(semantic);
+                    break;
+                case PacketType.MatchAward:
+                    if (!Mods.MatchEvents.MatchAwardPacket.TryRead(packet, out var award)) throw Malformed();
+                    accepted = SemanticEvents.Accept(award);
+                    break;
+                case PacketType.ReplayWorld:
+                    if (Match is { } currentWorld && _authorityWire.Accept(payload, currentWorld.MatchId, currentWorld.AuthorityEpoch, strict: true) is { } world)
+                    { if (AuthorityWorld == null || NetLifecycleTracker.Newer(world.Tick, AuthorityWorld.Tick))
+                        { AuthorityWorld = world; accepted = true; } }
+                    break;
+                case PacketType.ReplayShotFact:
+                    if (!ReplayShotFactPacket.TryRead(payload, out var shotFact)) throw Malformed();
+                    if (!Matches(shotFact.MatchId, shotFact.AuthorityEpoch)) break;
+                    // Source clocks still drive input ages and recorded hit
+                    // freshness. Only this transient simulation batch belongs to
+                    // the following application frame for post-world delivery.
+                    if (_shotFactsFrame != applicationFrame)
+                    {
+                        _shotFacts.Clear();
+                        _shotFactsFrame = applicationFrame;
+                    }
+                    bool duplicateShotFact = false;
+                    foreach (var existing in _shotFacts)
+                    {
+                        if (existing.DamageEventId == shotFact.DamageEventId
+                            && existing.VictimSlot == shotFact.VictimSlot
+                            && existing.ShooterSlot == shotFact.ShooterSlot)
+                        {
+                            duplicateShotFact = true;
+                            break;
+                        }
+                    }
+                    if (!duplicateShotFact)
+                    {
+                        _shotFacts.Add(shotFact);
+                        int shooter = shotFact.ShooterSlot;
+                        _lastShotHitFrame[shooter] = frame;
+                        _lastShotHitGeneration[shooter] = shotFact.ShooterGeneration;
+                        _lastShotHitLife[shooter] = shotFact.ShooterLifeId;
+                        _lastShotHitHeadshot[shooter] = shotFact.Headshot;
+                        accepted = true;
+                    }
+                    break;
+                case PacketType.Snapshot:
+                    accepted = AcceptSnapshot(payload);
+                    break;
+                case PacketType.SlotIntent:
+                    if ((payload.Length != 1 + IntentPacket.Size && payload.Length != 1 + IntentPacket.TouchCanonicalSize
+                        && payload.Length != 1 + IntentPacket.FullSize
+                        && payload.Length != 1 + IntentPacket.Protocol42FullSize)
+                        || payload[0] >= _intents.Length) throw Malformed();
+                    int actor = payload[0];
+                    IntentPacket intent = IntentPacket.Read(payload[1..]);
+                    if (!Matches(intent.MatchId, intent.AuthorityEpoch) || intent.SlotGeneration == 0
+                        || intent.SlotGeneration != _lives[actor].Generation || intent.LifeId == 0
+                        || intent.LifeId != _lives[actor].LifeId) break;
+                    if (intent.HasFireEvents && !NetFireEvents.Validate(intent)) throw Malformed();
+                    if (!_hasIntent[actor] || NetLifecycleTracker.Newer(intent.Frame, _intents[actor].Frame))
+                    {
+                        _intents[actor] = intent;
+                        _intentReceivedFrame[actor] = frame;
+                        _hasIntent[actor] = true;
+                        accepted = true;
+                    }
+                    else accepted = intent.HasFireEvents && intent.FireEventCount > 0;
+                    // Older canonical carriers may add shots to the presentation
+                    // index without replacing the newest movement state.
+                    break;
+                case PacketType.Chat:
+                    if (payload.Length != ChatPacket.Size) throw Malformed();
+                    ChatLines.Add((frame, ChatPacket.Read(payload)));
+                    if (ChatLines.Count > Chat.ChatBox.HistoryCapacity) ChatLines.RemoveAt(0);
+                    accepted = true;
+                    break;
+                // Welcome, Authority, Bye, lobby commands and reconnect are inert.
+                // They describe a connection, not a replica's authoritative world.
+            }
+            RecordingFrame = frame;
+            if (accepted) AcceptedPackets++; else IgnoredPackets++;
+        }
+        private void SetOccupant(int slot, ReplayOccupant occupant)
+        {
+            if (_roster[slot].Generation != occupant.Generation)
+            {
+                _lives[slot].SetOccupant(occupant.Generation);
+                _hasPlayer[slot] = _hasIntent[slot] = false;
+            }
+            _roster[slot] = occupant;
+        }
+        internal ReadOnlySpan<byte> EnhancedWorldState
+        {
+            get
+            {
+                if (_worldTail.Length < NetMatchTimeSync.Size + NetHealthSync.HeaderSize) return default;
+                var health = _worldTail.AsSpan(NetMatchTimeSync.Size);
+                return health[(NetHealthSync.HeaderSize + health[2] * NetHealthSync.EntrySize)..];
+            }
+        }
+        private bool AcceptSnapshot(ReadOnlySpan<byte> payload)
+        {
+            if (payload.Length < SnapshotHeader.Size) throw Malformed();
+            var header = SnapshotHeader.Read(payload);
+            int tail = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
+            int health = tail + NetMatchTimeSync.Size;
+            if (header.PlayerCount > _players.Length || health > payload.Length) throw Malformed();
+            if (!Matches(header.MatchId, header.AuthorityEpoch)) return false;
+            if (!NetMatchTimeSync.Validate(payload.Slice(tail, NetMatchTimeSync.Size))
+                || !NetHealthSync.Validate(payload[health..])
+                || BinaryPrimitives.ReadUInt16LittleEndian(payload[health..]) != header.MatchId) throw Malformed();
+            if (_hasSnapshot && !NetLifecycleTracker.Newer(header.Frame, ServerTick)) return false;
+            Span<PlayerState> players = stackalloc PlayerState[PlayerEntity.SlotCapacity];
+            int seen = 0;
+            for (int i = 0; i < header.PlayerCount; i++)
+            {
+                if (!ParkourWallVisualCodec.TryReadGrapple(payload.Slice(SnapshotHeader.Size + i * PlayerState.Size + PlayerState.Protocol80Size, PlayerGrappleState.Size), out _, out _)) throw Malformed();
+                var player = PlayerState.Read(payload[(SnapshotHeader.Size + i * PlayerState.Size)..]);
+                if (player.SlotIndex >= _players.Length || (seen & 1 << player.SlotIndex) != 0
+                    || !Sane(player.Position) || !Sane(player.Speed) || !Sane(player.Facing)
+                    || player.Health > 0 && ((player.Flags & PlayerState.FlagSpawned) == 0 || player.LifeId == 0)) throw Malformed();
+                seen |= 1 << player.SlotIndex;
+                players[i] = player;
+            }
+            for (int i = 0; i < header.PlayerCount; i++)
+            {
+                var player = players[i];
+                int slot = player.SlotIndex;
+                var next = (player.Flags & PlayerState.FlagSpectating) != 0 ? NetworkPlayerState.Spectating
+                    : player.LifeId == 0 ? NetworkPlayerState.WaitingToSpawn
+                    : player.Health == 0 ? NetworkPlayerState.Dead : NetworkPlayerState.Alive;
+                if (_lives[slot].Accept(player.SlotGeneration, player.LifeId, next, out bool fresh) != LifecycleRejection.None) continue;
+                if (fresh) _hasIntent[slot] = false;
+                _players[slot] = player;
+                _hasPlayer[slot] = true;
+            }
+            ServerTick = header.Frame;
+            TimedShots.AdvanceAuthority(ServerTick);
+            Rng1 = header.Rng1;
+            Rng2 = header.Rng2;
+            _worldTail = payload[tail..].ToArray();
+            _healthSpawns.Clear();
+            var healthState = payload[health..];
+            for (int offset = NetHealthSync.HeaderSize; offset < NetHealthSync.HeaderSize + healthState[2] * NetHealthSync.EntrySize; offset += NetHealthSync.EntrySize)
+            {
+                byte flags = healthState[offset + 2];
+                _healthSpawns.Add(BinaryPrimitives.ReadInt16LittleEndian(healthState[offset..]), new(
+                    (flags & 1) != 0, (flags & 2) != 0,
+                    BinaryPrimitives.ReadUInt16LittleEndian(healthState[(offset + 3)..]),
+                    BinaryPrimitives.ReadUInt16LittleEndian(healthState[(offset + 5)..]),
+                    (sbyte)(((flags >> 2) & 15) - 1)));
+            }
+            _hasSnapshot = true;
+            return true;
+        }
+        private static bool Sane(Vector3 v) => float.IsFinite(v.X) && float.IsFinite(v.Y) && float.IsFinite(v.Z)
+            && Math.Abs(v.X) < 100000 && Math.Abs(v.Y) < 100000 && Math.Abs(v.Z) < 100000;
+        private static InvalidDataException Malformed()
+            => new("Replay packet has an invalid length or state value.");
+    }
+}

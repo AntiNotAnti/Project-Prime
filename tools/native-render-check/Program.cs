@@ -1,0 +1,794 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Security.Cryptography;
+using System.Text.Json;
+using MphRead;
+using MphRead.Entities;
+using MphRead.Mods;
+using MphRead.Mods.Input;
+using MphRead.Mods.Render;
+using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
+
+if (args.Contains("-parkouranimationcheck")) return ParkourAnimationRenderCheck.Run(args);
+if (args.Contains("--shader-source-ledger-selftest") || args.Contains("-resource-shader-ledger-selftest")) return ShaderSourceLedger.SelfTest();
+if (args.Contains("--pose-input-isolation-selftest")) return DisplayPoseInputIsolation.SelfTest();
+if (args.Contains("--minimal-gl-selftest")) return MinimalGlControl.SelfTest();
+if (args.Contains("--minimal-gl") || args.Contains("--minimal-gl-describe")) return MinimalGlControl.Run(args);
+if (args.Contains("-resource-retention-selftest")) return AudioRetentionProbe.SelfTest();
+if (args.Contains("-resource-context-selftest")) return ContextControl.SelfTest();
+if (!OperatingSystem.IsMacOS() && !OperatingSystem.IsWindows() && !OperatingSystem.IsLinux())
+    throw new PlatformNotSupportedException("This QA campaign permits only desktop Windows, macOS and Linux.");
+// The client may start a preview worker when an end panel opens. This entry
+// point is a diagnostic, so reject that command rather than recursively
+// starting another diagnostic with its default room.
+if (args.Contains("-thumbnail")) { Console.WriteLine("NATIVERENDER: thumbnail workers require the client entry point."); return 2; }
+string Value(string name, string fallback) => Array.IndexOf(args, name) is int i && i >= 0 && i + 1 < args.Length
+    ? args[i + 1] : fallback;
+string room = Value("-room", "UNIT4_RM1");
+string output = Path.GetFullPath(Value("-output", "native-render-result.json"));
+string? shots = args.Contains("-shots") ? Path.GetFullPath(Value("-shots", "native-render-shots")) : null;
+int cap = int.Parse(Value("-hz", "60"));
+int seconds = int.Parse(Value("-seconds", "24"));
+int players = int.Parse(Value("-players", "8"));
+Hunter hunter = Enum.Parse<Hunter>(Value("-hunter", "Samus"), true);
+bool poseCheck = args.Contains("-posecheck");
+int? poseFov = args.Contains("-pose-fov") ? int.Parse(Value("-pose-fov", "")) : null;
+if (poseFov.HasValue && (!poseCheck || poseFov.Value is not (60 or 78 or 120)))
+    throw new ArgumentException("-pose-fov requires -posecheck and 60|78|120.");
+string poseSchedule = DisplayPosePlan.ResolveSchedule(args.Contains("-pose-schedule")
+    ? Value("-pose-schedule", "") : null, poseCheck, cap);
+bool crouchGaitCheck = args.Contains("-crouchgaitcheck");
+bool crouchCheck = args.Contains("-crouchcheck") || crouchGaitCheck;
+if (crouchGaitCheck && args.Contains("-crouchcheck")) throw new ArgumentException("Choose one crouch diagnostic.");
+if (crouchCheck && (!OperatingSystem.IsWindows() || players != 1 || shots == null || cap != 60
+    || args.Any(a => a is "-posecheck" or "-pose-pixels" or "-resourcestress" or "-windowcycle"
+        or "-outlinecheck" or "-bombcheck" or "-impactcheck" or "-stablehud" or "-glprofile"
+        or "-glgpu" or "-camera" or "-facing" or "-resource-context-cycles" or "-transition-gc")))
+    throw new ArgumentException("-crouchcheck requires Windows, -players 1, -shots and -hz 60; run separately from other diagnostics.");
+string poseFocusControl = DisplayPosePlan.ResolveFocusControl(args.Contains("-pose-focus-control")
+    ? Value("-pose-focus-control", "") : null, poseCheck);
+bool lateProvenanceControl = args.Contains("-late-provenance-control");
+if (lateProvenanceControl && (shots != null || poseCheck || args.Contains("-resourcestress")
+    || args.Contains("-resource-context-cycles") || args.Contains("-transition-gc") || args.Contains("-transition-rebind")))
+    throw new ArgumentException("-late-provenance-control is a timing-only diagnostic; separate from capture, pose and resource modes.");
+bool posePixels = args.Contains("-pose-pixels");
+string poseScenario = DisplayPosePlan.ResolveScenario(args.Contains("-pose-scenario")
+    ? Value("-pose-scenario", "") : null, poseCheck);
+if (posePixels && !poseCheck)
+    throw new ArgumentException("-pose-pixels requires -posecheck; isolated pixels are a separate opt-in capture stage.");
+PlayerOutlineStyle outlines = Enum.Parse<PlayerOutlineStyle>(Value("-outlines", "Off"), true);
+Vector3? VectorArg(string name)
+{
+    if (!args.Contains(name)) return null;
+    var parts = Value(name, "").Split(',');
+    if (parts.Length != 3) throw new ArgumentException(name + " requires x,y,z");
+    return new Vector3(float.Parse(parts[0], System.Globalization.CultureInfo.InvariantCulture),
+        float.Parse(parts[1], System.Globalization.CultureInfo.InvariantCulture),
+        float.Parse(parts[2], System.Globalization.CultureInfo.InvariantCulture));
+}
+Vector3? camera = VectorArg("-camera"), facing = VectorArg("-facing");
+if (args.Contains("-stablehud") && shots == null)
+    throw new ArgumentException("-stablehud requires -shots; it is not a performance option.");
+if (args.Contains("-outlinecheck") && (players < 2 || outlines == PlayerOutlineStyle.Off || shots == null))
+    throw new ArgumentException("-outlinecheck requires -players 2..8, enabled -outlines and -shots.");
+if (args.Contains("-bombcheck") && (players < 4 || shots == null || outlines != PlayerOutlineStyle.Off))
+    throw new ArgumentException("-bombcheck requires -players 4..8, -shots, and -outlines Off.");
+if (args.Contains("-impactcheck") && (players < 2 || shots == null || outlines != PlayerOutlineStyle.Off))
+    throw new ArgumentException("-impactcheck requires -players 2..8, -shots, and -outlines Off.");
+if (poseCheck && (players != 2 || shots == null || seconds != 24 || !DisplayPosePlan.OutputRates.Contains(cap)
+    || args.Any(a => a is "-resourcestress" or "-windowcycle" or "-outlinecheck" or "-bombcheck" or "-impactcheck" or "-stablehud" or "-glprofile" or "-glgpu" or "-camera" or "-facing")))
+    throw new ArgumentException("-posecheck requires -players 2, -shots, -seconds 24, -hz 60|120|144|240|360|500; separate from other capture/performance modes.");
+if (players < 1 || players > 8) throw new ArgumentOutOfRangeException("Use -players 1..8.");
+if (!NativeTimingIntervals.ValidCap(cap) || !NativeTimingIntervals.ValidSeconds(seconds, shots != null))
+    throw new ArgumentOutOfRangeException("Use -hz -1 (Unlimited), 0 (Display) or 30..500, -seconds 8..1804 (capture: 8..120).");
+ShadowQuality shadows = Enum.Parse<ShadowQuality>(Value("-shadows", "Off"), true);
+int resolutionScale = int.Parse(Value("-scale", "100"));
+if (resolutionScale < 25 || resolutionScale > 800)
+    throw new ArgumentOutOfRangeException("Use -scale 25..800.");
+if (poseCheck && resolutionScale != 100)
+    throw new ArgumentException("-posecheck requires native 100% scale.");
+string[] dimensions = Value("-size", "1920x1080").Split('x');
+var size = new Vector2i(int.Parse(dimensions[0]), int.Parse(dimensions[1]));
+if (size.X < 320 || size.Y < 180 || size.X > 4096 || size.Y > 2160)
+    throw new ArgumentOutOfRangeException("Use -size 320x180 through 4096x2160.");
+// Reuse the client's user-data/culture setup without exposing it as a runtime API.
+typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke(null, null);
+// A standalone diagnostic must not run the client's thumbnail workers: their
+// child command assumes ProjectPrime's entry point, not this tool's entry point.
+GraphicsBackendPolicy.LoadPreference();
+Paths.UpdatePaths(); Paths.ChooseMphPath(); Paths.ChooseFhPath();
+if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") == "audio")
+    return AudioResourceStress.Run(args, output);
+using var transitionGc = TransitionGcObservation.Create(args);
+if (args.Contains("-transition-rebind") && transitionGc == null)
+    throw new ArgumentException("-transition-rebind requires -transition-gc and is separate reachability evidence, not frame timing.");
+MphRead.Mods.MapGen.CustomRooms.GenerateMissing(room);
+if (args.Contains("-resourcestress") && Value("-resource-arm", "combined") is "map-gl" or "studio")
+    ResourceAttribution.DisableMusic();
+CheckWindow CreateWindow(string[] options)
+{
+    var value = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck, poseSchedule, poseFov, resolutionScale);
+    try
+    {
+        value.ConfigureResourceStress(options);
+        value.ConfigureDiagnosticOptions(options);
+        return value;
+    }
+    catch { value.Dispose(); throw; }
+}
+if (args.Contains("-resource-context-cycles")) return ContextControl.Run(args, output, CreateWindow);
+using var window = new CheckWindow(room, seconds, cap, shadows, shots, size, players, args.Contains("-idle"), args.Contains("-windowcycle"), hunter, outlines, camera, facing, args.Contains("-outlinecheck"), args.Contains("-bombcheck"), args.Contains("-impactcheck"), args.Contains("-stablehud"), args.Contains("-resourcestress"), poseCheck, posePixels, poseScenario, lateProvenanceControl, poseFocusControl, crouchCheck, crouchGaitCheck, poseSchedule, poseFov, resolutionScale);
+window.ConfigureResourceStress(args);
+window.ConfigureDiagnosticOptions(args);
+try
+{
+    window.Run();
+    var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult()
+        : crouchGaitCheck ? window.CrouchGaitRenderResult() : crouchCheck ? window.CrouchRenderResult() : poseCheck ? window.DisplayPoseResult() : window.Result())!;
+    if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(transitionGc == null
+        ? window.CleanupAndInspect() : window.CleanupTransitionGcAndInspect(args.Contains("-transition-rebind")));
+    if (transitionGc != null) result["transitionGc"] = JsonSerializer.SerializeToNode(transitionGc.Result(window.Complete));
+    Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+    File.WriteAllText(output, result.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
+    Console.WriteLine("NATIVERENDER " + (window.Complete ? "PASS " : "FAIL ") + output);
+    return window.Complete ? 0 : 1;
+}
+catch (Exception ex)
+{
+    if (window.ResourceStressEnabled || poseCheck || crouchCheck)
+    {
+        var result=JsonSerializer.SerializeToNode(crouchGaitCheck ? window.CrouchGaitRenderResult() : crouchCheck ? window.CrouchRenderResult() : poseCheck ? window.DisplayPoseResult() : window.ResourceStressResult())!;
+        result["error"]=ex.ToString();
+        Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+        File.WriteAllText(output,result.ToJsonString(new JsonSerializerOptions { WriteIndented=true })+"\n");
+    }
+    Console.WriteLine("NATIVERENDER FAIL " + ex); return 1;
+}
+finally
+{
+    // Run's unload handles gameplay; explicitly release GL before its context dies.
+    window.RestoreDisplayPoseInputIsolation();
+    window.ClearResourceFailureCallback();
+    window.EndScene();
+}
+
+sealed partial class CheckWindow : RenderWindow
+{
+    private readonly int _seconds, _cap;
+    private readonly ShadowQuality _shadows;
+    private readonly int _resolutionScale;
+    private readonly string? _shots;
+    private readonly NativeTimingIntervals _intervalBuffer;
+    private IReadOnlyList<double> _intervals => _intervalBuffer.Samples;
+    private readonly Stopwatch _wall = new();
+    private long _last, _measureStarted, _measureEnded, _allocated, _finalAllocated;
+    private readonly int[] _collections = new int[3], _finalCollections = new int[3];
+    private bool _measuring;
+    private int _capture;
+    private readonly string _room;
+    private readonly List<object> _captures = new();
+    private readonly bool _windowCycle;
+    private readonly PlayerOutlineStyle _outlines;
+    private readonly Vector3? _camera, _facing;
+    private readonly bool _outlineCheck;
+    private object? _outlineEvidence;
+    private readonly bool _bombCheck;
+    private BombVisibilityCheck? _bombVisibility;
+    private bool _bombChecked;
+    private readonly bool _impactCheck;
+    private readonly bool _stableHud;
+    private NetImpactPresentationCheck? _impactPresentation;
+    private readonly Vector2i _requestedPixels;
+    private readonly List<object> _windowEvents = new();
+    private int _windowStage;
+    private object? _initialWindow;
+    private WindowState _observedWindowState;
+    private bool _observedVisible, _observedFocused, _windowObserved;
+    private int _focusTransitions, _visibilityTransitions, _windowStateTransitions;
+    private object WindowSnapshot() => new
+    {
+        state = WindowState.ToString(), visible = IsVisible, focused = IsFocused,
+        framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },
+        renderSize = Scene == null ? null : new[] { Scene.RenderSize.X, Scene.RenderSize.Y }
+    };
+    private void ObserveWindowState(bool? focusedOverride = null)
+    {
+        bool focused = focusedOverride ?? IsFocused;
+        if (!_windowObserved)
+        {
+            _initialWindow = WindowSnapshot();
+            _windowObserved = true;
+        }
+        else
+        {
+            bool changed = false;
+            if (focused != _observedFocused) { _focusTransitions++; changed = true; }
+            if (IsVisible != _observedVisible) { _visibilityTransitions++; changed = true; }
+            if (WindowState != _observedWindowState) { _windowStateTransitions++; changed = true; }
+            if (changed) _windowEvents.Add(new
+            {
+                wallSeconds = _wall.Elapsed.TotalSeconds, state = WindowState.ToString(),
+                visible = IsVisible, focused, framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y }
+            });
+        }
+        _observedFocused = focused;
+        _observedVisible = IsVisible;
+        _observedWindowState = WindowState;
+    }
+    private string? _glVendor, _glRenderer, _glVersion;
+    public bool Complete { get; private set; }
+
+    internal CheckWindow(string room, int seconds, int cap, ShadowQuality shadows, string? shots, Vector2i pixels, int players, bool idle, bool windowCycle, Hunter hunter, PlayerOutlineStyle outlines, Vector3? camera, Vector3? facing, bool outlineCheck, bool bombCheck, bool impactCheck, bool stableHud, bool resourceStress, bool poseCheck = false, bool posePixels = false, string poseScenario = DisplayPosePlan.OriginalScenario, bool lateProvenanceControl = false, string poseFocusControl = "none", bool crouchCheck = false, bool crouchGaitCheck = false, string poseSchedule = "steady", int? poseFov = null, int resolutionScale = 100)
+    {
+        _crouchCheck = crouchCheck;
+        _crouchGaitCheck = crouchGaitCheck;
+        _poseFocusControl = poseFocusControl;
+        _lateProvenanceControl = lateProvenanceControl;
+        _room = room; _seconds = seconds; _cap = cap; _shadows = shadows; _resolutionScale = resolutionScale; _shots = shots;
+        // Allocate all raw interval storage before loading/warmup and timed work.
+        _intervalBuffer = new NativeTimingIntervals(NativeTimingIntervals.CapacityFor(seconds));
+        _windowCycle = windowCycle; _requestedPixels = pixels;
+        _outlines = outlines; _camera = camera; _facing = facing; _outlineCheck = outlineCheck; _bombCheck = bombCheck; _impactCheck = impactCheck; _stableHud = stableHud;
+        _poseCheck = poseCheck;
+        _posePixels = posePixels;
+        _poseScenario = poseScenario;
+        _poseScheduleId = poseSchedule;
+        _poseRequestedFov = poseFov;
+        MinimumSize = new Vector2i(160, 90);
+        double sx = FramebufferSize.X / (double)ClientSize.X, sy = FramebufferSize.Y / (double)ClientSize.Y;
+        ClientSize = new Vector2i((int)Math.Round(pixels.X / sx), (int)Math.Round(pixels.Y / sy));
+        Title = "Project Prime native renderer QA";
+        _resourcePlayers=Math.Max(2,players);
+        typeof(MphRead.Mods.Network.MapAudit).GetProperty("ForceEveryone")!.SetValue(null, true);
+        if (resourceStress) return;
+        // Frozen input prevents keyboard/mouse activity from changing the workload.
+        typeof(Scene).GetField("_keyboardState", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(Scene, SyntheticInput.CreateKeyboard());
+        typeof(Scene).GetField("_mouseState", BindingFlags.NonPublic | BindingFlags.Instance)!
+            .SetValue(Scene, SyntheticInput.CreateMouse());
+        Scene.Random.SetRng1(12345); Scene.Random.SetRng2(98765);
+        ObserveAssignedWorkloadSeeds();
+        PlayerEntity.MaxPlayers = players;
+        for (int i = 0; i < players; i++) AddPlayer(poseCheck || i == 0 ? hunter : (Hunter)(i % 7));
+        PlayerEntity.PlayerCount = players;
+        PlayerEntity.MainPlayerIndex = 0;
+        foreach (var player in PlayerEntity.Players) { player.IsBot = true; player.BotLevel = 1; }
+        if (idle || crouchCheck) Scene.Players.Main.IsBot = false;
+        if (bombCheck || impactCheck || poseCheck) foreach (var player in PlayerEntity.Players) player.IsBot = false;
+        typeof(MphRead.Mods.Network.MapAudit).GetProperty("ForceEveryone")!.SetValue(null, true);
+        AddRoom(room, GameMode.Battle, playerCount: players);
+        if (crouchCheck)
+        {
+            new MphRead.Mods.Network.MatchDefinition { RoomKey = room, Mode = GameMode.Battle,
+                MovementModel = MphRead.Mods.Movement.MovementModel.Traversal,
+                TimeLimitSeconds = 0, PointGoal = 10000 }.ApplyInitialConfiguration(Scene.GameState);
+            typeof(Scene).GetField("_developerMomentumDiagnostics", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(Scene, true);
+        }
+    }
+
+    protected override void OnLoad()
+    {
+        ApplyDiagnosticOptions();
+        if (!ResourceStressEnabled) base.OnLoad();
+        RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
+        RenderOptions.Shadows = _shadows;
+        RenderOptions.PlayerOutline = _outlines;
+        ApplyCheckCamera();
+        RenderOptions.ResolutionScale = _resolutionScale; RenderOptions.ShowFps = false;
+        RenderOptions.TextureFiltering = false; RenderOptions.TextureMipmaps = false;
+        RenderOptions.TextureAnisotropy = 1;
+        ApplyDiagnosticOptions();
+        FrameTiming.FrameRateCap = _cap;
+        Scene.GameState.PointGoal = 0; Scene.GameState.MatchTime = -1;
+        FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
+        CursorState = CursorState.Normal;
+        _glVendor = GL.GetString(StringName.Vendor);
+        _glRenderer = GL.GetString(StringName.Renderer);
+        _glVersion = GL.GetString(StringName.Version);
+        string extensions = GL.GetString(StringName.Extensions) ?? "";
+        var resolver = new OpenTK.Windowing.GraphicsLibraryFramework.GLFWBindingsContext();
+        Console.WriteLine("NATIVERENDER appleVao advertised="
+            + extensions.Split(' ').Contains("GL_APPLE_vertex_array_object")
+            + " gen=" + (resolver.GetProcAddress("glGenVertexArraysAPPLE") != IntPtr.Zero)
+            + " bind=" + (resolver.GetProcAddress("glBindVertexArrayAPPLE") != IntPtr.Zero)
+            + " delete=" + (resolver.GetProcAddress("glDeleteVertexArraysAPPLE") != IntPtr.Zero));
+        Console.WriteLine($"NATIVERENDER pid={Environment.ProcessId} context room={_room} pixels={FramebufferSize} cap={_cap} shadows={_shadows}"
+            + $" vendor={GL.GetString(StringName.Vendor)} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)}"
+            + $" mvid={typeof(Scene).Module.ModuleVersionId:D}");
+        // Disk hashing belongs before warmup, outside both native frame profiler
+        // and harness timing. The explicit control reproduces the old boundary.
+        if (!_lateProvenanceControl) ObserveWorkloadBinaryIdentities();
+        _wall.Start();
+        if (ResourceStressEnabled)
+        {
+            if (_resourceArm == "studio") EndScene();
+            else StartResourceScene();
+            _resourceDrainSamples.Add(new { phase="workload-start", memory=ResourceAttribution.MemorySample(), audio=AudioShutdownSummary() });
+        }
+        ObserveWindowState();
+        if (_poseCheck) InitializeDisplayPose();
+        if (_crouchCheck) InitializeCrouchRenderCheck();
+        if (_crouchGaitCheck) InitializeCrouchGaitCheck();
+    }
+
+    private void StabilizeCaptureKillFeed()
+    {
+        if (!_stableHud) return;
+        // The capture fixture advances one simulation step per picture, faster
+        // than real time. Keep kill-feed entries in their opaque lifetime so
+        // wall-clock expiry/fading cannot differ between fast and slow arms.
+        // This diagnostic-only option preserves row contents/order and never
+        // changes the production clock or participates in benchmark runs.
+        object feed = typeof(Scene).GetProperty("KillFeed", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(Scene)!;
+        var entries = (IList)feed.GetType().GetField("_entries", BindingFlags.Instance | BindingFlags.NonPublic)!
+            .GetValue(feed)!;
+        long now = Stopwatch.GetTimestamp();
+        for (int i = 0; i < entries.Count; i++)
+        {
+            object entry = entries[i]!;
+            entry.GetType().GetProperty("CreatedTicks")!.SetValue(entry, now);
+            entries[i] = entry;
+        }
+    }
+
+    private void ApplyCheckCamera()
+    {
+        if (_camera is Vector3 position)
+        {
+            Scene.SetFreeCamera(true);
+            Vector3 forward = (_facing ?? -Vector3.UnitZ).Normalized();
+            Vector3 right = Vector3.Cross(forward, Vector3.UnitY).Normalized();
+            void Set(string name, Vector3 value) => typeof(Scene)
+                .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(Scene, value);
+            Set("_cameraPosition", position); Set("_cameraFacing", forward);
+            Set("_cameraRight", right); Set("_cameraUp", Vector3.Cross(right, forward));
+        }
+    }
+
+    protected override void OnRenderFrame(FrameEventArgs args)
+    {
+        ObserveWindowState();
+        if (_crouchCheck)
+        {
+            if (_crouchGaitCheck) BeforeCrouchGaitFrame(); else BeforeCrouchRenderFrame();
+            base.OnRenderFrame(new FrameEventArgs(1d / 60));
+            if (_crouchGaitCheck) AfterCrouchGaitFrame(); else AfterCrouchRenderFrame();
+            return;
+        }
+        if (_poseCheck)
+        {
+            BeforeDisplayPoseFrame();
+            base.OnRenderFrame(new FrameEventArgs(PoseElapsed));
+            AfterDisplayPoseFrame();
+            return;
+        }
+        if (ResourceStressEnabled)
+        {
+            if (_resourceArm == "studio")
+            {
+                RunStudioReload();
+                _resourceCycle++;
+                FinishResourceCycle();
+                return;
+            }
+            // Lifecycle comparisons require identical simulation steps, independent
+            // of allocation failures, reload time and driver backpressure.
+            typeof(Scene).GetField("_frameAdvanceOn", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
+            typeof(Scene).GetField("_advanceOneFrame", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
+            base.OnRenderFrame(args);
+            ResourceStressTick();
+            return;
+        }
+        if (_windowCycle && Scene.FrameCount >= (ulong)(300 + _windowStage * 120) && _windowStage < 4)
+        {
+            // Real native window transitions, separate from benchmark runs.
+            // Hiding then showing the owned window exercises focus loss/recovery;
+            // this does not assert OS keyboard Alt-Tab behavior.
+            switch (_windowStage)
+            {
+                case 0: WindowState = WindowState.Fullscreen; break;
+                case 1:
+                    WindowState = WindowState.Normal;
+                    double scale = FramebufferSize.X / (double)ClientSize.X;
+                    ClientSize = new Vector2i((int)Math.Round(_requestedPixels.X / scale), (int)Math.Round(_requestedPixels.Y / scale));
+                    break;
+                case 2: IsVisible = false; break;
+                case 3: IsVisible = true; Focus(); break;
+            }
+            _windowEvents.Add(new { stage = _windowStage++, simulationFrame = Scene.FrameCount,
+                state = WindowState.ToString(), visible = IsVisible, focused = IsFocused,
+                framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y } });
+        }
+        if (_shots != null && !_bombCheck && !_impactCheck)
+        {
+            // Capture-only runs step exactly once per picture, so paired arms
+            // use identical simulation frames even if their draw costs differ.
+            typeof(Scene).GetField("_frameAdvanceOn", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
+            typeof(Scene).GetField("_advanceOneFrame", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
+        }
+        StabilizeCaptureKillFeed();
+        ApplyCheckCamera();
+        // Actual client pacing, simulation, render and SwapBuffers all run here.
+        base.OnRenderFrame(args);
+        ObserveWindowState();
+        if (_impactCheck && _impactPresentation == null && Scene.FrameCount >= 240)
+        {
+            _impactPresentation = new NetImpactPresentationCheck(Scene, Path.Combine(_shots!, "impact-presentation"));
+            _impactPresentation.Run();
+        }
+        if (_bombCheck && _bombVisibility == null && Scene.FrameCount >= 240)
+            _bombVisibility = new BombVisibilityCheck(Scene, Path.Combine(_shots!, "bomb-visibility"));
+        // Allow emitter particles to initialize before freezing every A/B arm.
+        if (_bombVisibility != null && !_bombChecked && Scene.FrameCount >= 248)
+        {
+            _bombChecked = true; _bombVisibility.Run();
+        }
+        long now = Stopwatch.GetTimestamp();
+        if (!_measuring && Scene.FrameCount >= 240)
+        {
+            ObserveWorkloadStart(); // Receipt work stays outside measured intervals/allocations.
+            FrameTiming.ResetDiagnostics();
+            Console.WriteLine("NATIVERENDER measurement-start (240 simulation steps warmup excluded)");
+            for (int i = 0; i < 3; i++) _collections[i] = GC.CollectionCount(i);
+            _allocated = GC.GetTotalAllocatedBytes(false);
+            now = Stopwatch.GetTimestamp();
+            _measuring = true; _measureStarted = now;
+        }
+        else if (_measuring && _last != 0)
+        {
+            bool recorded = _intervalBuffer.TryRecord(Stopwatch.GetElapsedTime(_last, now).TotalMilliseconds);
+            if (!recorded || Scene.FrameCount >= (ulong)(_seconds * 60))
+            {
+                // Freeze before receipt observations, captures, result percentiles,
+                // serialization or scene cleanup. Receipt overhead is already excluded;
+                // do not subtract _receiptEndAllocationOverhead a second time.
+                _measureEnded = now;
+                _finalAllocated = GC.GetTotalAllocatedBytes(false);
+                for (int i = 0; i < 3; i++) _finalCollections[i] = GC.CollectionCount(i);
+            }
+            if (!recorded)
+            {
+                // Preserve the incomplete buffer and a failing receipt. Never grow
+                // storage, silently drop samples or accept partial timing evidence.
+                Close();
+                return;
+            }
+        }
+        _last = now;
+        if (_shots != null && _capture < 4 && Scene.FrameCount >= (ulong)(240 + _capture * 300))
+        {
+            // Capture runs are separate from performance runs. A fresh draw places
+            // HUD pixels in the unswapped back buffer, as SaveWindow requires.
+            Scene.OnDrawFrame(); Scene.OnRenderFrame();
+            Directory.CreateDirectory(_shots);
+            bool world = ScreenCapture.Save(Scene, Path.Combine(_shots, $"frame-{_capture}-world.png"));
+            bool hud = ScreenCapture.SaveWindow(Scene, Path.Combine(_shots, $"frame-{_capture}-hud.png"));
+            if (!world || !hud) throw new InvalidDataException("Native capture readback failed.");
+            object worldDepth = CaptureWorldDepth(_capture);
+            if (_capture == 0)
+            {
+                Scene.OnDrawFrame(); Scene.OnRenderFrame();
+                if (!ScreenCapture.Save(Scene, Path.Combine(_shots, "frame-0-world-repeat.png")))
+                    throw new InvalidDataException("Repeated native readback failed.");
+                CaptureWorldDepth(_capture, repeat: true);
+            }
+            _captures.Add(new { index = _capture, simulationFrame = Scene.FrameCount,
+                camera = Scene.CameraPosition.ToString(), width = Scene.Size.X, height = Scene.Size.Y,
+                worldDepth, shadow = ShadowSnapshot(_capture == 0), pickups = PickupSnapshot() });
+            if (_capture == 0 && _outlineCheck) CheckOutlineOcclusion();
+            _capture++;
+        }
+        if (GL.GetError() is var error && error != ErrorCode.NoError)
+            throw new InvalidOperationException("Native renderer GL error: " + error);
+        if (Scene.FrameCount >= (ulong)(_seconds * 60))
+        {
+            if (_windowCycle && (_windowStage != 4 || FramebufferSize.X <= 0 || FramebufferSize.Y <= 0 || !IsVisible))
+                throw new InvalidOperationException("Native window cycle did not recover a visible framebuffer.");
+            ObserveWorkloadEnd(); // Final observation follows the last measured interval.
+            Complete = true; Close();
+        }
+        if (_wall.Elapsed.TotalSeconds > (_shots == null ? _seconds + 45 : _seconds * 5 + 45))
+            throw new TimeoutException("Native renderer did not finish its fixed-step workload.");
+    }
+
+    private void CheckOutlineOcclusion()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        object? Field(string name) => typeof(Scene).GetField(name, flags)!.GetValue(Scene);
+        void Set(string name, object value) => typeof(Scene).GetField(name, flags)!.SetValue(Scene, value);
+        if (PlayerEntity.PlayerCount < 2 || _outlines == PlayerOutlineStyle.Off)
+            throw new InvalidOperationException("-outlinecheck requires two players and enabled outlines.");
+        // Use an actual animated hunter and the production outline mask/composite.
+        // Replacing world depth with a near wall must occlude every outline pixel;
+        // far depth is the positive control proving that the body was submitted.
+        var names = new[] { "_cameraMode", "_cameraPosition", "_cameraFacing", "_cameraRight", "_cameraUp",
+            "_freeCam", "_inputMode", "_cameraFov", "_viewModelFov" };
+        var saved = names.Select(Field).ToArray();
+        void CheckGl(string stage)
+        {
+            var error = GL.GetError();
+            if (error != ErrorCode.NoError) throw new InvalidOperationException("Outline check " + stage + ": " + error);
+        }
+        CheckGl("entry");
+        try
+        {
+            Scene.SetFreeCamera(true);
+            Vector3 target = Scene.Players.Items[1].Position + Vector3.UnitY;
+            Set("_cameraPosition", target + Vector3.UnitZ * 5);
+            Set("_cameraFacing", -Vector3.UnitZ);
+            Set("_cameraRight", Vector3.UnitX); Set("_cameraUp", Vector3.UnitY);
+            Scene.OnDrawFrame(); Scene.OnRenderFrame();
+            CheckGl("camera draw");
+            var draw = typeof(Scene).GetMethod("DrawPlayerOutlines", flags)!;
+            int framebuffer = (int)Field("_frameBuffer")!;
+            var size = (Vector2i)Field("_targetSize")!;
+            int Pixels(double depth)
+            {
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
+                GL.Viewport(0, 0, size.X, size.Y);
+                GL.ColorMask(true, true, true, true); GL.DepthMask(true);
+                GL.Disable(EnableCap.ScissorTest);
+                GL.ClearColor(0, 0, 0, 0); GL.ClearDepth(depth);
+                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                CheckGl("depth setup");
+                draw.Invoke(Scene, null);
+                CheckGl("outline draw");
+                var pixels = new byte[size.X * size.Y * 4];
+                GL.ReadPixels(0, 0, size.X, size.Y, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                CheckGl("readback");
+                int count = 0;
+                for (int i = 0; i < pixels.Length; i += 4)
+                    if (pixels[i] != 0 || pixels[i + 1] != 0 || pixels[i + 2] != 0) count++;
+                return count;
+            }
+            int occludedPixels = Pixels(0), visiblePixels = Pixels(1);
+            if (occludedPixels != 0 || visiblePixels == 0)
+                throw new InvalidOperationException($"Outline occlusion failed: hidden={occludedPixels}, visible={visiblePixels}");
+            _outlineEvidence = new { occludedPixels, visiblePixels };
+            Console.WriteLine($"NATIVERENDER outline occlusion PASS hidden={occludedPixels} visible={visiblePixels}");
+        }
+        finally
+        {
+            // Use the GL2.1 double overload, not the newer glClearDepthf entry point.
+            GL.ClearDepth(1.0);
+            for (int i = 0; i < names.Length; i++) Set(names[i], saved[i]!);
+            CheckGl("restore state");
+            Scene.OnDrawFrame(); CheckGl("restore prepare");
+            Scene.OnRenderFrame(); CheckGl("restore draw");
+        }
+    }
+
+    protected override void OnFocusedChanged(FocusedChangedEventArgs e)
+    {
+        if (_crouchCheck)
+        {
+            ObserveCrouchFocus(e.IsFocused, "os-callback");
+            if (_wall.IsRunning) ObserveWindowState(e.IsFocused);
+            return; // This diagnostic owns frozen synthetic input; OS focus is observed only.
+        }
+        if (_poseCheck)
+        {
+            ObservePoseFocus(e.IsFocused, _poseInjectingFocus ? "injected-isolated" : "os-callback");
+            return; // Frozen synthetic input owns this fixture; OS focus is observation only.
+        }
+        base.OnFocusedChanged(e);
+        if (_wall.IsRunning) ObserveWindowState(e.IsFocused);
+    }
+
+    private object[] PickupSnapshot()
+    {
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+        var visible = typeof(ItemInstanceEntity).GetMethod("IsPickupVisuallyVisible", flags);
+        var blocked = typeof(ItemInstanceEntity).GetMethod("PickupSampleBlocked", flags);
+        var items = new List<ItemInstanceEntity>();
+        foreach (var entity in Scene.Entities) if (entity is ItemInstanceEntity item) items.Add(item);
+        return items.Select(item =>
+        {
+            Vector3 right = Vector3.Cross(item.Position - Scene.CameraPosition, Vector3.UnitY);
+            right = right.LengthSquared > .0001f ? right.Normalized() : Vector3.UnitX;
+            Vector3[] samples = { item.Position, item.Position + right * .27f, item.Position - right * .27f,
+                item.Position + Vector3.UnitY * .27f, item.Position - Vector3.UnitY * .27f };
+            bool[]? obstruction = blocked == null ? null : samples.Select(p =>
+                (bool)blocked.Invoke(item, new object[] { Scene.CameraPosition, p })!).ToArray();
+            return (object)new { type = item.ItemType.ToString(), position = item.Position.ToString(),
+                visibleByPickupRule = visible?.Invoke(item, null), blockedSamples = obstruction };
+        }).ToArray();
+    }
+
+    private object ShadowSnapshot(bool saveDepth)
+    {
+        object? Field(string name) => typeof(Scene).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene);
+        int size = (int)(Field("_shadowTargetSize") ?? 0), texture = (int)(Field("_shadowDepthTexture") ?? 0);
+        string? depthHash = null;
+        float? minimum = null, maximum = null;
+        if (saveDepth && texture != 0 && size > 0)
+        {
+            int active = GL.GetInteger(GetPName.ActiveTexture);
+            GL.ActiveTexture(TextureUnit.Texture0);
+            int binding = GL.GetInteger(GetPName.TextureBinding2D);
+            try
+            {
+                var depth = new float[size * size];
+                GL.BindTexture(TextureTarget.Texture2D, texture);
+                GL.GetTexImage(TextureTarget.Texture2D, 0, PixelFormat.DepthComponent, PixelType.Float, depth);
+                byte[] bytes = System.Runtime.InteropServices.MemoryMarshal.AsBytes(depth.AsSpan()).ToArray();
+                File.WriteAllBytes(Path.Combine(_shots!, "shadow-depth-float32.bin"), bytes);
+                depthHash = Convert.ToHexString(SHA256.HashData(bytes));
+                minimum = depth.Min(); maximum = depth.Max();
+            }
+            finally { GL.BindTexture(TextureTarget.Texture2D, binding); GL.ActiveTexture((TextureUnit)active); }
+        }
+        return new { ready = Field("_shadowReady"), size, depthTexture = texture,
+            lightSpaceRoomDraws = typeof(Scene).GetProperty("LightSpaceRoomShadowDraws", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene),
+            depthSha256 = depthHash, minimumDepth = minimum, maximumDepth = maximum };
+    }
+
+    internal object CleanupAndInspect()
+    {
+        var scene = Scene;
+        var ledger = GlRetirementLedger.Capture(scene);
+        int Field(string name) => (int)(typeof(Scene).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(scene) ?? 0);
+        int shadowFbo = Field("_shadowFramebuffer"), shadowTexture = Field("_shadowDepthTexture");
+        Type retained = typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopRetainedGeometry")!;
+        object? Counter(string name) => retained.GetProperty(name, BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null);
+        long GlyphProperty(string name) => Convert.ToInt64(typeof(Scene)
+            .GetProperty(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(scene)
+            ?? throw new InvalidOperationException("Missing HUD image lifecycle metric: " + name));
+        long ProceduralBytes() => Convert.ToInt64(typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopProceduralStream")
+            ?.GetProperty("ResidentBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
+        long DepthSnapshotBytes() => Convert.ToInt64(typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DepthReplaySnapshot")
+            ?.GetProperty("ResidentBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
+        long depthSnapshotBytesBefore = DepthSnapshotBytes();
+        long proceduralBytesBefore = ProceduralBytes();
+        long glyphCountBefore = GlyphProperty("HudGlyphTextureCount");
+        long glyphBytesBefore = GlyphProperty("HudGlyphTextureBytes");
+        long spriteCountBefore = GlyphProperty("HudSpriteTextureCount");
+        long spriteBytesBefore = GlyphProperty("HudSpriteTextureBytes");
+        object? retainedBefore = Counter("RetainedListCount");
+        object? retainedBytesBefore = Counter("ResidentBytes");
+        long shadowColorBytesBefore = Field("_shadowColorTexture") == 0 ? 0
+            : (long)Field("_shadowTargetSize") * Field("_shadowTargetSize") * 4;
+        long combinedBefore = (long)(retained.GetField("_combinedBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
+        int OwnedTextureCount() => ((HashSet<int>)typeof(Scene).GetField("_ownedTextures", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scene)!).Count;
+        string[] programFields={"_shaderProgramId","_rttShaderProgramId","_shiftShaderProgramId","_celShaderProgramId"};
+        int[] programsBefore=programFields.Select(Field).Where(id=>id!=0).ToArray();
+        int ownedTexturesBefore=OwnedTextureCount(),framebufferBefore=Field("_frameBuffer");
+        EndScene();
+        object detailedRetirement = ledger.Verify(scene);
+        int ownedTexturesAfter=OwnedTextureCount(),framebufferAfter=Field("_frameBuffer");
+        int ownedProgramsAfter=programFields.Select(Field).Count(id=>id!=0);
+        int pendingDeletedProgramCountAfter=0;
+        foreach (int id in programsBefore)
+        {
+            if (!GL.IsProgram(id)) continue;
+            GL.GetProgram(id,GetProgramParameterName.DeleteStatus,out int deleted);
+            if (deleted==0) throw new InvalidOperationException("Scene unload retained a program not marked for deletion: "+id);
+            pendingDeletedProgramCountAfter++;
+        }
+        bool programOwnerFieldsReleased=ownedProgramsAfter==0;
+        int currentProgramAfter=GL.GetInteger(GetPName.CurrentProgram);
+        int recognizedProgramNamesAfter=programsBefore.Count(GL.IsProgram);
+        if (ownedTexturesAfter!=0 || framebufferAfter!=0 || !programOwnerFieldsReleased)
+            throw new InvalidOperationException($"Scene unload retained owned resources: textures={ownedTexturesAfter},framebuffer={framebufferAfter},programs={ownedProgramsAfter}.");
+        bool shadowReleased = (shadowFbo == 0 || !GL.IsFramebuffer(shadowFbo))
+            && (shadowTexture == 0 || !GL.IsTexture(shadowTexture)) && Field("_shadowFramebuffer") == 0 && Field("_shadowDepthTexture") == 0;
+        object? retainedAfter = Counter("RetainedListCount");
+        object? retainedBytesAfter = Counter("ResidentBytes");
+        long combinedAfter = (long)(retained.GetField("_combinedBytes", BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null) ?? 0L);
+        long glyphCountAfter = GlyphProperty("HudGlyphTextureCount");
+        long glyphBytesAfter = GlyphProperty("HudGlyphTextureBytes");
+        long spriteCountAfter = GlyphProperty("HudSpriteTextureCount");
+        long spriteBytesAfter = GlyphProperty("HudSpriteTextureBytes");
+        long proceduralBytesAfter = ProceduralBytes();
+        long depthSnapshotBytesAfter = DepthSnapshotBytes();
+        if (depthSnapshotBytesAfter != 0 || proceduralBytesAfter != 0 || spriteCountAfter != 0 || spriteBytesAfter != 0 || glyphCountAfter != 0 || glyphBytesAfter != 0 || !shadowReleased || retainedAfter is int count && count != 0 || combinedAfter != 0 || GL.GetError() != ErrorCode.NoError)
+            throw new InvalidOperationException("Scene unload retained live GL resources or an error.");
+        return new { detailedRetirement, ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programOwnerFieldsReleased,ownedProgramsAfter,recognizedProgramNamesAfter,pendingDeletedProgramCountAfter,currentProgramAfter,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
+            combinedBytesBefore = combinedBefore, combinedBytesAfter = combinedAfter,
+            retainedBytesBefore, retainedBytesAfter, shadowColorBytesBefore,
+            glyphCountBefore, glyphBytesBefore, glyphCountAfter, glyphBytesAfter,
+            spriteCountBefore, spriteBytesBefore, spriteCountAfter, spriteBytesAfter };
+    }
+
+    internal object Result()
+    {
+        ObserveWindowState();
+        // Observation only, after timed work. A standalone QA window must not
+        // have scheduled launcher maintenance/preview workers in this process.
+        Type? shellType = typeof(Scene).Assembly.GetType("MphRead.Mods.Launcher.Gui.Shell");
+        bool launcherStartupScheduled = shellType?.GetField("_firstFrameStarted", BindingFlags.Static | BindingFlags.NonPublic)
+            ?.GetValue(null) is int started && started != 0;
+        Vector2i requestedRenderSize = Scene.RenderSize;
+        Vector2i actualRenderSize = (Vector2i)typeof(Scene).GetField("_targetSize",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Scene)!;
+        object? Streaming(string name) => typeof(Scene).GetProperty(name,
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene);
+        double P(double percentile) => _intervals.Count == 0 ? 0
+            : _intervals.Order().ElementAt(Math.Clamp((int)Math.Ceiling(_intervals.Count * percentile / 100) - 1, 0, _intervals.Count - 1));
+        return new { schema = 1, room = _room, cap = _cap, shadows = _shadows.ToString(), textureQuality = RenderOptions.TextureQuality.ToString(), lighting = RenderOptions.Lighting, resolutionScale = RenderOptions.ResolutionScale,
+            textureStreaming = new {
+                promotionAttemptBytes = Streaming("TexturePromotionAttemptBytes"),
+                worstPromotionMs = Streaming("WorstTexturePromotionMs"),
+                decodeReservedBytes = Streaming("TextureDecodeReservationBytes"),
+                rejectedDecodeReservationBytes = Streaming("RejectedTextureDecodeReservationBytes"),
+                settings = new {
+                    scope = "Binding refresh jobs applied; asynchronous HD promotions may remain pending; shader disable can take effect before resource retirement",
+                    pendingJobs = Streaming("PendingTextureSettingsJobs"),
+                    desiredGeneration = Streaming("DesiredTextureSettingsGeneration"),
+                    appliedGeneration = Streaming("AppliedTextureSettingsGeneration"),
+                    completedJobs = Streaming("TextureSettingsJobsCompleted"),
+                    uploadBytes = Streaming("TextureSettingsUploadBytes"),
+                    worstJobMs = Streaming("WorstTextureSettingsJobMs"),
+                    appliedUpscale = Streaming("AppliedTextureUpscale"),
+                    appliedQuality = Streaming("AppliedTextureAssetQuality"),
+                    appliedSampling = Streaming("AppliedTextureSamplingKey"),
+                    appliedReplacements = Streaming("AppliedTextureReplacements"),
+                    appliedAdvancedMaterials = Streaming("AppliedAdvancedMaterials"),
+                    appliedMaterialRevision = Streaming("AppliedMaterialRevision") },
+                scope = "promotion attempts including failures; decode reservations exclude native codec scratch" },
+            vendor = _glVendor, renderer = _glRenderer, glVersion = _glVersion,
+            effectiveCap = FrameTiming.FrameRateCap, softwareFrequency = UpdateFrequency, vsync = VSync.ToString(),
+            assemblyMvid = typeof(Scene).Module.ModuleVersionId, framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },
+            renderSize = new[] { actualRenderSize.X, actualRenderSize.Y },
+            requestedRenderSize = new[] { requestedRenderSize.X, requestedRenderSize.Y },
+            initialWindow = _initialWindow, finalWindow = WindowSnapshot(),
+            captureKillFeedLifetimeStabilized = _stableHud,
+            focusTransitions = _focusTransitions, visibilityTransitions = _visibilityTransitions,
+            windowStateTransitions = _windowStateTransitions,
+            nativeInputIsolation = _nativeInputIsolation.Receipt(), launcherStartupScheduled,
+            wallSeconds = _wall.Elapsed.TotalSeconds, measurementSeconds = _measureEnded == 0 ? 0 : Stopwatch.GetElapsedTime(_measureStarted, _measureEnded).TotalSeconds,
+            simulationFrames = Scene.FrameCount, samples = _intervals.Count,
+            intervalCapacity = _intervalBuffer.Capacity, droppedIntervalRecords = _intervalBuffer.DroppedRecords,
+            timingEvidenceComplete = Complete && _measureEnded != 0 && _intervalBuffer.DroppedRecords == 0 && !launcherStartupScheduled,
+            // Chronological application frame returns, serialized only after Run.
+            frameIntervalsMs = _intervals,
+            meanCompletedFrameFps = _intervals.Count == 0 ? 0 : 1000 / _intervals.Average(),
+            frameIntervalP50Ms = P(50), frameIntervalP95Ms = P(95), frameIntervalP99Ms = P(99),
+            onePercentLowEstimateFps = P(99) > 0 ? 1000 / P(99) : 0,
+            pointOnePercentLowEstimateFps = _intervals.Count >= 1000 && P(99.9) > 0 ? (double?)(1000 / P(99.9)) : null,
+            allocatedBytes = _measureEnded == 0 ? 0 : _finalAllocated - _allocated,
+            gcCollections = Enumerable.Range(0, 3).Select(i => _measureEnded == 0 ? 0 : _finalCollections[i] - _collections[i]).ToArray(),
+            managedBytes = GC.GetTotalMemory(false), workingSetBytes = Environment.WorkingSet,
+            simulationHz = FrameTiming.MeasuredSimulationHz, droppedSimulationSteps = FrameTiming.DroppedSteps,
+            stalls = FrameTiming.Stalls, captures = _captures, outlineOcclusion = _outlineEvidence, bombVisibility = _bombVisibility?.Evidence, impactPresentation = _impactPresentation?.Evidence, windowEvents = _windowEvents, complete = Complete, observedWorkload = ObservedWorkloadReceipt() };
+    }
+}
+
+// Pure bounded storage/duration policy; extracted by test_timing_samples.py.
+internal sealed class NativeTimingIntervals
+{
+    private readonly List<double> _samples;
+    internal IReadOnlyList<double> Samples => _samples;
+    internal int Capacity => _samples.Capacity;
+    internal long DroppedRecords { get; private set; }
+    internal static bool ValidCap(int cap) => cap is -1 or 0 || cap >= 30 && cap <= 500;
+    internal static bool ValidSeconds(int seconds, bool capture)
+        => seconds >= 8 && seconds <= (capture ? 120 : 1804);
+    // Up to 4096 returned frames/second over the requested measured simulation
+    // duration. Faster workloads fail explicitly; 30 min uses at most ~59 MiB.
+    internal static int CapacityFor(int seconds)
+    {
+        if (!ValidSeconds(seconds, false)) throw new ArgumentOutOfRangeException(nameof(seconds));
+        return checked((seconds - 4) * 4096);
+    }
+    internal NativeTimingIntervals(int capacity) => _samples = new List<double>(capacity);
+    internal bool TryRecord(double milliseconds)
+    {
+        if (_samples.Count == _samples.Capacity)
+        {
+            DroppedRecords++;
+            return false;
+        }
+        _samples.Add(milliseconds);
+        return true;
+    }
+}

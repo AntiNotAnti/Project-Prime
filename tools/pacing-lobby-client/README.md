@@ -1,0 +1,40 @@
+# Matched main / A1 lobby pacing route
+
+This isolated friend-assembly entry enables the same ordinary native powerup rule on frozen main and A1 clients. It changes no production source or authority entities. Compilation and device-free checks pass against both physical frozen clients. **Live validation and timing remain NOT_RUN**, pending the serialized slot. It does not constitute pacing acceptance.
+
+Both sources accept persistent `-server -lobby`. The first admitted nonzero client identity becomes the ordinary lobby owner. The production server validates that admitted sender and ownership for every command. This route uses ordinary dedicated ownership, without a hosted-process lifetime token. The owner sends the ordinary `UpdateMatch` command with the current revision and `DisablePowerups=false`, waits for the actual server state and command completion, then requests `StartMatch`. The server validates ownership, phase, revision, rules and readiness before freezing the match. Eight real native clients share this route; there is no ninth controller, injected pickup, forced position or manufactured grant count. The isolated entry uses the existing `NetCheckSimulation.Run`, AI, transport, recording and drain implementations from each actual loaded client.
+
+The manifest identifies the isolated entry and frozen loader metadata. Each peer writes an immutable `peer-N.lobby.json` with actual loaded client SHA/MVID/protocol, before/accepted server session flags, roster, start identity, AI seed and fault configuration. The owner requires the actual accepted powerup rule, eight ordinary admitted roster occupants, zero bot flags, fixed hunter/name assignments and slot mask 255 before sending StartMatch. Native bodies are constructed by the real start/load path afterward; the separate `.native-bodies.json` receipt verifies eight actual foreground client bodies with exact slots/hunters and nonzero generations after native simulation/drain. It does not claim bodies existed in Lobby or that every body is alive. A wrong loaded SHA, denied configuration, wrong frozen rule/room, mismatched roster, missing participant or absent recording is a failure. Compare actual roster/fault receipts across arms before admitting a matched pair. The main runtime has no A1 grant ledger; its missing timed-grant audit is NOT_RUN, while the A1 arm must still have genuine positive native grants. Pacing comparison does not promote main's absent A1 evidence to a pass.
+
+The isolated `-self-check` mode needs only `PRIME_PACING_EXPECTED_CLIENT_SHA256` and a new `PRIME_PACING_LOBBY_RECEIPT` output path. It verifies actual loaded identity, API presence and 17 pure roster/match checks, including missing/extra slots, a bot, wrong hunter/name, disabled powerups, continuous policy, wrong room/capacity and incomplete frozen participant mask. It does not open UDP, load game assets, construct native bodies or run simulation. An intentionally wrong loaded SHA fails with exit 2 and no success receipt.
+
+Build this tiny entry twice against explicit physical runtimes. Do not rebuild either client or copy package trees:
+
+```sh
+work/dotnet/dotnet build work/prime-a1-pacing/tools/pacing-lobby-client/pacing-lobby-client.csproj -c Release -p:FrozenClientDirectory="$PWD/work/compact-baseline-bin" -o work/a1-pacing/main-client-entry
+work/dotnet/dotnet build work/prime-a1-pacing/tools/pacing-lobby-client/pacing-lobby-client.csproj -c Release -p:FrozenClientDirectory="$PWD/work/net21-runtime/a1-verified" -o work/a1-pacing/a1-client-entry
+```
+
+Use the same changed `run-net2.py` for both sources. It preserves the root's physical-client staging guard and shared dependency symlinks in a unique run directory. A redirected client entry is refused. The `nettest.dll` entry is the isolated client; its loader metadata comes from that source's frozen nettest dependency graph. Preserve successful and failed attempts, loaded identities, commands, artifacts and source hashes. The two root staging tests remain unchanged.
+
+Example A1 arm, from the parent workspace (choose a new output name and free port for every arm):
+
+```sh
+python3 work/prime-a1-pacing/tools/nettest/run-net2.py --build work/net21-runtime/a1-verified --paths '/Users/jarrett/Library/Application Support/Project Prime/paths.txt' --source a8f309e5761246410d378c88f5a2aa608a436238 --out work/a1-pacing/a1-pair1 --dotnet work/dotnet/dotnet --protocol 53 --players 8 --ai-net-client 2 --ai-seed 1729 --seed 8128 --seconds 180 --drain-seconds 35 --rooms 'MP5 FUEL SLUICE' --round-minutes 30 --powerups --pacing-lobby-client work/a1-pacing/a1-client-entry/nettest.dll --rtt-ms 250 --jitter-ms 40 --loss-percent 5 --reorder-percent 5 --duplicate-percent 2 --record --server-operator --server-performance --port 28111
+```
+
+For main, change only the frozen build, declared source, matching isolated entry, unique output and port. Main's physical baseline engine is `16b1d89bfb6ed7776b801b3e39d513e740ee5e58`; its checkout `523ddddb` has documentation only and identical engine/nettest trees. Retain the existing baseline source/tree proof and verify the actual loaded runtime before accepting that qualification.
+
+Predeclare three serialized matched pairs in order main/A1, A1/main, main/A1, with fixed settings and the same harness source. A short untimed route validation must first prove owner-validated UpdateMatch acceptance and native simulation on both sources. Timing arms start only when the root owns an idle host slot. Keep all startup, active play and drain observations, including nonzero stalls/drops. Establish phase boundaries before running; do not discard events afterward because they look inconvenient.
+
+## Observability limit
+
+Existing server output contains cumulative drop/stall counters at 30-second reports and final whole-segment 0.01 ms-bucket step histograms. These can distinguish later active-period counter growth from early events, but do not identify every event's time/cause or provide chronological full step samples. `--server-performance` adds whole-run elapsed operation histograms, process CPU and GC pause totals; scopes overlap and include setup. Direct `--server-performance` nettest calls to `Step` bypass scheduling and cannot replace this UDP route.
+
+Consequently, median/p95/p99/p99.9 values from these server reports must retain their whole-segment scope. A warmup-excluded step distribution or event-specific GC explanation remains UNVERIFIED without additional real observation. Do not infer missing samples, subtract presumed startup drops, relabel successful correctness audits as clean pacing, or accept unexplained dropped deadlines merely because both sources share the scheduler. A matched negative result still requires a documented acceptance decision by the root.
+
+## Preserved rehearsal failures
+
+The first main attempt proved eight actual accepted lobby receipts but failed before native body creation because the isolated entry omitted `ConsoleSetup.Run`, leaving relative asset lookup at the staging bin. The entry now invokes the same production startup directory selection and verifies that the declared native asset directory resolves. The failed logs and secondary evidence-capture exception remain preserved.
+
+The second main attempt created eight actual native body receipts, but failed because a hosted-process ownership token made the server stop on the last admitted departure while a client process was still exiting. Persistent dedicated lobby ownership avoids that lifecycle mismatch without changing production. Its fresh pre-start readiness receipts also exposed a validator scope error: current simulation frame 0 and acknowledged seed snapshot frame 1 were being treated as an invalid running-match fence. The producer freezes simulation until all participants are ready. Only the exact validated initial, non-late, non-rejoin 0/1 shape with positive revision gets no running-match fence; its canonical offer interval remains intact. Normal order errors, malformed identities/clocks and conflicting receipts still fail. This is not an invented frame, known absence, or successful measured arm.

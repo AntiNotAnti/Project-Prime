@@ -1,0 +1,20 @@
+/* A native modal document owns the whole viewport; the card has its own bounded
+   scroll area so long translations, large text and touch targets cannot collide. */
+.native_settings_popup { position:absolute; left:18%; right:18%; top:22%; max-height:70%; padding:24dp; overflow-y:auto; overflow-x:hidden; color:#e3f0f6; background-color:#0b2231; border:2dp #e9ca87; }
+.native_settings_popup h2 { display:block; margin:0 0 14dp; font-size:24dp; line-height:28dp; color:#ffffff; }
+.native_settings_popup p { display:block; width:100%; margin:0 0 20dp; line-height:23dp; font-size:17dp; white-space:pre-wrap; word-break:break-word; }
+.native_settings_popup .dialog_actions { display:flex; flex-wrap:wrap; align-items:stretch; width:100%; }
+.native_settings_popup button { flex-shrink:0; min-width:140dp; min-height:36dp; max-width:100%; margin:0 8dp 8dp 0; padding:9dp 14dp; color:#dcecf3; background-color:#12364b; border:1dp #527a91; font-size:14dp; white-space:nowrap; }
+.native_settings_popup button:hover, .native_settings_popup button:focus { color:#ffffff; background-color:#24556c; border-color:#a3e4ed; }
+.native_settings_popup button:disabled { opacity:0.65; color:#9bafbd; background-color:#152734; border-color:#384f60; }
+@media (max-width:760dp) {
+    .native_settings_popup { left:5%; right:5%; top:12%; max-height:80%; padding:16dp; }
+    .native_settings_popup h2 { margin-bottom:10dp; font-size:21dp; line-height:25dp; }
+    .native_settings_popup p { margin-bottom:14dp; font-size:16dp; line-height:21dp; }
+}
+@media (max-height:500dp) {
+    .native_settings_popup { top:5%; max-height:90%; padding:14dp; }
+    .native_settings_popup h2 { margin-bottom:8dp; font-size:20dp; line-height:23dp; }
+    .native_settings_popup p { margin-bottom:12dp; font-size:15dp; line-height:20dp; }
+    .native_settings_popup button { margin-bottom:6dp; padding:7dp 10dp; }
+}

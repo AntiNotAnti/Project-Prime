@@ -1,0 +1,414 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
+using MphRead.Entities;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.MapGen
+{
+    public static class MapValidator
+    {
+        public static bool ValidRuntimeName(string? name) => name != null && name.Length <= 40
+            && Regex.IsMatch(name, @"\A[A-Za-z0-9][A-Za-z0-9 _-]*\z") && name.Trim() == name
+            && !Regex.IsMatch(name, @"\A(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])\z", RegexOptions.IgnoreCase);
+
+        public static void RequireRuntimeName(string? name)
+        {
+            if (!ValidRuntimeName(name)) throw new MapAuthoringException("FP-MAP-009",
+                "Runtime name must be 1–40 letters, digits, spaces, underscores or hyphens and cannot be a device name.");
+        }
+
+        public static bool Vector(float[]? v) => v?.Length == 3 && v.All(float.IsFinite);
+        private static bool Position(float[]? v)=>Vector(v)&&v!.All(x=>Math.Abs(x)<524288);
+        private static bool Color(int[]? c) => c?.Length == 3 && c.All(n => n >= 0 && n <= 31);
+
+        public static MapValidationResult Validate(MapDefinition d, bool checkSources = true)
+        {
+            var r = new MapValidationResult();
+            if (d.FormatVersion is < 1 or > 3) r.Error("FP-MAP-008", "Unsupported source format.");
+            if (!ValidRuntimeName(d.Name)) r.Error("FP-MAP-009", "Invalid runtime name.");
+            if(d.Version?.Length>64||d.Author?.Length>256||d.InGameName?.Length>256||d.Description?.Length>8192)
+                r.Error("FP-MAP-008","Map metadata exceeds the supported length.");
+            if (d.Q3Triggers != null && (d.FormatVersion != 3 || d.Q3Triggers.Count > 4096
+                || d.Q3Triggers.Any(t => !Q3Traversal.Valid(t) || t.Kind == "push" && !Q3Traversal.TryLaunch(t, out _))
+                || d.Q3Triggers.Select(t => t.SourceEntity).Distinct().Count() != d.Q3Triggers.Count))
+                r.Error("FP-MAP-008", "Q3 traversal requires valid, unique version-three trigger metadata.");
+            if (d.FormatVersion >= 2 && d.MapId == Guid.Empty) r.Error("FP-MAP-010", "Version 2 and 3 maps require a persistent ID.");
+            if (d.ScaleFactor is < 0 or > 16) r.Error("FP-MAP-004", "Scale factor must be between 0 and 16.");
+            if (!float.IsFinite(d.KillHeight) || Math.Abs(d.KillHeight) >= 524288)
+                r.Error("FP-MAP-011", "Kill height must fit the runtime fixed-point range.");
+            if (!float.IsFinite(d.FarClip) || d.FarClip <= 0 || d.FarClip >= 524288)
+                r.Error("FP-MAP-011", "Far clip must be positive and fit the runtime fixed-point range.");
+            if (!Color(d.FogColor) || !Color(d.Light1Color) || !Color(d.Light2Color))
+                r.Error("FP-MAP-012", "Colors require three channels from 0 to 31.");
+            if (!Vector(d.Light1Vector) || !Vector(d.Light2Vector)
+                || d.Light1Vector.All(x => x == 0) || d.Light2Vector.All(x => x == 0))
+                r.Error("FP-MAP-012", "Lighting vectors must be finite and nonzero.");
+            if (d.FogSlope is < 0 or > 10 || d.FogOffset is < 0 or > 65535)
+                r.Error("FP-MAP-012", "Fog slope or offset is outside the runtime range.");
+            if (d.Preview != null && (!Vector(d.Preview.Position) || !Vector(d.Preview.Target)))
+                r.Error("FP-MAP-011", "Preview camera needs finite position and target vectors.");
+            if(d.Partitioning is {} partition)
+            {
+                if(!float.IsFinite(partition.CellSize)||partition.CellSize is < 8 or > 512
+                    || partition.FaceThreshold is < 256 or > 1_000_000
+                    || partition.MaxVerticesPerDisplayList is < 1024 or > 65000
+                    || !float.IsFinite(partition.PortalVerticalMargin)||partition.PortalVerticalMargin is < 0 or > 64)
+                    r.Error("FP-MAP-003","Partition settings require cell size 8–512, face threshold 256–1,000,000, display-list vertex cap 1,024–65,000 and portal margin 0–64.");
+            }
+            if (d.Materials == null || d.Brushes == null || d.Geometry == null || d.Spawns == null || d.Items == null || d.JumpPads == null)
+            {
+                r.Error("FP-MAP-008", "Map collections cannot be null.");
+                return r;
+            }
+            var ids = new HashSet<Guid>();
+            if (d.Geometry.Count + d.Brushes.Count > 10000 || d.Spawns.Count + d.Items.Count + d.JumpPads.Count > 32767)
+            { r.Error("FP-MAP-003", "Map object count exceeds the compiler budget."); return r; }
+            long patchTriangles = d.Geometry.OfType<MapBezierPatch>().Sum(p =>
+            {
+                long tilesX = Math.Clamp((long)p.Columns, 0, 17) / 2;
+                long tilesY = Math.Clamp((long)p.Rows, 0, 17) / 2;
+                long level = Math.Clamp((long)p.Tessellation, 0, 4);
+                return tilesX * tilesY * level * level * 2;
+            });
+            if (d.Geometry.Count(g => g is MapBezierPatch) > 32
+                || patchTriangles > 8192)
+            {
+                r.Error("FP-RADIANT-PATCH", "Map exceeds the total Bezier patch/collision triangle budget.");
+                return r;
+            }
+            void Id(Guid id)
+            {
+                if (id != Guid.Empty && !ids.Add(id)) r.Error("FP-MAP-010", "Duplicate object ID.", id);
+            }
+            var animatedNames = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var m in d.Materials)
+            {
+                if (m == null) { r.Error("FP-MAP-001", "Null material."); continue; }
+                Id(m.Id);
+                if (m.SourceMaterial < 0 || !float.IsFinite(m.TexScale) || m.TexScale <= 0)
+                    r.Error("FP-MAP-001", "Material requires a nonnegative source index and positive UV scale.", m.Id);
+                if (m.Alpha is < 0 or > 31)
+                    r.Error("FP-MAP-001", "Material alpha must be between 0 and 31.", m.Id);
+                if (m.Animation is { } animation)
+                {
+                    bool validScroll = animation.UvScroll is { Length: 2 }
+                        && animation.UvScroll.All(float.IsFinite)
+                        && animation.UvScroll.All(value => Math.Abs(value) <= MapUvAnimation.MaxScrollSpeed);
+                    if (!validScroll)
+                        r.Error("FP-MAP-001", "UV scroll requires two finite tile-per-second values from -4 to 4.", m.Id);
+
+                    bool validScale = animation.UvScale is { Length: 2 }
+                        && animation.UvScale.All(float.IsFinite)
+                        && animation.UvScale.All(value => value > 0 && value <= MapUvAnimation.MaxScale);
+                    bool validPulse = animation.UvScalePulse is { Length: 2 }
+                        && animation.UvScalePulse.All(float.IsFinite);
+                    if (!validScale || !validPulse)
+                    {
+                        r.Error("FP-MAP-001", "UV scale requires two finite positive base values and two finite pulse amplitudes.", m.Id);
+                    }
+                    else if (Enumerable.Range(0, 2).Any(axis =>
+                        animation.UvScale[axis] - Math.Abs(animation.UvScalePulse[axis]) <= 0.01f
+                        || animation.UvScale[axis] + Math.Abs(animation.UvScalePulse[axis]) > MapUvAnimation.MaxScale))
+                    {
+                        r.Error("FP-MAP-001", "UV scale pulse must stay above 0.01 and at or below 8 on both axes.", m.Id);
+                    }
+
+                    bool validRotation = float.IsFinite(animation.UvRotationDegreesPerSecond)
+                        && Math.Abs(animation.UvRotationDegreesPerSecond) <= MapUvAnimation.MaxRotationSpeed;
+                    if (!validRotation)
+                        r.Error("FP-MAP-001", "UV rotation speed must be finite and between -1440 and 1440 degrees per second.", m.Id);
+
+                    bool validEmissive = float.IsFinite(animation.EmissiveIntensity)
+                        && float.IsFinite(animation.EmissivePulse)
+                        && animation.EmissiveIntensity is >= 0 and <= 1
+                        && animation.EmissiveIntensity - Math.Abs(animation.EmissivePulse) >= 0
+                        && animation.EmissiveIntensity + Math.Abs(animation.EmissivePulse) <= 1;
+                    if (!validEmissive)
+                        r.Error("FP-MAP-001",
+                            "Emissive intensity and pulse must stay within 0–1 for the entire loop.", m.Id);
+
+                    bool validFlipbook = animation.FlipbookFrames != null
+                        && animation.FlipbookFrames.Count <= MapUvAnimation.MaxFlipbookImages
+                        && animation.FlipbookFrames.All(path => !String.IsNullOrWhiteSpace(path))
+                        && animation.FlipbookHoldFrames is >= 1 and <= MapUvAnimation.MaxLoopFrames;
+                    if (!validFlipbook)
+                        r.Error("FP-MAP-001", "Flipbooks require at most 64 nonempty frame assets and a hold time of 1–6000 native frames.", m.Id);
+
+                    bool validLoop = animation.LoopFrames is >= MapUvAnimation.MinLoopFrames and <= MapUvAnimation.MaxLoopFrames;
+                    if (!validLoop)
+                        r.Error("FP-MAP-001", "Animated material loop must be 30–6000 native 30 Hz frames.", m.Id);
+                    if (validLoop && (animation.PhaseFrames < 0 || animation.PhaseFrames >= animation.LoopFrames))
+                        r.Error("FP-MAP-001", "Animated material phase must be inside its loop.", m.Id);
+                    bool nativeAnimation = MapUvAnimation.IsAnimated(m);
+                    if (nativeAnimation)
+                    {
+                        if (!MapUvAnimation.NativeNameFits(m.Name))
+                            r.Error("FP-MAP-001", "Native animated material names must be 1–31 single-byte characters.", m.Id);
+                        else if (!animatedNames.Add(m.Name))
+                            r.Error("FP-MAP-001", "Native animated material names must be unique.", m.Id);
+                        if (validScroll && validLoop
+                            && animation.UvScroll.Any(speed => !MapUvAnimation.IsSeamless(speed, animation.LoopFrames)))
+                            r.Error("FP-MAP-001", "UV scroll loop endpoints must land on whole texture tiles for seamless repeat.", m.Id);
+                        if (validRotation && validLoop
+                            && !MapUvAnimation.IsRotationSeamless(animation.UvRotationDegreesPerSecond, animation.LoopFrames))
+                            r.Error("FP-MAP-001", "UV rotation loop endpoint must land on a whole turn for seamless repeat.", m.Id);
+                        if (validFlipbook && validLoop && !MapUvAnimation.IsFlipbookSeamless(animation))
+                            r.Error("FP-MAP-001", "Flipbook image cycle must divide evenly into the material loop for seamless repeat.", m.Id);
+                    }
+                    if (MapUvAnimation.HasEmissiveAnimation(m)
+                        && String.IsNullOrWhiteSpace(m.Emissive))
+                        r.Warning("FP-MAP-001",
+                            "Emissive intensity animation has no HD emissive map to modulate.", m.Id);
+                    if (animation.FlipbookFrames?.Count > 0 && !String.IsNullOrWhiteSpace(m.Albedo))
+                        r.Warning("FP-MAP-001",
+                            "Static HD albedo is ignored while a native flipbook is active; normal, specular/roughness and emissive companion maps still apply.", m.Id);
+                }
+            }
+            MapMaterial[] animatedMaterials = d.Materials
+                .Where(m => m != null && MapUvAnimation.IsAnimated(m))
+                .Cast<MapMaterial>().ToArray();
+            bool loopsValid = animatedMaterials.All(m => m.Animation!.LoopFrames is >= MapUvAnimation.MinLoopFrames
+                and <= MapUvAnimation.MaxLoopFrames);
+            if (animatedMaterials.Length > 0 && loopsValid)
+            {
+                if (!MapUvAnimation.TryGetGroupFrameCount(animatedMaterials, out int groupFrames))
+                    r.Error("FP-MAP-001", "Animated material loop periods need a shared native cycle of 6000 frames or less.");
+                else
+                {
+                    if (MapUvAnimation.ScaleEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
+                        r.Error("FP-MAP-003", "Animated material scale lookup-table budget exceeds 65535 entries.");
+                    if (MapUvAnimation.RotationEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
+                        r.Error("FP-MAP-003", "Animated material rotation lookup-table budget exceeds 65535 entries.");
+                    if (MapUvAnimation.TranslationEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
+                        r.Error("FP-MAP-003", "Animated material translation lookup-table budget exceeds 65535 entries.");
+                    if (MapUvAnimation.FlipbookEntryCount(animatedMaterials, groupFrames) > MapUvAnimation.MaxLutEntries)
+                        r.Error("FP-MAP-003", "Animated material flipbook lookup-table budget exceeds 65535 entries.");
+                }
+            }
+            if (d.Import == null && d.NativeRoom == null && d.Materials.Count == 0)
+                r.Error("FP-MAP-001", "At least one material is required.");
+            if (d.Import != null && d.NativeRoom != null)
+                r.Error("FP-MAP-008", "A map cannot use both Q3 import and a native-room source.");
+            foreach (var b in d.Brushes)
+            {
+                if (b == null) { r.Error("FP-MAP-013", "Null brush."); continue; }
+                Id(b.Id);
+                if (!Vector(b.Min) || !Vector(b.Max)) { r.Error("FP-MAP-013", "Brush coordinates must be finite triples.", b.Id); continue; }
+                if (Enumerable.Range(0, 3).Any(i => b.Min[i] == b.Max[i])) r.Error("FP-MAP-013", "Brush dimensions cannot be zero.", b.Id);
+                float bound = 8 * MathF.Pow(2, Math.Clamp(d.ScaleFactor, 0, 16));
+                if (b.Min.Concat(b.Max).Any(x => x < -bound || x >= bound || Math.Abs(x) >= 524288))
+                    r.Error("FP-MAP-004", "Brush exceeds fixed-point vertex range; increase scale factor or reduce extent.", b.Id);
+                if (b.Material < 0 || b.Material >= d.Materials.Count) r.Error("FP-MAP-001", "Brush references a missing material.", b.Id);
+                if (!float.IsFinite(b.Shade) || b.Shade is < 0 or > 1) r.Error("FP-MAP-013", "Shade must be between zero and one.", b.Id);
+                if (b.Terrain != null && (!Enum.TryParse<Terrain>(b.Terrain, true, out var terrain) || !Enum.IsDefined(terrain)))
+                    r.Error("FP-MAP-013", "Unknown collision terrain.", b.Id);
+            }
+            bool hasSourceGeometry = d.HasSourceGeometry;
+            if (hasSourceGeometry)
+            {
+                if (d.MapId == Guid.Empty || d.Import != null || d.NativeRoom != null || d.ModelSources?.Count > 0)
+                    r.Error("FP-MAP-SOURCE-UV", "Source UV transport requires a persistent map ID and authored geometry without Q3, native-room or model-source mixing.");
+                if (!d.Geometry.OfType<MapMesh>().Any(m => m.SourceUvFaces?.Any(f => f != null) == true))
+                    r.Error("FP-MAP-SOURCE-UV", "A declared source UV component must contain source coordinates.");
+                long sourceCorners = 0;
+                foreach (var mesh in d.Geometry.OfType<MapMesh>().Where(m => m.SourceUvFaces != null))
+                    for (int i = 0; i < Math.Min(mesh.SourceUvFaces!.Count, mesh.Faces?.Count ?? 0); i++)
+                        if (mesh.SourceUvFaces[i] != null && mesh.Faces![i] is { Length: >= 3 } face)
+                            sourceCorners += face.Length <= 4 ? face.Length : 3L * (face.Length - 2);
+                if (sourceCorners > MapSourceGeometry.MaxCorners)
+                { r.Error("FP-MAP-SOURCE-UV", "Source-coordinate emission exceeds its aggregate corner budget."); return r; }
+            }
+            var sourceCoverage = hasSourceGeometry ? new Dictionary<int, int>() : null;
+            if (sourceCoverage != null)
+                foreach (var brush in d.Brushes.Where(b => b != null)) sourceCoverage[brush.Material] = 1;
+            bool safeBrushes = d.Brushes.All(b => b != null && Vector(b.Min) && Vector(b.Max));
+            var solids=new List<IReadOnlyList<BuiltFace>>();
+            foreach (var geometry in d.Geometry)
+            {
+                if (geometry == null) { r.Error("FP-MAP-013", "Null geometry object."); continue; }
+                Id(geometry.Id);
+                if (geometry.SurfSurface && !d.TraversalTraining)
+                    r.Error("FP-MAP-013", "Surf surfaces require traversal-training opt-in.", geometry.Id);
+                if (geometry is MapMesh editable)
+                    foreach (var problem in MphRead.Mods.MapEditor.MapMeshValidator.Validate(editable))
+                        r.Diagnostics.Add(new("FP-MESH-001",problem.Severity,problem.Message,geometry.Id));
+                if (geometry.Material < 0 || geometry.Material >= d.Materials.Count || d.Materials[geometry.Material] == null)
+                { r.Error("FP-MAP-001", "Geometry references a missing material.", geometry.Id); continue; }
+                if (geometry.QuakeFaces is { } quakeFaces
+                    && (geometry is not (MapBox or MapConvexBrush)
+                        || quakeFaces.Count != (geometry is MapBox ? 6 : ((MapConvexBrush)geometry).Faces.Count)
+                        || quakeFaces.Any(face => face == null || !face.Valid
+                            || face.Material >= d.Materials.Count)))
+                    r.Error("FP-MAP-001",
+                        "Quake face projections require bounded values and a valid material for every solid face.",
+                        geometry.Id);
+                if (geometry is MapMesh { Slipperiness: < 0 or > 3 }) r.Error("FP-MAP-013", "Mesh slipperiness must be 0–3.", geometry.Id);
+                if (geometry is MapMesh mesh && mesh.FaceMaterials != null
+                    && mesh.FaceMaterials.Any(material => material < 0 || material >= d.Materials.Count))
+                    r.Error("FP-MAP-001","Mesh face references a missing material.",geometry.Id);
+                if(!float.IsFinite(geometry.Shade)||geometry.Shade is <0 or >1||!Enum.TryParse<Terrain>(geometry.Terrain,true,out var ground)||!Enum.IsDefined(ground))
+                    r.Error("FP-MAP-013","Geometry requires shade 0–1 and a valid terrain.",geometry.Id);
+                try
+                {
+                    var faces=GeometryCompiler.Compile(geometry, d.Materials[geometry.Material].TexScale);if(geometry.Solid)solids.Add(faces);
+                    if (sourceCoverage != null && geometry is not MapMesh { CollisionOnly: true })
+                        foreach (var face in faces)
+                        {
+                            sourceCoverage[face.Material] = sourceCoverage.GetValueOrDefault(face.Material)
+                                | (face.SourceUv == null ? 1 : 2);
+                            if (geometry is MapMesh { SourceUvFaces: not null } && face.Material >= 0 && face.Material < d.Materials.Count
+                                && d.Materials[face.Material] is { } material
+                                && (!material.ProceduralWhite || material.Texture != null || material.AlbedoBank != null
+                                    || material.Albedo != null || material.Normal != null || material.SpecularRoughness != null
+                                    || material.Emissive != null || material.Animation != null))
+                                r.Error("FP-MAP-SOURCE-UV", "Source UV transport requires an unanimated procedural-white fallback without active texture channels.", geometry.Id);
+                        }
+                    float bound=8*MathF.Pow(2,Math.Clamp(d.ScaleFactor,0,16));
+                    if(faces.SelectMany(f=>f.Points).Any(p=>!float.IsFinite(p.LengthSquared)||Enumerable.Range(0,3).Any(i=>p[i]<-bound||p[i]>=bound||Math.Abs(p[i])>=524288)))
+                        r.Error("FP-MAP-004","Geometry exceeds fixed-point range; increase scale factor or reduce extent.",geometry.Id);
+                }
+                catch (MapAuthoringException ex) { r.Error(ex.Code, ex.Message, geometry.Id); }
+            }
+            if (sourceCoverage?.Values.Any(coverage => coverage == 3) == true)
+                r.Error("FP-MAP-SOURCE-UV", "A compiled material cannot mix source-coordinate faces with ordinary faces.");
+            if (d.Spawns.Count == 0 && d.Import?.KeepSpawns != true) r.Error("FP-MAP-014", "At least one player spawn is required.");
+            foreach (var s in d.Spawns)
+            {
+                if (s == null) { r.Error("FP-MAP-014", "Null spawn."); continue; }
+                Id(s.Id);
+                if (!Position(s.Position) || !float.IsFinite(s.Yaw)) { r.Error("FP-MAP-014", "Spawn requires position within fixed-point range and finite yaw.", s.Id); continue; }
+                if (s.Team is < -1 or > 3) r.Error("FP-MAP-014", "Spawn team must be neutral (-1) or 0–3.", s.Id);
+                if (s.Position[1] <= d.KillHeight) r.Error("FP-MAP-014", "Spawn is below the kill plane.", s.Id);
+                if (d.Spawns.Any(other => other != null && !ReferenceEquals(other, s) && Position(other.Position)
+                    && (MapBuilder.ToVector(other.Position) - MapBuilder.ToVector(s.Position)).LengthSquared < 4))
+                    r.Warning("FP-MAP-014", "Spawn is within two units of another spawn.", s.Id);
+                var position=MapBuilder.ToVector(s.Position);
+                bool InSolid(Vector3 p)=>solids.Any(faces=>faces.All(f=>Vector3.Dot(f.Normal,p-f.Points[0])<-.01f));
+                if(InSolid(position))r.Error("FP-MAP-002","Spawn is inside solid geometry.",s.Id);
+                else if(InSolid(position+Vector3.UnitY*1.8f))r.Warning("FP-MAP-002","Spawn has insufficient headroom.",s.Id);
+                if (safeBrushes)
+                {
+                    if (d.Brushes.Any(b => b.Solid && Inside(s.Position, b, 0)))
+                        r.Error("FP-MAP-002", "Spawn is inside solid geometry.", s.Id);
+                    else if (d.Brushes.Any(b => b.Solid && Inside(new[] { s.Position[0], s.Position[1] + 1.8f, s.Position[2] }, b, 0.3f)))
+                        r.Warning("FP-MAP-002", "Spawn has insufficient headroom.", s.Id);
+                    if (d.Import == null && d.Geometry.Count == 0 && !d.Brushes.Any(b => b.Solid && Supported(s.Position, b)))
+                        r.Warning("FP-MAP-014", "Spawn has no nearby supporting floor.", s.Id);
+                }
+            }
+            foreach (var item in d.Items)
+            {
+                if (item == null) { r.Error("FP-MAP-015", "Null pickup."); continue; }
+                Id(item.Id);
+                if (!Position(item.Position) || !Enum.TryParse<ItemType>(item.Type, true, out var type) || !MapBuilder.MultiplayerItems.Contains(type))
+                    r.Error("FP-MAP-015", "Pickup needs a finite position and a supported multiplayer item type.", item.Id);
+                if (item.SpawnInterval == 0) r.Warning("FP-MAP-015", "Pickup respawn interval is zero.", item.Id);
+            }
+            foreach (var pad in d.JumpPads)
+            {
+                if (pad == null) { r.Error("FP-MAP-016", "Null jump pad."); continue; }
+                Id(pad.Id);
+                bool valid = Position(pad.Position) && Position(pad.Size) && pad.Size.All(x => x > 0)
+                    && ((pad.Target != null) != (pad.Vector != null))
+                    && (pad.Target == null || Position(pad.Target))
+                    && (pad.Vector == null || (Vector(pad.Vector) && pad.Vector.Any(x => x != 0) && float.IsFinite(pad.Speed) && pad.Speed > 0));
+                if (!valid) { r.Error("FP-MAP-016", "Jump pad requires positive trigger dimensions and exactly one of target or nonzero vector plus positive speed.", pad.Id); continue; }
+                if (pad.Target != null && pad.Target[1] <= d.KillHeight)
+                    r.Warning("FP-MAP-016", "Jump destination is below the kill plane.", pad.Id);
+                var (direction, speed) = MapBuilder.SolveJumpPad(pad);
+                if (!float.IsFinite(speed) || speed <= 0) r.Error("FP-MAP-016", "Jump pad trajectory cannot be solved.", pad.Id);
+                else if (safeBrushes)
+                {
+                    var velocity = direction * speed;
+                    float duration = pad.Target == null ? 90 : (velocity.Y + MathF.Sqrt(MathF.Max(0,
+                        velocity.Y * velocity.Y - 2 * (77 / 4096f) * (pad.Target[1] - pad.Position[1])))) / (77 / 4096f);
+                    for (int i = 1; i < 60; i++)
+                    {
+                        float t = duration * i / 60;
+                        var p = MapBuilder.ToVector(pad.Position) + velocity * t - Vector3.UnitY * (0.5f * (77 / 4096f) * t * t);
+                        if (p.Y <= d.KillHeight)
+                        { r.Warning("FP-MAP-016", "Jump trajectory crosses the kill plane.", pad.Id); break; }
+                        if (solids.Any(faces => faces.All(f => Vector3.Dot(f.Normal, p-f.Points[0]) < -.01f))
+                            || d.Brushes.Any(b => b.Solid && Inside(new[] { p.X, p.Y, p.Z }, b, 0)))
+                        { r.Warning("FP-MAP-016", "Jump trajectory crosses solid geometry.", pad.Id); break; }
+                    }
+                }
+            }
+            if (d.NativeRoom is { } native)
+            {
+                if (String.IsNullOrWhiteSpace(native.Room))
+                    r.Error("FP-MAP-005","Native-room source key is required.");
+                else if (!Metadata.RoomMetadata.ContainsKey(native.Room))
+                    r.Error("FP-MAP-005",$"Unknown native room {native.Room}.");
+                if (Metadata.IsBuiltInRoom(d.Name))
+                    r.Error("FP-MAP-010","A remix must use a new runtime name rather than replacing the built-in room key.");
+                if(checkSources && !Mods.Launcher.GameFiles.Ready)
+                    r.Warning("FP-MAP-005","Game files are required to compile this native-room remix.");
+                if(native.MaterialReplacements==null
+                    ||native.MaterialReplacements.Any(value=>value.Source<0||value.Target<0||value.Target>=d.Materials.Count))
+                    r.Error("FP-MAP-001","Native material replacements must reference valid source/target material slots.");
+            }
+            if (d.Import is { } import)
+            {
+                if(string.IsNullOrEmpty(import.Source)||import.ShaderMaterials==null){r.Error("FP-MAP-005","Import source and shader mappings are required.");return r;}
+                // Imported architecture itself remains read-only, but native
+                // Project Prime primitives may be layered on top as hybrid geometry.
+                if (!float.IsFinite(import.UnitsPerUnit) || import.UnitsPerUnit <= 0 || !float.IsFinite(import.TexScale) || import.TexScale <= 0
+                    || import.PatchLevel is < 1 or > 8 || import.CollisionPatchLevel is < -1 or > 8
+                    || !float.IsFinite(import.CollisionHealTolerance) || import.CollisionHealTolerance is < 0.0005f or > 0.25f)
+                    r.Error("FP-MAP-017", "Import scale/UV scale must be positive; render patch level must be 1–8, collision patch level -1 (auto), 0 (off), or 1–8, and heal tolerance 0.0005–0.25.");
+                if(import.CollisionHealExclusions==null
+                    || import.CollisionHealExclusions.Any(region=>region.Center==null||region.Center.Length!=3
+                        || region.Center.Any(value=>!float.IsFinite(value))
+                        || !float.IsFinite(region.Radius)||region.Radius is < .25f or > 64f))
+                    r.Error("FP-MAP-017","Collision heal exclusions require a finite XYZ center and radius 0.25–64.");
+                if(import.MaterialReplacements==null
+                    ||import.MaterialReplacements.Any(value=>value.Source<0||value.Target<0
+                        ||(!value.TargetSource&&value.Target>=d.Materials.Count)))
+                    r.Error("FP-MAP-001","Imported material replacements must use a nonnegative source slot and a valid authored target; source targets are verified when the texture pack loads.");
+                if (checkSources)
+                {
+                    string? source = import.Resolve();
+                    if (source == null) r.Error("FP-MAP-005", "Imported level could not be resolved.");
+                    else if (!Path.GetExtension(source).Equals(".bsp", StringComparison.OrdinalIgnoreCase))
+                    {
+                        try
+                        {
+                            var maps = Q3Bsp.ListMaps(source);
+                            if (import.MapName != null && !maps.Any(m => m.Equals(import.MapName, StringComparison.OrdinalIgnoreCase)))
+                                r.Error("FP-MAP-005", $"Archive does not contain {import.MapName}.");
+                            else if (!maps.Any()) r.Error("FP-MAP-005", "Archive contains no BSP levels.");
+                        }
+                        catch (Exception ex) when (ex is InvalidDataException or IOException or ProgramException) { r.Error("FP-MAP-005", ex.Message); }
+                    }
+                    if (!string.IsNullOrEmpty(import.Textures) && import.BundlePath == null && import.ResolveTextures() == null)
+                    {
+                        if (source != null && Path.GetExtension(source).Equals(".pk3", StringComparison.OrdinalIgnoreCase))
+                            r.Warning("FP-MAP-006", "Texture pack is missing; the compiler will attempt to bake it from the PK3.");
+                        else r.Error("FP-MAP-006", "Texture pack is missing and cannot be baked from this source.");
+                    }
+                }
+            }
+            MapAssets.Validate(d,r,checkSources);
+            MapModeValidator.Validate(d,r);
+            if(d.NavigationLinks==null)r.Error("FP-MAP-007","Navigation links cannot be null.");
+            else if(d.NavigationLinks.Count>4096)r.Error("FP-MAP-007","Too many navigation links.");
+            else foreach(var link in d.NavigationLinks)
+                if(link==null||!Position(link.From)||!Position(link.To)||!Enum.IsDefined(link.Kind)
+                    ||!Enum.IsDefined(link.FromNodeKind)||!Enum.IsDefined(link.ToNodeKind))r.Error("FP-MAP-007","Invalid navigation link.");
+                else Id(link.Id);
+            return r;
+        }
+
+        private static bool Inside(float[] p, MapBrush b, float radius) => Enumerable.Range(0, 3)
+            .All(i => p[i] > Math.Min(b.Min[i], b.Max[i]) - radius + 0.01f && p[i] < Math.Max(b.Min[i], b.Max[i]) + radius - 0.01f);
+
+        private static bool Supported(float[] p, MapBrush b) => p[0] >= Math.Min(b.Min[0], b.Max[0])
+            && p[0] <= Math.Max(b.Min[0], b.Max[0]) && p[2] >= Math.Min(b.Min[2], b.Max[2])
+            && p[2] <= Math.Max(b.Min[2], b.Max[2]) && p[1] >= Math.Max(b.Min[1], b.Max[1])
+            && p[1] - Math.Max(b.Min[1], b.Max[1]) <= 3;
+    }
+}

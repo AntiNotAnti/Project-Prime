@@ -1,0 +1,643 @@
+using System;
+using System.IO;
+using System.Numerics;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json.Nodes;
+
+namespace MphRead.Mods.Render.Characters
+{
+    internal static partial class CharacterModelAssetCheck
+    {
+        public static int Run()
+        {
+            string root = Path.Combine(Path.GetTempPath(),
+                "project-prime-character-model-check-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(root, "samus"));
+                WriteTriangleGlb(Path.Combine(root, "samus", "biped.glb"));
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    """
+                    {
+                      "format": 1,
+                      "id": "synthetic-check",
+                      "models": [
+                        {
+                          "hunter": "Samus",
+                          "part": "biped",
+                          "model": "samus/biped.glb",
+                          "skinning": "rigidNodes",
+                          "boneMap": { "Body": "Body" }
+                        }
+                      ]
+                    }
+                    """);
+
+                CharacterModelPack pack = CharacterModelPack.Load(root);
+                Check(pack.Count == 1, "synthetic pack loads exactly one model");
+                Check(pack.TryResolve(Hunter.Samus, CharacterModelPart.Biped,
+                    out CharacterModelAsset asset),
+                    "Samus biped resolves by stable hunter/part identity");
+                Check(asset.Skinning == CharacterSkinningMode.RigidNodes
+                    && asset.Lod == 0 && asset.SourceNodes.Contains("Body")
+                    && asset.PrimitiveCount == 1 && !asset.HasSkin,
+                    "GLB metadata and rigid-node contract survive validation");
+
+                CharacterRigidModelData geometry = CharacterRigidModelLoader.Load(asset);
+                Check(geometry.Primitives.Count == 1
+                    && geometry.VertexCount == 3 && geometry.IndexCount == 3,
+                    "rigid geometry reader preserves the synthetic triangle");
+                CharacterRigidPrimitive primitive = geometry.Primitives[0];
+                Check(primitive.SourceNode == "Body" && primitive.TargetNode == "Body"
+                    && primitive.MaterialName == "BodyMat",
+                    "rigid geometry preserves retarget and material identity");
+                Check(primitive.Indices.AsSpan().SequenceEqual(new uint[] { 0, 1, 2 }),
+                    "rigid geometry preserves triangle indices");
+                Check(Near(primitive.Vertices[1].Position, new Vector3(1, 0, 0))
+                    && Near(primitive.Vertices[2].Texcoord, new Vector2(0, 1))
+                    && Near(primitive.Vertices[0].Normal, Vector3.UnitZ),
+                    "POSITION/NORMAL/TEXCOORD_0 decode exactly");
+
+                Check(primitive.Albedo == null && primitive.MaterialMaps == null,
+                    "legacy rigid packs retain native textures");
+                CheckEmbeddedMaterials(asset);
+                foreach (TexgenMode mode in Enum.GetValues<TexgenMode>())
+                {
+                    Check(CharacterModelRuntime.CanUseAuthoredTexcoords(mode, embeddedAlbedo: true),
+                        "embedded character albedo selects authored UVs for " + mode);
+                    Check(CharacterModelRuntime.CanUseAuthoredTexcoords(mode, embeddedAlbedo: false)
+                        == (mode is TexgenMode.None or TexgenMode.Texcoord),
+                        "native-bound character generated coordinates remain guarded for " + mode);
+                }
+                WriteTriangleGlb(asset.ModelPath);
+
+                string valid = File.ReadAllText(Path.Combine(root, "characters.json"));
+                CheckWeaponVariants(root,valid,asset);
+                File.Copy(asset.ModelPath,Path.Combine(root,"samus","mobile.glb"));
+                File.WriteAllText(Path.Combine(root,"characters.json"),valid.Replace("\"model\": \"samus/biped.glb\",","\"model\": \"samus/biped.glb\", \"mobileModel\": \"samus/mobile.glb\","));
+                Check(CharacterModelPack.Load(root,mobile:true).TryResolve(Hunter.Samus,CharacterModelPart.Biped,out var mobileAsset)
+                    && Path.GetFileName(mobileAsset.ModelPath)=="mobile.glb","mobile tier resolves explicitly");
+                Check(CharacterModelPack.Load(root,mobile:false).TryResolve(Hunter.Samus,CharacterModelPart.Biped,out var desktopAsset)
+                    && Path.GetFileName(desktopAsset.ModelPath)=="biped.glb","desktop tier retains its original model");
+                File.WriteAllText(Path.Combine(root,"characters.json"),valid.Replace("\"model\": \"samus/biped.glb\",","\"model\": \"samus/biped.glb\", \"mobileModel\": \"../escape.glb\","));
+                ExpectInvalid(()=>CharacterModelPack.Load(root,mobile:false),"inactive mobile tier path traversal is rejected");
+                File.WriteAllText(Path.Combine(root,"characters.json"),valid);
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    valid.Replace("\"part\": \"biped\"",
+                        "\"part\": \"alternateForm\"", StringComparison.Ordinal));
+                CharacterModelPack altPack = CharacterModelPack.Load(root);
+                Check(altPack.TryResolve(Hunter.Samus, CharacterModelPart.AlternateForm,
+                        out CharacterModelAsset altAsset)
+                    && altAsset.Lod == 0,
+                    "alternate-form LOD0 uses the shared character replacement contract");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    valid.Replace("\"hunter\": \"Samus\"",
+                            "\"hunter\": \"Weavel\"", StringComparison.Ordinal)
+                        .Replace("\"part\": \"biped\"",
+                            "\"part\": \"halfturret\"", StringComparison.Ordinal));
+                CharacterModelPack turretPack = CharacterModelPack.Load(root);
+                Check(turretPack.TryResolve(Hunter.Weavel, CharacterModelPart.Halfturret,
+                        out CharacterModelAsset turretAsset)
+                    && turretAsset.Lod == 0,
+                    "Weavel halfturret LOD0 uses the shared character replacement contract");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"), valid);
+                string lod1 = valid.Replace("\"part\": \"biped\",",
+                    "\"part\": \"biped\",\n                          \"lod\": 1,",
+                    StringComparison.Ordinal);
+                File.WriteAllText(Path.Combine(root, "characters.json"), lod1);
+                CharacterModelPack lodPack = CharacterModelPack.Load(root);
+                Check(!lodPack.TryResolve(Hunter.Samus, CharacterModelPart.Biped, out _)
+                    && lodPack.TryResolve(Hunter.Samus, CharacterModelPart.Biped, 1,
+                        out CharacterModelAsset lodAsset)
+                    && lodAsset.Lod == 1,
+                    "missing lod remains backward-compatible LOD0 and explicit LOD1 resolves independently");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    lod1.Replace("\"part\": \"biped\"", "\"part\": \"viewModel\"",
+                        StringComparison.Ordinal));
+                ExpectInvalid(() => CharacterModelPack.Load(root),
+                    "non-biped replacement LOD1 is rejected");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"), valid);
+                string traversal = valid.Replace("samus/biped.glb", "../outside.glb",
+                    StringComparison.Ordinal);
+                File.WriteAllText(Path.Combine(root, "characters.json"), traversal);
+                ExpectInvalid(() => CharacterModelPack.Load(root),
+                    "path traversal is rejected before model IO");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    valid.Replace("rigidNodes", "weighted4", StringComparison.Ordinal));
+                ExpectInvalid(() => CharacterModelPack.Load(root),
+                    "weighted skinning cannot claim a GLB with no skin");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    valid.Replace("Body", "Missing", StringComparison.Ordinal));
+                ExpectInvalid(() => CharacterModelPack.Load(root),
+                    "manifest mappings cannot name absent GLB nodes");
+
+                File.WriteAllText(Path.Combine(root, "characters.json"), valid);
+
+                WriteWeightedTriangleGlb(Path.Combine(root, "samus", "weighted.glb"));
+                File.WriteAllText(Path.Combine(root, "characters.json"),
+                    """
+                    {
+                      "format": 1,
+                      "id": "synthetic-weighted-check",
+                      "models": [
+                        {
+                          "hunter": "Samus",
+                          "part": "biped",
+                          "model": "samus/weighted.glb",
+                          "skinning": "weighted4",
+                          "boneMap": { "Body": "Body", "Arm": "Arm" }
+                        }
+                      ]
+                    }
+                    """);
+                CharacterModelPack weightedPack = CharacterModelPack.Load(root);
+                Check(weightedPack.TryResolve(Hunter.Samus, CharacterModelPart.Biped,
+                    out CharacterModelAsset weightedAsset)
+                    && weightedAsset.Skinning == CharacterSkinningMode.Weighted4
+                    && weightedAsset.HasSkin,
+                    "weighted pack discovers a real glTF skin");
+                CharacterWeightedModelData weightedGeometry =
+                    CharacterWeightedModelLoader.Load(weightedAsset);
+                Check(weightedGeometry.Joints.Count == 2
+                    && weightedGeometry.Primitives.Count == 1
+                    && weightedGeometry.VertexCount == 3
+                    && weightedGeometry.IndexCount == 3,
+                    "Weighted4 loader preserves synthetic skin geometry");
+                CharacterWeightedVertex weightedVertex =
+                    weightedGeometry.Primitives[0].Vertices[1];
+                var unpacked = CharacterWeightedModelLoader.UnpackJoints(
+                    weightedVertex.PackedJoints);
+                Check(unpacked.J0 == 0 && unpacked.J1 == 1
+                    && MathF.Abs(weightedVertex.Weights.X - 128f / 255f) < 0.00001f
+                    && MathF.Abs(weightedVertex.Weights.Y - 127f / 255f) < 0.00001f
+                    && weightedGeometry.Joints[0].SourceNode == "Body"
+                    && weightedGeometry.Joints[1].SourceNode == "Arm",
+                    "Weighted4 joint packing, normalized weights and retarget identity decode exactly");
+
+                CheckPrivateAppearances(root, valid);
+
+                File.WriteAllText(Path.Combine(root, "characters.json"), valid);
+
+                string blender = CharacterModelBlenderHelper.Generate(
+                    "Synthetic/Biped", new[] { "Body" }, new[] { "BodyMat" },
+                    "starter/synthetic/biped.glb");
+                Check(blender.Contains("ASSET_LABEL = \"Synthetic/Biped\"", StringComparison.Ordinal)
+                    && blender.Contains("EXPECTED_BONES = set([\"Body\"])", StringComparison.Ordinal)
+                    && blender.Contains("EXPECTED_MATERIALS = set([\"BodyMat\"])", StringComparison.Ordinal)
+                    && blender.Contains("RELATIVE_OUTPUT = \"starter/synthetic/biped.glb\"", StringComparison.Ordinal)
+                    && blender.Contains("cross rigid bone boundaries", StringComparison.Ordinal)
+                    && !blender.Contains("{{", StringComparison.Ordinal),
+                    "Blender rigid helper receives deterministic authoring identities");
+
+                string weightedBlender = CharacterModelWeightedBlenderHelper.Generate(
+                    "Synthetic/Biped", new[] { "Body", "Arm" },
+                    new[] { "BodyMat" }, "starter/synthetic/biped_weighted4.glb");
+                Check(weightedBlender.Contains(
+                        "ASSET_LABEL = \"Synthetic/Biped\"", StringComparison.Ordinal)
+                    && weightedBlender.Contains(
+                        "EXPECTED_BONES = set([\"Body\",\"Arm\"])", StringComparison.Ordinal)
+                    && weightedBlender.Contains(
+                        "RELATIVE_OUTPUT = \"starter/synthetic/biped_weighted4.glb\"",
+                        StringComparison.Ordinal)
+                    && weightedBlender.Contains("Weighted4 allows four", StringComparison.Ordinal)
+                    && weightedBlender.Contains("export_def_bones", StringComparison.Ordinal)
+                    && !weightedBlender.Contains("{{", StringComparison.Ordinal),
+                    "Blender Weighted4 helper receives deterministic authoring identities");
+
+                RunSourceRigChecks();
+
+                Console.WriteLine(
+                    "[charactermodelcheck] pack safety, rigid/Weighted4 geometry and Blender helper generation passed");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine("[charactermodelcheck] FAIL: " + ex);
+                return 1;
+            }
+            finally
+            {
+                try { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+                catch { }
+            }
+        }
+
+        // Generated triangles and explicit synthetic hashes test the contract,
+        // never real source-game rig, animation, rendering or device acceptance.
+        private static void CheckWeaponVariants(string root,string legacyManifest,CharacterModelAsset biped)
+        {
+            string manifestPath=Path.Combine(root,"characters.json");
+            var manifest=JsonNode.Parse(legacyManifest)!;
+            var models=manifest["models"]!.AsArray();
+            var cannon=models[0]!.DeepClone();cannon["part"]="viewModel";
+            var imperialist=cannon.DeepClone();imperialist["weapon"]="Imperialist";
+            imperialist["independentSurface"]=true;imperialist["independentVisibility"]=true;
+            imperialist["normalizeAttachment"]=true;imperialist["minimumVisibleAlpha"]=.2f;
+            var arms=cannon.DeepClone();arms["part"]="viewModelArms";
+            models.Add(cannon);models.Add(imperialist);models.Add(arms);
+            try
+            {
+                File.WriteAllText(manifestPath,manifest.ToJsonString());
+                var pack=CharacterModelPack.Load(root);
+                Check(pack.Count==4&&pack.TryResolve(Hunter.Samus,CharacterModelPart.ViewModel,0,BeamType.Imperialist,out var variant)
+                    &&variant.Weapon==BeamType.Imperialist&&variant.IndependentSurface&&variant.IndependentVisibility
+                    &&variant.NormalizeAttachment&&variant.MinimumVisibleAlpha==.2f,"weapon variant retains authored surface and visibility options");
+                Check(pack.TryResolve(Hunter.Samus,CharacterModelPart.ViewModel,0,BeamType.Missile,out var fallback)
+                    &&fallback.Weapon==null,"unlisted weapon falls back to default cannon");
+                Check(pack.TryResolve(Hunter.Samus,CharacterModelPart.ViewModelArms,out var armAsset)
+                    &&armAsset.Part==CharacterModelPart.ViewModelArms,"first-person arm model is independently selectable");
+                Check(CharacterModelRuntime.ModelCacheKey(biped,7)!=CharacterModelRuntime.ModelCacheKey(biped with{Part=CharacterModelPart.ViewModelArms},7)
+                    &&CharacterModelRuntime.ModelCacheKey(biped,7)!=CharacterModelRuntime.ModelCacheKey(biped with{Weapon=BeamType.Imperialist},7),
+                    "same GLB presentation cache isolates arm and weapon identities");
+                imperialist["weapon"]="not-a-weapon";File.WriteAllText(manifestPath,manifest.ToJsonString());
+                ExpectInvalid(()=>CharacterModelPack.Load(root),"invalid weapon identity rejected");
+                imperialist["weapon"]="Imperialist";imperialist["minimumVisibleAlpha"]=2;
+                File.WriteAllText(manifestPath,manifest.ToJsonString());
+                ExpectInvalid(()=>CharacterModelPack.Load(root),"invalid authored visibility floor rejected");
+            }
+            finally{File.WriteAllText(manifestPath,legacyManifest);}
+        }
+
+        private static void CheckPrivateAppearances(string root, string legacyManifest)
+        {
+            string manifestPath = Path.Combine(root, "characters.json");
+            var manifest = JsonNode.Parse(legacyManifest)!.AsObject();
+            var entries = manifest["models"]!.AsArray();
+            var variants = new[]
+            {
+                (Hunter.Samus, "darksamus", "MP2DarkSamus", "darksamus-echoes"),
+                (Hunter.Weavel, "trooper", "MP1PowerTrooper", "trooper-power"),
+                (Hunter.Weavel, "trooper", "MP1IceTrooper", "trooper-ice"),
+                (Hunter.Weavel, "trooper", "MP1WaveTrooper", "trooper-wave"),
+                (Hunter.Weavel, "trooper", "MP1PlasmaTrooper", "trooper-plasma")
+            };
+            string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+            foreach (var (hunter, character, skin, source) in variants)
+            {
+                string directory = "private-" + source;
+                Directory.CreateDirectory(Path.Combine(root, directory));
+                string model = directory + "/biped.glb";
+                WriteWeightedTriangleGlb(Path.Combine(root, model));
+                var receipt = new JsonObject
+                {
+                    ["format"] = 1, ["sourceCharacter"] = source, ["nativeHunter"] = hunter.ToString(),
+                    ["characterId"] = character, ["skinSource"] = skin, ["presentationPart"] = "biped",
+                    ["visualOnly"] = true, ["approvedForGameplay"] = false, ["multiplayerEnabled"] = false,
+                    ["playerSelectionEnabled"] = false, ["firstPersonVerified"] = false,
+                    ["alternateFormVerified"] = false, ["sourceMotionRetargetVerified"] = false,
+                    ["devicePerformanceVerified"] = false,
+                    ["sourceGlbSha256"] = Hash(File.ReadAllBytes(Path.Combine(root, model)))
+                };
+                foreach (string key in new[] { "sourceNativeKitSha256", "sourceMappingSha256",
+                    "sourceSkeletonSha256", "sourceWeightsSha256" })
+                    receipt[key] = Hash(Encoding.UTF8.GetBytes("synthetic-contract-only-" + key));
+                string provenance = directory + "/validation-receipt.json";
+                byte[] receiptBytes = Encoding.UTF8.GetBytes(receipt.ToJsonString());
+                File.WriteAllBytes(Path.Combine(root, provenance), receiptBytes);
+                entries.Add(new JsonObject
+                {
+                    ["hunter"] = hunter.ToString(), ["part"] = "biped", ["lod"] = 0,
+                    ["model"] = model, ["skinning"] = "weighted4",
+                    ["characterId"] = character, ["skinSource"] = skin,
+                    ["provenance"] = provenance, ["provenanceSha256"] = Hash(receiptBytes),
+                    ["boneMap"] = new JsonObject { ["Body"] = "Body", ["Arm"] = "Arm" }
+                });
+            }
+            void Write(JsonObject value) => File.WriteAllText(manifestPath, value.ToJsonString());
+            Write(manifest);
+            CharacterModelPack pack = CharacterModelPack.Load(root);
+            Check(pack.Count == 6, "legacy native and all five private variants coexist");
+            Check(!PrivateCharacterAppearance.TryCreate(Hunter.Samus,"darksamus","MP2DarkSamusFinal",out _,out _),
+                "reserved Overcharged authoring source cannot acquire a qualified runtime appearance");
+            Check(CharacterModelRuntime.TryResolvePrivateAppearance(pack, Hunter.Samus,
+                    CharacterModelPart.Biped, 0, null, allowPrivatePreview: false, out var native),
+                "a native Samus seat resolves without a private preview capability");
+            foreach (var (hunter, character, skin, _) in variants)
+            {
+                var choice = new PrivateCharacterAppearance(character, skin);
+                Check(CharacterModelRuntime.TryResolvePrivateAppearance(pack, hunter,
+                        CharacterModelPart.Biped, 0, choice, allowPrivatePreview: true, out var selected)
+                    && selected.PrivateAppearance == choice && selected.ModelPath != native.ModelPath,
+                    "each private seat resolves its own catalog appearance: " + skin);
+                Check(!CharacterModelRuntime.TryResolvePrivateAppearance(pack, hunter,
+                        CharacterModelPart.Biped, 0, choice, allowPrivatePreview: false, out _),
+                    "private appearance requires an explicit offline preview capability");
+                Check(CharacterWeightedModelLoader.Load(selected).VertexCount == 3,
+                    "private identity retains the existing Weighted4 geometry loader");
+            }
+            var darkChoice = new PrivateCharacterAppearance("darksamus", "MP2DarkSamus");
+            Check(pack.TryResolvePrivate(Hunter.Samus, darkChoice, CharacterModelPart.Biped, 0, out var dark)
+                && pack.TryResolve(Hunter.Samus, CharacterModelPart.Biped, out var nativeAgain)
+                && ReferenceEquals(native, nativeAgain), "private seat lookup cannot overwrite a native seat");
+            Check(!pack.TryResolve(Hunter.Weavel, CharacterModelPart.Biped, out _),
+                "private Troopers do not implicitly replace native Weavel seats");
+            Check(!pack.TryResolvePrivate(Hunter.Weavel, darkChoice, CharacterModelPart.Biped, 0, out _)
+                && !pack.TryResolvePrivate(Hunter.Samus, new("darksamus", "MP3DarkSamus"), CharacterModelPart.Biped, 0, out _)
+                && !pack.TryResolvePrivate(Hunter.Samus, new("darksamus", "MP2DarkSamusFinal"), CharacterModelPart.Biped, 0, out _)
+                && !pack.TryResolvePrivate(Hunter.Samus, new("missing", "MP2DarkSamus"), CharacterModelPart.Biped, 0, out _)
+                && !CharacterModelPack.Empty.TryResolvePrivate(Hunter.Samus, darkChoice, CharacterModelPart.Biped, 0, out _),
+                "wrong parent, reserved, unknown and absent appearances are unavailable without aliasing");
+            Check(CharacterModelRuntime.ModelCacheKey(native, 7) != CharacterModelRuntime.ModelCacheKey(
+                    native with { PrivateAppearance = darkChoice }, 7)
+                && CharacterModelRuntime.ModelCacheKey(dark, 7) != CharacterModelRuntime.ModelCacheKey(
+                    dark with { PrivateAppearance = new("trooper", "MP1IceTrooper") }, 7),
+                "same-path GPU and failure caches keep native and distinct appearance identities separate");
+
+            void InvalidEntry(Action<JsonObject> mutate, string label)
+            {
+                var changed = manifest.DeepClone().AsObject();
+                mutate(changed["models"]![1]!.AsObject());
+                Write(changed);
+                ExpectInvalid(() => CharacterModelPack.Load(root), label);
+            }
+            InvalidEntry(entry => entry["hunter"] = "Weavel", "private native parent mismatch is rejected");
+            InvalidEntry(entry => entry["characterId"] = "missing", "unknown private character is rejected");
+            InvalidEntry(entry => entry["skinSource"] = "MP1PowerTrooper", "another character's skin is rejected");
+            InvalidEntry(entry => entry["skinSource"] = "MP3DarkSamus", "reserved Corruption skin is not implemented");
+            foreach (string key in new[] { "characterId", "skinSource", "provenance", "provenanceSha256" })
+                InvalidEntry(entry => entry.Remove(key), "partial private metadata is rejected: " + key);
+            InvalidEntry(entry => entry["part"] = "viewModel", "private preview cannot claim first person");
+            InvalidEntry(entry => entry["part"] = "alternateForm", "private preview cannot claim alternate form");
+            InvalidEntry(entry => entry["lod"] = 1, "private preview remains LOD0 only");
+            InvalidEntry(entry => entry["mobileModel"] = entry["model"]!.GetValue<string>(), "private preview cannot claim mobile tier");
+            InvalidEntry(entry => entry["provenance"] = "../receipt.json", "provenance must be contained");
+            InvalidEntry(entry => entry["provenance"] = "missing.json", "missing private provenance is rejected");
+            InvalidEntry(entry => entry["provenanceSha256"] = new string('0', 64), "receipt tampering is rejected");
+            var duplicated = manifest.DeepClone().AsObject();
+            duplicated["models"]!.AsArray().Add(duplicated["models"]![1]!.DeepClone());
+            Write(duplicated);
+            ExpectInvalid(() => CharacterModelPack.Load(root), "duplicate private identity is rejected");
+
+            string receiptPath = Path.Combine(root, entries[1]!["provenance"]!.GetValue<string>());
+            byte[] originalReceipt = File.ReadAllBytes(receiptPath);
+            void InvalidReceipt(Action<JsonObject> mutate, string label)
+            {
+                var receipt = JsonNode.Parse(originalReceipt)!.AsObject();
+                mutate(receipt);
+                byte[] bytes = Encoding.UTF8.GetBytes(receipt.ToJsonString());
+                File.WriteAllBytes(receiptPath, bytes);
+                var changed = manifest.DeepClone().AsObject();
+                changed["models"]![1]!["provenanceSha256"] = Hash(bytes);
+                Write(changed);
+                ExpectInvalid(() => CharacterModelPack.Load(root), label);
+            }
+            InvalidReceipt(receipt => receipt["skinSource"] = "MP1IceTrooper", "rehashed receipt identity mismatch is rejected");
+            foreach (string key in new[] { "approvedForGameplay", "multiplayerEnabled", "playerSelectionEnabled",
+                "firstPersonVerified", "alternateFormVerified", "sourceMotionRetargetVerified", "devicePerformanceVerified" })
+                InvalidReceipt(receipt => receipt[key] = true, "rehashed receipt cannot claim acceptance: " + key);
+            InvalidReceipt(receipt => receipt.Remove("sourceSkeletonSha256"), "receipt must retain source witness hashes");
+            InvalidReceipt(receipt => receipt["sourceGlbSha256"] = new string('a', 64), "receipt must hash its actual candidate GLB");
+            File.WriteAllBytes(receiptPath, originalReceipt);
+            Write(manifest);
+            Check(CharacterModelPack.Load(root).Count == 6, "invalid private requests leave pack files and native resolution recoverable");
+        }
+
+        private static void CheckEmbeddedMaterials(CharacterModelAsset asset)
+        {
+            byte[] original = File.ReadAllBytes(asset.ModelPath);
+            int jsonLength = BitConverter.ToInt32(original, 12);
+            var root = JsonNode.Parse(Encoding.UTF8.GetString(original, 20, jsonLength))!.AsObject();
+            int binaryStart = 20 + jsonLength + 8;
+            byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aN1sAAAAASUVORK5CYII=");
+            byte[] binary = new byte[104 + png.Length];
+            Array.Copy(original, binaryStart, binary, 0, 102);
+            Array.Copy(png, 0, binary, 104, png.Length);
+            root["buffers"]![0]!["byteLength"] = binary.Length;
+            root["bufferViews"]!.AsArray().Add(new JsonObject { ["buffer"] = 0, ["byteOffset"] = 104, ["byteLength"] = png.Length });
+            root["images"] = JsonNode.Parse("[{\"bufferView\":4,\"mimeType\":\"image/png\"}]");
+            root["textures"] = JsonNode.Parse("[{\"source\":0,\"sampler\":0},{\"source\":0,\"sampler\":1}]");
+            root["samplers"] = JsonNode.Parse("[{\"wrapS\":10497,\"wrapT\":10497},{\"wrapS\":33071,\"wrapT\":10497}]");
+            root["materials"]![0]!["pbrMetallicRoughness"] = JsonNode.Parse("{\"baseColorTexture\":{\"index\":0}}");
+            root["materials"]![0]!["normalTexture"] = JsonNode.Parse("{\"index\":0,\"scale\":0.5}");
+            void Write() => WriteGlb(asset.ModelPath, root.ToJsonString(), binary);
+            Write();
+            var material = CharacterRigidModelLoader.Load(asset).Primitives[0];
+            Check(material.Albedo != null && material.Albedo.Image.AsSpan().SequenceEqual(png)
+                && material.MaterialMaps?.Normal != null && material.MaterialMaps.NormalScale == .5f,
+                "rigid embedded albedo and normal maps survive decoding");
+            Check(ReferenceEquals(material.Albedo!.Image,material.MaterialMaps!.Normal!.Image),"encoded image aliases share one weakly interned payload");
+            root["materials"]![0]!["extras"] = JsonNode.Parse("{\"projectPrimeRecolors\":{\"5\":{\"index\":0}}}"); Write();
+            Check(CharacterRigidModelLoader.Load(asset).Primitives[0].Albedo!.Recolors!.ContainsKey(5),
+                "bounded embedded native team albedo is decoded");
+            root["materials"]![0]!["extras"] = JsonNode.Parse("{\"projectPrimeRecolors\":{\"6\":{\"index\":0}}}"); Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "recolor outside native palette is rejected");
+            root["materials"]![0]!["extras"] = JsonNode.Parse("{\"projectPrimeRecolors\":{\"5\":{\"index\":1}}}"); Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "recolor sampler mismatch is rejected");
+            root["materials"]![0]!.AsObject().Remove("extras"); Write();
+            root["materials"]![0]!["extras"] = JsonNode.Parse("{\"projectPrimeRuntimeMaps\":true}"); Write();
+            ExpectInvalid(()=>CharacterRigidModelLoader.Load(asset),"runtime-preconverted maps reject a second normal scale");
+            root["materials"]![0]!["normalTexture"]!["scale"]=1; Write();
+            Check(CharacterRigidModelLoader.Load(asset).Primitives[0].MaterialMaps!.RuntimeEncoded,"runtime map encoding survives load");
+            root["materials"]![0]!.AsObject().Remove("extras");
+            root["textures"]![0]!["extensions"]=JsonNode.Parse("{\"KHR_texture_basisu\":{\"source\":0}}");Write();
+            ExpectInvalid(()=>CharacterRigidModelLoader.Load(asset),"Basis extension cannot refer to PNG");
+            root["textures"]![0]!.AsObject().Remove("extensions");
+            root["materials"]![0]!["normalTexture"]!["texCoord"] = 1; Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "rigid secondary UV maps are rejected");
+            root["materials"]![0]!["normalTexture"]!.AsObject().Remove("texCoord");
+            root["materials"]![0]!["normalTexture"]!["index"] = 1; Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "rigid companion sampler mismatch is rejected");
+            root["materials"]![0]!["normalTexture"]!["index"] = 0;
+            root["images"]![0]!["uri"] = "external.png"; Write();
+            ExpectInvalid(() => CharacterRigidModelLoader.Load(asset), "rigid external images are rejected");
+        }
+
+        private static bool Near(Vector3 a, Vector3 b)
+            => Vector3.DistanceSquared(a, b) < 0.000001f;
+        private static bool Near(Vector2 a, Vector2 b)
+            => Vector2.DistanceSquared(a, b) < 0.000001f;
+
+        private static void Check(bool condition, string name)
+        {
+            if (!condition) throw new InvalidOperationException(name);
+        }
+
+        private static void ExpectInvalid(Action action, string name)
+        {
+            try
+            {
+                action();
+                throw new InvalidOperationException(name + " (accepted invalid input)");
+            }
+            catch (InvalidDataException)
+            {
+            }
+        }
+
+        private static void WriteWeightedTriangleGlb(string path)
+        {
+            using var binary = new MemoryStream();
+            using (var data = new BinaryWriter(binary, Encoding.UTF8, leaveOpen: true))
+            {
+                foreach (float value in new float[]
+                {
+                    0,0,0, 1,0,0, 0,1,0
+                }) data.Write(value);
+                foreach (float value in new float[]
+                {
+                    0,0,1, 0,0,1, 0,0,1
+                }) data.Write(value);
+                foreach (float value in new float[]
+                {
+                    0,0, 1,0, 0,1
+                }) data.Write(value);
+
+                // JOINTS_0: Body, Body/Arm blend, Arm.
+                foreach (byte value in new byte[]
+                {
+                    0,0,0,0, 0,1,0,0, 1,0,0,0
+                }) data.Write(value);
+                // WEIGHTS_0 normalized UBYTE.
+                foreach (byte value in new byte[]
+                {
+                    255,0,0,0, 128,127,0,0, 255,0,0,0
+                }) data.Write(value);
+
+                data.Write((ushort)0);
+                data.Write((ushort)1);
+                data.Write((ushort)2);
+                data.Write((ushort)0); // alignment padding before MAT4 data
+
+                for (int matrix = 0; matrix < 2; matrix++)
+                {
+                    foreach (float value in new float[]
+                    {
+                        1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1
+                    }) data.Write(value);
+                }
+            }
+            byte[] binaryBytes = binary.ToArray();
+            if (binaryBytes.Length != 256)
+                throw new InvalidOperationException("Synthetic Weighted4 GLB layout changed.");
+
+            string json = """
+                {
+                  "asset":{"version":"2.0"},
+                  "buffers":[{"byteLength":256}],
+                  "bufferViews":[
+                    {"buffer":0,"byteOffset":0,"byteLength":36},
+                    {"buffer":0,"byteOffset":36,"byteLength":36},
+                    {"buffer":0,"byteOffset":72,"byteLength":24},
+                    {"buffer":0,"byteOffset":96,"byteLength":12},
+                    {"buffer":0,"byteOffset":108,"byteLength":12},
+                    {"buffer":0,"byteOffset":120,"byteLength":6},
+                    {"buffer":0,"byteOffset":128,"byteLength":128}
+                  ],
+                  "accessors":[
+                    {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                    {"bufferView":1,"componentType":5126,"count":3,"type":"VEC3"},
+                    {"bufferView":2,"componentType":5126,"count":3,"type":"VEC2"},
+                    {"bufferView":3,"componentType":5121,"count":3,"type":"VEC4"},
+                    {"bufferView":4,"componentType":5121,"normalized":true,"count":3,"type":"VEC4"},
+                    {"bufferView":5,"componentType":5123,"count":3,"type":"SCALAR"},
+                    {"bufferView":6,"componentType":5126,"count":2,"type":"MAT4"}
+                  ],
+                  "materials":[{"name":"BodyMat"}],
+                  "meshes":[{"primitives":[{
+                    "attributes":{
+                      "POSITION":0,"NORMAL":1,"TEXCOORD_0":2,
+                      "JOINTS_0":3,"WEIGHTS_0":4
+                    },
+                    "indices":5,
+                    "material":0
+                  }]}],
+                  "skins":[{"joints":[0,1],"inverseBindMatrices":6}],
+                  "nodes":[
+                    {"name":"Body"},
+                    {"name":"Arm"},
+                    {"name":"WeightedMesh","mesh":0,"skin":0}
+                  ]
+                }
+                """;
+            WriteGlb(path, json, binaryBytes);
+        }
+
+        private static void WriteGlb(string path, string json, byte[] binaryBytes)
+        {
+            byte[] jsonBytes = Encoding.UTF8.GetBytes(json);
+            int jsonLength = (jsonBytes.Length + 3) & ~3;
+            int binLength = (binaryBytes.Length + 3) & ~3;
+            int totalLength = checked(12 + 8 + jsonLength + 8 + binLength);
+            using var stream = File.Create(path);
+            using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: false);
+            writer.Write(0x46546C67u);
+            writer.Write(2u);
+            writer.Write((uint)totalLength);
+            writer.Write((uint)jsonLength);
+            writer.Write(0x4E4F534Au);
+            writer.Write(jsonBytes);
+            for (int i = jsonBytes.Length; i < jsonLength; i++) writer.Write((byte)' ');
+            writer.Write((uint)binLength);
+            writer.Write(0x004E4942u);
+            writer.Write(binaryBytes);
+            for (int i = binaryBytes.Length; i < binLength; i++) writer.Write((byte)0);
+        }
+
+        private static void WriteTriangleGlb(string path)
+        {
+            using var binary = new MemoryStream();
+            using (var data = new BinaryWriter(binary, Encoding.UTF8, leaveOpen: true))
+            {
+                // POSITION
+                foreach (float value in new float[]
+                {
+                    0,0,0, 1,0,0, 0,1,0
+                }) data.Write(value);
+                // NORMAL
+                foreach (float value in new float[]
+                {
+                    0,0,1, 0,0,1, 0,0,1
+                }) data.Write(value);
+                // TEXCOORD_0
+                foreach (float value in new float[]
+                {
+                    0,0, 1,0, 0,1
+                }) data.Write(value);
+                // indices
+                data.Write((ushort)0);
+                data.Write((ushort)1);
+                data.Write((ushort)2);
+            }
+            byte[] binaryBytes = binary.ToArray();
+            const int bufferLength = 102;
+            if (binaryBytes.Length != bufferLength)
+                throw new InvalidOperationException("Synthetic character GLB layout changed.");
+
+            string json = """
+                {
+                  "asset":{"version":"2.0"},
+                  "buffers":[{"byteLength":102}],
+                  "bufferViews":[
+                    {"buffer":0,"byteOffset":0,"byteLength":36},
+                    {"buffer":0,"byteOffset":36,"byteLength":36},
+                    {"buffer":0,"byteOffset":72,"byteLength":24},
+                    {"buffer":0,"byteOffset":96,"byteLength":6}
+                  ],
+                  "accessors":[
+                    {"bufferView":0,"componentType":5126,"count":3,"type":"VEC3"},
+                    {"bufferView":1,"componentType":5126,"count":3,"type":"VEC3"},
+                    {"bufferView":2,"componentType":5126,"count":3,"type":"VEC2"},
+                    {"bufferView":3,"componentType":5123,"count":3,"type":"SCALAR"}
+                  ],
+                  "materials":[{"name":"BodyMat"}],
+                  "meshes":[{"primitives":[{
+                    "attributes":{"POSITION":0,"NORMAL":1,"TEXCOORD_0":2},
+                    "indices":3,
+                    "material":0
+                  }]}],
+                  "nodes":[{"name":"Body","mesh":0}]
+                }
+                """;
+            WriteGlb(path, json, binaryBytes);
+        }
+    }
+}

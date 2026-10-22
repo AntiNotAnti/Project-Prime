@@ -1,0 +1,232 @@
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using MphRead.Mods.Replay;
+
+namespace MphRead.Mods.Network;
+
+/// <summary>Durable sink for the same accepted facts used by passive playback.
+/// V4 adds an exact initial world; subsequent records retain the v3 chunk/index
+/// envelope. No packet-arrival buffer or second gameplay recorder is involved.</summary>
+internal static class ReplayTimelineArchive
+{
+    // File-only quiet-frame marker; never sent over a network connection.
+    private static readonly byte[] FrameMarker = [255];
+    internal static ReplayMetadata Metadata(PassiveReplayScene world, ReplayType type)
+    {
+        var match = world.State.Match ?? throw new InvalidDataException("Replay has no match.");
+        if (world.State.CustomWeapons != null)
+        {
+            using var custom = ReplayWorldCheckpoint.CaptureCustom(world);
+            var metadata = custom.ClipMetadata(0, Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))
+                .Where(p => p.Occupant.Generation != 0).Select(p => new ReplayPlayerInfo((byte)p.Slot, (byte)p.Occupant.Hunter,
+                    p.Occupant.Team, p.Occupant.Name, p.Occupant.IsBot, p.Occupant.BotLevel)).ToArray(), type,
+                customFormatVersion: world.Session.Metadata?.FormatVersion == 8 ? (byte)8 : (byte)7);
+            return metadata;
+        }
+        using var checkpoint = ReplayWorldCheckpoint.Capture(world, world.Session.RecordingFrame);
+        return new ReplayMetadata
+        {
+            FormatVersion = world.State.TimedShots.Enabled ? (byte)6 : (byte)4,
+            TimedShotCertificates = world.State.TimedShots.Enabled,
+            Type = type, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+            MapHash = world.MapHash, OriginRecordingFrame = world.Session.RecordingFrame,
+            WorldCheckpoint = checkpoint.Bytes.ToArray(),
+            Players = Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))
+                .Where(p => p.Occupant.Generation != 0)
+                .Select(p => new ReplayPlayerInfo((byte)p.Slot, (byte)p.Occupant.Hunter,
+                    p.Occupant.Team, p.Occupant.Name, p.Occupant.IsBot, p.Occupant.BotLevel)).ToArray()
+        };
+    }
+    internal static void Write(ReplayWriterV3 writer, ReplayTimelineRecord record, uint origin)
+    {
+        if (record.Kind == ReplayFactKind.CustomWeapon && !writer.HasCustomWeaponContract)
+            throw new InvalidDataException("Custom facts require an explicit format7 archive contract.");
+        if (record.RecordingFrame < origin) return;
+        uint frame = record.RecordingFrame - origin;
+        if (record.Kind == ReplayFactKind.CustomWeapon || frame > 0 && record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation)
+            writer.WriteRecord(frame, record.Payload);
+        if (record.Marker is { } marker)
+        {
+            writer.WriteRecord(frame, EncodeMarker(record.ServerTick, marker));
+            if (EventType(marker.Kind) is { } type) writer.WriteEvent(new(frame, type, marker.Actor, marker.Target, marker.Value));
+        }
+    }
+    internal static ReadOnlySpan<byte> PhasePayload(ReplayTimelineRecord record)
+    {
+        if (record.Marker is { } marker)
+        {
+            if (record.Kind != ReplayFactKind.Event || !record.Payload.IsEmpty)
+                throw new InvalidDataException("A phase marker must be an explicit semantic fact.");
+            return EncodeMarker(record.ServerTick, marker);
+        }
+        if (record.Payload.IsEmpty || record.Kind is not (ReplayFactKind.Match or ReplayFactKind.Roster
+            or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld
+            or ReplayFactKind.Presentation or ReplayFactKind.CustomWeapon))
+            throw new InvalidDataException("Only accepted canonical facts can enter a capture phase.");
+        return record.Payload;
+    }
+    internal static void WritePostWorld(ReplayWriterV3 writer, ReplayTimelineRecord record,
+        uint origin, ReplayCustomWeaponContext context)
+    {
+        if (!writer.HasCustomWeaponContract || record.RecordingFrame < origin)
+            throw new InvalidDataException("Post-world storage requires its exact custom recording origin.");
+        uint frame = record.RecordingFrame - origin;
+        writer.WriteRecord(frame, ReplayPostWorldRecord.Encode(PhasePayload(record), context));
+        if (record.Marker is { } marker && EventType(marker.Kind) is { } type)
+            writer.WriteEvent(new(frame, type, marker.Actor, marker.Target, marker.Value));
+    }
+    // File-only compressed construction decoder for faithful v2 extraction.
+    // It preserves the legacy preflight roster/rules even for clips shorter
+    // than that preflight, without including future gameplay in the clip.
+    internal static byte[] Construction(ReplayReplicaState state)
+        => Construction(state.CaptureCheckpoint());
+    internal static byte[] Construction(ReplayReplicaCheckpoint checkpoint)
+    {
+        using var buffer = new MemoryStream(); buffer.WriteByte(253);
+        using (var compressed = new DeflateStream(buffer, CompressionLevel.SmallestSize, leaveOpen: true))
+            compressed.Write(checkpoint.Bytes);
+        return buffer.ToArray();
+    }
+    internal static ReplayReplicaCheckpoint ReadConstruction(ReadOnlySpan<byte> packet, bool custom = false)
+    {
+        if (packet.Length < 2 || packet[0] != 253 || packet.Length > (custom ? ReplayFormatV3.MaxCustomConstruction : ReplayFormatV3.MaxTimedConstruction))
+            throw new InvalidDataException("Invalid replay construction packet.");
+        using var input = new MemoryStream(packet[1..].ToArray());
+        using var compressed = new DeflateStream(input, CompressionMode.Decompress);
+        int maximum = custom ? ReplayReplicaCheckpoint.MaximumCustomBytes : ReplayReplicaCheckpoint.MaximumBytes;
+        byte[] bytes = new byte[maximum + 1];
+        int length = 0, read;
+        while (length < bytes.Length && (read = compressed.Read(bytes, length, bytes.Length - length)) != 0) length += read;
+        if (length > maximum) throw new InvalidDataException("Oversized replay construction decoder.");
+        return new(bytes.AsSpan(0, length));
+    }
+    internal static void EndFrame(ReplayWriterV3 writer, uint frame) => writer.WriteRecord(frame, FrameMarker);
+    internal static ReplayEventType? EventType(ReplayMarkerKind kind) => kind switch
+    {
+        ReplayMarkerKind.Kill => ReplayEventType.Kill,
+        ReplayMarkerKind.Death => ReplayEventType.PlayerDeath,
+        ReplayMarkerKind.Spawn => ReplayEventType.PlayerSpawn,
+        ReplayMarkerKind.Damage => ReplayEventType.Damage,
+        ReplayMarkerKind.Score => ReplayEventType.ScoreChanged,
+        ReplayMarkerKind.Join => ReplayEventType.PlayerJoined,
+        ReplayMarkerKind.Leave => ReplayEventType.PlayerLeft,
+        ReplayMarkerKind.MatchEnd => ReplayEventType.MatchEnded,
+        ReplayMarkerKind.MatchStart => ReplayEventType.MatchStarted,
+        ReplayMarkerKind.WeaponFired => ReplayEventType.WeaponFired,
+        ReplayMarkerKind.Objective => ReplayEventType.Objective,
+        ReplayMarkerKind.Headshot => ReplayEventType.Headshot,
+        ReplayMarkerKind.FlagCapture => ReplayEventType.FlagCapture,
+        ReplayMarkerKind.NodeCapture => ReplayEventType.NodeCapture,
+        ReplayMarkerKind.PrimeChange => ReplayEventType.PrimeChanged,
+        ReplayMarkerKind.MatchPoint => ReplayEventType.MatchPoint,
+        ReplayMarkerKind.Overtime => ReplayEventType.Overtime,
+        ReplayMarkerKind.RelicPickup => ReplayEventType.RelicPickup,
+        ReplayMarkerKind.RelicDrop => ReplayEventType.RelicDrop,
+        ReplayMarkerKind.HardpointChanged => ReplayEventType.HardpointChanged,
+        ReplayMarkerKind.HardpointCaptured => ReplayEventType.HardpointCaptured,
+        ReplayMarkerKind.GunGameAdvance => ReplayEventType.GunGameAdvance,
+        ReplayMarkerKind.TokenSpawn => ReplayEventType.TokenSpawn,
+        ReplayMarkerKind.TokenConfirmed => ReplayEventType.TokenConfirmed,
+        ReplayMarkerKind.TokenDenied => ReplayEventType.TokenDenied,
+        ReplayMarkerKind.TokenBanked => ReplayEventType.TokenBanked,
+        _ => null
+    };
+    // File-only semantic facts retain exact identity even though the legacy
+    // Studio event index intentionally remains a compact coarse projection.
+    internal static byte[] EncodeMarker(uint tick, ReplayMarker marker)
+    {
+        using var buffer = new MemoryStream(); using var writer = new BinaryWriter(buffer);
+        writer.Write((byte)254); writer.Write((byte)2); writer.Write(tick);
+        writer.Write((byte)marker.Kind); writer.Write(marker.Actor); writer.Write(marker.Target);
+        writer.Write(marker.Value); writer.Write(marker.Weapon); writer.Write(marker.DamageFlags);
+        writer.Write(marker.Kill.HasValue);
+        if (marker.Kill is { } kill)
+        {
+            writer.Write(kill.MatchId); writer.Write(kill.AuthorityEpoch); writer.Write(kill.ServerTick);
+            writer.Write(kill.EventId); writer.Write(kill.KillerSlot); writer.Write(kill.KillerGeneration);
+            writer.Write(kill.VictimSlot); writer.Write(kill.VictimGeneration); writer.Write(kill.VictimLifeId);
+            writer.Write(kill.KillerLifeId);
+        }
+        return buffer.ToArray();
+    }
+    internal static ReplayTimelineRecord DecodeMarker(uint frame, byte[] bytes)
+    {
+        using var reader = new BinaryReader(new MemoryStream(bytes, writable: false));
+        if (reader.ReadByte() != 254) throw new InvalidDataException("Unknown replay semantic fact.");
+        byte version = reader.ReadByte();
+        if (version is not (1 or 2)) throw new InvalidDataException("Unknown replay semantic fact.");
+        uint tick = reader.ReadUInt32();
+        var kind = (ReplayMarkerKind)reader.ReadByte(); byte actor = reader.ReadByte(), target = reader.ReadByte();
+        int value = reader.ReadInt32(); byte weapon = reader.ReadByte(), flags = reader.ReadByte(), hasKill = reader.ReadByte();
+        if (!Enum.IsDefined(kind) || actor != byte.MaxValue && actor >= 8 || target != byte.MaxValue && target >= 8 || hasKill > 1)
+            throw new InvalidDataException("Invalid replay semantic identity.");
+        ReplayKillIdentity? kill = null;
+        if (hasKill != 0)
+        {
+            ushort match = reader.ReadUInt16(); ulong epoch = reader.ReadUInt64(); uint serverTick = reader.ReadUInt32();
+            ushort eventId = reader.ReadUInt16(); byte killer = reader.ReadByte(); ushort killerGeneration = reader.ReadUInt16();
+            byte victim = reader.ReadByte(); ushort victimGeneration = reader.ReadUInt16(); ushort victimLife = reader.ReadUInt16();
+            ushort killerLife = version >= 2 ? reader.ReadUInt16() : (ushort)0;
+            kill = new(match, epoch, serverTick, eventId, killer, killerGeneration, victim,
+                victimGeneration, victimLife, killerLife);
+        }
+        if (reader.BaseStream.Position != bytes.Length || kill is { } k && (k.KillerSlot >= 8 || k.VictimSlot >= 8))
+            throw new InvalidDataException("Invalid replay semantic fact length/slot.");
+        return new(frame, tick, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty, new(kind, actor, target, value, kill, weapon, flags));
+    }
+    // The existing v4 hidden lead-in carries the interval from the retained
+    // checkpoint to the visible start. Saving needs no reconstruction or new Scene.
+    internal static void SaveFrozen(ReplayTimelineClip clip, string path)
+    {
+        using var checkpoint = PassiveReplayScene.Checkpoint(clip);
+        var players = new System.Collections.Generic.List<ReplayPlayerInfo>(8);
+        RosterPacket? visibleRoster = null;
+        foreach (var record in clip.RestorePoint.Records)
+            if (record.Kind == ReplayFactKind.Roster && RosterPacket.TryRead(record.Payload[1..], out var roster)) visibleRoster = roster;
+        foreach (var record in clip.Records)
+        {
+            if (record.RecordingFrame > clip.StartRecordingFrame) break;
+            if (record.Kind == ReplayFactKind.Roster && RosterPacket.TryRead(record.Payload[1..], out var roster)) visibleRoster = roster;
+        }
+        if (checkpoint.HasCustomWeaponContract && visibleRoster == null)
+        {
+            var state = new ReplayReplicaState(); state.RestoreCustomCheckpoint(checkpoint.DecoderState());
+            for (int slot = 0; slot < 8; slot++)
+            {
+                var occupant = state.Occupant(slot);
+                if (occupant.Generation != 0) players.Add(new((byte)slot, (byte)occupant.Hunter,
+                    occupant.Team, occupant.Name, occupant.IsBot, occupant.BotLevel));
+            }
+        }
+        if (visibleRoster is { } visible)
+            for (int i = 0; i < visible.Count; i++)
+                players.Add(new(visible.Slots[i], visible.Hunters[i], visible.Teams[i], visible.Names[i]));
+        Save(clip, checkpoint.ClipMetadata(checked(clip.StartRecordingFrame - checkpoint.Frame), players,
+            customFormatVersion: clip.CustomArchiveFormat == 8 ? (byte)8 : (byte)7), path);
+    }
+    internal static void Save(ReplayTimelineClip clip, PassiveReplayScene start, string path)
+    {
+        if (start.Session.CurrentFrame != clip.StartRecordingFrame)
+            throw new InvalidOperationException("The clip must warm up to its exact visible start before saving.");
+        Save(clip, Metadata(start, ReplayType.Clip), path);
+    }
+    internal static void Save(ReplayTimelineClip clip, ReplayMetadata metadata, string path)
+    {
+        using var writer = new ReplayWriterV3(path, metadata);
+        try
+        {
+            var context = metadata.FormatVersion == 8 ? metadata.CustomWeapons!.InspectContext() : null;
+            if (metadata.CustomWeapons == null) EndFrame(writer, 0);
+            foreach (var record in clip.Records)
+            {
+                if (metadata.FormatVersion == 8 && record.CapturePhase == ReplayCapturePhase.PostWorld)
+                    WritePostWorld(writer, record, metadata.OriginRecordingFrame, context!);
+                else Write(writer, record, metadata.OriginRecordingFrame);
+            }
+            EndFrame(writer, clip.EndRecordingFrame - metadata.OriginRecordingFrame);
+        }
+        catch { writer.Abort(); throw; }
+    }
+}

@@ -1,0 +1,767 @@
+{
+  "format": 1,
+  "date": "2026-10-01",
+  "scope": "Local F3 scene comparison, application capture and synthetic lifecycle validation; not cross-platform acceptance",
+  "engineBase": "e80098f4",
+  "measurementCommit": "dea28681",
+  "platform": "macOS 27.0.0",
+  "adapter": "Apple M4 Pro",
+  "renderDefaultChanged": false,
+  "scene": "MP3 PROVING GROUND",
+  "width": 1920,
+  "height": 1080,
+  "sceneComparison": {
+    "passes": 24,
+    "total": 24,
+    "limits": {
+      "mean": 0.06,
+      "structural": 0.08,
+      "fractionOver10Percent": 0.1,
+      "rmse": 1.0,
+      "maximum": 1.0
+    },
+    "images": [
+      {
+        "image": "bloom.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0013694600782699913,
+        "structural": 0.0010924096200980395,
+        "fractionOver10Percent": 0.0013223379629629629,
+        "rmse": 0.007013022347166675,
+        "maximum": 0.47843137254901963
+      },
+      {
+        "image": "cel.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0009135203592753974,
+        "structural": 0.0008948631535947712,
+        "fractionOver10Percent": 0.004203317901234568,
+        "rmse": 0.006883832234054057,
+        "maximum": 0.3686274509803922
+      },
+      {
+        "image": "contact-shadows.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0013555440823448722,
+        "structural": 0.0010962392769607845,
+        "fractionOver10Percent": 0.0012914737654320988,
+        "rmse": 0.006958405626677553,
+        "maximum": 0.5215686274509804
+      },
+      {
+        "image": "dynamic-glow.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0014029133129589283,
+        "structural": 0.0011303870506535949,
+        "fractionOver10Percent": 0.0014443479938271604,
+        "rmse": 0.00728237864934635,
+        "maximum": 0.49019607843137253
+      },
+      {
+        "image": "extreme.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0010255953461631565,
+        "structural": 0.0009309257557189541,
+        "fractionOver10Percent": 0.0007060185185185185,
+        "rmse": 0.005239535820368544,
+        "maximum": 0.17647058823529413
+      },
+      {
+        "image": "filtering.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.004137795781893004,
+        "structural": 0.004093264910130719,
+        "fractionOver10Percent": 0.020048707561728395,
+        "rmse": 0.02073063098635356,
+        "maximum": 0.3176470588235294
+      },
+      {
+        "image": "fog.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0013604233488662956,
+        "structural": 0.0010924096200980395,
+        "fractionOver10Percent": 0.0013199266975308641,
+        "rmse": 0.00700698147076045,
+        "maximum": 0.5372549019607843
+      },
+      {
+        "image": "fxaa-high.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0018682812373920761,
+        "structural": 0.001208575878267974,
+        "fractionOver10Percent": 0.001515721450617284,
+        "rmse": 0.007990860016602156,
+        "maximum": 0.37254901960784315
+      },
+      {
+        "image": "fxaa.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0019511449255628177,
+        "structural": 0.0012283624387254904,
+        "fractionOver10Percent": 0.0019410686728395061,
+        "rmse": 0.008847890014842187,
+        "maximum": 0.45098039215686275
+      },
+      {
+        "image": "hdr.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.002607642671266037,
+        "structural": 0.0016470715890522876,
+        "fractionOver10Percent": 0.0009437692901234568,
+        "rmse": 0.008275857773972998,
+        "maximum": 0.37254901960784315
+      },
+      {
+        "image": "pbr-albedo.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0018906142832647462,
+        "structural": 0.0014223983864379084,
+        "fractionOver10Percent": 0.0024522569444444444,
+        "rmse": 0.008992407030165517,
+        "maximum": 0.4470588235294118
+      },
+      {
+        "image": "pbr-material.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0,
+        "structural": 0.0,
+        "fractionOver10Percent": 0.0,
+        "rmse": 0.0,
+        "maximum": 0.0
+      },
+      {
+        "image": "pbr-normal.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0,
+        "structural": 0.0,
+        "fractionOver10Percent": 0.0,
+        "rmse": 0.0,
+        "maximum": 0.0
+      },
+      {
+        "image": "pbr.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0009980388374485596,
+        "structural": 0.0008039088031045752,
+        "fractionOver10Percent": 0.00023726851851851852,
+        "rmse": 0.005048085066106643,
+        "maximum": 0.29411764705882354
+      },
+      {
+        "image": "reflections.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0013625225681836522,
+        "structural": 0.001089218239379085,
+        "fractionOver10Percent": 0.0013011188271604937,
+        "rmse": 0.006971501854460253,
+        "maximum": 0.5372549019607843
+      },
+      {
+        "image": "shadow-high.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0011608789992334381,
+        "structural": 0.0009309257557189541,
+        "fractionOver10Percent": 0.0010821759259259259,
+        "rmse": 0.0062920734724649435,
+        "maximum": 0.5372549019607843
+      },
+      {
+        "image": "shadow-low.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0011638052983539095,
+        "structural": 0.000938265931372549,
+        "fractionOver10Percent": 0.0010353973765432098,
+        "rmse": 0.006276383573815413,
+        "maximum": 0.5372549019607843
+      },
+      {
+        "image": "shadow-ultra.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0011569472181876866,
+        "structural": 0.0009347554125816992,
+        "fractionOver10Percent": 0.0010628858024691358,
+        "rmse": 0.006261518467084284,
+        "maximum": 0.5372549019607843
+      },
+      {
+        "image": "sharpen.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0016746279401678365,
+        "structural": 0.0011023029003267976,
+        "fractionOver10Percent": 0.002192804783950617,
+        "rmse": 0.008589358724821524,
+        "maximum": 0.6274509803921569
+      },
+      {
+        "image": "smaa.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.002463078325465989,
+        "structural": 0.0013566559436274511,
+        "fractionOver10Percent": 0.0019261188271604938,
+        "rmse": 0.008713919641662357,
+        "maximum": 0.4196078431372549
+      },
+      {
+        "image": "ssao.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0013171674534011133,
+        "structural": 0.0010598575367647058,
+        "fractionOver10Percent": 0.0010807291666666667,
+        "rmse": 0.006717604613631779,
+        "maximum": 0.5294117647058824
+      },
+      {
+        "image": "taa.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0013604233488662956,
+        "structural": 0.0010924096200980395,
+        "fractionOver10Percent": 0.0013199266975308641,
+        "rmse": 0.00700698147076045,
+        "maximum": 0.5372549019607843
+      },
+      {
+        "image": "volumetric-fog.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.0013548727104010327,
+        "structural": 0.0010802823733660131,
+        "fractionOver10Percent": 0.0013155864197530863,
+        "rmse": 0.006961310275127433,
+        "maximum": 0.5333333333333333
+      },
+      {
+        "image": "world-hud.png",
+        "limits": {
+          "mean": 0.06,
+          "structural": 0.08,
+          "fractionOver10Percent": 0.1,
+          "rmse": 1.0,
+          "maximum": 1.0
+        },
+        "passed": true,
+        "mean": 0.004278786411684015,
+        "structural": 0.004077627144607843,
+        "fractionOver10Percent": 0.020264756944444445,
+        "rmse": 0.021019209273718673,
+        "maximum": 0.5098039215686274
+      }
+    ]
+  },
+  "applicationCaptures": {
+    "OpenGL": 31,
+    "Metal": 31,
+    "scope": "Actual Shell.AfterDraw capture, after world/HUD/overlay/hunter, before Present. Animated sequence; not frozen parity goldens."
+  },
+  "nativeMetalChecks": [
+    "synthetic final-composite pixels/orientation/state restoration",
+    "120-cycle bounded resize/resource no-growth, including bind groups",
+    "injected device reconstruction/resource restoration",
+    "failed recovery to fresh OpenGL context",
+    "HDR/texture patches/scissored blit"
+  ],
+  "benchmarkConditions": "Frozen scene, Extreme, 20 warmup and 1200 samples per case. Other compilation work was active. Synchronous completed-frame and CPU-submission timings exclude Present, not GPU timestamp timings. OpenGL emitted one unloadable sampler warning. Observational measurements, not quiet-system release performance acceptance.",
+  "benchmarks": {
+    "OpenGL": {
+      "requestedBackend": "OpenGL",
+      "actualBackend": "OpenGL",
+      "adapter": "Apple M4 Pro",
+      "driver": "2.1 Metal - 91.7",
+      "platform": "macOS 27.0.0",
+      "room": "MP3 PROVING GROUND",
+      "preset": "Extreme",
+      "notes": "Frozen scene; 20 warmup + 1200 samples. Completed time includes synchronous GPU completion, excludes present. Upload submission time includes flushing preceding draws, not GPU transfer duration. Storage estimates cover tracked textures and pooled buffers, not driver VRAM. GPU timestamps unavailable: the pinned native C ABI does not expose timestamp-period conversion. Short runs are smoke checks; longer hardware runs required for release acceptance.",
+      "startup": null,
+      "results": [
+        {
+          "requestedWidth": 1920,
+          "requestedHeight": 1080,
+          "width": 1920,
+          "height": 1080,
+          "scale": 75,
+          "samples": 1200,
+          "warmup": null,
+          "measurement": null,
+          "averageCompletedMs": 8.297720333333354,
+          "cpuSubmissionMs": 8.139683916666662,
+          "p99CompletedMs": 9.3045,
+          "p999CompletedMs": 9.6918,
+          "onePercentLowFps": 105.01958615281748,
+          "pointOnePercentLowFps": 99.5713453582328,
+          "resources": "OpenGL"
+        },
+        {
+          "requestedWidth": 1920,
+          "requestedHeight": 1080,
+          "width": 1920,
+          "height": 1080,
+          "scale": 100,
+          "samples": 1200,
+          "warmup": null,
+          "measurement": null,
+          "averageCompletedMs": 9.043444333333326,
+          "cpuSubmissionMs": 8.88948750000001,
+          "p99CompletedMs": 11.165,
+          "p999CompletedMs": 12.2936,
+          "onePercentLowFps": 86.33615268836391,
+          "pointOnePercentLowFps": 81.11319752280295,
+          "resources": "OpenGL"
+        },
+        {
+          "requestedWidth": 2560,
+          "requestedHeight": 1440,
+          "width": 2560,
+          "height": 1440,
+          "scale": 75,
+          "samples": 1200,
+          "warmup": null,
+          "measurement": null,
+          "averageCompletedMs": 8.689025666666664,
+          "cpuSubmissionMs": 8.533397166666681,
+          "p99CompletedMs": 10.9257,
+          "p999CompletedMs": 11.4423,
+          "onePercentLowFps": 87.31813270173215,
+          "pointOnePercentLowFps": 75.41620317125134,
+          "resources": "OpenGL"
+        },
+        {
+          "requestedWidth": 2560,
+          "requestedHeight": 1440,
+          "width": 2560,
+          "height": 1440,
+          "scale": 100,
+          "samples": 1200,
+          "warmup": null,
+          "measurement": null,
+          "averageCompletedMs": 9.922509666666665,
+          "cpuSubmissionMs": 9.742846583333346,
+          "p99CompletedMs": 12.91,
+          "p999CompletedMs": 16.4467,
+          "onePercentLowFps": 70.28761104710384,
+          "pointOnePercentLowFps": 60.21430270332112,
+          "resources": "OpenGL"
+        },
+        {
+          "requestedWidth": 3840,
+          "requestedHeight": 2160,
+          "width": 3840,
+          "height": 2160,
+          "scale": 75,
+          "samples": 1200,
+          "warmup": null,
+          "measurement": null,
+          "averageCompletedMs": 10.140159250000004,
+          "cpuSubmissionMs": 9.983784083333335,
+          "p99CompletedMs": 11.6565,
+          "p999CompletedMs": 13.9991,
+          "onePercentLowFps": 80.87991960535992,
+          "pointOnePercentLowFps": 70.82253289706652,
+          "resources": "OpenGL"
+        },
+        {
+          "requestedWidth": 3840,
+          "requestedHeight": 2160,
+          "width": 3840,
+          "height": 2160,
+          "scale": 100,
+          "samples": 1200,
+          "warmup": null,
+          "measurement": null,
+          "averageCompletedMs": 10.188979583333333,
+          "cpuSubmissionMs": 10.047319166666673,
+          "p99CompletedMs": 11.2124,
+          "p999CompletedMs": 11.4685,
+          "onePercentLowFps": 88.00531552105747,
+          "pointOnePercentLowFps": 86.3654814443763,
+          "resources": "OpenGL"
+        }
+      ]
+    },
+    "Metal": {
+      "requestedBackend": "Metal",
+      "actualBackend": "Metal",
+      "adapter": "Apple M4 Pro",
+      "driver": "",
+      "platform": "macOS 27.0.0",
+      "room": "MP3 PROVING GROUND",
+      "preset": "Extreme",
+      "notes": "Frozen scene; 20 warmup + 1200 samples. Completed time includes synchronous GPU completion, excludes present. Upload submission time includes flushing preceding draws, not GPU transfer duration. Storage estimates cover tracked textures and pooled buffers, not driver VRAM. GPU timestamps unavailable: the pinned native C ABI does not expose timestamp-period conversion. Short runs are smoke checks; longer hardware runs required for release acceptance.",
+      "startup": {
+        "PipelinesCreated": 17,
+        "PipelineCreationMs": 18.9744,
+        "LongestPipelineCreationMs": 7.6564,
+        "TextureUploadBytes": 0,
+        "TextureUploadSubmissionMs": 0,
+        "TrackedTextureStorageBytes": 0,
+        "PooledBufferStorageBytes": 0
+      },
+      "results": [
+        {
+          "requestedWidth": 1920,
+          "requestedHeight": 1080,
+          "width": 1920,
+          "height": 1080,
+          "scale": 75,
+          "samples": 1200,
+          "warmup": {
+            "PipelinesCreated": 24,
+            "PipelineCreationMs": 10.222100000000003,
+            "LongestPipelineCreationMs": 0.8,
+            "TextureUploadBytes": 2560512,
+            "TextureUploadSubmissionMs": 19.67519999999999,
+            "TrackedTextureStorageBytes": 151079756,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "measurement": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 4915200,
+            "TextureUploadSubmissionMs": 1046.6065999999935,
+            "TrackedTextureStorageBytes": 151079756,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "averageCompletedMs": 16.609939083333362,
+          "cpuSubmissionMs": 15.002591249999998,
+          "p99CompletedMs": 19.9494,
+          "p999CompletedMs": 20.8016,
+          "onePercentLowFps": 48.87093877408064,
+          "pointOnePercentLowFps": 47.71333826371162,
+          "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, BindGroups = 0, Surfaces = 1 }"
+        },
+        {
+          "requestedWidth": 1920,
+          "requestedHeight": 1080,
+          "width": 1920,
+          "height": 1080,
+          "scale": 100,
+          "samples": 1200,
+          "warmup": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 81920,
+            "TextureUploadSubmissionMs": 16.1512,
+            "TrackedTextureStorageBytes": 161966156,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "measurement": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 4915200,
+            "TextureUploadSubmissionMs": 971.1090000000019,
+            "TrackedTextureStorageBytes": 161966156,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "averageCompletedMs": 16.889884249999987,
+          "cpuSubmissionMs": 14.813066000000013,
+          "p99CompletedMs": 22.9259,
+          "p999CompletedMs": 27.0815,
+          "onePercentLowFps": 39.92514036182158,
+          "pointOnePercentLowFps": 35.66371965463254,
+          "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, BindGroups = 0, Surfaces = 1 }"
+        },
+        {
+          "requestedWidth": 2560,
+          "requestedHeight": 1440,
+          "width": 2560,
+          "height": 1440,
+          "scale": 75,
+          "samples": 1200,
+          "warmup": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 81920,
+            "TextureUploadSubmissionMs": 16.480400000000007,
+            "TrackedTextureStorageBytes": 161966156,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "measurement": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 4915200,
+            "TextureUploadSubmissionMs": 1048.6622000000038,
+            "TrackedTextureStorageBytes": 161966156,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "averageCompletedMs": 19.396235250000018,
+          "cpuSubmissionMs": 15.321542166666658,
+          "p99CompletedMs": 27.7836,
+          "p999CompletedMs": 32.6893,
+          "onePercentLowFps": 33.4381526535264,
+          "pointOnePercentLowFps": 29.400955531054755,
+          "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, BindGroups = 0, Surfaces = 1 }"
+        },
+        {
+          "requestedWidth": 2560,
+          "requestedHeight": 1440,
+          "width": 2560,
+          "height": 1440,
+          "scale": 100,
+          "samples": 1200,
+          "warmup": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 81920,
+            "TextureUploadSubmissionMs": 16.5204,
+            "TrackedTextureStorageBytes": 181319756,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "measurement": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 4915200,
+            "TextureUploadSubmissionMs": 1009.4568999999983,
+            "TrackedTextureStorageBytes": 181319756,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "averageCompletedMs": 18.717334583333386,
+          "cpuSubmissionMs": 15.035909000000014,
+          "p99CompletedMs": 25.7934,
+          "p999CompletedMs": 29.5643,
+          "onePercentLowFps": 35.18984186564811,
+          "pointOnePercentLowFps": 29.019110535242984,
+          "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, BindGroups = 0, Surfaces = 1 }"
+        },
+        {
+          "requestedWidth": 3840,
+          "requestedHeight": 2160,
+          "width": 3840,
+          "height": 2160,
+          "scale": 75,
+          "samples": 1200,
+          "warmup": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 81920,
+            "TextureUploadSubmissionMs": 16.6182,
+            "TrackedTextureStorageBytes": 193070156,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "measurement": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 4915200,
+            "TextureUploadSubmissionMs": 1020.5000000000006,
+            "TrackedTextureStorageBytes": 193070156,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "averageCompletedMs": 19.417042750000043,
+          "cpuSubmissionMs": 14.892106666666638,
+          "p99CompletedMs": 21.7074,
+          "p999CompletedMs": 23.0193,
+          "onePercentLowFps": 44.659637735905235,
+          "pointOnePercentLowFps": 43.35018933195191,
+          "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, BindGroups = 0, Surfaces = 1 }"
+        },
+        {
+          "requestedWidth": 3840,
+          "requestedHeight": 2160,
+          "width": 3840,
+          "height": 2160,
+          "scale": 100,
+          "samples": 1200,
+          "warmup": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 81920,
+            "TextureUploadSubmissionMs": 15.208699999999995,
+            "TrackedTextureStorageBytes": 236615756,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "measurement": {
+            "PipelinesCreated": 0,
+            "PipelineCreationMs": 0,
+            "LongestPipelineCreationMs": 0,
+            "TextureUploadBytes": 4915200,
+            "TextureUploadSubmissionMs": 824.4326999999987,
+            "TrackedTextureStorageBytes": 236615756,
+            "PooledBufferStorageBytes": 2305680
+          },
+          "averageCompletedMs": 22.976084750000016,
+          "cpuSubmissionMs": 13.210762749999997,
+          "p99CompletedMs": 30.2435,
+          "p999CompletedMs": 35.6223,
+          "onePercentLowFps": 31.07364090368363,
+          "pointOnePercentLowFps": 27.7170696959576,
+          "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, BindGroups = 0, Surfaces = 1 }"
+        }
+      ]
+    }
+  },
+  "remainingAcceptance": [
+    "Windows DX12",
+    "native Vulkan/MoltenVK matrix",
+    "physical Android Vulkan/document provider",
+    "long gameplay/replay/spectator/editor resource transition loop",
+    "controlled representative multi-device performance acceptance",
+    "reviewed per-scene thresholds beyond initial coarse defaults"
+  ]
+}

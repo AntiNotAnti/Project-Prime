@@ -1,0 +1,108 @@
+using System;
+using System.Collections.Generic;
+using System.Text.Json.Serialization;
+
+namespace MphRead.Mods.MapGen
+{
+    public sealed class MapTransform
+    {
+        public float[] Position { get; set; } = new float[3];
+        public float[] Rotation { get; set; } = new[] { 0f, 0, 0, 1 };
+        public float[] Scale { get; set; } = new[] { 1f, 1, 1 };
+    }
+
+    public sealed class MapUv
+    {
+        public float[] Scale { get; set; } = new[] { 1f, 1 };
+        public float[] Offset { get; set; } = new float[2];
+        public float Rotation { get; set; }
+    }
+
+    [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+    [JsonDerivedType(typeof(MapBox), "box")]
+    [JsonDerivedType(typeof(MapWedge), "wedge")]
+    [JsonDerivedType(typeof(MapPrism), "prism")]
+    [JsonDerivedType(typeof(MapConvexBrush), "convex")]
+    [JsonDerivedType(typeof(MapBezierPatch), "bezier-patch")]
+    [JsonDerivedType(typeof(MapMesh), "mesh")]
+    public abstract class MapGeometry
+    {
+        public Guid Id { get; set; } = Guid.NewGuid();
+        public string Label { get; set; } = "Geometry";
+        public MapTransform Transform { get; set; } = new();
+        public int Material { get; set; }
+        public bool Solid { get; set; } = true;
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+        public bool SurfSurface { get; set; }
+        public bool Damaging { get; set; }
+        public string Terrain { get; set; } = "Metal";
+        public float Shade { get; set; } = 1;
+        public MapUv Uv { get; set; } = new();
+        public Dictionary<int, MapUv> FaceUv { get; set; } = new();
+        /// <summary>
+        /// Optional exact Quake classic projection and per-face material for
+        /// editable boxes/convex solids. Null preserves all legacy geometry,
+        /// serialization and compiler behavior.
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<MapQuakeFace>? QuakeFaces { get; set; }
+        public bool Hidden { get; set; }
+        public bool Locked { get; set; }
+        public string Layer { get; set; } = "Architecture";
+    }
+    public sealed class MapBox : MapGeometry { }
+    public sealed class MapWedge : MapGeometry { }
+    public sealed class MapPrism : MapGeometry { public int Sides { get; set; } = 6; }
+    public sealed class MapConvexBrush : MapGeometry
+    {
+        public List<float[]> Vertices { get; set; } = new();
+        public List<int[]> Faces { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Native editable quadratic Quake patch control grid (column major).
+    /// Each control point is [Prime x, y, z, original Quake s, t].
+    /// UV controls are retained as source values, not a baked triangle mesh.
+    /// Geometry and surface collision use the same bounded tessellation.
+    /// </summary>
+    public sealed class MapBezierPatch : MapGeometry
+    {
+        public int Columns { get; set; } = 3;
+        public int Rows { get; set; } = 3;
+        public int Tessellation { get; set; } = 3;
+        public List<float[]> ControlPoints { get; set; } = new();
+    }
+
+    public sealed class MapSourceUvFace
+    {
+        public string Contract { get; set; } = Import.EchoesWorldGeometrySource.CoordinateContract;
+        public float[][] Base { get; set; } = Array.Empty<float[]>();
+        public float[][] Lightmap { get; set; } = Array.Empty<float[]>();
+    }
+
+    /// <summary>
+    /// General authored polygon mesh. Unlike ConvexBrush this may be open or
+    /// concave; each face is compiled independently. FaceMaterials is optional
+    /// and falls back to Material when omitted.
+    /// </summary>
+    public sealed class MapMesh : MapGeometry
+    {
+        /// <summary>Authoring-visible collision proxy, omitted from the runtime visual model.</summary>
+        public bool CollisionOnly { get; set; }
+        public int Slipperiness { get; set; }
+        public bool ReflectBeams { get; set; }
+        public bool IgnorePlayers { get; set; }
+        public bool IgnoreBeams { get; set; }
+        public bool IgnoreScan { get; set; }
+        public List<float[]> Vertices { get; set; } = new();
+        public List<int[]> Faces { get; set; } = new();
+        public List<int> FaceMaterials { get; set; } = new();
+        /// <summary>
+        /// Optional source-authored UVs in texels, one float[2] per face
+        /// vertex. Null entries use MapUv projection instead.
+        /// </summary>
+        public List<float[][]?> FaceTexcoords { get; set; } = new();
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public List<MapSourceUvFace?>? SourceUvFaces { get; set; }
+    }
+}

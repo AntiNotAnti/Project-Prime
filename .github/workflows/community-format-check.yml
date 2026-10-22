@@ -1,0 +1,53 @@
+name: Community source format
+
+on:
+  pull_request:
+    paths:
+      - "src/MphRead/Mods/MapGen/QuakeMapInterchange.cs"
+      - "src/MphRead/Mods/MapGen/QuakeConvexHull.cs"
+      - "src/MphRead/Mods/MapGen/Q3Gameplay.cs"
+      - "src/MphRead/Mods/MapGen/Q3Import.cs"
+      - "src/MphRead/Mods/Launcher/Gui/MapStudioQuakeMap.cs"
+      - "tools/community-format-check/**"
+      - "tools/community-patch-package-check/**"
+      - "src/MphRead/Mods/MapGen/Geometry/**"
+      - "src/MphRead/Mods/MapGen/Packaging/**"
+      - "src/MphRead/Mods/MapGen/Validation/MapValidator.cs"
+      - ".github/workflows/community-format-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: community-format-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  map-source-roundtrip:
+    name: Editable Quake source and identity roundtrip
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Compile and verify restricted editable map contract
+        run: dotnet run --project tools/community-format-check -c Release
+
+  package-compatibility:
+    name: Real .ppmap build and exact identity (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Package authoring fixtures and verify strict readback and rollback
+        run: dotnet run --project tools/community-patch-package-check -c Release

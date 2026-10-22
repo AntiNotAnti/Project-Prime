@@ -1,0 +1,42 @@
+{
+  "format": 1,
+  "hunter": "Weavel",
+  "sourceRelative": "models/weavel/weavel_a.glb",
+  "sourceSha256": "af990925fa1dc753522eef6415e0ea7b796887dd29827c63a77b14232f38248a",
+  "bodygroups": [
+    "Weavel.smd",
+    "Handgun.smd"
+  ],
+  "collapsedJoint": "R_elbow",
+  "minimumAverageWeight": 0.5,
+  "mainMaterial": "lambert9",
+  "nativeEffectMaterials": [
+    "core1",
+    "hilights",
+    "glass"
+  ],
+  "sourceAxis": [
+    -0.4010330246380048,
+    -0.46889383279584873,
+    -0.7869632054395631
+  ],
+  "sourceMuzzle": [
+    -0.5711098313331604,
+    -0.2989731729030609,
+    0.6572105288505554
+  ],
+  "idleAnimation": 3,
+  "partition": "native-surface-centroid Voronoi cuts",
+  "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
+  "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
+  "teamRecolorMaterials": [
+    "lambert9"
+  ],
+  "handOnlyBodygroups": [
+    "Weavel.smd"
+  ],
+  "nativeEffectExcludedMaterials": [
+    "hilights"
+  ],
+  "nativeEffectPreservation": "Retain core and glass animation; replace native decorative stripes with Source weapon artwork"
+}

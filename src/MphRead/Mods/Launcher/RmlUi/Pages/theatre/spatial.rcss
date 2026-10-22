@@ -1,0 +1,23 @@
+#replay_spatial_panel { position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); width:760dp; max-width:92%; max-height:92%; overflow-y:auto; box-sizing:border-box; padding:12dp; background-color:#081523; border:1dp #41667f; }
+#replay_spatial_panel p { display:block; white-space:pre-wrap; margin:8dp 0; }
+#replay_heatmap { width:256dp; height:256dp; margin:10dp auto; border:1dp #41667f; }
+.heat_row { display:block; width:256dp; height:16dp; }
+.heat_cell { display:inline-block; width:16dp; height:16dp; }
+.heat_0 { background-color:#101f30; }
+.heat_1 { background-color:#713c37; }
+.heat_2 { background-color:#b95732; }
+.heat_3 { background-color:#ed8c35; }
+.heat_4 { background-color:#ffdc68; }
+
+#replay_heatmap { position:relative; }
+.spatial_ray { position:absolute; width:2dp; height:2dp; background-color:#61ecff; z-index:2; }
+
+#replay_spatial_panel { height:92%; overflow:hidden; display:flex; flex-direction:column; }
+#replay_spatial_header, #replay_spatial_footer { flex-shrink:0; }
+#replay_spatial_header h2 { margin:0 0 4dp; }
+#replay_spatial_panel p { margin:4dp 0; font-size:14dp; }
+#replay_spatial_source { white-space:nowrap; overflow:hidden; }
+#replay_spatial_plot { flex:1; min-height:0; overflow-y:auto; margin:4dp 0; border-top:1dp #294359; border-bottom:1dp #294359; }
+#replay_spatial_panel .theatre_actions { margin:2dp 0; }
+#replay_spatial_panel .play_action { min-height:28dp; padding:5dp 8dp; margin:2dp 4dp 2dp 0; font-size:13dp; }
+#replay_spatial_error { color:#ffbc9f; }

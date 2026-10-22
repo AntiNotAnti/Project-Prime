@@ -1,0 +1,9 @@
+Font IDs font00 through font17 preserve Test10 profile compatibility.
+font18..23: Rubik Italic/Bold Italic, Liberation Sans Narrow Italic,
+Liberation Mono Italic, Caladea Italic, Linux Libertine G Italic.
+Sources: bundled LibreOffice fonts; licenses in LibreOffice-bundled-font-licenses.txt.
+font24..33: Lobster, Great Vibes, Allura, Pacifico, Cinzel Decorative,
+UnifrakturMaguntia, Black Ops One, Monoton, Bungee Shade, Audiowide.
+Source: https://github.com/google/fonts/tree/main/ofl (each lowercase family folder).
+Unmodified original TTFs; SIL Open Font License notices included per family.
+Retrieved October 11, 2026. Gameplay atlases generated using tools/hud-fonts/generate.py.

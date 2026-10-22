@@ -1,0 +1,188 @@
+{
+  "formatVersion": 2,
+  "mapId": "5921dc1f-d901-4f4a-8368-cd1bb47d1000",
+  "name": "TRAVERSAL TRAINING",
+  "inGameName": "Traversal Training",
+  "description": "Original authored movement course with no imported assets. Uphill ramp: x=-30, z=-8..8, y=0..4. Surf and ordinary control: x=-10 and x=10, z=0..8, y=8..0; entry decks extend to z=-24. Tunnel: x=26..34, z=-10..10, clearance 1.2. Mantle lanes face +Z at z=17..21: x=-30 safe, -18 blocked roof, -6 excessive height, 6 narrow support, 18 thin side rail. Main floor is y=0; upright floor position is y=0.5.",
+  "traversalTraining": true,
+  "scaleFactor": 4,
+  "killHeight": -12,
+  "farClip": 180,
+  "fogEnabled": false,
+  "materials": [
+    { "name": "Practice surface", "proceduralWhite": true, "texScale": 4 }
+  ],
+  "geometry": [
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1001",
+      "label": "Safe floor",
+      "transform": { "position": [0, -0.5, 0], "scale": [96, 1, 80] },
+      "shade": 0.6
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1002",
+      "label": "West boundary",
+      "transform": { "position": [-48.5, 6, 0], "scale": [1, 12, 82] },
+      "shade": 0.4
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1003",
+      "label": "East boundary",
+      "transform": { "position": [48.5, 6, 0], "scale": [1, 12, 82] },
+      "shade": 0.4
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1004",
+      "label": "Rear boundary",
+      "transform": { "position": [0, 6, -40.5], "scale": [96, 12, 1] },
+      "shade": 0.4
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1005",
+      "label": "Front boundary",
+      "transform": { "position": [0, 6, 40.5], "scale": [96, 12, 1] },
+      "shade": 0.4
+    },
+    {
+      "kind": "wedge",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1006",
+      "label": "Uphill ramp",
+      "transform": { "position": [-30, 2, 0], "scale": [8, 4, 16] },
+      "shade": 0.9
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1007",
+      "label": "Surf entry deck",
+      "transform": { "position": [-10, 4, -12], "scale": [8, 8, 24] },
+      "shade": 0.75
+    },
+    {
+      "kind": "wedge",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1008",
+      "label": "Tagged surf descent",
+      "surfSurface": true,
+      "transform": { "position": [-10, 4, 4], "rotation": [0, 1, 0, 0], "scale": [8, 8, 8] },
+      "shade": 0.75
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1009",
+      "label": "Ordinary slope entry deck",
+      "transform": { "position": [10, 4, -12], "scale": [8, 8, 24] },
+      "shade": 0.95
+    },
+    {
+      "kind": "wedge",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1010",
+      "label": "Untagged descent control",
+      "transform": { "position": [10, 4, 4], "rotation": [0, 1, 0, 0], "scale": [8, 8, 8] },
+      "shade": 0.95
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1011",
+      "label": "Low tunnel roof",
+      "transform": { "position": [30, 1.7, 0], "scale": [10, 1, 20] },
+      "shade": 0.8
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1012",
+      "label": "Tunnel west side",
+      "transform": { "position": [25.5, 0.6, 0], "scale": [1, 1.2, 20] },
+      "shade": 0.7
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1013",
+      "label": "Tunnel east side",
+      "transform": { "position": [34.5, 0.6, 0], "scale": [1, 1.2, 20] },
+      "shade": 0.7
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1014",
+      "label": "Thin standing-clearance side rail",
+      "transform": { "position": [38.75, 1.25, 27], "scale": [0.56, 0.02, 2] },
+      "shade": 0.8
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1015",
+      "label": "Mantle broad safe ledge",
+      "transform": { "position": [-30, 0.5, 19], "scale": [6, 1, 4] },
+      "shade": 0.9
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1016",
+      "label": "Mantle blocked ledge",
+      "transform": { "position": [-18, 0.5, 19], "scale": [6, 1, 4] },
+      "shade": 0.7
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1017",
+      "label": "Mantle blocked route roof",
+      "transform": { "position": [-18, 2.2, 18], "scale": [6, 0.2, 6] },
+      "shade": 0.5
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1018",
+      "label": "Mantle excessive rise ledge",
+      "transform": { "position": [-6, 1, 19], "scale": [6, 2, 4] },
+      "shade": 0.6
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1019",
+      "label": "Mantle insufficient footprint ledge",
+      "transform": { "position": [6, 0.5, 19], "scale": [0.6, 1, 4] },
+      "shade": 0.6
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1020",
+      "label": "Mantle side rail ledge",
+      "transform": { "position": [18, 0.5, 19], "scale": [6, 1, 4] },
+      "shade": 0.7
+    },
+    {
+      "kind": "box",
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d1021",
+      "label": "Mantle thin raised route side rail",
+      "transform": { "position": [18.49, 2, 17.5], "scale": [0.08, 0.02, 3] },
+      "shade": 0.5
+    }
+  ],
+  "brushes": [
+    {
+      "id": "5921dc1f-d901-4f4a-8368-cd1bb47d9001",
+      "label": "Grapple unsafe first static obstruction",
+      "min": [-39, 0, 31.8],
+      "max": [-37, 3, 32.2],
+      "material": 0,
+      "shade": 0.5,
+      "solid": true,
+      "damaging": true
+    }
+  ],
+  "spawns": [
+    { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2001", "position": [-36, 0.5, -30], "yaw": 0 },
+    { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2002", "position": [36, 0.5, -30], "yaw": 0 },
+    { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2003", "position": [-36, 0.5, 30], "yaw": 180 },
+    { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2004", "position": [36, 0.5, 30], "yaw": 180 },
+    { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2005", "position": [-20, 0.5, 24], "yaw": 180 },
+    { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2006", "position": [20, 0.5, 24], "yaw": 180 },
+    { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2007", "position": [0, 0.5, -32], "yaw": 0 },
+    { "id": "5921dc1f-d901-4f4a-8368-cd1bb47d2008", "position": [0, 0.5, 24], "yaw": 180 }
+  ],
+  "preview": { "position": [-42, 28, -36], "target": [0, 1, 0] }
+}

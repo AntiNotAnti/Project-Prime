@@ -1,0 +1,92 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Linq;
+using System.Threading;
+using MphRead.Formats;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.MapGen;
+
+public sealed record MapPreviewSourceUv(string Contract, ImmutableArray<Vector2> Base,
+    ImmutableArray<Vector2> Lightmap)
+{
+    public static MapPreviewSourceUv? FromSnapshot(MapSourceUvSnapshot? source) => source == null ? null
+        : new(source.Contract, source.Base.ToImmutableArray(), source.Lightmap.ToImmutableArray());
+}
+public sealed record MapPreviewFace(ImmutableArray<Vector3> Points, float Shade, int Material,
+    int SourceMaterial = -1, ImmutableArray<Vector2> Texcoords = default, MapPreviewSourceUv? SourceUv = null);
+public sealed record MapCollisionRepairPreview(MapCollisionRepairKind Kind, float Confidence,
+    string Detail, ImmutableArray<Vector3> Points);
+public sealed record MapCollisionHealthSnapshot(int InputFaces,int OutputFaces,int CanonicalizedFaces,
+    int ConvexifiedFaces,int StitchedVertices,int TJunctions,int RestoredBuriedFaces,int FloorProxies,
+    int PhantomFacesRemoved,int SpawnsMoved,int ItemsMoved,int NavigationNodes,int ReachableNodes,
+    int NavigationComponents,int ReachableComponents,int ProbeCount,int ProbeFailures,int SweepCount,
+    int SweepFailures,int DegenerateFacesRemoved,int OverlappingFaces,int WindingWarnings,
+    int OpenBoundaryEdges,float Confidence);
+
+/// <summary>Immutable analysis shared between waiters. Mutable navigation views are copied.</summary>
+public sealed class MapAnalysisResult
+{
+    public string Fingerprint { get; }
+    public IReadOnlyList<MapDiagnostic> Diagnostics { get; }
+    public IReadOnlyList<MapBudget> Budgets { get; }
+    public ImmutableArray<MapPreviewFace> Faces { get; }
+    public ImmutableArray<MapPreviewFace> CollisionFaces { get; }
+    public int ImportedFaceCount { get; }
+    public int ImportedCollisionFaceCount { get; }
+    public ImmutableArray<MapCollisionRepairPreview> CollisionRepairs { get; }
+    public MapCollisionHealthSnapshot? CollisionHealth { get; }
+    private readonly MapNodePacker.NavigationGraph? _navigation;
+    public bool Succeeded => Diagnostics.All(d => d.Severity != MapDiagnosticSeverity.Error);
+    internal MapAnalysisResult(string key, MapCompilation compilation, bool navigation, CancellationToken cancellation = default)
+    {
+        Fingerprint = key;
+        var validation = new MapValidationResult();
+        validation.Diagnostics.AddRange(compilation.Validation.Diagnostics);
+        validation.Budgets.AddRange(compilation.Validation.Budgets);
+        Faces = compilation.Map?.Faces.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material, f.SourceMaterial, f.Texcoords.ToImmutableArray(), MapPreviewSourceUv.FromSnapshot(f.SourceUv)))
+            .ToImmutableArray() ?? ImmutableArray<MapPreviewFace>.Empty;
+        CollisionFaces = compilation.Map?.Solid.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material, f.SourceMaterial, f.Texcoords.ToImmutableArray(), MapPreviewSourceUv.FromSnapshot(f.SourceUv)))
+            .ToImmutableArray() ?? ImmutableArray<MapPreviewFace>.Empty;
+        ImportedFaceCount = compilation.Map?.ImportedFaceCount ?? 0;
+        ImportedCollisionFaceCount = compilation.Map?.ImportedCollisionFaceCount ?? 0;
+        CollisionRepairs = compilation.Map?.CollisionRepairs.Select(r => new MapCollisionRepairPreview(
+            r.Kind,r.Confidence,r.Detail,r.Points.ToImmutableArray())).ToImmutableArray()
+            ?? ImmutableArray<MapCollisionRepairPreview>.Empty;
+        CollisionHealth = compilation.Map?.CollisionHealth is { } health
+            ? new MapCollisionHealthSnapshot(health.InputFaces,health.OutputFaces,health.CanonicalizedFaces,
+                health.ConvexifiedFaces,health.StitchedVertices,health.TJunctions,health.RestoredBuriedFaces,
+                health.FloorProxies,health.PhantomFacesRemoved,health.SpawnsMoved,health.ItemsMoved,
+                health.NavigationNodes,health.ReachableNodes,health.NavigationComponents,health.ReachableComponents,
+                health.ProbeCount,health.ProbeFailures,health.SweepCount,health.SweepFailures,
+                health.DegenerateFacesRemoved,health.OverlappingFaces,health.WindingWarnings,
+                health.OpenBoundaryEdges,health.Confidence)
+            : null;
+        if (navigation && compilation.Map is BuiltMap map)
+        {
+            try
+            {
+                _navigation = MapNodePacker.Analyze(map.Solid, MapNodePacker.EffectiveLinks(map.Definition), cancellation);
+                MapBudgetValidator.Add(validation, "Navigation nodes", _navigation.Positions.Length, MapNodePacker.MaxNodes);
+                MapBudgetValidator.Add(validation, "Navigation edges", _navigation.Edges);
+                int regions = _navigation.Components.Distinct().Count();
+                if (regions > 1) validation.Warning("FP-MAP-007", $"Navigation contains {regions} disconnected regions.");
+            }
+            catch (MapAuthoringException ex) { validation.Error(ex.Code, ex.Message); }
+        }
+        Diagnostics = Array.AsReadOnly(validation.Diagnostics.ToArray());
+        Budgets = Array.AsReadOnly(validation.Budgets.ToArray());
+    }
+    public MapValidationResult Validation()
+    {
+        var result = new MapValidationResult();
+        result.Diagnostics.AddRange(Diagnostics); result.Budgets.AddRange(Budgets); return result;
+    }
+    public MapNodePacker.NavigationGraph? CreateNavigation() => _navigation is not { } graph ? null : new(
+        (byte[])graph.Bytes.Clone(), (Vector3[])graph.Positions.Clone(),
+        graph.Neighbours.Select(n => (int[])n.Clone()).ToArray(), (int[])graph.Components.Clone(), graph.Edges)
+    {
+        Types=(NodeType[])graph.Types.Clone()
+    };
+}

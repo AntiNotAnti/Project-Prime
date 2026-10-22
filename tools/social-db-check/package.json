@@ -1,0 +1,7 @@
+{
+  "name": "project-prime-social-db-check",
+  "private": true,
+  "type": "module",
+  "scripts": { "test": "node check.mjs" },
+  "dependencies": { "@electric-sql/pglite": "0.5.10" }
+}

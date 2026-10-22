@@ -1,0 +1,162 @@
+<rml>
+<head>
+    <title>Project Prime Hunter Selection</title>
+    <link type="text/template" href="../../components/app-shell.rml"/>
+    <link type="text/rcss" href="native-picker.rcss"/>
+</head>
+<body template="prime-shell">
+<div id="native_hunter_panel" class="hunter-panel native-hunter-panel">
+    <div class="eyebrow">HUNTER SELECTION // NEXT DEPLOYMENT</div>
+    <div class="hunter-heading">
+        <h1 id="native_hunter_name">SELECT YOUR HUNTER</h1>
+        <div class="hunter-status" id="native_hunter_status">APPLY TO EQUIP</div>
+    </div>
+    <div class="hunter-grid">
+        <div id="native_hunter_picker" class="hunter-picker">
+            <div id="native_hunter_options" class="hunter-options">
+                <div class="section-title">PLAYABLE HUNTERS</div>
+                <div id="hunter_switch_hint" class="hint">Choose a Hunter for your next deployment.</div>
+                <div class="hunter-choices">
+                    <button id="hunter_choice0" data-action="hunter:select:0">SAMUS</button>
+                    <button id="hunter_choice1" data-action="hunter:select:1">KANDEN</button>
+                    <button id="hunter_choice2" data-action="hunter:select:2">TRACE</button>
+                    <button id="hunter_choice3" data-action="hunter:select:3">SYLUX</button>
+                    <button id="hunter_choice4" data-action="hunter:select:4">NOXUS</button>
+                    <button id="hunter_choice5" data-action="hunter:select:5">SPIRE</button>
+                    <button id="hunter_choice6" data-action="hunter:select:6">WEAVEL</button>
+                </div>
+                <div class="section-title">SUIT COLOR</div>
+                <div class="hunter-suits">
+                    <button id="hunter_suit0" data-action="hunter:suit:0">SUIT 1</button>
+                    <button id="hunter_suit1" data-action="hunter:suit:1">SUIT 2</button>
+                    <button id="hunter_suit2" data-action="hunter:suit:2">SUIT 3</button>
+                    <button id="hunter_suit3" data-action="hunter:suit:3">SUIT 4</button>
+                </div>
+                <div id="hunter_local_body" style="display:none">
+                    <div class="section-title">LOCAL OFFLINE BODY</div>
+                    <div class="hint">Requires the matching local import. Dark Samus includes a source ball. Dark Samus and Troopers include a Power Beam cannon. Hunters preview, other weapons and unsupported states use native presentation. Online uses your native loadout.</div>
+                    <div class="hunter-suits">
+                        <button id="hunter_body0" data-action="hunter:body-select:0">NATIVE</button>
+                        <button id="hunter_body1" data-action="hunter:body-select:1">DARK SAMUS</button>
+                        <button id="hunter_body2" data-action="hunter:body-select:2">OVERCHARGED</button>
+                        <button id="hunter_body3" data-action="hunter:body-select:3">POWER TROOPER</button>
+                        <button id="hunter_body4" data-action="hunter:body-select:4">ICE TROOPER</button>
+                        <button id="hunter_body5" data-action="hunter:body-select:5">WAVE TROOPER</button>
+                        <button id="hunter_body6" data-action="hunter:body-select:6">PLASMA TROOPER</button>
+                    </div>
+                </div>
+                <div id="hunter_local_drone" style="display:none">
+                    <div class="section-title">PRACTICE DRONE</div>
+                    <div class="hint">Appearance for Scout Drone or Trooper Arsenal practice; requires the matching local import. Unsupported states use the native drone. Select mechanics separately in offline setup. The Hunters preview shows your native alternate form.</div>
+                    <div class="hunter-suits">
+                        <button id="hunter_drone0" data-action="hunter:drone-select:0">NATIVE</button>
+                        <button id="hunter_drone1" data-action="hunter:drone-select:1">ALPHA</button>
+                        <button id="hunter_drone2" data-action="hunter:drone-select:2">GAMMA</button>
+                    </div>
+                </div>
+                <div class="section-title">CUSTOMIZE LOADOUT</div>
+                <div class="hunter-categories" role="group" aria-label="Cosmetic category">
+                    <button id="hunter_category0" data-action="hunter:category:0">SKIN</button>
+                    <button id="hunter_category1" data-action="hunter:category:1">ARMOR</button>
+                    <button id="hunter_category2" data-action="hunter:category:2">BEAM</button>
+                    <button id="hunter_category3" data-action="hunter:category:3">COLOR</button>
+                    <button id="hunter_category4" data-action="hunter:category:4">DEATH</button>
+                </div>
+                <div id="hunter_catalog0" class="hunter-catalog">
+                    <button id="hunter_skin" class="catalog-next" data-action="hunter:skin-next">SKIN</button>
+                    <div id="hunter_skin_description" class="hint cosmetic-description" role="status"/>
+                    <div class="hunter-catalog-choices">
+                        <button id="hunter_skin_option0" class="catalog-option" data-action="hunter:skin-select:0"><span id="hunter_skin_swatch0" class="catalog-swatch"/><span id="hunter_skin_label0">OPTION 1</span></button>
+                        <button id="hunter_skin_option1" class="catalog-option" data-action="hunter:skin-select:1"><span id="hunter_skin_swatch1" class="catalog-swatch"/><span id="hunter_skin_label1">OPTION 2</span></button>
+                        <button id="hunter_skin_option2" class="catalog-option" data-action="hunter:skin-select:2"><span id="hunter_skin_swatch2" class="catalog-swatch"/><span id="hunter_skin_label2">OPTION 3</span></button>
+                        <button id="hunter_skin_option3" class="catalog-option" data-action="hunter:skin-select:3"><span id="hunter_skin_swatch3" class="catalog-swatch"/><span id="hunter_skin_label3">OPTION 4</span></button>
+                        <button id="hunter_skin_option4" class="catalog-option" data-action="hunter:skin-select:4"><span id="hunter_skin_swatch4" class="catalog-swatch"/><span id="hunter_skin_label4">OPTION 5</span></button>
+                        <button id="hunter_skin_option5" class="catalog-option" data-action="hunter:skin-select:5"><span id="hunter_skin_swatch5" class="catalog-swatch"/><span id="hunter_skin_label5">OPTION 6</span></button>
+                        <button id="hunter_skin_option6" class="catalog-option" data-action="hunter:skin-select:6"><span id="hunter_skin_swatch6" class="catalog-swatch"/><span id="hunter_skin_label6">OPTION 7</span></button>
+                    </div>
+                </div>
+                <div id="hunter_catalog1" class="hunter-catalog" style="display:none">
+                    <button id="hunter_armor" class="catalog-next" data-action="hunter:armor-next">ARMOR EFFECT</button>
+                    <div id="hunter_armor_description" class="hint cosmetic-description" role="status"/>
+                    <div class="hunter-catalog-choices">
+                        <button id="hunter_armor_option0" class="catalog-option" data-action="hunter:armor-select:0"><span id="hunter_armor_swatch0" class="catalog-swatch"/><span id="hunter_armor_label0">OPTION 1</span></button>
+                        <button id="hunter_armor_option1" class="catalog-option" data-action="hunter:armor-select:1"><span id="hunter_armor_swatch1" class="catalog-swatch"/><span id="hunter_armor_label1">OPTION 2</span></button>
+                        <button id="hunter_armor_option2" class="catalog-option" data-action="hunter:armor-select:2"><span id="hunter_armor_swatch2" class="catalog-swatch"/><span id="hunter_armor_label2">OPTION 3</span></button>
+                        <button id="hunter_armor_option3" class="catalog-option" data-action="hunter:armor-select:3"><span id="hunter_armor_swatch3" class="catalog-swatch"/><span id="hunter_armor_label3">OPTION 4</span></button>
+                        <button id="hunter_armor_option4" class="catalog-option" data-action="hunter:armor-select:4"><span id="hunter_armor_swatch4" class="catalog-swatch"/><span id="hunter_armor_label4">OPTION 5</span></button>
+                        <button id="hunter_armor_option5" class="catalog-option" data-action="hunter:armor-select:5"><span id="hunter_armor_swatch5" class="catalog-swatch"/><span id="hunter_armor_label5">OPTION 6</span></button>
+                        <button id="hunter_armor_option6" class="catalog-option" data-action="hunter:armor-select:6"><span id="hunter_armor_swatch6" class="catalog-swatch"/><span id="hunter_armor_label6">OPTION 7</span></button>
+                        <button id="hunter_armor_option7" class="catalog-option" data-action="hunter:armor-select:7"><span id="hunter_armor_swatch7" class="catalog-swatch"/><span id="hunter_armor_label7">OPTION 8</span></button>
+                        <button id="hunter_armor_option8" class="catalog-option" data-action="hunter:armor-select:8"><span id="hunter_armor_swatch8" class="catalog-swatch"/><span id="hunter_armor_label8">OPTION 9</span></button>
+                        <button id="hunter_armor_option9" class="catalog-option" data-action="hunter:armor-select:9"><span id="hunter_armor_swatch9" class="catalog-swatch"/><span id="hunter_armor_label9">OPTION 10</span></button>
+                        <button id="hunter_armor_option10" class="catalog-option" data-action="hunter:armor-select:10"><span id="hunter_armor_swatch10" class="catalog-swatch"/><span id="hunter_armor_label10">OPTION 11</span></button>
+                        <button id="hunter_armor_option11" class="catalog-option" data-action="hunter:armor-select:11"><span id="hunter_armor_swatch11" class="catalog-swatch"/><span id="hunter_armor_label11">OPTION 12</span></button>
+                        <button id="hunter_armor_option12" class="catalog-option" data-action="hunter:armor-select:12"><span id="hunter_armor_swatch12" class="catalog-swatch"/><span id="hunter_armor_label12">OPTION 13</span></button>
+                        <button id="hunter_armor_option13" class="catalog-option" data-action="hunter:armor-select:13"><span id="hunter_armor_swatch13" class="catalog-swatch"/><span id="hunter_armor_label13">OPTION 14</span></button>
+                        <button id="hunter_armor_option14" class="catalog-option" data-action="hunter:armor-select:14"><span id="hunter_armor_swatch14" class="catalog-swatch"/><span id="hunter_armor_label14">OPTION 15</span></button>
+                        <button id="hunter_armor_option15" class="catalog-option" data-action="hunter:armor-select:15"><span id="hunter_armor_swatch15" class="catalog-swatch"/><span id="hunter_armor_label15">OPTION 16</span></button>
+                        <button id="hunter_armor_option16" class="catalog-option" data-action="hunter:armor-select:16"><span id="hunter_armor_swatch16" class="catalog-swatch"/><span id="hunter_armor_label16">OPTION 17</span></button>
+                        <button id="hunter_armor_option17" class="catalog-option" data-action="hunter:armor-select:17"><span id="hunter_armor_swatch17" class="catalog-swatch"/><span id="hunter_armor_label17">OPTION 18</span></button>
+                        <button id="hunter_armor_option18" class="catalog-option" data-action="hunter:armor-select:18"><span id="hunter_armor_swatch18" class="catalog-swatch"/><span id="hunter_armor_label18">OPTION 19</span></button>
+                        <button id="hunter_armor_option19" class="catalog-option" data-action="hunter:armor-select:19"><span id="hunter_armor_swatch19" class="catalog-swatch"/><span id="hunter_armor_label19">OPTION 20</span></button>
+                        <button id="hunter_armor_option20" class="catalog-option" data-action="hunter:armor-select:20"><span id="hunter_armor_swatch20" class="catalog-swatch"/><span id="hunter_armor_label20">OPTION 21</span></button>
+                    </div>
+                </div>
+                <div id="hunter_catalog2" class="hunter-catalog" style="display:none">
+                    <button id="hunter_beam" class="catalog-next" data-action="hunter:beam-next">INSTA-GIB BEAM</button>
+                    <div id="hunter_beam_description" class="hint cosmetic-description" role="status"/>
+                    
+                </div>
+                <div id="hunter_catalog3" class="hunter-catalog" style="display:none">
+                    <button id="hunter_beam_color" class="catalog-next" data-action="hunter:beam-color-next">BEAM COLOR</button>
+                    <div class="hint cosmetic-description">Color applies to Insta-Gib beams.</div>
+                    
+                </div>
+                <div id="hunter_catalog4" class="hunter-catalog" style="display:none">
+                    <button id="hunter_death" class="catalog-next" data-action="hunter:death-next">DEATH PRESENTATION</button>
+                    <div id="hunter_death_description" class="hint cosmetic-description" role="status"/>
+                    <div class="hunter-catalog-choices">
+                        <button id="hunter_death_option0" class="catalog-option" data-action="hunter:death-select:0"><span id="hunter_death_swatch0" class="catalog-swatch"/><span id="hunter_death_label0">OPTION 1</span></button>
+                        <button id="hunter_death_option1" class="catalog-option" data-action="hunter:death-select:1"><span id="hunter_death_swatch1" class="catalog-swatch"/><span id="hunter_death_label1">OPTION 2</span></button>
+                        <button id="hunter_death_option2" class="catalog-option" data-action="hunter:death-select:2"><span id="hunter_death_swatch2" class="catalog-swatch"/><span id="hunter_death_label2">OPTION 3</span></button>
+                        <button id="hunter_death_option3" class="catalog-option" data-action="hunter:death-select:3"><span id="hunter_death_swatch3" class="catalog-swatch"/><span id="hunter_death_label3">OPTION 4</span></button>
+                        <button id="hunter_death_option4" class="catalog-option" data-action="hunter:death-select:4"><span id="hunter_death_swatch4" class="catalog-swatch"/><span id="hunter_death_label4">OPTION 5</span></button>
+                        <button id="hunter_death_option5" class="catalog-option" data-action="hunter:death-select:5"><span id="hunter_death_swatch5" class="catalog-swatch"/><span id="hunter_death_label5">OPTION 6</span></button>
+                        <button id="hunter_death_option6" class="catalog-option" data-action="hunter:death-select:6"><span id="hunter_death_swatch6" class="catalog-swatch"/><span id="hunter_death_label6">OPTION 7</span></button>
+                        <button id="hunter_death_option7" class="catalog-option" data-action="hunter:death-select:7"><span id="hunter_death_swatch7" class="catalog-swatch"/><span id="hunter_death_label7">OPTION 8</span></button>
+                    </div>
+                </div>
+                <div id="hunter_cosmetics_state" class="hint" role="status">EQUIPPED LOADOUT</div>
+                <p id="hunter_cosmetics_visibility" class="hint" role="group"/>
+                <button id="hunter_full" data-action="hunter:open">LICENSE</button>
+                <button id="hunter_loadout_default" data-action="hunter:loadout-default">RESET LOADOUT TO DEFAULT</button>
+            </div>
+            <div class="hunter-actions hunter-equip-actions action_bar">
+                <button id="hunter_apply" class="primary" data-action="hunter:apply">EQUIP LOADOUT</button>
+                <button id="hunter_discard" data-action="hunter:reset-preview">DISCARD</button>
+                <button id="hunter_cancel" data-action="hunter:cancel">BACK</button>
+            </div>
+        </div>
+        <div id="native_hunter_preview_panel" class="hunter-preview">
+            <div id="hunter_preview_state" class="section-title">LOADOUT PREVIEW</div>
+            <div id="native_hunter_preview" class="hunter-preview-space"></div>
+            <div class="hunter-actions native-hunter-preview-controls">
+                <button id="hunter_preview_biped" data-action="hunter:preview-mode:0">HUNTER</button>
+                <button id="hunter_preview_weapon" data-action="hunter:preview-mode:1">WEAPON</button>
+                <button id="hunter_preview_alt" data-action="hunter:preview-mode:2">ALT FORM</button>
+                <button id="hunter_rotate_left" data-action="hunter:rotate:0">ROTATE LEFT</button>
+                <button id="hunter_rotate_right" data-action="hunter:rotate:1">ROTATE RIGHT</button>
+                <button id="hunter_zoom_out" data-action="hunter:zoom:0">ZOOM OUT</button>
+                <button id="hunter_zoom_in" data-action="hunter:zoom:1">ZOOM IN</button>
+                <button id="hunter_preview_death" data-action="hunter:preview-death">DEATH</button>
+                <button id="hunter_loop_death" data-action="hunter:loop-death">LOOP DEATH // OFF</button>
+                <button id="hunter_compare_native" data-action="hunter:compare-native">COMPARE NATIVE</button>
+                <button id="hunter_preview_reset" data-action="hunter:preview-reset">RESET PREVIEW</button>
+            </div>
+            <div class="hint">Drag to rotate. Scroll to zoom. Buttons support keyboard and controller.</div>
+            <div id="native_hunter_hint" class="hint">Live 3D preview shows your draft. Equip Loadout saves your Hunter, suit, and cosmetics.</div>
+        </div>
+    </div>
+</div>
+</body>
+</rml>

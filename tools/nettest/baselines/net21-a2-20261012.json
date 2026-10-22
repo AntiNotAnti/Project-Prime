@@ -1,0 +1,1115 @@
+{
+  "schema": 1,
+  "slice": "A2",
+  "source": "37c5f6bc2f246c5074c10c229907292e60607ae3",
+  "engineSha256": "4abd570ff71c33cbe0f36c9bb6bfad35f5856d13840355eec45bba15b59f44ca",
+  "protocol": 53,
+  "status": "PASS",
+  "failures": [],
+  "missing": [],
+  "terminalCoverage": {
+    "observed": 6,
+    "status": "OBSERVED"
+  },
+  "grantedClaimProofCoverage": {
+    "observed": 6,
+    "status": "OBSERVED"
+  },
+  "ownerReceipts": 6,
+  "grantsByType": {
+    "DoubleDamage": {
+      "observed": 6,
+      "status": "OBSERVED"
+    },
+    "Cloak": {
+      "observed": 0,
+      "status": "NOT_RUN"
+    },
+    "DeathAlt": {
+      "observed": 0,
+      "status": "NOT_RUN"
+    }
+  },
+  "campaigns": [
+    {
+      "name": "udp-2-bot-powerups-37c5f6bc",
+      "terminalCoverage": {
+        "status": "PASS",
+        "observed": 2
+      },
+      "grantedClaimProofCoverage": {
+        "status": "PASS",
+        "observed": 2
+      },
+      "pickupAudit": {
+        "status": "PASS",
+        "failures": [],
+        "deferred": [],
+        "sentClaims": 2,
+        "authorityTerminals": 2,
+        "grantedClaims": 2,
+        "ownerReceipts": 2,
+        "timedGrants": {
+          "status": "PASS",
+          "failures": [],
+          "grants": 2,
+          "byType": {
+            "DoubleDamage": 2,
+            "Cloak": 0,
+            "DeathAlt": 0
+          },
+          "closures": 2,
+          "byEndReason": {
+            "Expired": 0,
+            "Renewed": 0,
+            "Death": 2,
+            "Retired": 0,
+            "Room": 0,
+            "Session": 0
+          },
+          "openAtCapture": 0,
+          "unknownSourceBoundary": 0,
+          "scope": "Native authority reservations/transition conservation; no client reconciliation or shot authorization proof"
+        },
+        "terminalCoverage": {
+          "status": "PASS",
+          "observed": 2
+        },
+        "grantedClaimProofCoverage": {
+          "status": "PASS",
+          "observed": 2
+        },
+        "scope": "Bounded terminal conservation and granted-claim contact-proof audit; does not establish full A2 acceptance",
+        "limitations": [
+          "Uncached capacity refusals are not proof of canonical terminal-cache conservation.",
+          "Dynamic item claims are not established by this audit.",
+          "No retired-life receipt exception is inferred; missing receipts fail.",
+          "Contact geometry uses authority-observed client movement, not independent movement proof."
+        ]
+      },
+      "campaignStatus": "PASS",
+      "aiStatus": "PASS",
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "PASS",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "turretEmissions": "NOT_RUN",
+        "turretRefusals": "NOT_RUN",
+        "turretOutcomeReceipts": "NOT_RUN",
+        "turretRefusalApplications": "NOT_RUN",
+        "turretCancelledFlights": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "campaignFailures": [],
+      "campaignIncomplete": [],
+      "aiMetrics": {
+        "declaredClientClaims": 47,
+        "authorityClaimReceiptsIncludingRetries": 47,
+        "authorityAppliedClaims": 0,
+        "componentPayments": 75,
+        "ownerNativePickupConsumptions": 14,
+        "paidAiSourceShotKeys": 49,
+        "canonicalLifecycle": {
+          "deathEvents": {
+            "observed": 10,
+            "status": "OBSERVED"
+          },
+          "spawnEvents": {
+            "observed": 14,
+            "status": "OBSERVED"
+          },
+          "respawnEvents": {
+            "observed": 10,
+            "status": "OBSERVED"
+          }
+        },
+        "serverBotSlots": [
+          2
+        ],
+        "serverBotShotKeys": 632
+      },
+      "settings": {
+        "build": "src/MphRead/bin/Release/net10.0",
+        "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+        "source": "37c5f6bc2f246c5074c10c229907292e60607ae3",
+        "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc",
+        "dotnet": "/Users/jarrett/.dotnet/dotnet",
+        "protocol": 53,
+        "shot_proof": "shadow",
+        "players": 2,
+        "ai_net_client": 2,
+        "ai_seed": 1729,
+        "server_bot": true,
+        "powerups": true,
+        "seconds": 60.0,
+        "drain_seconds": 35.0,
+        "port": 28091,
+        "seed": 8128,
+        "profile": "lan",
+        "rtt_ms": null,
+        "jitter_ms": null,
+        "loss_percent": null,
+        "reorder_percent": null,
+        "duplicate_percent": null,
+        "scenario": "ai",
+        "observer_delay": 0,
+        "rooms": "MP5 FUEL SLUICE",
+        "round_minutes": 30,
+        "rendered": false,
+        "server_operator": true,
+        "movement_validation_shadow": false,
+        "confirmed_impacts": false,
+        "bomb_visibility": false,
+        "bomb_triangle_fixture": false,
+        "server_performance": false,
+        "record": true,
+        "soak": false
+      },
+      "faultProfile": {
+        "rtt_ms": 0,
+        "jitter_ms": 0,
+        "loss_percent": 0,
+        "reorder_percent": 0,
+        "duplicate_percent": 0,
+        "scope": "each client, inbound and outbound",
+        "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+        "seedRule": "base seed + client launch index"
+      }
+    },
+    {
+      "name": "udp-8-impaired-powerups-37c5f6bc",
+      "terminalCoverage": {
+        "status": "PASS",
+        "observed": 4
+      },
+      "grantedClaimProofCoverage": {
+        "status": "PASS",
+        "observed": 4
+      },
+      "pickupAudit": {
+        "status": "PASS",
+        "failures": [],
+        "deferred": [],
+        "sentClaims": 4,
+        "authorityTerminals": 4,
+        "grantedClaims": 4,
+        "ownerReceipts": 4,
+        "timedGrants": {
+          "status": "PASS",
+          "failures": [],
+          "grants": 5,
+          "byType": {
+            "DoubleDamage": 5,
+            "Cloak": 0,
+            "DeathAlt": 0
+          },
+          "closures": 5,
+          "byEndReason": {
+            "Expired": 0,
+            "Renewed": 0,
+            "Death": 4,
+            "Retired": 1,
+            "Room": 0,
+            "Session": 0
+          },
+          "openAtCapture": 0,
+          "unknownSourceBoundary": 0,
+          "scope": "Native authority reservations/transition conservation; no client reconciliation or shot authorization proof"
+        },
+        "terminalCoverage": {
+          "status": "PASS",
+          "observed": 4
+        },
+        "grantedClaimProofCoverage": {
+          "status": "PASS",
+          "observed": 4
+        },
+        "scope": "Bounded terminal conservation and granted-claim contact-proof audit; does not establish full A2 acceptance",
+        "limitations": [
+          "Uncached capacity refusals are not proof of canonical terminal-cache conservation.",
+          "Dynamic item claims are not established by this audit.",
+          "No retired-life receipt exception is inferred; missing receipts fail.",
+          "Contact geometry uses authority-observed client movement, not independent movement proof."
+        ]
+      },
+      "campaignStatus": "PASS",
+      "aiStatus": "PASS",
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "turretEmissions": "OBSERVED",
+        "turretRefusals": "OBSERVED",
+        "turretOutcomeReceipts": "OBSERVED",
+        "turretRefusalApplications": "OBSERVED",
+        "turretCancelledFlights": "OBSERVED",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "campaignFailures": [],
+      "campaignIncomplete": [],
+      "aiMetrics": {
+        "declaredClientClaims": 646,
+        "authorityClaimReceiptsIncludingRetries": 824,
+        "authorityAppliedClaims": 32,
+        "componentPayments": 638,
+        "ownerNativePickupConsumptions": 123,
+        "paidAiSourceShotKeys": 620,
+        "canonicalLifecycle": {
+          "deathEvents": {
+            "observed": 99,
+            "status": "OBSERVED"
+          },
+          "spawnEvents": {
+            "observed": 114,
+            "status": "OBSERVED"
+          },
+          "respawnEvents": {
+            "observed": 99,
+            "status": "OBSERVED"
+          }
+        },
+        "serverBotSlots": [],
+        "serverBotShotKeys": 0
+      },
+      "settings": {
+        "build": "src/MphRead/bin/Release/net10.0",
+        "paths": "/private/tmp/prime-polish-netprofile/paths.txt",
+        "source": "37c5f6bc2f246c5074c10c229907292e60607ae3",
+        "out": "/Users/jarrett/Documents/Development/Prime Hunters Online/artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc",
+        "dotnet": "/Users/jarrett/.dotnet/dotnet",
+        "protocol": 53,
+        "shot_proof": "shadow",
+        "players": 8,
+        "ai_net_client": 2,
+        "ai_seed": 1729,
+        "server_bot": false,
+        "powerups": true,
+        "seconds": 180.0,
+        "drain_seconds": 35.0,
+        "port": 27991,
+        "seed": 8128,
+        "profile": "lan",
+        "rtt_ms": 250,
+        "jitter_ms": 40,
+        "loss_percent": 5.0,
+        "reorder_percent": 5.0,
+        "duplicate_percent": 2.0,
+        "scenario": "ai",
+        "observer_delay": 0,
+        "rooms": "MP5 FUEL SLUICE",
+        "round_minutes": 30,
+        "rendered": false,
+        "server_operator": true,
+        "movement_validation_shadow": false,
+        "confirmed_impacts": false,
+        "bomb_visibility": false,
+        "bomb_triangle_fixture": false,
+        "server_performance": false,
+        "record": true,
+        "soak": false
+      },
+      "faultProfile": {
+        "rtt_ms": 250,
+        "jitter_ms": 40,
+        "loss_percent": 5.0,
+        "reorder_percent": 5.0,
+        "duplicate_percent": 2.0,
+        "scope": "each client, inbound and outbound",
+        "jitterSemantics": "nonnegative extra hold per direction, not symmetric plus/minus",
+        "seedRule": "base seed + client launch index"
+      }
+    }
+  ],
+  "replays": [
+    {
+      "path": "artifacts/net21-a2/lan-37c5f6bc-replays.json",
+      "rows": 4,
+      "completeDemos": 2,
+      "campaigns": [
+        "udp-2-bot-powerups-37c5f6bc"
+      ],
+      "scope": "Recorded linear determinism and replica reconstruction checks only; explicit clip-export and A2-specific per-demo fact coverage are not inferred"
+    },
+    {
+      "path": "artifacts/net21-a2/impaired-37c5f6bc-replays.json",
+      "rows": 4,
+      "completeDemos": 2,
+      "campaigns": [
+        "udp-8-impaired-powerups-37c5f6bc"
+      ],
+      "scope": "Recorded linear determinism and replica reconstruction checks only; explicit clip-export and A2-specific per-demo fact coverage are not inferred"
+    }
+  ],
+  "retainedFailuresAndGaps": [
+    {
+      "path": "artifacts/net21-a2/candidate-11b61bd7-retained.json",
+      "evidence": {
+        "source": "11b61bd79a3a0812c041502d294dc187ba3ac16f",
+        "engineSha256": "d4f3b4c9db7ba03d640a4da1e727f7db602fa6fc25706f674471ee1b845cead1",
+        "status": "INCOMPLETE",
+        "reason": "Impaired native reservations were not acknowledged by four owner claims",
+        "contracts": {
+          "routes": 37,
+          "passed": 37,
+          "binaryHashesUnchanged": true
+        },
+        "lanPickup": {
+          "status": "PASS",
+          "failures": [],
+          "deferred": [],
+          "sentClaims": 1,
+          "authorityTerminals": 1,
+          "grantedClaims": 1,
+          "ownerReceipts": 1,
+          "timedGrants": {
+            "status": "PASS",
+            "failures": [],
+            "grants": 2,
+            "byType": {
+              "DoubleDamage": 2,
+              "Cloak": 0,
+              "DeathAlt": 0
+            },
+            "closures": 2,
+            "byEndReason": {
+              "Expired": 0,
+              "Renewed": 0,
+              "Death": 2,
+              "Retired": 0,
+              "Room": 0,
+              "Session": 0
+            },
+            "openAtCapture": 0,
+            "unknownSourceBoundary": 0,
+            "scope": "Native authority reservations/transition conservation; no client reconciliation or shot authorization proof"
+          },
+          "terminalCoverage": {
+            "status": "PASS",
+            "observed": 1
+          },
+          "grantedClaimProofCoverage": {
+            "status": "PASS",
+            "observed": 1
+          },
+          "scope": "Bounded terminal conservation and granted-claim contact-proof audit; does not establish full A2 acceptance",
+          "limitations": [
+            "Uncached capacity refusals are not proof of canonical terminal-cache conservation.",
+            "Dynamic item claims are not established by this audit.",
+            "No retired-life receipt exception is inferred; missing receipts fail.",
+            "Contact geometry uses authority-observed client movement, not independent movement proof."
+          ]
+        },
+        "impairedPickup": {
+          "status": "INCOMPLETE",
+          "failures": [],
+          "deferred": [
+            "No Grant verdict observed; granted-claim proof coverage was not run"
+          ],
+          "sentClaims": 4,
+          "authorityTerminals": 4,
+          "grantedClaims": 0,
+          "ownerReceipts": 4,
+          "timedGrants": {
+            "status": "PASS",
+            "failures": [],
+            "grants": 5,
+            "byType": {
+              "DoubleDamage": 5,
+              "Cloak": 0,
+              "DeathAlt": 0
+            },
+            "closures": 5,
+            "byEndReason": {
+              "Expired": 0,
+              "Renewed": 0,
+              "Death": 4,
+              "Retired": 1,
+              "Room": 0,
+              "Session": 0
+            },
+            "openAtCapture": 0,
+            "unknownSourceBoundary": 0,
+            "scope": "Native authority reservations/transition conservation; no client reconciliation or shot authorization proof"
+          },
+          "terminalCoverage": {
+            "status": "PASS",
+            "observed": 4
+          },
+          "grantedClaimProofCoverage": {
+            "status": "NOT_RUN",
+            "observed": 0
+          },
+          "scope": "Bounded terminal conservation and granted-claim contact-proof audit; does not establish full A2 acceptance",
+          "limitations": [
+            "Uncached capacity refusals are not proof of canonical terminal-cache conservation.",
+            "Dynamic item claims are not established by this audit.",
+            "No retired-life receipt exception is inferred; missing receipts fail.",
+            "Contact geometry uses authority-observed client movement, not independent movement proof."
+          ]
+        },
+        "replays": {
+          "lan": 4,
+          "impaired": 4
+        },
+        "note": "Retained diagnostic candidate, not final A2 acceptance. Canonical raw files and source-bound run manifests are preserved."
+      }
+    },
+    {
+      "path": "artifacts/net21-a2/protocol19-investigation-4074acc7-summary.json",
+      "evidence": {
+        "source": "4074acc776b039574f0a69029518b064a809a29c",
+        "engineSha256": "4d48f56288fcd8a12afdfcb294ffd6709992ededb14efa9271580944d547a663",
+        "fixtureSha256": "f03de73aae92ada328bef97ed62a6427808f9bafb334861cf028bedd66e9d8df",
+        "command": [
+          "/Users/jarrett/.dotnet/dotnet",
+          "/Users/jarrett/Documents/Development/Prime Hunters Online/tools/nettest/bin/Release/net10.0/nettest.dll",
+          "--protocol19"
+        ],
+        "cwd": "/private/tmp/prime-polish-netprofile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/private/tmp/prime-polish-netprofile",
+          "ALSOFT_DRIVERS": "null"
+        },
+        "originalFailure": "artifacts/net21-a2/contracts-4074acc7/protocol19.log",
+        "conclusion": "Intermittent exact12336-byte allocation reproduced under default runtime. Producer writer/queue unchanged from previous accepted source. Cold tiered instrumentation/measurement contamination is supported by diagnostic comparisons, but allocation stack attribution was not collected. Preserve originalFAIL; diagnostics do not replace acceptance.",
+        "runs": [
+          {
+            "path": "artifacts/net21-a2/protocol19-investigation-4074acc7-default-1.log",
+            "sha256": "e631b1ef407b6e04ca36d1e656b559d2fc7880f0d1e681a4f6fa1f29e783920e",
+            "status": "PASS",
+            "measuredAllocationBytes": 0,
+            "nsPerAttempt": 494.4,
+            "environmentOverrides": {}
+          },
+          {
+            "path": "artifacts/net21-a2/protocol19-investigation-4074acc7-default-2.log",
+            "sha256": "f8db013084151ae4ba787259cd034f9e2dcba40f3ed9020ad52c7ab9b78ab64c",
+            "status": "PASS",
+            "measuredAllocationBytes": 0,
+            "nsPerAttempt": 502.3,
+            "environmentOverrides": {}
+          },
+          {
+            "path": "artifacts/net21-a2/protocol19-investigation-4074acc7-default-3.log",
+            "sha256": "6466b7d6022f9950826233517d3348eb64ef0eedf998ac2d2f3efa6c2d776e72",
+            "status": "FAIL",
+            "measuredAllocationBytes": 12336,
+            "nsPerAttempt": null,
+            "environmentOverrides": {}
+          },
+          {
+            "path": "artifacts/net21-a2/protocol19-investigation-4074acc7-pgo-off-1.log",
+            "sha256": "ca2d9ed4fe1455de02a04cfec564771f22e42d70872bb73127c1b9c64576b1a3",
+            "status": "PASS",
+            "measuredAllocationBytes": 0,
+            "nsPerAttempt": 166.0,
+            "environmentOverrides": {
+              "DOTNET_TieredPGO": "0"
+            }
+          },
+          {
+            "path": "artifacts/net21-a2/protocol19-investigation-4074acc7-tiered-off-1.log",
+            "sha256": "6c76e49d074c16d35029c1d5bb5cbc455dbf6ced91a8aa4a7c33fe8f514b1ed3",
+            "status": "PASS",
+            "measuredAllocationBytes": 0,
+            "nsPerAttempt": 11.4,
+            "environmentOverrides": {
+              "DOTNET_TieredCompilation": "0"
+            }
+          },
+          {
+            "path": "artifacts/net21-a2/protocol19-investigation-4074acc7-tiered-off-2.log",
+            "sha256": "b0d549908c2a93ed96b9c2b1cc7826c7042ddd7f8593db24196af32fd9414383",
+            "status": "PASS",
+            "measuredAllocationBytes": 0,
+            "nsPerAttempt": 11.5,
+            "environmentOverrides": {
+              "DOTNET_TieredCompilation": "0"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-4074acc7-pickups.json",
+      "evidence": {
+        "status": "INCOMPLETE",
+        "failures": [],
+        "deferred": [
+          "No Grant verdict observed; granted-claim proof coverage was not run"
+        ],
+        "sentClaims": 2,
+        "authorityTerminals": 2,
+        "grantedClaims": 0,
+        "ownerReceipts": 2,
+        "timedGrants": {
+          "status": "PASS",
+          "failures": [],
+          "grants": 2,
+          "byType": {
+            "DoubleDamage": 2,
+            "Cloak": 0,
+            "DeathAlt": 0
+          },
+          "closures": 2,
+          "byEndReason": {
+            "Expired": 0,
+            "Renewed": 0,
+            "Death": 2,
+            "Retired": 0,
+            "Room": 0,
+            "Session": 0
+          },
+          "openAtCapture": 0,
+          "unknownSourceBoundary": 0,
+          "scope": "Native authority reservations/transition conservation; no client reconciliation or shot authorization proof"
+        },
+        "terminalCoverage": {
+          "status": "PASS",
+          "observed": 2
+        },
+        "grantedClaimProofCoverage": {
+          "status": "NOT_RUN",
+          "observed": 0
+        },
+        "scope": "Bounded terminal conservation and granted-claim contact-proof audit; does not establish full A2 acceptance",
+        "limitations": [
+          "Uncached capacity refusals are not proof of canonical terminal-cache conservation.",
+          "Dynamic item claims are not established by this audit.",
+          "No retired-life receipt exception is inferred; missing receipts fail.",
+          "Contact geometry uses authority-observed client movement, not independent movement proof."
+        ]
+      }
+    }
+  ],
+  "scope": "Bounded immutable A2 claim terminal and live grant contact-proof acceptance; no independent movement, dynamic-claim or full multiplayer acceptance.",
+  "rawArtifacts": [
+    {
+      "path": "artifacts/net21-a2/build-ledger.py",
+      "sha256": "67948cdaae088ae911feb3055114f24e7b5cb0616c8203a54b626ea77c5b9296",
+      "bytes": 16005
+    },
+    {
+      "path": "tools/nettest/net_pickup_claims.py",
+      "sha256": "ce81f56ae1c6c7b44cd22ca03c66be8e53f230b6fe652a656979ee94cb532eef",
+      "bytes": 15193
+    },
+    {
+      "path": "tools/nettest/net_timed_grants.py",
+      "sha256": "2fbef46757980f91a74427f9ecd032f3fdb099e936f4de9aa54f98df6b892dea",
+      "bytes": 5850
+    },
+    {
+      "path": "tools/nettest/test_net_pickup_claims.py",
+      "sha256": "2b57e23f7dfafddf60a75a5c99444f8ea2a608bf4e1f4348a21ad6d169d79b79",
+      "bytes": 12194
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/manifest.json",
+      "sha256": "77c27136210a2e72403168a69e984119e926e5e8b57b73bea2caee105eafcd5a",
+      "bytes": 151174
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/summary.json",
+      "sha256": "4e371c74495ec60132607f3a20331c94e45f66b9fa2ade1f06da54bea2d894ce",
+      "bytes": 12821
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/ai-summary.json",
+      "sha256": "46b6b4390f9305666eb93463d759d8c3ef797e31c283bd9a20a71dab7519c471",
+      "bytes": 3985
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc-result.json",
+      "sha256": "1e01716e836678b8ee1d0bc65c4b90031b1a6f29acb11a3c4e1c2ce2642c7a8e",
+      "bytes": 1287
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc-runner.log",
+      "sha256": "a12169340697b04dafa93d9eb876b38cf674e309e4c4d34a1f3cf6f0cca5da04",
+      "bytes": 168
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/server.json",
+      "sha256": "edf9971776677fea96200348758d321d6f63a12308a657e69bb0e4149eb642ff",
+      "bytes": 8343875
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/peer-0.json",
+      "sha256": "ee48b41c33fa316df11b02cffb266ff55a55374dedd7539023310cd213bb85c0",
+      "bytes": 4622970
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/peer-1.json",
+      "sha256": "2ccebf6f26e9ac578e03fa7cbe91538c6b3d98333f2a2678e61b8d5ae787b83f",
+      "bytes": 4588335
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/server.log",
+      "sha256": "cd1e9dc37af241dcfa4a8f5d3a09dcc7a1b0376846208c6f7cbb34ba0415ac8d",
+      "bytes": 145704
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/peer-0.log",
+      "sha256": "f2970302d6c40319171ddc300a71a9f3ab4d30dd56a3b54f97c5b8fadaf2ad13",
+      "bytes": 4340
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/peer-1.log",
+      "sha256": "09b699c7ccce50e209c706d682fe2b2ad2a63c9908380aa9bceb1bbebd9ed4cf",
+      "bytes": 4340
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/manifest.json",
+      "sha256": "8a945c92ed8d21381c3e50aa6cab85e6566f99e2591d6393c5769d8a9fb5f5bd",
+      "bytes": 1305694
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/summary.json",
+      "sha256": "fa4817ae6c84c43b8dd85cf43a2feab4e8378cc0931ea3c91c2c8dd3c34f793e",
+      "bytes": 48599
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/ai-summary.json",
+      "sha256": "fc89cc1c7f1abfd8bd84514e53e2570cf3d3a3871512f0c4a427e4dd4d2dfab3",
+      "bytes": 12535
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc-result.json",
+      "sha256": "a29f565bcfc6bf79ef36076944755a203a4e2347f955fb3c9fd598b09309711a",
+      "bytes": 1439
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc-runner.log",
+      "sha256": "02387d33a120478f4ea5f19942341e9fad01a86aa49ad5c7ca6f7725c1096d23",
+      "bytes": 173
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/server.json",
+      "sha256": "55a27e6d9bb5067f0dfbf5ca35c1b7939105d7d8dce3c2f6b657892ee3c7d88c",
+      "bytes": 61065679
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-0.json",
+      "sha256": "ce6d9b21e432315b611f843960044d4cd3fe0011be392a5fcebd48e23a526bb1",
+      "bytes": 22848206
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-1.json",
+      "sha256": "79edb823a94ed8d6b0acae34f3bb0892dc350ccbad92286c623764293fe50f0b",
+      "bytes": 22911929
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-2.json",
+      "sha256": "f3f79f06e75773daede8c75731a0bd1c668a88a2297c3eab445f00372a7a82c4",
+      "bytes": 22794837
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-3.json",
+      "sha256": "18fa13a5041c1e6d3a53eb20ef9f6e40886daf1c1aab81843bffbc61705864aa",
+      "bytes": 22886621
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-4.json",
+      "sha256": "25d0b2663b32d09813df44bc0e781e79beb7148dcf3b2b073aeea933a9b67f0b",
+      "bytes": 22799164
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-5.json",
+      "sha256": "602973cb75cb36dde56ec7f3195715d79e365a1e21b525a9625f789a4bbae98e",
+      "bytes": 22702884
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-6.json",
+      "sha256": "ea92a5f0d77cd3f786b72eceaa3b98bd9f766485afe8b54e9be902717c8da9ed",
+      "bytes": 22505776
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-7.json",
+      "sha256": "05dac69eb3da948b83d62e801b67267ca312e4386429ae85f98b8b6fcd33483c",
+      "bytes": 22719572
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/server.log",
+      "sha256": "5c6788c612d0972b21b3b36828a5db00f0f85118a3028fb51895f399153dca95",
+      "bytes": 694048
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-0.log",
+      "sha256": "ad46a0b05fb03786936fb47c7b59a17a226a935b8e74a70dbf362c485010e900",
+      "bytes": 5122
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-1.log",
+      "sha256": "c055ee82e79dd6d0ec1d36a64a77a61dbbe22eb11142df72a0b569e915ec52c2",
+      "bytes": 5075
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-2.log",
+      "sha256": "5c529dad88903dc8218b462d91eea508e7794afa5e36a29a51ddcd657472fd11",
+      "bytes": 5111
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-3.log",
+      "sha256": "cbe427e4da515e3199f76f1b9e586653ef55c0612e0a251c6bb26a2d5ef7c7d6",
+      "bytes": 5082
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-4.log",
+      "sha256": "ae7ad54de52b67efcd1e1e26f4b154b348085d3e10f2b3e2b498dfd50e0d92e6",
+      "bytes": 5076
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-5.log",
+      "sha256": "48b100fc41f508297638a935268ca7cd41a5588791f783f263ebf012095b6046",
+      "bytes": 5107
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-6.log",
+      "sha256": "30646734a8a5e85a1f0529875720019ea0c5e097471db27543059b404ce514ed",
+      "bytes": 5027
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-7.log",
+      "sha256": "3aa711ec0a599b5dbf3882271dec75f6d5342290fe16596578c7408e2b2273ed",
+      "bytes": 5024
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/results.json",
+      "sha256": "40fa88e6ae1b0aa69bfb368aaff852b4d31414d8c708712228c78d38e131fb94",
+      "bytes": 18442
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/pickup-claim-scene.log",
+      "sha256": "88d4a694f83f13987de9fea143ed9be3adff5229456b06a2ce615cb38fad6da6",
+      "bytes": 631
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/pickup-network.log",
+      "sha256": "3e91aaa19a51dd2fee787f7cd267dd7606a54cb0902558132c08be7689ab1f00",
+      "bytes": 292
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/pickup-readiness.log",
+      "sha256": "31ad9981e6b1cd1aae7fedaa4f016510e434f19260b1b5bf7559c057df3aaa4d",
+      "bytes": 33
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/pickup-protocol.log",
+      "sha256": "dd23b1e602a786db9ed17f6db18d9fe1c1e1bb6d8254288505da5218e08f1b4b",
+      "bytes": 43
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/pickup-claims.log",
+      "sha256": "c5b8fd12a318e4da7be3ce7fcf95792ab047e74753083b9eaf6b00ea92f70d23",
+      "bytes": 40
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/pickup-replay.log",
+      "sha256": "9ba40d2eee671c04e3070e8b91ca68326723504a9c19045e385de30473929c55",
+      "bytes": 30
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/lobby.log",
+      "sha256": "8645cfcc89b6532050200308b49582bf88ba0f39ae5eae1b320532960f58036c",
+      "bytes": 47802
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/timed-grants.log",
+      "sha256": "79d5389c60ff7de9835830e7933a1d9831745e6637242ba56cd79e303de10842",
+      "bytes": 39
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/lifecycle.log",
+      "sha256": "721e6fc2acdd27fc878e3c1152b734b5072cb1589e88074abe85ba830fa8d4a5",
+      "bytes": 1372
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/health-shots.log",
+      "sha256": "65d3be9467b48ff28e7312da7e5ec211804bcf48979697819fc9b5b9448ac6f1",
+      "bytes": 893
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/grants-prime.log",
+      "sha256": "c5aae3151c3cd39049f82c7381e8ec1cf23e97d2ab137d4686a7d40d24efc3be",
+      "bytes": 822
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/grants-balanced.log",
+      "sha256": "d3e59dfa0cb2b298c8bb4867b68013ddac29e418e6dcfba8821e677ed34be266",
+      "bytes": 825
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/grants-enhanced.log",
+      "sha256": "2534169b9810b61d699066e787e1ed86404c90c263444dde9c5390954228964f",
+      "bytes": 825
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/grants-prime-hunter.log",
+      "sha256": "074c15f72d7c6e847bd4d646f1418e41b382677b2515fc85732c02ea3207ad50",
+      "bytes": 829
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/architecture.log",
+      "sha256": "2abecc9f1889545d06c144edf8f2d0d10ee9dee5e1eed5326f9762021a5a5911",
+      "bytes": 108
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/protocol17.log",
+      "sha256": "9139e28bde8d880ea9119ad134d83c8781c8955febd0c69e14afd1c561533ac1",
+      "bytes": 84
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/protocol19.log",
+      "sha256": "08b52157e6166e0a35924194cf099af64117e3ad19e8e88a6e9fc8930a7d8850",
+      "bytes": 6559
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/continuous-targets.log",
+      "sha256": "0b1093499c00c64edddfdd5c76a05e708a64d1def309194ac7620e71e771ffb4",
+      "bytes": 153
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/collision.log",
+      "sha256": "6d06ab1c3cfc4805b633e848e2af40f15530f7b9682e9b375b2232e851a26919",
+      "bytes": 4880
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/resolved-death.log",
+      "sha256": "c958c9e1e61fc21b0a2eb731fba7e1838de4a2bd4358f7bcc19c60cc7a98bf52",
+      "bytes": 223
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/turret-cancellation.log",
+      "sha256": "8384ea2f388624660dcecc67f0394d82566a21a7478d3687a48bc8f5b73c8195",
+      "bytes": 309
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/native-turret.log",
+      "sha256": "0a5a810d8fc2cf7ed776a908c3d7661043959f3b408cbc0ed179748f6c2b5225",
+      "bytes": 602
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/turret-outcome.log",
+      "sha256": "bf7ba9f45fddb05a9b62fe99216fa85105e0af5ffeeeb3904c70f9133fddaa43",
+      "bytes": 93
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/form-protocol.log",
+      "sha256": "96169772d2d6575b263d5bfc3b3f1394aaaef0df4c2f0a06d30f49d149c96191",
+      "bytes": 1573
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/bomb-protocol.log",
+      "sha256": "435c92ad19baee0eaa8b9a7d78ad41328dad4d0e2edb714cdfcbd70ca314a88f",
+      "bytes": 2197
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/campaign-claims.log",
+      "sha256": "8bac80a2a8d2902f3ca022c2177766cacac53d2a94b73a34e8a3d3451bb8e8d2",
+      "bytes": 150
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/replay-form-history.log",
+      "sha256": "2acb76c376cf70deb089ca8cb9bdfffcd5d60021b07699a2b6e1997f92485c57",
+      "bytes": 143
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/ai-driver.log",
+      "sha256": "faf48ac68303b3d6637abf8a63b6f4eb5f61cf9d3300aaf35db8ebc7dfa027df",
+      "bytes": 774
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/bot-ai.log",
+      "sha256": "88d4139990f907b0f2a49a2e968e819cae3ed72bc7d2096b4d8afab47d107d99",
+      "bytes": 1315
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/input-edges.log",
+      "sha256": "04a8dc7b96a21e79ec59feffba5707bd2759f7e3dd7a36f6cde87ceab4cc866d",
+      "bytes": 121
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/muzzle.log",
+      "sha256": "f30bbf5c41992701746948f247d8a93940cb5efc4dd888b05082f65ac7eb0a67",
+      "bytes": 5513
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/continuous.log",
+      "sha256": "5e8d2c378425163a409f0115bef7f9d00d0664dae6c9601f20ec4ab2ff7a77f3",
+      "bytes": 68214
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/compact.log",
+      "sha256": "0fd8ae4216b2f3a4782cb4920a8bfd7fb382c22afa6d8f6c2bfab497dc4208e5",
+      "bytes": 1243
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/shot-lifecycle.log",
+      "sha256": "fcd707615b5d9ed6504ec003630dc27420397818b71d5b9f3d7ebfb524c14cb3",
+      "bytes": 21
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/source-journal.log",
+      "sha256": "093f99ac93fbeb8a5d10cd1f6c4c8b18262f02e1661e3a3d0fa4d094e992ba24",
+      "bytes": 717
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/queue-budget.log",
+      "sha256": "15dfab687c9f45705140d159147c19f6276d675c13ca58c02498af7b00f1ee95",
+      "bytes": 138
+    },
+    {
+      "path": "artifacts/net21-a2/contracts-37c5f6bc/replay-format.log",
+      "sha256": "dd87dc55c1de8517e23c9e4a157ca81242efb5bc6e5493e984e2875e0e1c6e6d",
+      "bytes": 451
+    },
+    {
+      "path": "artifacts/net21-a2/python-37c5f6bc.log",
+      "sha256": "46961f8951a38592ee57d37f65b96c82b693300918672459faa80e12e3b77968",
+      "bytes": 572
+    },
+    {
+      "path": "artifacts/net21-a2/python-37c5f6bc-result.json",
+      "sha256": "d3e938321f7a8d0cbe796c3e3d9ae939a3eb9efbe60119c93a491826a7e58703",
+      "bytes": 289
+    },
+    {
+      "path": "artifacts/net21-a2/ci-37c5f6bc-bound.json",
+      "sha256": "cf92873a9ebb5ec3e2b9ab4c196e3bef16fc3ab0dd20cad2e4567ffd1ceaf823",
+      "bytes": 8349
+    },
+    {
+      "path": "artifacts/net21-a2/lan-37c5f6bc-replays.json",
+      "sha256": "df232c107bb1ff5215b9793659f58cd76086f8e4d558d30188901572999400e3",
+      "bytes": 3741
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/peer-0/exports/_demos/MP5 FUEL SLUICE_2026-10-11_23-45-30-742_3136c8f2c6024784a44f9f088791b7ee.ppdemo",
+      "sha256": "9e937c78bcfac75af6e220f018aa3f97e737c370c77551bcd84bd8e1b5e0c4a1",
+      "bytes": 3026472
+    },
+    {
+      "path": "artifacts/net21-a2/lan-37c5f6bc-replaydeterminism-0.log",
+      "sha256": "83c277e5de71e0e2aa4332d196fb797613badb1dcb942dd9a20f3a7593247d3a",
+      "bytes": 13946
+    },
+    {
+      "path": "artifacts/net21-a2/lan-37c5f6bc-replayreplicacheck-0.log",
+      "sha256": "f0c81d4e4a77c3680231eb5a42f8b7aca92ecc8ba52f5d6a65b35653f27ee367",
+      "bytes": 6927
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-37c5f6bc/peer-1/exports/_demos/MP5 FUEL SLUICE_2026-10-11_23-45-30-757_053cef473e6f4cd39c45f056c5af84bf.ppdemo",
+      "sha256": "1bb171d233983766f04077d9bba8a960765218bd473c08ba9a8d625849d11f8a",
+      "bytes": 3025307
+    },
+    {
+      "path": "artifacts/net21-a2/lan-37c5f6bc-replaydeterminism-1.log",
+      "sha256": "55a732668ae9ec84dfaab31e97e7925c0caa559dfaabbc79bd6e27b150bd1dcb",
+      "bytes": 13946
+    },
+    {
+      "path": "artifacts/net21-a2/lan-37c5f6bc-replayreplicacheck-1.log",
+      "sha256": "30e053923a79144c7a5f67f5919c4fda06d069203e8f509a97509a080fe633fd",
+      "bytes": 6929
+    },
+    {
+      "path": "artifacts/net21-a2/impaired-37c5f6bc-replays.json",
+      "sha256": "1eef3b1819cda660d9d41dd9bc5faee661c8b7c474750cb4e297dce44e69ba08",
+      "bytes": 3768
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-0/exports/_demos/MP5 FUEL SLUICE_2026-10-11_23-45-30-465_e23863c01a674792a590e4c27047f596.ppdemo",
+      "sha256": "2fb586c63ee720222629c93b58ed925dcb4b10981ff49cf785ad69e27e367178",
+      "bytes": 13836869
+    },
+    {
+      "path": "artifacts/net21-a2/impaired-37c5f6bc-replaydeterminism-0.log",
+      "sha256": "8a72788e59a87b4796fe48451c6973f111db6eabf759696da0f2c494dc9b65bb",
+      "bytes": 37917
+    },
+    {
+      "path": "artifacts/net21-a2/impaired-37c5f6bc-replayreplicacheck-0.log",
+      "sha256": "75ee1cb56d6c2799dcde2eea6c4bb63f5843c20bd2f121014d06369cce7b2c6a",
+      "bytes": 12528
+    },
+    {
+      "path": "artifacts/net21-a2/udp-8-impaired-powerups-37c5f6bc/peer-1/exports/_demos/MP5 FUEL SLUICE_2026-10-11_23-45-30-422_aeeb0444b4884a57be65b39e2ddfa393.ppdemo",
+      "sha256": "40106ed8edc7b3beccd9af2d2a933a101e142fdffd662ce580313150f34fe3b7",
+      "bytes": 13879766
+    },
+    {
+      "path": "artifacts/net21-a2/impaired-37c5f6bc-replaydeterminism-1.log",
+      "sha256": "4aab53d08d891ecc8271135f83942b181921921b11cfc5919c365c73d186006b",
+      "bytes": 37917
+    },
+    {
+      "path": "artifacts/net21-a2/impaired-37c5f6bc-replayreplicacheck-1.log",
+      "sha256": "4457f3ab26fc4cc0fac0760c94ff35efc0f718e305b6a419e500771777c2a1c8",
+      "bytes": 12530
+    },
+    {
+      "path": "artifacts/net21-a2/candidate-11b61bd7-retained.json",
+      "sha256": "7c8134b40e88e58bd5c81888b75cab2153674ca584f43c550a42d2aa7fe6dc3f",
+      "bytes": 3394
+    },
+    {
+      "path": "artifacts/net21-a2/protocol19-investigation-4074acc7-summary.json",
+      "sha256": "35719419780a4177e16436dab2cc99be0f4f76b994c35622d4def42fa5a08452",
+      "bytes": 3007
+    },
+    {
+      "path": "artifacts/net21-a2/udp-2-bot-powerups-4074acc7-pickups.json",
+      "sha256": "2823fd6f0c3448b987f84d39c1cbda97dac3eeba02fa2fce815cc0124d0c58b6",
+      "bytes": 1361
+    }
+  ],
+  "coverage": {
+    "liveNativeReservationAcknowledgement": "NOT_RUN",
+    "liveCloak": "NOT_RUN",
+    "liveDeathAlt": "NOT_RUN",
+    "nativeReservationFixtures": "PASS",
+    "allTimedTypesNativeFixtures": "PASS",
+    "predictionReconciliation": "NOT_IMPLEMENTED",
+    "dynamicOwnerClaimIdentity": "NOT_IMPLEMENTED",
+    "independentMovementProof": "NOT_IMPLEMENTED",
+    "sourceSpecificDamageAuthorization": "NOT_IMPLEMENTED",
+    "physicalDeviceGameplay": "NOT_RUN",
+    "twentyMinuteSoak": "NOT_RUN",
+    "matchedPerformanceImprovement": "NOT_RUN"
+  },
+  "replayDurableRestore": {
+    "scope": "Recorded seek/continuation hashes passed using canonical baseline reconstruction when firing-contract capsule modes differed; direct durable restore is not inferred from fallback success.",
+    "recordings": [
+      {
+        "log": "artifacts/net21-a2/impaired-37c5f6bc-replayreplicacheck-0.log",
+        "durableFallbacks": 36,
+        "reason": "Durable world firing contract does not match the consumer; reconstructing from the recording baseline."
+      },
+      {
+        "log": "artifacts/net21-a2/impaired-37c5f6bc-replayreplicacheck-1.log",
+        "durableFallbacks": 36,
+        "reason": "Durable world firing contract does not match the consumer; reconstructing from the recording baseline."
+      },
+      {
+        "log": "artifacts/net21-a2/lan-37c5f6bc-replayreplicacheck-0.log",
+        "durableFallbacks": 12,
+        "reason": "Durable world firing contract does not match the consumer; reconstructing from the recording baseline."
+      },
+      {
+        "log": "artifacts/net21-a2/lan-37c5f6bc-replayreplicacheck-1.log",
+        "durableFallbacks": 12,
+        "reason": "Durable world firing contract does not match the consumer; reconstructing from the recording baseline."
+      }
+    ]
+  }
+}

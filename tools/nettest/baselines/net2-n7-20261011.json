@@ -1,0 +1,2164 @@
+{
+  "milestone": "N7 constrained self splash and original projectile/burn ownership",
+  "status": "PASS within focused and short Mac validation scope; PR review and merge pending",
+  "dateLocal": "2026-10-11",
+  "provenance": {
+    "base": "a6883e50da3857fdc31d8102923753ee52ab9b5c",
+    "testedGameplaySource": "50bb438e382f12120e70f13ce9ce3208e29a3552",
+    "finalSource": "719a3c5674e9c7e477aaf0b6d3355d25389163d1",
+    "finalSourceDifference": "Only opt-in HitRig wall aim changed after complete focused gameplay validation",
+    "branch": "codex/net2-07-self-and-splash",
+    "protocol": 47,
+    "createdUtc": "2026-10-11T05:47:22.859793+00:00"
+  },
+  "focusedChecks": {
+    "source": "50bb438e382f12120e70f13ce9ce3208e29a3552",
+    "binaryPath": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin",
+    "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+    "dotnetInfo": ".NET SDK:\n Version:           10.0.401\n Commit:            e34a38d2ae\n Workload version:  10.0.400-manifests.63b36e85\n MSBuild version:   18.9.11+e34a38d2a\n\nRuntime Environment:\n OS Name:     Mac OS X\n OS Version:  27.0\n OS Platform: Darwin\n RID:         osx-arm64\n Base Path:   /Users/jarrett/.cache/project-prime/dotnet-10.0.401/sdk/10.0.401/\n\n.NET workloads installed:\nThere are no installed workloads to display.\nConfigured to use workload sets when installing new manifests.\nNo workload sets are installed. Run \"dotnet workload restore\" to install a workload set.\n\nHost:\n  Version:      10.0.12\n  Architecture: arm64\n  Commit:       95017c711e\n\n.NET SDKs installed:\n  10.0.401 [/Users/jarrett/.cache/project-prime/dotnet-10.0.401/sdk]\n\n.NET runtimes installed:\n  Microsoft.AspNetCore.App 10.0.12 [/Users/jarrett/.cache/project-prime/dotnet-10.0.401/shared/Microsoft.AspNetCore.App]\n  Microsoft.NETCore.App 10.0.12 [/Users/jarrett/.cache/project-prime/dotnet-10.0.401/shared/Microsoft.NETCore.App]\n\nOther architectures found:\n  None\n\nEnvironment variables:\n  Not set\n\nglobal.json file:\n  /Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/global.json\n\nLearn more:\n  https://aka.ms/dotnet/info\n\nDownload .NET:\n  https://aka.ms/dotnet/download\n",
+    "buildLog": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13-build.log",
+    "buildLogSHA256": "e9cadcfd05da79e9748c8f07c820b6766bba87ed70c4200a02ba66c03848d371",
+    "startedUTC": "2026-10-11T05:40:01.241447+00:00",
+    "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+    "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+    "checks": [
+      {
+        "name": "self-prediction",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--self-prediction"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/self-prediction/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/self-prediction/profile",
+          "ALSOFT_DRIVERS": "null"
+        },
+        "startedUTC": "2026-10-11T05:40:01.258000+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.10813970899999997,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: 55 self prediction assertions"
+        ]
+      },
+      {
+        "name": "self-splash-scene",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--self-splash-scene",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/opengl-phase4-qa/user-data",
+          "MP1 SANCTORUS"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/self-splash-scene/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/self-splash-scene/profile",
+          "ALSOFT_DRIVERS": "null"
+        },
+        "startedUTC": "2026-10-11T05:40:01.392227+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 1.0054527500000001,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: 22 self prediction full Replay assertions",
+          "PASS: 353 self splash asset assertions (/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/opengl-phase4-qa/user-data)"
+        ]
+      },
+      {
+        "name": "combat-reconciliation",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--combat-reconciliation"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/combat-reconciliation/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/combat-reconciliation/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:24.929229+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.108806292,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: 50 combat reconciliation assertions"
+        ]
+      },
+      {
+        "name": "combat-arbitration-scene",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--combat-arbitration-scene",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/opengl-phase4-qa/user-data",
+          "MP1 SANCTORUS"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/combat-arbitration-scene/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/combat-arbitration-scene/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:25.067021+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.662556959,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: 94 combat arbitration asset assertions (/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/opengl-phase4-qa/user-data)"
+        ]
+      },
+      {
+        "name": "continuous-healing-prediction",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--continuous-healing-prediction"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/continuous-healing-prediction/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/continuous-healing-prediction/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:25.757213+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.09943016599999999,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: 44 continuous healing prediction assertions"
+        ]
+      },
+      {
+        "name": "continuous-snapshots",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--continuous-snapshots"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/continuous-snapshots/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/continuous-snapshots/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:25.884476+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.13951691600000005,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: 337 continuous snapshot assertions, 1172B maximum"
+        ]
+      },
+      {
+        "name": "shot-proof-scene",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--shot-proof-scene",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/opengl-phase4-qa/user-data",
+          "MP1 SANCTORUS"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/shot-proof-scene/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/shot-proof-scene/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:26.050952+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.681065083,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: 324 shot proof asset assertions"
+        ]
+      },
+      {
+        "name": "protocol19-scene",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--protocol19-scene",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/opengl-phase4-qa/user-data",
+          "MP1 SANCTORUS"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/protocol19-scene/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/protocol19-scene/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:26.759294+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.7663880840000001,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: 60 Protocol 19 asset-backed checks"
+        ]
+      },
+      {
+        "name": "architecture",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--architecture"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/architecture/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/architecture/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:27.554884+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.14653491700000032,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "PASS: architecture, owner position, full snapshots and v20 byte fixture"
+        ]
+      },
+      {
+        "name": "health-shots",
+        "command": [
+          "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+          "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/attempt-13/bin/nettest.dll",
+          "--health-shots"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/health-shots/profile",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/health-shots/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:27.729838+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 11.945321791,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "Ghost input matrix: 7776 weapon/profiles, 2 delivery streams, dropped=18360 duplicated=8424 reordered=14256",
+          "PASS: 3338739 health/shot assertions"
+        ]
+      },
+      {
+        "name": "python-test-all",
+        "command": [
+          "python3",
+          "-m",
+          "unittest",
+          "discover",
+          "-s",
+          "tools/nettest",
+          "-p",
+          "test_*.py"
+        ],
+        "cwd": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online",
+        "environment": {
+          "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/final-checks-13/python-test-all/profile",
+          "ALSOFT_DRIVERS": "null",
+          "PYTHONDONTWRITEBYTECODE": "1"
+        },
+        "startedUTC": "2026-10-11T05:40:39.702740+00:00",
+        "engineBeforeSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestBeforeSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "exit": 0,
+        "elapsedSeconds": 0.25610945899999926,
+        "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+        "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+        "resultLines": [
+          "Ran 165 tests in 0.201s",
+          "OK"
+        ]
+      }
+    ],
+    "selfStageCompletedUTC": "2026-10-11T05:40:02.424586+00:00",
+    "engineAfterSHA256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+    "nettestAfterSHA256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9",
+    "finishedUTC": "2026-10-11T05:40:40.000062+00:00"
+  },
+  "campaigns": [
+    {
+      "name": "mac-2-lan-moving-09",
+      "acceptedFinal": false,
+      "source": "5656476af4f2b485fde6333178c34d4579b32533",
+      "settings": {
+        "build": "artifacts/net2-n7/attempt-01/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "5656476af4f2b485fde6333178c34d4579b32533",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09",
+        "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+        "protocol": 47,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 25.0,
+        "drain_seconds": 18.0,
+        "port": 28370,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "self-moving",
+        "rooms": "MP3 PROVING GROUND",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "commands": [
+        {
+          "name": "server",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/server/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-server",
+            "-port",
+            "28370",
+            "-players",
+            "2",
+            "-nomaster",
+            "-noserverreplays",
+            "-rotation",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/rotation.txt",
+            "-netdebug"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/server",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/server.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "server",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/server.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/drain.server-release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-0",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/peer-0/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28370",
+            "-name",
+            "peer-0",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "25.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "0:0",
+            "-netloss",
+            "0%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8128",
+            "-nographics",
+            "-hitrig",
+            "self-moving"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/peer-0",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/peer-0.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/peer-0.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-1",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/peer-1/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28370",
+            "-name",
+            "peer-1",
+            "-hunter",
+            "Kanden",
+            "-seconds",
+            "25.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "0:0",
+            "-netloss",
+            "0%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8129",
+            "-nographics",
+            "-hitrig",
+            "self-moving"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/peer-1",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/peer-1.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/peer-1.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-09/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        }
+      ],
+      "assemblySha256": "2f4ebc2dc47828c18ab2574913de7af2e3a7bfbbc597d6a4cf39c11c59c35215",
+      "assemblyAfterSha256": "2f4ebc2dc47828c18ab2574913de7af2e3a7bfbbc597d6a4cf39c11c59c35215",
+      "baseStatus": "FAIL",
+      "failures": [
+        "peer-0: exit=1 timeout=False",
+        "peer-1: exit=1 timeout=False",
+        "campaign drain: missing/malformed drain proof: bounded barrier did not pass: peer presentation has not caught authority frontier"
+      ],
+      "incomplete": [
+        "peer-0: no offered shots; workload unexercised",
+        "peer-0: no comparable authority semantic facts",
+        "peer-0: semantic completeness interval unexercised",
+        "peer-0: no comparable shooter/observer shot interval",
+        "peer-1: no comparable authority semantic facts",
+        "peer-1: semantic completeness interval unexercised",
+        "peer-1: no comparable shooter/observer shot interval"
+      ],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "FAIL"
+      },
+      "selfAudit": null,
+      "evidence": [
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-09/manifest.json",
+          "bytes": 11959,
+          "sha256": "a04b8acf3505f6e82abbb46a29dddfaf54c94e21321c518c4e6a48405661d12c"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-09/summary.json",
+          "bytes": 7614,
+          "sha256": "55df020a27b59a20bc86e753c3c31f0e5bb2ef646fe58cf58fe3ff010b7bae7f"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-09/server.json",
+          "bytes": 1290467,
+          "sha256": "47b0d54cb808667598c3534e91bb85c63fc1d70ec4759feeaf51fc7e132dda62"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-09/peer-0.json",
+          "bytes": 989359,
+          "sha256": "a667a7e32c24f1983f3ffcf4b9558d5ff2c6029b89544d987f9fff55e3c86bdb"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-09/peer-1.json",
+          "bytes": 990871,
+          "sha256": "394dedde413bdd31e74ddf4796762874e3227ebd89ca13191d07d40014720984"
+        }
+      ]
+    },
+    {
+      "name": "mac-2-lan-moving-10",
+      "acceptedFinal": false,
+      "source": "c8761440",
+      "settings": {
+        "build": "artifacts/net2-n7/attempt-10/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "c8761440",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10",
+        "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+        "protocol": 47,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 25.0,
+        "drain_seconds": 18.0,
+        "port": 28371,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "self-moving",
+        "rooms": "MP3 PROVING GROUND",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "commands": [
+        {
+          "name": "server",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/server/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-server",
+            "-port",
+            "28371",
+            "-players",
+            "2",
+            "-nomaster",
+            "-noserverreplays",
+            "-rotation",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/rotation.txt",
+            "-netdebug"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/server",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/server.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "server",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/server.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/drain.server-release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-0",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/peer-0/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28371",
+            "-name",
+            "peer-0",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "25.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "0:0",
+            "-netloss",
+            "0%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8128",
+            "-nographics",
+            "-hitrig",
+            "self-moving"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/peer-0",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/peer-0.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/peer-0.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-1",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/peer-1/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28371",
+            "-name",
+            "peer-1",
+            "-hunter",
+            "Kanden",
+            "-seconds",
+            "25.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "0:0",
+            "-netloss",
+            "0%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8129",
+            "-nographics",
+            "-hitrig",
+            "self-moving"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/peer-1",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/peer-1.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/peer-1.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-10/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        }
+      ],
+      "assemblySha256": "f5363a3d5f2200c4c67a469cf2037641c6f6451d49c10b26c39963b3e169a1a3",
+      "assemblyAfterSha256": "f5363a3d5f2200c4c67a469cf2037641c6f6451d49c10b26c39963b3e169a1a3",
+      "baseStatus": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "selfAudit": {
+        "status": "INCOMPLETE",
+        "scenario": "self-moving",
+        "metrics": {
+          "peers": {
+            "peer-0": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 15,
+              "SelfConfirmed": 12,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 0
+            },
+            "peer-1": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 0,
+              "SelfConfirmed": 0,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 1
+            }
+          },
+          "authorityPayments": 14,
+          "acceptedReceipts": 12,
+          "feedback": {
+            "peer-0": {
+              "rows": 0,
+              "applied": 0
+            },
+            "peer-1": {
+              "rows": 0,
+              "applied": 0
+            }
+          }
+        },
+        "failures": [],
+        "missing": [
+          "peer-0: no exact applied self impulse feedback exercised"
+        ],
+        "limitations": [
+          "Bounded native/self-rescue payment, exact terminal ACK and impulse correction evidence only.",
+          "Base campaign verifies sampled authority health, kills, deaths and damage sequence; not every intermediate change.",
+          "No all-weapon, burn-source, extended soak or rendered feedback agreement claim."
+        ],
+        "coverage": {
+          "boundedSelfPayments": "INCOMPLETE",
+          "selfDeathRespawn": "NOT_RUN",
+          "allSelfSplashWeapons": "NOT_RUN",
+          "burnSourceParity": "NOT_RUN",
+          "renderedSelfFeedback": "NOT_RUN"
+        }
+      },
+      "evidence": [
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-10/manifest.json",
+          "bytes": 21661,
+          "sha256": "b3a6c3361cb20eb89ff3644b247e939f146c208a103348fd88ada0481e183959"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-10/summary.json",
+          "bytes": 7075,
+          "sha256": "34dd7c9c3d9b6584afac9142bc77d3a011c85366790e4e43533d33caca56391c"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-10/server.json",
+          "bytes": 902914,
+          "sha256": "6659f6cf94f1ac0dcd80c77092137ad908e0cb4ba4febb59f29f96d06fd4f930"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-10/peer-0.json",
+          "bytes": 670678,
+          "sha256": "62bb87a1a9803897af87c763adc745c0b9d871bb5c94c93e4cbb884e8db43ed8"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-10/peer-1.json",
+          "bytes": 658723,
+          "sha256": "b31ab3e3fa65f56ec7774e2d979140091ca8a22e0e95db625b5d0efea86a995e"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-10/self-audit.json",
+          "bytes": 1461,
+          "sha256": "aa45ca47660c7b358a226945d9c890d80357837f4812335d8a80ce55bb29ce0b"
+        }
+      ]
+    },
+    {
+      "name": "mac-2-moderate-wall-10",
+      "acceptedFinal": false,
+      "source": "c876144023c10135aaad1067921d9d38d65b6cbc",
+      "settings": {
+        "build": "artifacts/net2-n7/attempt-10/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "c876144023c10135aaad1067921d9d38d65b6cbc",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10",
+        "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+        "protocol": 47,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 35.0,
+        "drain_seconds": 18.0,
+        "port": 28372,
+        "seed": 8128,
+        "profile": "moderate",
+        "scenario": "self-wall",
+        "rooms": "MP3 PROVING GROUND",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "commands": [
+        {
+          "name": "server",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/server/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-server",
+            "-port",
+            "28372",
+            "-players",
+            "2",
+            "-nomaster",
+            "-noserverreplays",
+            "-rotation",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/rotation.txt",
+            "-netdebug"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/server",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/server.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "server",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/server.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/drain.server-release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-0",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/peer-0/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28372",
+            "-name",
+            "peer-0",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "35.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "100:20",
+            "-netloss",
+            "1%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8128",
+            "-nographics",
+            "-hitrig",
+            "self-wall"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/peer-0",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/peer-0.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/peer-0.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-1",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/peer-1/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28372",
+            "-name",
+            "peer-1",
+            "-hunter",
+            "Kanden",
+            "-seconds",
+            "35.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "100:20",
+            "-netloss",
+            "1%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8129",
+            "-nographics",
+            "-hitrig",
+            "self-wall"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/peer-1",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/peer-1.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/peer-1.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-10/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        }
+      ],
+      "assemblySha256": "f5363a3d5f2200c4c67a469cf2037641c6f6451d49c10b26c39963b3e169a1a3",
+      "assemblyAfterSha256": "f5363a3d5f2200c4c67a469cf2037641c6f6451d49c10b26c39963b3e169a1a3",
+      "baseStatus": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "selfAudit": {
+        "status": "INCOMPLETE",
+        "scenario": "self-wall",
+        "metrics": {
+          "peers": {
+            "peer-0": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 5,
+              "SelfConfirmed": 5,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 0
+            },
+            "peer-1": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 0,
+              "SelfConfirmed": 0,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 1
+            }
+          },
+          "authorityPayments": 5,
+          "acceptedReceipts": 5,
+          "feedback": {
+            "peer-0": {
+              "rows": 5,
+              "applied": 5
+            },
+            "peer-1": {
+              "rows": 0,
+              "applied": 0
+            }
+          }
+        },
+        "failures": [],
+        "missing": [
+          "shooter 0: self-wall lacks paid lethal damage and paid respawn lifecycle"
+        ],
+        "limitations": [
+          "Bounded native/self-rescue payment, exact terminal ACK and impulse correction evidence only.",
+          "Base campaign verifies sampled authority health, kills, deaths and damage sequence; not every intermediate change.",
+          "No all-weapon, burn-source, extended soak or rendered feedback agreement claim."
+        ],
+        "coverage": {
+          "boundedSelfPayments": "INCOMPLETE",
+          "selfDeathRespawn": "INCOMPLETE",
+          "allSelfSplashWeapons": "NOT_RUN",
+          "burnSourceParity": "NOT_RUN",
+          "renderedSelfFeedback": "NOT_RUN"
+        }
+      },
+      "evidence": [
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-10/manifest.json",
+          "bytes": 26357,
+          "sha256": "55af433feeb59686eac5ddc288c7962013c325c20294535648b70683885d47e7"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-10/summary.json",
+          "bytes": 7069,
+          "sha256": "70701b3829a4f533e2e9c06c52ea6ae0014d3c412c7a241ab797e9c189a751a6"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-10/server.json",
+          "bytes": 1247302,
+          "sha256": "b42a7aee05090353d018736b7b432c3774be15ae7c74cb061df4a95ad400a9c0"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-10/peer-0.json",
+          "bytes": 937506,
+          "sha256": "33e1e251fa77b055f20e88014042f77b3c449639f513a49b87251f9a3bd81045"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-10/peer-1.json",
+          "bytes": 945128,
+          "sha256": "e657a86a38d30a1c73aecd5c9f4bec6a2b6edb21726d3abd37a6e45c57454315"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-10/self-audit.json",
+          "bytes": 1474,
+          "sha256": "4dd759df8b1ab2900d0bef29b20b238a7765cc1d7a39c87c820e7d6844875b9d"
+        }
+      ]
+    },
+    {
+      "name": "mac-2-lan-moving-13",
+      "acceptedFinal": true,
+      "source": "50bb438e382f12120e70f13ce9ce3208e29a3552",
+      "settings": {
+        "build": "artifacts/net2-n7/attempt-13/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "50bb438e382f12120e70f13ce9ce3208e29a3552",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13",
+        "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+        "protocol": 47,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 25.0,
+        "drain_seconds": 18.0,
+        "port": 28373,
+        "seed": 8128,
+        "profile": "lan",
+        "scenario": "self-moving",
+        "rooms": "MP3 PROVING GROUND",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "commands": [
+        {
+          "name": "server",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/server/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-server",
+            "-port",
+            "28373",
+            "-players",
+            "2",
+            "-nomaster",
+            "-noserverreplays",
+            "-rotation",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/rotation.txt",
+            "-netdebug"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/server",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/server.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "server",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/server.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/drain.server-release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-0",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/peer-0/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28373",
+            "-name",
+            "peer-0",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "25.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "0:0",
+            "-netloss",
+            "0%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8128",
+            "-nographics",
+            "-hitrig",
+            "self-moving"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/peer-0",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/peer-0.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/peer-0.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-1",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/peer-1/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28373",
+            "-name",
+            "peer-1",
+            "-hunter",
+            "Kanden",
+            "-seconds",
+            "25.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "0:0",
+            "-netloss",
+            "0%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8129",
+            "-nographics",
+            "-hitrig",
+            "self-moving"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/peer-1",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/peer-1.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/peer-1.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-lan-moving-13/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        }
+      ],
+      "assemblySha256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+      "assemblyAfterSha256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+      "baseStatus": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "selfAudit": {
+        "status": "PASS",
+        "scenario": "self-moving",
+        "metrics": {
+          "peers": {
+            "peer-0": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 16,
+              "SelfConfirmed": 16,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 0
+            },
+            "peer-1": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 0,
+              "SelfConfirmed": 0,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 1
+            }
+          },
+          "authorityPayments": 20,
+          "acceptedReceipts": 16,
+          "feedback": {
+            "peer-0": {
+              "rows": 16,
+              "applied": 16
+            },
+            "peer-1": {
+              "rows": 0,
+              "applied": 0
+            }
+          }
+        },
+        "failures": [],
+        "missing": [],
+        "limitations": [
+          "Bounded native/self-rescue payment, exact terminal ACK and impulse correction evidence only.",
+          "Base campaign verifies sampled authority health, kills, deaths and damage sequence; not every intermediate change.",
+          "No all-weapon, burn-source, extended soak or rendered feedback agreement claim."
+        ],
+        "coverage": {
+          "boundedSelfPayments": "PASS",
+          "selfDeathRespawn": "NOT_RUN",
+          "allSelfSplashWeapons": "NOT_RUN",
+          "burnSourceParity": "NOT_RUN",
+          "renderedSelfFeedback": "NOT_RUN"
+        }
+      },
+      "evidence": [
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-13/manifest.json",
+          "bytes": 20190,
+          "sha256": "e054522f736ec5e36bf3ff21ae127c2a406fd203340cf2b66d15e109cb88f969"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-13/summary.json",
+          "bytes": 7076,
+          "sha256": "5a8a1ffa7be1b5d0a47a2c1056fca14e077b94c5bc6567b72566b52148ae9ad6"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-13/server.json",
+          "bytes": 927322,
+          "sha256": "f700c7953447df0bd9b2b58c6a420452041c064427a0397183a2bf652f389118"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-13/peer-0.json",
+          "bytes": 701020,
+          "sha256": "a42d1b735ea80bf6e40d43fea082d308ed9a159bc11102b3e7766f47809b761b"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-13/peer-1.json",
+          "bytes": 693670,
+          "sha256": "1e027965ab9e3afc36ac3ca454b183a1c52b2ca67199a3b5c36f8fb34c0c5e35"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-lan-moving-13/self-audit.json",
+          "bytes": 1385,
+          "sha256": "4d6c77bc986273f18b2443a664eaa89665948cd0e47c7a18283e9bd5742645d9"
+        }
+      ],
+      "selfDamage": 396,
+      "selfDeaths": 4,
+      "paidOwnerLives": [
+        1,
+        2,
+        3,
+        4
+      ]
+    },
+    {
+      "name": "mac-2-moderate-wall-13",
+      "acceptedFinal": false,
+      "source": "50bb438e382f12120e70f13ce9ce3208e29a3552",
+      "settings": {
+        "build": "artifacts/net2-n7/attempt-13/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "50bb438e382f12120e70f13ce9ce3208e29a3552",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13",
+        "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+        "protocol": 47,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 35.0,
+        "drain_seconds": 18.0,
+        "port": 28374,
+        "seed": 8128,
+        "profile": "moderate",
+        "scenario": "self-wall",
+        "rooms": "MP3 PROVING GROUND",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "commands": [
+        {
+          "name": "server",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/server/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-server",
+            "-port",
+            "28374",
+            "-players",
+            "2",
+            "-nomaster",
+            "-noserverreplays",
+            "-rotation",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/rotation.txt",
+            "-netdebug"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/server",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/server.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "server",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/server.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/drain.server-release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-0",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/peer-0/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28374",
+            "-name",
+            "peer-0",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "35.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "100:20",
+            "-netloss",
+            "1%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8128",
+            "-nographics",
+            "-hitrig",
+            "self-wall"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/peer-0",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/peer-0.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/peer-0.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-1",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/peer-1/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28374",
+            "-name",
+            "peer-1",
+            "-hunter",
+            "Kanden",
+            "-seconds",
+            "35.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "100:20",
+            "-netloss",
+            "1%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8129",
+            "-nographics",
+            "-hitrig",
+            "self-wall"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/peer-1",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/peer-1.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/peer-1.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-13/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        }
+      ],
+      "assemblySha256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+      "assemblyAfterSha256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b",
+      "baseStatus": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "selfAudit": {
+        "status": "INCOMPLETE",
+        "scenario": "self-wall",
+        "metrics": {
+          "peers": {
+            "peer-0": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 5,
+              "SelfConfirmed": 5,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 0
+            },
+            "peer-1": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 0,
+              "SelfConfirmed": 0,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 1
+            }
+          },
+          "authorityPayments": 5,
+          "acceptedReceipts": 5,
+          "feedback": {
+            "peer-0": {
+              "rows": 4,
+              "applied": 4
+            },
+            "peer-1": {
+              "rows": 0,
+              "applied": 0
+            }
+          }
+        },
+        "failures": [],
+        "missing": [
+          "shooter 0: self-wall lacks paid lethal damage and paid respawn lifecycle"
+        ],
+        "limitations": [
+          "Bounded native/self-rescue payment, exact terminal ACK and impulse correction evidence only.",
+          "Base campaign verifies sampled authority health, kills, deaths and damage sequence; not every intermediate change.",
+          "No all-weapon, burn-source, extended soak or rendered feedback agreement claim."
+        ],
+        "coverage": {
+          "boundedSelfPayments": "INCOMPLETE",
+          "selfDeathRespawn": "INCOMPLETE",
+          "allSelfSplashWeapons": "NOT_RUN",
+          "burnSourceParity": "NOT_RUN",
+          "renderedSelfFeedback": "NOT_RUN"
+        }
+      },
+      "evidence": [
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-13/manifest.json",
+          "bytes": 26356,
+          "sha256": "c90d93a1be4d92651f579b5e97f54c8223b4ab9b217e3db8d336c79c34821632"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-13/summary.json",
+          "bytes": 7068,
+          "sha256": "def07222e833165af4d528d8da4cae0a40828f2f47bb76f91da56e4a0fd832b7"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-13/server.json",
+          "bytes": 1245343,
+          "sha256": "963a00ba519b596fdc9d37babda6d511a338a061c3e67059344990cc80515514"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-13/peer-0.json",
+          "bytes": 943165,
+          "sha256": "7d65c87624f3d58d97b329f31c0c5fe4eddbbdd0ffac716a765d452ab7bc180d"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-13/peer-1.json",
+          "bytes": 942152,
+          "sha256": "e16926ea21c3e867e15f30aafd48e8d85f27a3b6f1d10e0c7c4595439275cc2d"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-13/self-audit.json",
+          "bytes": 1474,
+          "sha256": "dcc8af4030b87e3f2d0ce98f2463b3ff2aaaa6c5220cc7ed1df2046371460fd0"
+        }
+      ]
+    },
+    {
+      "name": "mac-2-moderate-wall-14",
+      "acceptedFinal": true,
+      "source": "719a3c56",
+      "settings": {
+        "build": "artifacts/net2-n7/attempt-14/bin",
+        "paths": "artifacts/opengl-phase4-qa/user-data/paths.txt",
+        "source": "719a3c56",
+        "out": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14",
+        "dotnet": "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+        "protocol": 47,
+        "shot_proof": "shadow",
+        "players": 2,
+        "seconds": 25.0,
+        "drain_seconds": 18.0,
+        "port": 28375,
+        "seed": 8128,
+        "profile": "moderate",
+        "scenario": "self-wall",
+        "rooms": "MP3 PROVING GROUND",
+        "round_minutes": 30,
+        "rendered": false,
+        "record": false,
+        "soak": false
+      },
+      "commands": [
+        {
+          "name": "server",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/server/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-server",
+            "-port",
+            "28375",
+            "-players",
+            "2",
+            "-nomaster",
+            "-noserverreplays",
+            "-rotation",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/rotation.txt",
+            "-netdebug"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/server",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/server.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "server",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/server.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/drain.server-release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-0",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/peer-0/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28375",
+            "-name",
+            "peer-0",
+            "-hunter",
+            "Samus",
+            "-seconds",
+            "25.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "100:20",
+            "-netloss",
+            "1%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8128",
+            "-nographics",
+            "-hitrig",
+            "self-wall"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/peer-0",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/peer-0.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/peer-0.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        },
+        {
+          "name": "peer-1",
+          "argv": [
+            "/Users/jarrett/.cache/project-prime/dotnet-10.0.401/dotnet",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/bin/ProjectPrime.dll",
+            "-mapdir",
+            "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/peer-1/empty-maps",
+            "-noupdate",
+            "-noautoupdate",
+            "-netcheck",
+            "127.0.0.1",
+            "-port",
+            "28375",
+            "-name",
+            "peer-1",
+            "-hunter",
+            "Kanden",
+            "-seconds",
+            "25.0",
+            "-size",
+            "480x270",
+            "-netlag",
+            "100:20",
+            "-netloss",
+            "1%",
+            "-netreorder",
+            "0%",
+            "-netduplicate",
+            "0%",
+            "-netseed",
+            "8129",
+            "-nographics",
+            "-hitrig",
+            "self-wall"
+          ],
+          "environment": {
+            "PROJECT_PRIME_USER_DATA": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/peer-1",
+            "ALSOFT_DRIVERS": "null",
+            "MPHREAD_PHASE_SECONDS": "2",
+            "PRIME_NET2_EVIDENCE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/peer-1.json",
+            "PRIME_SHOT_PROOF": "shadow",
+            "PRIME_NET2_DRAIN_SECONDS": "18.0",
+            "PRIME_NET2_DRAIN_ROLE": "client",
+            "PRIME_NET2_DRAIN_STATUS": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/peer-1.drain.json",
+            "PRIME_NET2_DRAIN_RELEASE": "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/artifacts/net2-n7/mac-2-moderate-wall-14/drain.release.json"
+          },
+          "inheritedGameEnvironment": "cleared PRIME_*, MPHREAD_*, PROJECT_PRIME_*",
+          "soak": false
+        }
+      ],
+      "assemblySha256": "79d7ad513dc1d2998cc1b0923f6a7e0d33f64ef2b79dfc5ff1f2827d5f4bd64c",
+      "assemblyAfterSha256": "79d7ad513dc1d2998cc1b0923f6a7e0d33f64ef2b79dfc5ff1f2827d5f4bd64c",
+      "baseStatus": "PASS",
+      "failures": [],
+      "incomplete": [],
+      "coverage": {
+        "renderedProjectileAgreement": "NOT_RUN",
+        "botFills": "NOT_RUN",
+        "spectator": "NOT_RUN",
+        "mapRotation": "NOT_RUN",
+        "shockCoilDrainKillParity": "NOT_RUN",
+        "imperialistSpawnTrapCoverage": "NOT_RUN",
+        "sustained20Minutes": "NOT_RUN",
+        "boundedHeadlessDrain": "PASS"
+      },
+      "selfAudit": {
+        "status": "PASS",
+        "scenario": "self-wall",
+        "metrics": {
+          "peers": {
+            "peer-0": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 21,
+              "SelfConfirmed": 20,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 0
+            },
+            "peer-1": {
+              "Predicted": 0,
+              "Outstanding": 0,
+              "SelfPredicted": 0,
+              "SelfConfirmed": 0,
+              "SelfDeathsPredicted": 0,
+              "SelfOutstanding": 0,
+              "SelfPendingClaims": 0,
+              "localSlot": 1
+            }
+          },
+          "authorityPayments": 20,
+          "acceptedReceipts": 20,
+          "feedback": {
+            "peer-0": {
+              "rows": 16,
+              "applied": 16
+            },
+            "peer-1": {
+              "rows": 0,
+              "applied": 0
+            }
+          }
+        },
+        "failures": [],
+        "missing": [],
+        "limitations": [
+          "Bounded native/self-rescue payment, exact terminal ACK and impulse correction evidence only.",
+          "Base campaign verifies sampled authority health, kills, deaths and damage sequence; not every intermediate change.",
+          "No all-weapon, burn-source, extended soak or rendered feedback agreement claim."
+        ],
+        "coverage": {
+          "boundedSelfPayments": "PASS",
+          "selfDeathRespawn": "PASS",
+          "allSelfSplashWeapons": "NOT_RUN",
+          "burnSourceParity": "NOT_RUN",
+          "renderedSelfFeedback": "NOT_RUN"
+        }
+      },
+      "evidence": [
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-14/manifest.json",
+          "bytes": 20447,
+          "sha256": "4ac8581b298e478ba5549152634c30e014d377ec995a076a012f2a97d0a5e45d"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-14/summary.json",
+          "bytes": 7081,
+          "sha256": "3e3972300cc082f3805e814a806bf9fcf46acd5a9f45a374df0bfa5e2a1d582c"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-14/server.json",
+          "bytes": 983756,
+          "sha256": "7be2242f6934e4cca69f427b198bf108c97da09978baaad6c76d0df47ba4c683"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-14/peer-0.json",
+          "bytes": 747664,
+          "sha256": "88cd227b7efb135b092c3c66b1ac2e034fc9ef2664427948fff81ae2bcc36f65"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-14/peer-1.json",
+          "bytes": 736985,
+          "sha256": "1696dea1f1543a323c1f2485eeb52b86924214fa5490037709961c11a0d1437d"
+        },
+        {
+          "path": "artifacts/net2-n7/mac-2-moderate-wall-14/self-audit.json",
+          "bytes": 1380,
+          "sha256": "c9e91c12cbd6cf7a09f65bb78545fcbb55461ece759f6a67ae6c0a7aae2a6e23"
+        }
+      ],
+      "selfDamage": 396,
+      "selfDeaths": 4,
+      "paidOwnerLives": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  ],
+  "buildAttempts": [
+    {
+      "attempt": 1,
+      "status": "FAIL",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-01/build.log",
+        "bytes": 32547,
+        "sha256": "3f21821b6dc0b1b73d0708ba42a650ead7ceda12fe2209ae67b6b2cf85d9ec4c"
+      },
+      "diagnostics": [
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/Mods/Network/NetSelfSplash.cs(85,9): error CS0246: The type or namespace name 'CollisionResult' could not be found (are you missing a using directive or an assembly reference?) [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/Mods/Network/NetSelfSplash.cs(86,13): error CS0103: The name 'CollisionDetection' does not exist in the current context [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/Mods/Network/NetSelfSplash.cs(86,73): error CS0103: The name 'TestFlags' does not exist in the current context [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/Mods/Network/NetSelfSplash.cs(87,16): error CS0103: The name 'CollisionDetection' does not exist in the current context [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/Mods/Network/NetSelfSplash.cs(87,82): error CS0103: The name 'TestFlags' does not exist in the current context [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/src/MphRead/MphRead.csproj]",
+        "    42 Warning(s)",
+        "    5 Error(s)",
+        "Time Elapsed 00:00:45.23"
+      ]
+    },
+    {
+      "attempt": 2,
+      "status": "FAIL",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-02-build.log",
+        "bytes": 1000,
+        "sha256": "8df49b61199e9cc1d7e97e14d25addfc7a760465a26f1b34f4dc0b3c8eb0076e"
+      },
+      "diagnostics": [
+        "System.IO.FileNotFoundException: Could not load file or assembly 'Microsoft.AspNetCore.DeveloperCertificates.XPlat, Version=10.0.12.0, Culture=neutral, PublicKeyToken=adb9793829ddae60'. The system cannot find the file specified."
+      ]
+    },
+    {
+      "attempt": 3,
+      "status": "FAIL",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-03-build.log",
+        "bytes": 31327,
+        "sha256": "11b0d6354b3d56d37cbb3882f66a77e6912f3a9e080cc63133822a5a6b8b750c"
+      },
+      "diagnostics": [
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/SelfPredictionTests.cs(93,24): error CS7036: There is no argument given that corresponds to the required parameter 'scene' of 'BeamProjectileEntity.BeamProjectileEntity(Scene)' [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/nettest.csproj]",
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/SelfPredictionTests.cs(93,24): error CS7036: There is no argument given that corresponds to the required parameter 'scene' of 'BeamProjectileEntity.BeamProjectileEntity(Scene)' [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/nettest.csproj]",
+        "    43 Warning(s)",
+        "    1 Error(s)",
+        "Time Elapsed 00:00:44.79"
+      ]
+    },
+    {
+      "attempt": 4,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-04-build.log",
+        "bytes": 30167,
+        "sha256": "0508a98d04a0f9a4226dd747e016a5a5cf7f2644fcfe603c95853601f72ee19a"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:26.29"
+      ]
+    },
+    {
+      "attempt": 5,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-05-build.log",
+        "bytes": 30167,
+        "sha256": "5804ad965cfbf4d6b6d5e01fb9df4151ddfc1c58c98156d4cb4e66e7413c473f"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:26.43"
+      ]
+    },
+    {
+      "attempt": 6,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-06-build.log",
+        "bytes": 30167,
+        "sha256": "4cb40663ebbd89412e44e5f77fe4d9438c05b33591bb37a2e842292d9ecb5d83"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:26.55"
+      ]
+    },
+    {
+      "attempt": 7,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-07-build.log",
+        "bytes": 30167,
+        "sha256": "da9eab9a13f6e5f6ae73eeb83a0ce995671a9d0e0087292f9a58de300cd1d126"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:26.06"
+      ]
+    },
+    {
+      "attempt": 8,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-08-build.log",
+        "bytes": 30167,
+        "sha256": "4d3e50d3f965e2bb6f89bbe42351b2bd66127e23c07a30ea1e4b6df8449d161b"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:25.58"
+      ]
+    },
+    {
+      "attempt": 9,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-09-build.log",
+        "bytes": 30167,
+        "sha256": "905e21c946fd5172680f616e64fa5129fb77571bd5c528d15deb5123582fd878"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:45.55"
+      ]
+    },
+    {
+      "attempt": 10,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-10-build.log",
+        "bytes": 30167,
+        "sha256": "52f279eebb0db339be6f26ccfe4cfbf7c611a46001528ffb897fa217c9828c13"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:44.41"
+      ]
+    },
+    {
+      "attempt": 11,
+      "status": "FAIL",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-11-build.log",
+        "bytes": 30742,
+        "sha256": "5260a442795fcab3c82d79c395f195fbf8259cfb334a3fdf2b3e894214c520b6"
+      },
+      "diagnostics": [
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/SelfPredictionTests.cs(140,82): error CS0266: Cannot implicitly convert type 'int' to 'byte'. An explicit conversion exists (are you missing a cast?) [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/nettest.csproj]",
+        "/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/SelfPredictionTests.cs(140,82): error CS0266: Cannot implicitly convert type 'int' to 'byte'. An explicit conversion exists (are you missing a cast?) [/Users/jarrett/.codex/worktrees/opengl-phase4-qa-mac-windows/Prime Hunters Online/tools/nettest/nettest.csproj]",
+        "    43 Warning(s)",
+        "    1 Error(s)",
+        "Time Elapsed 00:00:26.20"
+      ]
+    },
+    {
+      "attempt": 12,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-12-build.log",
+        "bytes": 30167,
+        "sha256": "08da19c7d3692aaf3e24956faf519fe39bffd929cf6bb908cfd9ebb4d807ade8"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:31.31"
+      ]
+    },
+    {
+      "attempt": 13,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-13-build.log",
+        "bytes": 30167,
+        "sha256": "e9cadcfd05da79e9748c8f07c820b6766bba87ed70c4200a02ba66c03848d371"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:30.95"
+      ]
+    },
+    {
+      "attempt": 14,
+      "status": "PASS",
+      "evidence": {
+        "path": "artifacts/net2-n7/attempt-14-build.log",
+        "bytes": 30167,
+        "sha256": "3222c861100f2803bb307772c721d4c0fdbc8ba9f3508a2a0a428a2f66cd36b5"
+      },
+      "diagnostics": [
+        "    43 Warning(s)",
+        "    0 Error(s)",
+        "Time Elapsed 00:00:26.69"
+      ]
+    }
+  ],
+  "historicalEvidence": [
+    {
+      "path": "artifacts/net2-n7/checks-12/manifest.json",
+      "bytes": 3588,
+      "sha256": "fca95b62a2a5829b04f3ea08553a4952f38d330aba3a7936fe27b2cdf3ba3ae8"
+    },
+    {
+      "path": "artifacts/net2-n7/final-checks-09/manifest.json",
+      "bytes": 16304,
+      "sha256": "e61cd96fcf2902e7a7d06cd6d5136c676eb5b3723c90513d026fc70ca87e6d14"
+    },
+    {
+      "path": "artifacts/net2-n7/final-checks-10/manifest.json",
+      "bytes": 16545,
+      "sha256": "90086441df71d05eafbcf22c72e106f35ca5d9d780faea161705441b7f97fc86"
+    },
+    {
+      "path": "artifacts/net2-n7/final-checks-13/manifest.json",
+      "bytes": 18003,
+      "sha256": "65e9d591d1905d57dfda3a1582de1b84a631c4bd0cb63011dc221e1165e4ed52"
+    },
+    {
+      "path": "artifacts/net2-n7/regression-06/manifest.json",
+      "bytes": 8556,
+      "sha256": "0f3b43bb8963df0c7c3d631374f5aa13dd17419b0d2e3f3903bfbadfc1a0eb86"
+    },
+    {
+      "path": "artifacts/net2-n7/checks-06/self-prediction.log",
+      "bytes": 216,
+      "sha256": "eb06ac2e3ff6608975942f932799a4b2ff6871018d6b107e755c5ae6fd7ae8ce"
+    },
+    {
+      "path": "artifacts/net2-n7/checks-06/self-splash.log",
+      "bytes": 11355,
+      "sha256": "f8810df6fba7408a060af70a4930a329a3a76bc0db461dc750eef755ff79397d"
+    },
+    {
+      "path": "artifacts/net2-n7/checks-07/self-splash.log",
+      "bytes": 16927,
+      "sha256": "819d620c791437a29cb4fd0d2d7e1c43c3482687140fecbb12e8ad534034bbc0"
+    },
+    {
+      "path": "artifacts/net2-n7/checks-08/self-splash.log",
+      "bytes": 29054,
+      "sha256": "99970bedcbe75af8d888c52e205939930d14d5d88fe5d5fabb47fde26c1aa124"
+    },
+    {
+      "path": "artifacts/net2-n7/initial-checks/self-prediction.log",
+      "bytes": 721,
+      "sha256": "5b493ac1aa7d5604f2d5a3f538139ae7236d068780ee7e9c44fac4c289c24cdc"
+    },
+    {
+      "path": "artifacts/net2-n7/initial-checks/self-splash.log",
+      "bytes": 10749,
+      "sha256": "949d1c4cb0979a8403c44a70a72b0e0098f1d9f0c5777bd802df27d9631ab5f2"
+    }
+  ],
+  "finalBinaryEvidence": [
+    {
+      "path": "artifacts/net2-n7/attempt-13/bin/ProjectPrime.dll",
+      "bytes": 32018432,
+      "sha256": "5bce5298426d623c25d8fc9cd0c7c9c4adbc0546113d5217d1af5cecf9d5594b"
+    },
+    {
+      "path": "artifacts/net2-n7/attempt-13/bin/nettest.dll",
+      "bytes": 474624,
+      "sha256": "61d5e76686242bb4a98a0b6387b5529c1398d3ea25c815e07aea7036d3de5ff9"
+    },
+    {
+      "path": "artifacts/net2-n7/attempt-14/bin/ProjectPrime.dll",
+      "bytes": 32018432,
+      "sha256": "79d7ad513dc1d2998cc1b0923f6a7e0d33f64ef2b79dfc5ff1f2827d5f4bd64c"
+    },
+    {
+      "path": "artifacts/net2-n7/attempt-14/bin/nettest.dll",
+      "bytes": 474624,
+      "sha256": "1fdd4dc0cb9705b57b31e04ce83dd5a25743bb574afc4f095449fa56da6ed35a"
+    }
+  ],
+  "developmentFindings": [
+    "Attempts 1-3: compile/tooling/fixture setup failures; temporary SDK disappeared and was restored to durable local cache.",
+    "Earlier asset fixtures exposed ricochet versus splash setup, tiny Judicator radius, and zero-splash Noxus affinity; controls now follow actual native geometry.",
+    "Review fixed authority-derived falloff independent of client hit point, offline zero-shot burn refresh, captured Balanced charge, and burn current-time death arbitration.",
+    "Attempt 09: zero aligned shots; baseline-only semantic receiver also causes diagnostic drain false-negative. Workload independently incomplete; drain thresholds unchanged.",
+    "Attempt 10: general campaign PASS did not establish N7 gate; moving had no exact impulse feedback because authority event preceded local collision; wall did not pay a second life.",
+    "Surviving bombs received lifecycle fences before damage and owner jump; authority preserves same-occupant old-life flights.",
+    "Authority-first self events are retained and matched only by exact receipt; ambiguous late local collision declares full claim but defers extra HP/impulse.",
+    "Review found and fixed a deferred ACK double debit when another self claim remains; accepted/rejected variants have regression coverage.",
+    "Attempt 11: new test slot field required explicit byte conversion; attempt 12 focused actual Replay checks passed.",
+    "Attempt 13: gameplay checks and moving UDP PASS; wall driver still missed second paid life. Attempt 14 changed only wall aim to its base and passed.",
+    "Final wall run: one local prediction lacked exact native payment and failed constrained rescue; no refused-but-paid contradiction and no remaining claim."
+  ],
+  "limits": [
+    "Mac arm64 only; Windows not needed for this platform-independent slice. No Linux/Android, GPU, GitHub Actions or long soak.",
+    "No every-rendered-frame HP or motion parity guarantee; honest unmatched predictions may receive authority corrections.",
+    "All-weapon/charge/team/burn ownership coverage uses deterministic asset fixtures, not exhaustive live UDP campaigns.",
+    "Omega unpaid rescue requires unavailable independent emission proof and remains fail-closed; native exact receipts work.",
+    "Bomb placement admission and component replication remain N8 scope; N7 adds original owner lifecycle fences.",
+    "N4 source admission remains Shadow; N7 unpaid self rescue independently requires verified emission and authority explosion witness.",
+    "No performance improvement claimed."
+  ],
+  "rawEvidence": {
+    "path": "artifacts/net2-n7",
+    "storage": "Ignored local evidence in attached managed worktree; not uploaded to GitHub",
+    "priorAttemptsPreserved": true
+  }
+}

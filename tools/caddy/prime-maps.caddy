@@ -1,0 +1,15 @@
+# Imported by the existing /etc/caddy/Caddyfile; Caddy manages HTTPS certificates.
+__DOMAIN__ {
+    request_body {
+        max_size 128MB
+    }
+    header X-Content-Type-Options nosniff
+    reverse_proxy 127.0.0.1:__PORT__ {
+        # Match the loopback hostname registered with HttpListener.
+        header_up Host {upstream_hostport}
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 150s
+        }
+    }
+}

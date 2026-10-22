@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+    <DefineConstants>$(DefineConstants);PROJECTPRIME_RMLUI_ANDROID_EXPERIMENT</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj" Condition="'$(MphReadTestAssembly)' == ''" />
+    <Reference Include="ProjectPrime" Condition="'$(MphReadTestAssembly)' != ''">
+      <HintPath>$(MphReadTestAssembly)</HintPath>
+    </Reference>
+    <Compile Include="../../src/MphRead.Android/RmlUiAndroidLocalLaunchRequest.cs" Link="RmlUiAndroidLocalLaunchRequest.cs" />
+    <Compile Include="../../src/MphRead.Android/RmlUiAndroidLauncherAdmission.cs" Link="RmlUiAndroidLauncherAdmission.cs" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,467 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- MphReadServer=true builds the dedicated-server package: no launcher of
+         either kind and no UI toolkit. A bare invocation prints server usage;
+         actually running a game server requires the user's extracted game data
+         and paths.txt because the server simulates the authoritative world. It
+         is what the Pi and the Windows server downloads are published with.
+
+         Desktop clients use the native RmlUi shell. Avalonia remains a shared
+         implementation dependency and an explicit legacy diagnostic option;
+         no Windows desktop TFM is required. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- Keep the compatibility property name for existing build scripts, but
+         ordinary desktop builds now include the primary UI without opt-in. -->
+    <MphReadRmlUiGlSmoke Condition="'$(MphReadRmlUiGlSmoke)' == '' and '$(MphReadServer)' != 'true'">true</MphReadRmlUiGlSmoke>
+    <!-- A console binary everywhere except a Windows game build, which is a GUI
+         one: double-clicking it has to open the launcher and nothing else, and
+         a console subsystem process gets a terminal before Main can hide it.
+         Mods/ConsoleWindow attaches or allocates one for command-line runs. -->
+    <MphReadWindowsUi Condition="$(RuntimeIdentifier.StartsWith('win')) and '$(MphReadServer)' != 'true'">true</MphReadWindowsUi>
+    <OutputType Condition="'$(MphReadWindowsUi)' != 'true'">Exe</OutputType>
+    <OutputType Condition="'$(MphReadWindowsUi)' == 'true'">WinExe</OutputType>
+    <!-- On Windows the server needs a second, differently named executable.
+
+         Windows bakes the subsystem into the PE header at link time, so a GUI
+         binary cannot be talked into behaving like a console one: cmd and
+         PowerShell do not wait for it, its exit code never reaches
+         %ERRORLEVEL%, and a service supervisor cannot tell whether it is
+         still up. Those are the three things a dedicated server is made of, so
+         it gets a binary whose header says console, and a name of its own so
+         that it can sit next to the game's in one folder.
+
+           dotnet publish -r win-x64 -p:MphReadServer=true
+             produces ProjectPrimeServer.exe
+
+         Only on Windows. Elsewhere the subsystem does not exist, the server
+         package holds exactly one binary, and renaming it would mean a Pi that
+         has been running MphRead under systemd since before this change gets a
+         second binary beside the one its unit still points at. -->
+    <!-- The public product is Project Prime. The C# namespace remains MphRead
+         for upstream compatibility; the assembly, binary and package identities
+         intentionally use the Project Prime name after the product migration. -->
+    <AssemblyName>ProjectPrime</AssemblyName>
+    <AssemblyName Condition="'$(MphReadServer)' == 'true' and $(RuntimeIdentifier.StartsWith('win'))">ProjectPrimeServer</AssemblyName>
+    <Product>Project Prime</Product>
+    <!-- A local build must not masquerade as the SDK's default 1.0.0 release. -->
+    <InformationalVersion Condition="'$(InformationalVersion)' == ''">local</InformationalVersion>
+    <RootNamespace>MphRead</RootNamespace>
+    <!-- Not the same question as "has no launcher": server packages never
+         contain Nintendo game data, but an operator supplies extracted files
+         through paths.txt. A bare invocation therefore prints server-specific
+         setup/usage instead of opening the client setup flow. -->
+    <DefineConstants Condition="'$(MphReadServer)' == 'true'">$(DefineConstants);MPHREAD_SERVER</DefineConstants>
+    <!-- The graphical launcher, in Avalonia, on every platform a person plays
+         on. Server builds do not get it because the authoritative headless
+         simulation has no use for a UI toolkit and every megabyte of one is a
+         megabyte in the server download. -->
+    <MphReadAvalonia Condition="'$(MphReadServer)' != 'true'">true</MphReadAvalonia>
+    <DefineConstants Condition="'$(MphReadAvalonia)' == 'true'">$(DefineConstants);MPHREAD_AVALONIA</DefineConstants>
+    <!-- The one-window shell: the launcher and the pause menu rendered into
+         the game window (Mods/Launcher/Gui/Shell.cs, UiSurface.cs). Desktop
+         only, and not because Android cannot do it: Android already
+         does it the other way round, with real Avalonia views over the GL
+         surface, which is what a platform whose windowing system *is* a view
+         stack gives for nothing. The Android head defines MPHREAD_AVALONIA
+         without this one and leaves those two files out. -->
+    <DefineConstants Condition="'$(MphReadAvalonia)' == 'true'">$(DefineConstants);MPHREAD_SHELL</DefineConstants>
+    <!-- Project Prime shell identity for Explorer, the taskbar and pinned
+         shortcuts. The dedicated server keeps a small badge so it is visually
+         distinct from the game client. Runtime GL windows still use the
+         embedded PNG mark below. -->
+    <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win')) and '$(MphReadServer)' != 'true'">Assets\project-prime.ico</ApplicationIcon>
+    <ApplicationIcon Condition="$(RuntimeIdentifier.StartsWith('win')) and '$(MphReadServer)' == 'true'">Assets\project-prime-server.ico</ApplicationIcon>
+    <PublishSingleFile>true</PublishSingleFile>
+    <!-- Dedicated servers spend their first seconds loading/JITing the exact
+         combat paths every isolated match process will use. Crossgen those
+         packages ahead of time; game/client builds stay unchanged. -->
+    <PublishReadyToRun Condition="'$(MphReadServer)' == 'true'">true</PublishReadyToRun>
+    <DebugType>embedded</DebugType>
+    <Nullable>enable</Nullable>
+    <!-- These warning causes are repaired and must not regress. Remaining
+         warnings retain their existing severity while their owners review them. -->
+    <WarningsAsErrors>$(WarningsAsErrors);CA2014;IL3000</WarningsAsErrors>
+    <AllowUnsafeBlocks>True</AllowUnsafeBlocks>
+    <ProduceReferenceAssembly>False</ProduceReferenceAssembly>
+    <!-- The launcher's screens are drawn into the game window through an
+         ITopLevelImpl of our own (Mods/Launcher/Gui/UiTopLevel.cs), which is
+         the supported way to put Avalonia inside somebody else's frame and is
+         the difference between a menu that scrolls and one that does not: the
+         toolkit's headless backend allocates and frees a full-window bitmap
+         per redraw and forces two extra rasterisations per input event.
+
+         Avalonia ships reference assemblies that hide the platform interfaces,
+         so implementing one needs this switch, which is Avalonia's own. It
+         also pins us to an exact version: these interfaces are allowed to
+         change between releases, so the Avalonia PackageReferences above are
+         exact versions and not ranges, and bumping them means rebuilding
+         against the new shape rather than hoping. AVA3001 is the warning that
+         says so and is expected. -->
+    <AvaloniaAccessUnstablePrivateApis Condition="'$(MphReadAvalonia)' == 'true'">true</AvaloniaAccessUnstablePrivateApis>
+    <!-- AVA3001 is the notice the switch above prints on every build: "you are
+         using unstable internal APIs". It is saying something true and it has
+         been acted on rather than waved away, which is what the exact version
+         pins are for: bumping Avalonia means rebuilding against the new shape
+         of ITopLevelImpl and IRenderTimer, deliberately. Other compiler and
+         analyzer diagnostics retain their own severity and review. -->
+    <NoWarn Condition="'$(MphReadAvalonia)' == 'true'">$(NoWarn);AVA3001</NoWarn>
+  </PropertyGroup>
+
+  <!-- Mods\Launcher\Gui\ is the front screen and every window behind it, in
+       Avalonia. Mods\Launcher\Portable\ is the half of the launcher that is
+       just logic: preferences, game-file setup, what a launch consists of, and
+       the text front screen that stands in for the window where there is no
+       display. Only builds that declared the toolkit get the packages, so a
+       server build never restores Avalonia and never carries it. -->
+  <ItemGroup Condition="'$(MphReadAvalonia)' != 'true'">
+    <Compile Remove="Mods\Launcher\Gui\**" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadAvalonia)' == 'true'">
+    <PackageReference Include="Avalonia" Version="12.1.2" />
+    <!-- Desktop is still here for the platform's fonts, its Skia backend and
+         the packages the render path pulls in; what it is no longer used for
+         is a window. The launcher's screens are rendered by the *headless*
+         backend into a buffer and drawn inside the game window
+         (Mods/Render/UiOverlay.cs), so the program opens exactly one window on
+         every platform and the launcher is a screen in the game rather than a
+         second application beside it. -->
+    <PackageReference Include="Avalonia.Desktop" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Headless" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Skia" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
+    <!-- Loaded at runtime through avares://, Avalonia's own asset scheme: a
+         plain EmbeddedResource is not visible to AssetLoader. The launcher wordmark is rendered in code; the mark is the window icon. -->
+    <AvaloniaResource Include="Assets\project-prime-mark.png" />
+    <!-- The same file again, as a plain embedded resource: the *window's*
+         icon is set on the GL window, which knows nothing about avares:// and
+         is created before the toolkit is. Mods/Render/WindowIcon.cs reads it.
+         A few kilobytes, and the alternative is the launcher's icon existing
+         only on a screen the program no longer opens. -->
+    <EmbeddedResource Include="Assets\project-prime-mark.png" />
+    <!-- The launcher's two faces and its backdrop: fonts from
+         OpenQuake3/defrag's ui/font, whose UI this one is built to. -->
+    <AvaloniaResource Include="Assets\Fonts\heyNovember.ttf" />
+    <!-- JetBrains Mono, SIL OFL 1.1 (licence beside it). The deck theme's
+         body face, and it is not interchangeable with the display one: the
+         reference sets its labels, its headings and its wordmark in the pixel
+         face and everything that is read (a mode name, a ping, a note under
+         the foot) in a mono, because a pixel face at eleven points
+         loses the difference between an "e" and an "o". Two weights, since
+         400 and 700 are both used and a synthesised bold on a mono is a
+         smear. -->
+    <AvaloniaResource Include="Assets\Fonts\JetBrainsMono-Regular.ttf" />
+    <AvaloniaResource Include="Assets\Fonts\JetBrainsMono-Bold.ttf" />
+    <!-- Squared tactical headings/controls; unmodified static faces, SIL OFL 1.1. -->
+    <AvaloniaResource Include="Assets\Fonts\Rajdhani-SemiBold.ttf" />
+    <AvaloniaResource Include="Assets\Fonts\Rajdhani-Bold.ttf" />
+    <AvaloniaResource Include="Assets\Fonts\Rajdhani-OFL.txt" />
+    <!-- IP-to-country ranges, so the browser can put a flag beside a server
+         without asking a third party where every server you are looking at
+         is. Built from DB-IP Lite (CC BY 4.0) by tools/build-ipcountry.py;
+         the attribution the licence requires is on the Credits page. About a
+         megabyte, which is the price of the question being answered offline. -->
+    <AvaloniaResource Include="Assets\Geo\ipcountry.bin.gz" />
+    <AvaloniaResource Include="Assets\Fonts\Roboto-Bold.ttf" />
+    <EmbeddedResource Include="Assets\Fonts\Roboto-Bold.ttf" />
+    <AvaloniaResource Include="Assets\Backgrounds\launcher-bg.png" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <!-- Original Project Prime combat-feedback stingers. Embedded so single-file
+         releases and Android all carry the same defaults without loose assets. -->
+    <EmbeddedResource Include="Assets\Sounds\Combat\*.wav" />
+    <EmbeddedResource Include="Assets\Sounds\Menu\*.mp3" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <!-- The backdrop again, as a plain embedded resource, for the same reason
+         the mark is above: on the desktop the photograph is drawn by GL under
+         the screens rather than rasterised into them (Mods/Render/
+         LauncherPhoto.cs, which explains why), and that side of the window
+         knows nothing about avares://. Not inside the Avalonia group: the
+         server build carries no toolkit and still compiles the file. -->
+    <EmbeddedResource Include="Assets\Backgrounds\launcher-bg.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Export\modules\__pycache__\**" />
+    <EmbeddedResource Remove="Export\modules\__pycache__\**" />
+    <None Remove="Export\modules\__pycache__\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="OpenTK" Version="4.9.4" />
+    <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <PackageReference Include="Ktx2.NET" Version="1.0.5"
+                      Condition="'$(MphReadServer)' != 'true'" />
+  </ItemGroup>
+
+  <!-- OpenGL/GLES compatibility front-end retains the legacy uniform cache. -->
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <Using Include="MphRead.Mods.Render.GraphicsApi" Alias="GL" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <MphReadKtxRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</MphReadKtxRid>
+    <MphReadKtxRid Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">$(NETCoreSdkRuntimeIdentifier)</MphReadKtxRid>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(MphReadKtxRid.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-macos\$(MphReadKtxRid)\libktx.dylib')">
+    <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-macos\$(MphReadKtxRid)\libktx.dylib"
+          Link="libktx.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <!-- OpenAL Soft, for the sound effects.
+
+       OpenTK ships the bindings only: opentk.audio.openal has no runtimes/
+       folder and no native library at all. With nothing beside the exe and
+       no system-wide OpenAL (the normal state of a Windows machine, since
+       nothing installs oalinst.exe any more), ALC.OpenDevice fails and every
+       sound effect silently does nothing, while the music keeps playing:
+       that goes through SoundFlow, which ships its own miniaudio.dll.
+       "Music works, no SFX" is exactly that split.
+
+       The package is a file source, not a dependency (ExcludeAssets=all).
+       Its own names are soft_oal.dll and libopenal.so, while OpenTK probes
+       for openal32.dll and libopenal.so.1, so each is copied under the name
+       the loader actually looks for. A server build has no audio at all. -->
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <PackageReference Include="Silk.NET.OpenAL.Soft.Native" Version="1.23.1"
+                      GeneratePathProperty="true" ExcludeAssets="all" />
+  </ItemGroup>
+
+  <!-- Every game build gets it, under whichever name that platform's loader
+       probes for: openal32.dll on Windows, libopenal.so.1 on Linux,
+       libopenal.1.dylib on macOS. The RID picks the copy; a build with no RID
+       at all (plain `dotnet build` on this machine) is treated as this
+       machine's, which is what makes F5 produce a binary with sound. -->
+  <PropertyGroup>
+    <MphReadAudioRid Condition="'$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</MphReadAudioRid>
+    <MphReadAudioRid Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Windows'))">win-x64</MphReadAudioRid>
+    <MphReadAudioRid Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('Linux'))">linux-x64</MphReadAudioRid>
+    <MphReadAudioRid Condition="'$(RuntimeIdentifier)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">$(NETCoreSdkRuntimeIdentifier)</MphReadAudioRid>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(MphReadAudioRid.StartsWith('win'))">
+    <None Include="$(PkgSilk_NET_OpenAL_Soft_Native)\runtimes\$(MphReadAudioRid)\native\soft_oal.dll"
+          Link="openal32.dll" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(MphReadAudioRid.StartsWith('linux'))">
+    <None Include="$(PkgSilk_NET_OpenAL_Soft_Native)\runtimes\$(MphReadAudioRid)\native\libopenal.so"
+          Link="libopenal.so.1" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(MphReadAudioRid.StartsWith('osx'))">
+    <None Include="$(PkgSilk_NET_OpenAL_Soft_Native)\runtimes\$(MphReadAudioRid)\native\libopenal.dylib"
+          Link="libopenal.1.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NcsfPlay\NcsfPlay.csproj" />
+    <ProjectReference Include="../MphRead.CorpsePhysics/MphRead.CorpsePhysics.csproj" Condition="'$(MphReadServer)' != 'true'" />
+  </ItemGroup>
+
+  <!-- The in-repo network regression harness intentionally exercises a few
+       internal policy helpers without making those helpers part of the public
+       game API. -->
+  <ItemGroup>
+    <InternalsVisibleTo Include="nettest" />
+    <InternalsVisibleTo Include="campaign-credits-check" />
+    <InternalsVisibleTo Include="custom-weapons-check" />
+    <InternalsVisibleTo Include="replay-export-queue-check" />
+    <InternalsVisibleTo Include="audio-check" />
+    <InternalsVisibleTo Include="music-lifecycle-check" />
+    <InternalsVisibleTo Include="settings-archive-check" />
+    <InternalsVisibleTo Include="fidelity-oracle" />
+    <InternalsVisibleTo Include="final-composite-check" />
+    <InternalsVisibleTo Include="hud-ui-check" />
+    <InternalsVisibleTo Include="material-pack" />
+    <InternalsVisibleTo Include="external-import-check" />
+    <InternalsVisibleTo Include="retro-character-preview-check" />
+    <InternalsVisibleTo Include="map-editor-check" />
+    <InternalsVisibleTo Include="theatre-storage-check" />
+    <InternalsVisibleTo Include="replay-sidecar-check" />
+    <InternalsVisibleTo Include="rmlui-license-check" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <None Update="gamecontrollerdb.txt;gamecontrollerdb.LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- The native packages ship their own debug symbols, and since SkiaSharp 3
+       (which Avalonia 12 binds) publish copies them: libSkiaSharp.pdb is 80 MB
+       and libHarfBuzzSharp.pdb another 20, on a download that is otherwise
+       about a hundred. Nobody debugging this program steps into Skia's C++,
+       and the managed symbols are embedded in the binary (DebugType above).
+
+       Filtered rather than switched off at the source: there is no package
+       option for it, and AllowedReferenceRelatedFileExtensions only reaches
+       *managed* references. Ours are left alone; what goes is only what came
+       out of a package's runtimes/ folder, and that is still in the NuGet
+       cache for anyone who wants it. -->
+  <Target Name="MphReadDropNativeSymbols" AfterTargets="ComputeResolvedFilesToPublishList">
+    <ItemGroup>
+      <ResolvedFileToPublish
+        Remove="@(ResolvedFileToPublish)"
+        Condition="'%(Extension)' == '.pdb' and '%(ResolvedFileToPublish.AssetType)' == 'native'" />
+    </ItemGroup>
+  </Target>
+
+  <ItemGroup>
+    <None Update="paths.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <!-- Custom maps: the map file, and the level it converts. The room binaries
+       are still generated on the player's machine, because they land where
+       that machine's extracted files are, but everything needed to generate
+       them ships, so a downloaded release has its custom maps ready and the
+       first launch builds them.
+
+       A map is handed out as one .ppmap bundle: recipe, level and baked
+       textures in a single file, with the level trimmed to the lumps the
+       importer reads (see Mods/MapGen/MapBundle.cs): 376 KB for de_dust2
+       against the 2.8 MB its folder weighed. The folder is what a map is
+       *worked on* as, so it is still copied to the build output for the loop
+       of converting and testing one, but a .pk3 is somebody else's level in
+       somebody else's container, and CopyToPublishDirectory keeps it out of
+       what players download. The workflow cooks the bundle before it
+       publishes. -->
+  <ItemGroup>
+    <!-- What ships: the bundles, and any map file loose at the top of maps/. -->
+    <None Include="..\..\maps\**\*.ppmap;..\..\maps\*.json;..\..\maps\*.bsp;..\..\maps\*.tex;..\..\maps\*.obj" Link="maps\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <!-- What a map is worked on as: a folder holding the recipe, somebody
+         else's .pk3 and the textures baked from it. Copied to a build output,
+         because that is the convert-and-test loop, and never published: a
+         package carrying the folder as well as the bundle would carry the
+         same map twice, one copy of it naming a .pk3 that is deliberately not
+         there. -->
+    <None Include="..\..\maps\**\*.json;..\..\maps\**\*.bsp;..\..\maps\**\*.tex;..\..\maps\**\*.pk3;..\..\maps\**\*.obj;..\..\maps\**\*.mtl"
+          Exclude="..\..\maps\*.json;..\..\maps\*.bsp;..\..\maps\*.tex;..\..\maps\*.obj"
+          Link="maps\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory Condition="'%(Filename)' != 'aimlab'">Never</CopyToPublishDirectory>
+      <CopyToPublishDirectory Condition="'%(Filename)' == 'aimlab'">PreserveNewest</CopyToPublishDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/Weapons/RiftlineM7/model-v1.json" LogicalName="Weapons/RiftlineM7/model-v1.json" />
+    <EmbeddedResource Include="Assets/Weapons/RiftlineM7/LICENSE.txt" LogicalName="Weapons/RiftlineM7/LICENSE.txt" />
+    <EmbeddedResource Include="Assets/Weapons/RiftlineM7/README.md" LogicalName="Weapons/RiftlineM7/README.md" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <EmbeddedResource Include="Assets/Cosmetics/**/*.png">
+      <LogicalName>Cosmetics/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <None Include="../../tools/fidelity-oracle/baselines/*.json"
+          Condition="'$(MphReadServer)' != 'true'"
+          Link="fidelity-baselines/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
+    <!-- Only authored resources, not historical service presenters, are restored. -->
+    <None Update="Assets/HudFonts/*.ttf;Assets/HudFonts/*-notice.txt;Assets/HudFonts/*-OFL.txt;Assets/HudFonts/LibreOffice-bundled-font-licenses.txt"
+          Link="rmlui/hud-fonts/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Mods/Launcher/RmlUi/Pages/startup/startup-background.tga"
+          Link="rmlui/pages/startup/startup-background.tga"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- Re-include under these globs so RecursiveDir is relative to Pages,
+         Components or Themes, rather than the SDK's project-wide None glob. -->
+    <None Remove="Mods/Launcher/RmlUi/Pages/**/*.rml;Mods/Launcher/RmlUi/Pages/**/*.rcss;Mods/Launcher/RmlUi/Components/**/*.rml;Mods/Launcher/RmlUi/Components/**/*.rcss;Mods/Launcher/RmlUi/Themes/**/*.rcss" />
+    <None Include="Mods/Launcher/RmlUi/Pages/**/*.rml;Mods/Launcher/RmlUi/Pages/**/*.rcss"
+          Link="rmlui/pages/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="Mods/Launcher/RmlUi/Components/**/*.rml;Mods/Launcher/RmlUi/Components/**/*.rcss"
+          Link="rmlui/components/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="Mods/Launcher/RmlUi/Themes/**/*.rcss"
+          Link="rmlui/themes/%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Assets/Fonts/NotoSansJP-Regular.ttf;Assets/Fonts/NotoSansJP-OFL.txt;Assets/Fonts/Rajdhani-OFL.txt;Assets/Fonts/JetBrainsMono-OFL.txt"
+          Link="rmlui/fonts/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- RML-01: the restored managed native host compiles in desktop clients,
+       but dedicated servers retain no RmlUi UI host or P/Invoke surface. -->
+  <ItemGroup Condition="'$(MphReadServer)' == 'true'">
+    <Compile Remove="Mods/Launcher/RmlUi/Host/**/*.cs;Mods/Launcher/RmlUi/Core/**/*.cs;Mods/Launcher/Portable/RmlUiPointerMapping.cs" />
+  </ItemGroup>
+  <!-- Native RmlUi is the desktop default; explicit false is for legacy
+       developer diagnostics. Dedicated servers never include this UI. -->
+  <PropertyGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
+    <DefineConstants>$(DefineConstants);MPHREAD_RMLUI_GL_SMOKE;MPHREAD_RMLUI</DefineConstants>
+    <!-- Only the explicit GL acceptance project enables its failure injector. -->
+    <DefineConstants Condition="'$(MphReadReplayPreviewFailureFixture)' == 'true'">$(DefineConstants);MPHREAD_REPLAY_PREVIEW_FAILURE_FIXTURE</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
+    <None Update="Mods/Launcher/RmlUi/Assets/*.rml;Mods/Launcher/RmlUi/Assets/*.rcss"
+          Link="rmlui/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Update="Assets/Fonts/Rajdhani-SemiBold.ttf;Assets/Fonts/Rajdhani-Bold.ttf;Assets/Fonts/JetBrainsMono-Regular.ttf"
+          Link="rmlui/fonts/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <!-- A local native build is also staged by ordinary dotnet build/run/publish.
+       Headless/source-only builds can compile without the native toolchain;
+       release packagers build and verify the bridge before shipping. -->
+  <PropertyGroup Condition="'$(MphReadRmlUiGlSmoke)' == 'true' and '$(MphReadServer)' != 'true'">
+    <_RmlUiRuntimeIdentifier>$(RuntimeIdentifier)</_RmlUiRuntimeIdentifier>
+    <_RmlUiRuntimeIdentifier Condition="'$(_RmlUiRuntimeIdentifier)' == ''">$(NETCoreSdkRuntimeIdentifier)</_RmlUiRuntimeIdentifier>
+    <_RmlUiNativeRoot>$(MSBuildProjectDirectory)/../../artifacts/rmlui-native/$(_RmlUiRuntimeIdentifier)</_RmlUiNativeRoot>
+    <_RmlUiNativeLibrary Condition="'$(_RmlUiRuntimeIdentifier)' == 'win-x64'">ProjectPrime.RmlUi.Native.dll</_RmlUiNativeLibrary>
+    <_RmlUiNativeLibrary Condition="'$(_RmlUiRuntimeIdentifier)' == 'linux-x64'">libProjectPrime.RmlUi.Native.so</_RmlUiNativeLibrary>
+    <_RmlUiNativeLibrary Condition="'$(_RmlUiRuntimeIdentifier)' == 'osx-arm64' or '$(_RmlUiRuntimeIdentifier)' == 'osx-x64'">libProjectPrime.RmlUi.Native.dylib</_RmlUiNativeLibrary>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(_RmlUiNativeLibrary)' != '' and Exists('$(_RmlUiNativeRoot)/$(_RmlUiNativeLibrary)')">
+    <None Include="$(_RmlUiNativeRoot)/$(_RmlUiNativeLibrary);$(_RmlUiNativeRoot)/PRIME-RMLUI.json"
+          Link="%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="$(_RmlUiNativeRoot)/licenses/*.txt"
+          Link="licenses/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/DsHud/*.bin" />
+    <EmbeddedResource Include="Assets/DsHud/*.rgb" />
+    <EmbeddedResource Include="Assets/HudFonts/*.bin" />
+    <Content Include="Assets/HudFonts/*-*.txt" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets/DsHud/*LICENSE.txt" CopyToOutputDirectory="PreserveNewest" />
+    <AvaloniaResource Include="Assets/HudFonts/*.ttf" Condition="'$(MphReadAvalonia)' == 'true'" />
+  </ItemGroup>
+  <!-- Bounded, deterministic source stamp for generated map output. A collision
+       compiler update must invalidate old .ppmap room/collision files on both
+       clients and dedicated servers, without rebuilding maps on every release.
+       GetFileHash is supplied by the .NET SDK; no git or shell dependency. -->
+  <Target Name="StampProjectPrimeMapGenerator" BeforeTargets="GetAssemblyAttributes">
+    <ItemGroup>
+      <_PrimeGeneratorSource Include="$(MSBuildProjectDirectory)/Mods/MapGen/**/*.cs;$(MSBuildProjectDirectory)/Formats/Collision.cs;$(MSBuildProjectDirectory)/Formats/CollisionDetection.cs;$(MSBuildProjectDirectory)/Utility/RepackCollision.cs" />
+    </ItemGroup>
+    <GetFileHash Files="@(_PrimeGeneratorSource)" Algorithm="SHA256">
+      <Output TaskParameter="Items" ItemName="_PrimeGeneratorHashedSource" />
+    </GetFileHash>
+    <PropertyGroup>
+      <_PrimeGeneratorSourceHashes>@(_PrimeGeneratorHashedSource->'%(FileHash)', '|')</_PrimeGeneratorSourceHashes>
+      <_PrimeGeneratorStamp>$([MSBuild]::StableStringHash('$(_PrimeGeneratorSourceHashes)', 'Sha256'))</_PrimeGeneratorStamp>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>ProjectPrimeMapGeneratorHash</_Parameter1>
+        <_Parameter2>$(_PrimeGeneratorStamp)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+</Project>

@@ -1,0 +1,160 @@
+using System;
+using MphRead.Entities;
+using MphRead.Formats;
+using MphRead.Mods.Movement;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.Network;
+
+[Flags]
+internal enum MovementValidationExemption : byte
+{
+    None = 0, Teleport = 1, Platform = 2, JumpPad = 4, Impulse = 8,
+    FormTransition = 16, Climbing = 32, Collision = 64, Prime = 128
+}
+internal readonly record struct MovementValidationSample(ulong Epoch, ushort Match, int Slot,
+    ushort Generation, ushort Life, Hunter Hunter, uint Frame, Vector3 Position,
+    IntentButtons Buttons, MovementValidationExemption Exemptions, sbyte MoveX = 0, sbyte MoveY = 0,
+    MovementModel MovementModel = MovementModel.Native, int ProfileVersion = 0);
+internal readonly record struct MovementValidationRow(ulong Epoch, ushort Match, int Slot,
+    ushort Generation, ushort Life, Hunter Hunter, uint Frame, uint ElapsedFrames,
+    bool Alt, float HorizontalPerFrame, float UpwardPerFrame, float AccelerationPerFrame,
+    bool HorizontalSignal, bool VerticalSignal, bool AccelerationSignal, MovementModel MovementModel, int ProfileVersion);
+internal readonly record struct MovementValidationCounts(Hunter Hunter, bool Alt, long Baselines,
+    long Evaluated, long Exempt, long Unsupported, long WouldRefuse, long DuplicateOrOld,
+    long LongGaps, long InputAbsentWhileMoving, float MaximumHorizontal, float MaximumUpward, MovementModel MovementModel, int ProfileVersion);
+internal sealed record MovementValidationReport(bool Enabled, int HardRejections,
+    MovementValidationCounts[] Hunters, MovementValidationRow[] Rows, long Overflow, long Invalid, int Schema = 3);
+
+/// <summary>Opt-in source-time envelope observations. This is not a collision reference,
+/// cheat verdict, or movement authority. It has no path to write player state or reject packets.
+/// All envelopes are deliberately broad; collision/alt parity remains unproved.</summary>
+internal static class NetMovementValidationShadow
+{
+    internal static bool Enabled { get; set; } = Environment.GetEnvironmentVariable("PRIME_MOVEMENT_VALIDATION_SHADOW") == "1";
+    private struct History
+    {
+        internal bool Seen, VelocitySeen;
+        internal MovementValidationSample Last;
+        internal Vector3 Velocity;
+        internal uint Elapsed;
+    }
+    private sealed class Counts
+    {
+        internal long Baselines, Evaluated, Exempt, Unsupported, WouldRefuse, DuplicateOrOld, LongGaps, InputAbsent;
+        internal float MaxHorizontal, MaxUpward;
+        internal void Clear() { Baselines = Evaluated = Exempt = Unsupported = WouldRefuse = DuplicateOrOld = LongGaps = InputAbsent = 0; MaxHorizontal = MaxUpward = 0; }
+    }
+    private static readonly History[] Slots = new History[8];
+    private static readonly Counts[] Counters = Create();
+    private static readonly MovementValidationRow[] Rows = new MovementValidationRow[128];
+    private static int _rows;
+    private static long _overflow, _invalid;
+    private static Counts[] Create()
+    {
+        var result = new Counts[5 * 14]; for (int i = 0; i < result.Length; i++) result[i] = new(); return result;
+    }
+    private static bool Alt(in MovementValidationSample value) => (value.Buttons & IntentButtons.AltFormState) != 0;
+    private static bool Context(in MovementValidationSample a, in MovementValidationSample b) =>
+        a.Epoch == b.Epoch && a.Match == b.Match && a.Generation == b.Generation && a.Life == b.Life && a.Hunter == b.Hunter
+        && a.MovementModel == b.MovementModel && a.ProfileVersion == b.ProfileVersion;
+    internal static void ObserveAccepted(PlayerEntity player, in IntentPacket intent)
+    {
+        if (!Enabled || !NetSession.IsAuthority || player.SceneServices.IsReplica || !intent.HasState
+            || !NetSession.MatchesStream(intent.MatchId, intent.AuthorityEpoch)
+            || !NetPlayerLifecycle.Matches(player.SlotIndex, intent.SlotGeneration, intent.LifeId)) return;
+        Observe(new(intent.AuthorityEpoch, intent.MatchId, player.SlotIndex, intent.SlotGeneration, intent.LifeId,
+            player.Hunter, intent.Frame, intent.Position, intent.Buttons, player.ModMovementValidationExemptions | player.ModQ3MovementProof(intent.Position), intent.MoveX, intent.MoveY,
+            player.OwningScene.GameState.MovementModel, MovementModelRules.ProfileVersion(player.OwningScene.GameState.MovementModel)));
+    }
+    internal static void Observe(in MovementValidationSample sample)
+    {
+        if (!Enabled) return;
+        if ((uint)sample.Slot >= Slots.Length || (uint)sample.Hunter >= 7 || sample.Epoch == 0
+            || sample.Match == 0 || sample.Generation == 0 || sample.Life == 0
+            || !MovementModelRules.IsDefined(sample.MovementModel)
+            || sample.ProfileVersion != MovementModelRules.ProfileVersion(sample.MovementModel)
+            || !float.IsFinite(sample.Position.X) || !float.IsFinite(sample.Position.Y) || !float.IsFinite(sample.Position.Z)
+            || Math.Abs(sample.Position.X) >= 100000 || Math.Abs(sample.Position.Y) >= 100000 || Math.Abs(sample.Position.Z) >= 100000)
+        { _invalid++; return; }
+        bool alt = Alt(sample);
+        Counts count = Counters[(int)sample.MovementModel * 14 + (int)sample.Hunter * 2 + (alt ? 1 : 0)];
+        ref History history = ref Slots[sample.Slot];
+        if (!history.Seen || !Context(sample, history.Last))
+        { count.Baselines++; history = new() { Seen = true, Last = sample }; return; }
+        if (!NetLifecycleTracker.Newer(sample.Frame, history.Last.Frame)) { count.DuplicateOrOld++; return; }
+        uint elapsed = unchecked(sample.Frame - history.Last.Frame);
+        if (elapsed > 60)
+        { count.LongGaps++; count.Baselines++; history = new() { Seen = true, Last = sample }; return; }
+        if (sample.Exemptions != 0 || history.Last.Exemptions != 0 || alt != Alt(history.Last))
+        { count.Exempt++; history = new() { Seen = true, Last = sample }; return; }
+        Vector3 velocity = (sample.Position - history.Last.Position) / elapsed;
+        float horizontal = new Vector2(velocity.X, velocity.Z).Length;
+        float upward = Math.Max(0, velocity.Y);
+        count.MaxHorizontal = Math.Max(count.MaxHorizontal, horizontal);
+        count.MaxUpward = Math.Max(count.MaxUpward, upward);
+        var values = Metadata.PlayerValues[(int)sample.Hunter];
+        if (alt)
+        {
+            // Alt collision, boosts, Stinglarva chains and climbing are not
+            // independently modeled. Measure their deltas but never label them
+            // a biped-envelope refusal.
+            count.Unsupported++; history = new() { Seen = true, Last = sample }; return;
+        }
+        count.Evaluated++;
+        // Raw native fixed-point constants supply conservative upper envelopes,
+        // with margin for diagonal input and the 30/60 Hz conversion. They are
+        // observations only, not exact accepted-movement limits.
+        float speedLimit = 2 * Fixed.ToFloat(Math.Max(values.WalkSpeedCap, values.StrafeSpeedCap)) + .1f;
+        float verticalLimit = 2 * Fixed.ToFloat(Math.Max(values.JumpSpeed, values.BombJumpSpeed)) + .1f;
+        float acceleration = history.VelocitySeen && elapsed <= 2 && history.Elapsed <= 2
+            ? new Vector2(velocity.X - history.Velocity.X, velocity.Z - history.Velocity.Z).Length / ((history.Elapsed + elapsed) * .5f) : 0;
+        float accelerationLimit = 4 * Fixed.ToFloat(Math.Max(values.WalkBipedTraction, values.StrafeBipedTraction)) + .2f;
+        if (sample.MovementModel == MovementModel.Momentum)
+        {
+            // Profile speeds are units/second; diagnostics measure units per
+            // source frame at 60 Hz. Allow four times the profile retention
+            // speed and acceleration per frame, plus the existing noise margins. Never narrow Native
+            // bounds, and never treat an impulse exemption as solver evidence.
+            speedLimit = Math.Max(speedLimit, 2 * MomentumProfileV1.RetentionSpeedCap / 30 + .1f);
+            accelerationLimit = Math.Max(accelerationLimit,
+                MomentumProfileV1.Tuning.GroundAcceleration * MomentumProfileV1.GroundSpeed / 900 + .2f);
+        }
+        if (sample.MovementModel is MovementModel.Quake3 or MovementModel.Traversal or MovementModel.Parkour)
+        {
+            // This profile has no finite total-speed cap. Retain measurements
+            // without treating ordinary strafe gain as a capped-speed violation.
+            speedLimit = float.PositiveInfinity;
+            accelerationLimit = Math.Max(accelerationLimit,
+                Quake3MovementProfileV1.Tuning.GroundAcceleration * Quake3MovementProfileV1.GroundSpeed / 900 + .2f);
+        }
+        bool speedSignal = horizontal > speedLimit, upSignal = upward > verticalLimit, accelerationSignal = acceleration > accelerationLimit;
+        const IntentButtons movement = IntentButtons.MoveUp | IntentButtons.MoveDown | IntentButtons.MoveLeft | IntentButtons.MoveRight;
+        if ((sample.Buttons & movement) == 0 && sample.MoveX == 0 && sample.MoveY == 0 && horizontal > .05f) count.InputAbsent++;
+        if (speedSignal || upSignal || accelerationSignal)
+        {
+            count.WouldRefuse++;
+            if (_rows < Rows.Length) Rows[_rows++] = new(sample.Epoch, sample.Match, sample.Slot,
+                sample.Generation, sample.Life, sample.Hunter, sample.Frame, elapsed, alt,
+                horizontal, upward, acceleration, speedSignal, upSignal, accelerationSignal, sample.MovementModel, sample.ProfileVersion);
+            else _overflow++;
+        }
+        history = new() { Seen = true, VelocitySeen = true, Last = sample, Velocity = velocity, Elapsed = elapsed };
+    }
+    internal static void ResetSlot(int slot) { if ((uint)slot < Slots.Length) Slots[slot] = default; }
+    internal static void ResetHistory() => Array.Clear(Slots);
+    internal static void Reset()
+    { Array.Clear(Slots); Array.Clear(Rows); _rows = 0; _overflow = _invalid = 0; foreach (var count in Counters) count.Clear(); }
+    internal static MovementValidationReport Capture()
+    {
+        var counts = new MovementValidationCounts[Counters.Length];
+        for (int i = 0; i < counts.Length; i++)
+        {
+            var c = Counters[i]; counts[i] = new((Hunter)((i % 14) / 2), (i & 1) != 0,
+                c.Baselines, c.Evaluated, c.Exempt, c.Unsupported, c.WouldRefuse, c.DuplicateOrOld,
+                c.LongGaps, c.InputAbsent, c.MaxHorizontal, c.MaxUpward, (MovementModel)(i / 14),
+                MovementModelRules.ProfileVersion((MovementModel)(i / 14)));
+        }
+        return new(Enabled, 0, counts, Rows.AsSpan(0, _rows).ToArray(), _overflow, _invalid);
+    }
+}

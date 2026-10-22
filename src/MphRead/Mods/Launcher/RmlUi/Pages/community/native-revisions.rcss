@@ -1,0 +1,21 @@
+body { background-color: rgba(0, 0, 0, 78%); }
+#community_history { position: absolute; left: 4%; right: 4%; top: 3%; bottom: 3%; display: flex; flex-direction: column; padding: 14dp 18dp; background-color: #081523; border: 1dp #41667f; }
+#community_history h1, #community_history p { display: block; width: 83vw; }
+#community_history_title { flex-shrink: 0; margin: 5dp 0; font-size: 25dp; line-height: 29dp; color: #ffffff; }
+#community_history_status { flex-shrink: 0; margin: 4dp 0 8dp; color: #72c7ff; font-size: 13dp; line-height: 17dp; }
+#community_history_scroll { flex: 1; min-height: 0dp; overflow-y: auto; padding-right: 8dp; }
+#community_history_detail, #community_history_confirmation { white-space: pre-wrap; word-break: break-word; font-size: 14dp; line-height: 20dp; color: #d5eaff; }
+#community_history_confirmation { flex-shrink: 0; max-height: 30vh; overflow-y: auto; color: #ffdb9b; border: 1dp #ad844c; padding: 7dp; margin: 4dp 0 7dp; font-size: 12dp; line-height: 16dp; }
+.community_history_rows button { display: block; width: 100%; min-height: 38dp; margin: 5dp 0; padding: 8dp 10dp; text-align: left; border: 1dp #395d79; background-color: #0b2336; color: #edf8ff; }
+.community_history_rows button.selected { border-color: #83d7ff; background-color: #19435f; }
+.community_history_footer { flex-shrink: 0; display: flex; flex-wrap: wrap; align-items: center; padding-top: 7dp; }
+.community_history_footer button, .community_history_actions button { min-height: 34dp; padding: 7dp 9dp; margin: 3dp 5dp 0 0; font-size: 12dp; border: 1dp #5383a3; background-color: #132a40; color: #d7f0ff; }
+.community_history_actions { display: block; width: 100%; box-sizing: border-box; margin: 6dp 0 10dp; }
+#community_history_owner_actions { display: block; width: 100%; box-sizing: border-box; }
+.community_history_actions button { display: block; width: 100%; box-sizing: border-box; margin: 6dp 0; }
+#community_history_page { margin-right: 7dp; font-size: 12dp; }
+@media (max-width: 780dp) {
+    #community_history { left: 2%; right: 2%; top: 2%; bottom: 2%; padding: 9dp 11dp; }
+    #community_history h1, #community_history p { width: 85vw; }
+    #community_history_title { font-size: 21dp; line-height: 24dp; }
+}

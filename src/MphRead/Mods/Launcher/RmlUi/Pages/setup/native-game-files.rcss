@@ -1,0 +1,15 @@
+.native_setup_panel { position:absolute; left:5%; top:4%; width:90%; height:92%; box-sizing:border-box; padding:12dp; display:flex; flex-direction:column; background-color:#07121f; border:1dp #29465b; }
+.native_setup_header { flex-shrink:0; }
+.native_setup_panel h1, .native_setup_confirm h1 { font-size:22dp; margin:3dp 0dp 8dp; }
+.native_setup_body { flex:1; min-height:0dp; overflow:auto; }
+.native_setup_body p, .native_setup_confirm p { margin:6dp 0dp; font-size:14dp; }
+.native_setup_wrap, .native_setup_log { white-space:pre-wrap; }
+.native_setup_log { max-height:160dp; overflow:auto; font-size:12dp; color:#98b4c5; }
+.native_setup_hint { color:#7994ab; }
+.native_setup_body button { display:block; width:100%; min-height:36dp; margin:6dp 0dp; }
+.native_setup_footer { flex-shrink:0; padding-top:8dp; }
+#native_setup_status { white-space:pre-wrap; margin:3dp 0dp 6dp; font-size:13dp; }
+.native_setup_actions { display:flex; width:100%; flex-wrap:wrap; gap:6dp; }
+.native_setup_actions button { min-height:36dp; flex:1; min-width:100dp; }
+.native_setup_confirm { position:absolute; left:10%; top:15%; width:80%; max-height:70%; box-sizing:border-box; padding:16dp; display:flex; flex-direction:column; background-color:#07121f; border:1dp #29465b; }
+.native_setup_confirm_body { min-height:0dp; overflow:auto; flex:1; }

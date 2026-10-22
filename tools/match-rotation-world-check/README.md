@@ -1,0 +1,13 @@
+# Actual server world rotation campaign
+
+This separate Mac-only fixture references an immutable compiled application. It runs the full `DedicatedServer.Run`, real `ServerSim`, native authoritative `Scene`, ordinary UDP observers, canonical replay writer and actual map rotation. The asset-free test flag is never enabled. The original60Hz pacing,3second matches,1.5second load countdown and21second intermission remain in production control. No clock, prewarm, simulation or security gate is bypassed.
+
+The campaign keeps true zero-connected idle separate from zero active humans with one spectator connection and two bots. Other arms use2humans+1bot,4humans+2bots and8humans+0bots. Bots are configured before Run through the existing validated owner method. Thin local protocol observers echo baseline identity headers and preserve their role with `MatchLoadedRolePacket`; they do not consume complete client baselines, construct client worlds, or establish physical-device/GL acceptance.
+
+Each arm completes six builtin Battle maps and permits the wrapped seventh Scene to load, proving six actual rotations and finalizing the sixth canonical match. The seventh shutdown segment is not a seventh completed match. Every other arm is a separate process with normalized copied paths only, read-only extracted assets, private cwd/userdata/Export, no reporter credential or real service URL.
+
+Live observations use immutable received wire packets. Native lifetime observations and `NetCampaignEvidence.ServerSegments` are captured by the server thread and inspected after Run joins. Canonical native room/rule state is restored through the existing passive replay owner only after server retirement. The fixture does not hash or inspect mutable live Scene/player/camera state from a foreign thread.
+
+Build with an explicit immutable `PrimeReferenceDirectory`, then run `run_campaign.py`. The runner leases canonical paths through the existing `campaign_identity.isolate_user_data`, never copies settings or credentials, and writes raw logs/replays into a new private temporary root. Durable JSON receipts and log hashes go to `artifacts/cpp05-actual-world-rml58/<fresh-run>`. First failures are preserved; a run is not acceptance until its exit/result and all scoped evidence pass.
+
+The default checkpoint preserves the original baseline. To validate a fix, pass `--checkpoint /absolute/immutable/compiled-client --expected-sha DLL_SHA --require-retirement --evidence-root /absolute/new/evidence humans2`. The additional fixture assertion requires cleanup, visual release and eligible compatibility release for every exact loaded authority generation, including shutdown. It adds no production test flag or clock change.

@@ -1,0 +1,220 @@
+name: Momentum math
+
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/Mods/Movement/**'
+      - 'tools/nettest/Momentum*.cs'
+      - 'tools/nettest/Quake3*.cs'
+      - 'tools/nettest/Traversal*.cs'
+      - 'tools/nettest/Parkour*.cs'
+      - 'src/MphRead/Entities/Players/PlayerParkour*.cs'
+      - 'src/MphRead/Entities/Players/PlayerTraversal*.cs'
+      - 'maps/traversal-training/**'
+      - 'tools/nettest/MomentumSceneTests.cs'
+      - 'tools/nettest/MomentumAdmissionTests.cs'
+      - 'tools/nettest/MomentumProfileTests.cs'
+      - 'tools/nettest/MomentumJumpSceneTests.cs'
+      - 'tools/nettest/MomentumCollisionSceneTests.cs'
+      - 'tools/nettest/MomentumAbilitySceneTests.cs'
+      - 'tools/nettest/MomentumCarrierSceneTests.cs'
+      - 'tools/nettest/MomentumSpecialSceneTests.cs'
+      - 'maps/momentum-collision/**'
+      - 'src/MphRead/SceneMomentumMovement.cs'
+      - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
+      - 'src/MphRead/Entities/Players/PlayerInput.cs'
+      - 'src/MphRead/Entities/Players/PlayerEntity.cs'
+      - 'src/MphRead/Mods/Network/NetSelfSplash.cs'
+      - 'src/MphRead/Mods/Network/NetHitClaims.cs'
+      - 'tools/nettest/SelfSplashTests.cs'
+      - 'tools/nettest/SelfPredictionTests.cs'
+      - 'src/MphRead/Entities/Players/PlayerAiTactical.cs'
+      - 'src/MphRead.Android/TouchControls.cs'
+      - 'src/MphRead/Entities/Players/PlayerMovementShadow.cs'
+      - 'src/MphRead/Renderer.cs'
+      - 'src/MphRead/Mods/ModEntry.cs'
+      - 'src/MphRead/GameState.cs'
+      - 'src/MphRead/Menu.cs'
+      - 'src/MphRead/Mods/GameSettings.cs'
+      - 'src/MphRead/Mods/Multiplayer/MatchModifierRules.cs'
+      - 'src/MphRead/Mods/Network/MatchDefinition.cs'
+      - 'src/MphRead/Mods/Network/SessionProtocol.cs'
+      - 'src/MphRead/Mods/Network/NetProtocol.cs'
+      - 'src/MphRead/Mods/Network/DedicatedServer.cs'
+      - 'src/MphRead/Mods/Network/LobbyCommands.cs'
+      - 'src/MphRead/Mods/Network/NetSession.cs'
+      - 'src/MphRead/Mods/Network/NetSessionLobby.cs'
+      - 'src/MphRead/Mods/Network/NetMatchSync.cs'
+      - 'src/MphRead/Mods/Network/NetStatus.cs'
+      - 'src/MphRead/Mods/Network/NetMovementValidationShadow.cs'
+      - 'src/MphRead/Mods/Network/NetCampaignEvidence.cs'
+      - 'src/MphRead/Mods/Network/NetShotDiagnostics.cs'
+      - 'tools/nettest/MovementValidationTests.cs'
+      - 'src/MphRead/Mods/Network/ReplayCapture.cs'
+      - 'src/MphRead/Mods/Network/DemoRecorder.cs'
+      - 'src/MphRead/Mods/Network/DemoClip.cs'
+      - 'src/MphRead/Mods/Network/ServerReplayRecorder.cs'
+      - 'src/MphRead/Mods/Network/ReplayFormatV3.cs'
+      - 'src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs'
+      - 'src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs'
+      - 'src/MphRead/Mods/Launcher/Portable/OfflineLaunch.cs'
+      - 'src/MphRead/Mods/Launcher/Gui/LobbyScreen.cs'
+      - 'src/MphRead/Mods/Launcher/RmlUi/Core/RmlUiOfflineRuleEditor.cs'
+      - 'tools/nettest/Program.cs'
+      - 'src/MphRead/MphRead.csproj'
+      - 'tools/nettest/nettest.csproj'
+      - 'global.json'
+      - '.github/workflows/momentum-math.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/Mods/Movement/**'
+      - 'tools/nettest/Momentum*.cs'
+      - 'tools/nettest/Quake3*.cs'
+      - 'tools/nettest/Traversal*.cs'
+      - 'tools/nettest/Parkour*.cs'
+      - 'src/MphRead/Entities/Players/PlayerParkour*.cs'
+      - 'src/MphRead/Entities/Players/PlayerTraversal*.cs'
+      - 'maps/traversal-training/**'
+      - 'tools/nettest/MomentumSceneTests.cs'
+      - 'tools/nettest/MomentumAdmissionTests.cs'
+      - 'tools/nettest/MomentumProfileTests.cs'
+      - 'tools/nettest/MomentumJumpSceneTests.cs'
+      - 'tools/nettest/MomentumCollisionSceneTests.cs'
+      - 'tools/nettest/MomentumAbilitySceneTests.cs'
+      - 'tools/nettest/MomentumCarrierSceneTests.cs'
+      - 'tools/nettest/MomentumSpecialSceneTests.cs'
+      - 'maps/momentum-collision/**'
+      - 'src/MphRead/SceneMomentumMovement.cs'
+      - 'src/MphRead/Entities/Players/PlayerMomentumMovement.cs'
+      - 'src/MphRead/Entities/Players/PlayerInput.cs'
+      - 'src/MphRead/Entities/Players/PlayerEntity.cs'
+      - 'src/MphRead/Mods/Network/NetSelfSplash.cs'
+      - 'src/MphRead/Mods/Network/NetHitClaims.cs'
+      - 'tools/nettest/SelfSplashTests.cs'
+      - 'tools/nettest/SelfPredictionTests.cs'
+      - 'src/MphRead/Entities/Players/PlayerAiTactical.cs'
+      - 'src/MphRead.Android/TouchControls.cs'
+      - 'src/MphRead/Entities/Players/PlayerMovementShadow.cs'
+      - 'src/MphRead/Renderer.cs'
+      - 'src/MphRead/Mods/ModEntry.cs'
+      - 'src/MphRead/GameState.cs'
+      - 'src/MphRead/Menu.cs'
+      - 'src/MphRead/Mods/GameSettings.cs'
+      - 'src/MphRead/Mods/Multiplayer/MatchModifierRules.cs'
+      - 'src/MphRead/Mods/Network/MatchDefinition.cs'
+      - 'src/MphRead/Mods/Network/SessionProtocol.cs'
+      - 'src/MphRead/Mods/Network/NetProtocol.cs'
+      - 'src/MphRead/Mods/Network/DedicatedServer.cs'
+      - 'src/MphRead/Mods/Network/LobbyCommands.cs'
+      - 'src/MphRead/Mods/Network/NetSession.cs'
+      - 'src/MphRead/Mods/Network/NetSessionLobby.cs'
+      - 'src/MphRead/Mods/Network/NetMatchSync.cs'
+      - 'src/MphRead/Mods/Network/NetStatus.cs'
+      - 'src/MphRead/Mods/Network/NetMovementValidationShadow.cs'
+      - 'src/MphRead/Mods/Network/NetCampaignEvidence.cs'
+      - 'src/MphRead/Mods/Network/NetShotDiagnostics.cs'
+      - 'tools/nettest/MovementValidationTests.cs'
+      - 'src/MphRead/Mods/Network/ReplayCapture.cs'
+      - 'src/MphRead/Mods/Network/DemoRecorder.cs'
+      - 'src/MphRead/Mods/Network/DemoClip.cs'
+      - 'src/MphRead/Mods/Network/ServerReplayRecorder.cs'
+      - 'src/MphRead/Mods/Network/ReplayFormatV3.cs'
+      - 'src/MphRead/Mods/Network/ReplayIdentityCompatibility.cs'
+      - 'src/MphRead/Mods/Network/ReplayReplicaCheckpointLayout.cs'
+      - 'src/MphRead/Mods/Launcher/Portable/OfflineLaunch.cs'
+      - 'src/MphRead/Mods/Launcher/Gui/LobbyScreen.cs'
+      - 'src/MphRead/Mods/Launcher/RmlUi/Core/RmlUiOfflineRuleEditor.cs'
+      - 'tools/nettest/Program.cs'
+      - 'src/MphRead/MphRead.csproj'
+      - 'tools/nettest/nettest.csproj'
+      - 'global.json'
+      - '.github/workflows/momentum-math.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: momentum-math-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  math:
+    name: equations and allocations (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Build the production solver and headless harness
+        run: dotnet build tools/nettest/nettest.csproj -c Release
+      - name: Equation, input validation and fixed cadence fixtures
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-math
+      - name: Private Quake III draft speed building, validation and allocations
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-practice-tuning
+      - name: Offline developer admission and archival schema fences without assets
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-admission
+      - name: Authoritative model rules, wire and lobby ownership without assets
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-rules
+      - name: Quake III authoritative rules and protocol admission
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-rules
+      - name: Quake III advanced profile, rocket impulses and historical identity
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-advanced-rules
+      - name: Traversal air control, ramp lift and profile identity
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-rules
+      - name: Parkour tuck dimensions and eligibility
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-stance-rules
+      - name: Parkour version and historical replay boundaries
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-compatibility
+      - name: Parkour wallstrafe equations and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-wallstrafe-rules
+      - name: Parkour wallkick equations and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-wallrun-rules
+      - name: Parkour mantle geometry and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-mantle-rules
+      - name: Parkour grapple velocity and warmed allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-grapple-rules
+      - name: Grapple wire, historical widths and passive ownership
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-grapple-wire
+      - name: Crouch dimensions, slide equations and allocation contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-rules
+      - name: Crouch wire and historical checkpoint compatibility
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --traversal-stance-network
+      - name: Parkour animation wire, presentation lease and historical contracts
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-animation-wire
+      - name: Parkour wall animation wire and historical contracts
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --parkour-wall-animation-wire
+      - name: Crouch keyboard and saved gamepad binding contract
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --crouch-input-check
+      - name: Historical replay widths and Quake III identity
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --quake3-replay-compatibility
+      - name: Saved and offline model defaults, validation and rule preservation
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-offline-rules
+      - name: V1 contact, speed-retention and partial-input policy
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-profile
+      - name: Signed axes, packet presence and movement override lifecycle
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-input-packets
+      - name: Mode and profile advisory identity, exemptions and bounded storage
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --movement-validation-shadow
+      - name: Opt-in combat evidence survives completed world resets
+        env:
+          PRIME_NET2_EVIDENCE: '${{ runner.temp }}/momentum-combat-evidence.json'
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-combat-evidence
+      - name: Warmed eight-player solver call loop with zero-allocation assertion
+        env:
+          DOTNET_TieredCompilation: '0'
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --momentum-benchmark "${{ runner.temp }}/momentum-benchmark.json"
+      - name: Retain machine-specific benchmark evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: momentum-math-${{ matrix.os }}
+          path: ${{ runner.temp }}/momentum-benchmark.json
+          if-no-files-found: warn

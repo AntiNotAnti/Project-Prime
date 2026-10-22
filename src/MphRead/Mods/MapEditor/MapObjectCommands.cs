@@ -1,0 +1,206 @@
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.Json;
+using MphRead.Mods.MapGen;
+
+namespace MphRead.Mods.MapEditor;
+
+public sealed partial class MapDocument
+{
+    private static ObjectValue[]? _objectClipboard;
+
+    public void CopySelection()
+    {
+        var selected = Selection.ToHashSet();
+        _objectClipboard = CaptureObjects(Project.Definition, selected).ToArray();
+    }
+
+    public bool PasteClipboard()
+    {
+        if (_objectClipboard == null || _objectClipboard.Length == 0) return false;
+        var before = MapObjects.All(Project.Definition).Select(o => o.Id).ToHashSet();
+        EditObjects("Paste", Array.Empty<Guid>(), scratch =>
+        {
+            foreach (var value in _objectClipboard) value.Insert(scratch);
+            foreach (var item in MapObjects.All(scratch).ToArray())
+            {
+                item.SetId(Guid.NewGuid());
+                item.Move(new[] { 1f, 0f, 1f });
+            }
+        });
+        var added = MapObjects.All(Project.Definition).Where(o => !before.Contains(o.Id)).Select(o => o.Id).ToArray();
+        Selection.Clear();
+        foreach (Guid id in added) Selection.Add(id);
+        ActiveObjectId = added.FirstOrDefault();
+        SelectionChanged();
+        return added.Length > 0;
+    }
+
+    public void SelectAllObjects()
+    {
+        Selection.Clear();
+        foreach (var item in MapObjects.All(Project.Definition)) Selection.Add(item.Id);
+        ActiveObjectId = Selection.FirstOrDefault();
+        SelectionChanged();
+    }
+
+    public void HideSelection(bool hidden = true)
+    {
+        var ids = Selection.ToHashSet();
+        EditObjects(hidden ? "Hide selection" : "Show selection", ids, d =>
+        {
+            foreach (var geometry in d.Geometry) geometry.Hidden = hidden;
+        });
+    }
+
+    public void ShowAllGeometry() => Edit("Show all geometry", d =>
+    {
+        foreach (var geometry in d.Geometry) geometry.Hidden = false;
+    }, MapChangeDomain.Geometry);
+
+    public void IsolateSelection()
+    {
+        var ids = Selection.ToHashSet();
+        Edit("Isolate selection", d =>
+        {
+            foreach (var geometry in d.Geometry) geometry.Hidden = !ids.Contains(geometry.Id);
+        }, MapChangeDomain.Geometry);
+    }
+
+    public void SetLayerState(string layer, bool? hidden = null, bool? locked = null)
+        => Edit("Layer state", d =>
+        {
+            foreach (var geometry in d.Geometry.Where(g => g.Layer.Equals(layer, StringComparison.OrdinalIgnoreCase)))
+            {
+                if (hidden.HasValue) geometry.Hidden = hidden.Value;
+                if (locked.HasValue) geometry.Locked = locked.Value;
+            }
+        }, MapChangeDomain.Geometry);
+
+    // Only selected objects are cloned/compared. Unrelated geometry, materials,
+    // imported maps and assets are never serialized by common object operations.
+    public void EditObjects(string label, IEnumerable<Guid> ids, Action<MapDefinition> edit, object? transaction = null)
+    {
+        var selected = ids.ToHashSet();
+        var before = CaptureObjects(Project.Definition, selected);
+        var scratch = new MapDefinition();
+        foreach (var item in before.OrderBy(item => item.Index)) item.Insert(scratch);
+        edit(scratch);
+        var after = CaptureObjects(scratch, null);
+        var beforeById = before.ToDictionary(x => x.Id);
+        var afterById = after.ToDictionary(x => x.Id);
+        var changed = beforeById.Keys.Union(afterById.Keys).Where(id =>
+            beforeById.GetValueOrDefault(id)?.Json != afterById.GetValueOrDefault(id)?.Json).ToArray();
+        var changedIds = changed.ToHashSet();
+        if (changed.Length == 0) return;
+        // Preserve positions within each original typed collection. New objects append.
+        after = after.Select(item => item with
+        { Index = beforeById.GetValueOrDefault(item.Id)?.Index ?? int.MaxValue }).ToArray();
+        History.Execute(new ObjectCommand(this, label,
+            before.Where(x => changedIds.Contains(x.Id)).ToArray(),
+            after.Where(x => changedIds.Contains(x.Id)).ToArray(), changed), transaction);
+    }
+
+    public void EditMaterial(int index, Action<MapMaterial> edit)
+    {
+        var before = JsonSerializer.Serialize(Project.Definition.Materials[index]);
+        var value = JsonSerializer.Deserialize<MapMaterial>(before)!;
+        edit(value);
+        string after = JsonSerializer.Serialize(value);
+        if (before != after) History.Execute(new MaterialCommand(this, index, before, after));
+    }
+
+    private sealed record ObjectValue(Guid Id, Type Type, int Index, string Json)
+    {
+        public void Insert(MapDefinition definition)
+        {
+            IList list = ObjectList(definition, Type);
+            list.Insert(Math.Min(Index, list.Count), JsonSerializer.Deserialize(Json, Type)!);
+        }
+        public long Bytes => 160 + Json.Length * 4L;
+    }
+    private static IList ObjectList(MapDefinition d, Type type)
+    {
+        if (typeof(MapGeometry).IsAssignableFrom(type)) return d.Geometry;
+        if (type == typeof(MapBrush)) return d.Brushes;
+        if (type == typeof(MapSpawn)) return d.Spawns;
+        if (type == typeof(MapItem)) return d.Items;
+        if (type == typeof(MapJumpPad)) return d.JumpPads;
+        if (type == typeof(MapNavigationLink)) return d.NavigationLinks;
+        throw new ArgumentException("Unsupported map object " + type.Name);
+    }
+    private static ObjectValue[] CaptureObjects(MapDefinition d, HashSet<Guid>? ids)
+    {
+        // Traverse each typed collection once, retaining source order regardless of selection order.
+        var indices = new Dictionary<IList, int>();
+        var values = new List<ObjectValue>();
+        foreach (var item in MapObjects.All(d))
+        {
+            var list = ObjectList(d, item.Value.GetType());
+            int index = indices.GetValueOrDefault(list);
+            indices[list] = index + 1;
+            if (ids == null || ids.Contains(item.Id))
+                values.Add(new(item.Id, item.Value.GetType(), index,
+                    JsonSerializer.Serialize(item.Value, item.Value.GetType())));
+        }
+        return values.ToArray();
+    }
+
+    private sealed class ObjectCommand : IMapEditCommand
+    {
+        private readonly MapDocument _document;
+        private readonly ObjectValue[] _before;
+        private ObjectValue[] _after;
+        private readonly Guid[] _ids;
+        public string Label { get; }
+        public MapDocumentChange Change { get; }
+        public long ApproximateBytes => 128 + _before.Sum(o => o.Bytes) + _after.Sum(o => o.Bytes);
+        public ObjectCommand(MapDocument document, string label, ObjectValue[] before, ObjectValue[] after, Guid[] ids)
+        {
+            _document = document; Label = label; _before = before; _after = after; _ids = ids;
+            var domains = MapChangeDomain.Selection;
+            foreach (var item in before.Concat(after))
+                domains |= typeof(MapGeometry).IsAssignableFrom(item.Type) || item.Type == typeof(MapBrush)
+                    ? MapChangeDomain.Geometry | MapChangeDomain.Navigation
+                    : item.Type == typeof(MapNavigationLink) ? MapChangeDomain.Navigation : MapChangeDomain.Entity;
+            Change = new(domains, Array.AsReadOnly(ids));
+        }
+        public void Execute() => Apply(_after);
+        public void Undo() => Apply(_before);
+        private void Apply(ObjectValue[] values)
+        {
+            var definition = _document.Project.Definition;
+            // Remove by identity even for locked objects: undo must restore lock changes too.
+            var ids = _ids.ToHashSet();
+            definition.Geometry.RemoveAll(o => ids.Contains(o.Id));
+            definition.Brushes.RemoveAll(o => ids.Contains(o.Id));
+            definition.Spawns.RemoveAll(o => ids.Contains(o.Id));
+            definition.Items.RemoveAll(o => ids.Contains(o.Id));
+            definition.JumpPads.RemoveAll(o => ids.Contains(o.Id));
+            definition.NavigationLinks.RemoveAll(o => ids.Contains(o.Id));
+            foreach (var item in values.OrderBy(o => o.Index)) item.Insert(definition);
+        }
+        public bool TryMerge(IMapEditCommand next)
+        {
+            if (next is not ObjectCommand other || other._document != _document
+                || !_ids.SequenceEqual(other._ids) || Label != other.Label) return false;
+            _after = other._after;
+            return true;
+        }
+    }
+    private sealed class MaterialCommand : IMapEditCommand
+    {
+        private readonly MapDocument _document;
+        private readonly int _index;
+        private readonly string _before, _after;
+        public string Label => "Edit material";
+        public long ApproximateBytes => 128 + 4L * (_before.Length + _after.Length);
+        public MapDocumentChange Change { get; } = new(MapChangeDomain.Material);
+        public MaterialCommand(MapDocument document, int index, string before, string after)
+        { _document = document; _index = index; _before = before; _after = after; }
+        public void Execute() => _document.Project.Definition.Materials[_index] = JsonSerializer.Deserialize<MapMaterial>(_after)!;
+        public void Undo() => _document.Project.Definition.Materials[_index] = JsonSerializer.Deserialize<MapMaterial>(_before)!;
+    }
+}

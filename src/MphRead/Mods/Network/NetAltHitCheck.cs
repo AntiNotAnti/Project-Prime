@@ -1,0 +1,461 @@
+using System;
+using System.Diagnostics;
+using System.Reflection;
+using MphRead.Entities;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.Network;
+
+/// <summary>Asset-backed integration checks, invoked explicitly by nettest.</summary>
+public static class NetAltHitCheck
+{
+    private static int _checks;
+    private static void Check(bool ok, string label)
+    { _checks++; if (!ok) throw new InvalidOperationException(label); }
+    public static int Run(string room)
+    {
+        var sim = new ServerSim();
+        if (!sim.Start(room, GameMode.Battle, 8, _ => { }, () => { })) return 1;
+        try
+        {
+            NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 1, AuthorityEpoch = 1, RoomKey = room, Mode = (byte)GameMode.Battle }, false);
+            var roster = RosterPacket.Create();
+            roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1; roster.Count = 8;
+            for (byte i = 0; i < 8; i++)
+            { roster.Slots[i] = i; roster.Generations[i] = 1; roster.Names[i] = $"ALT{i}"; roster.Hunters[i] = (byte)(i % 7); }
+            NetSession.ApplyRoster(roster);
+            for (int i = 0; i < 120; i++) sim.Step();
+            Check(sim.StepFailures == 0, "scene simulation");
+            var shooter = PlayerEntity.Players[0];
+            Check(shooter.ModIsInPlay, "spawned attacker");
+            var reconcile = typeof(NetUnlagged).GetMethod("Reconcile", BindingFlags.NonPublic | BindingFlags.Static)!;
+            foreach (bool historicalAlt in new[] { true, false })
+            {
+                for (int i = 1; i < 8; i++)
+                {
+                    var player = PlayerEntity.Players[i];
+                    player.ModForceForm(historicalAlt);
+                    player.ModPlaceAt(new Vector3(i * 3, 2, 3));
+                }
+                NetUnlagged.Record(200);
+                var poses = new HistoricalPlayerPose[8];
+                for (int i = 1; i < 8; i++)
+                {
+                    var player = PlayerEntity.Players[i];
+                    Check(NetUnlagged.TryHistoricalPose(player, 200, out poses[i]), "history available");
+                    player.ModForceForm(!historicalAlt);
+                    player.ModPlaceAt(new Vector3(i * 3 + 20, 5, 8));
+                }
+                NetUnlagged.Record(201);
+                var states = new HistoricalCollisionState[8];
+                for (int i = 1; i < 8; i++) states[i] = PlayerEntity.Players[i].ModCaptureCollisionState();
+                try
+                {
+                    Check((bool)reconcile.Invoke(null, new object[] { 0, 200.75 })!, "production rewind enters");
+                    for (int i = 1; i < 8; i++)
+                    {
+                        var player = PlayerEntity.Players[i];
+                        Check(player.Position == poses[i].Position && player.ModCollisionIsAltForm == historicalAlt,
+                            "historical form at interpolation boundary");
+                        Check(player.IsAltForm != historicalAlt, "gameplay form preserved during actual rewind");
+                    }
+                    throw new OperationCanceledException("exercise unwind");
+                }
+                catch (OperationCanceledException) { }
+                finally { NetUnlagged.AbortShot(); }
+                for (int i = 1; i < 8; i++)
+                    Check(states[i] == PlayerEntity.Players[i].ModCaptureCollisionState(), "exception restores exact collision state");
+            }
+            var weavel = PlayerEntity.Players[6];
+            weavel.ModForceForm(false);
+            weavel.ModStartFormSwitch();
+            weavel.ModForceForm(true);
+            weavel.ModPlaceAt(new Vector3(30, 5, 10));
+            weavel.Halfturret.Health = 37;
+            Check(weavel.Flags2.TestFlag(PlayerFlags2.Halfturret), "native Weavel entry creates active turret before history capture");
+            Vector3 historicalTurret = weavel.Halfturret.Position;
+            NetUnlagged.Record(205);
+            weavel.Halfturret.Reposition(new Vector3(8, 0, 0), weavel.NodeRef);
+            NetUnlagged.Record(206);
+            Check(NetUnlagged.TryHistoricalHalfturretPosition(weavel.SlotIndex, 205,
+                NetPlayerLifecycle.Generation(weavel.SlotIndex), NetPlayerLifecycle.Get(weavel.SlotIndex), out var oldTurret)
+                && oldTurret == historicalTurret && oldTurret != weavel.Halfturret.Position,
+                "detached Weavel turret uses historical collision position");
+
+            var victim = PlayerEntity.Players[1];
+            NetUnlagged.Record(210);
+            Check(NetUnlagged.TryHistoricalAttack(victim.SlotIndex, 210, NetPlayerLifecycle.Generation(victim.SlotIndex),
+                NetPlayerLifecycle.Get(victim.SlotIndex), out var recordedAttack) && recordedAttack.InPlay,
+                "collision-critical attack state retained in history");
+            victim.Spawn(victim.Position, Vector3.UnitZ, Vector3.UnitY, victim.NodeRef, respawn: true);
+            Check(!NetUnlagged.TryHistoricalPose(victim, 210, out _), "respawn fences old victim pose");
+            try
+            {
+                Check((bool)reconcile.Invoke(null, new object[] { 0, 210.0 })!, "historical world still available after victim respawn");
+                Check(!NetUnlagged.CollisionTargetAvailable(victim), "beams cannot hit current replacement inside old world");
+            }
+            finally { NetUnlagged.AbortShot(); }
+            Check(NetUnlagged.CollisionTargetAvailable(victim), "live beams can hit current life after restoration");
+            NetUnlagged.Record(211);
+            NetUnlagged.ResetSlot(1);
+            Check(!NetUnlagged.TryHistoricalPose(victim, 211, out _), "slot reset invalidates history");
+            NetUnlagged.Record(212);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(victim, victim.Flags2 | PlayerFlags2.Spectating);
+            NetUnlagged.Record(213);
+            Check(!NetUnlagged.TryHistoricalPose(victim, 213, out _), "spectators never enter history");
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(victim, victim.Flags2 & ~PlayerFlags2.Spectating);
+
+            // Protocol 22 boost state: exact owner-authored damage, server-side
+            // bounds, one contact per ram, and stale reports fail closed.
+            shooter.ModForceForm(true); victim.ModForceForm(false);
+            shooter.Health = victim.Health = 199;
+            typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(victim, (ushort)0);
+
+            shooter.ModSetShotState(0, 14, doubleDamage: false, boostActive: true);
+            shooter.ModApplyReportedBoostState(fresh: true);
+            Check(shooter.Flags1.TestFlag(PlayerFlags1.Boosting) && shooter.ModBoostDamage == 14,
+                "partial owner boost arms exact authority damage");
+            int exactHealth = victim.Health;
+            shooter.ModApplyContactHit(victim, ContactAttackKind.Boost);
+            Check(exactHealth - victim.Health == 14, "partial boost deals exact reported damage");
+            shooter.ModApplyReportedBoostState(fresh: true);
+            Check(!shooter.Flags1.TestFlag(PlayerFlags1.Boosting),
+                "confirmed boost stays consumed while owner still reports active");
+            shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
+
+            shooter.ModSetShotState(0, 255, doubleDamage: false, boostActive: true);
+            shooter.ModApplyReportedBoostState(fresh: true);
+            Check(shooter.ModBoostDamage == shooter.Values.AltAttackDamage,
+                "authority caps reported boost to Samus legal maximum");
+            shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
+
+            var doubleTimer = typeof(PlayerEntity).GetField("_doubleDmgTimer", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            Check(NetSession.IsAuthority && !shooter.OwningScene.Services.IsReplica
+                && !shooter.ModUsesTimedGrantPresentation && !shooter.DoubleDamage,
+                "Double Damage fixture begins under native authority without a grant");
+            victim.Health = 199;
+            shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: true, boostActive: true);
+            shooter.ModApplyReportedBoostState(fresh: true);
+            Check(!shooter.DoubleDamage && (ushort)doubleTimer.GetValue(shooter)! == 0,
+                "spoofed true owner bit cannot grant authority Double Damage");
+            exactHealth = victim.Health;
+            shooter.ModApplyContactHit(victim, ContactAttackKind.Boost);
+            Check(exactHealth - victim.Health == shooter.Values.AltAttackDamage,
+                "spoofed true owner bit leaves full boost damage unmultiplied");
+            shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
+
+            ItemInstanceEntity? doubleItem = null;
+            TimedGrantRecord? fixtureGrant = null;
+            try
+            {
+                // Seed an actual native item and invoke the same authority
+                // reservation/application adapters as PickUpItems. This is an
+                // adapter fixture, not independent collision or UDP pickup proof.
+                doubleItem = ItemSpawnEntity.SpawnItem(ItemType.DoubleDamage, shooter.Position,
+                    shooter.NodeRef, 6000, shooter.OwningScene);
+                Check(doubleItem != null && NetPowerUpLedger.TrySpawnKey(doubleItem, out _),
+                    "native Double Damage fixture item has an authority spawn identity");
+                Check(NetPowerUpLedger.TryNativeContact(shooter, doubleItem!),
+                    "actual authority adapter reserves the native Double Damage item");
+                NetPowerUpLedger.TrySpawnKey(doubleItem!, out var spawn);
+                int matchingGrants = 0;
+                foreach (var grant in NetPowerUpLedger.Ledger!.History)
+                    if (grant.Spawn == spawn && grant.Life == ShotKey.For(shooter.SlotIndex, 0)
+                        && grant.Type == TimedPowerUp.DoubleDamage && grant.EndReason == TimedGrantEnd.Active)
+                    { matchingGrants++; fixtureGrant = grant; }
+                Check(matchingGrants == 1, "native reservation records exactly one current-life Double Damage grant");
+                shooter.ApplyNativeTimedPickup(doubleItem!);
+                Check(shooter.DoubleDamage && (ushort)doubleTimer.GetValue(shooter)! == 1800
+                    && doubleItem!.DespawnTimer == 0,
+                    "native application starts the full timer and consumes its actual item");
+                victim.Health = 199;
+                shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: false, boostActive: true);
+                shooter.ModApplyReportedBoostState(fresh: true);
+                Check(shooter.DoubleDamage && (ushort)doubleTimer.GetValue(shooter)! == 1800,
+                    "false owner bit cannot cancel a legitimate native Double Damage grant");
+                exactHealth = victim.Health;
+                shooter.ModApplyContactHit(victim, ContactAttackKind.Boost);
+                Check(exactHealth - victim.Health == shooter.Values.AltAttackDamage * 2,
+                    "full boost receives Double Damage exactly once");
+            }
+            finally
+            {
+                if (fixtureGrant != null) NetPowerUpLedger.RetireSlot(shooter.SlotIndex, TimedGrantEnd.Retired);
+                doubleTimer.SetValue(shooter, (ushort)0);
+                NetShotSourceJournal.SetDouble(shooter, 0);
+                shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
+                shooter.ModApplyReportedBoostState(fresh: false);
+                if (doubleItem != null) { doubleItem.Destroy(); shooter.OwningScene.RemoveEntity(doubleItem); }
+            }
+            Check(!shooter.DoubleDamage && !shooter.Flags1.TestFlag(PlayerFlags1.Boosting)
+                && fixtureGrant?.EndReason == TimedGrantEnd.Retired,
+                "fixture retires grant, native timer, item and boost before later contact cases");
+
+            shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: false, boostActive: true);
+            shooter.ModApplyReportedBoostState(fresh: false);
+            Check(!shooter.Flags1.TestFlag(PlayerFlags1.Boosting),
+                "stale owner boost report cannot remain damaging");
+            shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
+
+            // Real Samus damage path: accepted endpoint misses, sweep crosses.
+            shooter.ModForceForm(true); victim.ModForceForm(false);
+            shooter.ModPlaceAt(new Vector3(-2, 5, 10)); victim.ModPlaceAt(new Vector3(0, 5, 10));
+            shooter.Health = victim.Health = 99;
+            typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)?.SetValue(victim, (ushort)0);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!.SetValue(shooter, shooter.Flags1 | PlayerFlags1.Boosting);
+            typeof(PlayerEntity).GetField("_boostDamage", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(shooter, (ushort)20);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)300);
+            Check(shooter.ModCaptureContactState().Kind == ContactAttackKind.Boost, "active boost captured");
+            var frozenTimer = typeof(PlayerEntity).GetField("_frozenTimer", BindingFlags.NonPublic | BindingFlags.Instance)!;
+            frozenTimer.SetValue(shooter, (ushort)5);
+            Check(shooter.ModCaptureContactState().Kind == ContactAttackKind.None, "frozen attacker cannot author contact");
+            frozenTimer.SetValue(shooter, (ushort)0);
+            shooter.Health = 0;
+            Check(shooter.ModCaptureContactState().Kind == ContactAttackKind.None, "dead attacker cannot author contact");
+            shooter.Health = 99;
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(shooter, shooter.Flags2 | PlayerFlags2.Spectating);
+            Check(shooter.ModCaptureContactState().Kind == ContactAttackKind.None, "spectating attacker cannot author contact");
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(shooter, shooter.Flags2 & ~PlayerFlags2.Spectating);
+            NetContactLagComp.ResolveFrame();
+            shooter.ModPlaceAt(new Vector3(2, 5, 10)); typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!.SetValue(shooter, shooter.Flags1 | PlayerFlags1.Boosting);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)301);
+            Vector3 current = victim.Position;
+            int health = victim.Health;
+            NetContactLagComp.ResolveFrame();
+            Check(NetContactLagComp.SweepOnlyHits > 0, "actual frame resolver detects pass-through");
+            Check(victim.Position == current, "historical damage never moves victim");
+            Check(!shooter.Flags1.TestFlag(PlayerFlags1.Boosting), "confirmed boost ends attack");
+            Check(victim.Health < health, "authority applies actual boost damage");
+            // Authority consumes the remote ACK, not the victim's current body.
+            victim.ModPlaceAt(new Vector3(0, 5, 10));
+            NetUnlagged.Record(320); NetUnlagged.Record(321);
+            victim.ModPlaceAt(new Vector3(20, 5, 10));
+            shooter.ModPlaceAt(new Vector3(0, 5, 10));
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!.SetValue(shooter, shooter.Flags1 | PlayerFlags1.Boosting);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)325);
+            NetSession.RemoteIntentValid[0] = true;
+            NetSession.RemoteIntents[0] = new IntentPacket { AckFrame = 320, AckSubFrame = 128 };
+            health = victim.Health; current = victim.Position;
+            NetContactLagComp.ResolveFrame();
+            Check(victim.Health < health && victim.Position == current, "ACK-timed authority damage against departed victim");
+            long unavailable = NetContactLagComp.HistoryUnavailable;
+            victim.Spawn(current, Vector3.UnitZ, Vector3.UnitY, victim.NodeRef, respawn: true);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!.SetValue(shooter, shooter.Flags1 | PlayerFlags1.Boosting);
+            health = victim.Health;
+            NetContactLagComp.ResolveFrame();
+            Check(victim.Health == health && NetContactLagComp.HistoryUnavailable > unavailable,
+                "actual delayed contact cannot cross victim respawn");
+            NetSession.RemoteIntentValid[0] = false;
+
+            // Noxus regression: exercise the actual authority resolver, not only the
+            // standalone radial geometry helper. PR #98 moved network player contact
+            // out of CheckAltAttackHit1, so a resolver/history failure otherwise turns
+            // the spin into a silent miss.
+            var noxus = PlayerEntity.Players[4];
+            var noxusAttackTime = typeof(PlayerEntity).GetField("_altAttackTime",
+                BindingFlags.NonPublic | BindingFlags.Instance)!;
+            noxus.ModForceForm(true); victim.ModForceForm(false);
+            // Native morph shifts Position between form reference frames. Equal
+            // Position.Y here puts Noxus's alt center exactly at the excluded
+            // vertical boundary of the biped contact sphere. Align real centers.
+            Vector3 noxusOrigin = new Vector3(0, 5, 10)
+                - PlayerEntity.PlayerVolumes[(int)Hunter.Noxus, 2].SpherePosition;
+            noxus.ModPlaceAt(noxusOrigin); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            foreach (var other in PlayerEntity.Players)
+                if (other != null && other != noxus && other != victim)
+                    other.ModPlaceAt(new Vector3(100 + other.SlotIndex * 10, 5, 10));
+            noxus.Health = victim.Health = 199;
+            typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(victim, (ushort)0);
+            noxusAttackTime.SetValue(noxus, (ushort)(noxus.Values.AltAttackStartup * 2));
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
+                noxus.Flags2 | PlayerFlags2.AltAttack);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)330);
+            Check(noxus.ModCaptureContactState().Kind == ContactAttackKind.Noxus,
+                "charged Noxus captured by production contact resolver");
+            var noxusContact = noxus.ModCaptureContactState();
+            bool isolated = true;
+            foreach (var other in PlayerEntity.Players)
+                if (other != null && other != noxus && other != victim)
+                    isolated &= !NetContactLagComp.Intersects(noxusContact,
+                        new HistoricalBody(other.SlotIndex, other.Volume.SpherePosition, other.Volume.SphereRadius,
+                            0, 0, HistoricalBodyType.AltSphere), false);
+            Check(isolated && NetContactLagComp.Intersects(noxusContact,
+                new HistoricalBody(victim.SlotIndex, victim.Volume.SpherePosition, victim.Volume.SphereRadius,
+                    0, 0, HistoricalBodyType.AltSphere), false),
+                "native Noxus contact fixture selects only the intended current-life victim");
+            health = victim.Health;
+            NetContactLagComp.ResolveFrame();
+            Check(victim.Health < health && Convert.ToUInt16(noxusAttackTime.GetValue(noxus)) == 0,
+                "authority applies Noxus spin damage and consumes attack");
+
+            // If the requested ACK frame is absent from the ring entirely, retain the
+            // pre-lag-comp live-authority behavior instead of manufacturing a miss.
+            noxus.ModPlaceAt(noxusOrigin); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            noxusAttackTime.SetValue(noxus, (ushort)(noxus.Values.AltAttackStartup * 2));
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
+                noxus.Flags2 | PlayerFlags2.AltAttack);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)340);
+            NetSession.RemoteIntentValid[noxus.SlotIndex] = true;
+            NetSession.RemoteIntents[noxus.SlotIndex] = new IntentPacket { AckFrame = 335 };
+            long noxusFallbacks = NetContactLagComp.HistoryFallbacks;
+            int fallbackTargets = 0;
+            foreach (var other in PlayerEntity.Players)
+                if (other != null && other != noxus && other.LoadFlags.TestFlag(LoadFlags.Active)
+                    && other.ModIsInPlay && !other.Flags2.TestFlag(PlayerFlags2.Spectating)) fallbackTargets++;
+            health = victim.Health;
+            NetContactLagComp.ResolveFrame();
+            Check(victim.Health < health && NetContactLagComp.HistoryFallbacks == noxusFallbacks + fallbackTargets,
+                "Noxus missing history falls back to original live authority contact");
+
+            // A recorded frame that refuses the current victim is not a missing sample:
+            // it is a lifecycle fence. Never use the live fallback across respawn.
+            victim.ModPlaceAt(new Vector3(1, 5, 10));
+            NetUnlagged.Record(350);
+            victim.Spawn(victim.Position, Vector3.UnitZ, Vector3.UnitY, victim.NodeRef, respawn: true);
+            victim.Health = 199;
+            typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(victim, (ushort)0);
+            noxus.ModPlaceAt(noxusOrigin); victim.ModPlaceAt(new Vector3(1, 5, 10));
+            noxusAttackTime.SetValue(noxus, (ushort)(noxus.Values.AltAttackStartup * 2));
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
+                noxus.Flags2 | PlayerFlags2.AltAttack);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)355);
+            NetSession.RemoteIntents[noxus.SlotIndex] = new IntentPacket { AckFrame = 350 };
+            noxusFallbacks = NetContactLagComp.HistoryFallbacks;
+            health = victim.Health;
+            NetContactLagComp.ResolveFrame();
+            Check(victim.Health == health && NetContactLagComp.HistoryFallbacks == noxusFallbacks,
+                "Noxus fallback cannot cross victim respawn");
+            NetSession.RemoteIntentValid[noxus.SlotIndex] = false;
+            noxusAttackTime.SetValue(noxus, (ushort)0);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(noxus,
+                noxus.Flags2 & ~PlayerFlags2.AltAttack);
+            noxus.ModPlaceAt(new Vector3(100, 5, 10));
+
+            // One real Spire attack: native input starts the model animation,
+            // native node transforms supply the rocks, and the authority
+            // contact resolver applies damage. Do not synthesize rock positions.
+            var spire = PlayerEntity.Players[5];
+            spire.ModForceForm(false); spire.ModStartFormSwitch(); spire.ModForceForm(true);
+            spire.ModPlaceAt(new Vector3(0, 5, 10));
+            spire.Controls.ClearAll();
+            spire.Controls.AltAttack.IsPressed = spire.Controls.AltAttack.IsDown = true;
+            typeof(PlayerEntity).GetMethod("ProcessInput", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(spire, null);
+            typeof(PlayerEntity).GetMethod("UpdateSpireAltCollisionPose", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .Invoke(spire, null);
+            var spireContact = spire.ModCaptureContactState();
+            Check(spireContact.Kind == ContactAttackKind.Spire, "native input starts asset-backed Spire rock attack");
+            victim.ModPlaceAt(spireContact.LeftRock - PlayerEntity.PlayerVolumes[(int)victim.Hunter, 0].SpherePosition);
+            victim.Health = 199; victim.ModReleaseSpawnProtection();
+            typeof(PlayerEntity).GetField("_spawnInvulnTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(victim, (ushort)0);
+            Check(NetContactLagComp.Intersects(spireContact,
+                new HistoricalBody(victim.SlotIndex, victim.Volume.SpherePosition, victim.Volume.SphereRadius,
+                    0, 0, HistoricalBodyType.AltSphere), false), "native Spire rock pose intersects actual victim collision sphere");
+            NetSession.RemoteIntentValid[spire.SlotIndex] = false;
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)360);
+            health = victim.Health;
+            NetContactLagComp.ResolveFrame();
+            Check(health - victim.Health == spire.Values.AltAttackDamage,
+                "authority resolver applies actual native Spire contact damage once");
+            spire.Controls.ClearAll(); spire.ModForceForm(false);
+            spire.ModPlaceAt(new Vector3(150, 5, 10));
+
+            ImpairmentMatrix(victim);
+            for (uint f = 400; f < 500; f++) NetUnlagged.Record(f);
+            shooter.ModPlaceAt(new Vector3(100, 5, 10));
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!.SetValue(shooter, shooter.Flags1 | PlayerFlags1.Boosting);
+            var setFrame = typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.GetSetMethod(true)!.CreateDelegate<Action<uint>>();
+            for (uint f = 500; f < 600; f++) { setFrame(f); NetContactLagComp.ResolveFrame(); NetUnlagged.Record(f); }
+            long before = GC.GetAllocatedBytesForCurrentThread(); long started = Stopwatch.GetTimestamp();
+            for (uint f = 600; f < 1600; f++) { setFrame(f); NetContactLagComp.ResolveFrame(); NetUnlagged.Record(f); }
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+            double ms = Stopwatch.GetElapsedTime(started).TotalMilliseconds / 1000;
+            Check(allocated == 0, "eight-player production history plus contact resolution allocates zero bytes");
+            Console.WriteLine($"ALT SCENE PASS {_checks} checks; history+contact {ms:F4} ms/frame, {allocated} bytes; {NetContactLagComp.Describe()}");
+            return 0;
+        }
+        catch (Exception ex) { Console.Error.WriteLine($"ALT SCENE FAIL {ex}"); return 1; }
+        finally { sim.Stop(); }
+    }
+    private readonly record struct Probe(uint Frame, HistoricalPlayerPose Pose, Vector3 Start, Vector3 End,
+        bool Visible, HistoricalAltAttackState Attack, bool ContactVisible);
+
+    private static void ImpairmentMatrix(PlayerEntity victim)
+    {
+        // Deterministic two-way network scheduling around the production history
+        // and collision queries. Separately from the real-client smoke runner.
+        foreach (var profile in new[] { ("LAN", 0, 0, 0.0, 0.0), ("moderate", 100, 20, .01, .01),
+            ("severe", 250, 40, .02, .01), ("extreme", 320, 80, .05, .03) })
+        {
+            var down = new NetFaultQueue<Probe>(17, profile.Item2 / 2.0, profile.Item3, profile.Item4, profile.Item5, 0);
+            var up = new NetFaultQueue<Probe>(31, profile.Item2 / 2.0, profile.Item3, profile.Item4, profile.Item5, 0);
+            int attempts = 0, visible = 0, hits = 0, legacyDisagreements = 0, disagreements = 0, historyMisses = 0;
+            int contactVisible = 0, contactHits = 0, contactLiveHits = 0, historicalOnly = 0, liveOnly = 0;
+            double rewind = 0; uint last = 0;
+            for (uint tick = 1; tick <= 800; tick++)
+            {
+                uint frame = 2000 + tick;
+                typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, frame);
+                bool alt = tick / 30 % 2 == 0;
+                if (victim.IsAltForm != alt) victim.ModForceForm(alt);
+                victim.ModPlaceAt(new Vector3(MathF.Sin(tick * .18f) * 3, 5 + MathF.Cos(tick * .09f), 10));
+                if (victim.Hunter == Hunter.Kanden)
+                {
+                    var segments = (Vector3[])victim.KandenSegPos;
+                    for (int segment = 1; segment <= 3; segment++)
+                        segments[segment] = victim.Volume.SpherePosition + Vector3.UnitX * (segment * .5f);
+                }
+                NetUnlagged.Record(frame);
+                double now = tick * 1000.0 / 60;
+                if (tick < 720 && tick % 3 == 0)
+                {
+                    var pose = new HistoricalPlayerPose(victim.Position, victim.IsAltForm, victim.ModCaptureAltPose());
+                    var body = NetHistoricalTrace.Body(victim, pose);
+                    Vector3 center = victim.Volume.SpherePosition;
+                    Vector3 aim = center + (tick % 2 == 0 ? Vector3.Zero : Vector3.UnitY * 3);
+                    Vector3 start = aim - Vector3.UnitX * 3, end = aim + Vector3.UnitX * 3;
+                    bool seen = NetHistoricalTrace.Intersect(body, start, end, .01f, out _);
+                    var attack = new HistoricalAltAttackState(ContactAttackKind.Boost, true, aim + Vector3.UnitX * 2,
+                        aim - Vector3.UnitX * 2, .5f, default, default, 1, 1, true);
+                    var contactBody = new HistoricalBody(victim.SlotIndex, center, victim.Volume.SphereRadius, 0, 0, HistoricalBodyType.AltSphere);
+                    down.Enqueue(now, new(frame, pose, start, end, seen, attack, NetContactLagComp.Intersects(attack, contactBody, true)));
+                }
+                while (down.TryDequeue(now, out var presentation)) up.Enqueue(now, presentation);
+                while (up.TryDequeue(now, out var probe))
+                {
+                    if (probe.Frame <= last) continue; // same ordering contract as accepted intent
+                    last = probe.Frame; attempts++; if (probe.Visible) visible++; if (probe.ContactVisible) contactVisible++;
+                    double target = NetContactLagComp.TargetFrame(frame, probe.Frame, 0);
+                    if (!NetUnlagged.TryHistoricalPose(victim, target, out var pose)) { historyMisses++; continue; }
+                    rewind += frame - target;
+                    bool hit = NetHistoricalTrace.Intersect(NetHistoricalTrace.Body(victim, pose), probe.Start, probe.End, .01f, out _);
+                    if (hit) hits++; if (hit != probe.Visible) disagreements++;
+                    var legacy = new HistoricalPlayerPose(NetPlayerBridge.InFormFor(victim, probe.Pose.Position, probe.Pose.AltForm),
+                        victim.IsAltForm, victim.ModCaptureAltPose());
+                    bool old = NetHistoricalTrace.Intersect(NetHistoricalTrace.Body(victim, legacy), probe.Start, probe.End, .01f, out _);
+                    if (old != probe.Visible) legacyDisagreements++;
+                    var volume = PlayerEntity.PlayerVolumes[(int)victim.Hunter, pose.AltForm ? 2 : 0];
+                    var contact = new HistoricalBody(victim.SlotIndex, pose.Position + volume.SpherePosition, volume.SphereRadius,
+                        0, 0, HistoricalBodyType.AltSphere);
+                    bool contactHit = NetContactLagComp.Intersects(probe.Attack, contact, true);
+                    bool live = NetContactLagComp.Intersects(probe.Attack, contact with { Position = victim.Volume.SpherePosition,
+                        Radius = victim.Volume.SphereRadius }, false);
+                    if (contactHit) contactHits++; if (live) contactLiveHits++;
+                    if (contactHit && !live) historicalOnly++; if (live && !contactHit) liveOnly++;
+                    Check(contactHit == probe.ContactVisible, "impaired contact agrees with acknowledged presentation");
+                }
+            }
+            Check(attempts > 100 && visible > 0 && disagreements == 0 && historyMisses == 0,
+                "impaired beam history agrees with presentation");
+            Console.WriteLine($"ALT MATRIX {profile.Item1} rtt={profile.Item2} jitter={profile.Item3} loss={profile.Item4:P0} reorder={profile.Item5:P0} "
+                + $"attempts={attempts} visible={visible} authority={hits} beamDisagreeBefore={legacyDisagreements} beamDisagreeAfter={disagreements} "
+                + $"contactVisible={contactVisible} contactHistorical={contactHits} contactLive={contactLiveHits} historicalOnly={historicalOnly} liveOnly={liveOnly} "
+                + $"historyMisses={historyMisses} meanRewind={rewind / attempts:F2} sweepDistance=4");
+        }
+    }
+
+}

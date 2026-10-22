@@ -1,0 +1,26 @@
+name: Server Capacity Python Checks
+
+on:
+  pull_request:
+    paths:
+      - 'tools/server-capacity-*.py'
+      - 'tools/test-server-capacity-*.py'
+      - '.github/workflows/server-capacity-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'tools/server-capacity-*.py'
+      - 'tools/test-server-capacity-*.py'
+      - '.github/workflows/server-capacity-checks.yml'
+
+jobs:
+  source-and-parser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse and regression-check asset-free capacity tools
+        run: |
+          python3 -m py_compile tools/server-capacity-benchmark.py tools/server-capacity-qualify.py
+          python3 tools/test-server-capacity-benchmark.py
+          python3 tools/test-server-capacity-qualify.py

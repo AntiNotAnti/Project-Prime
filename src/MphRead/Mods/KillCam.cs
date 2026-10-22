@@ -1,0 +1,197 @@
+using System;
+using System.Threading;
+using MphRead.Entities;
+using MphRead.Mods.Launcher;
+using MphRead.Mods.Network;
+using MphRead.Mods.Replay;
+
+namespace MphRead.Mods;
+
+internal enum KillCamKind { None, Personal, Final }
+
+/// <summary>Foreground adapter. The instance controller owns historical scenes;
+/// this adapter reads live lifecycle and routes presentation/input at the boundary.</summary>
+internal static class KillCam
+{
+    private static readonly KillcamController Controller = new(ReplayCapture.Recorder.Timeline,
+        open: OpenClip,
+        acceptedDeaths: () => NetSession.SemanticReceived.Events, sourceProtocolVersion: NetConfig.ProtocolVersion);
+    private static PassiveReplayPlayer OpenClip(ReplayTimelineClip clip, OpenTK.Mathematics.Vector2i size)
+    {
+        if (clip.CustomArchiveFormat is not (7 or 8)) return new(clip, size, ReplayPlayerOptions.Linear);
+        using var checkpoint = PassiveReplayScene.Checkpoint(clip);
+        var descriptor = checkpoint.CustomWeaponDescriptor
+            ?? throw new InvalidOperationException("Custom killcam lost its exact package descriptor.");
+        var live = _live ?? GameState.Current.Owner
+            ?? throw new InvalidOperationException("Custom killcam lost its prepared live owner.");
+        using var resources = live.RetainOnlineReplayPackage(descriptor);
+        return PassiveReplayPlayer.OpenCustomClip(clip, resources, size);
+    }
+    private static bool Supported(Scene? scene = null) => !CustomReplayBoundary.IsBlocked(scene)
+        || ReplayCapture.CustomClientRollingScope();
+    private static Scene? _live;
+    private static int _skipRequested;
+    private static bool _releaseFire;
+    private static bool _finalRequested;
+    private static uint _finalRequestedFrame;
+    private static uint _finalRequestedAt;
+    private static uint? _finalIdentityWaitStarted;
+    public static bool Active => Controller.Active;
+    public static bool IsPersonal => Controller.Kind == KillCamKind.Personal;
+    public static bool IsFinal => Controller.Kind == KillCamKind.Final;
+    public static uint PlaybackFrame => Controller.Frame;
+    internal static float Progress => Controller.Progress;
+    internal static KillcamState State => Controller.State;
+    internal static KillcamEndReason EndReason => Controller.EndReason;
+    internal static string? LastError => Controller.LastError;
+    internal static string Diagnostics => $"{Controller.State}/{Controller.EndReason} · identity={Controller.IdentityResolution} · requested-end-frame={_finalRequestedFrame} · current-net-frame={NetSession.NetFrame} · candidate-kill-frame={Controller.Candidate?.Kill?.ServerTick ?? 0} · mapped-recording-frame={Controller.CandidateFrame} · authority-end-cause={Controller.AuthorityEndCause} · {Controller.StartupMilliseconds:0.0} ms · {Controller.ClipBytes / 1024d:0} KiB";
+
+    private static KillcamContext Context(Scene? scene)
+    {
+        int local = NetHooks.LocalSlot;
+        bool supported = Supported(scene);
+        return new(NetSession.CurrentMatchId, NetSession.AuthorityEpoch, NetSession.NetFrame, local,
+            NetPlayerLifecycle.Generation(local), NetPlayerLifecycle.Get(local),
+            scene != null && (uint)local < (uint)scene.Players.Items.Count && scene.Players.Items[local] is { Health: > 0 },
+            NetSession.Active && !DemoPlayback.IsActive,
+            supported && LauncherPrefs.KillCamEnabled && !Headless.Active && !SpectatorMode.IsSpectating,
+            supported && LauncherPrefs.FinalKillCamEnabled && !Headless.Active);
+    }
+    internal static void NoteKill(ReplayMarker marker, uint recordingFrame)
+    {
+        var context = Context(_live);
+        if (marker.Kill is not { } identity || !KillcamController.IsValidIdentity(identity, context, _live)) return;
+        bool enemy = true;
+        if (_live?.GameState.Teams == true && marker.Kill is { } kill)
+            enemy = _live.Players.Items[kill.KillerSlot].TeamIndex != _live.Players.Items[kill.VictimSlot].TeamIndex;
+        Controller.NoteKill(marker, recordingFrame, context, enemy);
+    }
+
+    internal static void AfterSimulation(Scene scene)
+    {
+        if (!Supported(scene)) { ResetUnsupported(); return; }
+        _live = scene;
+        if (Interlocked.Exchange(ref _skipRequested, 0) != 0) { Controller.Skip(); _releaseFire = true; }
+        if (_finalRequested && scene.GameState.MatchTime <= 0)
+        {
+            var context = Context(scene);
+            var world = ReplayCapture.LatestAuthorityWorld;
+            bool matching = world != null && world.MatchId == context.MatchId && world.Epoch == context.Epoch;
+            if (matching && world!.EndCause != ReplayEndCause.None)
+            {
+                bool causal = world.EndCause == ReplayEndCause.Kill
+                    && KillcamController.SameKillIdentity(world.EndingKill, Controller.Candidate?.Kill);
+                _finalRequested = !CompleteFinalRequest(Controller, scene, context, _finalRequestedFrame,
+                    world.EndCause == ReplayEndCause.Time, causal, ref _finalIdentityWaitStarted);
+            }
+            else if (NetSession.NetFrame >= _finalRequestedAt
+                && NetSession.NetFrame - _finalRequestedAt >= 30)
+            {
+                // Older protocol-16 servers have no world extension. Keep their
+                // bounded terminal-clock fallback; new authorities must identify
+                // the cause explicitly instead of selecting an unrelated kill.
+                if (!matching)
+                {
+                    var game = scene.GameState;
+                    bool causal = false;
+                    if (Controller.Candidate?.Kill is { } kill && KillcamController.IsValidIdentity(kill, context, scene)
+                        && (uint)game.ResultSlots[0] < (uint)scene.Players.Items.Count
+                        && scene.Players.Items[game.ResultSlots[0]] != null)
+                    {
+                        int team = scene.Players.Items[kill.KillerSlot].TeamIndex;
+                        bool winner = (uint)team < (uint)game.TeamPoints.Length
+                            && scene.Players.Items[game.ResultSlots[0]].TeamIndex == team;
+                        causal = winner && (game.Mode is GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber
+                            || game.Mode is GameMode.Battle or GameMode.BattleTeams
+                                && game.TeamPoints[team] >= game.PointGoal);
+                    }
+                    _finalRequested = !CompleteFinalRequest(Controller, scene, context, _finalRequestedFrame,
+                        !causal && NetSession.ServerMatch is { TimeRemaining: <= 3.1f }, causal, ref _finalIdentityWaitStarted);
+                }
+                else { _finalRequested = false; _finalIdentityWaitStarted = null; }
+            }
+        }
+        Controller.Update(scene, Context(scene) with { PersonalEnabled = Context(scene).PersonalEnabled && !_finalRequested
+            && scene.GameState.MatchState != MatchState.GameOver });
+    }
+    internal static bool FinalPresentationPending => _finalRequested
+        || IsFinal && Controller.State != KillcamState.AwaitCompletion;
+    // The native winner camera runs before the first eligible final attempt.
+    // Only a proof-specific failure starts this bounded identity wait; its clock
+    // is separate from the original authority-world fallback request clock.
+    internal static bool CompleteFinalRequest(KillcamController controller, Scene scene, KillcamContext context,
+        uint endFrame, bool timedEnd, bool causalEnd, ref uint? identityWaitStarted)
+    {
+        if (identityWaitStarted is uint started && unchecked(context.Frame - started) > 30)
+        { controller.Stop(KillcamEndReason.Unavailable); identityWaitStarted = null; return true; }
+        if (controller.BeginFinal(scene, context, endFrame, timedEnd, causalEnd, out bool missingProof))
+        { identityWaitStarted = null; return true; }
+        if (!missingProof) { identityWaitStarted = null; return true; }
+        identityWaitStarted ??= context.Frame;
+        if (unchecked(context.Frame - identityWaitStarted.Value) < 30) return false;
+        identityWaitStarted = null; return true;
+    }
+    internal static bool BeginFinal(uint authoritativeEndFrame)
+    {
+        // Final replay is independent from the personal after-death replay
+        // toggle. The settings expose two distinct switches.
+        _finalRequested = Supported() && NetSession.Active && LauncherPrefs.FinalKillCamEnabled;
+        DebugLog.Line("endgame", $"final-replay-v2 requested={_finalRequested} net={NetSession.Active} enabled={LauncherPrefs.FinalKillCamEnabled}");
+        _finalRequestedFrame = authoritativeEndFrame;
+        _finalIdentityWaitStarted = null;
+        _finalRequestedAt = NetSession.NetFrame; Controller.CancelPersonal(); return false;
+    }
+    internal static void EndFinal()
+    {
+        _finalRequested = false;
+        _finalIdentityWaitStarted = null;
+        if (IsFinal) Controller.Stop(KillcamEndReason.Completed);
+    }
+    internal static void FilterInput(Scene scene)
+    {
+        if (scene.Services.IsReplica) return;
+        var player = scene.Players.Main;
+        bool down = player.Controls.Shoot.IsDown;
+        bool wasActive = Controller.Active;
+        if (Controller.Input(down, player.Controls.Shoot.IsPressed))
+        {
+            player.Controls.ClearAll(); player.ModForgetInputDeltas();
+            if (wasActive && !Controller.Active) _releaseFire = true;
+        }
+        else if (_releaseFire)
+        {
+            player.Controls.Shoot.IsDown = player.Controls.Shoot.IsPressed = false;
+            if (!down) _releaseFire = false;
+        }
+    }
+    // UI/Android callbacks only enqueue. Scene/audio/GL disposal stays on the owner.
+    internal static bool RequestSkip()
+    {
+        if (!Active) return false;
+        Interlocked.Exchange(ref _skipRequested, 1); return true;
+    }
+    internal static Scene? Presentation(Scene live)
+    {
+        if (!Supported(live)) { ResetUnsupported(); return null; }
+        if (live.Services.IsReplica || !ReferenceEquals(live, _live)) return null;
+        if (!NetSession.Active) { Controller.Reset(KillcamEndReason.Disconnected); return null; }
+        if (Controller.Playing?.Kill is { } kill && (kill.MatchId != NetSession.CurrentMatchId || kill.AuthorityEpoch != NetSession.AuthorityEpoch))
+        { Controller.Reset(KillcamEndReason.MatchChanged); return null; }
+        try { Controller.Camera(live.Size); return Controller.Presentation; }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        { Controller.FailPresentation(ex); return null; }
+    }
+    internal static void FailPresentation(Exception error) => Controller.FailPresentation(error);
+    internal static bool IsRecentFinalKill(uint kill, uint end) => KillcamController.FinalEligible(kill, end, timedEnd: true, causalEnd: false);
+    internal static string WeaponName(int value) => value is >= sbyte.MinValue and <= sbyte.MaxValue
+        && Enum.IsDefined(typeof(BeamType), (sbyte)value) ? ((BeamType)value).ToString().ToUpperInvariant() : "";
+    // An unavailable replay retires history without consuming gameplay input.
+    // Re-arming the replay-skip latch every live step would swallow every shot.
+    private static void ResetUnsupported()
+    { Reset(); _releaseFire = false; }
+    internal static void Reset()
+    {
+        Controller.Reset(KillcamEndReason.SceneClosed); _live = null; _finalRequested = false; _finalIdentityWaitStarted = null;
+        _releaseFire = true; Interlocked.Exchange(ref _skipRequested, 0);
+    }
+}

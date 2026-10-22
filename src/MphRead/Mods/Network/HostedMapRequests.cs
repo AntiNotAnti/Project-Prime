@@ -1,0 +1,460 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net;
+using System.Runtime.InteropServices;
+using System.Threading;
+using System.Threading.Tasks;
+using MphRead.Mods.MapGen;
+
+namespace MphRead.Mods.Network;
+
+public sealed record HostedMapArchive(
+    string RoomKey, MapContentIdentity Identity, string PackagePath);
+
+public sealed record HostedMapPreparation(IReadOnlyList<HostedMapArchive> Archives,
+    string? LibraryPath = null, string? RuntimeNamespace = null)
+{
+    public HostedMapArchive? Find(string roomKey, MapHash256 packageHash)
+        => Archives.FirstOrDefault(a => StringComparer.OrdinalIgnoreCase.Equals(a.RoomKey, roomKey)
+            && a.Identity.PackageHash == packageHash);
+}
+
+// Owned/pumped by the network loop. Workers only write verified private archives.
+internal sealed class HostedMapRequests : IDisposable
+{
+    private const long MaximumCacheBytes = 2L * 1024 * 1024 * 1024;
+
+    private sealed class Pending
+    {
+        public HostRequestPacket Request;
+        public IPEndPoint Sender = null!;
+        public byte[] Wire = null!;
+        public Task<PreparedHostRequest> Download = null!;
+        public CancellationTokenSource Cancel = null!;
+        public HostReplyPacket? Reply;
+        public double CompletedAt;
+    }
+
+    private readonly List<Pending> _pending = new();
+    private readonly string? _cacheDirectory, _source;
+
+    internal HostedMapRequests(string? cacheDirectory = null, string? source = null)
+    {
+        _cacheDirectory = cacheDirectory;
+        _source = source;
+    }
+
+    public int ActiveCount => _pending.Count(p => p.Reply == null);
+    internal static string CacheDirectory => Path.Combine(
+        Platform.AppPaths.UserDataDirectory, "hosted-map-packages");
+
+    public void Enqueue(HostRequestPacket request, IPEndPoint sender, double now,
+        Action<IPEndPoint, HostReplyPacket> send, string? approvedWeaponStore = null)
+    {
+        byte[] wire = new byte[request.Length];
+        request.Write(wire);
+        var existing = _pending.FirstOrDefault(p => p.Sender.Equals(sender));
+        if (existing != null)
+        {
+            if (!existing.Wire.SequenceEqual(wire))
+                send(sender, new() { Reason = "A different hosting request is already pending on this connection." });
+            else if (existing.Reply is { } reply)
+                send(sender, reply);
+            return;
+        }
+        if (_pending.Count >= 32 || _pending.Count(p => p.Reply == null) >= 4)
+        {
+            send(sender, new() { Reason = "The host is preparing other maps. Try again shortly." });
+            return;
+        }
+
+        try
+        {
+            Validate(request);
+            if (request.RequiresWeaponPreparation && approvedWeaponStore == null)
+                throw new InvalidDataException("This host has no approved weapon package store.");
+            string address = _source ?? NetworkMapIdentity.ConfiguredDownloadSource();
+            var cancel = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            _pending.Add(new Pending
+            {
+                Request = request,
+                Sender = sender,
+                Wire = wire,
+                Cancel = cancel,
+                Download = Task.Run(() => PrepareRequestAsync(request, address,
+                    _cacheDirectory ?? CacheDirectory, approvedWeaponStore, cancel.Token))
+            });
+        }
+        catch (Exception ex)
+        {
+            send(sender, new() { Reason = ex.Message });
+        }
+    }
+
+    internal static IReadOnlyList<HostRotationEntry> RequestedMaps(HostRequestPacket request)
+    {
+        if (request.Rotation is { Count: > 0 })
+            return request.Rotation;
+
+        GameMode mode = Enum.IsDefined(typeof(GameMode), request.Mode)
+            ? (GameMode)request.Mode
+            : GameMode.Battle;
+        return new[]
+        {
+            new HostRotationEntry(request.RoomKey, mode,
+                request.MapIdentity.IsCustom ? request.MapIdentity.PackageHash : default)
+        };
+    }
+
+    internal static void Validate(HostRequestPacket request)
+    {
+        if (!request.MapIdentity.IsValid)
+            throw new InvalidDataException("Invalid first-map hosting identity.");
+
+        IReadOnlyList<HostRotationEntry> entries = RequestedMaps(request);
+        if (entries.Count == 0 || entries.Count > HostRequestPacket.MaxRotation
+            || !StringComparer.OrdinalIgnoreCase.Equals(entries[0].RoomKey, request.RoomKey))
+        {
+            throw new InvalidDataException("The requested first map must be rotation entry zero.");
+        }
+        if (request.RequiresWeaponPreparation && (request.Mode != (byte)GameMode.Battle
+            || entries.Any(entry => entry.Mode != GameMode.Battle)))
+            throw new InvalidDataException("Packaged hosting requires a Battle rotation.");
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            HostRotationEntry entry = entries[i];
+            bool builtIn = Metadata.IsBuiltInRoom(entry.RoomKey);
+            if (builtIn)
+            {
+                if (!entry.PackageHash.IsZero)
+                    throw new InvalidDataException("Built-in rotation maps cannot carry a Community package hash.");
+            }
+            else
+            {
+                MapValidator.RequireRuntimeName(entry.RoomKey);
+                if (entry.PackageHash.IsZero)
+                    throw new InvalidDataException("Every custom rotation map requires an exact Community package hash.");
+            }
+        }
+
+        HostRotationEntry first = entries[0];
+        if (request.MapIdentity.IsCustom)
+        {
+            if (Metadata.IsBuiltInRoom(request.RoomKey)
+                || first.PackageHash != request.MapIdentity.PackageHash)
+            {
+                throw new InvalidDataException("The first rotation package does not match the requested map identity.");
+            }
+        }
+        else if (!Metadata.IsBuiltInRoom(request.RoomKey) || !first.PackageHash.IsZero)
+        {
+            throw new InvalidDataException("A custom first map requires a full map identity.");
+        }
+
+        foreach (var group in entries.Where(e => e.IsCustom)
+            .GroupBy(e => e.RoomKey, StringComparer.OrdinalIgnoreCase))
+        {
+            if (group.Select(e => e.PackageHash).Distinct().Skip(1).Any())
+                throw new InvalidDataException("One hosted rotation cannot request two versions of the same runtime map.");
+        }
+    }
+
+    private static async Task<PreparedHostRequest> PrepareRequestAsync(HostRequestPacket request,
+        string address, string directory, string? approvedWeaponStore, CancellationToken cancellation)
+    {
+        PreparedLocalWeaponPackage? weapon = null;
+        HostedMapPreparation? maps = null;
+        try
+        {
+            // Weapon-only requests never enter Community map download/cache code.
+            if (request.RequiresWeaponPreparation)
+                weapon = PreparedLocalWeaponPackage.Prepare(approvedWeaponStore!, request.WeaponArchiveHash!, cancellation);
+            if (request.RequiresMapPreparation)
+                maps = await PrepareArchivesAsync(request, address, directory, null, cancellation).ConfigureAwait(false);
+            cancellation.ThrowIfCancellationRequested();
+            return new(maps, weapon);
+        }
+        catch
+        {
+            weapon?.Dispose(); TryDeleteDirectory(maps?.LibraryPath); throw;
+        }
+    }
+
+    internal static async Task<HostedMapPreparation> PrepareArchivesAsync(
+        HostRequestPacket request, string address, string directory,
+        string? firstInstalledOverride, CancellationToken token)
+    {
+        token.ThrowIfCancellationRequested();
+        Validate(request);
+        Directory.CreateDirectory(directory);
+
+        IReadOnlyList<HostRotationEntry> entries = RequestedMaps(request);
+        var archives = new List<HostedMapArchive>();
+        var resolved = new Dictionary<MapHash256, HostedMapArchive>();
+
+        for (int i = 0; i < entries.Count; i++)
+        {
+            token.ThrowIfCancellationRequested();
+            HostRotationEntry entry = entries[i];
+            if (!entry.IsCustom)
+                continue;
+            if (resolved.TryGetValue(entry.PackageHash, out HostedMapArchive? duplicate))
+            {
+                if (!StringComparer.OrdinalIgnoreCase.Equals(duplicate.RoomKey, entry.RoomKey))
+                    throw new InvalidDataException("One Community package cannot stand for two runtime map names.");
+                archives.Add(duplicate);
+                continue;
+            }
+
+            MapContentIdentity identity;
+            if (i == 0 && request.MapIdentity.IsCustom)
+            {
+                identity = request.MapIdentity.Content(entry.RoomKey);
+            }
+            else
+            {
+                // Rotation entries address exact immutable packages. Reuse a
+                // fully verified cached archive before any Community request.
+                // Never trust the filename alone: validate its manifest,
+                // protocol requirement, room name and actual package hash.
+                MapContentIdentity? cachedIdentity = null;
+                string cachedPath = Path.Combine(directory, entry.PackageHash + ".ppmap");
+                if (File.Exists(cachedPath))
+                {
+                    try
+                    {
+                        using var cachedPackage = new MapPackageReader(cachedPath);
+                        MapPackageManifest? manifest = cachedPackage.Manifest;
+                        if (manifest != null && manifest.MinimumProtocol <= NetConfig.ProtocolVersion
+                            && StringComparer.OrdinalIgnoreCase.Equals(manifest.Name, entry.RoomKey)
+                            && MapHash256.HashFile(cachedPath) == entry.PackageHash)
+                        {
+                            cachedIdentity = new MapContentIdentity(
+                                manifest.MapId, manifest.Name, MapHash256.Parse(manifest.ContentHash),
+                                entry.PackageHash, true);
+                        }
+                    }
+                    catch (InvalidDataException)
+                    {
+                        // Corrupt cache is not trusted and must be fetched again.
+                    }
+                }
+                if (cachedIdentity is { } exact)
+                {
+                    identity = exact;
+                }
+                else
+                {
+                    using var lookup = new MapCommunityClient(address);
+                    CommunityMap? metadata = await lookup.GetPackageAsync(
+                        entry.PackageHash.ToString(), token).ConfigureAwait(false);
+                    if (metadata == null)
+                        throw new InvalidDataException("A rotation map is no longer available from Community: " + entry.RoomKey);
+                    if (!StringComparer.OrdinalIgnoreCase.Equals(metadata.Name, entry.RoomKey)
+                        || metadata.Hash != entry.PackageHash.ToString())
+                    {
+                        throw new InvalidDataException("Community metadata does not match rotation map " + entry.RoomKey + ".");
+                    }
+                    if (metadata.MinimumProtocol > NetConfig.ProtocolVersion)
+                        throw new InvalidDataException("A rotation map requires a newer Project Prime protocol: " + entry.RoomKey);
+                    identity = new MapContentIdentity(metadata.MapId, metadata.Name,
+                        MapHash256.Parse(metadata.ContentHash),
+                        MapHash256.Parse(metadata.Hash), true);
+                }
+            }
+
+            string? installed = i == 0 && firstInstalledOverride != null
+                ? firstInstalledOverride
+                : CustomRooms.Installed.TryGet(entry.RoomKey, out var local)
+                    && local.Identity.Matches(identity)
+                    ? local.PackagePath
+                    : null;
+
+            string package = await PrepareOneAsync(
+                identity, address, directory, installed, token).ConfigureAwait(false);
+            var archive = new HostedMapArchive(entry.RoomKey, identity, package);
+            resolved[entry.PackageHash] = archive;
+            archives.Add(archive);
+        }
+
+        foreach (var group in archives.GroupBy(a => a.Identity.MapId))
+        {
+            if (group.Select(a => a.Identity.PackageHash).Distinct().Skip(1).Any())
+                throw new InvalidDataException("A hosted rotation cannot stage two versions with the same map identity.");
+        }
+
+        if (archives.Count == 0)
+            return new HostedMapPreparation(archives);
+
+        // Child-library staging belongs to this background preparation job,
+        // not to the parent server's packet loop. Packages are immutable and
+        // content-addressed, so hard links avoid a second hundreds-of-megabytes
+        // copy per lobby. Filesystems without hard links fall back to copying.
+        string runtimeNamespace = Guid.NewGuid().ToString("N");
+        string library = Path.Combine(directory, "lobbies", runtimeNamespace);
+        try
+        {
+            Directory.CreateDirectory(library);
+            foreach (HostedMapArchive archive in archives
+                .GroupBy(a => a.Identity.MapId).Select(group => group.First()))
+            {
+                token.ThrowIfCancellationRequested();
+                string target = Path.Combine(library,
+                    archive.Identity.MapId.ToString("N") + MapBundle.Extension);
+                if (!File.Exists(target))
+                    LinkOrCopy(archive.PackagePath, target);
+            }
+            return new HostedMapPreparation(archives, library, runtimeNamespace);
+        }
+        catch
+        {
+            TryDeleteDirectory(library);
+            throw;
+        }
+    }
+
+    private static async Task<string> PrepareOneAsync(
+        MapContentIdentity identity, string address, string directory,
+        string? installed, CancellationToken token)
+    {
+        string path = Path.Combine(directory, identity.PackageHash + ".ppmap");
+        if (File.Exists(path))
+        {
+            try
+            {
+                if (MapContentIdentity.FromPackage(path).Matches(identity))
+                    return path;
+            }
+            catch (InvalidDataException) { }
+        }
+
+        long cacheBytes = Directory.EnumerateFiles(directory, "*.ppmap")
+            .Sum(p => new FileInfo(p).Length);
+        if (cacheBytes > MaximumCacheBytes)
+            throw new IOException("Hosted package cache is full; ask the server operator to clear unused packages.");
+
+        token.ThrowIfCancellationRequested();
+        if (installed != null && File.Exists(installed)
+            && MapContentIdentity.FromPackage(installed).Matches(identity))
+        {
+            // An installed archive is private input, but potentially hundreds of
+            // MiB. Copy through a bounded buffer instead of a package-sized
+            // managed byte array, and verify the destination before exposing it.
+            await AtomicFile.CopyAsync(installed, path, token).ConfigureAwait(false);
+            if (!MapContentIdentity.FromPackage(path).Matches(identity))
+            {
+                File.Delete(path);
+                throw new InvalidDataException("Hosted map archive changed during staging.");
+            }
+        }
+        else
+        {
+            using var client = new MapCommunityClient(address);
+            await client.DownloadExactAsync(identity, path, token).ConfigureAwait(false);
+        }
+
+        token.ThrowIfCancellationRequested();
+        return path;
+    }
+
+    internal static void LinkOrCopy(string source, string target)
+    {
+        if (TryCreateHardLink(source, target)) return;
+        File.Copy(source, target, overwrite: false);
+    }
+
+    private static bool TryCreateHardLink(string source, string target)
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+                return CreateHardLinkWindows(target, source, IntPtr.Zero);
+            return LinkUnix(source, target) == 0;
+        }
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException
+            or PlatformNotSupportedException)
+        {
+            return false;
+        }
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true,
+        EntryPoint = "CreateHardLinkW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CreateHardLinkWindows(
+        string fileName, string existingFileName, IntPtr securityAttributes);
+
+    [DllImport("libc", EntryPoint = "link", SetLastError = true)]
+    private static extern int LinkUnix(string existingPath, string newPath);
+
+    internal static void TryDeleteDirectory(string? path)
+    {
+        if (String.IsNullOrWhiteSpace(path)) return;
+        try { if (Directory.Exists(path)) Directory.Delete(path, recursive: true); }
+        catch (IOException) { }
+        catch (UnauthorizedAccessException) { }
+    }
+
+    // Compatibility helper for the focused single-map tests and tools.
+    internal static async Task<string> PrepareArchiveAsync(
+        HostRequestPacket request, string address, string directory,
+        string? installed, CancellationToken token)
+    {
+        HostedMapPreparation prepared = await PrepareArchivesAsync(
+            request, address, directory, installed, token).ConfigureAwait(false);
+        HostedMapArchive? first = prepared.Find(
+            request.RoomKey, request.MapIdentity.PackageHash);
+        return first?.PackagePath
+            ?? throw new InvalidDataException("The requested first custom map was not prepared.");
+    }
+
+    public void Pump(double now,
+        Func<HostRequestPacket, IPEndPoint, double, PreparedHostRequest, HostReplyPacket> start,
+        Action<IPEndPoint, HostReplyPacket> send)
+    {
+        foreach (var pending in _pending)
+        {
+            if (pending.Reply != null || !pending.Download.IsCompleted)
+                continue;
+            PreparedHostRequest? prepared = null;
+            try
+            {
+                prepared = pending.Download.GetAwaiter().GetResult();
+                pending.Reply = start(pending.Request, pending.Sender, now, prepared);
+                if (pending.Reply is { Started: true }) prepared.TransferMaps();
+            }
+            catch (Exception ex)
+            {
+                pending.Reply = new HostReplyPacket
+                { Reason = pending.Request.RequiresWeaponPreparation
+                    ? "Exact installed weapon package preparation failed."
+                    : "Map preparation failed: " + ex.GetBaseException().Message };
+            }
+            finally { prepared?.Dispose(); }
+            pending.CompletedAt = now;
+            pending.Cancel.Dispose();
+            send(pending.Sender, pending.Reply.Value);
+        }
+        _pending.RemoveAll(p => p.Reply != null && now - p.CompletedAt > 240);
+    }
+
+    public void Dispose()
+    {
+        foreach (var pending in _pending.Where(p => p.Reply == null))
+        {
+            pending.Cancel.Cancel();
+            _ = pending.Download.ContinueWith(t =>
+            {
+                if (t.Status == TaskStatus.RanToCompletion)
+                    t.Result.Dispose();
+                else
+                    _ = t.Exception;
+                pending.Cancel.Dispose();
+            }, TaskScheduler.Default);
+        }
+        _pending.Clear();
+    }
+}

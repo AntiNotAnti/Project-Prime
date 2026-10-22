@@ -1,0 +1,277 @@
+{
+  "schema": 1,
+  "slice": "NCX-04",
+  "status": "COMPLETE_EXACT_PAID_RECEIPTS",
+  "sourceCommit": "6cbca98b42169d1896a05b6b571f047ded33b272",
+  "integrationMain": "42bac699ee31d74f3d9476026f47b68df86efafc",
+  "codeInputsSha256": "ed52c2a51a598c3d4c0a841a97274c774daf6ffb4f2333122d108156c0c046ba",
+  "engineSha256": "508957ebda6ef67202d30408d0d17d86eb9d5ed93891f5b910879aa2c2d53ffd",
+  "nettestSha256": "826302cda0d21602f574ca216ca54d9b37d3d1b6873e723cd0b72cc2466e8327",
+  "sourceClosure": {
+    "path": "artifacts/ncx/NCX-04/source-03.json",
+    "sha256": "87e810dda8112fc23f205cab9a66137f2612807607c947d35652b04b864e876e"
+  },
+  "build": {
+    "status": "PASS",
+    "warnings": 0,
+    "errors": 0,
+    "path": "artifacts/ncx/NCX-04/build-03.log",
+    "sha256": "385fb2d4f68277aeb77ba4c46f37f16079a84e16f90f08d19dc3b51d8df0853b"
+  },
+  "protocol": 59,
+  "behavior": {
+    "default": "off",
+    "unknownMode": "off",
+    "optIn": "PRIME_COMBAT_FASTPATH=paid",
+    "onlyEligible": "Exact already-paid primary/direct Power Beam or Imperialist, matching full payment key/weapon/head material after all prior admission gates",
+    "freshUnpaidDamageEnabled": false,
+    "nativeContactEnforcementEnabled": false,
+    "receipts": "Existing Answer/CombatAck/cache; cached retry precedes shortcut",
+    "fallbacks": [
+      "ClaimId0",
+      "missing/reserved/expired payment",
+      "all full-key/lifecycle/stream mismatches",
+      "other families/components/kinds",
+      "both head mismatch directions",
+      "ending match",
+      "continuous claims",
+      "capacity and ID/reorder guards"
+    ],
+    "wireLayoutChanged": false,
+    "sameProtocolSemantics": "Existing paid duplicates already received the same23byte immutable ACK; mixed-binary release matrix remains NCX13",
+    "telemetry": "PaidReceipts/PaidBypass count actual shortcuts; skipped Judge/NetShotProof.Observe denominators change",
+    "movement": "Owner reported, unchanged",
+    "simulationHz": 60
+  },
+  "checks": {
+    "focusedRoutes": 51,
+    "routesPerMode": 17,
+    "modes": [
+      "off",
+      "shadow",
+      "paid"
+    ],
+    "status": "PASS",
+    "constructedReceiveAssertionsEach": 481,
+    "actualNativeAssertionsEach": 304,
+    "arbitrationAssertionsEach": 1157,
+    "continuousAssertionsEach": 667,
+    "receiptAssertionsEach": 698,
+    "pythonTests": {
+      "ncx": 80,
+      "dispatch": 6,
+      "comparator": 23,
+      "source": "52460b1545ee9df7aed5b1b42efa26af008412d1",
+      "note": "Python files unchanged by final main integration; same hashes as final qualified harness",
+      "logs": [
+        {
+          "path": "artifacts/ncx/NCX-04/python-ncx-02.log",
+          "sha256": "35fe0d02e72b8fda3a8cb363868bd0deb208996bfb0a4d6635b6f5d1a3e1e1bc"
+        },
+        {
+          "path": "artifacts/ncx/NCX-04/python-dispatch-02.log",
+          "sha256": "6d8e693b6207cea40f0277130d5db438e6ece5a8fa571de080ee3f0fe47afeba"
+        },
+        {
+          "path": "artifacts/ncx/NCX-04/python-comparator-02.log",
+          "sha256": "cf2e1705040ae70cae3e8c74b4aa71bdf5e6bc9e941ce16d11643e237400f6d1"
+        }
+      ]
+    },
+    "focusedManifest": {
+      "path": "artifacts/ncx/NCX-04/focused-results-03.json",
+      "sha256": "2808cb723818754b7cb71159fe57fdba5b183473a1b3b0ed0a61fe6a97621c72"
+    },
+    "qualification": {
+      "path": "artifacts/ncx/NCX-04/qualification-checks-03.json",
+      "sha256": "a247468ce5986d543c3d9824837804678cb7dea3dec9db4b745e26cc44ef1bc0"
+    }
+  },
+  "nativePaidControls": {
+    "controlsPerExecution": 6,
+    "executions": 3,
+    "internalArms": [
+      "off",
+      "paid"
+    ],
+    "fourExactPaidControls": "Power Beam/Imperialist body/head: one native payment, one first-request shortcut, no retry shortcut, all23ACK bytes exact",
+    "twoHeadMismatches": "Both legacy; body-to-head retains exactly one difference correction and sequence advance with no additional component payment",
+    "exactParity": [
+      "native/final/first/retryACKbytes",
+      "health",
+      "damageSequences",
+      "singleComponentPayment",
+      "bothRngWords",
+      "scoreArrays",
+      "semanticEvents",
+      "nonemptyCanonicalReplayHashes"
+    ],
+    "materialComparisons": 18,
+    "materialStatus": "PASS",
+    "captureAuditStatuses": {
+      "PASS": 15,
+      "INCOMPLETE": 3,
+      "FAIL": 0
+    },
+    "captureLimit": "Corrected body-to-head predictions excluded; head-to-body capture PASS is a separate native observation, not paid receipt eligibility",
+    "artifact": {
+      "path": "artifacts/ncx/NCX-04/actual-paid-native-audit-03.json",
+      "sha256": "66f5afd02f8fcc2f43728ecb82f9b4f55e59c2fc4e78fa462f4941780f0e49a6"
+    }
+  },
+  "nativeFidelity": {
+    "rawExit": 1,
+    "passingCasesEachMode": 46,
+    "passingHashesMatchNcx01": true,
+    "knownDivergence": "weapon.missile.splash tick177 victim.position4096.z expected52814 actual52815",
+    "goldensUnchanged": true,
+    "customRewindAssertionsEachMode": 156,
+    "manifest": {
+      "path": "artifacts/ncx/NCX-04/oracle-results-03.json",
+      "sha256": "423040172c383e052866ec50322c3493857fe042416afcb4dd19bc21b898c37a"
+    }
+  },
+  "udp": {
+    "aggregate": {
+      "path": "artifacts/ncx/NCX-04/udp-results-03.json",
+      "sha256": "cb351950c5ef57f22adc1b418bb652ba207f6c5a0ce2456bb0687115855a593a"
+    },
+    "aggregateRawStatus": "PASS",
+    "cases": [
+      {
+        "mode": "shadow",
+        "campaignStatus": "PASS",
+        "campaignFailures": [],
+        "drain": "PASS",
+        "parity": "PASS",
+        "receiptAccounting": "PASS",
+        "declaredReceiptTotals": {
+          "Delivered": 212,
+          "TimedOut": 0,
+          "CapacityEvicted": 0,
+          "LifeRetired": 0,
+          "OccupantRetired": 0,
+          "MatchRetired": 0,
+          "SessionRetired": 0,
+          "Created": 212,
+          "Outstanding": 0
+        },
+        "positiveEligibleComparisons": 189,
+        "paidReceiptBypasses": 0,
+        "eligibleLatencySamples": 189,
+        "p95AuthorityTicks": 0,
+        "processCount": 9,
+        "source": "6cbca98b42169d1896a05b6b571f047ded33b272",
+        "engineSha256": "508957ebda6ef67202d30408d0d17d86eb9d5ed93891f5b910879aa2c2d53ffd",
+        "evidence": {
+          "manifest.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-shadow-03/manifest.json",
+            "sha256": "7ade7b7fba96945b1d6e1f2a471efc16ece5eaa35ce8734cc864821e6e39b491"
+          },
+          "summary.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-shadow-03/summary.json",
+            "sha256": "760278efe4024f911328f2d0ddb45e937e9936f7c536f8c26d4b1436c0420b59"
+          },
+          "ncx-fastpath.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-shadow-03/ncx-fastpath.json",
+            "sha256": "9b6787ecb9a382abd9256cc30aa1532b27613ea4172bcb3cfe2729470f6f30df"
+          },
+          "ncx-receipts.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-shadow-03/ncx-receipts.json",
+            "sha256": "c88f468a923eb5aa95966986331895f28ae3d1dc136d06dfbc0ae6519fb4d721"
+          },
+          "ncx-paid-receipts.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-shadow-03/ncx-paid-receipts.json",
+            "sha256": "f5cec5f7e03f2ce2088f6643f64f16c4aaa4ca4c8f6fa94c760b779d1fa7e66f"
+          }
+        }
+      },
+      {
+        "mode": "paid",
+        "campaignStatus": "PASS",
+        "campaignFailures": [],
+        "drain": "PASS",
+        "parity": "PASS",
+        "receiptAccounting": "PASS",
+        "declaredReceiptTotals": {
+          "Delivered": 191,
+          "TimedOut": 0,
+          "CapacityEvicted": 0,
+          "LifeRetired": 0,
+          "OccupantRetired": 0,
+          "MatchRetired": 0,
+          "SessionRetired": 0,
+          "Created": 191,
+          "Outstanding": 0
+        },
+        "positiveEligibleComparisons": 172,
+        "paidReceiptBypasses": 172,
+        "eligibleLatencySamples": 172,
+        "p95AuthorityTicks": 0,
+        "processCount": 9,
+        "source": "6cbca98b42169d1896a05b6b571f047ded33b272",
+        "engineSha256": "508957ebda6ef67202d30408d0d17d86eb9d5ed93891f5b910879aa2c2d53ffd",
+        "evidence": {
+          "manifest.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-paid-03/manifest.json",
+            "sha256": "d68b7017225c72ca675f031f63666f3ec9e5ec67090d0d820853c3787f3da572"
+          },
+          "summary.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-paid-03/summary.json",
+            "sha256": "7fa5c82051e5d250a20eea6e31b27676b3aaa01d820463f46ecf95903e127278"
+          },
+          "ncx-fastpath.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-paid-03/ncx-fastpath.json",
+            "sha256": "87587041a3a68306ffdae512448989d003c90106ee9506aa19c2579d8f2e95b2"
+          },
+          "ncx-receipts.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-paid-03/ncx-receipts.json",
+            "sha256": "b26daa44673f5e01fef3ddc14804c57bc7227f09b0c7a895ccb72c3f0874faeb"
+          },
+          "ncx-paid-receipts.json": {
+            "path": "artifacts/ncx/NCX-04/udp-eight-extreme-paid-03/ncx-paid-receipts.json",
+            "sha256": "aeca2362333288d71e8eea3ba20a097bdbd750f9560d21cd0cbe3b26e30cd0b7"
+          }
+        }
+      }
+    ],
+    "matchedConfiguration": {
+      "players": 8,
+      "processes": 9,
+      "scenario": "powerbeam",
+      "profile": "extreme",
+      "configuredRttMs": 400,
+      "jitterMs": 80,
+      "lossPercent": 5,
+      "reorderPercent": 3,
+      "duplicatePercent": 1,
+      "requestedSeconds": 90,
+      "boundedDrainSeconds": 20,
+      "seed": 8128
+    },
+    "scope": "Actual loopback UDP with synthetic configured faults, same frozen binary and declared workload. Shadow uses default settlement with read-only evidence; Paid routes only exact existing receipts. World schedules/contact totals are stochastic, not a paired deterministic hit-total or CPU experiment. Real Imperialist UDP family qualification not inferred from Power Beam workload.",
+    "latencyScope": "Authority-local Ready/received to terminal-decided before buffered verdict flush; no client delivery, one-way latency or RTT improvement",
+    "latencyImprovementClaim": false
+  },
+  "retainedFailures": [
+    {
+      "record": {
+        "path": "artifacts/ncx/NCX-04/native-new-01.log",
+        "sha256": "009ad52ee3944b8ac45f704941612b1c9d2ff67b5b959a084c6174b181123a0f"
+      },
+      "status": "FAIL",
+      "reason": "Test-report raw Vector3 cycle after first valid native pair; fixed projected export, assertions retained"
+    },
+    {
+      "record": "../NCX-03/udp-impaired-08",
+      "status": "FAIL",
+      "reason": "Post-drain graceful-close handshake; still open NCX09, no cause/fix inferred from these passing runs"
+    }
+  ],
+  "limits": [
+    "No fresh-claim fast settlement or closed causal frontier",
+    "No whole-family/trade/visual/performance superiority certification",
+    "No physical Windows/Linux/Android or mixed-binary release qualification",
+    "Existing known fidelity and transport failures retained; no global release gate passed"
+  ]
+}

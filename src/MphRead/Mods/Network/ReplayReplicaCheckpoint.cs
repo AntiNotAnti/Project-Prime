@@ -1,0 +1,334 @@
+using System;
+using System.Buffers.Binary;
+using System.IO;
+
+namespace MphRead.Mods.Network;
+
+/// <summary>Detached decoder state only. A complete scene checkpoint must also
+/// supply entity, simulation and presentation state; this is never one by itself.</summary>
+internal sealed class ReplayReplicaCheckpoint
+{
+    internal const int MaximumBytes = 512 * 1024;
+        internal const int MaximumCustomBytes = MaximumBytes + ReplayCustomWeaponDescriptor.MaximumBytes + ReplayCustomWeaponState.MaximumCheckpointBytes + 8;
+    private readonly byte[] _bytes;
+    internal ReadOnlySpan<byte> Bytes => _bytes;
+    internal ReplayReplicaCheckpoint(ReadOnlySpan<byte> bytes)
+    {
+            int maximum = bytes.Length >= 8 && BinaryPrimitives.ReadUInt16LittleEndian(bytes[4..]) is ReplayReplicaCheckpointLayout.CustomVersion or ReplayReplicaCheckpointLayout.LegacyCustomVersion ? MaximumCustomBytes : MaximumBytes;
+            if (bytes.Length > maximum) throw new InvalidDataException("Replica checkpoint is too large.");
+        _bytes = bytes.ToArray();
+    }
+}
+
+internal sealed partial class ReplayReplicaState
+{
+    private const uint CheckpointMagic = 0x43525050; // PPRC, independent of demo/wire formats
+    private const ushort CheckpointVersion = ReplayReplicaCheckpointLayout.CurrentVersion;
+    internal ReplayReplicaCheckpoint CaptureCheckpoint()
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        WriteCheckpoint(writer);
+        return new(stream.GetBuffer().AsSpan(0, checked((int)stream.Length)));
+    }
+    internal void WriteCheckpoint(BinaryWriter writer)
+    {
+        writer.Write(CheckpointMagic);
+        writer.Write(CustomWeapons == null ? CheckpointVersion : ReplayReplicaCheckpointLayout.CustomVersion);
+        writer.Write((byte)NetConfig.ProtocolVersion);
+        writer.Write((byte)(ReplayReplicaCheckpointLayout.CurrentFeatures | ReplayReplicaCheckpointFeatures.Grapple | ReplayReplicaCheckpointFeatures.ParkourPose
+            | (TimedShots.Enabled ? ReplayReplicaCheckpointFeatures.TimedShots : ReplayReplicaCheckpointFeatures.None)
+            | (CustomWeapons != null ? ReplayReplicaCheckpointFeatures.CustomWeapons : ReplayReplicaCheckpointFeatures.None)));
+        writer.Write(RecordingFrame); writer.Write(MatchRecordingFrame); writer.Write(ServerTick);
+        writer.Write(Rng1); writer.Write(Rng2);
+        writer.Write(AcceptedPackets); writer.Write(IgnoredPackets);
+        writer.Write(_hasSnapshot); writer.Write(_rosterRevision.HasValue);
+        if (_rosterRevision.HasValue) writer.Write(_rosterRevision.Value);
+        writer.Write(Match.HasValue);
+        if (Match is { } match)
+        {
+            Span<byte> bytes = stackalloc byte[MatchStatePacket.Size]; match.Write(bytes); writer.Write(bytes);
+        }
+        writer.Write(Configuration.HasValue);
+        if (Configuration is { } configuration)
+        {
+            Span<byte> bytes = stackalloc byte[SessionStatePacket.Size]; configuration.Write(bytes); writer.Write(bytes);
+        }
+        var roster = RosterPacket.Create();
+        roster.MatchId = Match?.MatchId ?? 0; roster.AuthorityEpoch = Match?.AuthorityEpoch ?? 0;
+        roster.Revision = _rosterRevision ?? 0;
+        roster.ContainsBots = ContainsBots;
+        for (int i = 0; i < _roster.Length; i++)
+        {
+            var occupant = _roster[i];
+            if (occupant.Generation == 0) continue;
+            int index = roster.Count++;
+            roster.Slots[index] = (byte)i; roster.Generations[index] = occupant.Generation;
+            roster.Hunters[index] = (byte)occupant.Hunter; roster.Colors[index] = occupant.Color;
+            roster.Teams[index] = occupant.Team; roster.Names[index] = occupant.Name;
+            roster.Flags[index] = occupant.IsBot ? (byte)1 : (byte)0; roster.BotLevels[index] = occupant.BotLevel;
+            roster.DamageReductions[index] = occupant.DamageReduction;
+        }
+        Span<byte> rosterBytes = stackalloc byte[RosterPacket.Size]; roster.Write(rosterBytes); writer.Write(rosterBytes);
+        Span<byte> playerBytes = stackalloc byte[PlayerState.Size];
+        Span<byte> intentBytes = stackalloc byte[IntentPacket.TouchCanonicalSize];
+        for (int i = 0; i < _roster.Length; i++)
+        {
+            var life = _lives[i].Capture();
+            writer.Write(life.Generation); writer.Write(life.LifeId); writer.Write((byte)life.State); writer.Write(life.Dead);
+            writer.Write(_hasPlayer[i]); _players[i].Write(playerBytes); writer.Write(playerBytes);
+            writer.Write(_hasIntent[i]); _intents[i].Write(intentBytes); writer.Write(intentBytes);
+            writer.Write(_intentReceivedFrame[i]);
+        }
+        writer.Write(_worldTail.Length); writer.Write(_worldTail);
+        long authorityAt = Replay.ReplayCheckpointWriter.BeginComponent(writer);
+        AuthorityWorld?.Encode(writer);
+        Replay.ReplayCheckpointWriter.EndComponent(writer, authorityAt);
+        writer.Write(AuthorityAppliedTick.HasValue); if (AuthorityAppliedTick is uint applied) writer.Write(applied);
+        Span<byte> cosmetics = stackalloc byte[Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size];
+        int cosmeticBytes = Match is { } cosmeticMatch ? Cosmetics.Write(cosmetics, cosmeticMatch.MatchId, cosmeticMatch.AuthorityEpoch) : 0;
+        writer.Write(cosmeticBytes); writer.Write(cosmetics[..cosmeticBytes]);
+        writer.Write(ChatLines.Count);
+        Span<byte> chatBytes = stackalloc byte[ChatPacket.Size];
+        foreach (var line in ChatLines) { writer.Write(line.Frame); line.Packet.Write(chatBytes); writer.Write(chatBytes); }
+        SemanticEvents.WriteCheckpoint(writer);
+        WriteBombPackets(writer);
+        WriteTurretOutcomes(writer);
+        WritePickupFacts(writer);
+        WriteGrantFacts(writer);
+        if (TimedShots.Enabled) WriteTimedShotCertificates(writer);
+        if (CustomWeapons != null) WriteCustomWeaponCheckpoint(writer);
+
+    }
+
+    internal void RestoreCheckpoint(ReplayReplicaCheckpoint checkpoint)
+    {
+        // Every candidate is a private decoder. Commit only after a unique
+        // complete layout succeeds, including the collided historical v10s.
+        var restored = ReplayReplicaCheckpointLayout.DecodeUnique(checkpoint.Bytes,
+            layout =>
+            {
+                if (layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons)) throw new InvalidDataException("Explicit custom inspection contract required.");
+                return DecodeCheckpoint(checkpoint, layout);
+            });
+        CommitCheckpoint(restored);
+    }
+
+    internal static ReplayReplicaCheckpointLayout InspectCheckpointLayout(ReplayReplicaCheckpoint checkpoint)
+        => ReplayReplicaCheckpointLayout.DecodeUnique(checkpoint.Bytes,
+            layout =>
+            {
+                if (layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons)) throw new InvalidDataException("Native checkpoint inspection refuses custom features.");
+                DecodeCheckpoint(checkpoint, layout); return layout;
+            });
+
+    private static ReplayReplicaState DecodeCheckpoint(ReplayReplicaCheckpoint checkpoint,
+        ReplayReplicaCheckpointLayout layout)
+    {
+        // Parse into a temporary owner first: an invalid checkpoint must not
+        // partially replace a running session's decoder/lifecycle state.
+        var restored = new ReplayReplicaState();
+        using var stream = new MemoryStream(checkpoint.Bytes.ToArray(), writable: false);
+        using var reader = new BinaryReader(stream);
+        byte[] Read(int count)
+        {
+            if (count < 0 || count > stream.Length - stream.Position) throw new InvalidDataException("Truncated replica checkpoint.");
+            return reader.ReadBytes(count);
+        }
+        try
+        {
+            if (reader.ReadUInt32() != CheckpointMagic) throw new InvalidDataException("Incompatible replica checkpoint.");
+            ushort version = reader.ReadUInt16();
+            int protocol = reader.ReadByte();
+            if (layout.HeaderBytes == 8 && reader.ReadByte() != (byte)layout.Features) throw Malformed();
+            PlayerState ReadPlayer()
+            {
+                byte[] upgraded = new byte[PlayerState.Size];
+                Read(layout.PlayerBytes).CopyTo(upgraded, 0);
+                if (protocol < 29) upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
+                if (protocol < 85) upgraded[PlayerState.Protocol80Size] &= 15;
+                var value = PlayerState.Read(upgraded);
+                if (protocol < 84) value.MantleVisualPhase = 0;
+                if (protocol < 69) value.Crouched = false;
+                if (protocol < 77) value.Tucked = false;
+                return value;
+            }
+            bool Flag()
+            {
+                byte value = reader.ReadByte();
+                if (value > 1) throw Malformed();
+                return value != 0;
+            }
+            // Replay packet compatibility reaches back to protocol 4, but this
+            // detached checkpoint schema was introduced much later. Do not confuse
+            // permissive packet playback with binary checkpoint compatibility.
+            if (version is < 1 or > ReplayReplicaCheckpointLayout.CustomVersion || protocol < 24
+                || !ReplayIdentityCompatibility.Supports(protocol))
+                throw new InvalidDataException("Incompatible replica checkpoint.");
+            restored.RecordingFrame = reader.ReadUInt32(); restored.MatchRecordingFrame = reader.ReadUInt32();
+            restored.ServerTick = reader.ReadUInt32(); restored.Rng1 = reader.ReadUInt32(); restored.Rng2 = reader.ReadUInt32();
+            restored.AcceptedPackets = reader.ReadInt64(); restored.IgnoredPackets = reader.ReadInt64();
+            restored._hasSnapshot = Flag();
+            restored._rosterRevision = Flag() ? reader.ReadUInt32() : null;
+            if (Flag())
+            {
+                int matchSize = protocol < 29 ? 103 : protocol < 60 ? MatchStatePacket.Protocol59Size : MatchStatePacket.Size;
+                var packet = new byte[1 + matchSize]; packet[0] = (byte)PacketType.MatchState;
+                Read(matchSize).CopyTo(packet, 1);
+                // Custom15 explicitly freezes protocol83's current shapes. The
+                // native historical converter must continue refusing custom rules.
+                restored.Match = MatchStatePacket.Read(layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons)
+                    ? packet.AsSpan(1) : ReplayIdentityCompatibility.Convert(packet, protocol)[1..]);
+            }
+            if (Flag())
+            {
+                int size = protocol == 24 ? 41 + HostRequestPacket.MaxRoomBytes : protocol < 31 ? SessionStatePacket.Protocol28Size : SessionStatePacket.Size;
+                byte[] packet = new byte[size + 1]; packet[0] = (byte)PacketType.SessionState;
+                Read(size).CopyTo(packet, 1);
+                bool custom = layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons);
+                if (!ReadReplicaConfiguration(custom ? packet.AsSpan(1) : ReplayIdentityCompatibility.Convert(packet, protocol)[1..], custom, out var configuration)) throw Malformed();
+                restored.Configuration = configuration;
+                ValidateMovementRules(restored.Match, restored.Configuration);
+            }
+            int rosterSize = protocol >= 33 ? RosterPacket.Size
+                : protocol >= 27 ? RosterPacket.LegacySize
+                : protocol == 26 ? 18 + 27 * RosterPacket.MaxSlots : 17 + 25 * RosterPacket.MaxSlots;
+            byte[] rosterPacket = new byte[rosterSize + 1]; rosterPacket[0] = (byte)PacketType.Roster;
+            Read(rosterSize).CopyTo(rosterPacket, 1);
+            if (!RosterPacket.TryRead(ReplayIdentityCompatibility.Convert(rosterPacket, protocol)[1..], out var roster)) throw Malformed();
+            if (restored.Match is { } current
+                && (string.IsNullOrEmpty(current.RoomKey) || !Enum.IsDefined(typeof(GameMode), current.Mode)
+                    || !float.IsFinite(current.TimeRemaining) || !float.IsFinite(current.TimeElapsed)
+                    || roster.MatchId != current.MatchId || roster.AuthorityEpoch != current.AuthorityEpoch
+                    || restored.Configuration is { } rules && !restored.Matches(rules.MatchId, rules.AuthorityEpoch))) throw Malformed();
+            restored.ContainsBots = roster.ContainsBots;
+            for (int i = 0; i < roster.Count; i++)
+                restored._roster[roster.Slots[i]] = new(roster.Generations[i], (Hunter)roster.Hunters[i],
+                    roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i],
+                    roster.DamageReductions[i]);
+            for (int i = 0; i < restored._roster.Length; i++)
+            {
+                restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
+                    (NetworkPlayerState)reader.ReadByte(), Flag()));
+                restored._hasPlayer[i] = Flag(); restored._players[i] = ReadPlayer();
+                if (protocol < 84) restored._players[i].MantleVisualPhase = 0;
+                if (protocol < 85) restored._players[i].WallVisualCue = 0;
+                restored._hasIntent[i] = Flag();
+                byte[] intentSource = Read(layout.IntentBytes);
+                if (protocol < 85 && intentSource.Length >= IntentPacket.TouchCanonicalSize)
+                    intentSource[IntentPacket.Protocol82TouchSize] &= 15;
+                if (protocol < 84 && intentSource.Length >= IntentPacket.TouchCanonicalSize)
+                    intentSource[IntentPacket.Protocol82TouchSize] = 0;
+                restored._intents[i] = IntentPacket.Read(intentSource);
+                if (protocol < 85) restored._intents[i].WallVisualCue = 0;
+                if (protocol < 84) restored._intents[i].MantleVisualPhase = 0;
+                if (protocol < 69) restored._intents[i].Buttons &= ~(IntentButtons.Crouch | IntentButtons.CrouchedState);
+                if (protocol < 82) { restored._intents[i].Buttons &= ~IntentButtons.Grapple; restored._intents[i].GrappleRequestNonce = 0; }
+                if (protocol < 77) restored._intents[i].Buttons &= ~(IntentButtons.TuckedState | IntentButtons.TuckRebaseMask);
+                restored._intentReceivedFrame[i] = reader.ReadUInt32();
+                if (restored._lives[i].Generation != restored._roster[i].Generation
+                    || restored._hasPlayer[i] && (!restored.MatchesLife(i, restored._players[i].SlotGeneration, restored._players[i].LifeId)
+                        || restored._players[i].SlotIndex != i || !Sane(restored._players[i].Position)
+                        || !Sane(restored._players[i].Speed) || !Sane(restored._players[i].Facing))
+                    || restored._hasIntent[i] && (!restored.MatchesLife(i, restored._intents[i].SlotGeneration, restored._intents[i].LifeId)
+                        || !restored.Matches(restored._intents[i].MatchId, restored._intents[i].AuthorityEpoch)
+                        || restored._intentReceivedFrame[i] > restored.RecordingFrame)) throw Malformed();
+            }
+            restored._worldTail = Read(reader.ReadInt32());
+            if (!restored._hasSnapshot && restored._worldTail.Length != 0) throw Malformed();
+            if (restored._hasSnapshot)
+            {
+                var tail = restored.WorldTail;
+                if (tail.Length < NetMatchTimeSync.Size + NetHealthSync.HeaderSize
+                    || !NetMatchTimeSync.Validate(tail[..NetMatchTimeSync.Size])
+                    || !NetHealthSync.Validate(tail[NetMatchTimeSync.Size..])) throw Malformed();
+                var health = tail[NetMatchTimeSync.Size..];
+                if (BinaryPrimitives.ReadUInt16LittleEndian(health) != restored.Match?.MatchId) throw Malformed();
+                for (int offset = NetHealthSync.HeaderSize; offset < NetHealthSync.HeaderSize + health[2] * NetHealthSync.EntrySize; offset += NetHealthSync.EntrySize)
+                {
+                    byte flags = health[offset + 2];
+                    restored._healthSpawns.Add(BinaryPrimitives.ReadInt16LittleEndian(health[offset..]), new(
+                        (flags & 1) != 0, (flags & 2) != 0, BinaryPrimitives.ReadUInt16LittleEndian(health[(offset + 3)..]),
+                        BinaryPrimitives.ReadUInt16LittleEndian(health[(offset + 5)..]), (sbyte)(((flags >> 2) & 15) - 1)));
+                }
+            }
+            if (version >= 2)
+            {
+                byte[] authority = Read(reader.ReadInt32());
+                if (authority.Length > 0)
+                {
+                    restored.AuthorityWorld = ReplayAuthorityWorld.Decode(authority);
+                    if (!restored.Matches(restored.AuthorityWorld.MatchId, restored.AuthorityWorld.Epoch)) throw Malformed();
+                }
+                restored.AuthorityAppliedTick = Flag() ? reader.ReadUInt32() : null;
+                if (restored.AuthorityAppliedTick.HasValue && (restored.AuthorityWorld == null || restored.AuthorityAppliedTick > restored.AuthorityWorld.Tick)) throw Malformed();
+            }
+            if (version >= 3)
+            {
+                byte[] cosmetics = Read(reader.ReadInt32());
+                if (cosmetics.Length % CosmeticStatePacket.Size != 0
+                    || cosmetics.Length > Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size) throw Malformed();
+                for (int at = 0; at < cosmetics.Length; at += CosmeticStatePacket.Size)
+                    if (CosmeticStatePacket.TryRead(cosmetics.AsSpan(at, CosmeticStatePacket.Size), out var cosmetic)
+                        && restored.Match is { } match)
+                        restored.Cosmetics.Accept(cosmetic, match.MatchId, match.AuthorityEpoch, restored._roster[cosmetic.Slot].Generation);
+            }
+            if (version >= 4)
+            {
+                int count = reader.ReadInt32();
+                if (count < 0 || count > Chat.ChatBox.HistoryCapacity) throw Malformed();
+                for (int i = 0; i < count; i++)
+                {
+                    uint frame = reader.ReadUInt32();
+                    if (frame > restored.RecordingFrame) throw Malformed();
+                    restored.ChatLines.Add((frame, ChatPacket.Read(Read(ChatPacket.Size))));
+                }
+            }
+            if (version >= 5)
+            {
+                if (protocol < 35) throw Malformed();
+                restored.SemanticEvents = Mods.MatchEvents.MatchSemanticReceiver.ReadCheckpoint(reader,
+                    restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0, presentationFrontier: version >= 6);
+            }
+            else restored.SemanticEvents.Begin(restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0);
+            if (version >= 8) restored.ReadBombPackets(reader);
+            if (version >= 9) restored.ReadTurretOutcomes(reader);
+            if (layout.Has(ReplayReplicaCheckpointFeatures.Pickups)) restored.ReadPickupFacts(reader);
+            if (layout.Has(ReplayReplicaCheckpointFeatures.Grants)) restored.ReadGrantFacts(reader);
+            if (layout.Has(ReplayReplicaCheckpointFeatures.TimedShots)) restored.ReadTimedShotCertificates(reader);
+            if (layout.Has(ReplayReplicaCheckpointFeatures.CustomWeapons)) restored.ReadCustomWeaponCheckpoint(reader);
+            else if (restored.Match is { } nativeMatch && !restored.CustomMatchAllowed(nativeMatch)
+                || restored.Configuration is { } nativeRules && !restored.CustomConfigurationAllowed(nativeRules)) throw Malformed();
+            if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
+                || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
+        }
+        catch (EndOfStreamException ex) { throw new InvalidDataException("Truncated replica checkpoint.", ex); }
+        return restored;
+    }
+
+    private void CommitCheckpoint(ReplayReplicaState restored)
+    {
+        _bombPackets.Clear(); _bombPackets.AddRange(restored._bombPackets);
+        RestoreTurretOutcomes(restored);
+        RestorePickupFacts(restored);
+        TimedGrants = restored.TimedGrants;
+        TimedShots = restored.TimedShots;
+        CustomWeaponDescriptor = restored.CustomWeaponDescriptor; CustomWeapons = restored.CustomWeapons;
+        ChatLines.Clear(); ChatLines.AddRange(restored.ChatLines);
+        SemanticEvents = restored.SemanticEvents;
+        ContainsBots = restored.ContainsBots;
+        Cosmetics = restored.Cosmetics;
+        Match = restored.Match; Configuration = restored.Configuration;
+        RecordingFrame = restored.RecordingFrame; MatchRecordingFrame = restored.MatchRecordingFrame;
+        ServerTick = restored.ServerTick; Rng1 = restored.Rng1; Rng2 = restored.Rng2;
+        AcceptedPackets = restored.AcceptedPackets; IgnoredPackets = restored.IgnoredPackets;
+        _hasSnapshot = restored._hasSnapshot; _rosterRevision = restored._rosterRevision;
+        Array.Copy(restored._roster, _roster, _roster.Length); Array.Copy(restored._players, _players, _players.Length);
+        Array.Copy(restored._intents, _intents, _intents.Length); Array.Copy(restored._hasPlayer, _hasPlayer, _hasPlayer.Length);
+        Array.Copy(restored._hasIntent, _hasIntent, _hasIntent.Length);
+        Array.Copy(restored._intentReceivedFrame, _intentReceivedFrame, _intentReceivedFrame.Length);
+        for (int i = 0; i < _lives.Length; i++) _lives[i].Restore(restored._lives[i].Capture());
+        _worldTail = restored._worldTail; AuthorityWorld = restored.AuthorityWorld; AuthorityAppliedTick = restored.AuthorityAppliedTick; _authorityWire.Reset();
+        _healthSpawns.Clear(); foreach (var pair in restored._healthSpawns) _healthSpawns.Add(pair.Key, pair.Value);
+    }
+}

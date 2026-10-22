@@ -1,0 +1,25 @@
+<rml><head><title>Community Weapons</title><link type="text/template" href="../../components/app-shell.rml"/><link type="text/rcss" href="../../components/controls.rcss"/><link type="text/rcss" href="weapons.rcss"/></head>
+<body template="prime-shell"><div id="weapons_page"><div class="weapons_heading"><h1>COMMUNITY // WEAPONS</h1><button data-action="weapons:back">BACK</button></div>
+<p>Browse exact immutable revisions. Accepting a download does not install or equip it; installation is a separate explicit action.</p><div class="weapons_scroll">
+<div class="weapons_buttons"><button id="weapons_public" data-action="weapons:public">PUBLIC</button><button id="weapons_mine" data-action="weapons:mine">MINE // VERIFIED ACCOUNT</button><button id="weapons_refresh" data-action="weapons:refresh">REFRESH</button></div>
+<label for="weapons_search">SEARCH WEAPONS</label><input id="weapons_search" type="text" maxlength="128"/><button id="weapons_search_button" data-action="weapons:search">SEARCH</button><p id="weapons_paging"/>
+<div class="weapons_columns"><div class="weapons_catalog">
+<button id="weapons_row_0" data-action="weapons:select-0"/><button id="weapons_row_1" data-action="weapons:select-1"/><button id="weapons_row_2" data-action="weapons:select-2"/><button id="weapons_row_3" data-action="weapons:select-3"/><button id="weapons_row_4" data-action="weapons:select-4"/><button id="weapons_row_5" data-action="weapons:select-5"/><button id="weapons_row_6" data-action="weapons:select-6"/><button id="weapons_row_7" data-action="weapons:select-7"/>
+<div class="weapons_buttons"><button id="weapons_previous" data-action="weapons:previous">PREVIOUS PAGE</button><button id="weapons_next" data-action="weapons:next">NEXT PAGE</button></div></div><div class="weapons_detail_panel"><p id="weapons_detail"/>
+<div class="weapons_buttons"><button id="weapons_revision_previous" data-action="weapons:revision-previous">NEWER REVISION</button><button id="weapons_revision_next" data-action="weapons:revision-next">OLDER REVISION</button><button id="weapons_download" data-action="weapons:accept-download">ACCEPT EXACT DOWNLOAD</button></div>
+<div class="weapons_buttons"><button id="weapons_archive" data-action="weapons:archive">ARCHIVE OWN PROJECT</button><button id="weapons_restore" data-action="weapons:restore">RESTORE OWN PROJECT</button></div>
+<label for="weapons_report_reason">REPORT THE SELECTED EXACT REVISION</label><input id="weapons_report_reason" type="text" maxlength="500"/><button id="weapons_report" data-action="weapons:report">SUBMIT REPORT // VERIFIED ACCOUNT</button>
+</div></div>
+<h2>SHARED WEAPON TRANSFERS</h2><p>These are the existing durable Community jobs. Closing this page cancels only its pending UI requests; admitted transfers retain their receipts.</p>
+<div class="weapons_buttons"><button id="weapons_transfer_0" data-action="weapons:transfer-0"/><button id="weapons_transfer_1" data-action="weapons:transfer-1"/><button id="weapons_transfer_2" data-action="weapons:transfer-2"/><button id="weapons_transfer_3" data-action="weapons:transfer-3"/></div><p id="weapons_transfer_detail"/>
+<div class="weapons_buttons"><button id="weapons_retry" data-action="weapons:retry">RETRY / RESUME SELECTED</button><button id="weapons_pause" data-action="weapons:pause">PAUSE SELECTED</button><button id="weapons_cancel" data-action="weapons:cancel">CANCEL SELECTED</button></div>
+<label for="weapons_store">LOCAL WEAPON STORE // absolute directory</label><input id="weapons_store" type="text" maxlength="4096"/><button id="weapons_install" data-action="weapons:install">INSTALL SELECTED VERIFIED DOWNLOAD</button>
+<p>No inventory is granted. Test installed packages from Weapon Studio; custom matches still require exact package preparation.</p>
+<h2>PUBLISH AN EXACT CREATOR REVISION</h2><p>Save the workspace with its current hash-bound license attestation in Weapon Studio first. Credentials and ownership are verified independently before shared queue admission.</p>
+<label for="weapons_workspace">ATTESTED .PPWEAPONPROJECT // absolute file</label><input id="weapons_workspace" type="text" maxlength="4096"/>
+<label for="weapons_parent">EXPECTED PARENT ARCHIVE SHA-256 // empty only for a new project</label><input id="weapons_parent" type="text" maxlength="64"/>
+<label for="weapons_visibility">VISIBILITY // published, unlisted or draft</label><input id="weapons_visibility" type="text" maxlength="16" value="published"/>
+<label for="weapons_notes">REVISION NOTES</label><textarea id="weapons_notes" maxlength="4000"/>
+<button id="weapons_set_visibility" data-action="weapons:set-visibility">APPLY VISIBILITY TO SELECTED OWN EXACT REVISION</button><p>This changes only the selected revision visibility, without uploading different bytes. Publication still requires service approval and creator ownership.</p>
+<button id="weapons_publish" data-action="weapons:publish">VERIFY OWNER AND QUEUE EXACT PUBLICATION</button>
+</div><p id="weapons_status" role="status"/></div></body></rml>

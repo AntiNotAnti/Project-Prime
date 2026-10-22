@@ -1,0 +1,1051 @@
+using System;
+using MphRead.Entities;
+using MphRead.Formats;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.Network
+{
+    /// <summary>
+    /// A duel built to measure headshots, in place of the feature tour.
+    ///
+    /// <see cref="NetTestScript"/> answers "does everything still cross the
+    /// wire", and it is the wrong instrument for this question in three ways
+    /// at once: it spends fourteen of its fifteen phases doing something other
+    /// than shooting, it closes to four units before it fires, and it aims at
+    /// <see cref="PlayerEntity.ModAimTarget"/>, which is the centre of the
+    /// body sphere -- the bottom third of a hunter. A run of it lands seven
+    /// overlaps in ninety seconds and not one of them anywhere near a head.
+    ///
+    /// What a headshot needs measuring against is the opposite of that: one
+    /// weapon, held for the whole run, aimed at the top eighth of a body that
+    /// is moving vertically as fast as the game can make it move, from a
+    /// distance that does not change while the shot is in the air. So this
+    /// drives two roles and nothing else.
+    ///
+    /// <list type="bullet">
+    /// <item><b>The runner</b> keeps moving in the axis the headshot band is
+    /// measured along. The band is 0.3 units tall on a body 1.6 units tall
+    /// (<c>BeamProjectileEntity</c>: the impact must be
+    /// <c>MaxPickupHeight - 0.3</c> above the victim's position), so a rewind
+    /// that puts the victim one frame out vertically moves the whole band off
+    /// the shot. A jump is the cheapest way to produce that error every second
+    /// and a jump pad is the largest.</item>
+    /// <item><b>The sniper</b> holds the Imperialist, zoomed, aims at the
+    /// middle of that band, and fires on the weapon's own cadence. The
+    /// Imperialist is the one beam in the table that scores a headshot at any
+    /// range (every other weapon is limited to fifteen units), which is why it
+    /// is the weapon the complaint is about and the only one that can measure
+    /// the long-range case at all.</item>
+    /// </list>
+    ///
+    /// Both arms of a comparison run this, so a difference between them is the
+    /// thing being changed and not the scenario.
+    /// </summary>
+    public static partial class HitRig
+    {
+        public enum RigMode
+        {
+            /// <summary>Not running; the feature tour drives instead.</summary>
+            Off,
+            /// <summary>
+            /// Close quarters, maximum vertical motion. The runner jumps on a
+            /// cadence and rides whatever pads the room has; the sniper holds
+            /// a fixed short range so that the flight time is near zero and
+            /// everything left is the rewind.
+            /// </summary>
+            Jump,
+            /// <summary>
+            /// The long shot. The sniper backs off as far as the room lets it
+            /// and the runner strafes across, so the error being measured is
+            /// the rewind multiplied by a flight time rather than by nothing.
+            /// </summary>
+            Sniper,
+            /// <summary>
+            /// Everybody snipes everybody, at a range where the round arrives
+            /// in about a frame. Nobody runs.
+            ///
+            /// The only scenario that produces the thing the kill arbitration
+            /// exists for: two players killing each other inside a round trip,
+            /// so that on the machine keeping score one of them is already
+            /// dead when the other's shot arrives. Neither of the other two
+            /// modes can, because in both of them one of the two clients is
+            /// holding a weapon it never fires at anybody.
+            ///
+            /// The Imperialist kills a full-health hunter with one headshot,
+            /// and both ends hold the trigger from the same distance at the
+            /// same cadence, so at 250-400 ms the two shots regularly cross in
+            /// flight. What the run is read for is
+            /// <c>NetHitClaims.VoidedDeadShooter</c> -- shots the authority
+            /// refused because somebody had been put down in a strictly
+            /// earlier world -- against the trades that were allowed to stand.
+            /// </summary>
+            Duel,
+            /// <summary>
+            /// One weapon, emptied into one target that is not moving much,
+            /// from a range that keeps the round in the air for a while.
+            ///
+            /// The scenario a player can describe in one sentence -- "fire
+            /// missiles quickly at the same enemy" -- and the one that isolates
+            /// a damage-accounting fault from everything else: exactly one
+            /// client is shooting, so the authority's health drop for the
+            /// victim is *this* client's damage and nobody else's, and the two
+            /// totals can simply be subtracted. <c>-hitrig missile</c>,
+            /// <c>-hitrig magmaul</c>, <c>-hitrig judicator</c>.
+            /// </summary>
+            Volley, SelfMoving, SelfWall, AltStatic, AltLateral, AltMorph, AltContact, AltCrossing,
+            BombSamus, BombKanden, BombLockjaw,
+            NcxStatic, NcxLateral, NcxJump, NcxObserve
+        }
+
+        /// <summary>The weapon a <see cref="RigMode.Volley"/> run empties.</summary>
+        public static BeamType VolleyWeapon { get; private set; } = BeamType.Missile;
+
+        private static int _continuousShooters = -1;
+        private static bool _continuousMorph;
+        private static bool _continuousMixed;
+        private static int _mixedNextTap, _mixedTapUntil;
+        public static RigMode Mode { get; private set; } = RigMode.Off;
+        public static bool Active => Mode != RigMode.Off;
+
+        /// <summary>
+        /// <c>-hitrig jump</c> or <c>-hitrig sniper</c>. Refused rather than
+        /// defaulted, so a typo does not quietly run the other scenario and
+        /// report it under this one's name.
+        /// </summary>
+        public static bool Configure(string? value)
+        {
+            _continuousShooters = -1; _continuousMorph = false; _continuousMixed = false;
+            _mixedNextTap = _mixedTapUntil = 0;
+            if (ConfigureNcxFixture(value)) return true;
+            switch (value?.Trim().ToLowerInvariant())
+            {
+                case "self-moving": Mode = RigMode.SelfMoving; VolleyWeapon = BeamType.Missile; return true;
+                case "self-wall": Mode = RigMode.SelfWall; VolleyWeapon = BeamType.Missile; return true;
+                case "bomb-samus": Mode = RigMode.BombSamus; return true;
+                case "bomb-kanden": Mode = RigMode.BombKanden; return true;
+                case "bomb-lockjaw": Mode = RigMode.BombLockjaw; return true;
+                case "alt-static": Mode = RigMode.AltStatic; return true;
+                case "alt":
+                case "alt-lateral": Mode = RigMode.AltLateral; return true;
+                case "alt-morph": Mode = RigMode.AltMorph; return true;
+                case "alt-contact": Mode = RigMode.AltContact; return true;
+                case "alt-crossing": Mode = RigMode.AltCrossing; return true;
+                case "jump":
+                case "jumppad":
+                    Mode = RigMode.Jump;
+                    return true;
+                case "sniper":
+                case "long":
+                    Mode = RigMode.Sniper;
+                    return true;
+                case "duel":
+                case "trade":
+                    Mode = RigMode.Duel;
+                    return true;
+                case "missile":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.Missile;
+                    return true;
+                case "magmaul":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.Magmaul;
+                    return true;
+                case "judicator":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.Judicator;
+                    return true;
+                case "battlehammer":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.Battlehammer;
+                    return true;
+                case "shockcoil-cluster":
+                    _continuousShooters = 1; Mode = RigMode.Volley; VolleyWeapon = BeamType.ShockCoil; return true;
+                case "shockcoil-morph":
+                    _continuousShooters = 1; _continuousMorph = true; Mode = RigMode.Volley; VolleyWeapon = BeamType.ShockCoil; return true;
+                case "shockcoil-all":
+                    _continuousShooters = 8; Mode = RigMode.Volley; VolleyWeapon = BeamType.ShockCoil; return true;
+                case "shockcoil-mixed":
+                    _continuousMixed = true; _continuousShooters = 8;
+                    Mode = RigMode.Volley; VolleyWeapon = BeamType.ShockCoil; return true;
+                case "shockcoil":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.ShockCoil;
+                    return true;
+                case "voltdriver":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.VoltDriver;
+                    return true;
+                case "powerbeam":
+                    Mode = RigMode.Volley;
+                    VolleyWeapon = BeamType.PowerBeam;
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        /// <summary>
+        /// How far the sniper tries to stand from the runner, per mode.
+        ///
+        /// Close is close enough that an Imperialist round arrives in about a
+        /// frame, so a miss is the rewind and nothing else. Far is past the
+        /// fifteen units at which every other weapon stops scoring headshots
+        /// at all, and far enough that the round is in the air for several
+        /// frames -- which is the case the catch-up loop exists for.
+        /// </summary>
+        private const float CloseRange = 9f;
+        private const float LongRange = 34f;
+        /// <summary>
+        /// Far enough that a Missile is in the air for a good fraction of a
+        /// second -- which is the difference between this and every other
+        /// weapon, and the thing a damage ledger has to be read against.
+        /// </summary>
+        private const float VolleyRange = 16f;
+
+        /// <summary>
+        /// The band the shot is aimed at, as a height above the victim's
+        /// position.
+        ///
+        /// The headshot test is <c>impact.Y - victim.Position.Y &gt;=
+        /// MaxPickupHeight - 0.3</c>, which is 0.7999 for every hunter in the
+        /// table, and the capsule's top is <c>MaxPickupHeight</c> = 1.0998. So
+        /// the band is [0.80, 1.10] and this is the middle of it: aiming at
+        /// the top would miss over the head on the first frame of error in
+        /// either direction, which would measure the aim rather than the
+        /// rewind.
+        /// </summary>
+        private const float HeadAimHeight = 0.95f;
+
+        /// <summary>Degrees per frame the aim may move. The tour's number, for the same reason.</summary>
+        private const float TurnRate = 6f;
+        /// <summary>How close the aim must be before the trigger is pulled.</summary>
+        private const float FiringCone = 2.5f;
+
+        private static float _selfAimX, _selfAimY, _selfPitch, _selfWallDistance;
+        private static ushort _triangleFixtureMatch;
+        private static ulong _triangleFixtureEpoch;
+        private static bool _triangleFixtureAuthorityReady, _triangleFixtureClientReady, _triangleFixtureFailed;
+        private static long _triangleFixtureWaitAt;
+        private static readonly bool[] _triangleFixturePoseConfirmed = new bool[2];
+        private static readonly Vector3[] _triangleFixtureInitial = new Vector3[2];
+        private static readonly bool TriangleFixtureEnabled = Environment.GetEnvironmentVariable("PRIME_NET2_TRIANGLE_SETUP") == "1";
+        private static void TriangleFixtureStream()
+        {
+            if (_triangleFixtureMatch == NetSession.CurrentMatchId && _triangleFixtureEpoch == NetSession.AuthorityEpoch) return;
+            _triangleFixtureMatch = NetSession.CurrentMatchId; _triangleFixtureEpoch = NetSession.AuthorityEpoch;
+            _triangleFixtureAuthorityReady = _triangleFixtureClientReady = _triangleFixtureFailed = false;
+            _triangleFixtureWaitAt = Environment.TickCount64;
+            Array.Clear(_triangleFixturePoseConfirmed);
+        }
+        internal static void SetupNetworkTriangleFixtureOnce()
+        {
+            SetupNetworkKandenFixtureOnce();
+            if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost)) return;
+            TriangleFixtureStream();
+            if (_triangleFixtureFailed || _triangleFixtureAuthorityReady || PlayerEntity.Players.Count < 2 || NetBombs.LiveScene is not { } scene
+                || scene.Bombs.LiveCount != 0 || !NetSession.RemoteIntentValid[0] || !NetSession.RemoteIntentValid[1]) return;
+            var owner = PlayerEntity.Players[0]; var victim = PlayerEntity.Players[1];
+            if (owner.Health <= 0 || victim.Health <= 0 || !owner.LoadFlags.TestFlag(LoadFlags.Spawned)
+                || !victim.LoadFlags.TestFlag(LoadFlags.Spawned) || owner.SceneServices.IsReplica) return;
+            if (!TrySetupLockjawTriangleFixture(owner, victim, out Vector3 center))
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: no collision-verified initial geometry"); return; }
+            _triangleFixtureInitial[0] = owner.Position; _triangleFixtureInitial[1] = victim.Position;
+            _triangleFixtureAuthorityReady = true; _triangleFixtureWaitAt = Environment.TickCount64;
+            NetLog.Event($"triangle fixture authority ready match={_triangleFixtureMatch} epoch={_triangleFixtureEpoch} center={center}");
+        }
+        internal static bool HoldTriangleFixtureRemoteInput(PlayerEntity player)
+        {
+            if (HoldKandenFixtureRemoteInput(player)) return true;
+            if (!TriangleFixtureEnabled || !(NetSession.IsAuthority || NetSession.IsHost) || player.SlotIndex is < 0 or > 1) return false;
+            TriangleFixtureStream();
+            int slot = player.SlotIndex;
+            if (_triangleFixtureFailed || !_triangleFixtureAuthorityReady
+                || _triangleFixturePoseConfirmed[0] && _triangleFixturePoseConfirmed[1]) return false;
+            if (Environment.TickCount64 - _triangleFixtureWaitAt > 10000)
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: initial authority pose confirmation timed out"); return false; }
+            var intent = NetSession.RemoteIntents[slot];
+            bool alt = (intent.Buttons & IntentButtons.AltFormState) != 0;
+            if (!_triangleFixturePoseConfirmed[slot] && NetSession.RemoteIntentValid[slot]
+                && (intent.Position - _triangleFixtureInitial[slot]).LengthSquared < .25f
+                && alt == (slot == 0))
+            { _triangleFixturePoseConfirmed[slot] = true; NetLog.Event($"triangle fixture authority pose confirmed slot={slot}"); }
+            if (_triangleFixturePoseConfirmed[0] && _triangleFixturePoseConfirmed[1]) return false;
+            player.Controls.ClearAll(); return true;
+        }
+        private static bool TriangleFixtureClientObserved(PlayerEntity player)
+        {
+            if (!TriangleFixtureEnabled || Mode != RigMode.BombLockjaw || player.SlotIndex is < 0 or > 1) return true;
+            TriangleFixtureStream();
+            if (_triangleFixtureClientReady) return true;
+            if (_triangleFixtureFailed) return false;
+            if (!NetSession.WorldAdmissionConfirmed) { _triangleFixtureWaitAt = Environment.TickCount64; return false; }
+            if (Environment.TickCount64 - _triangleFixtureWaitAt > 10000)
+            { _triangleFixtureFailed = true; NetLog.Event("triangle fixture FAILED: initial authority snapshot timed out"); return false; }
+            if (!NetSession.RemoteStateValid[0] || !NetSession.RemoteStateValid[1]) return false;
+            var owner = NetSession.RemoteStates[0]; var victim = NetSession.RemoteStates[1];
+            Vector3 difference = owner.Position - victim.Position;
+            if ((owner.Flags & PlayerState.FlagAltForm) == 0 || (victim.Flags & PlayerState.FlagAltForm) != 0
+                || (new Vector2(difference.X - 3, difference.Z)).LengthSquared > .0625f
+                || MathF.Abs(difference.Y + .25f) > .5f) return false;
+            // Local snapshots normally preserve predicted position. This explicit
+            // fixture adopts only its initial authority pose, once per stream.
+            var own = NetSession.RemoteStates[player.SlotIndex];
+            player.ModForceForm((own.Flags & PlayerState.FlagAltForm) != 0);
+            player.ModPlaceAt(own.Position); player.Speed = own.Speed;
+            _triangleFixtureClientReady = true;
+            NetLog.Event($"triangle fixture client ready slot={player.SlotIndex} match={_triangleFixtureMatch} epoch={_triangleFixtureEpoch} pos={player.Position}");
+            return true;
+        }
+
+        private static int _frame;
+        private static bool _lockjawWaitingForTerminal;
+        private static ushort _lockjawOwnerLife, _lockjawVictimLife;
+        private static int _stuckFrames;
+        private static bool _stuckDirection;
+        private static Vector3 _lastPosition;
+
+        /// <summary>Aim asked for this frame, read by the same hook the tour's is.</summary>
+        public static float AimDeltaX { get; private set; }
+        public static float AimDeltaY { get; private set; }
+
+        /// <summary>
+        /// What the run actually did, so a report can say whether the scenario
+        /// happened rather than only what came of it.
+        ///
+        /// A run whose sniper never got a clear shot and a run whose sniper
+        /// missed every one look identical in the hit numbers, and only these
+        /// tell them apart.
+        /// </summary>
+        public static long Triggers { get; private set; }
+        public static long FramesOnTarget { get; private set; }
+        public static long FramesAirborne { get; private set; }
+        public static double RangeSum { get; private set; }
+        public static long RangeSamples { get; private set; }
+        public static float WorstVerticalSpeed { get; private set; }
+        public static double VerticalSpeedSum { get; private set; }
+        public static long VerticalSpeedSamples { get; private set; }
+
+        public static void Reset()
+        {
+            _frame = 0; _selfAimX = _selfAimY = _selfPitch = _selfWallDistance = 0;
+            _lockjawWaitingForTerminal = false; _lockjawOwnerLife = _lockjawVictimLife = 0;
+            _stuckFrames = 0;
+            _lastPosition = Vector3.Zero;
+            AimDeltaX = 0;
+            AimDeltaY = 0;
+            Triggers = 0;
+            FramesOnTarget = 0;
+            FramesAirborne = 0;
+            RangeSum = 0;
+            RangeSamples = 0;
+            WorstVerticalSpeed = 0;
+            VerticalSpeedSum = 0;
+            VerticalSpeedSamples = 0;
+            ResetNcxFixture();
+        }
+
+        /// <summary>
+        /// Which role this machine plays, from its slot.
+        ///
+        /// Slot parity rather than join order or a flag, for the reason
+        /// <see cref="NetTestScript.FindTarget"/> picks its target by slot:
+        /// every machine has to agree, and it has to agree without asking
+        /// anybody. Even slots shoot, odd slots run, so a two-client run is
+        /// always one of each whichever order they arrive in.
+        /// </summary>
+        public static bool IsSniper => _continuousShooters >= 0 ? NetSession.LocalSlot < _continuousShooters : Mode == RigMode.Duel
+            || Math.Max(NetSession.LocalSlot, 0) % 2 == 0;
+
+        public static void Drive(PlayerEntity player)
+        {
+            _frame++;
+            PlayerControls c = player.Controls;
+            ClearControls(c);
+            if (DriveNcxFixture(player, c)) { FinishControls(player, c); return; }
+            if (!TriangleFixtureClientObserved(player) || !KandenFixtureClientObserved(player))
+            { FinishControls(player, c); return; }
+            if (player.Health == 0)
+            {
+                // Holding fire is what asks for an early respawn -- on a
+                // client it is the only thing that does, since ForceSpawn
+                // defers to the authority there. A rig that waited out every
+                // death timer would spend a third of a short run with nobody
+                // on the map, and the Imperialist kills in one headshot.
+                //
+                // The respawn happens inside PlayerProcess on a frame when the
+                // trigger is still held, so the player comes back alive with
+                // its finger down and fires once before this method next runs.
+                // Measured at 75 stray shots in a four-minute run, and they
+                // are not harmless: they are shots at the *sniper*, who holds
+                // a range and never jumps, so they quietly filled the clamp's
+                // error measurement with a target that was standing still --
+                // which is how that number came out with a vertical component
+                // of exactly zero on a run whose runner was airborne 60% of
+                // the time.
+                //
+                // So the gun is pointed at the floor for as long as it is
+                // held. The respawn still happens and the stray shot goes into
+                // the ground a foot away.
+                c.Shoot.IsDown = true;
+                AimDeltaX = 0;
+                AimDeltaY = -TurnRate;
+                FinishControls(player, c);
+                return;
+            }
+            PlayerEntity? other = Opponent(player);
+            if (Mode is RigMode.BombSamus or RigMode.BombKanden or RigMode.BombLockjaw)
+            {
+                // Pair the two participants explicitly; a nearby spectator is
+                // never a rendezvous target. Only native controls move them.
+                int pairedSlot = player.SlotIndex == 0 ? 1 : 0;
+                other = pairedSlot < PlayerEntity.Players.Count ? PlayerEntity.Players[pairedSlot] : null;
+                if (other != null && (other.Health == 0 || !other.LoadFlags.TestFlag(LoadFlags.Spawned))) other = null;
+                AimAt(player, other, headHeight: 0);
+                float range = other == null ? Single.MaxValue : Vector3.Distance(player.Position, other.Position);
+                float bombGap = Single.MaxValue;
+                bool facingDestination = false;
+                if (other != null)
+                {
+                    (float turnX, _) = player.ModAimDeltaTowards(other.IsAltForm ? other.Volume.SpherePosition : other.ModAimTarget);
+                    facingDestination = Single.IsFinite(turnX) && MathF.Abs(turnX) < FiringCone;
+                }
+                if (Mode == RigMode.BombLockjaw)
+                {
+                    DriveLockjawTriangle(player, c, other);
+                }
+                else if (player.SlotIndex == 0)
+                {
+                    if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
+                        c.Morph.IsDown = _frame % 20 == 0;
+                    c.AltAttack.IsDown = player.IsAltForm && _frame % 20 < 3;
+                    // Hold the rendezvous while the victim enters the actual
+                    // bomb volume. Chasing the victim leaves Kanden's tail
+                    // placements behind and can strand the biped at a ledge.
+                    c.MoveUp.IsDown = other != null && range > 4f && facingDestination;
+                    if (c.AltAttack.IsDown && _frame % 20 == 0) Triggers++;
+                }
+                else if (other != null)
+                {
+                    BombEntity? closest = null;
+                    foreach (var bomb in player.OwningScene.GetBombEntities())
+                    {
+                        if (bomb.ModOwnerKey.ShooterSlot != 0 || bomb.Flags.TestFlag(BombFlags.Exploded)) continue;
+                        float distance = Vector3.Distance(player.Position, bomb.Position);
+                        if (distance < bombGap) { bombGap = distance; closest = bomb; }
+                    }
+                    if (closest != null)
+                    {
+                        (float turnX, float turnY) = player.ModAimDeltaTowards(closest.Position);
+                        if (Single.IsFinite(turnX) && Single.IsFinite(turnY))
+                        {
+                            AimDeltaX = Math.Clamp(turnX, -TurnRate, TurnRate);
+                            AimDeltaY = Math.Clamp(turnY, -TurnRate, TurnRate);
+                            facingDestination = MathF.Abs(turnX) < FiringCone;
+                        }
+                        else facingDestination = false;
+                    }
+                    float destinationGap = closest != null ? bombGap : range;
+                    c.MoveUp.IsDown = destinationGap > .35f && facingDestination;
+                    // Native jump gets the biped over the room's low ledges;
+                    // stop jumping near bombs so contact remains grounded.
+                    c.Jump.IsDown = destinationGap > 2f && facingDestination && _frame % 90 < 3;
+                }
+                if (_frame % 180 == 0)
+                    NetLog.Event($"bomb rig slot={player.SlotIndex} range={range:F2} bombGap={(bombGap == Single.MaxValue ? "none" : bombGap.ToString("F2"))} facing={facingDestination} pos={player.Position}");
+            }
+            else if (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall)
+            {
+                if (IsSniper) DriveSelf(player, c);
+                else AimAt(player, other, headHeight: 0);
+            }
+            else if (Mode == RigMode.AltContact || Mode == RigMode.AltCrossing)
+            {
+                bool attacking = IsSniper || Mode == RigMode.AltCrossing;
+                AimAt(player, other, headHeight: 0);
+                if (attacking)
+                {
+                    if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing) c.Morph.IsDown = _frame % 20 == 0;
+                    c.MoveUp.IsDown = other != null;
+                    if (player.Hunter == Hunter.Samus)
+                        c.Boost.IsDown = player.IsAltForm && _frame % 90 < 45;
+                    else c.AltAttack.IsDown = player.IsAltForm && _frame % 90 < 6;
+                    if ((c.Boost.IsDown || c.AltAttack.IsDown) && _frame % 90 == 0) Triggers++;
+                }
+            }
+            else if (IsSniper)
+            {
+                DriveSniper(player, c, other);
+            }
+            else
+            {
+                DriveRunner(player, c, other);
+            }
+            if (player.IsAltForm && Mode >= RigMode.AltStatic)
+            {
+                c.RollUp.IsDown = c.MoveUp.IsDown;
+                c.RollDown.IsDown = c.MoveDown.IsDown;
+                c.RolltLeft.IsDown = c.MoveLeft.IsDown;
+                c.RollRight.IsDown = c.MoveRight.IsDown;
+            }
+            FinishControls(player, c);
+        }
+
+        /// <summary>
+        /// The runner: stay alive, stay in the air, stay in front of the gun.
+        ///
+        /// It deliberately does not evade. The question is not whether a
+        /// sniper can track somebody, it is whether a shot that was on the
+        /// head when it left is still on the head when the authority judges
+        /// it, and a runner that breaks line of sight only turns that into a
+        /// smaller sample.
+        /// </summary>
+        /// <summary>
+        /// Explicit initial-geometry setup for the isolated asset fixture only.
+        /// Called only by the isolated asset fixture or explicit network fixture flag. The caller must use
+        /// fresh native players before bomb admission; all later controls,
+        /// placement, snare damage and retirement remain native simulation.
+        /// </summary>
+        internal static bool TrySetupLockjawTriangleFixture(PlayerEntity owner, PlayerEntity victim, out Vector3 center)
+        {
+            center = default;
+            if (owner.OwningScene != victim.OwningScene || owner.Hunter != Hunter.Sylux) return false;
+            var scene = owner.OwningScene;
+            bool Floor(Vector3 horizontal, out float height)
+            {
+                CollisionResult hit = default;
+                bool found = CollisionDetection.CheckBetweenPoints(horizontal.WithY(32), horizontal.WithY(-8),
+                    TestFlags.Players, scene, ref hit);
+                height = hit.Position.Y;
+                return found && hit.Plane.Y > .9f && Single.IsFinite(height);
+            }
+            bool Clear(Vector3 from, Vector3 to)
+            {
+                CollisionResult hit = default;
+                return !CollisionDetection.CheckBetweenPoints(from, to, TestFlags.Players, scene, ref hit);
+            }
+            // Search the actual Combat Hall collision, rather than assuming
+            // a spawn has enough floor around it for the native triangle.
+            for (int z = -12; z <= 12; z += 4)
+                for (int x = -12; x <= 12; x += 4)
+                {
+                    var candidate = new Vector3(x, 0, z);
+                    if (!Floor(candidate, out float floor)) continue;
+                    bool valid = true;
+                    for (int ring = 0; ring < 2 && valid; ring++)
+                        for (int sample = 0; sample < 12 && valid; sample++)
+                        {
+                            float angle = sample * MathF.PI / 6;
+                            float radius = ring == 0 ? 2 : 3.8f;
+                            Vector3 point = candidate + new Vector3(MathF.Cos(angle) * radius, 0, MathF.Sin(angle) * radius);
+                            valid = Floor(point, out float otherFloor) && MathF.Abs(otherFloor - floor) < .1f
+                                && Clear(point.WithY(floor + .1f), point.WithY(floor + 2.5f))
+                                && Clear(candidate.WithY(floor + .3f), point.WithY(floor + .3f));
+                        }
+                    if (!valid || !Clear(candidate.WithY(floor + .1f), candidate.WithY(floor + 2.5f))) continue;
+                    center = candidate.WithY(floor + .5f);
+                    victim.ModForceForm(false); owner.ModForceForm(true);
+                    victim.ModPlaceAt(center);
+                    owner.ModPlaceAt(candidate.WithY(floor + .25f) + Vector3.UnitX * 3);
+                    victim.Speed = owner.Speed = Vector3.Zero;
+                    victim.Controls.ClearAll(); owner.Controls.ClearAll();
+                    _lockjawWaitingForTerminal = false;
+                    _lockjawOwnerLife = _lockjawVictimLife = 0;
+                    NetLog.Event($"explicit native triangle fixture center={center} owner={owner.Position} radius=3 collision=verified");
+                    return true;
+                }
+            return false;
+        }
+
+        private static void DriveLockjawTriangle(PlayerEntity player, PlayerControls c, PlayerEntity? victim)
+        {
+            // The biped stays in the interior while the owner authors all three
+            // placements around it. No health, positions or timers are written.
+            if (player.SlotIndex != 0 || victim == null) return;
+            if (!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
+                c.Morph.IsDown = _frame % 20 == 0;
+            ushort ownerLife = NetPlayerLifecycle.Get(0), victimLife = NetPlayerLifecycle.Get(1);
+            if (_lockjawOwnerLife != ownerLife || _lockjawVictimLife != victimLife)
+            {
+                _lockjawOwnerLife = ownerLife; _lockjawVictimLife = victimLife;
+                _lockjawWaitingForTerminal = false;
+            }
+            int count = 0;
+            foreach (var bomb in player.OwningScene.GetBombEntities())
+                if (bomb.BombType == BombType.Lockjaw && !bomb.Flags.TestFlag(BombFlags.Exploded)
+                    && NetBombs.SameLife(bomb.ModOwnerKey, ShotKey.For(0, 0))) count++;
+            if (count >= 3) _lockjawWaitingForTerminal = true;
+            if (_lockjawWaitingForTerminal && count == 0) _lockjawWaitingForTerminal = false;
+            if (_lockjawWaitingForTerminal) return;
+            // A radius-three equilateral triangle keeps each first/two-bomb
+            // edge 1.5 units from the target: pair contact should not retire it
+            // before the third vertex can author the native snare.
+            Vector3 offset = count switch
+            {
+                0 => new Vector3(3, 0, 0),
+                1 => new Vector3(-1.5f, 0, 2.598076f),
+                _ => new Vector3(-1.5f, 0, -2.598076f)
+            };
+            Vector3 waypoint = victim.Position + offset;
+            Vector3 delta = waypoint - player.Position;
+            float gap = MathF.Sqrt(delta.X * delta.X + delta.Z * delta.Z);
+            (float x, float y) = player.ModAimDeltaTowards(waypoint);
+            bool aligned = Single.IsFinite(x) && Single.IsFinite(y) && MathF.Abs(x) < FiringCone;
+            if (Single.IsFinite(x) && Single.IsFinite(y))
+            { AimDeltaX = Math.Clamp(x, -TurnRate, TurnRate); AimDeltaY = Math.Clamp(y, -TurnRate, TurnRate); }
+            // Locomotion uses the real alt camera basis, not ballistic
+            // muzzle convergence (which can align while rolling elsewhere).
+            // These are the same four native controls read by ProcessAlt.
+            if (gap > .7f)
+            {
+                float forward = (delta.X * player.CameraInfo.Field48 + delta.Z * player.CameraInfo.Field4C) / gap;
+                float left = (delta.X * player.CameraInfo.Field50 + delta.Z * player.CameraInfo.Field54) / gap;
+                if (Single.IsFinite(forward) && Single.IsFinite(left))
+                {
+                    c.MoveUp.IsDown = forward > .25f;
+                    c.MoveDown.IsDown = forward < -.25f;
+                    c.MoveLeft.IsDown = left > .25f;
+                    c.MoveRight.IsDown = left < -.25f;
+                }
+            }
+            float horizontalSpeed = MathF.Sqrt(player.Speed.X * player.Speed.X + player.Speed.Z * player.Speed.Z);
+            c.AltAttack.IsDown = player.IsAltForm && gap <= .7f && horizontalSpeed < .08f && _frame % 20 < 3;
+            if (c.AltAttack.IsDown && _frame % 20 == 0) Triggers++;
+            if (_frame % 180 == 0)
+                NetLog.Event($"lockjaw triangle count={count} vertexGap={gap:F2} aligned={aligned} speed={horizontalSpeed:F3} center={victim.Position}");
+        }
+
+        private static void DriveRunner(PlayerEntity player, PlayerControls c, PlayerEntity? other)
+        {
+            if (_continuousMorph)
+            {
+                AimAt(player, other, headHeight: 0);
+                bool wantAlt = _frame % 180 < 90;
+                c.Morph.IsDown = wantAlt != player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing && _frame % 12 == 0;
+                Square(c, 45); return;
+            }
+            if (Mode == RigMode.AltStatic || Mode == RigMode.AltLateral || Mode == RigMode.AltMorph)
+            {
+                AimAt(player, other, headHeight: 0);
+                bool wantAlt = Mode != RigMode.AltMorph || _frame % 180 < 90;
+                c.Morph.IsDown = wantAlt != player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing && _frame % 12 == 0;
+                if (Mode != RigMode.AltStatic) Square(c, 45);
+                return;
+            }
+            // Face the sniper, so the runner is a target rather than a back.
+            AimAt(player, other, headHeight: 0);
+            bool airborne = !player.Flags1.TestFlag(PlayerFlags1.Standing);
+            if (airborne)
+            {
+                FramesAirborne++;
+            }
+            float rise = MathF.Abs(player.Speed.Y);
+            VerticalSpeedSum += rise;
+            VerticalSpeedSamples++;
+            if (rise > WorstVerticalSpeed)
+            {
+                WorstVerticalSpeed = rise;
+            }
+            // Jump as often as the engine will take one. A jump is worth about
+            // a fifth of a unit a frame at the top of its arc and three times
+            // that on the way down, and a jump pad is worth several -- either
+            // way, more than the 0.3-unit band in a frame or two, which is the
+            // whole point of the mode.
+            c.Jump.IsDown = Mode == RigMode.Jump
+                ? _frame % 24 < 3
+                : _frame % 90 < 3;
+            // And keep walking, so a room with pads in it gets ridden and a
+            // room without one still moves laterally. A square rather than a
+            // line: a runner walking one way leaves the room.
+            Square(c, Mode == RigMode.Jump ? 50 : 80);
+        }
+
+        /// <summary>
+        /// The sniper: one weapon, one range, one aim point.
+        /// </summary>
+        // These scenarios use real weapon/input and world collisions. Native
+        // self damage, protection, deaths and respawns remain the measured result.
+        private static void DriveSelf(PlayerEntity player, PlayerControls c)
+        {
+            if (player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing)
+            { c.Morph.IsDown = _frame % 20 == 0; return; }
+            if (player.CurrentWeapon != BeamType.Missile) player.ModArmWeapon(BeamType.Missile);
+            player.ModSetAmmo(Int32.MaxValue, Int32.MaxValue);
+            Vector3 origin = player.ModAimTarget;
+            Vector3 forward = player.FacingVector; forward.Y = 0;
+            if (forward.LengthSquared < .001f) forward = Vector3.UnitZ;
+            else forward.Normalize();
+            // An almost vertical aim stays inside the native pitch limit and
+            // puts the floor impact close enough to exercise rocket jumping.
+            Vector3 point = origin + forward * .4f - Vector3.UnitY * 2f;
+            if (Mode == RigMode.SelfMoving)
+            {
+                c.MoveUp.IsDown = _frame / 120 % 2 == 0;
+                c.MoveDown.IsDown = !c.MoveUp.IsDown;
+                c.MoveLeft.IsDown = _frame / 70 % 2 == 0;
+                c.MoveRight.IsDown = !c.MoveLeft.IsDown;
+            }
+            else
+            {
+                float nearest = 12f;
+                foreach (var direction in new[] { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ })
+                {
+                    CollisionResult wall = default;
+                    Vector3 end = origin + direction * 12f;
+                    if (CollisionDetection.CheckBetweenPoints(origin, end, TestFlags.Beams, player.OwningScene, ref wall))
+                    {
+                        float distance = (wall.Position - origin).Length;
+                        if (distance > .15f && distance < nearest)
+                        { nearest = distance; point = wall.Position.WithY(player.Position.Y + .2f); }
+                    }
+                }
+                _selfWallDistance = nearest;
+                // A spawn can put the wall inside the muzzle offset. Back
+                // away until the emitted projectile starts on the near side.
+                c.MoveDown.IsDown = nearest < .9f;
+                c.MoveUp.IsDown = nearest > 1.1f && nearest < 12f;
+            }
+            // Close self points feed muzzle convergence back into the requested
+            // pitch as the gun moves. Aim a distant point along the desired ray
+            // instead; the nearby floor/wall still owns the actual collision.
+            Vector3 ray = (point - origin).Normalized();
+            // For wall shots aim at the wall's foot directly. A horizontal
+            // ray from eye height can explode above the self-damage sphere,
+            // especially at elevated respawn points.
+            Vector3 target = Mode == RigMode.SelfWall && _selfWallDistance < 12f
+                ? point : player.CameraInfo.Position + ray * 40f;
+            (float x, float y) = player.ModAimDeltaTowards(target);
+            _selfAimX = x; _selfAimY = y;
+            _selfPitch = MathHelper.RadiansToDegrees(MathF.Atan2(ray.Y, MathF.Sqrt(ray.X * ray.X + ray.Z * ray.Z)));
+            AimDeltaX = Math.Clamp(x, -TurnRate, TurnRate);
+            AimDeltaY = Math.Clamp(y, -TurnRate, TurnRate);
+            bool aligned = float.IsFinite(x) && float.IsFinite(y) && MathF.Abs(x) < FiringCone && MathF.Abs(y) < FiringCone;
+            if (aligned) FramesOnTarget++;
+            int cadence = Weapons.Current[(int)BeamType.Missile].ShotCooldown * 2 + 3;
+            c.Shoot.IsDown = aligned && _frame % cadence < 2;
+            if (c.Shoot.IsDown && _frame % cadence == 0) Triggers++;
+        }
+
+        private static void DriveSniper(PlayerEntity player, PlayerControls c, PlayerEntity? other)
+        {
+            bool mixedSniper = _continuousMixed && player.SlotIndex % 2 != 0;
+            BeamType weapon = mixedSniper ? BeamType.Imperialist : VolleyWeapon;
+            // The Imperialist, every frame, because a weapon is a pickup in a
+            // match and nobody is picking anything up here. Idempotent once it
+            // is held.
+            if (Mode == RigMode.Volley && !mixedSniper)
+            {
+                if (player.CurrentWeapon != weapon)
+                {
+                    player.ModArmWeapon(weapon);
+                }
+            }
+            else if (player.CurrentWeapon != BeamType.Imperialist)
+            {
+                player.ModArmZoomWeapon();
+            }
+            // And keep it loaded. The Imperialist costs 20 universal ammo a
+            // shot against a cap of 400, so a sniper standing still to hold a
+            // range runs dry after twenty shots and the rest of the run
+            // measures an empty gun -- which reads in every report as a sniper
+            // who stopped hitting anything. Ammo comes from pickups in a
+            // match; a rig is not playing a match.
+            // Int32.MaxValue rather than a cap read back from the player:
+            // ModSetAmmo clamps to whatever this hunter's cap actually is, so
+            // asking for more than any cap is the one request that cannot be
+            // wrong. Reading the cap and handing it back was a way to top the
+            // gun up with zero if the cap had not been set yet, which reads in
+            // every report as a sniper who stopped hitting.
+            player.ModSetAmmo(Int32.MaxValue, Int32.MaxValue);
+            // Zoomed, which is not cosmetic: the Imperialist deals half damage
+            // unzoomed, so an unzoomed run measures a different weapon. The
+            // press is a toggle on the rising edge, so press towards the state
+            // wanted rather than on a timer -- a fixed cadence zooms straight
+            // back out again.
+            if ((Mode != RigMode.Volley || mixedSniper) && player.ModCanZoom
+                && !player.EquipInfo.Zoomed && _frame % 8 == 0)
+            {
+                c.Zoom.IsDown = true;
+            }
+            // Body shots injure the coil user through real combat, leaving time
+            // for drain; periodic headshots exercise death and target reacquisition.
+            bool mixedBody = _continuousMixed && (!mixedSniper || _frame / 189 % 4 != 3);
+            bool onTarget = AimAt(player, other, mixedBody || Mode == RigMode.AltStatic || Mode == RigMode.AltLateral || Mode == RigMode.AltMorph ? 0 : HeadAimHeight);
+            if (onTarget)
+            {
+                FramesOnTarget++;
+            }
+            if (other == null)
+            {
+                // Wait for the paired native respawn rather than drifting away
+                // while its corpse has no targetable body.
+                if (!_continuousMixed) Square(c, 60);
+                return;
+            }
+            float range = (other.Position - player.Position).Length;
+            RangeSum += range;
+            RangeSamples++;
+            HoldRange(player, c, range, _continuousMixed ? 4f : Mode == RigMode.Sniper ? LongRange
+                : Mode == RigMode.Volley && !_continuousMixed && weapon != BeamType.ShockCoil ? VolleyRange : CloseRange);
+            if (_continuousMixed)
+            {
+                CollisionResult wall = default;
+                if (CollisionDetection.CheckBetweenPoints(player.ModAimTarget, other.ModAimTarget,
+                    TestFlags.Beams, player.OwningScene, ref wall))
+                {
+                    // Following a target's angle alone can hold both hunters on
+                    // opposite sides of a wall after a stock-map respawn.
+                    c.MoveUp.IsDown = true; c.MoveDown.IsDown = false;
+                    c.MoveLeft.IsDown = _frame / 90 % 2 == 0;
+                    c.MoveRight.IsDown = !c.MoveLeft.IsDown;
+                    c.Jump.IsDown = _frame % 30 < 3;
+                    onTarget = false;
+                }
+            }
+            // Tapped on the weapon's own cadence, and the tap is what makes
+            // it fire. Holding looked right -- the Imperialist MP carries
+            // WeaponFlags.RepeatFire, which repeats at `shotCooldown` 60 --
+            // and measured wrong: a four-minute arm with the trigger held for
+            // 5145 frames on target produced 23 beams, against the 85 the
+            // cooldown allows. Whatever the repeat path needs, a fresh press
+            // does not need it.
+            //
+            // 63 frames rather than 60, so a tap never lands inside the
+            // cooldown of the one before it and get thrown away.
+            // The weapon's own cadence plus a frame, so a tap never lands
+            // inside the cooldown of the one before it. A Missile's is 20
+            // (doubled by the engine's frame convention), which is three times
+            // faster than the Imperialist's -- and firing fast at one target
+            // is the whole of the scenario.
+            int tap = mixedSniper ? 189 : Mode == RigMode.Volley
+                ? Weapons.Current[(int)weapon].ShotCooldown * 2 + 3
+                : 63;
+            // In a duel the cadence is the *server's* clock, not this client's.
+            //
+            // The point of that scenario is two shots crossing in flight, and
+            // clients join seconds apart -- so a local frame counter has them
+            // firing at unrelated moments and the trade the arbitration exists
+            // for simply never happens. Every client sees roughly the same
+            // snapshot number at the same time, so keying the tap to it puts
+            // the two triggers within a latency of each other, which is
+            // exactly the case worth measuring. Same reason NetTestScript
+            // keys its phases to the server's clock.
+            int clock = Mode == RigMode.Duel && NetSession.LastSnapshotFrame != 0
+                ? (int)NetSession.LastSnapshotFrame
+                : _frame;
+            if (mixedSniper)
+            {
+                // Injure the coil user as soon as a real scoped body shot can
+                // land; waiting for the first global cadence boundary let the
+                // initial coil kill happen before any drain could be credited.
+                if (onTarget && player.EquipInfo.Zoomed && _frame >= _mixedNextTap)
+                {
+                    _mixedTapUntil = _frame + 3; _mixedNextTap = _frame + tap;
+                    Triggers++;
+                }
+                c.Shoot.IsDown = onTarget && _frame < _mixedTapUntil;
+                return;
+            }
+            c.Shoot.IsDown = onTarget && clock % tap < 3;
+            if (c.Shoot.IsDown && clock % tap == 0)
+            {
+                Triggers++;
+            }
+        }
+
+        /// <summary>
+        /// Walk towards or away until the range is the one this mode wants,
+        /// and strafe once it is.
+        ///
+        /// The strafe is what keeps the sniper's own position moving, so the
+        /// run is not measuring a rewind against a stationary shooter -- which
+        /// is the one case the authority already gets right, since a shooter
+        /// is never rewound.
+        /// </summary>
+        private static void HoldRange(PlayerEntity player, PlayerControls c, float range, float want)
+        {
+            float moved = (player.Position - _lastPosition).Length;
+            _lastPosition = player.Position;
+            _stuckFrames = moved < 0.02f ? _stuckFrames + 1 : 0;
+            bool stuck = _stuckFrames > 20;
+            if (stuck && _stuckFrames > 90)
+            {
+                _stuckFrames = 0;
+                _stuckDirection = !_stuckDirection;
+            }
+            if (stuck)
+            {
+                c.MoveLeft.IsDown = _stuckDirection;
+                c.MoveRight.IsDown = !_stuckDirection;
+                c.Jump.IsDown = _stuckFrames % 30 < 3;
+                return;
+            }
+            // A dead band, not a target: walking to an exact distance means
+            // walking back and forth across it forever, and a sniper stepping
+            // in and out every frame is a sniper whose own position is never
+            // the one the shot was aimed from.
+            const float slack = 2.5f;
+            c.MoveUp.IsDown = range > want + slack;
+            c.MoveDown.IsDown = range < want - slack;
+            if (!c.MoveUp.IsDown && !c.MoveDown.IsDown)
+            {
+                c.MoveLeft.IsDown = _frame / 70 % 2 == 0;
+                c.MoveRight.IsDown = _frame / 70 % 2 == 1;
+            }
+        }
+
+        /// <summary>
+        /// Point the gun at a height above a target, and say whether it is
+        /// close enough to fire.
+        ///
+        /// Through <see cref="PlayerEntity.ModAimDeltaTowards"/> rather than
+        /// by assigning the aim, because that helper solves for the
+        /// convergence point: a shot travels from the muzzle towards a point a
+        /// fixed distance down the aim ray, so aiming straight at something
+        /// further away than that lands low. On a 0.3-unit band, low is a body
+        /// shot.
+        /// </summary>
+        private static bool AimAt(PlayerEntity player, PlayerEntity? target, float headHeight)
+        {
+            AimDeltaX = 0;
+            AimDeltaY = 0;
+            if (target == null)
+            {
+                return false;
+            }
+            Vector3 at = headHeight > 0
+                ? target.Position.AddY(Mods.Training.TrainingTargetGeometry.HeadTop(target) - .15f)
+                : target.IsAltForm ? target.Volume.SpherePosition : target.ModAimTarget;
+            (float turnX, float turnY) = player.ModAimDeltaTowards(at);
+            if (!Single.IsFinite(turnX) || !Single.IsFinite(turnY))
+            {
+                return false;
+            }
+            AimDeltaX = Math.Clamp(turnX, -TurnRate, TurnRate);
+            AimDeltaY = Math.Clamp(turnY, -TurnRate, TurnRate);
+            return MathF.Abs(turnX) < FiringCone && MathF.Abs(turnY) < FiringCone;
+        }
+
+        /// <summary>The nearest living opponent. Two clients, so there is one.</summary>
+        private static PlayerEntity? Opponent(PlayerEntity self)
+        {
+            if (_continuousMixed)
+            {
+                int pairedSlot = self.SlotIndex ^ 1;
+                if (pairedSlot < PlayerEntity.Players.Count)
+                {
+                    PlayerEntity paired = PlayerEntity.Players[pairedSlot];
+                    if (paired.LoadFlags.TestFlag(LoadFlags.Active)
+                        && paired.LoadFlags.TestFlag(LoadFlags.Spawned) && paired.Health > 0)
+                        return paired;
+                }
+                return null;
+            }
+            PlayerEntity? best = null;
+            float bestDistance = Single.MaxValue;
+            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            {
+                PlayerEntity other = PlayerEntity.Players[i];
+                if (other == self || !other.LoadFlags.TestFlag(LoadFlags.Active)
+                    || !other.LoadFlags.TestFlag(LoadFlags.Spawned) || other.Health == 0)
+                {
+                    continue;
+                }
+                float distance = (other.Position - self.Position).LengthSquared;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    best = other;
+                }
+            }
+            return best;
+        }
+
+        private static void Square(PlayerControls c, int framesPerSide)
+        {
+            int side = _frame / framesPerSide % 4;
+            c.MoveUp.IsDown = side == 0;
+            c.MoveRight.IsDown = side == 1;
+            c.MoveDown.IsDown = side == 2;
+            c.MoveLeft.IsDown = side == 3;
+        }
+
+        // The edge bookkeeping is the tour's, and has to be: a press is
+        // computed once at the end of the frame, because a phase that writes a
+        // button twice would otherwise wipe the edge the first write produced.
+        // See NetTestScript.Clear.
+        private static bool[] _wasDown = Array.Empty<bool>();
+
+        private static void ClearControls(PlayerControls c)
+        {
+            if (_wasDown.Length < c.All.Length)
+            {
+                _wasDown = new bool[c.All.Length];
+            }
+            for (int i = 0; i < c.All.Length; i++)
+            {
+                Keybind bind = c.All[i];
+                _wasDown[i] = bind.IsDown;
+                bind.IsDown = false;
+                bind.IsPressed = false;
+                bind.IsReleased = false;
+            }
+        }
+
+        private static void FinishControls(PlayerEntity player, PlayerControls c)
+        {
+            bool any = false;
+            for (int i = 0; i < c.All.Length && i < _wasDown.Length; i++)
+            {
+                Keybind bind = c.All[i];
+                bind.IsPressed = bind.IsDown && !_wasDown[i];
+                bind.IsReleased = !bind.IsDown && _wasDown[i];
+                any |= bind.IsDown || bind.IsReleased;
+            }
+            if (any)
+            {
+                // Say that somebody is playing this player. The rig writes
+                // binds after the pass that answers "has anyone touched
+                // anything lately", so without this its own shooter went idle,
+                // the engine lowered the gun, and `TryFireWeapon` refused at
+                // the `GunAnimation.UpDown` check -- *before* NetDamage.NoteFired,
+                // so the shot did not even count as attempted.
+                //
+                // That is the whole of the "a player's own gun fires a third
+                // as often as the authority fires it" gap: 19 beams here
+                // against 57 on the authority for the same slot, while the
+                // *puppet's* count agreed (52/54) because NetPlayerBridge
+                // already notes input for puppets. The asymmetry was the
+                // instrument's, not the netcode's, and every hit-registration
+                // percentage measured before this compared two different
+                // volleys. NetTestScript.FinishControls carries the same call
+                // for the same reason; this driver is newer and missed it.
+                player.ModNoteInput();
+            }
+            player.ModApplyScriptAim(AimDeltaX, AimDeltaY);
+        }
+
+        /// <summary>One line for the report: what the scenario actually did.</summary>
+        public static string Describe()
+        {
+            if (!Active)
+            {
+                return "hit rig: off";
+            }
+            if (NcxFixtureActive) return DescribeNcxFixture();
+            string role = IsSniper ? "sniper" : "runner";
+            if (IsSniper)
+            {
+                double range = RangeSamples > 0 ? RangeSum / RangeSamples : 0;
+                return $"hit rig: {Mode} as {role}, {Triggers} triggers, "
+                    + $"{FramesOnTarget} frames on target, mean range {range:F1} units"
+                    + (Mode == RigMode.SelfMoving || Mode == RigMode.SelfWall
+                        ? $", self aim residual {_selfAimX:F2}/{_selfAimY:F2}deg desired pitch {_selfPitch:F2}deg wall distance {_selfWallDistance:F2}" : "");
+            }
+            double rise = VerticalSpeedSamples > 0
+                ? VerticalSpeedSum / VerticalSpeedSamples
+                : 0;
+            return $"hit rig: {Mode} as {role}, {FramesAirborne} frames airborne, "
+                + $"mean |vertical speed| {rise:F3} units/frame, worst {WorstVerticalSpeed:F3}";
+        }
+    }
+}

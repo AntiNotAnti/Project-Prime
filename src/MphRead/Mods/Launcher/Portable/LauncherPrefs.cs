@@ -1,0 +1,759 @@
+using System;
+using System.Globalization;
+using System.Collections.Generic;
+using System.IO;
+using MphRead.Mods;
+
+namespace MphRead.Mods.Launcher
+{
+    /// <summary>
+    /// Launcher-only preferences, kept in their own file beside the
+    /// executable.
+    ///
+    /// Deliberately not folded into upstream's MenuSettings: that type is
+    /// serialized by GameState and gains fields as upstream develops, so
+    /// adding mod-specific keys to it would guarantee a merge conflict. A
+    /// separate file costs nothing and keeps the fetch clean.
+    /// </summary>
+    public static class LauncherPrefs
+    {
+        /// <summary>
+        /// Where launcher.txt lives: Application Support on macOS and beside
+        /// the executable in portable Windows/Linux installs. Android's head
+        /// points this at the app's writable data directory before any reads.
+        /// </summary>
+        public static string Directory { get; set; } = Platform.AppPaths.UserDataDirectory;
+
+        private static string Path => System.IO.Path.Combine(Directory, "launcher.txt");
+        private const int CurrentPreferencesSchema = 1;
+
+        /// <summary>
+        /// The project's own server, so that a fresh install can press "play
+        /// online" and be in a match without being asked for an address it has
+        /// no way to know. Typing another one over it is one field on the front
+        /// screen, and whatever was typed is what gets saved here.
+        ///
+        /// The address, not the hostname: the hostname is for the people
+        /// working on this, and a name that resolves somewhere else later
+        /// would send every copy of the launcher with it.
+        /// </summary>
+        public const string DefaultServer = "51.161.113.128";
+        private const string LegacyDefaultServer = "89.160.162.50";
+
+        public static HashSet<string> FavoriteServers { get; } = new(StringComparer.OrdinalIgnoreCase);
+
+        public static string ServerAddress { get; set; } = DefaultServer;
+        public static int ServerPort { get; set; } = Network.NetConfig.DefaultPort;
+
+        /// <summary>
+        /// The directory the server browser asks. Project Prime currently runs
+        /// the public directory on the same host as the default game server.
+        /// Existing installs using the former hostname are migrated on load.
+        /// </summary>
+        private const string LegacyDefaultMasterHost = "net.livetek.fr";
+        public static string MasterHost { get; set; } = Network.NetMasterConfig.DefaultHost;
+        public static int MasterPort { get; set; } = Network.NetMasterConfig.DefaultPort;
+        public static int LastRole { get; set; }
+        private static string _playerName = "Player";
+        public static string PlayerName
+        {
+            get => _playerName;
+            set
+            {
+                string name = Network.PlayerNameCodec.Clamp(value);
+                _playerName = name.Length == 0 ? "Player" : name;
+            }
+        }
+        /// <summary>Hunter last chosen, possibly <see cref="Hunter.Random"/>.</summary>
+        public static Hunter LastHunter { get; set; } = Hunter.Samus;
+        public static LocalBodyAppearance LocalBody { get; set; }
+        public static LocalDroneAppearance LocalDrone { get; set; }
+
+        /// <summary>
+        /// Which of the hunter's four suits this player wears, 0-3.
+        ///
+        /// A preference rather than a per-launch question, which is why it
+        /// sits here beside the name and not on the Host and Join cards: it
+        /// is what you look like, and nobody wants to answer it twice a
+        /// session. Team modes ignore it -- the team's own two palettes are
+        /// the point there -- and a match where somebody in a lower slot has
+        /// already taken this suit on this hunter moves it along by one. See
+        /// <see cref="Network.PlayerColors"/>.
+        /// </summary>
+        public static int LastColor { get; set; }
+        /// <summary>Bots in an offline match.</summary>
+        public static int Bots { get; set; } = 3;
+        /// <summary>0 easy, 1 normal, 2 hard, 3 insane -- PlayerEntity.BotLevel.</summary>
+        public static int BotLevel { get; set; } = 1;
+        public static Training.AimTrainerDefinition Training { get; set; } = Mods.Training.AimTrainerDefinition.Default;
+        public static int HostPort { get; set; } = Network.NetConfig.DefaultPort;
+
+        /// <summary>The last lobby mode whose time/goal rules were accepted by the server.</summary>
+        public static GameMode LastLobbyMode { get; set; } = GameMode.Battle;
+        /// <summary>Last accepted lobby clock, in seconds. Zero means unlimited.</summary>
+        public static int LastLobbyTimeLimitSeconds { get; set; } = 7 * 60;
+        /// <summary>Last accepted goal for <see cref="LastLobbyMode"/>. Zero means unlimited where supported.</summary>
+        public static int LastLobbyGoal { get; set; } = 7;
+
+        /// <summary>
+        /// Whether a hosted game announces itself to the directory.
+        ///
+        /// On by default -- a game nobody can find is a game nobody joins --
+        /// but it does publish this machine's address on a public list, which
+        /// is why it is a switch on the card rather than a decision made for
+        /// the person hosting.
+        /// </summary>
+        public static bool ListHostedGame { get; set; } = true;
+
+        /// <summary>
+        /// Whether "Host a game" asks the directory to run the match instead
+        /// of running it on this machine.
+        ///
+        /// The default, because it is the one that works: a server on a home
+        /// PC is unreachable from outside unless UDP is forwarded to it, and
+        /// asking somebody to configure their router is asking most people not
+        /// to play.
+        /// </summary>
+        public static bool HostOnMaster { get; set; } = true;
+        /// <summary>Last LaunchKind, so the front screen can offer it again.</summary>
+        public static int LastKind { get; set; }
+
+        /// <summary>Combat Hall is the first-run map; explicit choices take precedence afterwards.</summary>
+        public const string DefaultMap = "MP3 PROVING GROUND";
+
+        /// <summary>The last arena explicitly selected for an offline match or hosted lobby.</summary>
+        public static string LastSelectedMap { get; set; } = "";
+
+        /// <summary>
+        /// Resolve only against installed choices. An unavailable saved custom map must not
+        /// leave a selector empty, and must not erase the saved choice when it returns.
+        /// The caller can supply an explicit map (e.g. from Map Studio) ahead of the preference.
+        /// </summary>
+        public static string PreferredMap(IReadOnlyList<string> rooms, string? requested = null)
+        {
+            foreach (string? candidate in new[] { requested, LastSelectedMap, DefaultMap })
+            {
+                if (String.IsNullOrWhiteSpace(candidate)) continue;
+                foreach (string room in rooms)
+                    if (String.Equals(room, candidate, StringComparison.OrdinalIgnoreCase))
+                        return room;
+            }
+            foreach (string room in rooms)
+                if (!String.IsNullOrWhiteSpace(room)) return room;
+            return "";
+        }
+
+        /// <summary>Persist a deliberate map choice without changing current server rotation.</summary>
+        public static void RememberMap(string roomKey)
+        {
+            if (String.IsNullOrWhiteSpace(roomKey) || roomKey.Length > 256
+                || roomKey.Contains('=') || System.Linq.Enumerable.Any(roomKey, char.IsControl)
+                || String.Equals(roomKey, LastSelectedMap, StringComparison.OrdinalIgnoreCase)) return;
+            LastSelectedMap = roomKey;
+            Save();
+        }
+
+        /// <summary>
+        /// Whether the front screen looks for a new release.
+        ///
+        /// Looks only. Finding one puts "Update now" on the screen, and that
+        /// opens the release page in a browser; the download and the unpacking
+        /// are the player's. On by default because a server refuses a client on
+        /// a different protocol version outright, so an out-of-date copy is not
+        /// a slightly worse copy, it is one that cannot join anything -- and
+        /// nobody should have to work that out from a failed connection.
+        /// </summary>
+        public static bool AutoUpdate { get; set; } = true;
+
+        /// <summary>
+        /// Suppress launcher transition motion while keeping hover/focus state changes.
+        /// </summary>
+        public static bool ReduceMotion { get; set; }
+
+        /// <summary>Optional cartridge-backed room detail in the existing campaign pause map.</summary>
+        public static bool DetailedCampaignMap { get; set; }
+
+        /// <summary>Optional original animated campaign credits on supported desktop endings.</summary>
+        public static bool OriginalCampaignCredits { get; set; } = false;
+
+        /// <summary>Master gain for Project Prime combat-feedback cues, before the normal SFX volume.</summary>
+        public static float CombatFeedbackVolume { get; set; } = 1f;
+        /// <summary>Show local medal text when a multi-kill or life-streak milestone is earned.</summary>
+        public static bool CombatNotificationsVisible { get; set; } = true;
+        public static string ImperialistHeadshotSound { get; set; } = "prime";
+        public static string FirstBloodSound { get; set; } = "first-blood";
+        public static string DoubleKillSound { get; set; } = "double";
+        public static string TripleKillSound { get; set; } = "triple";
+        public static string OverkillSound { get; set; } = "overkill";
+        // Compatibility alias for builds that exposed the old four-kill name.
+        public static string QuadraKillSound
+        {
+            get => OverkillSound;
+            set => OverkillSound = value;
+        }
+        public static string KilltacularSound { get; set; } = "killtacular";
+        public static string KilltrocitySound { get; set; } = "killtrocity";
+        public static string KilimanjaroSound { get; set; } = "kilimanjaro";
+        public static string KilltastropheSound { get; set; } = "killtastrophe";
+        public static string KillpocalypseSound { get; set; } = "killpocalypse";
+        public static string KillionaireSound { get; set; } = "killionaire";
+        public static string KillingSpreeSound { get; set; } = "spree";
+        public static string KillingFrenzySound { get; set; } = "frenzy";
+        public static string RunningRiotSound { get; set; } = "riot";
+        public static string RampageSound { get; set; } = "rampage";
+        public static string UntouchableSound { get; set; } = "untouchable";
+        public static string InvincibleSound { get; set; } = "invincible";
+
+        /// <summary>
+        /// How the game window opens. Kept here rather than in MenuSettings
+        /// for the same reason as everything else in this file, and read by
+        /// Mods.WindowMode, which is where the window itself lives.
+        /// </summary>
+        public static WindowStartMode WindowMode { get; set; } = WindowStartMode.Windowed;
+
+        /// <summary>
+        /// The size and corner the game window last had, or zeroes for a
+        /// first run.
+        ///
+        /// The *windowed* geometry, never fullscreen's: a window remembered at
+        /// the size of the monitor and then opened with a title bar is a
+        /// window taller than the screen, and the thing worth putting back is
+        /// what the player dragged it to.
+        ///
+        /// The position travels with the size because half of it is no
+        /// feature: a window that comes back the right shape in the middle of
+        /// the screen has still been moved. Both are checked against the
+        /// displays that exist now before they are used -- see
+        /// <see cref="Mods.WindowGeometry"/> -- because a monitor that has been
+        /// unplugged is a window nobody can reach.
+        /// </summary>
+        public static int WindowWidth { get; set; }
+        public static int WindowHeight { get; set; }
+
+        /// <summary>Where the window's client area started. Meaningless while both sizes are 0.</summary>
+        public static int WindowX { get; set; }
+        public static int WindowY { get; set; }
+
+        /// <summary>
+        /// Whether it was maximized, which is not a size.
+        ///
+        /// Kept apart because restoring a maximized window by its rectangle
+        /// gets it visibly wrong: it comes back filling the screen but not
+        /// *maximized*, so the button says restore, dragging it does nothing
+        /// expected, and it does not follow a change of resolution. The
+        /// rectangle underneath is still saved, so un-maximizing lands where
+        /// it used to.
+        /// </summary>
+        public static bool WindowMaximized { get; set; }
+
+        /// <summary>
+        /// Whether the program writes a file of everything it can say about
+        /// itself. See <see cref="Mods.DebugLog"/>.
+        ///
+        /// On by default so support reports have a complete persistent session
+        /// transcript without requiring the player to reproduce a failure after
+        /// enabling diagnostics. A bounded in-memory diagnostic ring remains
+        /// available when this is disabled.
+        /// </summary>
+        public static bool DebugLogs { get; set; } = true;
+
+        /// <summary>Replay library soft limit. Zero means unlimited.</summary>
+        public static int ReplayStorageLimitGb { get; set; } = 10;
+        public static bool ReplayAutoPrune { get; set; } = true;
+        /// <summary>Full recordings prune first; clips remain protected unless opted in.</summary>
+        public static bool ReplayDeleteClips { get; set; }
+        /// <summary>Draw player names above hunters while using a spectator/replay free camera.</summary>
+        public static bool SpectatorNameTags { get; set; }
+        public static bool KillCamEnabled { get; set; } = true;
+        public static int KillCamCamera { get; set; }
+        public static bool FinalKillCamEnabled { get; set; } = true;
+
+
+        public static void Load()
+        {
+            if (!File.Exists(Path))
+            {
+                return;
+            }
+            try
+            {
+                int loadedSchema = 0;
+                foreach (string raw in File.ReadAllLines(Path))
+                {
+                    string line = raw.Trim();
+                    int split = line.IndexOf('=');
+                    if (line.Length == 0 || line[0] == '#' || split <= 0)
+                    {
+                        continue;
+                    }
+                    string key = line[..split].Trim();
+                    string value = line[(split + 1)..].Trim();
+                    if (!MphRead.Mods.Settings.PreferenceText.IsValid(key, value, launcher: true)) continue;
+                    switch (key)
+                    {
+                        case "prefs_schema":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int schema))
+                            {
+                                loadedSchema = Math.Max(0, schema);
+                            }
+                            break;
+                        case "favorite_servers":
+                            FavoriteServers.Clear();
+                            foreach (string endpoint in value.Split('|', StringSplitOptions.RemoveEmptyEntries))
+                                FavoriteServers.Add(endpoint);
+                            break;
+                        case "bright_skins":
+                            if (Boolean.TryParse(value, out bool brightSkins))
+                            {
+                                RenderOptions.BrightSkins = brightSkins;
+                            }
+                            break;
+                        case "bright_skin_style":
+                            if (Enum.TryParse(value, ignoreCase: true, out PlayerSkinStyle skinStyle)
+                                && Enum.IsDefined(skinStyle))
+                            {
+                                RenderOptions.BrightSkinStyle = skinStyle;
+                            }
+                            break;
+                        case "player_outline":
+                            if (Enum.TryParse(value, ignoreCase: true, out PlayerOutlineStyle outlineStyle)
+                                && Enum.IsDefined(outlineStyle))
+                            {
+                                RenderOptions.PlayerOutline = outlineStyle;
+                            }
+                            break;
+                        case "player_outline_colors":
+                            Mods.Render.OutlineColorPalette.Json = value;
+                            break;
+                        case "player_outline_width":
+                            if (Int32.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture,
+                                out int outlineWidth))
+                            {
+                                RenderOptions.PlayerOutlineWidth = outlineWidth;
+                            }
+                            break;
+                        case "server_address":
+                            ServerAddress = value.Equals(LegacyDefaultServer, StringComparison.OrdinalIgnoreCase)
+                                ? DefaultServer
+                                : value;
+                            break;
+                        case "master_host":
+                            if (value.Length > 0)
+                            {
+                                MasterHost = value.Equals(LegacyDefaultMasterHost,
+                                    StringComparison.OrdinalIgnoreCase)
+                                    ? Network.NetMasterConfig.DefaultHost
+                                    : value;
+                            }
+                            break;
+                        case "master_port":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int masterPort)
+                                && masterPort > 0 && masterPort <= 65535)
+                            {
+                                MasterPort = masterPort;
+                            }
+                            break;
+                        case "server_port":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int port))
+                            {
+                                ServerPort = port;
+                            }
+                            break;
+                        case "player_name":
+                            if (value.Length > 0)
+                            {
+                                PlayerName = value;
+                            }
+                            break;
+                        case "last_role":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int role))
+                            {
+                                LastRole = role;
+                            }
+                            break;
+                        case "hunter":
+                            if (Enum.TryParse(value, ignoreCase: true, out Hunter hunter))
+                            {
+                                LastHunter = hunter;
+                            }
+                            break;
+                        case "color":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int color))
+                            {
+                                LastColor = Network.PlayerColors.Clamp(color);
+                            }
+                            break;
+                        case "local_body":
+                            LocalBody = Enum.TryParse(value, out LocalBodyAppearance body)
+                                ? LocalBodyAppearanceRules.Canonical(body) : LocalBodyAppearance.Native;
+                            break;
+                        case "local_drone":
+                            LocalDrone = Enum.TryParse(value, out LocalDroneAppearance drone)
+                                ? LocalDroneAppearanceRules.Canonical(drone) : LocalDroneAppearance.Native;
+                            break;
+                        case "bots":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int bots))
+                            {
+                                Bots = bots;
+                            }
+                            break;
+                        case "aim_trainer":
+                            try { Training = System.Text.Json.JsonSerializer.Deserialize<Mods.Training.AimTrainerDefinition>(value).Sanitize(); }
+                            catch (System.Text.Json.JsonException) { Training = Mods.Training.AimTrainerDefinition.Default; }
+                            break;
+                        case "bot_level":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int level))
+                            {
+                                BotLevel = level;
+                            }
+                            break;
+                        case "host_on_master":
+                            if (Boolean.TryParse(value, out bool hostOnMaster))
+                            {
+                                HostOnMaster = hostOnMaster;
+                            }
+                            break;
+                        case "list_hosted":
+                            if (Boolean.TryParse(value, out bool listHosted))
+                            {
+                                ListHostedGame = listHosted;
+                            }
+                            break;
+                        case "host_port":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int hostPort))
+                            {
+                                HostPort = hostPort;
+                            }
+                            break;
+                        case "last_map":
+                            LastSelectedMap = value;
+                            break;
+                        case "lobby_mode":
+                            if (Enum.TryParse(value, ignoreCase: true, out GameMode lobbyMode)
+                                && Enum.IsDefined(lobbyMode))
+                            {
+                                LastLobbyMode = lobbyMode;
+                            }
+                            break;
+                        case "lobby_time_limit_seconds":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int lobbyTime)
+                                && lobbyTime is >= 0 and <= UInt16.MaxValue)
+                            {
+                                LastLobbyTimeLimitSeconds = lobbyTime;
+                            }
+                            break;
+                        case "lobby_goal":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int lobbyGoal)
+                                && lobbyGoal is >= 0 and <= UInt16.MaxValue)
+                            {
+                                LastLobbyGoal = lobbyGoal;
+                            }
+                            break;
+                        case "window_mode":
+                            WindowMode = Mods.WindowMode.Parse(value, WindowMode);
+                            break;
+                        case "window_size":
+                            ReadPair(value, out int width, out int height);
+                            WindowWidth = width;
+                            WindowHeight = height;
+                            break;
+                        case "window_pos":
+                            ReadPair(value, out int x, out int y);
+                            WindowX = x;
+                            WindowY = y;
+                            break;
+                        case "window_maximized":
+                            if (Boolean.TryParse(value, out bool maximized))
+                            {
+                                WindowMaximized = maximized;
+                            }
+                            break;
+                        case "auto_update":
+                            if (Boolean.TryParse(value, out bool autoUpdate))
+                            {
+                                AutoUpdate = autoUpdate;
+                            }
+                            break;
+                        case "debug_logs":
+                            if (Boolean.TryParse(value, out bool debugLogs))
+                            {
+                                DebugLogs = debugLogs;
+                            }
+                            break;
+                        case "reduce_motion":
+                            if (Boolean.TryParse(value, out bool reduceMotion))
+                            {
+                                ReduceMotion = reduceMotion;
+                            }
+                            break;
+                        case "detailed_campaign_map":
+                            if (Boolean.TryParse(value, out bool detailedMap))
+                            {
+                                DetailedCampaignMap = detailedMap;
+                            }
+                            break;
+                        case "original_campaign_credits":
+                            if (Boolean.TryParse(value, out bool originalCredits))
+                            {
+                                OriginalCampaignCredits = originalCredits;
+                            }
+                            break;
+                        case "combat_feedback_volume":
+                            if (Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture,
+                                out float feedbackVolume))
+                            {
+                                CombatFeedbackVolume = Math.Clamp(feedbackVolume, 0, 1);
+                            }
+                            break;
+                        case "combat_notifications_visible":
+                            if (Boolean.TryParse(value, out bool combatNotificationsVisible))
+                            {
+                                CombatNotificationsVisible = combatNotificationsVisible;
+                            }
+                            break;
+                        case "imperialist_headshot_sound":
+                            if (value.Length > 0) ImperialistHeadshotSound = value;
+                            break;
+                        case "first_blood_sound":
+                            if (value.Length > 0) FirstBloodSound = value;
+                            break;
+                        case "double_kill_sound":
+                            if (value.Length > 0) DoubleKillSound = value;
+                            break;
+                        case "triple_kill_sound":
+                            if (value.Length > 0) TripleKillSound = value;
+                            break;
+                        case "quadra_kill_sound":
+                        case "overkill_sound":
+                            if (value.Length > 0) OverkillSound = value;
+                            break;
+                        case "killtacular_sound":
+                            if (value.Length > 0) KilltacularSound = value;
+                            break;
+                        case "killtrocity_sound":
+                            if (value.Length > 0) KilltrocitySound = value;
+                            break;
+                        case "kilimanjaro_sound":
+                            if (value.Length > 0) KilimanjaroSound = value;
+                            break;
+                        case "killtastrophe_sound":
+                            if (value.Length > 0) KilltastropheSound = value;
+                            break;
+                        case "killpocalypse_sound":
+                            if (value.Length > 0) KillpocalypseSound = value;
+                            break;
+                        case "killionaire_sound":
+                            if (value.Length > 0) KillionaireSound = value;
+                            break;
+                        case "killing_spree_sound":
+                            if (value.Length > 0) KillingSpreeSound = value;
+                            break;
+                        case "killing_frenzy_sound":
+                            if (value.Length > 0) KillingFrenzySound = value;
+                            break;
+                        case "running_riot_sound":
+                            if (value.Length > 0) RunningRiotSound = value;
+                            break;
+                        case "rampage_sound":
+                            if (value.Length > 0) RampageSound = value;
+                            break;
+                        case "untouchable_sound":
+                            if (value.Length > 0) UntouchableSound = value;
+                            break;
+                        case "invincible_sound":
+                            if (value.Length > 0) InvincibleSound = value;
+                            break;
+                        case "replay_storage_gb":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int replayStorage)
+                                && replayStorage is >= 0 and <= 1024)
+                            {
+                                ReplayStorageLimitGb = replayStorage;
+                            }
+                            break;
+                        case "replay_auto_prune":
+                            if (Boolean.TryParse(value, out bool replayPrune))
+                            {
+                                ReplayAutoPrune = replayPrune;
+                            }
+                            break;
+                        case "replay_delete_clips":
+                            if (Boolean.TryParse(value, out bool replayDeleteClips))
+                            {
+                                ReplayDeleteClips = replayDeleteClips;
+                            }
+                            break;
+                        case "spectator_name_tags":
+                            if (Boolean.TryParse(value, out bool spectatorNameTags))
+                            {
+                                SpectatorNameTags = spectatorNameTags;
+                            }
+                            break;
+                        case "kill_cam":
+                            if (Boolean.TryParse(value, out bool killCam))
+                            {
+                                KillCamEnabled = killCam;
+                            }
+                            break;
+                        case "kill_cam_camera":
+                            if (int.TryParse(value, out int camera)) KillCamCamera = Math.Clamp(camera, 0, 2);
+                            break;
+                        case "final_kill_cam":
+                            if (Boolean.TryParse(value, out bool finalKillCam))
+                            {
+                                FinalKillCamEnabled = finalKillCam;
+                            }
+                            break;
+                        case "last_kind":
+                            if (Int32.TryParse(value, NumberStyles.Integer,
+                                CultureInfo.InvariantCulture, out int kind))
+                            {
+                                LastKind = kind;
+                            }
+                            break;
+                    }
+                }
+
+                if (loadedSchema < CurrentPreferencesSchema)
+                {
+                    // Add the schema marker without changing an explicitly
+                    // persisted debug_logs choice. If the key is absent, the
+                    // current default remains in effect.
+                    Save();
+                }
+            }
+            catch (Exception)
+            {
+                // Preferences are a convenience; a unreadable file must not
+                // stop the launcher from opening.
+            }
+        }
+
+        /// <summary>
+        /// "1280x768" or "40,60" -- one parser for both, since the only
+        /// difference is which character is in the middle. Leaves both at zero
+        /// on anything it does not understand, which is the value that means
+        /// "no saved geometry".
+        /// </summary>
+        private static void ReadPair(string value, out int first, out int second)
+        {
+            first = 0;
+            second = 0;
+            int at = value.IndexOfAny(new[] { 'x', 'X', ',' });
+            if (at <= 0)
+            {
+                return;
+            }
+            if (Int32.TryParse(value[..at], NumberStyles.Integer,
+                    CultureInfo.InvariantCulture, out int a)
+                && Int32.TryParse(value[(at + 1)..], NumberStyles.Integer,
+                    CultureInfo.InvariantCulture, out int b))
+            {
+                first = a;
+                second = b;
+            }
+        }
+
+        // Existing callers intentionally ignore persistence failures.
+        // Native Apply flows need a checked result so they do not display a
+        // saved state after a denied write, missing user directory, or
+        // overlapping settings transaction.
+        public static void Save() => _ = TrySave();
+
+        public static bool TrySave()
+        {
+            using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+            if (settingsWrite == null) return false;
+            try
+            {
+                MphRead.Mods.Settings.SettingsPersistence.WriteLines(Path, new[]
+                {
+                    $"# {Branding.Name} launcher preferences.",
+                    $"prefs_schema={CurrentPreferencesSchema.ToString(CultureInfo.InvariantCulture)}",
+                    $"server_address={ServerAddress}",
+                    $"favorite_servers={string.Join("|", FavoriteServers)}",
+                    $"server_port={ServerPort.ToString(CultureInfo.InvariantCulture)}",
+                    $"master_host={MasterHost}",
+                    $"master_port={MasterPort.ToString(CultureInfo.InvariantCulture)}",
+                    $"last_role={LastRole.ToString(CultureInfo.InvariantCulture)}",
+                    $"player_name={PlayerName}",
+                    $"hunter={LastHunter}",
+                    $"local_body={LocalBodyAppearanceRules.Canonical(LocalBody)}",
+                    $"local_drone={LocalDroneAppearanceRules.Canonical(LocalDrone)}",
+                    $"color={LastColor.ToString(CultureInfo.InvariantCulture)}",
+                    $"bots={Bots.ToString(CultureInfo.InvariantCulture)}",
+                    $"aim_trainer={System.Text.Json.JsonSerializer.Serialize(Training)}",
+                    $"bot_level={BotLevel.ToString(CultureInfo.InvariantCulture)}",
+                    $"host_port={HostPort.ToString(CultureInfo.InvariantCulture)}",
+                    $"lobby_mode={LastLobbyMode}",
+                    $"lobby_time_limit_seconds={LastLobbyTimeLimitSeconds.ToString(CultureInfo.InvariantCulture)}",
+                    $"lobby_goal={LastLobbyGoal.ToString(CultureInfo.InvariantCulture)}",
+                    $"list_hosted={ListHostedGame.ToString().ToLowerInvariant()}",
+                    $"host_on_master={HostOnMaster.ToString().ToLowerInvariant()}",
+                    $"last_kind={LastKind.ToString(CultureInfo.InvariantCulture)}",
+                    $"last_map={LastSelectedMap}",
+                    $"auto_update={AutoUpdate.ToString().ToLowerInvariant()}",
+                    $"debug_logs={DebugLogs.ToString().ToLowerInvariant()}",
+                    $"bright_skins={RenderOptions.BrightSkins.ToString().ToLowerInvariant()}",
+                    $"bright_skin_style={RenderOptions.BrightSkinStyle.ToString().ToLowerInvariant()}",
+                    $"player_outline={RenderOptions.PlayerOutline.ToString().ToLowerInvariant()}",
+                    $"player_outline_colors={Mods.Render.OutlineColorPalette.Json}",
+                    $"player_outline_width={RenderOptions.PlayerOutlineWidth.ToString(CultureInfo.InvariantCulture)}",
+                    $"reduce_motion={ReduceMotion.ToString().ToLowerInvariant()}",
+                    $"detailed_campaign_map={DetailedCampaignMap.ToString().ToLowerInvariant()}",
+                    $"original_campaign_credits={OriginalCampaignCredits.ToString().ToLowerInvariant()}",
+                    $"combat_feedback_volume={CombatFeedbackVolume.ToString(CultureInfo.InvariantCulture)}",
+                    $"combat_notifications_visible={CombatNotificationsVisible.ToString().ToLowerInvariant()}",
+                    $"imperialist_headshot_sound={ImperialistHeadshotSound}",
+                    $"first_blood_sound={FirstBloodSound}",
+                    $"double_kill_sound={DoubleKillSound}",
+                    $"triple_kill_sound={TripleKillSound}",
+                    $"overkill_sound={OverkillSound}",
+                    $"killtacular_sound={KilltacularSound}",
+                    $"killtrocity_sound={KilltrocitySound}",
+                    $"kilimanjaro_sound={KilimanjaroSound}",
+                    $"killtastrophe_sound={KilltastropheSound}",
+                    $"killpocalypse_sound={KillpocalypseSound}",
+                    $"killionaire_sound={KillionaireSound}",
+                    $"killing_spree_sound={KillingSpreeSound}",
+                    $"killing_frenzy_sound={KillingFrenzySound}",
+                    $"running_riot_sound={RunningRiotSound}",
+                    $"rampage_sound={RampageSound}",
+                    $"untouchable_sound={UntouchableSound}",
+                    $"invincible_sound={InvincibleSound}",
+                    $"replay_storage_gb={ReplayStorageLimitGb.ToString(CultureInfo.InvariantCulture)}",
+                    $"replay_auto_prune={ReplayAutoPrune.ToString().ToLowerInvariant()}",
+                    $"replay_delete_clips={ReplayDeleteClips.ToString().ToLowerInvariant()}",
+                    $"spectator_name_tags={SpectatorNameTags.ToString().ToLowerInvariant()}",
+                    $"kill_cam={KillCamEnabled.ToString().ToLowerInvariant()}",
+                    $"final_kill_cam={FinalKillCamEnabled.ToString().ToLowerInvariant()}",
+                    $"kill_cam_camera={KillCamCamera}",
+                    $"window_mode={Mods.WindowMode.Serialize(WindowMode)}",
+                    $"window_size={WindowWidth.ToString(CultureInfo.InvariantCulture)}x"
+                        + WindowHeight.ToString(CultureInfo.InvariantCulture),
+                    $"window_pos={WindowX.ToString(CultureInfo.InvariantCulture)},"
+                        + WindowY.ToString(CultureInfo.InvariantCulture),
+                    $"window_maximized={WindowMaximized.ToString().ToLowerInvariant()}"
+                });
+                return true;
+            }
+            catch (Exception error)
+            {
+                if (MphRead.Mods.Settings.SettingsPersistence.Strict) throw;
+                MphRead.Mods.DebugLog.Line("settings", "Save failed: " + error.Message);
+                // Same rationale as Load: never block launching over this.
+                return false;
+            }
+        }
+    }
+}

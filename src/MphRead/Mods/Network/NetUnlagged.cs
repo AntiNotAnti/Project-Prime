@@ -1,0 +1,1488 @@
+using System;
+using MphRead.Entities;
+using MphRead.Mods.CustomWeapons;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.Network
+{
+    /// <summary>
+    /// Backwards reconciliation: a shot is resolved against the world the
+    /// shooter was actually looking at, not the one that exists by the time
+    /// their trigger arrives.
+    ///
+    /// Ported from Q-Zandronum (IgeNiaI/Q-Zandronum, <c>unlagged.cpp</c>),
+    /// itself Spleen's Skulltag work. The Doom original is
+    /// <c>UNLAGGED_Reconcile</c> / <c>UNLAGGED_Restore</c> around a hitscan
+    /// trace, plus Q-Zandronum's own addition -- the part this game actually
+    /// needed -- <c>UNLAGGED_DoUnlagActors</c>, which does the same thing for
+    /// a projectile and then walks it forward to the present.
+    ///
+    /// The fault it fixes here is not the Doom one, because the topology is
+    /// not Doom's. Nobody is a neutral server: the first client to join
+    /// simulates the match and everybody else feeds it intent through the
+    /// relay. So for a client B shooting at C:
+    ///
+    ///   * B's screen shows C where the last snapshot put them, which the
+    ///     authority composed one downstream trip ago from an intent C sent
+    ///     one upstream trip before that.
+    ///   * B presses fire. The intent reaches the authority one upstream trip
+    ///     later, and the authority spawns the beam against the C it holds
+    ///     *now*.
+    ///
+    /// The two differ by B's full round trip, and it is entirely one-sided: B
+    /// aims at a hunter and the shot is resolved against wherever that hunter
+    /// walked to in the meantime. At the Pi's 15 ms nobody notices. At 150 ms
+    /// a strafing player is most of their own width away from where they are
+    /// being shot at, which is the "my shots go through people" report, and
+    /// no amount of smoothing the puppets can touch it -- the puppets are
+    /// right, the clock is wrong.
+    ///
+    /// The authority's own player needs none of this and gets a rewind of
+    /// zero: it aims at the puppets it holds and resolves against those same
+    /// puppets, so the two already agree. Compensation is owed to exactly the
+    /// people who are not running the simulation, in exactly the amount they
+    /// are behind it -- which is what <see cref="IntentPacket.AckFrame"/> is
+    /// for.
+    ///
+    /// What is deliberately *not* ported: Zandronum reconciles sectors and
+    /// polyobjects as well as players, because a Doom map's floor is a moving
+    /// hitbox. Nothing in an MPH room moves that a shot can be stopped by in
+    /// the same way, and rewinding room geometry would mean unwinding the
+    /// collision structures the whole engine indexes against. Players are the
+    /// whole of it here.
+    /// </summary>
+    public static class NetUnlagged
+    {
+        private const int Slots = PlayerEntity.SlotCapacity;
+
+        /// <summary>
+        /// How many frames of position history are kept.
+        ///
+        /// Zandronum keeps <c>UNLAGGEDTICS</c> 35, which is one second at its
+        /// 35 Hz. One second was the right amount of history there and is not
+        /// quite enough here: this ring has to cover the round trip *plus*
+        /// whatever a client is holding its puppets back by to smooth them
+        /// (<see cref="NetSmoothing"/>), and the ceiling below has to sit
+        /// comfortably inside it rather than against its edge. Two seconds at
+        /// 60, rounded to a power of two so the ring index is a mask. Eight
+        /// slots of fixed-size position, form, collision and attack poses.
+        /// </summary>
+        public const int HistoryFrames = 128;
+
+        /// <summary>
+        /// The furthest back a shot may ever be resolved, whatever the packet
+        /// claims.
+        ///
+        /// Two jobs, and the second is the one that matters. It keeps the
+        /// rewind inside the history, which is arithmetic; and it bounds what
+        /// a client can ask for, which is not. The ack is a number the sender
+        /// chose, and a sender that chooses a very old one is asking to shoot
+        /// at where everybody stood a second ago -- so this is the ceiling on
+        /// how much of that anyone is allowed. 24 frames is 400 ms, which was
+        /// chosen as "past any line the game is playable on" -- and measured
+        /// against real players on the Japan server it is not. Nine thousand
+        /// compensated shots came out at a mean of 19.6 frames with the worst
+        /// pinned at exactly 24, which is a distribution running into its own
+        /// ceiling rather than a tail touching it. Every shot the clamp
+        /// reaches is resolved against a world its shooter never saw, and on
+        /// a headshot band 0.3 units tall that is the whole band.
+        ///
+        /// So it is a ceiling that can be moved rather than a constant: the
+        /// one number an A/B run has to be able to change without changing
+        /// anything else. <c>-maxrewind N</c>.
+        ///
+        /// <b>And it moved, on this box, measured.</b> Two clients at a 320 ms
+        /// round trip with 80 ms of jitter and 2% loss, the sniper scenario
+        /// (<c>tools/hitrig</c>), under the old 24-frame ceiling:
+        ///
+        /// <code>
+        /// rewound 99   mean 399 ms   clamped 88 (88.9%)   3.2 frames refused each
+        /// depths asked: 23:4 24:7&lt;-ceiling 25:14 26:28 27:24 28:7 29:8 30:2 32:2 37:1 39:1 40:1
+        /// </code>
+        ///
+        /// Nine shots in ten resolved against a world their shooter never saw,
+        /// and the distribution's *mode* is two frames past the ceiling -- not
+        /// a tail touching it, the whole thing folded onto it. The shooter's
+        /// own machine resolved 16 of the 26 hits the authority credited it
+        /// with, so four shots in ten landed with nothing happening on the
+        /// screen that fired them, and two headshots in ten came back as body
+        /// shots. 45 frames is 750 ms: past that distribution with room for
+        /// the smoothing delay on top, still inside a history twice as deep,
+        /// and still under the one second Q-Zandronum allows by bounding the
+        /// rewind with its history and nothing else.
+        /// </summary>
+        public static int MaxRewindFrames { get; set; } = DefaultMaxRewindFrames;
+
+        /// <summary>
+        /// 750 ms. <see cref="LegacyMaxRewindFrames"/> is what every build up
+        /// to protocol 6 used, and is the baseline arm of any A/B.
+        /// </summary>
+        public const int DefaultMaxRewindFrames = 45;
+
+        /// <summary>The 400 ms ceiling every build before protocol 7 had.</summary>
+        public const int LegacyMaxRewindFrames = 24;
+
+        /// <summary>
+        /// The furthest the ceiling may be raised. The history is
+        /// <see cref="HistoryFrames"/> deep and the cell for the frame a shot
+        /// is fired in has not been written yet, so a rewind of the full 64
+        /// would read a cell as it is being overwritten.
+        /// </summary>
+        public const int MaxRewindCeiling = HistoryFrames - 8;
+
+        /// <summary>
+        /// Set the ceiling from the command line. A number the history cannot
+        /// serve is refused rather than clamped quietly: a run whose ceiling
+        /// is not the one it was asked for measures nothing.
+        /// </summary>
+        public static bool ConfigureMaxRewind(string? value)
+        {
+            if (!Int32.TryParse(value, System.Globalization.NumberStyles.Integer,
+                System.Globalization.CultureInfo.InvariantCulture, out int frames)
+                || frames < 1 || frames > MaxRewindCeiling)
+            {
+                return false;
+            }
+            MaxRewindFrames = frames;
+            return true;
+        }
+
+        /// <summary>
+        /// Whether reconciliation runs at all. Off restores the previous
+        /// behaviour exactly: shots resolve against the present, which is
+        /// what every build before this one did.
+        ///
+        /// Zandronum spells this <c>sv_nounlagged</c> and defaults it on;
+        /// this is the same decision, made once for the match by whoever
+        /// simulates it, and exposed as <c>-nounlagged</c> so a run of the
+        /// harness can measure both.
+        /// </summary>
+        public static bool Enabled { get; set; } = true;
+
+        /// <summary>
+        /// Whether a trigger pull recovered from a packet's press history is
+        /// rewound by its own age as well as by the packet's ack.
+        ///
+        /// The case it covers: an intent is lost or arrives out of order, so
+        /// the Shoot edge it carried reaches the simulation from the press
+        /// history of a *later* packet -- with that packet's ack, which is
+        /// newer by exactly the frames in between. The shot is then resolved
+        /// against a world several frames ahead of the one it was aimed in,
+        /// and the deeper the loss the worse it is. See
+        /// <see cref="NetPlayerBridge.ShootPressAge"/>.
+        ///
+        /// On by default. A recovered press is objectively older than the
+        /// packet carrying it; ignoring that age resolves the shot against a
+        /// world the shooter did not see. <c>-nopressage</c> remains as the
+        /// A/B control. It costs nothing on a clean line because the age is
+        /// zero there.
+        /// </summary>
+        public static bool PressAgeEnabled { get; set; } = true;
+
+        /// <summary>
+        /// Shots whose rewind was deepened because their trigger pull had been
+        /// recovered from a press history, and the frames added across them.
+        /// Zero on a line that is losing nothing, which is what makes a
+        /// non-zero reading worth having.
+        /// </summary>
+        public static long StalePresses { get; private set; }
+        public static long StalePressFrames { get; private set; }
+
+        /// <summary>
+        /// How far a clamped shot's victims were from where the shooter saw
+        /// them, in units, and the worst of it.
+        ///
+        /// The reading the frame counts cannot give. "Refused four frames of
+        /// rewind" is only a number of frames; what decides a headshot is how
+        /// far a body moved in those frames, and that is a different quantity
+        /// for a player standing still, strafing, and coming off a jump pad.
+        /// The history holds both positions -- where the rewind went and where
+        /// it was asked to go -- so the error is a subtraction, taken for every
+        /// clamped shot at no cost.
+        ///
+        /// Against the geometry: the headshot band is 0.3 units tall and the
+        /// body capsule is about 0.9 units across, so a vertical error over
+        /// 0.3 has moved the band off the shot and a total error over 0.9 has
+        /// moved the whole hunter.
+        /// </summary>
+        /// <summary>
+        /// Clamped shots by shooter slot.
+        ///
+        /// Here because the error above came out with a vertical component of
+        /// zero on a run whose target spent 60% of its frames in the air,
+        /// which is either a broken measurement or a shot fired by somebody
+        /// else at somebody who was standing still. The two are told apart by
+        /// asking who pulled the trigger, and nothing else in the report can.
+        /// </summary>
+        public static readonly long[] ClampedByShooter = new long[Slots];
+
+        public static long ClampErrorSamples { get; private set; }
+        public static double ClampErrorSum { get; private set; }
+        public static double ClampErrorVerticalSum { get; private set; }
+        public static float ClampErrorWorst { get; private set; }
+        public static float ClampErrorWorstVertical { get; private set; }
+
+        /// <summary>
+        /// Shots that were resolved somewhere other than the present, and how
+        /// far back. <see cref="WorstRewind"/> is the deepest single rewind,
+        /// which under a healthy line should sit near a client's round trip
+        /// in frames and never near <see cref="MaxRewindFrames"/>.
+        /// </summary>
+        public static long ShotsCompensated { get; private set; }
+        public static long FramesRewound { get; private set; }
+        public static int WorstRewind { get; private set; }
+
+        /// <summary>
+        /// Shots whose shooter asked to be taken further back than
+        /// <see cref="MaxRewindFrames"/> allows, and the frames of rewind
+        /// refused across all of them.
+        ///
+        /// The pair the mean rewind cannot tell you. A mean of 19.6 frames
+        /// under a ceiling of 24 is either a healthy distribution with a tail
+        /// that happens to touch the top, or a distribution whose top half has
+        /// been folded onto the ceiling -- and those two want opposite things
+        /// done about them. This counts the folding directly: every clamped
+        /// shot is one resolved against a world its shooter never saw, by
+        /// <see cref="FramesRefused"/> / <see cref="ShotsClamped"/> frames on
+        /// average.
+        /// </summary>
+        public static long ShotsClamped { get; private set; }
+        public static long FramesRefused { get; private set; }
+
+        /// <summary>
+        /// The deepest rewind anybody *asked* for, as opposed to the deepest
+        /// one served. Under a ceiling that is never reached the two are the
+        /// same number; the gap between them is how far the ceiling is from
+        /// covering the room.
+        /// </summary>
+        public static int WorstRequested { get; private set; }
+
+        /// <summary>
+        /// How many shots asked for each depth, so the shape of the
+        /// distribution can be read rather than inferred from its mean.
+        /// Indexed by requested frames, with everything past the ring's reach
+        /// in the last cell -- an ack older than the history is a different
+        /// fault and belongs in <see cref="HistoryMisses"/>, not in a bucket
+        /// that would make the tail look fatter than it is.
+        /// </summary>
+        public static readonly long[] DepthHistogram = new long[HistoryFrames + 1];
+
+        /// <summary>
+        /// Beam steps run during catch-up, and how many of them ended in a
+        /// collision.
+        ///
+        /// The pair says whether the projectile half is doing anything: steps
+        /// with no hits means shots are being launched forward and missing
+        /// exactly as they did before, which is either a genuinely clean
+        /// match or a sign the rewind is not reaching the beams.
+        /// </summary>
+        public static long CatchUpSteps { get; private set; }
+        public static long CatchUpHits { get; private set; }
+
+        /// <summary>
+        /// Shots whose rewind was refused because the history did not hold
+        /// the frame asked for.
+        ///
+        /// Non-zero is not automatically wrong -- a client that has just
+        /// joined has acked nothing yet -- but a number that keeps climbing
+        /// during a match means acks are arriving older than
+        /// <see cref="HistoryFrames"/>, and the shots behind them are being
+        /// resolved against the present with no compensation at all.
+        /// </summary>
+        public static long HistoryMisses { get; private set; }
+
+        // The ring. All slots are written in one pass, so one frame stamp per
+        // cell covers the lot: a stamp that does not match the frame being
+        // asked for means the cell has been overwritten by a later one.
+        private static readonly ushort[,] _life = new ushort[Slots, HistoryFrames];
+        private static readonly ushort[,] _generation = new ushort[Slots, HistoryFrames];
+
+        public static void ResetSlot(int slot)
+        {
+            _collisionCacheActive = false;
+            if (slot < 0 || slot >= Slots) return;
+            NetContactLagComp.ResetSlot(slot);
+            for (int i = 0; i < HistoryFrames; i++)
+            {
+                _inPlay[slot, i] = false;
+                _halfturretActive[slot, i] = false;
+                _life[slot, i] = 0;
+                _generation[slot, i] = 0;
+            }
+            _moved[slot] = false;
+        }
+
+        private static readonly Vector3[,] _position = new Vector3[Slots, HistoryFrames];
+        private static readonly Vector3[,] _halfturretPosition = new Vector3[Slots, HistoryFrames];
+        private static readonly bool[,] _halfturretActive = new bool[Slots, HistoryFrames];
+        private static readonly HistoricalAltAttackState[,] _attackPose = new HistoricalAltAttackState[Slots, HistoryFrames];
+        private static readonly AltCollisionPose[,] _altPose = new AltCollisionPose[Slots, HistoryFrames];
+        private static readonly bool[,] _morphing = new bool[Slots, HistoryFrames];
+        private static readonly int[,] _targetTeam = new int[Slots, HistoryFrames];
+        private static readonly bool[,] _targetable = new bool[Slots, HistoryFrames];
+        private static readonly bool[,] _altForm = new bool[Slots, HistoryFrames];
+        private static readonly bool[,] _crouched = new bool[Slots, HistoryFrames];
+        private static readonly bool[,] _tucked = new bool[Slots, HistoryFrames];
+        private static readonly bool[,] _inPlay = new bool[Slots, HistoryFrames];
+        public static long FormRewinds, FormMismatches, KandenHistoricalSegmentChecks, KandenHistoricalSegmentHits;
+        private static readonly uint[] _formLog = new uint[Slots];
+        private static readonly uint[] _stamp = new uint[HistoryFrames];
+
+        /// <summary>
+        /// The newest frame in the history.
+        ///
+        /// Needed to tell the two ways a lookup can fail apart. The snapshot
+        /// that records a frame is published *after* that frame's simulation
+        /// step (see <c>NetHooks.AfterSimulation</c>), so the frame a shot is
+        /// fired in is never in the history yet -- asking for it is normal and
+        /// means "the present". Asking for something older than the ring is a
+        /// gap, and a different thing entirely.
+        /// </summary>
+        private static uint _newest;
+
+        // Where everybody was before the rewind, so Restore can put them back.
+        private static readonly HistoricalCollisionState[] _restore = new HistoricalCollisionState[Slots];
+        private static readonly bool[] _moved = new bool[Slots];
+        private static bool _reconciled;
+        private static double _reconciledFrame;
+
+        // Which of the shooter's beam pool entries were alive before the shot,
+        // so the ones it spawned can be told from the ones already in flight.
+        // Grown from the pool rather than assumed: PlayerEntity asks for 16
+        // today, and a silently short array here would quietly stop
+        // compensating whichever beams fell off the end.
+        private static bool[] _beamsBefore = new bool[16];
+        // A pooled beam object may be replaced between BeginShot and EndShot.
+        // Preserve both identities so we never advance an unrelated old flight.
+        private static ShotKey[] _beamPriorKeys = new ShotKey[16];
+        private static uint[] _beamPriorComponents = new uint[16];
+        // EndShot reuses _beamsBefore for the active catch-up set. These identities
+        // also keep retired/overwritten slots from being processed a second time.
+        private static ShotKey[] _beamTrackedKeys = new ShotKey[16];
+        private static uint[] _beamTrackedComponents = new uint[16];
+        private static PlayerEntity? _shooter;
+        private static int _rewind;
+
+        /// <summary>
+        /// True while a shot is being spawned into the past.
+        ///
+        /// Zandronum's <c>unlagInProgress</c>, and here for the same reason:
+        /// the state above is one shot's worth, so a second
+        /// <see cref="BeginShot"/> reached from inside a catch-up step -- a
+        /// beam whose collision kills a player, say -- would overwrite the
+        /// first shot's bookkeeping and leave the world rewound with nothing
+        /// holding the note to put it back.
+        /// </summary>
+        private static bool _inProgress;
+        private static BeamProjectileEntity[]? _shotBeams;
+        private static CustomRewindTiming? _customTiming;
+
+        internal readonly record struct CustomRewindTiming(uint AuthorityFrame, uint RequestedFrame,
+            byte RequestedSubFrame, double EffectiveFrame, double RewindFrames);
+
+        public static void Reset()
+        {
+            AbortShot();
+            _collisionCacheActive = false;
+            NetContactLagComp.Reset();
+            FormRewinds = FormMismatches = KandenHistoricalSegmentChecks = KandenHistoricalSegmentHits = 0; Array.Clear(_formLog);
+            NetDynamicGeometryHistory.ResetRoom();
+            LagCompensationPolicy.Reset();
+            CatchUpShots = CatchUpTruncations = DerivedCatchUpSpawns = 0; MaximumCatchUpSteps = 0;
+            Array.Clear(_stamp);
+            Array.Clear(_moved);
+            _newest = 0;
+            _reconciled = false;
+            _reconciledFrame = 0;
+            _inProgress = false;
+            _shooter = null;
+            _rewind = 0;
+            _shotBeams = null; _customTiming = null;
+            ShotsCompensated = 0;
+            FramesRewound = 0;
+            WorstRewind = 0;
+            ShotsClamped = 0;
+            FramesRefused = 0;
+            WorstRequested = 0;
+            StalePresses = 0;
+            StalePressFrames = 0;
+            Array.Clear(ClampedByShooter);
+            ClampErrorSamples = 0;
+            ClampErrorSum = 0;
+            ClampErrorVerticalSum = 0;
+            ClampErrorWorst = 0;
+            ClampErrorWorstVertical = 0;
+            Array.Clear(DepthHistogram);
+            CatchUpSteps = 0;
+            CatchUpHits = 0;
+            HistoryMisses = 0;
+        }
+
+        /// <summary>
+        /// Record where everybody is, as of the snapshot numbered
+        /// <paramref name="frame"/>.
+        ///
+        /// Called from <see cref="NetSession.BroadcastSnapshot"/> and nowhere
+        /// else, deliberately. The history has to hold what the snapshot
+        /// *said*, not what was true at some nearby moment: a client's ack
+        /// names a snapshot, and the whole mechanism is the claim that cell
+        /// <c>frame</c> is the picture that client was looking at. Recording
+        /// anywhere else in the frame would make that claim off by however
+        /// much the players moved in between, which is precisely the error
+        /// being corrected.
+        /// </summary>
+        public static void Record(uint frame)
+        {
+            // Even a current-world custom scope owns accepted timing and a pool.
+            // Release it at publication when positional rewind is disabled too.
+            AbortShot();
+            if (!Enabled)
+            {
+                // Timed damage facts describe the published authority snapshot,
+                // independent of whether positional rewind is enabled.
+                if (NetTimedShotProof.Active) NetTimedDamageProfile.Record(frame);
+                return;
+            }
+            // A rewound world must never outlive the frame it was rewound in.
+            // Everything below records where players *are*, and if a shot left
+            // them displaced -- an exception between BeginShot and EndShot is
+            // the only way, but it is a way -- this would file the rewound
+            // positions as the truth and then publish them to everybody. One
+            // call, once a frame, and a no-op on all but the pathological one.
+            if (NetTimedShotProof.Active) NetTimedDamageProfile.Record(frame);
+            NetDynamicGeometryHistory.RecordWorld(frame);
+            int index = (int)(frame % HistoryFrames);
+            _stamp[index] = frame;
+            _newest = frame;
+            for (int i = 0; i < Slots; i++)
+            {
+                if (i >= PlayerEntity.Players.Count)
+                {
+                    _inPlay[i, index] = false;
+                    continue;
+                }
+                PlayerEntity player = PlayerEntity.Players[i];
+                bool active = player != null && player.LoadFlags.TestFlag(LoadFlags.Active) && player.ModIsInPlay
+                    && !player.Flags2.TestFlag(PlayerFlags2.Spectating);
+                _life[i, index] = NetPlayerLifecycle.Get(i);
+                _generation[i, index] = NetPlayerLifecycle.Generation(i);
+                _inPlay[i, index] = active;
+                _halfturretActive[i, index] = false;
+                if (active && player != null)
+                {
+                    _position[i, index] = player.Position;
+                    if (player.Hunter == Hunter.Weavel
+                        && player.Flags2.TestFlag(PlayerFlags2.Halfturret)
+                        && player.Halfturret is { Health: > 0 } turret)
+                    {
+                        _halfturretActive[i, index] = true;
+                        _halfturretPosition[i, index] = turret.Position;
+                    }
+                    _altForm[i, index] = player.IsAltForm;
+                    _crouched[i, index] = player.ModCrouched;
+                    _tucked[i, index] = player.ModTucked;
+                    _morphing[i, index] = player.IsMorphing;
+                    _targetTeam[i, index] = player.TeamIndex;
+                    _targetable[i, index] = player.GetTargetable();
+                    _altPose[i, index] = player.ModCaptureAltPose();
+                    _attackPose[i, index] = NetContactLagComp.CaptureHistory(player, frame);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Where the history says <paramref name="slot"/> stood at
+        /// <paramref name="frame"/>, or false if it does not hold that frame
+        /// or that player was not in play in it.
+        ///
+        /// The authority's own record, which is what makes a hit claim
+        /// checkable: <see cref="NetHitClaims"/> refuses a claim whose point
+        /// of impact is nowhere near the body this returns. Read-only -- it
+        /// moves nobody, unlike <see cref="Reconcile"/>.
+        /// </summary>
+        public static HistoricalPlayerPose InterpolatePose(in HistoricalPlayerPose lower,
+            in HistoricalPlayerPose upper, float fraction)
+        {
+            if (lower.AltForm != upper.AltForm || lower.Crouched != upper.Crouched || lower.Tucked != upper.Tucked
+                || (upper.Position - lower.Position).LengthSquared > 16f)
+                return lower;
+            return new(Vector3.Lerp(lower.Position, upper.Position, fraction), lower.AltForm,
+                AltCollisionPose.Lerp(lower.AltPose, upper.AltPose, fraction), lower.Crouched, lower.Tucked);
+        }
+
+        private struct CollisionCacheEntry
+        {
+            public uint Token;
+            public double Frame;
+            public ushort Generation, Life;
+            public bool PoseQueried, PoseValid, TurretQueried, TurretValid;
+            public HistoricalPlayerPose Pose;
+            public Vector3 Turret;
+        }
+        private static readonly CollisionCacheEntry[,] _collisionCache = new CollisionCacheEntry[Slots, HistoryFrames];
+        private static uint _collisionCacheToken;
+        private static bool _collisionCacheActive;
+        internal static bool CollisionCacheActive => _collisionCacheActive;
+        // ResetSlot can clear the cache while a native shot/rewind scope is
+        // still active. Read-only snapshots need the complete scope guard.
+        internal static bool ShotScopeActive => _inProgress || _reconciled || _collisionCacheActive;
+        internal static uint CollisionCacheToken => _collisionCacheToken;
+        public static long HistoricalCollisionQueries, HistoricalCollisionCacheHits, HistoricalCollisionCacheMisses, HistoricalCollisionBuildTicks;
+        private static ref CollisionCacheEntry CollisionCell(int slot, double target, ushort generation, ushort life)
+        {
+            ref var cell = ref _collisionCache[slot, (int)((uint)Math.Floor(target) % HistoryFrames)];
+            if (cell.Token != _collisionCacheToken || cell.Frame != target || cell.Generation != generation || cell.Life != life)
+                cell = new() { Token = _collisionCacheToken, Frame = target, Generation = generation, Life = life };
+            return ref cell;
+        }
+        private static void BeginCollisionCache()
+        {
+            if (++_collisionCacheToken == 0) { Array.Clear(_collisionCache); NetHistoricalTrace.ClearCache(); _collisionCacheToken = 1; }
+            _collisionCacheActive = true;
+        }
+        internal static bool TryHistoricalPose(PlayerEntity player, double target, out HistoricalPlayerPose pose)
+        {
+            HistoricalCollisionQueries++;
+            if (!_collisionCacheActive || !double.IsFinite(target) || target < 1 || target >= uint.MaxValue)
+                return BuildHistoricalPose(player, target, out pose);
+            int slot = player.SlotIndex;
+            ref var cell = ref CollisionCell(slot, target, NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot));
+            if (cell.PoseQueried) { HistoricalCollisionCacheHits++; pose = cell.Pose; return cell.PoseValid; }
+            HistoricalCollisionCacheMisses++;
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            cell.PoseValid = BuildHistoricalPose(player, target, out cell.Pose); cell.PoseQueried = true;
+            HistoricalCollisionBuildTicks += System.Diagnostics.Stopwatch.GetTimestamp() - start;
+            pose = cell.Pose; return cell.PoseValid;
+        }
+
+        private static bool BuildHistoricalPose(PlayerEntity player, double target, out HistoricalPlayerPose pose)
+        {
+            pose = default;
+            if (!double.IsFinite(target) || target < 1 || target >= uint.MaxValue) return false;
+            uint frame = (uint)Math.Floor(target); int slot = player.SlotIndex;
+            ushort generation = NetPlayerLifecycle.Generation(slot), life = NetPlayerLifecycle.Get(slot);
+            if (!PositionAt(slot, frame, generation, life, out var position)) return false;
+            int index = (int)(frame % HistoryFrames);
+            pose = new(position, _altForm[slot, index], _altPose[slot, index], _crouched[slot, index], _tucked[slot, index]);
+            float fraction = (float)(target - frame);
+            if (fraction > .0001f && PositionAt(slot, frame + 1, generation, life, out var nextPosition))
+            {
+                int next = (int)((frame + 1) % HistoryFrames);
+                pose = InterpolatePose(pose, new(nextPosition, _altForm[slot, next], _altPose[slot, next], _crouched[slot, next], _tucked[slot, next]), fraction);
+            }
+            return true;
+        }
+
+        internal static bool TryHistoricalHalfturretPosition(int slot, double target,
+            ushort expectedGeneration, ushort expectedLife, out Vector3 position)
+        {
+            HistoricalCollisionQueries++;
+            if (!_collisionCacheActive || (uint)slot >= Slots || !double.IsFinite(target) || target < 1 || target >= uint.MaxValue)
+                return BuildHistoricalHalfturretPosition(slot, target, expectedGeneration, expectedLife, out position);
+            ref var cell = ref CollisionCell(slot, target, expectedGeneration, expectedLife);
+            if (cell.TurretQueried) { HistoricalCollisionCacheHits++; position = cell.Turret; return cell.TurretValid; }
+            HistoricalCollisionCacheMisses++;
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            cell.TurretValid = BuildHistoricalHalfturretPosition(slot, target, expectedGeneration, expectedLife, out cell.Turret);
+            cell.TurretQueried = true;
+            HistoricalCollisionBuildTicks += System.Diagnostics.Stopwatch.GetTimestamp() - start;
+            position = cell.Turret; return cell.TurretValid;
+        }
+
+        private static bool BuildHistoricalHalfturretPosition(int slot, double target,
+            ushort expectedGeneration, ushort expectedLife, out Vector3 position)
+        {
+            position = default;
+            if ((uint)slot >= Slots || !double.IsFinite(target) || target < 1 || target >= uint.MaxValue) return false;
+            uint frame = (uint)Math.Floor(target);
+            if (!PositionAt(slot, frame, expectedGeneration, expectedLife, out _)) return false;
+            int index = (int)(frame % HistoryFrames);
+            if (!_halfturretActive[slot, index]) return false;
+            position = _halfturretPosition[slot, index];
+            float fraction = (float)(target - frame);
+            if (fraction > .0001f
+                && PositionAt(slot, frame + 1, expectedGeneration, expectedLife, out _))
+            {
+                int next = (int)((frame + 1) % HistoryFrames);
+                if (_halfturretActive[slot, next]
+                    && (_halfturretPosition[slot, next] - position).LengthSquared <= 16f)
+                    position = Vector3.Lerp(position, _halfturretPosition[slot, next], fraction);
+            }
+            return true;
+        }
+
+        internal static bool TryCollisionHalfturret(PlayerEntity player, out Vector3 position)
+        {
+            position = default;
+            int slot = player.SlotIndex;
+            if (_reconciled && _inProgress)
+                return TryHistoricalHalfturretPosition(slot, _reconciledFrame,
+                    NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot), out position);
+            if (player.Hunter != Hunter.Weavel || player.Halfturret == null
+                || !player.Flags2.TestFlag(PlayerFlags2.Halfturret) || player.Halfturret.Health <= 0)
+                return false;
+            position = player.Halfturret.Position;
+            return true;
+        }
+
+        internal static bool TryContinuousTargetPose(PlayerEntity owner, PlayerEntity target,
+            out HistoricalPlayerPose pose, out bool morphing, out int team)
+        {
+            pose = default; morphing = target.IsMorphing; team = target.TeamIndex;
+            // Reuse the same fractional ACK, age and hard ceiling as the shot world.
+            double frame = ContinuousTargetFrame(owner);
+            if (frame >= NetSession.NetFrame)
+            {
+                pose = new(target.Position, target.ModCollisionIsAltForm, default, target.ModCrouched, target.ModTucked);
+                return target.ModIsInPlay && target.GetTargetable();
+            }
+            if (!TryHistoricalPose(target, frame, out pose)) return false;
+            int index = (int)((uint)Math.Floor(frame) % HistoryFrames);
+            morphing = _morphing[target.SlotIndex, index]; team = _targetTeam[target.SlotIndex, index];
+            return _targetable[target.SlotIndex, index];
+        }
+
+        internal static double ContinuousTargetFrame(PlayerEntity owner) => _inProgress && _shooter == owner ? _shotTargetFrame
+            : NetSession.NetFrame - (Enabled ? RewindFor(owner.SlotIndex, false, out _, out _) : 0);
+
+        internal static bool TryContinuousClaimPose(PlayerEntity target, double frame,
+            out HistoricalPlayerPose pose, out bool morphing, out int team)
+        {
+            pose = default; morphing = target.IsMorphing; team = target.TeamIndex;
+            if (!double.IsFinite(frame) || frame <= 0 || frame > NetSession.NetFrame
+                || NetSession.NetFrame - frame >= HistoryFrames) return false;
+            if (!TryHistoricalPose(target, frame, out pose)) return false;
+            int index = (int)((uint)Math.Floor(frame) % HistoryFrames);
+            morphing = _morphing[target.SlotIndex, index]; team = _targetTeam[target.SlotIndex, index];
+            return _targetable[target.SlotIndex, index];
+        }
+
+        // Discrete attack state is for diagnostics; ACK time names opponents,
+        // so live contact resolution must not replay this old attacker state.
+        internal static bool TryHistoricalAttack(int slot, uint frame, ushort generation, ushort life,
+            out HistoricalAltAttackState state)
+        {
+            state = default;
+            if (!PositionAt(slot, frame, generation, life, out _)) return false;
+            state = _attackPose[slot, frame % HistoryFrames];
+            return true;
+        }
+
+        internal static bool TryHistoricalBiped(PlayerEntity player, double target, out Vector3 position)
+        {
+            position = default;
+            if (!double.IsFinite(target) || target < 1) return false;
+            uint frame = (uint)Math.Floor(target); int slot = player.SlotIndex;
+            if (!PositionAt(slot, frame, NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot), out position)) return false;
+            int index = (int)(frame % HistoryFrames);
+            if (_altForm[slot, index]) return false;
+            float fraction = (float)(target - frame);
+            int next = (int)((frame + 1) % HistoryFrames);
+            if (fraction > .0001f && !_altForm[slot, next]
+                && PositionAt(slot, frame + 1, NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot), out Vector3 then)
+                && (then - position).LengthSquared <= 16f) position += (then - position) * fraction;
+            return true;
+        }
+
+        internal static bool HistoryAvailable(double target)
+        {
+            if (!double.IsFinite(target) || target < 1 || target >= uint.MaxValue) return false;
+            uint frame = (uint)Math.Floor(target);
+            return _stamp[frame % HistoryFrames] == frame;
+        }
+
+        // A complete inactive cell differs from an absent cell. Exact first-
+        // segment validation must not silently skip an unknown competing body.
+        internal static bool TryHistoricalCollisionEligibility(int slot, uint frame,
+            out bool active, out bool halfturret, out ushort generation, out ushort life)
+        {
+            active = halfturret = false; generation = life = 0;
+            if ((uint)slot >= Slots || frame == 0 || _stamp[frame % HistoryFrames] != frame) return false;
+            int index = (int)(frame % HistoryFrames);
+            active = _inPlay[slot, index]; halfturret = _halfturretActive[slot, index];
+            generation = _generation[slot, index]; life = _life[slot, index];
+            return true;
+        }
+
+        public static bool PositionAt(int slot, uint frame, ushort expectedGeneration, ushort expectedLife, out Vector3 position)
+        {
+            position = Vector3.Zero;
+            if (slot < 0 || slot >= Slots || frame == 0)
+            {
+                return false;
+            }
+            int index = (int)(frame % HistoryFrames);
+            if (_stamp[index] != frame || !_inPlay[slot, index]
+                || _life[slot, index] != expectedLife || _generation[slot, index] != expectedGeneration)
+            {
+                return false;
+            }
+            position = _position[slot, index];
+            return Single.IsFinite(position.X) && Single.IsFinite(position.Y)
+                && Single.IsFinite(position.Z);
+        }
+
+        /// <summary>
+        /// How far behind the simulation the owner of <paramref name="slot"/>
+        /// is, in frames, clamped to what can honestly be served.
+        ///
+        /// Zandronum's <c>UNLAGGED_Gametic</c>, with its two sources collapsed
+        /// into one. It offers a choice between the client's acknowledged
+        /// server tic and a figure derived from its measured ping
+        /// (<c>cl_ping_unlagged</c>); the ack is the better of the two -- a
+        /// ping is a smoothed average of a number that is not smooth, while
+        /// the ack is the exact frame the client is answering -- and having
+        /// only one of them means there is only one thing to be wrong.
+        /// </summary>
+        private static double RewindFor(int slot, bool allowPressAge, out int requested, out double rawRequested)
+        {
+            requested = 0; rawRequested = 0;
+            if (slot < 0 || slot >= Slots || slot == NetSession.LocalSlot)
+            {
+                // The authority's own player already aims and resolves
+                // against the same puppets. Nothing is owed.
+                return 0;
+            }
+            if (!NetSession.RemoteIntentValid[slot]
+                && !((uint)slot < PlayerEntity.Players.Count
+                    && NetFireEvents.TryAcceptedKey(PlayerEntity.Players[slot], out _)))
+            {
+                return 0;
+            }
+            uint ack = NetSession.RemoteIntents[slot].AckFrame;
+            uint now = NetSession.NetFrame;
+            int age = PressAgeEnabled && allowPressAge && slot < NetPlayerBridge.ShootPressAge.Length
+                ? NetPlayerBridge.ShootPressAge[slot] : 0;
+            byte subFrame = NetSession.RemoteIntents[slot].AckSubFrame;
+            if ((uint)slot < PlayerEntity.Players.Count && NetFireEvents.TryTiming(PlayerEntity.Players[slot], out var fire))
+            { ack = fire.AckFrame; subFrame = fire.AckSubFrame; age = 0; }
+            if (ack == 0 || ack >= now)
+            {
+                // Nothing acked yet (a client that has only just joined), or
+                // an ack from a counter that has restarted and is ahead of
+                // ours. Both mean "no usable answer", not "no delay" -- but
+                // the present is the only defensible guess for either.
+                return 0;
+            }
+            if (age > 0) { StalePresses++; StalePressFrames += age; }
+            var decision = LagCompensationPolicy.Evaluate(slot, now, ack, subFrame, age);
+            rawRequested = decision.RequestedDepth;
+            requested = (int)Math.Min(Math.Round(rawRequested), HistoryFrames);
+            return decision.GlobalServedDepth;
+        }
+
+        /// <summary>
+        /// Whether this machine is the one whose shots decide anything.
+        ///
+        /// Everybody spawns beams -- a client fires its own gun for its own
+        /// eyes -- but only the authority's collide with anybody. Rewinding
+        /// on a machine whose shots are decoration would move other players'
+        /// hitboxes underneath the person watching them, for no gain at all.
+        /// </summary>
+        private static bool Simulating => NetSession.Active
+            && (NetSession.Role == NetRole.Host || NetSession.IsAuthority);
+
+        /// <summary>
+        /// Put the world back to what <paramref name="shooter"/> could see,
+        /// ready for a shot to be spawned into it.
+        ///
+        /// Everybody except the shooter is moved. The shooter is left exactly
+        /// where they are, for the same reason Zandronum leaves them ("the
+        /// client is supposed to predict him"): their own position is the one
+        /// thing they were not looking at a stale copy of. They told us where
+        /// they are in the same packet as the trigger, and
+        /// <see cref="NetPlayerBridge"/> has already put them there.
+        /// </summary>
+        public static void BeginShot(PlayerEntity shooter, Vector3 origin = default, Vector3 direction = default, EquipInfo? acceptedEquip = null)
+        {
+            if (shooter.SceneServices.IsReplica) return;
+            if (_inProgress)
+            {
+                return;
+            }
+            BeginCollisionCache();
+            _shooter = null;
+            _rewind = 0;
+            if (!Enabled || !Simulating || shooter.IsBot)
+            {
+                return;
+            }
+            int slot = shooter.SlotIndex;
+            var shotEquip = acceptedEquip ?? shooter.EquipInfo;
+            BeamType shotWeapon = shotEquip.Weapon.Beam;
+            _shotPolicy = WeaponLagPolicies.Resolve(shotEquip);
+            if (!_shotPolicy.UsesHistoricalPlayers) return;
+            double rewind = RewindFor(slot, _shotPolicy.AllowPressAge, out int requested, out double rawRequested);
+            if (_shotPolicy.UseShadowPlausibility && LagCompensationPolicy.Plausibility != LagCompPlausibility.Off && rewind > 0)
+            {
+                var policy = LagCompensationPolicy.Evaluate(slot, NetSession.NetFrame, NetSession.RemoteIntents[slot].AckFrame,
+                    NetSession.RemoteIntents[slot].AckSubFrame, PressAgeEnabled && _shotPolicy.AllowPressAge ? NetPlayerBridge.ShootPressAge[slot] : 0);
+                if (NetFireEvents.TryTiming(shooter, out var fire))
+                    policy = LagCompensationPolicy.Evaluate(slot, NetSession.NetFrame, fire.AckFrame, fire.AckSubFrame, 0);
+                var decision = policy.Timing;
+                // Preserve fractional ACK time exactly; rounded histograms must
+                // never become the gameplay time source, including in Shadow.
+                decision = decision with { HardAppliedFrames = rewind,
+                    FramesShadowRefused = Math.Max(0, rewind - (decision.ShadowAllowedFrames ?? rewind)),
+                    WouldClamp = decision.ShadowAllowedFrames.HasValue && rewind > decision.ShadowAllowedFrames.Value };
+                var outcome = decision.ShadowAllowedFrames.HasValue
+                    ? NetShadowSampler.CompareShot(NetFireEvents.TryAcceptedKey(shooter, out var acceptedKey) ? acceptedKey : ShotKey.For(slot, NetFireEvents.ActiveShotId(shooter)), shooter, origin, direction, rewind, Math.Min(rewind, decision.ShadowAllowedFrames.Value))
+                    : ShadowOutcome.HistoricalDataUnavailable;
+                LagCompensationPolicy.Record(slot, NetShotDiagnostics.Bucket(shotWeapon), decision, outcome);
+                LagCompensationPolicy.RecordShotContext(slot, NetFireEvents.ActiveShotId(shooter), policy, NetShotDiagnostics.Bucket(shotWeapon));
+                Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Shot, NetSession.NetFrame,
+                    Player: (byte)slot, Weapon: (byte)shotWeapon, Id: NetSession.RemoteIntents[slot].AckFrame,
+                    Result: (int)outcome, A: rawRequested, B: rewind, C: decision.ShadowAllowedFrames ?? -1,
+                    D: PressAgeEnabled && _shotPolicy.AllowPressAge ? NetPlayerBridge.ShootPressAge[slot] : 0, ShotId: NetFireEvents.ActiveShotId(shooter)));
+                rewind = LagCompensationPolicy.Applied(decision);
+            }
+            if (requested > 0 && requested < DepthHistogram.Length)
+            {
+                DepthHistogram[requested]++;
+            }
+            if (requested > WorstRequested)
+            {
+                WorstRequested = requested;
+            }
+            int served = (int)Math.Round(rewind);
+            int weapon = NetShotDiagnostics.Bucket(shotWeapon);
+            NetShotDiagnostics.RewindSamples[weapon]++;
+            NetShotDiagnostics.RewindFrames[weapon] += served;
+            if (requested > served) NetShotDiagnostics.RewindClamps[weapon]++;
+            if (requested > served)
+            {
+                // The shooter asked to be taken back further than the ceiling
+                // allows, so this shot is about to be resolved against a world
+                // it never saw -- by exactly this many frames.
+                ShotsClamped++;
+                FramesRefused += requested - served;
+                MeasureClampError(slot, requested, served);
+            }
+            if (rewind <= 0)
+            {
+                return;
+            }
+            // The exact point the shooter's screen was at, fraction and all.
+            double target = NetSession.NetFrame - rewind;
+            _shotTargetFrame = target;
+            NetDynamicGeometryHistory.CompareShadow(shooter.OwningScene, origin, direction, target,
+                shotEquip.Weapon.UnchargedSpeed / 8192f);
+            if (!Reconcile(slot, target))
+            {
+                HistoryMisses++;
+                return;
+            }
+            _shooter = shooter;
+            _rewind = (int)Math.Ceiling(rewind);
+            ShotsCompensated++;
+            FramesRewound += served;
+            if (served > WorstRewind)
+            {
+                WorstRewind = served;
+            }
+            // Remember what was already in flight, so the beams this shot is
+            // about to create can be picked out of the pool afterwards.
+            CaptureShotPool(shotEquip.Beams);
+            _inProgress = true;
+        }
+
+        private static void CaptureShotPool(BeamProjectileEntity[] beams)
+        {
+            _shotBeams = beams;
+            if (_beamsBefore.Length < beams.Length)
+            {
+                _beamsBefore = new bool[beams.Length];
+                _beamPriorKeys = new ShotKey[beams.Length];
+                _beamPriorComponents = new uint[beams.Length];
+                _beamTrackedKeys = new ShotKey[beams.Length];
+                _beamTrackedComponents = new uint[beams.Length];
+            }
+            for (int i = 0; i < beams.Length; i++)
+            {
+                _beamsBefore[i] = beams[i].Lifespan > 0;
+                _beamPriorKeys[i] = beams[i].ModLaunchKey;
+                _beamPriorComponents[i] = beams[i].ModComponentId;
+                _beamTrackedKeys[i] = default;
+                _beamTrackedComponents[i] = 0;
+            }
+        }
+
+        /// <summary>Rewind adapter for an already admitted custom launch. This
+        /// does not establish admission, trade eligibility or payment. The emitter
+        /// must call EndShot/AbortShot in finally and retain this exact private pool.
+        /// Missing history is a definite pre-emission refusal, never live fallback.</summary>
+        internal static bool TryBeginCustomShot(PlayerEntity shooter, in CustomAcceptedLaunch launch,
+            EquipInfo equipment, out CustomRewindTiming timing)
+        {
+            timing = default;
+            var source = launch.Source; var action = source.Action;
+            if (launch.Definition == null || equipment == null || !action.IsValid) return false;
+            var owner = action.Owner;
+            uint now = NetSession.NetFrame;
+            if (_inProgress || _reconciled || shooter.SceneServices.IsReplica || !NetSession.Active || !NetSession.IsAuthority
+                || !source.CanUseWeapon || action.Kind != CustomWeaponActionKind.Fire || !source.IsValidFor(action)
+                || !NetSession.MatchesStream(owner.MatchId,owner.AuthorityEpoch) || shooter.SlotIndex != owner.Slot
+                || owner.Slot >= PlayerEntity.Players.Count || !ReferenceEquals(PlayerEntity.Players[owner.Slot],shooter)
+                || NetPlayerLifecycle.Generation(owner.Slot) != owner.Generation
+                || source.ObservedWorldFrame > now || now-source.ObservedWorldFrame > CustomSourceActionJournal.MaxWorldAge
+                || source.TargetWorldFrame == 0 || source.TargetWorldFrame > now
+                || now-source.TargetWorldFrame > CustomSourceActionJournal.MaxWorldAge
+                || source.TargetWorldFrame == now && source.TargetWorldSubFrame != 0
+                || launch.Before.Owner != owner || launch.After.Owner != owner
+                || launch.Before.Weapon != launch.Definition.Identity || launch.After.Weapon != launch.Definition.Identity
+                || launch.After.LastAcceptedShotId != action.Sequence || launch.After.Magazine != launch.Before.Magazine-1
+                || equipment.Weapon.Beam != BeamType.None || !equipment.InfiniteAmmo
+                || equipment.CustomShot?.MatchesLaunch(launch) != true
+                || equipment.Beams.Length == 0 || equipment.Beams.Length > launch.Definition.Mechanics.MaxActiveProjectiles
+                || ReferenceEquals(equipment.Beams,shooter.EquipInfo.Beams)) return false;
+            for (int i=0; i<equipment.Beams.Length; i++)
+            {
+                var beam = equipment.Beams[i];
+                if (beam == null || beam.OwningScene != shooter.OwningScene) return false;
+                for (int slot=0; slot<PlayerEntity.Players.Count; slot++)
+                    if (PlayerEntity.Players[slot]?.EquipInfo?.Beams is { } nativePool)
+                        foreach (var native in nativePool) if (ReferenceEquals(beam,native)) return false;
+                if (shooter.OwningScene.EnemyBeams is { } enemyPool)
+                    foreach (var native in enemyPool) if (ReferenceEquals(beam,native)) return false;
+                if (shooter.OwningScene.PlatformBeams is { } platformPool)
+                    foreach (var native in platformPool) if (ReferenceEquals(beam,native)) return false;
+                for (int prior=0; prior<i; prior++) if (ReferenceEquals(beam,equipment.Beams[prior])) return false;
+            }
+            var policy = WeaponLagPolicies.Resolve(equipment) with
+                { UsesHistoricalDynamicGeometry = true, AllowPressAge = false, UseShadowPlausibility = false };
+            var decision = LagCompensationPolicy.Evaluate(owner.Slot,now,source.TargetWorldFrame,source.TargetWorldSubFrame,0);
+            double rewind = Enabled ? LagCompensationPolicy.Applied(decision.Timing) : 0;
+            double effective = now-rewind;
+            if (rewind > 0)
+            {
+                // Check every world that catch-up can visit before any emission.
+                // Fractional targets require both samples, rather than silently
+                // falling back to a whole-frame pose when the upper sample is absent.
+                uint lower = (uint)Math.Floor(effective), upper = (uint)Math.Ceiling(effective);
+                if (!HistoryAvailable(lower) || !NetDynamicGeometryHistory.HasHistoricalFrame(shooter.OwningScene,lower)
+                    || upper != lower && (!HistoryAvailable(upper)
+                        || !NetDynamicGeometryHistory.HasHistoricalFrame(shooter.OwningScene,upper))) return false;
+                int depth = (int)Math.Ceiling(rewind);
+                for (int step=1; step<=policy.CatchUpFrames(depth); step++)
+                {
+                    uint frame = now-(uint)(depth-step);
+                    if (frame < now && (!HistoryAvailable(frame)
+                        || !NetDynamicGeometryHistory.HasHistoricalFrame(shooter.OwningScene,frame))) return false;
+                }
+            }
+            BeginCollisionCache();
+            try
+            {
+                if (rewind > 0 && !Reconcile(owner.Slot,effective)) { AbortShot(); return false; }
+                _shotPolicy = policy; _shotTargetFrame = effective; _shooter = shooter;
+                _rewind = (int)Math.Ceiling(rewind);
+                CaptureShotPool(equipment.Beams);
+                timing = new(now,source.TargetWorldFrame,source.TargetWorldSubFrame,effective,rewind);
+                _customTiming = timing; _inProgress = true; return true;
+            }
+            catch { AbortShot(); throw; }
+        }
+
+        /// <summary>
+        /// The world-frame this shot is aimed in.
+        ///
+        /// On the machine running the match, for somebody else's shot, that is
+        /// the frame the rewind is about to go to -- the world that shooter
+        /// was looking at. For this machine's own player it is the point its
+        /// playout clock is reading, which is the same quantity its intent
+        /// acks. A bot, or a shot with neither, gets the present.
+        /// </summary>
+        // This is the actual first Process in EndShot's catch-up loop, not the
+        // requested ACK or a rounded timing histogram. Current-world fallback,
+        // clamping and incomplete first-step history cannot produce this proof.
+        internal static bool TryTimedFirstCollisionFrame(PlayerEntity shooter, out uint frame)
+        {
+            frame = 0;
+            if (_customTiming.HasValue || !_inProgress || _shooter != shooter || _rewind <= 0
+                || _shotPolicy.CatchUpFrames(_rewind) < 1
+                || !NetFireEvents.TryTiming(shooter, out var fire) || fire.AckSubFrame != 0
+                || _shotTargetFrame != fire.AckFrame) return false;
+            uint first = unchecked(NetSession.NetFrame - (uint)(_rewind - 1));
+            if (first >= NetSession.NetFrame || first != unchecked(fire.AckFrame + 1)
+                || !HistoryAvailable(first)
+                || !NetDynamicGeometryHistory.HasHistoricalFrame(shooter.OwningScene, first)) return false;
+            frame = first; return true;
+        }
+
+        internal static uint LaunchFrameFor(PlayerEntity shooter)
+        {
+            if (_inProgress && _shooter == shooter && _customTiming is { } custom) return custom.RequestedFrame;
+            if (NetFireEvents.TryTiming(shooter, out var fire)) return fire.AckFrame;
+            int slot = shooter.SlotIndex;
+            if (Simulating && slot != NetSession.LocalSlot && !shooter.IsBot
+                && slot >= 0 && slot < Slots && NetSession.RemoteIntentValid[slot])
+            {
+                uint ack = NetSession.RemoteIntents[slot].AckFrame;
+                if (ack != 0 && ack <= NetSession.NetFrame)
+                {
+                    // A trigger edge recovered from a later intent belongs to the
+                    // older world that RewindFor actually simulates. Stamp the
+                    // projectile with that same world too. Otherwise the client
+                    // claim names the original shot while the authority ledger
+                    // names the newer carrier packet, so two non-zero launch
+                    // stamps disagree and TakeLedger deliberately cannot pair
+                    // them. The claim then "rescues" a hit the authority already
+                    // dealt, which is one physical shot doing its damage twice.
+                    //
+                    // Keep zero reserved for "no launch stamp". In practice an
+                    // acknowledged match is well past this boundary, but the
+                    // clamp also makes the startup edge safe.
+                    int pressAge = PressAgeEnabled
+                        && WeaponLagPolicies.Resolve(shooter.EquipInfo).AllowPressAge
+                        && slot < NetPlayerBridge.ShootPressAge.Length
+                        ? Math.Max(0, NetPlayerBridge.ShootPressAge[slot]) : 0;
+                    if (pressAge > 0)
+                    {
+                        uint age = (uint)pressAge;
+                        return ack > age ? ack - age : 1;
+                    }
+                    return ack;
+                }
+            }
+            if (NetSmoothing.AckPoint(out uint read, out _))
+            {
+                return read;
+            }
+            return NetSession.AppliedSnapshotFrame != 0
+                ? NetSession.AppliedSnapshotFrame
+                : NetSession.NetFrame;
+        }
+
+        /// <summary>
+        /// How far the ceiling put this shot's victims from where its shooter
+        /// was looking at them.
+        ///
+        /// Both positions are already in the ring: the one the rewind will use
+        /// and the one it was asked for. Nothing is moved and nothing is
+        /// simulated -- this is two lookups and a subtraction, per victim, on
+        /// the shots that were clamped and no others.
+        /// </summary>
+        private static void MeasureClampError(int shooterSlot, int requested, int served)
+        {
+            if (shooterSlot >= 0 && shooterSlot < Slots)
+            {
+                ClampedByShooter[shooterSlot]++;
+            }
+            uint now = NetSession.NetFrame;
+            if (now < (uint)requested)
+            {
+                return;
+            }
+            int wanted = (int)((now - (uint)requested) % HistoryFrames);
+            int got = (int)((now - (uint)served) % HistoryFrames);
+            if (_stamp[wanted] != now - (uint)requested || _stamp[got] != now - (uint)served)
+            {
+                // One of the two is not in the ring any more, so the
+                // subtraction would be between a position and whatever
+                // overwrote it. A shot that cannot be measured is not a shot
+                // with no error.
+                return;
+            }
+            for (int i = 0; i < Slots && i < PlayerEntity.Players.Count; i++)
+            {
+                if (i == shooterSlot || !_inPlay[i, wanted] || !_inPlay[i, got])
+                {
+                    continue;
+                }
+                Vector3 error = _position[i, got] - _position[i, wanted];
+                if (!Single.IsFinite(error.X) || !Single.IsFinite(error.Y)
+                    || !Single.IsFinite(error.Z))
+                {
+                    continue;
+                }
+                float length = error.Length;
+                float vertical = MathF.Abs(error.Y);
+                ClampErrorSamples++;
+                ClampErrorSum += length;
+                ClampErrorVerticalSum += vertical;
+                if (length > ClampErrorWorst)
+                {
+                    ClampErrorWorst = length;
+                }
+                if (vertical > ClampErrorWorstVertical)
+                {
+                    ClampErrorWorstVertical = vertical;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Move every player but <paramref name="exceptSlot"/> to where they
+        /// stood at <paramref name="targetFrame"/>. Returns whether the history
+        /// still held it.
+        /// </summary>
+        private static bool Reconcile(int exceptSlot, double targetFrame)
+        {
+            uint frame = (uint)Math.Floor(targetFrame);
+            int index = (int)(frame % HistoryFrames);
+            if (_stamp[index] != frame || frame == 0)
+            {
+                return false;
+            }
+            Restore();
+            _reconciledFrame = targetFrame;
+            for (int i = 0; i < Slots && i < PlayerEntity.Players.Count; i++)
+            {
+                if (i == exceptSlot || !_inPlay[i, index]
+                    || !NetPlayerLifecycle.Matches(i, _generation[i, index], _life[i, index]))
+                {
+                    continue;
+                }
+                PlayerEntity player = PlayerEntity.Players[i];
+                if (!player.LoadFlags.TestFlag(LoadFlags.Active) || !player.ModIsInPlay
+                    || player.Flags2.TestFlag(PlayerFlags2.Spectating))
+                {
+                    continue;
+                }
+                if (!TryHistoricalPose(player, targetFrame, out var pose)) continue;
+                FormRewinds++;
+                if (pose.AltForm != player.IsAltForm)
+                {
+                    FormMismatches++;
+                    if (NetLog.Enabled && (_formLog[i] == 0 || NetSession.NetFrame - _formLog[i] >= 60))
+                    {
+                        _formLog[i] = NetSession.NetFrame;
+                        NetLog.Event($"FORM-HIT victim={i} historicalAlt={pose.AltForm} currentAlt={player.IsAltForm}");
+                    }
+                }
+                _restore[i] = player.ModCaptureCollisionState();
+                _moved[i] = true;
+                _reconciled = true;
+                player.ModApplyHistoricalCollisionPose(pose);
+            }
+            _reconciled = true;
+            try { NetDynamicGeometryHistory.ReconcileWorld(targetFrame); }
+            catch { Restore(); throw; }
+            return true;
+        }
+
+        /// <summary>
+        /// Undo the rewind. Safe to call when nothing was rewound, which is
+        /// most frames.
+        /// </summary>
+        public static void Restore()
+        {
+            NetDynamicGeometryHistory.RestoreWorld();
+            if (!_reconciled)
+            {
+                return;
+            }
+            for (int i = 0; i < Slots && i < PlayerEntity.Players.Count; i++)
+            {
+                if (!_moved[i])
+                {
+                    continue;
+                }
+                _moved[i] = false;
+                PlayerEntity.Players[i].ModRestoreCollisionState(_restore[i]);
+            }
+            _reconciled = false;
+            _reconciledFrame = 0;
+        }
+
+        /// <summary>
+        /// Walk the shot that was just spawned forward to the present, then
+        /// put the world back.
+        ///
+        /// This is Q-Zandronum's <c>UNLAGGED_DoUnlagActors</c>, and it is the
+        /// half that matters in this game. Doom's unlagged is built around
+        /// hitscan, where rewinding the targets is the whole fix because the
+        /// trace resolves in the instant it is fired. Almost nothing here is
+        /// hitscan: a Missile, a Battlehammer round and a Magmaul shot all
+        /// travel, so rewinding the world and spawning into it fixes only the
+        /// first frame of the shot and then leaves the projectile crawling
+        /// out of a muzzle a round trip late -- visibly behind its owner's
+        /// screen, and easy to walk out of.
+        ///
+        /// So the beam is stepped once per frame it is owed, with the world
+        /// re-reconciled at each step so that anything it runs into on the
+        /// way is checked against where that player was at that moment. What
+        /// arrives in the present is a shot already the right distance down
+        /// range, having hit whatever it would have hit.
+        ///
+        /// The loop stops the moment every new beam is done -- collided, or
+        /// out of lifespan -- which is what makes a point-blank shot cost one
+        /// step instead of twenty-four.
+        /// </summary>
+        private static double _shotTargetFrame;
+        internal static bool CollisionTargetAvailable(PlayerEntity target) => !_reconciled
+            || target == _shooter || (uint)target.SlotIndex < Slots && _moved[target.SlotIndex];
+
+        internal static bool HistoricalTargetAvailable(PlayerEntity target)
+        {
+            if (!_inProgress || _shooter == null) return true;
+            return _shotTargetFrame >= 1 && PositionAt(target.SlotIndex, (uint)Math.Floor(_shotTargetFrame),
+                NetPlayerLifecycle.Generation(target.SlotIndex), NetPlayerLifecycle.Get(target.SlotIndex), out _);
+        }
+
+        private static WeaponLagPolicy _shotPolicy;
+        public static long CatchUpShots { get; private set; }
+        // Number of ricochet/derived projectiles adopted into historical catch-up.
+        public static long DerivedCatchUpSpawns { get; private set; }
+        internal static bool CatchUpDerivedFrom(in ShotKey launched, in ShotKey candidate, uint component)
+            => launched.ShotId != 0 && candidate == launched && component >> 4 != 0;
+        public static long CatchUpTruncations { get; private set; }
+        public static int MaximumCatchUpSteps { get; private set; }
+
+        // These two helpers are also used by native asset regressions to
+        // exercise pool reuse and child adoption without changing live timing.
+        internal static int MarkNewCatchUpFlights(BeamProjectileEntity[] beams, out ShotKey launchedKey)
+        {
+            int newCount = 0;
+            launchedKey = default;
+            for (int i = 0; i < beams.Length; i++)
+            {
+                BeamProjectileEntity beam = beams[i];
+                bool oldFlight = _beamsBefore[i] && _beamPriorKeys[i] == beam.ModLaunchKey
+                    && _beamPriorComponents[i] == beam.ModComponentId;
+                if (!oldFlight && beam.Lifespan > 0)
+                {
+                    _beamsBefore[i] = true;
+                    _beamTrackedKeys[i] = beam.ModLaunchKey;
+                    _beamTrackedComponents[i] = beam.ModComponentId;
+                    if (launchedKey.ShotId == 0 && beam.ModLaunchKey.ShotId != 0)
+                        launchedKey = beam.ModLaunchKey;
+                    newCount++;
+                }
+                else _beamsBefore[i] = false;
+            }
+            return newCount;
+        }
+
+        internal static int AdoptDerivedCatchUp(BeamProjectileEntity[] beams, in ShotKey launchedKey)
+        {
+            if (launchedKey.ShotId == 0) return 0;
+            int adopted = 0;
+            for (int i = 0; i < beams.Length; i++)
+            {
+                if (_beamsBefore[i]) continue;
+                BeamProjectileEntity child = beams[i];
+                bool oldFlight = _beamPriorKeys[i] == child.ModLaunchKey
+                    && _beamPriorComponents[i] == child.ModComponentId;
+                bool alreadyProcessed = _beamTrackedKeys[i] == child.ModLaunchKey
+                    && _beamTrackedComponents[i] == child.ModComponentId;
+                if (child.Lifespan <= 0 || child.Flags.TestFlag(BeamFlags.Collided)
+                    || oldFlight || alreadyProcessed
+                    || !CatchUpDerivedFrom(launchedKey, child.ModLaunchKey, child.ModComponentId))
+                    continue;
+                _beamsBefore[i] = true;
+                _beamTrackedKeys[i] = child.ModLaunchKey;
+                _beamTrackedComponents[i] = child.ModComponentId;
+                adopted++;
+                DerivedCatchUpSpawns++;
+            }
+            return adopted;
+        }
+
+        public static void AbortShot()
+        {
+            try { Restore(); }
+            finally
+            { _shooter = null; _rewind = 0; _inProgress = false; _collisionCacheActive = false;
+                _shotBeams = null; _customTiming = null; }
+        }
+        public static void EndShot(PlayerEntity shooter)
+
+        {
+            try { EndShotCore(shooter); }
+            finally { AbortShot(); }
+        }
+        private static void EndShotCore(PlayerEntity shooter)
+        {
+            if (shooter.SceneServices.IsReplica) return;
+            if (_shooter != shooter || _rewind <= 0)
+            {
+                Restore();
+                _shooter = null;
+                _inProgress = false;
+                return;
+            }
+            int slot = shooter.SlotIndex;
+            BeamProjectileEntity[] beams = _shotBeams ?? shooter.EquipInfo.Beams;
+            int newCount = MarkNewCatchUpFlights(beams, out ShotKey launchedKey);
+            if (newCount == 0)
+            {
+                // Nothing spawned: out of ammo, or a continuous beam being
+                // replaced rather than created. Nothing to walk forward.
+                Restore();
+                _shooter = null;
+                _inProgress = false;
+                return;
+            }
+            int steps = _shotPolicy.CatchUpFrames(_rewind);
+            CatchUpShots++;
+            if (steps < _rewind) CatchUpTruncations++;
+            int completed = 0;
+            for (int step = 1; step <= steps && newCount > 0; step++)
+            {
+                uint frame = NetSession.NetFrame - (uint)(_rewind - step);
+                if (!Reconcile(slot, frame))
+                {
+                    if (frame <= _newest)
+                    {
+                        // A genuine gap: the history did not reach back this
+                        // far. Stepping on against present positions would
+                        // resolve the rest of this shot against a world nobody
+                        // was ever shown, so stop and leave it where it got to
+                        // -- at worst the behaviour with none of this.
+                        HistoryMisses++; CatchUpTruncations++;
+                        break;
+                    }
+                    // Not a gap. The frame this shot is being fired in has no
+                    // snapshot yet, because the snapshot is published after the
+                    // step; so the last step of every catch-up asks for a frame
+                    // that does not exist, and the right world for it is the
+                    // one that does -- the present, which is what the catch-up
+                    // is catching up to. Without this the loop stopped one step
+                    // short of the present on every shot.
+                    Restore();
+                }
+                completed++;
+                for (int i = 0; i < beams.Length; i++)
+                {
+                    if (!_beamsBefore[i])
+                    {
+                        continue;
+                    }
+                    BeamProjectileEntity beam = beams[i];
+                    // Spawn() can reuse a pool slot while a parent is being
+                    // processed. Never step a replacement as its old identity.
+                    if (beam.ModLaunchKey != _beamTrackedKeys[i]
+                        || beam.ModComponentId != _beamTrackedComponents[i])
+                    {
+                        _beamsBefore[i] = false;
+                        newCount--;
+                        continue;
+                    }
+                    bool hit = beam.Flags.TestFlag(BeamFlags.Collided);
+                    CatchUpSteps++;
+                    bool alive = beam.Process();
+                    if (!alive || beam.Lifespan <= 0 || beam.Flags.TestFlag(BeamFlags.Collided)
+                        || beam.ModLaunchKey != _beamTrackedKeys[i]
+                        || beam.ModComponentId != _beamTrackedComponents[i])
+                    {
+                        if (!hit && beam.Flags.TestFlag(BeamFlags.Collided))
+                        {
+                            CatchUpHits++;
+                        }
+                        _beamsBefore[i] = false;
+                        newCount--;
+                    }
+                }
+                // Ricochet children are spawned *inside* a parent's Process()
+                // (Judicator is a common case). Capture them after the entire
+                // step so no child can be advanced in its birth frame. They
+                // receive every remaining historical frame on the next pass.
+                // Never pull in pre-existing shots or unrelated pool occupants.
+                newCount += AdoptDerivedCatchUp(beams, launchedKey);
+            }
+            MaximumCatchUpSteps = Math.Max(MaximumCatchUpSteps, completed);
+            Restore();
+            _shooter = null;
+            _rewind = 0;
+            _inProgress = false;
+        }
+
+        /// <summary>
+        /// One line for the harness reports and the diagnostics screen.
+        /// </summary>
+        public static string Describe()
+        {
+            if (!Enabled)
+            {
+                return "lag compensation: off; " + NetContactLagComp.Describe();
+            }
+            if (ShotsCompensated == 0)
+            {
+                return "lag compensation: on, nothing to compensate "
+                    + $"(history misses {HistoryMisses}); " + NetContactLagComp.Describe();
+            }
+            double mean = FramesRewound / (double)ShotsCompensated;
+            string text = $"lag compensation: {ShotsCompensated} shots rewound, "
+                + $"mean {mean:F1} frames ({mean * 1000 / 60:F0} ms), worst {WorstRewind}, "
+                + $"catch-up {CatchUpSteps} steps / {CatchUpHits} hits, "
+                + $"history misses {HistoryMisses}";
+            // The clamp, said plainly. Without this the only evidence that a
+            // ceiling of MaxRewindFrames is doing anything is a "worst" that
+            // happens to equal it, which is also what a single outlier looks
+            // like.
+            // A clamped shot is still a compensated one -- it is rewound, just
+            // not as far as it asked -- so ShotsCompensated is the whole
+            // population and the denominator, not something to add to.
+            text += $"; ceiling {MaxRewindFrames} frames "
+                + $"({MaxRewindFrames * 1000 / 60} ms), clamped {ShotsClamped}";
+            if (ShotsClamped > 0)
+            {
+                text += $" ({ShotsClamped * 100.0 / Math.Max(1, ShotsCompensated):F1}% of shots, "
+                    + $"mean {FramesRefused / (double)ShotsClamped:F1} frames refused)";
+            }
+            text += $", worst asked {WorstRequested}";
+            if (ShotsClamped > 0)
+            {
+                var by = new System.Text.StringBuilder(", clamped by slot");
+                for (int i = 0; i < ClampedByShooter.Length; i++)
+                {
+                    if (ClampedByShooter[i] > 0)
+                    {
+                        by.Append($" {i}:{ClampedByShooter[i]}");
+                    }
+                }
+                text += by.ToString();
+            }
+            if (ClampErrorSamples > 0)
+            {
+                text += $", error {ClampErrorSum / ClampErrorSamples:F2} units mean "
+                    + $"({ClampErrorVerticalSum / ClampErrorSamples:F2} vertical), "
+                    + $"worst {ClampErrorWorst:F2} ({ClampErrorWorstVertical:F2} vertical)";
+            }
+            if (PressAgeEnabled)
+            {
+                text += $"; stale presses {StalePresses}";
+                if (StalePresses > 0)
+                {
+                    text += $" (+{StalePressFrames / (double)StalePresses:F1} frames each)";
+                }
+            }
+            var shadow = LagCompensationPolicy.CaptureTotal();
+            text += $"; shadow {LagCompensationPolicy.Plausibility}: {shadow.WouldClamp}/{shadow.TimedShots} timed shots would clamp, "
+                + $"{shadow.ShadowRefusedFrames:F1} frames refused, geometry unavailable {shadow.OutcomeCount}/{shadow.Shots}; "
+                + $"catch-up maximum {MaximumCatchUpSteps}, truncations {CatchUpTruncations}";
+            return text + $"; form rewinds {FormRewinds}, mismatches {FormMismatches}, Kanden checks {KandenHistoricalSegmentChecks}/hits {KandenHistoricalSegmentHits}; " + NetContactLagComp.Describe();
+        }
+
+        /// <summary>
+        /// The requested-depth distribution as one line of buckets, which is
+        /// the reading the mean cannot give: a ceiling that is doing damage
+        /// shows up here as a pile against the last bucket below it and
+        /// nothing above, and a ceiling that is merely present shows up as a
+        /// tail that thins out on its own.
+        ///
+        /// Empty depths are skipped rather than printed as zeros -- a run
+        /// against one line occupies four or five buckets out of sixty-four.
+        /// </summary>
+        public static string DescribeDepths()
+        {
+            var text = new System.Text.StringBuilder("rewind depths asked (frames: shots):");
+            bool any = false;
+            for (int i = 0; i < DepthHistogram.Length; i++)
+            {
+                if (DepthHistogram[i] == 0)
+                {
+                    continue;
+                }
+                any = true;
+                text.Append($" {i}:{DepthHistogram[i]}");
+                if (i == MaxRewindFrames)
+                {
+                    text.Append("<-ceiling");
+                }
+            }
+            return any ? text.ToString() : "rewind depths asked: none";
+        }
+    }
+}

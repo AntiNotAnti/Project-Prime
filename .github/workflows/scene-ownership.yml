@@ -1,0 +1,62 @@
+name: scene ownership
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/nettest/**'
+      - 'tools/collision-query-check/**'
+      - 'global.json'
+      - '.github/workflows/scene-ownership.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/nettest/**'
+      - 'tools/collision-query-check/**'
+      - 'global.json'
+      - '.github/workflows/scene-ownership.yml'
+permissions:
+  contents: read
+jobs:
+  device-free-lifecycle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Build scene owner checks
+        run: dotnet build tools/nettest/nettest.csproj -c Release
+      - name: Observe eligible owner release without devices or assets
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --scene-lifetime
+      - name: Verify post-match save bytes, fencing and retries
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --post-match-save
+      - name: Verify campaign save copy and recoverable archive
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-save-management
+      - name: Verify adventure planet navigation and exit classification
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-navigation
+      - name: Verify real ship travel and completed save receipt
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-ship-flow
+      - name: Verify cinematic catalog and decoder startup failure policy
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-movies
+      - name: Verify movie decode worker cancellation, lifetime, and scene isolation
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-movie-lifetime
+      - name: Verify both Gorea endings and save completion handoff
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-endings
+      - name: Verify campaign journal, scan HUD and map projection
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-presentation
+      - name: Verify ship and ending audio routing and scene preemption
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-audio
+      - name: Verify full three-slot campaign progression and native save roundtrip
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-journey
+      - name: Verify campaign tutorials and dialogs accept keyboard and controller edges
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-dialog-input
+      - name: Verify Delano 7 is exclusive to Sylux story presentation
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --campaign-delano7
+      - name: Fence foreground release and cancelled room completion
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --foreground-binding
+      - name: Soak 10, 100 and 500 device-free owner/save handoffs
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release --no-build -- --lifecycle-soak
+      - name: Reuse nonempty nested collision and exception lease checks
+        run: dotnet run --project tools/collision-query-check/collision-query-check.csproj -c Release

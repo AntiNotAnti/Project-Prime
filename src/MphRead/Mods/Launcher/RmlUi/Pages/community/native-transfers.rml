@@ -1,0 +1,44 @@
+<rml>
+<head>
+    <title>Community downloads and transfer history</title>
+    <link type="text/rcss" href="../../themes/prime.rcss"/>
+    <link type="text/rcss" href="../../components/controls.rcss"/>
+    <link type="text/rcss" href="native-transfers.rcss"/>
+</head>
+<body>
+<div id="community_transfers" role="dialog" aria-labelledby="community_transfers_title">
+    <div class="eyebrow">COMMUNITY // LOCAL TRANSFERS</div>
+    <h1 id="community_transfers_title">DOWNLOADS &amp; HISTORY</h1>
+    <p id="community_transfers_status" role="status"/>
+    <div id="community_transfers_scroll">
+        <p id="community_transfers_detail" role="status" aria-live="polite"/>
+        <p id="community_transfers_confirmation" role="alert"/>
+        <p id="community_transfers_empty">No transfers have been queued on this device.</p>
+        <div class="community_transfers_rows">
+            <button id="community_transfers_row0" data-action="community:select:0"><b id="community_transfers_name0"/><span id="community_transfers_meta0"/></button>
+            <button id="community_transfers_row1" data-action="community:select:1"><b id="community_transfers_name1"/><span id="community_transfers_meta1"/></button>
+            <button id="community_transfers_row2" data-action="community:select:2"><b id="community_transfers_name2"/><span id="community_transfers_meta2"/></button>
+            <button id="community_transfers_row3" data-action="community:select:3"><b id="community_transfers_name3"/><span id="community_transfers_meta3"/></button>
+            <button id="community_transfers_row4" data-action="community:select:4"><b id="community_transfers_name4"/><span id="community_transfers_meta4"/></button>
+            <button id="community_transfers_row5" data-action="community:select:5"><b id="community_transfers_name5"/><span id="community_transfers_meta5"/></button>
+            <button id="community_transfers_row6" data-action="community:select:6"><b id="community_transfers_name6"/><span id="community_transfers_meta6"/></button>
+            <button id="community_transfers_row7" data-action="community:select:7"><b id="community_transfers_name7"/><span id="community_transfers_meta7"/></button>
+        </div>
+    </div>
+    <div class="community_transfers_tools">
+        <button id="community_transfers_action0" data-action="community:transfer:0">PAUSE</button>
+        <button id="community_transfers_action1" data-action="community:transfer:1">RESUME</button>
+        <button id="community_transfers_action2" data-action="community:transfer:2">CANCEL TRANSFER</button>
+        <button id="community_transfers_action3" data-action="community:transfer:3">REMOVE FROM HISTORY</button>
+        <button id="community_transfers_confirm" data-action="community:confirm">CONFIRM CHANGE</button>
+    </div>
+    <div class="community_transfers_tools">
+        <button id="community_transfers_previous" data-action="community:page:previous">PREVIOUS</button>
+        <span id="community_transfers_page">0 / 0</span>
+        <button id="community_transfers_next" data-action="community:page:next">NEXT</button>
+        <button id="community_transfers_refresh" data-action="community:refresh">REFRESH</button>
+        <button id="community_transfers_close" data-action="community:cancel">BACK TO COMMUNITY</button>
+    </div>
+</div>
+</body>
+</rml>

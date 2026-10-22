@@ -1,0 +1,119 @@
+using System;
+using System.Text.Json;
+using System.Net.Http;
+using System.Net.Sockets;
+using System.Security.Authentication;
+using System.Threading;
+using System.Threading.Tasks;
+using MphRead.Mods.Update;
+
+if (InstallationChecks.RunChild(args) is int workerResult) return workerResult;
+
+int failures = 0;
+void Check(bool pass, string description)
+{
+    Console.WriteLine($"{(pass ? "PASS" : "FAIL")} {description}");
+    if (!pass) failures++;
+}
+string Release(string tag) => JsonSerializer.Serialize(new
+{
+    tag_name = tag,
+    assets = new[]
+    {
+        new
+        {
+            name = $"ProjectPrime-{tag}-server-{UpdateCheck.Rid()}.zip",
+            browser_download_url = $"https://github.com/example/releases/{tag}/server.zip",
+            size = 100L,
+            digest = "sha256:" + new string('a', 64)
+        },
+        new
+        {
+            name = $"ProjectPrime-{tag}-{UpdateCheck.Rid()}.zip",
+            browser_download_url = $"https://github.com/example/releases/{tag}/client.zip",
+            size = 200L,
+            digest = "sha256:" + new string('b', 64)
+        }
+    }
+});
+Check(UpdateCheck.TransportFailureReason(new HttpRequestException("sensitive URL", new AuthenticationException("x")))
+    == "could not reach GitHub (TLS certificate validation or handshake failed)",
+    "managed Android TLS failures are distinguished from no-update");
+Check(UpdateCheck.TransportFailureReason(new HttpRequestException("private host", new SocketException((int)SocketError.HostNotFound)))
+    == "could not reach GitHub (DNS/socket HostNotFound)",
+    "managed Android DNS failures are identified without leaking host names");
+Check(UpdateCheck.TransportFailureReason(new TaskCanceledException())
+    == "could not reach GitHub (request timed out or cancelled)",
+    "timeouts cannot be confused with a current installation");
+Check(UpdateCheck.TransportFailureReason(new NotSupportedException("sensitive"))
+    == "could not reach GitHub (platform HTTP handler unsupported)",
+    "unsupported platform HTTP handler has a real reason");
+Check(!UpdateCheck.TransportFailureReason(new InvalidOperationException("token=private"))
+    .Contains("private", StringComparison.Ordinal), "network reasons never include raw exception secrets");
+Check(BuildVersion.Parse("v1.0.0") == new Version(1, 0, 0), "1.0.0 is a valid release tag");
+Check(BuildVersion.Parse("v1.0.0-rc1") == null, "prerelease channel stays manual");
+Check(BuildVersion.Parse("local") == null, "explicit local stamp is not a release");
+var update = UpdateCheck.Parse(Release("v1.0.0"), new Version(0, 9, 0));
+Check(update?.Version == new Version(1, 0, 0), "0.9.0 can update to 1.0.0");
+Check(update?.AssetName == $"ProjectPrime-v1.0.0-{UpdateCheck.Rid()}.zip",
+    "client picks the client package when the server asset is first");
+Check(update?.AssetDigest == "sha256:" + new string('b', 64),
+    "client keeps GitHub's SHA-256 release digest");
+Check(UpdateDownload.SupportsDigest(update?.AssetDigest ?? ""),
+    "GitHub SHA-256 digest is accepted for one-click install");
+Check(!UpdateDownload.SupportsDigest("sha1:" + new string('b', 40)),
+    "unsupported release digests are refused");
+Check(UpdateCheck.Parse(Release("v1.0.0"), new Version(1, 0, 0)) == null,
+    "same version is not offered again");
+Check(UpdateCheck.Parse(Release("v1.0.0"), new Version(1, 0, 1)) == null,
+    "a newer installation is not downgraded");
+Check(UpdateCheck.Parse(Release("v1.1.0-rc1"), new Version(1, 0, 0)) == null,
+    "prerelease is not offered as a stable update");
+
+string historyJson = "["
+    + Release("v1.2.0") + ","
+    + JsonSerializer.Serialize(new
+    {
+        tag_name = "v9.9.9",
+        draft = true,
+        prerelease = false,
+        assets = Array.Empty<object>()
+    }) + ","
+    + Release("v1.1.0") + ","
+    + JsonSerializer.Serialize(new
+    {
+        tag_name = "v1.3.0-rc1",
+        draft = false,
+        prerelease = true,
+        assets = Array.Empty<object>()
+    })
+    + "]";
+var history = UpdateCheck.ParseReleases(historyJson, 10);
+Check(history.Count == 2, "version manager keeps only published stable releases");
+Check(history.Count > 0 && history[0].Version == new Version(1, 2, 0),
+    "version manager keeps release ordering");
+Check(history.Count > 1 && history[1].Version == new Version(1, 1, 0),
+    "version manager includes older releases for explicit downgrade");
+Check(history.Count > 1 && UpdateDownload.SupportsDigest(history[1].AssetDigest),
+    "older release keeps its verified package digest");
+if (args.Length == 2 && args[0] == "--published-legacy-fixture")
+{
+    InstallationChecks.RunPublishedLegacyFixture(args[1], Check);
+    return failures == 0 ? 0 : 1;
+}
+if (args.Length == 3 && args[0] == "--candidate-release-swap")
+{
+    InstallationChecks.RunCandidateReleaseSwap(args[1], args[2], Check);
+    return failures == 0 ? 0 : 1;
+}
+if (args.Length == 0)
+    Check(!BuildVersion.IsRelease, "unstamped assembly remains a local build");
+else
+    Check(BuildVersion.Current == Version.Parse(args[0]), "assembly release stamp survives commit metadata");
+if (args.Length == 0)
+{
+    ArchiveChecks.Run(Check);
+    InstallationChecks.Run(Check);
+    DesktopUseChecks.Run(Check);
+}
+return failures == 0 ? 0 : 1;

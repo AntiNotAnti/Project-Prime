@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="../../src/MphRead/MphRead.csproj" /><ProjectReference Include="../../src/MphRead.CorpsePhysics/MphRead.CorpsePhysics.csproj" /></ItemGroup>
+  <ItemGroup><Compile Include="../nettest/Protocol83CheckpointFixtures.cs" Link="Protocol83CheckpointFixtures.cs" /><Compile Include="../nettest/Protocol84CheckpointFixtures.cs" Link="Protocol84CheckpointFixtures.cs" /></ItemGroup>
+</Project>

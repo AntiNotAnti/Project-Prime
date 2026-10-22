@@ -1,0 +1,451 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using MphRead.Mods.Network;
+
+namespace MphRead.Mods.Replay
+{
+    internal enum ReplaySegmentCamera
+    {
+        Current,
+        FirstPerson,
+        Chase,
+        Orbit,
+        Director
+    }
+
+    internal sealed record ReplayReelSegment(
+        Guid Id,
+        uint StartFrame,
+        uint EndFrame,
+        string Name,
+        ReplaySegmentCamera Camera);
+
+    internal sealed class ReplayReelDocument
+    {
+        public int Version { get; set; } = 1;
+        public string SourceReplay { get; set; } = "";
+        public List<ReplayReelSegment> Segments { get; set; } = new();
+    }
+
+    /// <summary>
+    /// Persistent non-destructive highlight-reel assembly. A reel is only a
+    /// list of source ranges and presentation choices, so reordering/trimming
+    /// never rewrites packet data.
+    /// </summary>
+    internal static partial class ReplayReels
+    {
+        public const string Extension = ".reel.json";
+        private static readonly JsonSerializerOptions JsonOptions = new()
+        {
+            WriteIndented = true
+        };
+
+        public static IReadOnlyList<ReplayReelSegment> Segments(string replay)
+            => Load(replay).Segments.ToArray();
+
+        public static ReplayReelSegment Add(string replay, uint start, uint end,
+            string? name = null, ReplaySegmentCamera camera = ReplaySegmentCamera.Current)
+        {
+            string source = RequireReplay(replay);
+            NormalizeRange(ref start, ref end);
+            ReplayReelDocument doc = Load(source);
+            var segment = new ReplayReelSegment(Guid.NewGuid(), start, end,
+                Clean(name, $"Segment {ReplayHud.Time(start)}-{ReplayHud.Time(end)}"),
+                camera);
+            doc.Segments.Add(segment);
+            Save(source, doc);
+            return segment;
+        }
+
+        public static int AddHighlights(string replay,
+            IEnumerable<ReplayHighlight> highlights, int limit = 8)
+        {
+            string source = RequireReplay(replay);
+            ReplayReelDocument doc = Load(source);
+            int added = 0;
+            var actors = new Dictionary<byte, int>();
+            foreach (ReplayHighlight highlight in highlights
+                .OrderByDescending(h => h.Score).ThenBy(h => h.FocusFrame)
+                .ThenBy(h => h.ActorSlot).ThenBy(h => h.TargetSlot).ThenBy(h => h.Kind))
+            {
+                int appearances = actors.GetValueOrDefault(highlight.ActorSlot);
+                if (highlight.ActorSlot < 8 && appearances >= 2) continue;
+                if (highlight.StartFrame >= highlight.EndFrame)
+                    continue;
+                if (added >= Math.Clamp(limit, 1, 32)) break;
+                // Preserve existing manual edits and avoid replaying the same interval twice.
+                if (doc.Segments.Any(s => highlight.StartFrame < s.EndFrame
+                    && s.StartFrame < highlight.EndFrame)) continue;
+                doc.Segments.Add(new ReplayReelSegment(Guid.NewGuid(),
+                    highlight.StartFrame, highlight.EndFrame, highlight.Label,
+                    ReplaySegmentCamera.Director));
+                added++;
+                actors[highlight.ActorSlot] = appearances + 1;
+            }
+            if (added > 0)
+                Save(source, doc);
+            return added;
+        }
+
+        public static void Move(string replay, Guid id, int delta)
+        {
+            string source = RequireReplay(replay);
+            ReplayReelDocument doc = Load(source);
+            int from = doc.Segments.FindIndex(segment => segment.Id == id);
+            if (from < 0)
+                return;
+            int to = Math.Clamp(from + Math.Sign(delta), 0, doc.Segments.Count - 1);
+            if (from == to)
+                return;
+            ReplayReelSegment value = doc.Segments[from];
+            doc.Segments.RemoveAt(from);
+            doc.Segments.Insert(to, value);
+            Save(source, doc);
+        }
+
+        public static void Trim(string replay, Guid id, uint start, uint end)
+        {
+            string source = RequireReplay(replay);
+            NormalizeRange(ref start, ref end);
+            ReplayReelDocument doc = Load(source);
+            int index = doc.Segments.FindIndex(segment => segment.Id == id);
+            if (index < 0)
+                return;
+            doc.Segments[index] = doc.Segments[index] with
+            {
+                StartFrame = start,
+                EndFrame = end
+            };
+            Save(source, doc);
+        }
+
+        public static void CycleCamera(string replay, Guid id)
+        {
+            string source = RequireReplay(replay);
+            ReplayReelDocument doc = Load(source);
+            int index = doc.Segments.FindIndex(segment => segment.Id == id);
+            if (index < 0)
+                return;
+            int count = Enum.GetValues<ReplaySegmentCamera>().Length;
+            ReplaySegmentCamera next = (ReplaySegmentCamera)
+                (((int)doc.Segments[index].Camera + 1) % count);
+            doc.Segments[index] = doc.Segments[index] with { Camera = next };
+            Save(source, doc);
+        }
+
+        public static void Remove(string replay, Guid id)
+        {
+            string source = RequireReplay(replay);
+            ReplayReelDocument doc = Load(source);
+            if (doc.Segments.RemoveAll(segment => segment.Id == id) > 0)
+                Save(source, doc);
+        }
+
+        public static void Clear(string replay)
+        {
+            string source = RequireReplay(replay);
+            ReplayReelDocument doc = Load(source);
+            doc.Segments.Clear();
+            Save(source, doc);
+        }
+
+        public static void DeleteFor(string replay)
+        {
+            if (String.IsNullOrWhiteSpace(replay))
+                return;
+            try { File.Delete(Sidecar(replay)); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+        }
+
+        private static ReplayReelDocument Load(string replay)
+        {
+            string source = ReplayVirtualClips.LogicalPath(replay);
+            try
+            {
+                string sidecar = Sidecar(source);
+                if (!File.Exists(sidecar))
+                    return New(source);
+                ReplayReelDocument? doc = JsonSerializer.Deserialize<ReplayReelDocument>(
+                    File.ReadAllText(sidecar), JsonOptions);
+                if (doc is not { Version: 1 })
+                    return New(source);
+                doc.SourceReplay = source;
+                doc.Segments ??= new List<ReplayReelSegment>();
+                doc.Segments.RemoveAll(segment => segment is null || segment.StartFrame >= segment.EndFrame
+                    || segment.EndFrame > ReplayFormatV3.MaxFrame
+                    || String.IsNullOrWhiteSpace(segment.Name));
+                return doc;
+            }
+            catch (Exception ex) when (ex is IOException
+                or UnauthorizedAccessException or JsonException)
+            {
+                return New(source);
+            }
+        }
+
+        private static ReplayReelDocument New(string source)
+            => new() { SourceReplay = source };
+
+        private static void Save(string replay, ReplayReelDocument doc)
+        {
+            string sidecar = Sidecar(replay);
+            Directory.CreateDirectory(Path.GetDirectoryName(sidecar)!);
+            File.WriteAllText(sidecar, JsonSerializer.Serialize(doc, JsonOptions));
+        }
+
+        private static string RequireReplay(string replay)
+        {
+            if (String.IsNullOrWhiteSpace(replay))
+                throw new ArgumentException("No replay is open.", nameof(replay));
+            string source = ReplayVirtualClips.LogicalPath(replay);
+            if (!File.Exists(source))
+                throw new FileNotFoundException("The replay no longer exists.", source);
+            return source;
+        }
+
+        private static string Sidecar(string replay)
+            => ReplayVirtualClips.LogicalPath(replay) + Extension;
+
+        private static void NormalizeRange(ref uint start, ref uint end)
+        {
+            if (start > end)
+                (start, end) = (end, start);
+            if (start >= end)
+                throw new ArgumentOutOfRangeException(nameof(end));
+        }
+
+        private static string Clean(string? name, string fallback)
+        {
+            string value = String.IsNullOrWhiteSpace(name) ? fallback : name.Trim();
+            return value.Length <= 80 ? value : value[..80];
+        }
+    }
+
+    internal readonly record struct ReplayExportPreset(
+        string Name,
+        ReplayVideoResolution Resolution,
+        int Fps,
+        bool GameHud,
+        bool ReplayOverlay = false);
+
+    internal static class ReplayExportPresets
+    {
+        public static readonly ReplayExportPreset[] All =
+        {
+            new("Balanced 1080p60", ReplayVideoResolution.P1080, 60, false),
+            new("Cinema 1080p24", ReplayVideoResolution.P1080, 24, false),
+            new("Smooth 1080p120", ReplayVideoResolution.P1080, 120, false),
+            new("Broadcast 1440p60", ReplayVideoResolution.P1440, 60, false),
+            new("Archive 4K60", ReplayVideoResolution.P2160, 60, false),
+            new("HUD 1080p60", ReplayVideoResolution.P1080, 60, true)
+        };
+    }
+
+    internal static class ReplayExportRates
+    {
+        public static readonly int[] Supported = { 24, 30, 48, 60, 90, 120, 144 };
+        public static bool IsSupported(int fps) => Array.IndexOf(Supported, fps) >= 0;
+    }
+
+    internal static partial class ReplayExportQueue
+    {
+        // One active render/encoder is owned separately by ReplayVideoExporter.
+        internal const int MaximumPending = 8;
+        private static readonly object Gate = new();
+        private static readonly Queue<ReplayVideoExportManifest> Pending = new();
+        private static ReplayVideoExportManifest? _last, _failed;
+        private static readonly List<string> Failures = new();
+        private static volatile string[] _failureSnapshot = Array.Empty<string>();
+        private static bool _starting;
+        private static string _status = "Export queue idle.";
+        internal static IReadOnlyList<string> RecentFailures => _failureSnapshot;
+        internal static void NoteFailure(ReplayVideoExportManifest? job, string error)
+        {
+            lock (Gate)
+            {
+                if (job != null) { _failed = job; _nativeRetry = job; }
+                _ownershipRevision++;
+                Failures.Add(DateTime.Now.ToString("HH:mm") + " · " + (error.Length > 180 ? error[..180] + "…" : error));
+                if (Failures.Count > 5) Failures.RemoveAt(0);
+                _failureSnapshot = Failures.ToArray();
+            }
+        }
+
+        public static int PendingCount { get { lock (Gate) return Pending.Count; } }
+        public static string Status { get { lock (Gate) return _status; } }
+
+        // UI preflights before creating output directories and manifests. Actual
+        // admission repeats the check atomically with enqueue for every caller.
+        public static bool CheckCapacity()
+        {
+            lock (Gate) return CheckCapacityLocked();
+        }
+        private static bool CheckCapacityLocked()
+        {
+            if (Pending.Count < MaximumPending) return true;
+            _status = "Export queue is full. Wait for an export to finish or clear pending exports.";
+            return false;
+        }
+
+        public static bool Enqueue(ReplayVideoExportManifest manifest)
+        {
+            lock (Gate)
+            {
+                if (!CheckCapacityLocked()) return false;
+                Pending.Enqueue(manifest);
+                _ownershipRevision++;
+                _last = manifest;
+                _status = $"Queued {Pending.Count} export{(Pending.Count == 1 ? "" : "s")}.";
+                return true;
+            }
+        }
+
+        public static bool Pump()
+            => Pump(static () => ReplayVideoExporter.Active, ReplayVideoExporter.Start,
+                static () => ReplayVideoExporter.Status, static () => ReplayVideoExporter.HasOwnedJob);
+
+        // The scheduling seam also permits device-free recursion/failure checks.
+        internal static bool Pump(Func<bool> isActive, Func<ReplayVideoExportManifest, bool> start,
+            Func<string> getStatus, Func<bool>? currentActive = null)
+        {
+            if (isActive()) return true;
+            ReplayVideoExportManifest next;
+            lock (Gate)
+            {
+                // The first poll may precede another caller's completed start.
+                // Recheck ownership here; the production predicate only reads fields.
+                if (_starting || (currentActive ?? isActive)()) return true;
+                if (Pending.Count == 0) return false;
+                next = Pending.Dequeue();
+                _ownershipRevision++;
+                _last = next;
+                _starting = true;
+            }
+            try
+            {
+                // Renderer/encoder work never runs while the queue gate is held.
+                string? ownerError = ValidateOwnedStart(next);
+                if (ownerError != null)
+                {
+                    NoteFailure(next, ownerError);
+                    lock (Gate) _status = ownerError;
+                    return false;
+                }
+                if (!start(next))
+                {
+                    string failure = getStatus();
+                    NoteFailure(next, failure);
+                    lock (Gate) _status = failure;
+                    return false;
+                }
+                lock (Gate)
+                    _status = $"Rendering {(next.PresetName.Length == 0 ? "export" : next.PresetName)}"
+                        + $" · {Pending.Count} queued after this.";
+                return true;
+            }
+            finally { lock (Gate) _starting = false; }
+        }
+
+        public static void CancelActive()
+        {
+            if (ReplayVideoExporter.Active)
+                ReplayVideoExporter.Cancel();
+            lock (Gate) _status = $"Export cancelled · {Pending.Count} still queued.";
+        }
+
+        public static bool RetryLast()
+        {
+            lock (Gate)
+            {
+                var retry = _failed ?? _last;
+                if (retry == null)
+                {
+                    _status = "Nothing to retry.";
+                    return false;
+                }
+                if (!CheckCapacityLocked()) return false;
+                Pending.Enqueue(retry);
+                _ownershipRevision++;
+                _status = "Last export queued again.";
+                return true;
+            }
+        }
+
+        internal static void NoteFinished(string status)
+        {
+            lock (Gate)
+            {
+                _ownershipRevision++;
+                _status = Pending.Count == 0
+                    ? status
+                    : $"{status} {Pending.Count} export{(Pending.Count == 1 ? "" : "s")} queued.";
+            }
+        }
+
+        public static void ClearPending()
+        {
+            bool active = ReplayVideoExporter.Active;
+            lock (Gate)
+            {
+                Pending.Clear();
+                _ownershipRevision++;
+                _status = active
+                    ? "Pending exports cleared; current render continues."
+                    : "Export queue cleared.";
+            }
+        }
+    }
+
+    internal sealed record ReplayVideoSegment(
+        uint StartFrame,
+        uint EndFrame,
+        string Name,
+        ReplaySegmentCamera Camera);
+
+    internal static partial class ReplayVideoExport
+    {
+        public static ReplayVideoExportManifest CreatePresetManifest(
+            string replay, uint startFrame, uint endFrame,
+            ReplayExportPreset preset, bool? cleanHud = null,
+            bool director = false, bool cameraTrack = true,
+            bool? gameHud = null, bool? replayOverlay = null)
+        {
+            bool includeGameHud = gameHud ?? (cleanHud.HasValue ? !cleanHud.Value : preset.GameHud);
+            bool includeReplayOverlay = replayOverlay ?? preset.ReplayOverlay;
+            ReplayVideoExportManifest manifest = CreateManifest(replay,
+                startFrame, endFrame, preset.Resolution, preset.Fps,
+                cleanHud: !includeGameHud, director: director, cameraTrack: cameraTrack,
+                gameHud: includeGameHud, replayOverlay: includeReplayOverlay);
+            return manifest with { PresetName = preset.Name };
+        }
+
+        public static ReplayVideoExportManifest CreateReelManifest(
+            string replay, IReadOnlyList<ReplayReelSegment> segments,
+            ReplayExportPreset preset, bool? cleanHud = null,
+            bool? gameHud = null, bool? replayOverlay = null)
+        {
+            if (segments.Count == 0)
+                throw new ArgumentException("The highlight reel is empty.", nameof(segments));
+
+            bool includeGameHud = gameHud ?? (cleanHud.HasValue ? !cleanHud.Value : preset.GameHud);
+            bool includeReplayOverlay = replayOverlay ?? preset.ReplayOverlay;
+            ReplayReelSegment first = segments[0];
+            uint maxEnd = segments.Max(segment => segment.EndFrame);
+            ReplayVideoExportManifest manifest = CreateManifest(replay,
+                first.StartFrame, maxEnd, preset.Resolution, preset.Fps,
+                cleanHud: !includeGameHud, director: false, cameraTrack: false,
+                gameHud: includeGameHud, replayOverlay: includeReplayOverlay);
+            ReplayVideoSegment[] ranges = segments.Select(segment =>
+                new ReplayVideoSegment(segment.StartFrame, segment.EndFrame,
+                    segment.Name, segment.Camera)).ToArray();
+            return manifest with
+            {
+                Segments = ranges,
+                PresetName = preset.Name + " reel"
+            };
+        }
+    }
+}

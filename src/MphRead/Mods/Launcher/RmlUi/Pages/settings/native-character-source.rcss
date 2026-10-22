@@ -1,0 +1,10 @@
+#source_stage { position: absolute; left: 4%; top: 4%; width: 92%; height: 92%; display: flex; flex-direction: column; }
+#source_stage .eyebrow { flex: 0 0 auto; }
+#source_stage h1 { flex: 0 0 auto; font-size: 24dp; line-height: 28dp; margin: 4dp 0; }
+#source_hint { flex: 0 0 auto; font-size: 12dp; line-height: 16dp; margin: 4dp 0; }
+#source_panel { position: relative; flex: 1 1 auto; min-height: 64dp; width: 100%; margin: 8dp 0; background-color: #07141ee8; border: 1dp #307281; }
+#source_preview { position: absolute; left: 1%; top: 2%; width: 60%; height: 96%; }
+.source_controls { position: absolute; left: 64%; top: 3%; width: 33%; height: 94%; overflow-y: auto; }
+.source_controls button { display: block; width: 95%; margin: 3dp 0; }
+#source_status, #source_render_status { flex: 0 0 auto; font-size: 12dp; line-height: 16dp; max-height: 32dp; overflow-y: auto; margin: 4dp 0; }
+#source_back { flex: 0 0 auto; align-self: flex-start; min-height: 28dp; margin-top: 4dp; }

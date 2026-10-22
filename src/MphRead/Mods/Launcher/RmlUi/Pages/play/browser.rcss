@@ -1,0 +1,319 @@
+/* Shared authored play rules, extracted from prime_home.rcss. */
+#multiplayer_stage {
+position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+}
+
+#play_header {
+position: absolute;
+    left: 52dp;
+    top: 25dp;
+    width: 570dp;
+}
+
+.play_title {
+font-size: 31dp;
+    line-height: 34dp;
+    font-weight: bold;
+    color: #ffffff;
+    letter-spacing: 0.8dp;
+}
+
+.play_status {
+margin-top: 4dp;
+    color: #78caff;
+    font-family: "JetBrains Mono";
+    font-size: 10dp;
+    line-height: 14dp;
+}
+
+#play_browser {
+position: absolute;
+    left: 52dp;
+    top: 128dp;
+    width: 57%;
+}
+
+.play_panel {
+width: 100%;
+    max-height: 446dp;
+    padding: 10dp;
+    overflow-y: auto;
+    background-color: rgba(2,11,21,84%);
+    border: 1dp rgba(97,182,246,18%);
+    border-left: 2dp rgba(114,199,255,50%);
+}
+
+.play_panel_head {
+display: flex;
+    justify-content: space-between;
+    padding: 2dp 5dp 8dp;
+    color: #72c7ff;
+    font-family: "JetBrains Mono";
+    font-size: 9dp;
+    letter-spacing: 0.8dp;
+}
+
+.play_server {
+display: block;
+    width: 100%;
+    min-height: 49dp;
+    margin-bottom: 4dp;
+    padding: 7dp 11dp;
+    text-align: left;
+    color: #d6e7f4;
+    background-color: rgba(8,31,52,72%);
+    border-left: 2dp rgba(72,154,234,60%);
+    border-top: 1dp rgba(114,199,255,12%);
+}
+
+.play_server:hover,
+.play_server:focus {
+color: #ffffff;
+    border-left-color: #72c7ff;
+    background-color: rgba(24,81,132,88%);
+}
+
+.play_server b {
+display: block;
+    font-size: 13dp;
+    line-height: 16dp;
+    font-weight: bold;
+}
+
+.play_server span {
+display: block;
+    margin-top: 2dp;
+    color: #80a2bc;
+    font-family: "JetBrains Mono";
+    font-size: 8dp;
+    line-height: 11dp;
+}
+
+.play_empty {
+padding: 20dp 8dp;
+    color: #7892a9;
+    font-size: 11dp;
+    line-height: 15dp;
+}
+
+#play_connect {
+position: absolute;
+    right: 52dp;
+    top: 128dp;
+    width: 270dp;
+    padding: 14dp;
+    background-color: rgba(3,13,23,78%);
+    border: 1dp rgba(97,182,246,17%);
+    border-left: 2dp rgba(114,199,255,40%);
+}
+
+#play_create {
+position: absolute;
+    left: 52dp;
+    top: 128dp;
+    width: 450dp;
+    padding: 18dp;
+    bottom: 14dp;
+    max-height: 500dp;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background-color: rgba(3,13,23,86%);
+    border: 1dp rgba(97,182,246,19%);
+    border-left: 3dp #2b9ef7;
+}
+
+#play_create .play_toolbar {
+margin-top: 14dp;
+    margin-bottom: 0;
+}
+
+#play_quick {
+nav-left: #play_create_open; nav-right: #play_refresh;
+}
+
+#play_create_open {
+nav-up: #nav_play; nav-right: #play_quick; nav-down: #play_entry0;
+}
+
+#play_refresh {
+nav-left: #play_quick; nav-right: #play_back;
+}
+
+#play_back {
+nav-left: #play_refresh;
+}
+
+#play_join {
+nav-up: #play_join_address;
+}
+
+#play_next_map {
+nav-down: #play_next_mode;
+}
+
+#play_next_mode {
+nav-up: #play_next_map; nav-down: #play_toggle_host;
+}
+
+#play_toggle_host {
+nav-up: #play_next_mode; nav-down: #play_create_submit;
+}
+
+#play_create_submit {
+nav-up: #play_toggle_host; nav-right: #play_create_cancel;
+}
+
+#play_create_cancel {
+nav-left: #play_create_submit;
+}
+
+@media (max-width: 1500dp) {
+#play_header,
+#play_browser,
+#play_create {
+left: 28dp;
+}
+#play_connect {
+right: 28dp; width: 240dp;
+}
+#play_browser {
+width: 55%;
+}
+#play_create {
+width: 415dp;
+}
+}
+
+@media (max-width: 900dp) {
+#play_header,
+#play_browser,
+#play_create {
+left: 18dp;
+}
+#play_header {
+top: 15dp; width: 430dp;
+}
+.play_title {
+font-size: 24dp; line-height: 27dp;
+}
+#play_browser,
+#play_create {
+top: 92dp;
+}
+#play_browser {
+width: 56%;
+}
+#play_connect {
+top: 92dp; right: 15dp; width: 210dp; padding: 10dp;
+}
+#play_create {
+width: 380dp;
+}
+.play_panel {
+max-height: 300dp;
+}
+}
+
+@media (max-height: 760dp) {
+#play_browser,
+#play_connect,
+#play_create {
+top: 98dp;
+}
+.play_panel {
+max-height: 260dp;
+}
+.play_server {
+min-height: 40dp; padding-top: 5dp; padding-bottom: 5dp;
+}
+}
+
+.play_search {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8dp;
+    margin-bottom: 6dp;
+    background-color: rgba(8,31,52,92%);
+    color: #78caff;
+    font-size: 10dp;
+}
+.play_action:disabled, .play_server:disabled { opacity: 0.45; }
+#multiplayer_stage { overflow-y:auto; overflow-x:hidden; }
+@media (max-height:500dp) {
+    #play_header { top:9dp; }
+    .play_title { font-size:21dp; line-height:24dp; }
+    .play_status { font-size:8dp; line-height:11dp; max-height:22dp; overflow:hidden; }
+    #play_browser, #play_connect, #play_create { top:70dp; }
+    #play_connect { padding:6dp; }
+    #play_connect .eyebrow { font-size:8dp; line-height:10dp; }
+    #play_connect .play_form_label { margin:5dp 0 3dp; font-size:8dp; line-height:10dp; }
+    #play_connect .play_input { height:24dp; padding:3dp 5dp; font-size:10dp; }
+    #play_connect #play_join { min-height:24dp; padding:4dp 6dp; margin-top:5dp; font-size:9dp; line-height:11dp; }
+    #play_connect .play_form_hint { margin-top:4dp; font-size:7dp; line-height:9dp; }
+    #play_browser .play_toolbar { min-height:28dp; margin-bottom:6dp; flex-wrap:wrap; }
+    #play_browser .play_action { min-width:64dp; padding:5dp 6dp; margin-right:4dp; font-size:9dp; line-height:12dp; }
+    .play_search { padding:5dp; font-size:8dp; }
+    #play_create { padding:8dp; }
+    #play_create .play_section_title { font-size:15dp; line-height:18dp; }
+    #play_create .play_form_label { margin:6dp 0 3dp; font-size:8dp; line-height:10dp; }
+    #play_create .play_input { height:25dp; padding:3dp 5dp; font-size:11dp; }
+    #play_create .play_choice { min-height:28dp; padding:5dp 7dp; font-size:10dp; }
+    #play_create .play_form_hint { margin-top:4dp; font-size:7dp; line-height:9dp; }
+    #play_create .play_toolbar { margin-top:8dp; flex-wrap:wrap; }
+    #play_create .play_action { min-height:28dp; padding:5dp 7dp; font-size:9dp; }
+}
+
+/* Let the list consume available stage height, rather than capping it at
+   260dp on every 720p window. Keep one intentional list scroller. */
+#play_header { top:16dp; left:24dp; max-width:90%; }
+#play_browser { left:24dp; top:88dp; bottom:16dp; width:64%; display:flex; flex-direction:column; min-height:0; }
+#play_browser .play_toolbar, #play_search { flex-shrink:0; flex-wrap:wrap; }
+#play_browser .play_panel { flex:1; min-height:0; max-height:none; overflow-x:hidden; }
+#play_connect { top:88dp; right:24dp; width:27%; max-width:320dp; bottom:16dp; overflow-y:auto; overflow-x:hidden; }
+.play_server { min-height:44dp; padding:6dp 8dp; white-space:normal; word-break:break-word; }
+#play_create { top:88dp; left:24dp; width:52%; max-width:620dp; max-height:none; padding:16dp; }
+@media (max-width:800dp) {
+    #play_header { left:12dp; }
+    #play_browser { left:12dp; width:60%; }
+    #play_connect { right:12dp; width:33%; padding:8dp; }
+    #play_create { left:12dp; width:94%; }
+    #play_browser .play_action { min-height:32dp; }
+}
+@media (max-height:500dp) {
+    #play_header { top:8dp; }
+    #play_browser, #play_connect, #play_create { top:64dp; bottom:8dp; }
+}
+
+/* The connection panel is capped, so a percentage-width list leaves a growing
+   empty column on wide displays. Size the directory from its actual neighbour. */
+#play_browser { width:auto; right:368dp; }
+#play_connect { width:320dp; }
+.play_server { display:flex; align-items:center; justify-content:space-between; }
+.play_server b { width:60%; min-width:0; padding-right:12dp; }
+.play_server span { width:40%; min-width:0; margin-top:0; font-size:11dp; line-height:15dp; text-align:right; }
+/* Creation actions belong to the sheet, independently of its scrollable form. */
+#play_create { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+#play_create > .eyebrow, #play_create > .play_section_title { flex-shrink:0; }
+.play_create_fields { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+#play_create .play_create_actions { flex-shrink:0; flex-wrap:wrap; }
+@media (max-width:1200dp) {
+    #play_browser { right:308dp; }
+    #play_connect { width:260dp; }
+}
+@media (max-width:800dp) {
+    #play_browser { width:60%; right:auto; }
+    #play_connect { width:33%; }
+    .play_server { display:block; }
+    .play_server b, .play_server span { width:100%; padding-right:0; text-align:left; }
+    .play_server span { margin-top:3dp; }
+}
+
+.play_choice_navigation { display:flex; align-items:stretch; margin-bottom:8dp; }
+.play_choice_navigation .play_previous { flex:0 0 32dp; width:32dp; margin-right:4dp; background-color:#14283a; color:#d8f3ff; border:1dp #29485e; font-size:18dp; }
+.play_choice_navigation .play_choice { flex:1; min-width:0; width:auto; margin-bottom:0; }
+.play_choice_navigation .play_previous:hover, .play_choice_navigation .play_previous:focus { border-color:#72c7ff; }

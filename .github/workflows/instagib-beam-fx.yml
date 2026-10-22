@@ -1,0 +1,61 @@
+name: Insta-Gib beam FX
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/MphRead/Mods/Render/InstagibIonFracture.cs'
+      - 'src/MphRead/Mods/Sound/InstagibBeamAudio.cs'
+      - 'src/MphRead/Mods/Replay/ReplayAudioOwner.cs'
+      - 'src/MphRead/Mods/Cosmetics/**'
+      - 'src/MphRead/Entities/BeamProjectileEntity.cs'
+      - 'src/MphRead/Sound/Sfx.cs'
+      - 'tools/nettest/InstagibIonFractureTests.cs'
+      - 'tools/nettest/InstagibAudioOwnershipTests.cs'
+      - 'tools/rmlui-hunter-check/**'
+      - 'src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/**'
+      - 'tools/instagib/check_native_beam_actions.py'
+      - '.github/workflows/instagib-beam-fx.yml'
+  pull_request:
+    paths:
+      - 'src/MphRead/Mods/Render/InstagibIonFracture.cs'
+      - 'src/MphRead/Mods/Sound/InstagibBeamAudio.cs'
+      - 'src/MphRead/Mods/Replay/ReplayAudioOwner.cs'
+      - 'src/MphRead/Mods/Cosmetics/**'
+      - 'src/MphRead/Entities/BeamProjectileEntity.cs'
+      - 'src/MphRead/Sound/Sfx.cs'
+      - 'tools/nettest/InstagibIonFractureTests.cs'
+      - 'tools/nettest/InstagibAudioOwnershipTests.cs'
+      - 'tools/rmlui-hunter-check/**'
+      - 'src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/**'
+      - 'tools/instagib/check_native_beam_actions.py'
+      - '.github/workflows/instagib-beam-fx.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: beam-fx-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  beam-catalog-and-replay:
+    name: Beam catalog, replay, native picker and audio contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Compile project and effect renderer
+        run: dotnet build src/MphRead/MphRead.csproj -c Release
+      - name: Verify each procedural beam and its audio waveform
+        run: dotnet run --project tools/nettest/nettest.csproj -c Release -- --instagib-ion-fracture
+      - name: Verify catalog persistence, multiplayer wire and replay restoration
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -cosmeticscheck
+      - name: Verify native and managed beam selector ABI and License navigation
+        run: python3 tools/instagib/check_native_beam_actions.py
+      - name: Verify native Hunter beam and tint drafts
+        run: dotnet run --project tools/rmlui-hunter-check -c Release

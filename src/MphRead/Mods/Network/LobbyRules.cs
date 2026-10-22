@@ -1,0 +1,111 @@
+using System;
+using MphRead.Mods.Multiplayer;
+
+namespace MphRead.Mods.Network
+{
+    public static class LobbyRules
+    {
+        public static TeamLayout ResolveTeamLayout(MatchDefinition match) => !GameState.IsTeamMode(match.Mode) ? default
+            : match.Format switch
+            {
+                MatchFormat.OneVsOne => new(2, 1, 1),
+                MatchFormat.TwoVsTwo => new(2, 2, 2),
+                MatchFormat.ThreeVsThree => new(2, 3, 3),
+                MatchFormat.TwoVsTwoVsTwoVsTwo => new(4, 2, 2, 2, 2),
+                MatchFormat.Custom => match.CustomTeams,
+                _ => new(2, 4, 4)
+            };
+        public static int TeamCount(MatchDefinition match) => ResolveTeamLayout(match).TeamCount;
+        public static int TeamCapacity(MatchDefinition match, int team) => ResolveTeamLayout(match).Capacity(team);
+        public static bool ExactTeams(MatchDefinition match) => GameState.IsTeamMode(match.Mode) && match.Format != MatchFormat.Auto;
+        public static bool UsesVanillaDuelResources(MatchDefinition match) =>
+            match.VanillaDuelResources && match.Format == MatchFormat.OneVsOne
+            && match.Mode == GameMode.BattleTeams;
+
+        public static MatchWorldProfile ResolveWorldProfile(MatchDefinition match, int maxPlayers) =>
+            UsesVanillaDuelResources(match)
+                ? new MatchWorldProfile(2, ResourceSpawnProfile.Vanilla)
+                : MatchWorldProfile.Resolve(ExactTeams(match) ? ResolveTeamLayout(match).TotalPlayers : maxPlayers);
+
+        public static LobbyResultCode ValidateDefinition(MatchDefinition match, out string reason, bool allowRetiredEnhanced = false)
+        {
+            reason = "";
+            if (match.PackagedWeaponAvailable && !match.RiftlineM7Available)
+            { reason = "Package availability requires custom world pickups."; return LobbyResultCode.InvalidConfiguration; }
+            if (match.RiftlineM7Available && !CustomWeapons.CustomWeaponMatchPolicy.TryAdmit(
+                match.Mode, match.Rules, online: false, bots: 0, out reason))
+                return LobbyResultCode.InvalidConfiguration;
+            if (!MatchModifierRules.Validate(match, out reason, allowRetiredEnhanced)) return LobbyResultCode.InvalidConfiguration;
+            if (String.IsNullOrWhiteSpace(match.RoomKey) || match.RoomKey.Length > HostRequestPacket.MaxRoomBytes
+                || !Enum.IsDefined(match.Format) || !Enum.IsDefined(match.Mode)
+                || match.Mode is GameMode.SinglePlayer or GameMode.None)
+                reason = "Choose a multiplayer map and mode.";
+            else if (match.Format != MatchFormat.Auto
+                && GameState.IsTeamMode(match.Mode) != (match.Format != MatchFormat.FreeForAll))
+                reason = "Choose a team mode for a team format, or a free-for-all mode for FFA.";
+            else if (GameState.IsTeamMode(match.Mode) && !ResolveTeamLayout(match).IsValid)
+                reason = "Use 2 to 4 nonempty teams, zero inactive capacities, and at most 8 players.";
+            else if (match.Mode == GameMode.Capture && TeamCount(match) != 2)
+                reason = "Capture requires exactly two teams because maps have two bases.";
+            return reason.Length == 0 ? LobbyResultCode.Ok : LobbyResultCode.InvalidConfiguration;
+        }
+
+        public static LobbyResultCode Validate(MatchDefinition match, RosterPacket roster,
+            bool requireReady, out string reason)
+        {
+            var result = ValidateDefinition(match, out reason);
+            if (result != LobbyResultCode.Ok) return result;
+            if (match.RiftlineM7Available&&!CustomWeapons.CustomAuthorityCombatAdapter.AuthorityBotsEnabled)
+                for (int slot = 0; slot < roster.Count; slot++)
+                    if (roster.IsBot(slot))
+                    { reason = "Online Riftline M7 matches require human players without bots."; return LobbyResultCode.InvalidConfiguration; }
+            TeamLayout layout = ResolveTeamLayout(match);
+            int required = match.Mode == GameMode.OneInTheChamber || layout.TeamCount > 0
+                ? 2
+                : match.Format == MatchFormat.FreeForAll ? 2 : 1;
+            if (roster.Count < required)
+            {
+                reason = $"At least {required} players must join.";
+                return LobbyResultCode.NotEnoughPlayers;
+            }
+
+            Span<int> counts = stackalloc int[4];
+            counts.Clear();
+            for (int i = 0; i < roster.Count; i++)
+            {
+                if (layout.TeamCount > 0)
+                {
+                    int team = roster.Teams[i];
+                    if (team < 0 || team >= layout.TeamCount)
+                    { reason = "Every player needs a valid team."; return LobbyResultCode.InvalidTeam; }
+                    counts[team]++;
+                }
+                if (requireReady && !roster.IsBot(i) && !roster.LobbyReady[i])
+                { reason = $"Waiting for {roster.Names[i]} to ready."; return LobbyResultCode.PlayersNotReady; }
+            }
+
+            if (layout.TeamCount > 0)
+            {
+                int occupiedTeams = 0;
+                for (int team = 0; team < layout.TeamCount; team++)
+                {
+                    int capacity = layout.Capacity(team);
+                    if (counts[team] > capacity)
+                    {
+                        reason = $"Team {(char)('A' + team)} is full ({counts[team]}/{capacity}).";
+                        return LobbyResultCode.InvalidTeam;
+                    }
+                    if (counts[team] > 0) occupiedTeams++;
+                }
+                if (occupiedTeams < 2)
+                {
+                    reason = "At least two teams need a player.";
+                    return LobbyResultCode.InvalidTeam;
+                }
+            }
+
+            reason = "Ready to start.";
+            return LobbyResultCode.Ok;
+        }
+    }
+}

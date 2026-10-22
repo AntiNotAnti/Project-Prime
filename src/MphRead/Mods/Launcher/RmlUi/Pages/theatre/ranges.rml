@@ -1,0 +1,11 @@
+<rml><head><title>Replay range actions</title><link type="text/template" href="../../components/dialog.rml"/><link type="text/rcss" href="theatre.rcss"/></head>
+<body template="prime-dialog"><div id="replay_range_panel" class="prime_dialog">
+<h2>REPLAY RANGE</h2><p id="replay_range_replay"/><p id="replay_range_selection"/>
+<div class="theatre_actions"><button id="replay_range_mark_in" class="play_action" data-action="replay:mark-in">MARK IN AT PLAYHEAD</button><button id="replay_range_mark_out" class="play_action" data-action="replay:mark-out">MARK OUT AT PLAYHEAD</button></div>
+<label for="replay_range_name">Highlight or clip name</label><input id="replay_range_name" class="play_input" type="text" maxlength="80" value=""/>
+<div class="theatre_actions"><button id="replay_range_highlight" class="play_action primary" data-action="replay:range-save-highlight">SAVE NAMED HIGHLIGHT</button><button id="replay_range_virtual" class="play_action primary" data-action="replay:range-create-virtual">CREATE VIRTUAL CLIP</button></div>
+<div class="theatre_actions"><button id="replay_range_materialized" class="play_action primary" data-action="replay:range-save-materialized">SAVE REPLAY CLIP</button><button id="replay_range_cancel_save" class="play_action" data-action="replay:range-cancel-materialized">CANCEL CLIP SAVE</button></div>
+<p>A replay clip is a standalone recording. A virtual clip refers to the original replay, which must be kept to watch it later.</p>
+<p id="replay_range_status"/><p id="replay_range_error" class="bookmark_error"/>
+<div class="theatre_actions"><button id="replay_range_refresh" class="play_action" data-action="replay:range-refresh">REFRESH SELECTION</button><button id="replay_range_close" class="play_action" data-action="replay:range-cancel">RETURN TO PLAYBACK</button></div>
+</div></body></rml>

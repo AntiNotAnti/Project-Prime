@@ -1,0 +1,384 @@
+# Architecture invariants
+
+This file is the short, machine-oriented source of truth for architectural assumptions that must survive refactors.
+
+**Current code and tests outrank prose.** If this file disagrees with implementation, verify the implementation first, fix the documentation in the same change, and do not revive historical behavior merely because an older design note describes it.
+
+## Network protocol
+
+- The current wire protocol is **85** (`NetConfig.ProtocolVersion`).
+- Protocol85 adds visual wallstrafe, wallrun and wall-kick codes in reserved high nibbles of intent1298 and canonical grapple-flags173. Pure grapple mechanics remain unchanged and strict. Native192, intent1299, compact/fast/slow and checkpoint16/custom17 widths stay fixed. Slow-revision receipt owns live wall freshness; cached fast rows cannot renew it. Historical84 retains mantle and defaults wall presentation to none. See `docs/network/parkour-wall-animation-version-contract.md`.
+- Protocol84 adds a one-byte mantle visual hint to intents and accepted phase in the existing snapshot auxiliary nibble; native player widths stay fixed. Native16/custom17 checkpoint rows add that byte while published14/15 remain1298. Gameplay stays Parkour v5; rendering restores all native pose matrices. See `docs/network/parkour-animation-version-contract.md`.
+- Protocol83 appends an optional exact weapon archive hash to hosting requests.
+  The allocator resolves it only against an operator-approved local store.
+  Native intents, snapshots, CWM1 and replay checkpoint14 retain protocol82 shapes.
+- Protocol82 adds accepted Parkour v5 grapple state to slow/canonical lanes and a request nonce to intents. The fast prefix stays138 bytes. Humans remain owner-reported; passive replicas never run the grapple controller. See `docs/network/parkour-v5-version-contract.md`.
+- Protocol81 adds the operator-selected package availability bit20 and bounded
+  package offer/Ready/confirmation messages99–101. They pin CWPK v1 exact
+  archive/content/dependency metadata to match, configuration, slot generation
+  and connection before loading. CWM1 and native packet bodies retain their
+  existing bytes. CW-12c binds the selected definition to authoritative combat
+  and exact prewarmed resources to ordinary client scenes before loaded ACKs.
+  Availability never grants inventory; authored world contact owns acquisition.
+  Native archives remain readable;
+  custom/package replay requires exact historical bytes and a supported explicit
+  descriptor/world contract, and refuses rather than substituting definitions.
+- Protocol76 selects Quake3 profile v4 and Traversal profile v5. Qualified static
+  walkable ground uses surface-speed acceleration and contact redirection;
+  earned Traversal slides receive one bounded slope-gravity force per fixed tick.
+  Classic, Momentum, native abilities and historical profile attribution remain unchanged.
+- Protocol 62 selects Quake3 movement profile v2, including advanced movement and
+  damage-derived additive rocket impulses. Match bits and packet widths remain unchanged;
+  historical Quake3 recordings use v1 for protocols 60–61 and v2 for 62–70.
+- Protocol75 adds bounded public custom pickup state/application acknowledgements at97/98.
+  Contact, funding, respawn and private acquisition knowledge remain authority-owned;
+  native item IDs, payloads and movement policies are unchanged.
+- Protocol73 carries private acquisition knowledge in owner action/control/input/result/state envelopes.
+  Canonical Actions remain nonce-free because public replicas serialize them. Native intent,
+  public replica and archive bodies remain unchanged; input knowledge is latched at creation.
+- Protocol 72 appends an explicit ownership flag to private custom weapon state (packet90).
+  Public opt-in lives start empty; native packet bodies, replica facts and historical replay
+  bodies remain unchanged. Protocol71 movement v3 policy continues unchanged.
+- Protocol 74 selects Traversal profile v4: 72-tick slides with friction 0.45,
+  retaining the v3 entry threshold and bounded landing entry. Traversal recordings
+  from 71–73 retain v3; Quake3 remains v3. Native widths, the protocol72 private
+  ownership-absence boundary and protocol70 custom archive refusal remain unchanged.
+- Protocol 71 selects optional Quake3 and Traversal profile v3 policies without
+  changing the horizontal coefficients or native payload widths. Classic stays
+  the default. Traversal protocol 68 recordings retain v1; 69–70 retain v2.
+  Passive replay restores recorded state and never applies current movement
+  physics to a historical recording.
+- Protocol 61 adds opt-in built-in custom manifest/readiness/confirmation messages
+  at packet IDs 83–85. These capability messages neither admit custom actions nor
+  activate custom gameplay. Native protocol-60 payload shapes and historical replay
+  bodies remain unchanged; live peers still require an exact protocol match.
+- Protocol 63 adds separate opt-in custom action, receipt, contact, application
+  result acknowledgement and state messages at packet IDs 86–90. Native packet
+  identities, payload shapes and historical protocol-60/61/62 replay bodies remain unchanged.
+- Protocol 64 adds typed custom source-control requests and denials at packet IDs
+  91–92. Prior custom IDs 86–90, native payload widths and historical replay bodies remain unchanged.
+- Protocol 65 adds the opt-in unreliable custom input wrapper at packet ID 93.
+  It uses realtime input priority; ordinary native Intent bytes and reliable custom control IDs 91–92 remain unchanged.
+- Protocol 66 adds typed recipient replica pages, events and application acknowledgements
+  at packet IDs 94–96, using ordinary reliable background delivery. Prior native and custom
+  packet identities and historical replay bodies remain unchanged.
+- Protocol 69 adds accepted crouch stance and Traversal profile v2 while retaining
+  the protocol 68 Traversal-v1 replay identity and existing native payload widths.
+- Protocol 68 adds optional Traversal movement and tagged training-map surf surfaces;
+  Classic, Momentum and Quake III retain their existing profiles.
+- Protocol 67 activates the opt-in recipient replica lane with application-acknowledged
+  baselines. Packet IDs 94–96, native payload widths and protocol-66 archive shapes remain unchanged.
+- Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
+- Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
+
+- Protocol 35 adds bounded queue-only connections with endpoint-bound server-generated
+  connection IDs. Queue peers cannot send gameplay packets and do not occupy player
+  slots. Seat acceptance reuses normal admission and preserves the established socket.
+- Protocol 36 adds explicit spectator admission. Protocol 37 adds an endpoint-bound
+  challenge cookie to remote HostRequest allocation; gameplay/replay packet layouts
+  remain byte-identical to protocol 36.
+- Protocol 38 adds the authoritative Balanced Mode modifier without changing packet
+  widths. Protocol 39 extends repeated FireEvents with exact source-frame
+  muzzle/aim/projectile direction plus a compact shot-frame camera view and reticle
+  position for replay fidelity.
+- Protocol 40 keeps protocol-39 packet widths and adds the Balanced Mode native
+  Hunter ability refinements. Mixed 39/40 peers are refused because local movement
+  prediction and alt-contact activation must use the same tuning.
+- Protocol 41 adds reliable authority-only resolved-shot facts keyed by ShotId and
+  DamageEventId. They are replay evidence only and never drive gameplay outcomes.
+
+## Authority and simulation
+
+- Normal online matches are **server authoritative**.
+- A normal player is never the simulation authority. Standalone dedicated servers simulate the match themselves.
+- "Host on this computer", directory-hosted games and regional/overflow hosted games run each match in an **isolated dedicated-server process** so every match gets its own static `NetSession`.
+- The client-authority fallback is removed. `DedicatedServer` has no `RunsTheMatch=false` mode, no player-authority slot/handover, and clients cannot publish authoritative snapshots or match results. `PacketType.Authority = 12` remains reserved only so wire IDs do not shift; current servers never send it and current clients ignore it.
+- The server is authoritative for combat, health, score, match state and match end. Player movement position is still supplied by the owning client's `IntentPacket.Position`; this is not a fully server-derived movement model.
+- A dedicated game server requires the user's extracted game data and a valid `paths.txt` beside the server binary. It must refuse to start rather than silently fall back to client authority when those files are unavailable.
+- The directory/master server does not simulate a match and does not require game files.
+
+## Netcode modernization boundaries
+
+- Movement remains owner-reported through IntentPacket.Position; the server
+  validates lifecycle/order and resolves combat/world state at 60 Hz. Protocol 20
+  additionally relays controller MoveX/MoveY magnitude so puppet simulation,
+  animation, and replay do not reconstruct analogue movement from digital bits.
+  Protocol 21 additionally carries the owner's exact continuous firing tick so
+  Shock Coil cadence is not reconstructed from packet arrival timing. Protocol 22
+  assigns a spare shot-state bit to Samus' active morph-ball boost so the authority
+  uses the owner's exact ram state/damage instead of reconstructing it from delayed input.
+- Preserve `AckFrame`, `AckSubFrame`, eight rising-edge frames, MatchId,
+  AuthorityEpoch, SlotGeneration and LifeId. Snapshots are independently decodable
+  full states; remote presentation continues to use NetSmoothing.
+- Never restore movement command streams, movement ACKs, prediction histories,
+  reconciliation/rollback/input replay, server-derived owner movement, velocity
+  reconciliation, defender-aware rewind or protocol-18 movement semantics.
+- Never restore IntentBundle, observer bundling, snapshot keyframes/deltas,
+  baseline reconstruction or damage sidecars from reverted PR #28.
+- The protocol-16 byte-equivalence and protocol-17 migration notes describe the
+  historical Netcode P0 train; current internal refactors preserve current source
+  packet identities and layouts unless independently justified and versioned.
+- Spawn placements are lifecycle operations, not movement reconciliation.
+  Same-life snapshots never correct the local owner collision body or velocity;
+  the architecture suite exercises prolonged, extreme position disagreement.
+- Scratch buffers belong to their session/server owner. Synchronous sends consume
+  their spans before returning; delayed sends and replay records must own copies.
+
+## Hit registration
+
+- `NetUnlagged` rewinds authoritative hit resolution to the world the shooter acknowledged.
+- `NetHitPrediction` is enabled by default for a client's own outgoing hits. Local feedback and nonlethal damage may appear immediately and are reconciled against authoritative results.
+- Incoming damage from other players is not predicted locally.
+- A predicted lethal hit on another player is currently held at 1 HP until the authority confirms the death. Self-damage/self-death may resolve locally because source, target and input are local.
+- `NetHitClaims` lets the shooter declare locally resolved hits the authority did not independently resolve. Claims are lifecycle-, time-, geometry-, launch- and damage-bounded and receive explicit verdicts.
+- Predictions never author the durable scoreboard or match result. Authoritative snapshots/state do.
+- Imperialist headshots are reconciled authoritatively: a validated shooter headshot paired with the authority's body hit applies only the missing damage difference, exactly once. The optional unscoped penalty does **not** halve Imperialist headshot damage.
+- Headshot HUD feedback must not be emitted from an unconfirmed speculative client result.
+
+## Lobby and match lifecycle
+
+- Persistent lobbies keep their socket/session across matches.
+- Normal public hosting keeps a lightweight master/allocator resident and starts one
+  isolated dedicated-server child per requested lobby lifetime. The child has no
+  ServerSim while idle, stays authoritative across Lobby → Match → Results → Lobby,
+  and self-reaps when an allocated lobby is abandoned.
+- Lobby match configuration is preserved across rematches unless the owner changes it.
+- Native post-match map selection can continue directly into the next match without requiring another Ready cycle. Custom-map transitions return to the lobby to prepare the exact package.
+- WorldReady requires the frozen player lanes plus a bounded, atomically assembled
+  objective baseline at the same authority frame. Prime, flags, nodes, Hardpoint,
+  modifier ammo and collectible tokens apply before readiness; periodic facts older
+  than that baseline cannot overwrite it.
+- Map/rematch transitions must rebuild the room and send `MatchLoaded`; the server's Starting barrier releases when expected participants load or the bounded timeout expires.
+- Only a launcher-authenticated owner token may terminate a locally spawned lobby server process. Ordinary ownership of a persistent dedicated lobby cannot kill the daemon.
+
+## Custom map identity and installation
+
+- Runtime startup prepares only the selected custom room. `SceneSetup.SetUpRoom`
+  calls the shared `CustomRooms.PrepareRoom` boundary before collision loading,
+  including initial loads and transitions; direct map-material reports prepare
+  before reading a room model. Whole-catalog generation is an explicit tool action.
+- Protocol 25 binds custom rooms to MapId, ContentHash, and PackageHash. A matching room name or logical map ID alone never establishes readiness.
+- Custom match starts require every participant to report the exact package ready. Availability reports carry the authority, match, map generation, and monotonic sequence; stale reports cannot satisfy the barrier.
+- HTTP downloads and detached builds use private staging. Publication runs on the session owner after live scenes and prewarm workers release their room leases. Cancellation cannot publish partial packages.
+- Published package bytes and versions are immutable. Runtime packages contain normalized geometry and assets, never local model source paths or a requirement to parse external models.
+- Download verification may hash bytes during the private streamed write. A
+  resumed prefix or completed partial still requires a full SHA-256; exact
+  MapId/content/package identity remains mandatory before installation and Ready.
+- Replay bootstrap preserves the exact custom package identity and historical download source. Remote host requests carry the exact immutable package hash for every custom rotation entry. Bounded background workers resolve and fetch all missing archives from the operator-configured Community service before the isolated child is spawned; retries are deduplicated, and downloads never install into the parent process's active map library. Each custom hosted child owns a private package library and generated-runtime namespace.
+
+## Timing and rendering
+
+- Gameplay simulation is fixed at **60 Hz**.
+- Render/presentation rate is independent of simulation rate and may run at the display rate or another configured cap.
+- Do not make gameplay/network behavior depend on render frequency.
+- Resolution scaling affects the 3D render target; HUD/UI remain presentation-space.
+- Low-latency providers are presentation optimizations only. Their wait/marker hooks may not alter simulation cadence, input values, networking, hit resolution or replay semantics. A provider must coordinate with the active presentation clock so vendor sleep, software FPS limiting and blocking present modes do not become stacked frame limiters.
+
+## Replay and clips
+
+- Replay readers preserve native formats v1–v6 and explicit custom formats v7/v8. Historical protocols are adapted by `ReplayIdentityCompatibility` (protocol 4 through the current protocol); live peers still require an exact protocol match. Format v5 preserves indexed-fire continuation. Opt-in timed-shot certificate capture uses v6; ordinary native capture remains v3 and checkpoint clips remain v4 unless their recorded capability requires a later format. Every replay is validated before playback. Custom playback retains exact historical package leases and producer presentation policy; format8 capture phases preserve original source/availability clocks and post-world ordering. Validated deferred records at EOF remain inert. Custom scenes, audio and exports never reinterpret missing custom data as native gameplay.
+- Authoritative dedicated servers record canonical replays when enabled.
+- Client replay recording, rolling clip capture, Replay Studio, checkpoints, highlight derivation and deterministic frame export all exist. Do not describe replay/clip recording as a future feature.
+- Replay playback must not open a live gameplay socket or mutate the recorded session through reconnect/authority control packets.
+
+## Custom weapon authoring and distribution
+
+- Package installation, Community download and creator controls never grant or
+  equip inventory. Authored world pickup contact and authority funding own acquisition.
+- Community `weapon` revisions validate complete self-contained `.ppweapon` packages,
+  bounded to 8 MiB. Raw v3 object SHA remains separate from package content,
+  dependency and mechanics identities. Exact package ID/name/bytes are immutable;
+  owner visibility and moderation are separate metadata lifecycle operations.
+- Public browse excludes unlisted-only and draft weapons. Exact weapon links may
+  read unlisted revisions; draft reads require the owner. Archive/restore cannot
+  clear moderator hiding. Authenticated original-account witnesses govern private
+  transfer retry and installation; credentials never enter persisted receipts.
+- New Community publication requires `PROJECT_PRIME_WEAPON_COMMUNITY_PUBLISH=1`.
+  Weapon Studio admission requires `PROJECT_PRIME_WEAPON_CREATOR=1` and uses the
+  paired separate Studio process and bounded authenticated local IPC. Authoring
+  validates CPU snapshots and saves atomically; owned pickup playtests run in a
+  separate game process with retained archive leases.
+- Implementation and compilation are distinct from release qualification. The
+  current waived/deferred acceptance blockers are recorded in
+  `docs/custom-weapons/16-release-acceptance.md`; do not promote historical evidence
+  or an unrun matrix into a pass.
+
+## Updates and release packaging
+
+- Source, tags and public release binaries live together in `AntiNotAnti/Project-Prime`; clients use that repository's anonymous GitHub Releases API as the update source.
+- One-click Windows/Linux/Android installs require a GitHub-provided SHA-256 asset digest before executing/replacing files.
+- Android in-place updates additionally require the release APK signer to match the installed app.
+- macOS opens the release page instead of replacing files inside the signed app bundle.
+- Dedicated servers update only at a safe lifecycle point.
+- Release/server documentation must never claim that a dedicated **game server** needs no game files.
+
+## Naming
+
+- The public product name is **Project Prime**.
+- Desktop binaries/packages use `ProjectPrime` / `ProjectPrimeServer`; Android uses `com.projectprime.game`; macOS uses the **Project Prime** bundle identity.
+- The GitHub repository uses `AntiNotAnti/Project-Prime` as the canonical infrastructure locator for releases and updates.
+- The C# root namespace remains `MphRead` to minimize upstream merge churn.
+
+## Documentation policy
+
+- Current-behavior sections must describe the current code, not the build in which a feature was introduced.
+- Dated measurements and old protocol comparisons are valuable, but must be labeled **historical** when the architecture they measured is no longer current.
+- `KNOWN-GAPS.md` contains only unresolved/unverified items. Move fixed items out instead of leaving them as warnings.
+
+## Replay ownership
+
+- Rolling timeline records are values retaining immutable pooled payloads and evict whole restore segments. Pending reconstruction, frozen clips and writer commands hold independent leases. Eviction, reset, clip disposal and command completion release them; budgets include pooled capacity. Quiet frames advance the frontier without a fact.
+- A dropped fact invalidates its dependent continuation; clips must not cross gaps.
+- Protocol network baselines are explicitly not complete replica-scene checkpoints.
+- Decoder and animation checkpoint components own detached payloads. Decoder restore validates before mutation; animation restore resolves groups against the destination asset. A component alone must never be advertised as a complete world checkpoint.
+- `ReplayWorldCheckpoint` combines those components with an explicit entity/effect/clock/link field contract. Its payload contains values, asset keys and construction anchors, never live references or native handles. Restore is restricted to an unpublished replica with matching room content and construction baseline. Unknown contracts/anchors fail closed. Resource binding does not call gameplay initialization.
+- `PassiveReplayPlayer` owns a 64 MiB/128-entry checkpoint cache. File and frozen-world-clip seeks share its fixed stepping, with at most 120 steps per host update. The presented scene is replaced only after reconstruction succeeds; a frozen clip remains valid after its timeline is reset.
+- Replay readers and transport scheduling belong to session instances. Passive hosts own their decoded lifecycle state and never access live NetSession. Normal Studio uses the private player too. A private legacy host exists only inside the format diagnostic; production has no alternate replay path.
+- Each scene owns its player registry, match state, random streams, camera sequences and enemy/platform beam pools. Legacy static facades refer only to the foreground scene. Replica construction and cleanup never rebind those facades. Replica scenes use an explicit fixed-step entry, instance replication/lifecycle histories, silent sound routing and private HUD queues. They cannot author outgoing input or resolve combat. Replica mutable model/material/node/mesh state and room portal/collision activation are private. Immutable definitions may be shared; GL resources have explicit owner lifetimes.
+- Exact kill markers fence match, authority, event, server tick, occupant generations and victim life. Ambiguous cumulative deaths are not exact kill candidates.
+- Timeline intent baselines must match the recorded occupant generation and life. Submitted local input is presentation evidence, never accepted hit/damage authority. Versioned gameplay hashes include world/projectile state; animation/effect projections are checked separately.
+- Effect checkpoint assets use effect ID plus element ordinal; element names are not unique. Match rules apply before room construction; timed objective targets and the recorded clock retain their mode-specific meaning.
+- Live checkpoint production consumes immutable accepted facts in a canonical private replica. Pending facts are bounded; gaps/failure invalidate history rather than yielding incomplete clips. Capture and private scene resource lifetime run on the scene owner; network callbacks never allocate or dispose GL resources. History cannot claim knowledge of projectiles predating capture.
+- Replay checkpoint capture stays on the scene owner: one bounded pooled buffer, reused graph storage and checked-in typed accessors; no mutable Scene enters a worker. Generated accessors must preserve reference-serializer bytes and remain compatible with Android AOT.
+- Client/server recording compression and file I/O run exclusively in `ReplayWritePump`. Gameplay never waits for storage. Count/byte overflow aborts the recording while retaining recoverable chunks. Instant clips save frozen checkpoints/facts on a worker through v4 hidden lead-in without constructing a Scene. Optional player preparation is limited to 24 steps or about 1 ms/update; construction/restore stays on the scene owner.
+- Personal/final killcam footage is up to 300 frames at 1x. Results remain 10 seconds; server intermission derives from the shared 5-second final camera plus results plus 1 second. Preparation cannot consume the final footage window.
+- Production replay and killcams share the private player. Do not reintroduce a pose ring, live historical draw substitution, duplicate clip history or live-network replay smoother. Acceptance evidence is in `docs/architecture/replay-map-upgrade-status.md`.
+
+## Map Studio ownership
+
+- Dirty state is a document state-ID comparison, not project serialization or history depth.
+- Common transforms and edits use bounded delta history; undo-to-save and branching preserve state identity.
+- Selection, entity edits and camera movement do not rebuild unrelated geometry.
+- The editor submits stable CPU meshes to the existing scene renderer. GPU resources belong to the viewport lifetime; selection, camera and overlay changes reuse them. The shared logical/pixel camera contract drives projection, world-ray picking and captures. UI overlays composite above geometry; normal frames require no GPU readback.
+- Build workers receive detached snapshots; cancelling one waiter must not cancel shared work.
+- Runtime cache publication validates content fingerprints and output integrity. Cache files contain locally generated content and are never release inputs.
+
+- Runtime builds, validation, navigation and packaging share a bounded queue and private compiled geometry cache. Editor consumers receive immutable geometry or detached navigation; cached compiler graphs never escape to mutable UI state. Synchronous runtime/server preparation must not hold catalog locks while waiting on a worker.
+- One dependency analyzer defines content identities and portable assets for fingerprints, packages, package reference checks and Save As. Cartridge dependencies affect builds but are never packaged.
+
+- Replay killcams own a frozen timeline clip, passive player, scene, HUD and versioned audio lease. They never replace live players or send replay input. UI/Android skip callbacks queue requests; GL disposal stays on the scene owner. Respawn and match/epoch/occupant/life changes invalidate the presentation.
+
+- Full client/server recordings and instant clips consume the shared accepted-fact recorder. V4 initial worlds, frame origins and hidden lead-in preserve exact clip starts; v2/v3 are supported by explicit adapters. Clip disk writes consume frozen values on a worker; GL world creation/disposal stays on the owner.
+- Camera/player selection must not affect replay simulation RNG. Replica stepping fixes its simulation perspective and restores viewing state afterwards. Replay Lab is an explicit offline detach and cannot take over while a live connection exists.
+
+- Replay pose lookahead is bounded and presentation-only; it never advances simulation/RNG or uses live receive jitter. Do not blend across occupant/life, spawn/death, form or teleport boundaries.
+- Export stays at 60 Hz gameplay. A 120 FPS movie renders deterministic half-frame samples, never duplicate-frame conversion or 120 Hz physics. Camera paths and export collision anchors use recorded time. Native-size world/HUD targets belong to the scene and release on its GL owner.
+
+- Packet 42 carries bounded authoritative world facts. Protocol 31 live clients
+  apply its objective ownership and modifier ammo facts; replay entity reconstruction
+  remains restricted to private scenes. Atomic fragment assembly validates before
+  publication; actor links fence occupant generation and life. New-server final
+  killcams use the confirmed ending cause and exact kill identity.
+
+- World capsules are explicitly versioned (current v4, v1–v3 readable). V4 files may index bounded durable checkpoints; invalid optional entries fall back to valid reconstruction. New capture spools at most 4,096 checkpoints / 256 MiB compressed and never stores live references or native handles.
+
+## HUD profiles
+
+- Native desktop HUD controls have one editor entry. Profile and HUD-wide option
+  edits travel together through the outer settings transaction. Valid settled
+  edits save automatically; gestures save after release and Back flushes pending
+  accepted values. Invalid unfinished text is never published. Failed writes
+  restore files/runtime and retain editable values without per-frame retries.
+- Native live settings preview pauses all automatic persistence. Escape/timeout
+  restores runtime before revealing the same retained editor document; the
+  original scene/window/editor lease must still be valid.
+- Stacked LCD layout affects only client presentation and normalized pointer
+  mapping; it cannot alter simulation cadence or replay/network contracts.
+
+- HUD profiles are local presentation state, persisted separately from Features.
+  Do not put them in live packets or replay protocols, or read visual scales,
+  visibility, colors or layout offsets in aim assist, hit resolution, weapon
+  spread, movement or server logic.
+- Custom crosshair geometry is drawn around the existing reticle presentation
+  position; profiles cannot establish a new aim center.
+- Classic and Project Prime retain their legacy layout paths. Custom layouts use
+  scoped render transforms; scope disposal restores presentation state.
+- Runtime profiles own detached validated values and cached crosshair geometry.
+  Deserialization, dictionary resolution and geometry construction happen on
+  load/edit, never per match frame. Editor drafts stay detached until a validated
+  automatic or explicit transactional commit.
+- Radar/opponent/objective presentation must retain existing availability and
+  match-rule gates. A profile can style available information, not request more.
+- Full HUD Studio acceptance, including remaining preview parity and platform
+  coverage, is tracked in docs/architecture/hud-customization-status.md.
+
+## Online bots
+
+- Bots are dedicated-server-owned slots, never network peers. Clients and replay replicas never run bot AI.
+- Protocol 27 carries bot identity, difficulty, and the sticky round practice flag in rosters.
+- Human plus bot occupancy cannot exceed eight; only humans own, vote, and load-ack.
+- A bot used at any point suppresses all Hunter License reporting for that round, even after removal.
+
+## Advanced match rules
+
+- Protocol 31 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
+  SessionState carries the modifier word after its protocol-28 payload; status
+  replies carry a 32-bit modifier word. Live clients must match `NetConfig.ProtocolVersion`.
+- Protocols 24–30 recorded session packets convert their combined flags at the
+  replay boundary. Decoder checkpoints use the recorded protocol's packet size.
+- Octolith Auto Reset is authoritative and only valid in Capture/Bounty/Relic. The
+  offline setting comes from AutoReset, independently of PointGoal.
+- Match mode and modifiers change at the synchronous room-load boundary after
+  old entities are torn down and before new actors/entities are constructed.
+- Round reset clears all score, timer, objective and report arrays while keeping
+  match configuration. Prime ownership changes never clear combat deduplication.
+- Weapon replacements use fixed FNV-1a room/spawn hashing, never simulation RNG.
+- Legacy replay packets invert the old flags at the replay adapter boundary.
+
+- Live objective correction consumes the server's complete ReplayWorld facts after simulation.
+  It fences match, authority, loaded room and actor generation/life; clients do not author flag/node
+  scoring or Prime/Relic hold time. This does not apply replay object graphs to live scenes or alter
+  player movement. Objective facts form a fourth frozen lane of the WorldReady barrier.
+- Relic is mode 16 and uses the Bounty entity layer with exactly one Octolith. Its hold time uses the
+  existing per-player Time array and its carrier uses the existing flag authority/replay contract.
+## Enhanced Hunters
+
+- Protocol 29 appended MatchState RuleBits with session bit 8192 for Enhanced Hunters.
+  Protocol 31 translates historical packets and uses modifier bit 1024.
+- Enhanced Hunters defaults OFF and is independent of affinity pickup replacement.
+- Accepted authority hits own enhanced damage and status. Owner movement remains owner-reported.
+- Per-player enhanced state fences target life and generation; zones belong to each Scene (maximum 16).
+- Canonical snapshots may reach 4096 bytes internally; realtime fast/world lanes remain at most 1200 bytes.
+- Historical replay protocols 24–28 upgrade at playback boundaries and default Enhanced Hunters OFF.
+
+## Protocol 30 shot identity and performance
+
+- Projectile identity is (match, authority epoch, shooter slot, generation, life,
+  ShotId). LaunchFrame and AckFrame are historical timing metadata only.
+- Repeated fire events preserve the original fire timing, charge and continuous
+  phase across lost or reordered intent carriers. Derived projectiles inherit
+  their parent identity. Live beam claims require a nonzero ShotId.
+- Shadow sampling is diagnostic only. It must never change damage, rewind or
+  projectile state.
+- Geometry revision/equality shortcuts retain live capture whenever the engine
+  cannot prove no intervening collision mutation.
+- Direct live snapshot decoding validates the complete packet before mutation;
+  replay recording and bootstrap retain owned canonical representations.
+
+## Collision query ownership
+
+- Candidate queries return a synchronous `CollisionQueryWorkspace` lease. Keep it
+  in a `using` scope through every consumer; candidates and enumerators must not
+  escape disposal or cross the borrowing thread.
+- Nested calls borrow separate candidate and face-deduplication scratch. Independent
+  scenes can query concurrently; mutating the same scene concurrently remains unsupported.
+- Thread-local reuse retains at most eight workspaces, each with at most 8,192
+  candidate objects and 16,384 face-set capacity. Oversized queries return all
+  candidates and discard exceptional scratch on disposal. Zero allocation after
+  warmup is verified for tested queries within these reuse budgets; larger valid
+  queries can allocate. Return clears room/entity
+  references. `CollisionDetection.Init()` is a compatibility no-op.
+- Preserve room-then-entity reverse traversal, face order, strict distance tie-breaks
+  and collision floating-point evaluation order. This refactor does not change
+  simulation timing, protocol layouts or replay schemas.
+
+## Parkour static ledges
+
+- Protocol80 selects Parkour v4; 77/78/79 recordings retain v1/v2/v3 attribution.
+  Classic remains default; model4/bit19 and packet widths remain unchanged.
+- Fresh Forward+Jump mantle admission requires current safe native static face
+  contact, continuous full standing-body route clearance and an entire supported
+  landing footprint. At most 24 velocity-driven native collision steps assist it;
+  no position/previous-position snap or native jump/ability ownership migration.
+- Owner humans/native authority bots run the controller. Remote puppets/passive
+  replay consume accepted state. The passive checkpoint is not an active save.

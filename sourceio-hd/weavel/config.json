@@ -1,0 +1,130 @@
+{
+  "format": 1,
+  "hunter": "Weavel",
+  "sourceRelative": "models/weavel/weavel_a.glb",
+  "sourceMeshes": [
+    "MPH/Weavel_A.mdl_Weapon_Handgun.smd_MESH",
+    "MPH/Weavel_A.mdl_Body_Weavel.smd_MESH"
+  ],
+  "bodygroups": [
+    "Weavel.smd",
+    "Handgun.smd"
+  ],
+  "expectedSourceBones": 48,
+  "expectedTriangles": 20344,
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "Pelvis",
+  "yawDegrees": 180,
+  "fit": {
+    "Pelvis": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "L_hip": {
+      "anchor": "ValveBiped.Bip01_L_Thigh",
+      "endSource": "ValveBiped.Bip01_L_Calf",
+      "endNative": "L_knee"
+    },
+    "L_knee": {
+      "anchor": "ValveBiped.Bip01_L_Calf",
+      "endSource": "ValveBiped.Bip01_L_Foot",
+      "endNative": "L_ankle"
+    },
+    "L_ankle": {
+      "anchor": "ValveBiped.Bip01_L_Foot",
+      "groundShape": true
+    },
+    "R_hip": {
+      "anchor": "ValveBiped.Bip01_R_Thigh",
+      "endSource": "ValveBiped.Bip01_R_Calf",
+      "endNative": "R_knee"
+    },
+    "R_knee": {
+      "anchor": "ValveBiped.Bip01_R_Calf",
+      "endSource": "ValveBiped.Bip01_R_Foot",
+      "endNative": "R_ankle"
+    },
+    "R_ankle": {
+      "anchor": "ValveBiped.Bip01_R_Foot",
+      "groundShape": true
+    },
+    "Spine_1": {
+      "anchor": "ValveBiped.Bip01_Spine",
+      "endSource": "ValveBiped.Bip01_Spine1",
+      "endNative": "Spine_2",
+      "preserveSourceShape": true
+    },
+    "Spine_2": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "endSource": "ValveBiped.Bip01_Head1",
+      "endNative": "Head_1",
+      "preserveSourceShape": true
+    },
+    "Head_1": {
+      "anchor": "ValveBiped.Bip01_Head1",
+      "preserveSourceShape": true
+    },
+    "L_shoulder": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm",
+      "endSource": "ValveBiped.Bip01_L_Forearm",
+      "endNative": "L_elbow"
+    },
+    "L_elbow": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "endSource": "bip_hand_L",
+      "endNative": "L_wrist"
+    },
+    "L_wrist": {
+      "anchor": "bip_hand_L",
+      "orientFrom": "ValveBiped.Bip01_L_Forearm",
+      "orientNative": "L_elbow"
+    },
+    "L_varias2_SDK": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm"
+    },
+    "R_shoulder": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm",
+      "endSource": "ValveBiped.Bip01_R_Forearm",
+      "endNative": "R_elbow"
+    },
+    "R_elbow": {
+      "anchor": "ValveBiped.Bip01_R_Forearm",
+      "muzzle": true
+    },
+    "R_varias2_SDK": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm"
+    }
+  },
+  "muzzle": {
+    "object": "Handgun.smd",
+    "sourceBone": "bip_hand_R",
+    "nativeBone": "R_elbow",
+    "axis": [
+      -0.4010330246380048,
+      -0.46889383279584873,
+      -0.7869632054395631
+    ],
+    "frontBand": 0.015,
+    "nativeLocalPoint": [
+      0.89,
+      0.15,
+      -0.172
+    ],
+    "method": "Handgun.smd distal rigid weapon cap -> native Metadata.MuzzleOffests[Weavel] through R_elbow"
+  },
+  "reuseSingleMaterialTextures": true,
+  "sourceSha256": "af990925fa1dc753522eef6415e0ea7b796887dd29827c63a77b14232f38248a",
+  "emissiveMaterials": [
+    "WeavelBodyLit"
+  ],
+  "compactPeriodicUVs": true,
+  "powerOfTwoAtlases": false,
+  "teamRecolorMaterials": [
+    "WeavelBody",
+    "WeavelLegs"
+  ],
+  "preserveSourceNormals": true,
+  "globalAnchor": "floor",
+  "sourceShapeChains": true,
+  "preserveSourceMaterialAlpha": true
+}

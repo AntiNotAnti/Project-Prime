@@ -1,0 +1,93 @@
+using System;
+using MphRead.Mods.Network;
+
+int checks = 0;
+void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
+ReplayTimelineRecord Fact(uint frame, uint? tick = null, int bytes = 1, ReplayMarker? marker = null)
+    => new(frame, tick ?? frame, ReplayFactKind.Snapshot, new byte[bytes], marker);
+ReplayRestorePoint Restore(uint frame, uint? tick = null)
+    => new(frame, tick ?? frame, ReplayRestoreKind.NetworkBaseline, new[] { Fact(frame, tick) });
+var timeline = new RollingReplayTimeline(10, 2048);
+Check(timeline.FirstRecordingFrame == null && timeline.NeedsRestorePoint, "empty");
+Check(!timeline.TryFreeze(0, 0, out _), "empty freeze");
+Check(!timeline.Append(Fact(0)), "no orphan prefix");
+Check(timeline.AppendRestorePoint(Restore(0)), "first restore");
+byte[] payload = { 42 };
+var record = new ReplayTimelineRecord(1, 100, ReplayFactKind.World, payload);
+payload[0] = 99;
+Check(record.Payload[0] == 42, "detached payload");
+Check(timeline.Append(record), "append");
+Check(!timeline.TryFreeze(0, 2, out _), "future end rejected");
+Check(!timeline.TryFreeze(1, 0, out _), "reversed range rejected");
+Check(timeline.TryFreeze(1, 1, out var frozen) && frozen!.Records.Count == 1, "warmup included");
+Check(frozen!.PresentationProtocolVersion == 0, "isolated clip never invents a source protocol");
+Check(timeline.TryMapServerTickToRecordingFrame(100, out var frame) && frame == 1, "tick mapping");
+Check(timeline.AppendRestorePoint(Restore(5)), "second restore");
+Check(timeline.Append(Fact(15)), "age append");
+Check(timeline.FirstRecordingFrame == 5 && timeline.EvictedSegmentCount == 1, "whole age segment eviction");
+Check(frozen!.Records[0].Payload[0] == 42, "frozen clip survives eviction");
+Check(!timeline.TryFreeze(4, 15, out _), "evicted start rejected");
+Check(timeline.TryGetRestorePoint(15, out var nearest) && nearest!.RecordingFrame == 5, "nearest restore");
+Check(!timeline.Append(Fact(14)), "out of order rejected");
+Check(!timeline.AppendRestorePoint(Restore(4)), "out of order restore rejected");
+var kill = new ReplayKillIdentity(1, 2, 16, 3, 0, 4, 1, 5, 6);
+Check(timeline.Append(Fact(16, marker: new(ReplayMarkerKind.Kill, 0, 1, Kill: kill))), "kill append");
+Check(timeline.TryMapKillToRecordingFrame(kill, out frame) && frame == 16, "exact kill mapping");
+Check(!timeline.TryMapKillToRecordingFrame(kill with { VictimLifeId = 7 }, out _), "life fenced");
+Check(!timeline.TryMapKillToRecordingFrame(kill with { AuthorityEpoch = 9 }, out _), "authority fenced");
+Check(timeline.TryFreeze(5, 16, out var clip), "freeze across records");
+timeline.Reset();
+Check(timeline.PayloadBytes == 0 && timeline.RecordCount == 0 && timeline.FirstRecordingFrame == null, "reset");
+Check(clip!.Records.Count == 2 && !timeline.TryMapKillToRecordingFrame(kill, out _), "match reset detached clip");
+var configured = new RollingReplayTimeline(10, 2048, presentationProtocolVersion: 43);
+Check(configured.AppendRestorePoint(Restore(0)), "tagged timeline accepts its baseline");
+Check(configured.TryFreeze(0, 0, out var tagged)
+    && tagged!.PresentationProtocolVersion == 43, "frozen clip retains its authoring protocol");
+tagged!.Dispose();
+configured.Reset();
+var bounded = new RollingReplayTimeline(100, 600);
+Check(bounded.AppendRestorePoint(Restore(0)), "bounded baseline");
+Check(bounded.Append(Fact(1)), "bounded fact");
+Check(bounded.AppendRestorePoint(Restore(2)), "byte eviction restore");
+Check(bounded.FirstRecordingFrame == 2 && bounded.PayloadBytes <= 600, "byte bound eviction");
+for (uint i = 3; i < 10; i++) bounded.Append(Fact(i, bytes: 0));
+Check(bounded.PayloadBytes <= 600 && bounded.NeedsRestorePoint, "zero-payload bound, broken segment invalidated");
+Check(!bounded.TryFreeze(2, 9, out _), "never freeze across dropped facts");
+Check(bounded.AppendRestorePoint(Restore(10)), "recovery after overflow");
+Check(!bounded.Append(Fact(11, bytes: 1000)) && bounded.NeedsRestorePoint, "oversized record invalidates continuation");
+Check(!bounded.AppendRestorePoint(new ReplayRestorePoint(12, 12, ReplayRestoreKind.NetworkBaseline,
+    new[] { Fact(12, bytes: 1000) })), "oversized restore rejected");
+var wraps = new RollingReplayTimeline();
+wraps.AppendRestorePoint(Restore(0, uint.MaxValue)); wraps.Append(Fact(1, 0));
+Check(wraps.LastServerTick == 0, "server tick wrap");
+var indexed = new RollingReplayTimeline();
+var baselineFact = Fact(0);
+indexed.AppendRestorePoint(new(0, 0, ReplayRestoreKind.NetworkBaseline, new[] { baselineFact }));
+indexed.Append(baselineFact);
+Check(indexed.TryFreeze(0, 0, out var noDuplicate) && noDuplicate!.Records.Count == 0, "chosen baseline fact is not replayed twice");
+Console.WriteLine($"Replay timeline: {checks} checks passed.");
+
+var quiet = new RollingReplayTimeline();
+quiet.AppendRestorePoint(Restore(0));
+for (uint i = 1; i < 1000; i++) quiet.AdvanceFrame(i, i);
+long allocated = GC.GetAllocatedBytesForCurrentThread();
+for (uint i = 1000; i < 10000; i++) quiet.AdvanceFrame(i, i);
+Check(GC.GetAllocatedBytesForCurrentThread() == allocated, "quiet frontier allocates zero bytes");
+Check(quiet.RecordCount == 1 && quiet.LastRecordingFrame == 9999 && quiet.LastServerTick == 9999, "quiet frontier has no facts");
+Check(!quiet.AdvanceFrame(9998, 9998), "frontier rejects backwards time");
+Check(quiet.TryFreeze(9700, 9999, out _), "quiet range freezes");
+Console.WriteLine($"PASS: {checks} timeline checks including allocation regression");
+var owned = new RollingReplayTimeline();
+var ownedFact = Fact(0);
+owned.AppendRestorePoint(new(0, 0, ReplayRestoreKind.NetworkBaseline, new[] { ownedFact }));
+ownedFact.Release();
+var ownedPacket = new ReplayTimelineRecord(1, 1, ReplayFactKind.Snapshot, new byte[] { 73 });
+owned.Append(ownedPacket); ownedPacket.Release();
+Check(owned.TryFreeze(0, 1, out var lease), "freeze retains pooled payloads");
+owned.Reset();
+Check(lease!.Records[0].Payload[0] == 73, "lease survives deterministic return on reset");
+lease.Dispose(); lease.Dispose();
+bool released = false;
+try { _ = ownedPacket.Payload[0]; } catch (ObjectDisposedException) { released = true; }
+Check(released, "last release returns pooled payload");
+Console.WriteLine($"PASS: {checks} checks including pooled lifetime");

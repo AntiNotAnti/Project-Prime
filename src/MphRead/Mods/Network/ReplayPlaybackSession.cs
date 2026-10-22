@@ -1,0 +1,708 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Diagnostics;
+using System.Threading;
+
+namespace MphRead.Mods.Network
+{
+    /// <summary>Instance-owned replay reader and clock. All compatibility side effects
+    /// are delegated to the explicit host; passive sessions never use NetSession.</summary>
+    internal sealed partial class ReplayPlaybackSession : IDisposable
+    {
+        private readonly IReplaySessionHost _host;
+        internal event Action<uint, byte[]>? FactRead;
+        public ReplayTransport Transport { get; }
+        public IReplaySessionHost Host => _host;
+        public ReplayPlaybackSession(IReplaySessionHost host)
+        {
+            _host = host ?? throw new ArgumentNullException(nameof(host));
+            Transport = new ReplayTransport(this);
+        }
+        public void Dispose() => Stop();
+        private DemoReader? _reader;
+        private DemoRecord? _pending;
+        private ReplayTimelineClip? _clip;
+        private int _clipIndex;
+        private bool _live;
+        private bool _customInspection;
+        private bool _customArchiveRequest;
+        internal bool IsCustomInspection => _customInspection;
+        private ReplayMetadata? _liveMetadata;
+        /// <summary>The frame of the recording about to be replayed.</summary>
+        private uint _frame;
+        private bool _started;
+
+        public bool IsActive { get; private set; }
+        public string? CurrentPath { get; private set; }
+        public IReadOnlyList<ReplayEvent> Events => _reader?.Metadata?.Events
+            ?? (_customArchiveRequest ? _liveMetadata?.Events : null) ?? Array.Empty<ReplayEvent>();
+        internal ReplayMetadata? Metadata => _reader?.Metadata ?? _liveMetadata;
+        // Canonical clip packets retain the source recording's presentation
+        // contract even when the in-memory clip has no file metadata.
+        internal int SourceProtocolVersion => _reader is { } reader ? reader.ProtocolVersion
+            : _clip is { } clip ? clip.PresentationProtocolVersion : _liveMetadata?.ProtocolVersion ?? 0;
+        private uint LeadInFrames => _reader?.Metadata?.LeadInFrames ?? 0;
+        public uint CurrentFrame => _customArchiveRequest ? 0 : IsCustomArchiveInspection
+            ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LeadInFrames
+                ? checked(_frame - _reader.Metadata.OriginRecordingFrame - LeadInFrames) : 0
+            : _frame >= LeadInFrames ? _frame - LeadInFrames : 0;
+        internal uint RecordingFrame => _customInspection ? _frame : checked(_frame + (_reader?.Metadata?.OriginRecordingFrame ?? 0));
+        internal double RecordingPresentationFrame(double visibleFrame) => _clip != null
+            ? visibleFrame
+            : visibleFrame + LeadInFrames + (_reader?.Metadata?.OriginRecordingFrame
+                ?? (_customArchiveRequest ? _liveMetadata?.OriginRecordingFrame : null) ?? 0);
+        internal IReadOnlyList<ReplayCheckpointIndex> DurableCheckpoints => _reader?.Checkpoints ?? Array.Empty<ReplayCheckpointIndex>();
+        internal uint CheckpointVisibleFrame(ReplayCheckpointIndex index) => index.Frame >= LeadInFrames ? index.Frame - LeadInFrames : 0;
+        internal uint SourceFrame => _customArchiveRequest || IsCustomArchiveInspection ? CurrentFrame : _frame;
+        internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true)
+        {
+            if (_customArchiveRequest) throw new InvalidOperationException("Prepared custom requests cannot load playback checkpoints.");
+            var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
+            if (_reader.Metadata?.TimedShotCertificates == true && !checkpoint.HasTimedShotContract)
+            { checkpoint.Dispose(); throw new InvalidDataException("Durable world lacks recorded timed shot facts; reconstructing from baseline."); }
+            if (checkpoint.RequiresNativeTouchContract && !checkpoint.HasNativeTouchContract)
+            { checkpoint.Dispose(); throw new InvalidDataException("Durable world lacks native Morph Ball state; reconstructing from baseline."); }
+            if (_reader.ProtocolVersion >= 52 && !checkpoint.HasTurretOutcomeContract)
+            { checkpoint.Dispose(); throw new InvalidDataException("Durable world has no turret outcome contract; reconstructing from baseline."); }
+            if (!checkpoint.HasAuthorityFormHistory)
+            {
+                checkpoint.Dispose();
+                throw new InvalidDataException("Durable world has no authority form history; reconstructing from the recording baseline.");
+            }
+            // Protocol 43 introduced posed discrete shots. Legacy/live capsules
+            // use native held-input firing and cannot substitute for the indexed
+            // consumer world after the recording's exact initial baseline.
+            if (_reader.ProtocolVersion >= 43 && (!checkpoint.HasPresentationContract
+                || checkpoint.IndexedFirePresentation != requireIndexedFirePresentation))
+            {
+                checkpoint.Dispose();
+                throw new InvalidDataException("Durable world firing contract does not match the consumer; reconstructing from the recording baseline.");
+            }
+            if (checkpoint.Frame != (ulong)index.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0))
+            { checkpoint.Dispose(); throw new InvalidDataException("Durable checkpoint clock differs from its index."); }
+            return checkpoint;
+        }
+        internal bool IsWarming => LeadInFrames > 0 && (!_started || (ulong)_frame < (ulong)LeadInFrames
+            + (IsCustomArchiveInspection ? _reader!.Metadata!.OriginRecordingFrame : 0));
+        internal bool HasSimulatedFrame => _started && !IsWarming;
+        public uint LastFrame { get; private set; }
+        public ReplayOpenResult LastResult { get; private set; }
+        public double CurrentSeconds => CurrentFrame / 60.0;
+        public double DurationSeconds => LastFrame / 60.0;
+
+        /// <summary>True once the file has no more records -- the scene holds on the last state rather than closing itself.</summary>
+        internal bool IsCustomArchiveInspection => _customInspection && !_live && _reader != null;
+        internal void FailCustomPresentation(string? error)
+        {
+            if (!_customInspection) throw new InvalidOperationException("Custom inspection required.");
+            Stop(); LastResult = ReplayOpenResult.Corrupt;
+            LastError = "Custom presentation stopped: " + error;
+        }
+        public bool AtEnd => IsActive && !_customArchiveRequest && !_live && (IsCustomArchiveInspection ? (ulong)_frame >= (ulong)_reader!.Metadata!.OriginRecordingFrame + LeadInFrames + LastFrame
+            : _clip != null ? _started && _frame >= LastFrame : _pending == null);
+
+        internal void JoinCustomArchiveRequest(ReplayMetadata metadata, string path, uint duration)
+        {
+            if (_host is not PassiveReplaySessionHost passive)
+                throw new InvalidOperationException("Custom archive requests require a private passive host.");
+            ArgumentNullException.ThrowIfNull(metadata);
+            if (metadata.FormatVersion is not (7 or 8) || metadata.WorldCheckpoint.Length == 0
+                || duration > ReplayFormatV3.MaxFrame || (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames + duration > uint.MaxValue
+                || ReplayFormatV3.ValidateCustomArchiveMetadata(metadata) == null)
+                throw new InvalidDataException("Custom archive request requires a validated complete-world format7 or format8 baseline.");
+            var baseline = ReplayTimelineArchive.ReadConstruction(metadata.Bootstrap.Packets[0], custom: true);
+            Stop(); _host.Start();
+            try
+            {
+                passive.State.RestoreCustomCheckpoint(baseline);
+                _liveMetadata = metadata; CurrentPath = path; LastFrame = duration;
+                _frame = metadata.OriginRecordingFrame;
+                _customInspection = _customArchiveRequest = true; _started = true; IsActive = true;
+                LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
+                Transport.Begin();
+            }
+            catch { Stop(); throw; }
+        }
+
+        internal void JoinLive(ReplayReplicaCheckpoint construction, uint frame, ulong mapHash)
+        {
+            if (_host is not PassiveReplaySessionHost passive) throw new InvalidOperationException("Live capture requires a private replica.");
+            Stop(); _host.Start(); passive.State.RestoreCheckpoint(construction);
+            _frame = frame; _live = true; _started = false; IsActive = true; LastFrame = frame;
+            _liveMetadata = new ReplayMetadata { MapHash = mapHash, RoomKey = passive.State.Match?.RoomKey ?? "" };
+            LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
+        }
+
+        internal void AdvanceLive(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
+        {
+            if (_customInspection) throw new InvalidOperationException("Custom inspection requires its explicit accepted-record advance.");
+            if (!_live || _started && frame != _frame + 1) throw new InvalidOperationException("Live replica frames must be contiguous.");
+            foreach (var record in records)
+                if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation)
+                    _host.Inject(record.Payload, record.RecordingFrame);
+            _frame = LastFrame = frame; _started = true;
+        }
+        internal void JoinCustomInspection(ReplayReplicaCheckpoint construction, PreparedReplayWeaponPackage prepared, ulong mapHash)
+            => JoinCustomInspectionCore(construction, prepared, mapHash, postWorld: false);
+        internal void JoinPostWorldInspection(ReplayReplicaCheckpoint construction, PreparedReplayWeaponPackage prepared, ulong mapHash)
+            => JoinCustomInspectionCore(construction, prepared, mapHash, postWorld: true);
+        private void JoinCustomInspectionCore(ReplayReplicaCheckpoint construction, PreparedReplayWeaponPackage prepared, ulong mapHash, bool postWorld)
+        {
+            if (_host is not PassiveReplaySessionHost passive) throw new InvalidOperationException("Custom inspection requires a private passive host.");
+            ArgumentNullException.ThrowIfNull(prepared);
+            var validated = prepared.InspectCheckpoint(construction);
+            var match = validated.Match ?? throw new InvalidDataException("Custom inspection has no recorded match.");
+            Stop(); _host.Start(); passive.State.RestoreCustomCheckpoint(construction);
+            _frame = validated.RecordingFrame; LastFrame = _frame; _live = _customInspection = true; _started = false; IsActive = true;
+            _liveMetadata = new ReplayMetadata { FormatVersion = postWorld ? (byte)8 : (byte)7, ProtocolVersion = NetConfig.ProtocolVersion, MapHash = mapHash, RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+                OriginRecordingFrame = _frame, CustomWeapons = prepared.Descriptor, TimedShotCertificates = validated.TimedShots.Enabled,
+                Bootstrap = new() { Packets = new[] { ReplayTimelineArchive.Construction(construction) } } };
+            LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
+        }
+        internal void AdvanceCustomInspection(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
+        {
+            if (!_live || !_customInspection || _liveMetadata?.FormatVersion != 7)
+                throw new InvalidOperationException("No explicit format7 custom inspection is active.");
+            try
+            {
+                if (_started ? (ulong)frame != (ulong)_frame + 1 : frame != _frame && (ulong)frame != (ulong)_frame + 1)
+                    throw new InvalidOperationException("Custom inspection frames must be contiguous.");
+                foreach (var record in records)
+                {
+                    if (record.RecordingFrame != frame) throw new InvalidDataException("Custom inspection records must keep their actual recording frame.");
+                    if (record.Kind == ReplayFactKind.World || record.Payload.Length > 0 && record.Payload[0] == 253)
+                        throw new InvalidDataException("Custom world restoration requires its separate Scene contract.");
+                    if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent
+                        or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation or ReplayFactKind.CustomWeapon)
+                        _host.Inject(record.Payload, frame);
+                }
+                _frame = LastFrame = frame; _started = true;
+            }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            {
+                Stop(); LastResult = ReplayOpenResult.Corrupt; LastError = "Custom inspection stopped: " + error.Message; throw;
+            }
+        }
+        internal void RestoreCustomInspection(ReplayReplicaCheckpoint checkpoint)
+        {
+            if (!IsActive || !_live || !_customInspection || _host is not PassiveReplaySessionHost passive)
+                throw new InvalidOperationException("Custom world restoration requires its explicit private inspection session.");
+            var validated = new ReplayReplicaState(); validated.RestoreCustomCheckpoint(checkpoint);
+            if (validated.CustomWeaponDescriptor == null || Metadata?.CustomWeapons is not { } descriptor
+                || !validated.CustomWeaponDescriptor.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes()))
+                throw new InvalidDataException("Custom world decoder differs from its prepared inspection scope.");
+            passive.State.RestoreCustomCheckpoint(checkpoint);
+            _frame = LastFrame = validated.RecordingFrame; _started = true;
+        }
+        internal void AttachCustomArchive(PreparedCustomReplayArchive prepared)
+        {
+            if (!IsActive || !_customInspection || !_live || !_started)
+                throw new InvalidOperationException("A custom archive requires its freshly restored private world.");
+            var reader = prepared.TakeReader();
+            try
+            {
+                var metadata = reader.Metadata ?? throw new InvalidDataException("Custom archive metadata is unavailable.");
+                if (metadata.CustomWeapons == null || _liveMetadata?.CustomWeapons is not { } descriptor
+                    || !metadata.CustomWeapons.CopyBytes().AsSpan().SequenceEqual(descriptor.CopyBytes())
+                    || _frame < metadata.OriginRecordingFrame || _frame > (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames + reader.DurationFrames)
+                    throw new InvalidDataException("Custom file differs from its retained historical world scope.");
+                uint relative = checked(_frame - metadata.OriginRecordingFrame);
+                var pending = metadata.FormatVersion == 8 ? reader.SeekAtOrAfter(relative) : reader.SeekAfter(relative);
+                // WorldK already represents ordinary K. Deferred K remains inert
+                // while paused and must survive even a durable checkpoint seek.
+                while (metadata.FormatVersion == 8 && pending is { } atBaseline && atBaseline.Frame == relative
+                    && atBaseline.Data[0] != ReplayPostWorldRecord.Tag)
+                    pending = reader.ReadNext();
+                if (metadata.FormatVersion == 8 && (ulong)relative == (ulong)metadata.LeadInFrames + reader.DurationFrames)
+                    ConsumePostWorldEnd(reader, ref pending, _frame);
+                if (reader.LastResult != ReplayOpenResult.Success) throw new InvalidDataException("Custom archive seek failed: " + reader.LastResult);
+                _reader = reader; _pending = pending; CurrentPath = prepared.Path; _live = false;
+                LastFrame = reader.DurationFrames;
+            }
+            catch { reader.Dispose(); throw; }
+        }
+        internal bool AdvanceCustomArchiveInspection()
+        {
+            if (!IsActive || !IsCustomArchiveInspection) throw new InvalidOperationException("No explicit custom file inspection is active.");
+            if (AtEnd) return false;
+            try
+            {
+                if (_reader!.Metadata!.FormatVersion == 8) return AdvancePostWorldArchiveInspection();
+                uint next = checked(_frame + 1), origin = _reader!.Metadata!.OriginRecordingFrame;
+                int count = 0, bytes = 0;
+                while (_pending is { } record && (ulong)record.Frame + origin <= next)
+                {
+                    if ((ulong)record.Frame + origin != next || ++count > 4096 || (bytes = checked(bytes + record.Data.Length)) > 1024 * 1024)
+                        throw new InvalidDataException("Custom file records regress or exceed the bounded per-frame budget.");
+                    if (record.Data.Length == 0 || record.Data[0] == 253)
+                        throw new InvalidDataException("Construction records cannot replace an active custom file world.");
+                    if (record.Data[0] == 255 && (record.Data.Length != 1 || (ulong)record.Frame != (ulong)LeadInFrames + _reader.DurationFrames))
+                        throw new InvalidDataException("Custom file end markers must close their declared final frame.");
+                    if ((record.Data[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag) && !_reader.Metadata!.TimedShotCertificates)
+                        throw new InvalidDataException("Timed shot facts lack their recording capability.");
+                    if (record.Data[0] == 254)
+                    {
+                        var marker = ReplayTimelineArchive.DecodeMarker(next, record.Data); // Metadata, never a gameplay packet.
+                        marker.Release();
+                    }
+                    else if (record.Data[0] != 255)
+                    {
+                        // This explicitly admitted custom archive retains its custom
+                        // rules/facts; only the old83 presentation bytes need upgrading.
+                        ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.NormalizeLegacyParkourPose(record.Data, _reader.ProtocolVersion);
+                        if (!converted.IsEmpty) _host.Inject(converted, next);
+                    }
+                    _pending = _reader.ReadNext();
+                }
+                if (_reader.LastResult != ReplayOpenResult.Success) throw new InvalidDataException("Custom archive stopped: " + _reader.LastResult);
+                _frame = next; _started = true; return true;
+            }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            { Stop(); LastResult = ReplayOpenResult.Corrupt; LastError = "Custom file inspection stopped: " + error.Message; throw; }
+        }
+
+        internal void Join(ReplayTimelineClip clip, ReplayReplicaCheckpoint construction)
+        {
+            if (_host is not PassiveReplaySessionHost passive || clip.RestorePoint.Kind != ReplayRestoreKind.ReplicaCheckpoint)
+                throw new InvalidOperationException("A frozen world clip requires a passive replica host and complete checkpoint.");
+            Stop();
+            _host.Start(); passive.State.RestoreCheckpoint(construction);
+            _clip = clip; _clipIndex = 0; _frame = clip.RestorePoint.RecordingFrame; CurrentPath = null;
+            LastFrame = clip.EndRecordingFrame; IsActive = true; _started = false;
+            LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
+            Transport.Begin();
+        }
+
+        /// <summary>
+        /// Why the last <see cref="Join"/> failed, for a screen that is
+        /// still open to show it on -- Console.WriteLine is where this used
+        /// to only go, which is invisible on the Windows build outside a
+        /// typed command.
+        /// </summary>
+        public string? LastError { get; private set; }
+        public string? LastWarning { get; private set; }
+        public int CompatibilityDrops { get; private set; }
+
+        /// <summary>
+        /// How far into the recording <see cref="Join"/> will look for the
+        /// match info before giving up. Twenty seconds of recorded frames:
+        /// the server repeats its match state once a second, so a file that
+        /// has not said what room it is by then does not contain one.
+        /// </summary>
+        private const uint JoinSearchFrames = 60 * 20;
+
+        /// <summary>
+        /// Frames to keep pumping after the room key is known.
+        ///
+        /// BuildPlayers, called right after this, reads NetSession.SlotHunter
+        /// and SlotOccupied to decide every player's hunter and whether their
+        /// slot is even active, and those come from Roster packets that do not
+        /// necessarily land in the same burst as the MatchState that answers
+        /// ServerMatch first. Returning on the room key alone showed real
+        /// players with the wrong hunter, or briefly not active at all. The
+        /// roster repeats once a second, so two of those.
+        /// </summary>
+        private const uint JoinGraceFrames = 120;
+
+        /// <summary>
+        /// Synthetic receive timestamp for a recorded local frame.
+        ///
+        /// Replay packets must preserve the cadence they had in the recording,
+        /// not inherit whatever wall-clock batching this machine happens to do
+        /// while reviewing it. A catch-up draw can execute several 60 Hz replay
+        /// frames back-to-back; stamping those packets with Stopwatch.Now makes
+        /// NetSmoothing interpret the batch as new jitter and visibly hitch.
+        /// Differential transit only needs a stable cadence, so an arbitrary
+        /// epoch plus the recorded frame is sufficient.
+        /// </summary>
+        internal static long PlaybackArrivalTicks(uint frame)
+            => 1 + (long)Math.Round(frame * (double)Stopwatch.Frequency / 60.0);
+
+        /// <summary>
+        /// Open the file and wind it forward to the first match info, the
+        /// same shape as <see cref="NetLaunch.Join"/> -- true once
+        /// <c>NetSession.ServerMatch</c> knows what room to load.
+        ///
+        /// Blocking, and called off the UI thread for that reason, but no
+        /// longer *waiting*: a live join waits on a server, and this reads a
+        /// file, so it costs a few hundred frames of parsing rather than the
+        /// eight seconds the wall-clock version could spend.
+        /// </summary>
+        public bool Join(string path, int timeoutMs = 8000)
+        {
+            try { return OpenFile(path, timeoutMs); }
+            catch (Exception ex) when (ex is InvalidDataException or IOException
+                or UnauthorizedAccessException or ArgumentException or System.Net.Http.HttpRequestException or System.Threading.Tasks.TaskCanceledException)
+            {
+                LastResult = ReplayOpenResult.Corrupt;
+                LastError = "Cannot open replay: " + ex.Message;
+                Stop();
+                return false;
+            }
+        }
+
+        /// <summary>Packet-only analytics. No map installation, Scene, live session or presentation services.</summary>
+        internal bool JoinDetached(string path, CancellationToken cancellation = default)
+        {
+            if (_host is not PassiveReplaySessionHost) throw new InvalidOperationException("Detached replay reading requires a passive host.");
+            cancellation.ThrowIfCancellationRequested();
+            try { return OpenFile(path, 0, detached: true, cancellation: cancellation); }
+            catch { Stop(); throw; }
+        }
+
+        private bool OpenFile(string path, int timeoutMs, bool detached = false, CancellationToken cancellation = default)
+        {
+            _ = timeoutMs; // kept for the call site; nothing here waits on a clock
+            Stop();
+            LastError = null;
+            LastWarning = null;
+            CompatibilityDrops = 0;
+            _reader = DemoReader.Open(path, out ReplayOpenResult result);
+            LastResult = result;
+            if (_reader == null)
+            {
+                LastError = $"Cannot open replay: {result}.";
+                Console.WriteLine($"[demo] \"{path}\": {LastError}");
+                return false;
+            }
+            if (!ReplayIdentityCompatibility.Supports(_reader.ProtocolVersion))
+            {
+                LastResult = ReplayOpenResult.ProtocolMismatch;
+                LastError = $"This replay uses network protocol {_reader.ProtocolVersion}. "
+                    + $"This build can replay archived protocols {ReplayIdentityCompatibility.OldestReplayProtocol}-"
+                    + $"{NetConfig.ProtocolVersion}.";
+                _reader.Dispose();
+                _reader = null;
+                return false;
+            }
+            if (_reader.Metadata?.CustomWeapons != null)
+            {
+                LastResult = ReplayOpenResult.UnsupportedFormat;
+                LastError = "Custom archive inspection is available; Scene playback requires the custom world and exact historical resource contract.";
+                _reader.Dispose(); _reader = null; return false;
+            }
+            if (!detached && _reader.Metadata is { } packageMetadata) ReplayMapIdentity.PrepareExactPackage(packageMetadata);
+            bool pathChanged = CurrentPath != path;
+            if (pathChanged) Transport.ClearSelection();
+            CurrentPath = path;
+            _host.Prepare(path, pathChanged);
+            LastFrame = _reader.FormatVersion >= 3 ? _reader.DurationFrames : DemoLibrary.Duration(path);
+            _host.Start();
+            IsActive = true;
+            _frame = 0;
+            _started = false;
+            _host.ResetDiagnostics();
+            if (_reader.Metadata is ReplayMetadata metadata)
+            {
+                if (metadata.ExpectedHashes.Count > 0 && (metadata.HashSchema != ReplayStateHash.Schema || metadata.HashBuildId != ReplayStateHash.BuildId))
+                    Console.WriteLine("[replay] Expected state hashes belong to a different engine build/schema; packet playback remains available, hash verification is skipped.");
+                LastResult = detached ? ReplayOpenResult.Success : ReplayMapIdentity.Validate(metadata);
+                if (LastResult == ReplayOpenResult.MapHashMismatch
+                    && metadata.CustomMapIdentity == null
+                    && _reader.ProtocolVersion < NetConfig.ProtocolVersion)
+                {
+                    LastWarning = "Built-in map data differs from the recording; using the installed map for best-effort playback.";
+                    Console.WriteLine("[replay] " + LastWarning);
+                    LastResult = ReplayOpenResult.Success;
+                }
+                if (LastResult != ReplayOpenResult.Success)
+                {
+                    LastError = $"Cannot load replay map: {LastResult}.";
+                    Stop();
+                    return false;
+                }
+                if (metadata.WorldCheckpoint.Length > 0)
+                {
+                    try
+                    {
+                        if (_host is not PassiveReplaySessionHost passive)
+                            throw new InvalidDataException("This replay requires the isolated world player.");
+                        using var world = Replay.ReplayWorldCheckpoint.FromBytes(metadata.WorldCheckpoint, metadata.BuildId);
+                        if (world.HasTimedShotContract != metadata.TimedShotCertificates)
+                            throw new InvalidDataException("Initial world timed shot contract differs from recording metadata.");
+                        if (world.Frame != metadata.OriginRecordingFrame)
+                            throw new InvalidDataException("Replay origin differs from its initial world.");
+                        passive.State.RestoreCheckpoint(world.ConstructionState());
+                        _pending = _reader.ReadNext();
+                        if (_pending == null) throw new InvalidDataException("Replay contains no completed frames.");
+                        Transport.Begin();
+                        return true;
+                    }
+                    catch (InvalidDataException ex)
+                    {
+                        // Checkpoints are accelerators, not the replay itself. A schema from
+                        // an older build falls back to bootstrap/linear reconstruction.
+                        LastWarning = "Initial replay checkpoint was skipped: " + ex.Message;
+                        Console.WriteLine("[replay] " + LastWarning);
+                        _host.Start();
+                        _host.ResetDiagnostics();
+                        _frame = 0;
+                        _started = false;
+                    }
+                }
+                if (metadata.Bootstrap.Packets.Count > 0)
+                {
+                    foreach (byte[] packet in metadata.Bootstrap.Packets)
+                    { cancellation.ThrowIfCancellationRequested(); InjectConverted(packet, 0); }
+                    _host.Advance(0);
+                    if (_host.Match?.RoomKey.Length is > 0)
+                    {
+                        _host.Rewind();
+                        foreach (byte[] packet in metadata.Bootstrap.Packets)
+                            InjectConverted(packet, 0);
+                        _pending = _reader.ReadNext();
+                        if (_pending == null)
+                        {
+                            LastResult = _reader.LastResult == ReplayOpenResult.Success ? ReplayOpenResult.Empty : _reader.LastResult;
+                            LastError = $"Cannot play replay: {LastResult}.";
+                            Stop();
+                            return false;
+                        }
+                        Transport.Begin();
+                        return true;
+                    }
+                    if (!ReplayIdentityCompatibility.BestEffort(_reader.ProtocolVersion))
+                    {
+                        LastResult = ReplayOpenResult.MissingMatchState;
+                        LastError = "Replay bootstrap has no match state.";
+                        Stop();
+                        return false;
+                    }
+                    LastWarning = "Historical replay bootstrap was incomplete; reconstructing from the packet stream.";
+                    Console.WriteLine("[replay] " + LastWarning);
+                    _host.Start();
+                    _host.ResetDiagnostics();
+                    _frame = 0;
+                    _started = false;
+                }
+            }
+            _pending = _reader.ReadNext();
+            bool hadRecords = _pending != null;
+            long knownAt = -1;
+            while (_frame < JoinSearchFrames)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                PumpFrame();
+                _host.Advance(_frame / 60.0);
+                if (_host.Match?.RoomKey.Length > 0)
+                {
+                    if (knownAt < 0)
+                    {
+                        knownAt = _frame;
+                    }
+                    else if (_frame - knownAt >= JoinGraceFrames || AtEnd)
+                    {
+                        return Rewind(path);
+                    }
+                }
+                else if (AtEnd)
+                {
+                    break;
+                }
+            }
+            LastResult = _reader.LastResult != ReplayOpenResult.Success ? _reader.LastResult : !hadRecords ? ReplayOpenResult.Empty : ReplayOpenResult.MissingMatchState;
+            LastError = !hadRecords
+                ? "That replay file is empty -- nothing was ever recorded to it."
+                : "That replay has no match info in its first few seconds -- "
+                    + "the recording may have started before the server said what map it was running.";
+            Console.WriteLine($"[demo] \"{path}\": {LastError}");
+            Stop();
+            return false;
+        }
+
+        /// <summary>
+        /// Go back to the file's first frame, now that the room to load is
+        /// known.
+        ///
+        /// The search above is not free: it hands its records to the session
+        /// to be acted on, and there is no scene yet to act on them, so
+        /// everything in the first second or three of the recording was
+        /// consumed and then thrown away. The replay opened that far in --
+        /// which is why the first thing anybody did after pressing record was
+        /// missing from the file's playback while everything after it was
+        /// fine. Reported as "the first shot is not in the demo", and it was
+        /// in the demo; it was simply never played.
+        ///
+        /// Rewinding costs re-parsing a couple of hundred records. The state
+        /// the search was for stays -- see
+        /// <see cref="NetSession.RewindPlayback"/> for what has to go with it.
+        /// </summary>
+        private bool Rewind(string path)
+        {
+            _reader?.Dispose();
+            _reader = DemoReader.Open(path, out ReplayOpenResult result);
+            LastResult = result;
+            if (_reader == null)
+            {
+                LastError = "That replay could not be read a second time.";
+                Console.WriteLine($"[demo] \"{path}\": {LastError}");
+                Stop();
+                return false;
+            }
+            _frame = 0;
+            _started = false;
+            _pending = _reader.ReadNext();
+            _host.Rewind();
+            Transport.Begin();
+            return true;
+        }
+
+        /// <summary>
+        /// Reposition packet playback after an in-memory world checkpoint.
+        /// V3 lands directly on the indexed chunk; v2 falls back to a sequential scan.
+        /// No packets at or before the checkpoint are re-applied because the checkpoint
+        /// already contains their resulting world state.
+        /// </summary>
+        internal bool Reposition(uint frame, uint netFrame, bool sourceClock = false)
+        {
+            if (_customInspection) throw new InvalidOperationException("Custom inspection seek requires a fresh resource-owned world.");
+            if (IsActive && _clip != null)
+            {
+                if (frame < _clip.RestorePoint.RecordingFrame || frame > _clip.EndRecordingFrame) return false;
+                _clipIndex = 0;
+                while (_clipIndex < _clip.Records.Count && _clip.Records[_clipIndex].RecordingFrame <= frame) _clipIndex++;
+                _frame = frame; _started = true; _host.RestoreClock(netFrame); _host.SeekTo(frame);
+                return true;
+            }
+            if (!IsActive || CurrentPath == null) return false;
+            DemoReader? next = DemoReader.Open(CurrentPath, out ReplayOpenResult result);
+            if (next == null || !ReplayIdentityCompatibility.Supports(next.ProtocolVersion))
+            {
+                next?.Dispose();
+                LastResult = next == null ? result : ReplayOpenResult.ProtocolMismatch;
+                return false;
+            }
+
+            uint sourceFrame = sourceClock ? frame : checked(frame + LeadInFrames);
+            DemoRecord? pending = next.SeekAfter(sourceFrame);
+            if (pending == null && next.LastResult != ReplayOpenResult.Success && frame < LastFrame)
+            {
+                LastResult = next.LastResult;
+                next.Dispose();
+                return false;
+            }
+
+            _reader?.Dispose();
+            _reader = next;
+            _pending = pending;
+            _frame = sourceFrame;
+            _started = true;
+            _host.ResetDiagnostics();
+            LastResult = ReplayOpenResult.Success;
+            LastError = null;
+            _host.RestoreClock(netFrame);
+            _host.SeekTo(frame);
+            return true;
+        }
+
+        /// <summary>
+        /// Called once a frame: hands over every packet the recorder saw on
+        /// this frame of its own run.
+        /// </summary>
+        public void PumpFrame()
+        {
+            if (_customInspection) throw new InvalidOperationException("Custom inspection requires its explicit accepted-record or file stepping API.");
+            if (IsActive && _clip != null)
+            {
+                if (AtEnd) return;
+                if (_started) _frame++; else _started = true;
+                while (_clipIndex < _clip.Records.Count && _clip.Records[_clipIndex].RecordingFrame <= _frame)
+                {
+                    var record = _clip.Records[_clipIndex++];
+                    if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation)
+                        _host.Inject(record.Payload, record.RecordingFrame);
+                }
+                _host.Advance(_frame / 60.0);
+                return;
+            }
+            if (!IsActive || _reader == null || AtEnd)
+            {
+                return;
+            }
+            // The first pumped frame is frame 0 of the recording; every one
+            // after it is the next. Advancing before the release instead
+            // would skip whatever the recorder caught on its own first frame.
+            if (_started)
+            {
+                _frame++;
+            }
+            _started = true;
+            try
+            {
+                while (_pending is DemoRecord record && record.Frame <= _frame)
+                {
+                    InjectConverted(record.Data,
+                        checked(record.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0)));
+                    FactRead?.Invoke(record.Frame >= LeadInFrames ? record.Frame - LeadInFrames : 0, record.Data);
+                    _pending = _reader.ReadNext();
+                }
+            }
+            catch (InvalidDataException ex)
+            {
+                LastResult = ReplayOpenResult.Corrupt;
+                LastError = $"Replay stopped at frame {_frame}: " + ex.Message;
+                _pending = null;
+                return;
+            }
+            if (_pending == null)
+            {
+                LastResult = _reader.LastResult;
+                if (LastResult != ReplayOpenResult.Success) LastError = $"Replay stopped: {LastResult}.";
+            }
+        }
+
+
+        private void InjectConverted(ReadOnlySpan<byte> packet, uint frame)
+        {
+            try
+            {
+                if (!packet.IsEmpty && (packet[0] is ReplayTimedShotScope.Tag or ReplayTimedShotFact.Tag)
+                    && _reader!.Metadata?.TimedShotCertificates != true)
+                    throw new InvalidDataException("Timed shot facts lack a recording capability.");
+                ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion);
+                if (!converted.IsEmpty) _host.Inject(converted, frame);
+            }
+            catch (InvalidDataException ex) when (ReplayIdentityCompatibility.BestEffort(_reader!.ProtocolVersion))
+            {
+                CompatibilityDrops++;
+                LastWarning = $"Legacy compatibility skipped a record at frame {frame}: {ex.Message}";
+                if (CompatibilityDrops <= 5)
+                    Console.WriteLine("[replay] " + LastWarning);
+            }
+        }
+
+        internal void WarnVerification(string warning)
+        {
+            LastWarning = warning;
+            Console.WriteLine("[replay] " + warning);
+        }
+
+        public void Stop()
+        {
+            _clip = null; _clipIndex = 0;
+            _live = false; _customInspection = false; _customArchiveRequest = false; _liveMetadata = null;
+            _host.Stop();
+            Transport.Stop();
+            CloseReader();
+        }
+
+        private void CloseReader()
+        {
+            IsActive = false;
+            _reader?.Dispose();
+            _reader = null;
+            _pending = null;
+            _frame = 0;
+            _started = false;
+        }
+
+        internal void FailVerification(string error)
+        {
+            LastResult = ReplayOpenResult.StateMismatch;
+            LastError = error;
+            _pending = null;
+            Console.WriteLine("[replay] " + error);
+        }
+    }
+}

@@ -1,0 +1,627 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using MphRead.Entities;
+using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
+
+namespace MphRead
+{
+    /// <summary>
+    /// The results screen's hunter preview, drawn as a small window with its
+    /// own camera cut into the corner of the frame.
+    ///
+    /// A partial of Scene because everything it needs -- the render-item
+    /// lists, <c>RenderItem</c>, the shader locations -- is private to the
+    /// renderer, and because this is a *pass*, not an entity: the model is
+    /// collected like any other (see
+    /// <see cref="Mods.Render.HunterPreviewEntity"/>) and then drawn again
+    /// afterwards into a scissored rectangle whose depth buffer is its own.
+    ///
+    /// That separation is the whole design. Drawn in the world it would be
+    /// occluded by whatever the camera happens to be behind, lit by whatever
+    /// the room is lit by, and culled by the same portal walk that has already
+    /// caused two crashes on this screen. Drawn as a pass it is none of those
+    /// things -- and the cost is one scissored clear and a second pass over
+    /// about forty meshes, on a screen where nobody is playing.
+    /// </summary>
+    public partial class Scene
+    {
+        private readonly List<RenderItem> _previewItems = new List<RenderItem>();
+        private Mods.Render.HunterPreviewEntity? _preview;
+        private Mods.Render.HunterPreviewEntity? _activePreview;
+        // Slots 0..7 belong to the live formation; 8..14 retain the seven
+        // independent lobby-selector cards without rebuilding models each frame.
+        private readonly Mods.Render.HunterPreviewEntity?[] _launcherSlotPreviews =
+            new Mods.Render.HunterPreviewEntity?[15];
+        private readonly Hunter[] _launcherSlotInited = new Hunter[15];
+        private readonly bool[] _launcherSlotInitialized = new bool[15];
+
+        /// <summary>
+        /// True while the preview's items are being built, so
+        /// <c>AddRenderItem</c> puts them aside instead of into the world's
+        /// three lists. Set for exactly one call.
+        /// </summary>
+        private bool _collectingPreview;
+
+        /// <summary>The hunter whose meshes have been handed to GL.</summary>
+        private Hunter _previewInited = Hunter.Random;
+
+        /// <summary>
+        /// Where the preview goes, in fractions of the window: the panel's
+        /// portrait slot. Published by the HUD, because the panel decides its
+        /// own layout and this only has to land in the hole it left.
+        /// </summary>
+        public static float PreviewLeft { get; set; }
+        public static float PreviewTop { get; set; }
+        public static float PreviewRight { get; set; }
+        public static float PreviewBottom { get; set; }
+
+        /// <summary>Whether the HUD asked for a preview this frame.</summary>
+        public static bool PreviewWanted { get; set; }
+
+        /// <summary>
+        /// The launcher is asking, rather than the results screen.
+        ///
+        /// The two want the same picture for the same reason -- "who am I
+        /// going in as" is the same question before a match and between two --
+        /// and the pass below does not care which of them is asking. What
+        /// differs is only where the hunter and the suit are read from, and
+        /// that the launcher's frame has no world in it at all: see
+        /// <see cref="ModDrawPreviewAlone"/>.
+        /// </summary>
+        public static bool LauncherPreview { get; set; }
+
+        /// <summary>Who the launcher is showing, while it is the one asking.</summary>
+        public static Hunter LauncherHunter { get; set; } = Hunter.Samus;
+
+        public static int LauncherSuit { get; set; }
+
+        /// <summary>
+        /// When true the launcher preview keeps the already-drawn cinematic
+        /// color buffer and clears only depth inside its scissor rectangle.
+        /// </summary>
+        public static bool LauncherPreviewTransparent { get; set; }
+
+        /// <summary>Presentation-only launcher preview camera distance.</summary>
+        public static float LauncherPreviewDistanceScale { get; set; } = 1f;
+
+        /// <summary>
+        /// Presentation-only menu-stage lighting. This is never read by
+        /// gameplay players or the results-screen preview.
+        /// </summary>
+        public static bool LauncherPreviewCinematicLighting { get; set; }
+
+        /// <summary>
+        /// Presentation slot used by the multi-Hunter RmlUi lobby. -1 keeps the
+        /// original single-preview path. Each non-negative slot owns its own
+        /// preview entity/model instance so eight Hunters do not thrash one
+        /// ModelInstance back and forth every display frame.
+        /// </summary>
+        public static int LauncherPreviewSlot { get; set; } = -1;
+        public static bool LauncherPreviewFormation { get; set; }
+
+        /// <summary>Did anybody ask for a preview this frame?</summary>
+        private static bool PreviewAsked => Mods.EndScreen.PanelAvailable || LauncherPreview;
+
+        /// <summary>
+        /// Whether a hunter was actually put on the screen last frame, by
+        /// either path.
+        ///
+        /// What the screens read to decide between leaving a hole and drawing
+        /// their own boxes. Static because the control asking is in the
+        /// launcher's tree and has no scene to ask.
+        /// </summary>
+        public static bool PreviewDrawnLastFrame { get; internal set; }
+
+        /// <summary>Who that frame actually had in it. See HunterPreviewEntity.Shown.</summary>
+        public static Hunter PreviewDrawnHunter { get; private set; } = Hunter.Random;
+
+        public static int PreviewDrawnSuit { get; private set; } = -1;
+
+        // The launcher can render at 60, 120, 144 or more Hz. The preview
+        // animation is authored on the game's 60 Hz simulation clock, so
+        // advancing it once per launcher draw makes it visibly frantic on a
+        // high-refresh display.
+        private readonly System.Diagnostics.Stopwatch _launcherPreviewClock =
+            System.Diagnostics.Stopwatch.StartNew();
+        private double _launcherPreviewNextStep;
+        private Hunter _launcherPreviewClockHunter = Hunter.Random;
+        private int _launcherPreviewClockSuit = -1;
+        private readonly double[] _launcherSlotNextStep = new double[15];
+        private readonly Hunter[] _launcherSlotClockHunter = new Hunter[15];
+        private readonly int[] _launcherSlotClockSuit =
+            { -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1 };
+        private readonly bool[] _launcherSlotClockSet = new bool[15];
+        private const double LauncherPreviewStepSeconds = 1.0 / 60.0;
+
+        /// <summary>
+        /// Turn the model, once a simulation step. Called from the step rather
+        /// than the draw for the reason everything else here is: a picture with
+        /// no step behind it must not advance anything, or the hunter spins at
+        /// the frame rate.
+        /// </summary>
+        public void ModStepPreview()
+        {
+            if (!PreviewAsked)
+            {
+                _preview?.Reset();
+                foreach (var slotPreview in _launcherSlotPreviews)
+                    slotPreview?.Reset();
+                _activePreview = null;
+                // So a rectangle from the last results screen cannot be used
+                // by the next one before the panel has published its own.
+                PreviewWanted = false;
+                PreviewLeft = PreviewRight = PreviewTop = PreviewBottom = 0;
+                return;
+            }
+
+            int slot = LauncherPreview && LauncherPreviewSlot >= 0
+                && LauncherPreviewSlot < _launcherSlotPreviews.Length
+                ? LauncherPreviewSlot : -1;
+            Mods.Render.HunterPreviewEntity preview;
+            if (slot >= 0)
+            {
+                preview = _launcherSlotPreviews[slot]
+                    ??= new Mods.Render.HunterPreviewEntity(this);
+            }
+            else
+            {
+                preview = _preview ??= new Mods.Render.HunterPreviewEntity(this);
+            }
+            _activePreview = preview;
+
+            Hunter want = LauncherPreview ? LauncherHunter : Mods.EndScreen.Hunter;
+            // Multi-player lobby slots are always character bipeds. A stale
+            // cosmetic-preview request (viewmodel/alt/death demo) must not turn
+            // every remote roster entry into the local preview tool's form.
+            bool lobbySlot = LauncherPreview && slot >= 0;
+            var mode = LauncherPreview && !lobbySlot
+                && Mods.Cosmetics.CosmeticPreview.Loadout != null
+                ? Mods.Cosmetics.CosmeticPreview.Mode : Mods.Cosmetics.SkinContext.Biped;
+            bool modelChanged = !preview.Ready || preview.Shown != want || preview.Mode != mode;
+            preview.SetUp(want, LauncherPreview ? LauncherSuit : Mods.EndScreen.Suit, mode);
+            preview.SetCosmetics(lobbySlot
+                    ? Mods.Cosmetics.CosmeticPersistence.Get(want)
+                    : Mods.Cosmetics.CosmeticPreview.Loadout
+                        ?? Mods.Cosmetics.CosmeticPersistence.Get(want),
+                lobbySlot ? 0 : Mods.Cosmetics.CosmeticPreview.DeathRequest);
+
+            // Textures and display lists, which nobody else is going to make.
+            // Lobby slots keep their own initialization witness so switching
+            // draw order never reinitializes seven cached models every frame.
+            bool needsInit = slot >= 0
+                ? !_launcherSlotInitialized[slot]
+                    || _launcherSlotInited[slot] != want || modelChanged
+                : _previewInited != want || modelChanged;
+            if (needsInit && preview.Ready)
+            {
+                InitEntity(preview);
+                if (slot >= 0)
+                {
+                    _launcherSlotInitialized[slot] = true;
+                    _launcherSlotInited[slot] = want;
+                }
+                else
+                {
+                    _previewInited = want;
+                }
+            }
+            preview.Step();
+        }
+
+        private bool _sharedPreviewClock;
+        private void ModStepLauncherPreview()
+        {
+            if (_sharedPreviewClock != Mods.Launcher.LauncherPresentation.Active)
+            {
+                _sharedPreviewClock = Mods.Launcher.LauncherPresentation.Active;
+                _launcherPreviewClockHunter = Hunter.Random;
+                Array.Clear(_launcherSlotClockSet);
+            }
+            double now = Mods.Launcher.LauncherPresentation.Active
+                ? Mods.Launcher.LauncherPresentation.Motion.Time : _launcherPreviewClock.Elapsed.TotalSeconds;
+            int slot = LauncherPreviewSlot >= 0
+                && LauncherPreviewSlot < _launcherSlotPreviews.Length
+                ? LauncherPreviewSlot : -1;
+
+            if (slot >= 0)
+            {
+                if (_launcherSlotPreviews[slot] is { } cached)
+                    _activePreview = cached;
+
+                bool slotChanged = !_launcherSlotClockSet[slot]
+                    || _launcherSlotClockHunter[slot] != LauncherHunter
+                    || _launcherSlotClockSuit[slot] != LauncherSuit;
+                if (slotChanged)
+                {
+                    _launcherSlotClockSet[slot] = true;
+                    _launcherSlotClockHunter[slot] = LauncherHunter;
+                    _launcherSlotClockSuit[slot] = LauncherSuit;
+                    _launcherSlotNextStep[slot] = now + LauncherPreviewStepSeconds;
+                    ModStepPreview();
+                    return;
+                }
+
+                if (now < _launcherSlotNextStep[slot])
+                    return;
+
+                int slotSteps = Math.Clamp(
+                    (int)((now - _launcherSlotNextStep[slot])
+                        / LauncherPreviewStepSeconds) + 1, 1, 3);
+                for (int i = 0; i < slotSteps; i++)
+                    ModStepPreview();
+                _launcherSlotNextStep[slot] += slotSteps * LauncherPreviewStepSeconds;
+                if (now - _launcherSlotNextStep[slot] > LauncherPreviewStepSeconds * 3)
+                    _launcherSlotNextStep[slot] = now + LauncherPreviewStepSeconds;
+                return;
+            }
+
+            bool changed = _launcherPreviewClockHunter != LauncherHunter
+                || _launcherPreviewClockSuit != LauncherSuit;
+
+            if (changed)
+            {
+                _launcherPreviewClockHunter = LauncherHunter;
+                _launcherPreviewClockSuit = LauncherSuit;
+                _launcherPreviewNextStep = now + LauncherPreviewStepSeconds;
+                // Apply the newly selected model/suit immediately. Only the
+                // continuing idle animation is rate-limited.
+                ModStepPreview();
+                return;
+            }
+
+            if (now < _launcherPreviewNextStep)
+            {
+                _activePreview = _preview;
+                return;
+            }
+
+            // Catch up modestly after a hitch without turning one slow frame
+            // into a burst of dozens of animation frames.
+            int steps = Math.Clamp(
+                (int)((now - _launcherPreviewNextStep) / LauncherPreviewStepSeconds) + 1,
+                1, 3);
+            for (int i = 0; i < steps; i++)
+            {
+                ModStepPreview();
+            }
+            _launcherPreviewNextStep += steps * LauncherPreviewStepSeconds;
+            if (now - _launcherPreviewNextStep > LauncherPreviewStepSeconds * 3)
+            {
+                _launcherPreviewNextStep = now + LauncherPreviewStepSeconds;
+            }
+        }
+
+        /// <summary>
+        /// Build the preview's render items, after every entity has built
+        /// theirs. Nothing else may add items while this runs.
+        /// </summary>
+
+        internal void ModReleaseSourcePreview(object owner)
+        {
+            _preview?.ReleaseSourceStage(owner);
+        }
+        private void ReleasePreviewItems()
+        {
+            foreach (var item in _previewItems)
+            {
+                if (item.Type != RenderItemType.Mesh && item.Points.Length > 0)
+                {
+                    System.Buffers.ArrayPool<Vector3>.Shared.Return(item.Points);
+                    item.Points = Array.Empty<Vector3>();
+                }
+                _freeRenderItems.Enqueue(item);
+            }
+            _previewItems.Clear();
+        }
+
+        private void ModCollectPreview()
+        {
+            ReleasePreviewItems();
+            if (!PreviewAsked || _activePreview == null || !_activePreview.Ready)
+            {
+                return;
+            }
+            _collectingPreview = true;
+            int priorParticleCount = _singleParticleCount;
+            try
+            {
+                _activePreview.GetDrawInfo();
+                for (int i = priorParticleCount; i < _singleParticleCount; i++)
+                {
+                    _singleParticles[i].Process();
+                    if (_singleParticles[i].ShouldDraw) _singleParticles[i].AddRenderItem(this);
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[endscreen] preview draw failed: {ex.Message}");
+                ReleasePreviewItems();
+            }
+            finally
+            {
+                _singleParticleCount = priorParticleCount;
+                _collectingPreview = false;
+            }
+        }
+
+        /// <summary>
+        /// Whether the panel should leave its slot empty for the model rather
+        /// than filling it with the sprite portrait.
+        ///
+        /// Needs a rectangle as well as items, because the rectangle is
+        /// published by the panel and so arrives a frame after the first set
+        /// of items. One frame of sprite at the top of a ten-second screen is
+        /// not something anybody sees; a hole with nothing in it would be.
+        /// </summary>
+        public bool ModPreviewDrawn => _previewItems.Count > 0
+            && PreviewRight - PreviewLeft > 0.001f && PreviewBottom - PreviewTop > 0.001f;
+
+        /// <summary>
+        /// How far the camera stands from the hunter, and what it looks at.
+        ///
+        /// A hunter biped is about two units tall with its feet near the
+        /// origin, so the eye sits at chest height and backs off far enough
+        /// for the whole of it to fit a square window at a 40-degree field --
+        /// wide enough to read the shape, narrow enough not to distort it the
+        /// way a wide angle at this distance would.
+        /// </summary>
+        private static Matrix4 PreviewView(Hunter hunter, float aspect, float distanceScale = 1f)
+        {
+            // Trace's raised limbs and Spire's shoulders extend beyond the
+            // shared biped framing. Narrow panels need horizontal room too.
+            float distance = hunter == Hunter.Trace ? 4.6f : hunter == Hunter.Spire ? 4.2f : 3.9f;
+            float targetHeight = hunter == Hunter.Trace ? 1.2f : 1.05f;
+            distance *= Math.Clamp(distanceScale, 0.65f, 1.25f);
+            distance *= Math.Max(1, 1 / Math.Max(0.1f, aspect));
+            return Matrix4.LookAt(new Vector3(0, targetHeight + 0.1f, distance),
+                new Vector3(0, targetHeight, 0), Vector3.UnitY);
+        }
+        private const float PreviewFov = 40;
+
+        /// <summary>The window's own background, behind the model.</summary>
+        private static readonly Color4 _previewBack = new Color4(0.05f, 0.055f, 0.07f, 1f);
+
+        /// <summary>
+        /// Draw it. Called once the world's passes are finished and the HUD's
+        /// dimming filter is on, so the preview is the one thing on the screen
+        /// that is not dimmed -- which is right, it is the thing being asked
+        /// about.
+        /// </summary>
+        /// <summary>
+        /// The same hunter, in a frame with no match behind it: the launcher's
+        /// own screens.
+        ///
+        /// <para>
+        /// Everything the pass below needs was set up by <see cref="OnLoad"/>
+        /// -- the shader, the toon table, the shift table -- and none of it
+        /// needs a room. What a match's frame adds is the world, and this
+        /// draws no world: it is one scissored rectangle with its own camera
+        /// and its own cleared depth, which is what the pass already was. So
+        /// the launcher stands a scene up with nothing in it and calls this.
+        /// </para>
+        /// <para>
+        /// Straight into the back buffer rather than into the scene's own
+        /// offscreen target, because nothing is going to present that target:
+        /// the launcher's frame is the photograph, this, and the screens'
+        /// texture over the top. <paramref name="windowSize"/> is therefore
+        /// the window's, and it is what the rectangle is measured against.
+        /// </para>
+        /// <para>
+        /// Returns whether anything was actually drawn, and that answer is
+        /// load-bearing: the screens only leave a hole where the model goes
+        /// once this has said yes, so a hunter whose model will not load, or
+        /// the frames before it has, show the drawn stand instead of a hole
+        /// with nothing in it.
+        /// </para>
+        /// </summary>
+        public bool ModDrawPreviewAlone(Vector2i windowSize)
+        {
+            PreviewDrawnLastFrame = false;
+            if (!LauncherPreview || windowSize.X <= 0 || windowSize.Y <= 0)
+            {
+                return false;
+            }
+            if (Environment.TickCount64 < _previewRetryAfter)
+            {
+                return false;
+            }
+            _targetSize = windowSize;
+            try
+            {
+                // Preserve the current retained-renderer shader variant when
+                // stepping the original multi-Hunter preview path.
+                SelectWorldShaderVariant();
+                RefreshTextureQuality();
+                ModStepLauncherPreview();
+#if !ANDROID && !MPHREAD_SERVER
+                // Every desktop draw synchronizes the optional source owner,
+                // including frames without a native60Hz step.
+                if (_activePreview != null && !_activePreview.SyncSourceStage(Mods.Render.LauncherHunter.SourcePreviewRequest))
+                    return false;
+#endif
+                int presentationSlot = LauncherPreviewSlot >= 0
+                    && LauncherPreviewSlot < _launcherSlotNextStep.Length
+                    ? LauncherPreviewSlot : -1;
+                double next = presentationSlot >= 0 ? _launcherSlotNextStep[presentationSlot] : _launcherPreviewNextStep;
+                double now = Mods.Launcher.LauncherPresentation.Active ? Mods.Launcher.LauncherPresentation.Motion.Time : _launcherPreviewClock.Elapsed.TotalSeconds;
+                // Current HunterPreviewEntity advances its pose via Step();
+                // the archived SamplePresentation hook was removed in the
+                // contemporary animation pipeline. Never call a missing API.
+                _ = next;
+                _ = now;
+                ModCollectPreview();
+                if (!ModPreviewDrawn)
+                {
+                    return false;
+                }
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+                GL.UseProgram(_shaderProgramId);
+                ModDrawPreview();
+                GL.UseProgram(0);
+                _previewFailureCount = 0;
+                _previewRetryAfter = 0;
+                _previewComplained = false;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                // A preview that will not draw is the launcher's boxes again,
+                // not a dead launcher. Said once: this is a per-frame path.
+                int shift = Math.Min(_previewFailureCount, 3);
+                _previewFailureCount++;
+                int delay = Math.Min(250 << shift, 2000);
+                _previewRetryAfter = Environment.TickCount64 + delay;
+                if (!_previewComplained)
+                {
+                    _previewComplained = true;
+                    Mods.DebugLog.Line("ui",
+                        $"the hunter preview could not be drawn; retrying in {delay} ms: {ex.Message}");
+                }
+                LauncherPreview = false;
+                // A failure may happen after the preview enabled scissoring
+                // or bound its shader. Restore the state the overlay expects
+                // so the fallback frame is not itself clipped/corrupted.
+                try
+                {
+                    GL.Disable(EnableCap.ScissorTest);
+                    GL.Viewport(0, 0, windowSize.X, windowSize.Y);
+                    GL.UseProgram(0);
+                }
+                catch
+                {
+                    // The context itself may be the failing resource. The
+                    // caller will fall back while this pass cools down.
+                }
+                return false;
+            }
+        }
+
+        private bool _previewComplained;
+        private int _previewFailureCount;
+        private long _previewRetryAfter;
+
+        private void ModDrawPreview()
+        {
+            if (_previewItems.Count == 0 || !PreviewWanted)
+            {
+                PreviewDrawnLastFrame = false;
+                return;
+            }
+            // Not from inside the world's render while the deck panel is up.
+            // That draws the model *under* the screens, and the panel it goes
+            // in is opaque -- so it would be a hunter behind a card, drawn for
+            // nothing. The desktop's UiOverlay draws it over the screens
+            // instead, once the texture is down (see LauncherHunter); the head
+            // with no window under its screens has the picture inside the
+            // panel already (see HunterShot).
+            if (Mods.EndScreen.PanelUp && !LauncherPreview)
+            {
+                return;
+            }
+            Vector2i target = _targetSize;
+            // The rectangle, in the render target's pixels rather than the
+            // window's: the scene may be rendered smaller than the window and
+            // stretched (see RenderSize), and this pass is inside that target.
+            // Y flips, because a HUD measures down from the top and OpenGL
+            // measures up from the bottom.
+            int x = (int)MathF.Round(PreviewLeft * target.X);
+            int y = (int)MathF.Round((1 - PreviewBottom) * target.Y);
+            int width = (int)MathF.Round((PreviewRight - PreviewLeft) * target.X);
+            int height = (int)MathF.Round((PreviewBottom - PreviewTop) * target.Y);
+            if (width < 4 || height < 4)
+            {
+                return;
+            }
+            GL.Enable(EnableCap.ScissorTest);
+            GL.Scissor(x, y, width, height);
+            // Direct game-UI overlays already have their cinematic color
+            // behind this model, so keep it. The old preview-card path still
+            // clears to its opaque background exactly as before.
+            if (LauncherPreview && LauncherPreviewTransparent)
+            {
+                GL.Clear(ClearBufferMask.DepthBufferBit);
+            }
+            else
+            {
+                GL.ClearColor(_previewBack);
+                // Depth as well as colour, and this is the point of the whole
+                // pass: the world's depth buffer is full of a level the model
+                // is nowhere near, and without clearing it the hunter would be
+                // behind a wall it is not standing near.
+                GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                GL.ClearColor(0, 0, 0, 0);
+            }
+            GL.Viewport(x, y, width, height);
+            Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
+                MathHelper.DegreesToRadians(PreviewFov),
+                width / (float)height, 0.1f, 100f);
+            Matrix4 view = PreviewView(_activePreview?.Mode == Mods.Cosmetics.SkinContext.Biped
+                ? _activePreview.Shown : Hunter.Samus, width / (float)height,
+                LauncherPreview ? LauncherPreviewDistanceScale : 1f);
+            if (LauncherPreview && LauncherPreviewFormation && Mods.Launcher.LauncherLobbyVisuals.Active && LauncherPreviewSlot >= 0
+                && _activePreview?.Mode == Mods.Cosmetics.SkinContext.Biped)
+            {
+                var pad = Mods.Launcher.LauncherLobbyFormation.At(LauncherPreviewSlot);
+                // Project the model's ground origin, not its bounding-box midpoint.
+                // Trace's height and the viewport aspect otherwise shift the feet.
+                Vector4 ground = new Vector4(0, 0, 0, 1) * view * projection;
+                float targetX = (pad.PadX * target.X - x) / width * 2 - 1;
+                float targetY = ((1 - pad.PadY) * target.Y - y) / height * 2 - 1;
+                projection.M31 += ground.X / ground.W - targetX;
+                projection.M32 += ground.Y / ground.W - targetY;
+            }
+            GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
+            GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref view);
+            // No fog, whatever the room does with it: a preview window is not
+            // in the room, and the far end of a foggy level would have the
+            // hunter fade into the panel.
+            GL.Uniform1(_shaderLocations.UseFog, 0);
+            GL.Uniform1(_shaderLocations.ShowColors, 1);
+            var previousBillboard = _viewInvRotMatrix;
+            _viewInvRotMatrix = Matrix4.CreateFromQuaternion(view.ExtractRotation().Inverted());
+            GL.Enable(EnableCap.DepthTest);
+            GL.DepthFunc(DepthFunction.Less);
+            GL.DepthMask(true);
+            GL.Disable(EnableCap.StencilTest);
+            GL.Enable(EnableCap.Blend);
+            GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            GL.Disable(EnableCap.AlphaTest);
+            _sourceGxPreviewView = view; _sourceGxPreviewProjection = projection;
+            try
+            {
+                // Stable source material passes. Native-only previews preserve
+                // their original order, state and submission path.
+                IEnumerable<RenderItem> items = _previewItems.Any(p => p.SourceGx != null)
+                    ? _previewItems.OrderBy(p => (int?)p.SourceGx?.Binding.Program.DrawPass ?? 0) : _previewItems;
+                foreach (var item in items)
+                {
+                    GL.DepthMask(item.Type == RenderItemType.Mesh);
+                    RenderItem(item);
+                }
+            }
+            finally { _sourceGxPreviewView = _sourceGxPreviewProjection = null; }
+            GL.DepthMask(true);
+            if (_activePreview != null
+                && _activePreview.Mode == Mods.Cosmetics.SkinContext.Biped
+                && Mods.Cosmetics.CosmeticPreview.Loadout != null
+                && LauncherPreviewSlot < 0)
+                Mods.ScreenCapture.QueueCosmeticThumbnail(x, y, width, height,
+                    Mods.Cosmetics.CosmeticThumbnail.PathFor(
+                        _activePreview.Shown, _activePreview.ThumbnailKey));
+            // Everything back the way the HUD expects to find it.
+            GL.Disable(EnableCap.ScissorTest);
+            GL.Viewport(0, 0, target.X, target.Y);
+            GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref _perspectiveMatrix);
+            GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
+            GL.Uniform1(_shaderLocations.UseFog, _hasFog && FogOn ? 1 : 0);
+            GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+            _viewInvRotMatrix = previousBillboard;
+            GL.Uniform1(_shaderLocations.ShowColors, _showColors ? 1 : 0);
+            PreviewDrawnLastFrame = true;
+            PreviewDrawnHunter = _activePreview?.Shown ?? Hunter.Random;
+            PreviewDrawnSuit = _activePreview?.ShownSuit ?? -1;
+        }
+    }
+}

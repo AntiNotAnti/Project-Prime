@@ -1,0 +1,3694 @@
+using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Network;
+using MphRead.Mods.Movement;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using MphRead.Effects;
+using MphRead.Formats;
+using MphRead.Formats.Culling;
+using MphRead.Hud;
+using MphRead.Text;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    [Flags]
+    public enum LoadFlags : byte
+    {
+        None = 0,
+        Connected = 0x1,
+        WasConnected = 0x2,
+        Disconnected = 0x4,
+        Initial = 0x8,
+        Unknown4 = 0x10,
+        Active = 0x20,
+        SlotActive = 0x40,
+        Spawned = 0x80
+    }
+
+    public class AvailableArray
+    {
+        private readonly bool[] _array = new bool[9];
+
+        public void ClearAll()
+        {
+            for (int i = 0; i < _array.Length; i++)
+            {
+                _array[i] = false;
+            }
+        }
+
+        public void SetAll()
+        {
+            for (int i = 0; i < _array.Length; i++)
+            {
+                _array[i] = true;
+            }
+        }
+
+        public void Set(ushort value)
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                _array[i] = (value & (1 << i)) != 0;
+            }
+        }
+
+        public void CopyFrom(AvailableArray source)
+        {
+            for (int i = 0; i < _array.Length; i++)
+            {
+                _array[i] = source[i];
+            }
+        }
+
+        public bool this[int key]
+        {
+            get => _array[key];
+            set => _array[key] = value;
+        }
+
+        public bool this[BeamType key]
+        {
+            get => _array[(int)key];
+            set => _array[(int)key] = value;
+        }
+    }
+
+    public enum PlayerAnimation : sbyte
+    {
+        None = -1,
+        Morph = 0,
+        Flourish = 1,
+        WalkForward = 2,
+        Unmorph = 3,
+        DamageBack = 4,
+        DamageFront = 5,
+        DamageLeft = 6,
+        DamageRight = 7,
+        Idle = 8,
+        LandNeutral = 9,
+        LandLeft = 10,
+        LandRight = 11,
+        JumpNeutral = 12,
+        JumpBack = 13,
+        JumpForward = 14,
+        JumpLeft = 15,
+        JumpRight = 16,
+        Unused17 = 17,
+        WalkBackward = 18,
+        Spawn = 19,
+        WalkLeft = 20,
+        WalkRight = 21,
+        Turn = 22,
+        Charge = 23,
+        ChargeShoot = 24,
+        Shoot = 25
+    }
+
+    public enum GunAnimation : byte
+    {
+        FullCharge = 0,
+        ChargeShot = 1,
+        Charging = 2,
+        Idle = 3,
+        Switch = 4,
+        FullChargeMissile = 5,
+        ChargingMissile = 6,
+        MissileClose = 7,
+        MissileOpen = 8,
+        Unknown9 = 9,
+        MissileShot = 10,
+        UpDown = 11,
+        Shot = 12
+    }
+
+    public enum TraceAltAnim : byte
+    {
+        Idle = 0,
+        Attack = 1,
+        MoveLeft = 2,
+        MoveForward = 3,
+        MoveRight = 4,
+        MoveBackward = 5
+    }
+
+    public enum WeavelAltAnim : byte
+    {
+        Idle = 0,
+        Attack = 1,
+        MoveLeft = 2,
+        MoveForward = 3,
+        MoveRight = 4,
+        Turn = 5,
+        MoveBackward = 6
+    }
+
+    public enum KandenAltAnim : byte
+    {
+        Idle = 0,
+        TailOut = 1,
+        TailIn = 2
+    }
+
+    public enum NoxusAltAnim : byte
+    {
+        Extend = 0
+    }
+
+    public enum SyluxAltAnim : byte
+    {
+        Idle = 0
+    }
+
+    public enum SpireAltAnim : byte
+    {
+        Attack = 0
+    }
+
+    public partial class PlayerEntity : DynamicLightEntityBase
+    {
+        private readonly ModelInstance[] _bipedModelLods = new ModelInstance[2];
+        private ModelInstance _bipedModel1 = null!; // legs
+        private ModelInstance _bipedModel2 = null!; // torso
+        public ModelInstance BipedModel2 => _bipedModel2;
+        private ModelInstance _altModel = null!;
+        private ModelInstance _gunModel = null!;
+        private ModelInstance _gunSmokeModel = null!;
+        private ModelInstance _doubleDmgModel = null!;
+        public ModelInstance DoubleDamageModel => _doubleDmgModel;
+        private ModelInstance _altIceModel = null!;
+        private ModelInstance _bipedIceModel = null!;
+        private ModelInstance _trailModel = null!;
+        private ModelInstance _octolithSimpleModel = null!;
+        private readonly Node?[] _spineNodes = new Node?[2];
+        private readonly Node?[] _shootNodes = new Node?[2];
+        private int _trailBindingId1 = 0;
+        private int _trailBindingId2 = 0;
+        private int _doubleDmgBindingId = 0;
+        public int DoubleDmgBindingId => _doubleDmgBindingId;
+        private readonly Matrix4[] _bipedIceTransforms = new Matrix4[19];
+
+        // todo?: could save space with a union
+        private readonly Node?[] _spireAltNodes = new Node?[4];
+        private Vector3 _spireRockPosL; // positions after animation
+        private Vector3 _spireRockPosR;
+        private Vector3 _spireAltFacing;
+        private Vector3 _spireAltUp;
+        private readonly Vector3[] _spireAltVecs = new Vector3[16];
+        private readonly Vector3[] _kandenSegPos = new Vector3[5];
+        private readonly Matrix4[] _kandenSegMtx = new Matrix4[5];
+        public IReadOnlyList<Vector3> KandenSegPos => _kandenSegPos;
+        public byte SyluxBombCount { get; set; } = 0;
+        public BombEntity?[] SyluxBombs { get; } = new BombEntity?[3];
+
+        // todo: these settings can change
+        public static int MainPlayerIndex { get => LegacyRegistry.MainPlayerIndex; set => LegacyRegistry.MainPlayerIndex = value; }
+        public static int PlayerCount { get => LegacyRegistry.PlayerCount; set => LegacyRegistry.PlayerCount = value; }
+        /// <summary>
+        /// How many slots exist at all. Every per-slot array in the game is
+        /// this long, so raising it is what makes a match of more than four
+        /// possible; MaxPlayers is the limit actually in force, which a
+        /// networked session raises to whatever the server allows.
+        ///
+        /// A constant rather than a setting because the arrays are built
+        /// during static initialisation, long before anything could configure
+        /// it. Unused slots cost an entry each and are inert.
+        /// </summary>
+        /// <summary>
+        /// The most players any session can hold.
+        ///
+        /// Separate from MaxPlayers, which is how many this particular match
+        /// allows: every array indexed by slot is sized from this, so the
+        /// limit can be raised without each of them having to agree about it
+        /// separately. Four is what the DS supported; nothing in the
+        /// simulation needed that number, only the arrays did.
+        /// </summary>
+        public const int SlotCapacity = 8;
+
+        public static int MaxPlayers { get => LegacyRegistry.MaxPlayers; set => LegacyRegistry.MaxPlayers = value; }
+        public static int PlayersCreated { get => LegacyRegistry.PlayersCreated; set => LegacyRegistry.PlayersCreated = value; }
+        public static PlayerEntity Main => Players[MainPlayerIndex];
+        internal static ScenePlayerRegistry LegacyRegistry { get; set; } = new();
+        public static PlayerEntity[] _players => LegacyRegistry.Values;
+        public static IReadOnlyList<PlayerEntity> Players => _players;
+        public bool IsMainPlayer => this == _scene.Players.Main && _scene.CameraMode == CameraMode.Player;
+        private int _altScanId = 0;
+
+        private const int UA = 0;
+        private const int Missiles = 1;
+
+        private int _healthMax = 0;
+        private int _health = 0;
+        private int _healthRecovery = 0;
+        private bool _tickedHealthRecovery = false; // used to update health every other frame
+        private readonly int[] _ammoMax = new int[2];
+        private readonly int[] _ammo = new int[2];
+        private readonly int[] _ammoRecovery = new int[2];
+        private readonly bool[] _tickedAmmoRecovery = new bool[2];
+        public int Health { get => _health; set => _health = value; }
+        public int HealthMax => _healthMax;
+        private readonly BeamType[] _weaponSlots = new BeamType[3];
+        private readonly AvailableArray _availableWeapons = new AvailableArray();
+        public AvailableArray AvailableWeapons => _availableWeapons;
+        private readonly AvailableArray _availableCharges = new AvailableArray();
+        private AbilityFlags _abilities;
+        private readonly BeamProjectileEntity[] _beams;
+        public EquipInfo EquipInfo { get; } = new EquipInfo();
+        private WeaponInfo EquipWeapon => EquipInfo.Weapon;
+        public BeamType CurrentWeapon { get; private set; }
+        public BeamType PreviousWeapon { get; private set; }
+        public BeamType WeaponSelection { get; private set; }
+        public readonly Effectiveness[] BeamEffectiveness = new Effectiveness[9];
+        public GunAnimation GunAnimation { get; private set; }
+        private ushort _bombCooldown = 0;
+        private ushort _bombRefillTimer = 0;
+        private byte _bombAmmo = 0;
+        private ushort _bombOveruse = 0;
+        private ushort _boostCharge = 0;
+        private ushort _boostDamage = 0;
+        // Legacy names are retained because replay/checkpoint schemas include
+        // these backing fields. Semantically this is the shared one-shot
+        // alt-form flick: Samus consumes it as an aimed native boost and Spire
+        // consumes it as a directional momentum impulse.
+        public bool SwipeBoostRequested { get; set; }
+        /// <summary>
+        /// Screen-space direction of the pending alt-form flick: X right, Y
+        /// down, normalized. Samus converts it through the camera-relative roll
+        /// basis; Spire only needs the one-shot edge.
+        /// </summary>
+        public float SwipeBoostX { get; set; }
+        public float SwipeBoostY { get; set; }
+        /// <summary>
+        /// Frames of committed travel left on a boost a flick aimed, during
+        /// which the roll binds do not steer.
+        ///
+        /// Without it an aimed boost is undone by the player's own thumb
+        /// inside a quarter of a second, and the arithmetic is brutal: the
+        /// boost leaves at the cap, 0.6 a frame, and the roll adds 0.0339 a
+        /// frame across it -- but the speed clamp that follows keeps the
+        /// *magnitude* and lets the direction go, so every frame rotates the
+        /// velocity about three degrees towards wherever the ball is being
+        /// steered. Roll forward while flicking left and the dash is pointing
+        /// forward again 28 frames later, having drawn exactly the curve that
+        /// was reported as "I flick left and it goes diagonally forward". It
+        /// never came up on the cartridge because the boost there always went
+        /// where the ball was already going. Same shape as
+        /// <see cref="_jumpPadControlLock"/>, and for the same reason: an
+        /// impulse somebody else aimed is not a suggestion.
+        /// </summary>
+        private ushort _boostAimLock = 0;
+        private ushort _altAttackCooldown = 0;
+        private ushort _altAttackTime = 0;
+        private float _altSpinSpeed = 0;
+
+        private int _missileSfxHandle = -1;
+        private float _walkSfxTimer = 0;
+        private int _walkSfxIndex = 0;
+        private float _burnSfxAmount = 0;
+        private float _moveSfxAmount = 0;
+
+        public Team Team { get; set; } = Team.None;
+        public int TeamIndex { get; set; } = -1;
+        public int SlotIndex { get; private set; }
+        public bool IsBot { get; set; }
+        public LoadFlags LoadFlags { get; set; }
+        public Hunter Hunter { get; internal set; }
+        public PlayerValues Values { get; private set; }
+        public bool IsPrimeHunter => SlotIndex == _scene.GameState.PrimeHunter;
+
+        private const int _mbTrailSegments = 9 * 2;
+        private readonly Matrix4[,] _mbTrailMatrices = new Matrix4[SlotCapacity, _mbTrailSegments];
+        private readonly float[,] _mbTrailAlphas = new float[SlotCapacity, _mbTrailSegments];
+        private readonly int[] _mbTrailIndices = new int[SlotCapacity];
+        private Matrix4 _modelTransform = Matrix4.Identity;
+
+        // todo: visualize
+        private CollisionVolume _volumeUnxf; // todo: names
+        private CollisionVolume _volume;
+        public CollisionVolume Volume => _volume;
+
+        private Vector3 _facingVector;
+        private Vector3 _upVector;
+        public override Vector3 FacingVector => _facingVector;
+        public override Vector3 UpVector => _upVector;
+        private Vector3 _gunVec1; // facing? (aim?)
+        private Vector3 _gunVec2; // right? (turn?)
+        private Vector3 _aimPosition;
+        private float _gunViewBob = 0;
+        private float _walkViewBob = 0;
+        private Vector3 _muzzlePos;
+        private Vector3 _gunDrawPos;
+
+        private Vector3 _aimVec;
+
+        // something alt form angle related
+        private float _field70 = 0;
+        private float _field74 = 0;
+        public float Field70 => _field70;
+        public float Field74 => _field74;
+        private float _field78 = 0;
+        private float _field7C = 0;
+        private float _field80 = 0;
+        private float _field84 = 0;
+
+        private float _aimY = 0;
+        private float _field40C = 0; // view sway percentage
+        private Vector3 _field410;
+        private Vector3 _field41C;
+        private Vector3 _field428;
+
+        private ushort _timeIdle = 0;
+        private byte _crushBits = 0;
+        private Vector3 _field4E8; // stores gun vec 2
+        private float _altTiltX = 0;
+        private float _altTiltZ = 0;
+        private float _altSpinRot = 0;
+        private float _altWobble = 0;
+        private byte _field551 = 0;
+        private byte _field552 = 0;
+        private byte _field553 = 0;
+        private float _viewTiltAngleH = 0;
+        private float _viewTiltAngleV = 0;
+        private bool _field6D0 = false; //  todo: unused?
+        public bool Field6D0 => _field6D0; //  todo: unused?
+        private float _altRollFbX = 0; // camera-relative rolling movement basis
+        private float _altRollFbZ = 0;
+        private float _altRollLrX = 0;
+        private float _altRollLrZ = 0;
+        // Local-only collision/input bookkeeping. These do not belong in replay
+        // checkpoints or on the wire; _altRollFb/Lr remain the restored basis.
+        private bool _altCameraCollisionBasisLock = false;
+        private byte _altCameraCollisionClearFrames = 0;
+        private float _altRollPrevInputX = 0;
+        private float _altRollPrevInputY = 0;
+        private float _altRollLockInputX = 0;
+        private float _altRollLockInputY = 0;
+
+        // Spire's wall climb is collision-driven. Remember the last wall normal
+        // so a short crest assist can carry Dialanche over the lip after the
+        // vertical wall contact disappears. These are transient simulation
+        // helpers and are intentionally not part of replay/network schemas.
+        private Vector3 _spireClimbWallNormal = Vector3.Zero;
+        private byte _spireLedgeCrestTimer = 0;
+
+        private HalfturretEntity _halfturret = null!;
+        public HalfturretEntity Halfturret => _halfturret;
+        public EnemySpawnEntity? EnemySpawner { get; set; }
+        public EnemyInstanceEntity? AttachedEnemy { get; set; } = null;
+        private EntityBase? _field35C = null;
+        public MorphCameraEntity? MorphCamera { get; set; }
+        public OctolithFlagEntity? OctolithFlag { get; set; }
+        private JumpPadEntity? _lastJumpPad = null;
+        internal bool ModSelfSplashEligible => _health > 0 && ModIsInPlay
+            && _spawnInvulnTimer == 0 && !ModMatchSpawnProtectionActive;
+        internal NetBurnSource? ModBurnSource;
+        internal void ModStartBurn(NetBurnSource source)
+        {
+            if (source.Key.ShotId != 0 && ModBurnSource is { } previous && previous.Key == source.Key && previous.Component == source.Component) return;
+            ModBurnSource = source;
+            _burnedBy = source.ResolveOwner(_scene);
+            _burnTimer = source.Duration;
+            CreateBurnEffect();
+        }
+        private EntityBase? _burnedBy = null;
+        public EntityBase? BurnedBy => _burnedBy;
+        private EntityBase? _lastTarget = null;
+        private EntityBase? _shockCoilTarget = null;
+        public EntityBase? ShockCoilTarget => _shockCoilTarget;
+
+        public bool IsAltForm => Flags1.TestFlag(PlayerFlags1.AltForm);
+        public bool IsMorphing => Flags1.TestFlag(PlayerFlags1.Morphing);
+        public bool IsUnmorphing => Flags1.TestFlag(PlayerFlags1.Unmorphing);
+        public PlayerFlags1 Flags1 { get; private set; }
+        public PlayerFlags2 Flags2 { get; private set; }
+        public Vector3 Speed { get; set; }
+        public Vector3 Acceleration { get; set; }
+        public Vector3 PrevSpeed { get; set; }
+        public Vector3 PrevPosition { get; set; }
+        public Vector3 IdlePosition { get; private set; }
+        private ushort _accelerationTimer = 0;
+        private float _hSpeedCap = 0;
+        private float _hSpeedMag = 0; // todo: all FPS stuff with speed
+        private float _gravity = 0;
+        private int _slipperiness = 0; // from stand_ter_flags
+        private Terrain _standTerrain; // from stand_ter_flags
+        private bool _terrainDamage = false; // from touch_ter_flags
+
+        private PlayerAnimation Biped1Anim => (PlayerAnimation)_bipedModel1.AnimInfo.Index[0];
+        private PlayerAnimation Biped2Anim => (PlayerAnimation)_bipedModel2.AnimInfo.Index[0];
+        private int Biped1Frame => _bipedModel1.AnimInfo.Frame[0];
+        private int Biped2Frame => _bipedModel2.AnimInfo.Frame[0];
+        private int Biped1FrameCount => _bipedModel1.AnimInfo.Frame[0];
+        private int Biped2FrameCount => _bipedModel2.AnimInfo.Frame[0];
+        private AnimFlags Biped1Flags
+        {
+            get => _bipedModel1.AnimInfo.Flags[0];
+            set => _bipedModel1.AnimInfo.Flags[0] = value;
+        }
+        private AnimFlags Biped2Flags
+        {
+            get => _bipedModel2.AnimInfo.Flags[0];
+            set => _bipedModel2.AnimInfo.Flags[0] = value;
+        }
+
+        private ushort _jumpPadControlLock = 0;
+        private ushort _jumpPadControlLockMin = 0;
+        private ushort _timeSinceJumpPad = 0;
+        private Vector3 _jumpPadAccel;
+
+        public const ushort RespawnTime = 90 * 2; // todo: FPS stuff
+
+        private ushort _autofireCooldown = 0;
+        private ushort _powerBeamAutofire = 0;
+        private ushort _timeSinceInput = 0;
+        private ushort _timeSinceShot = 0;
+        public ushort TimeSinceShot { get => _timeSinceShot; set => _timeSinceShot = value; }
+        private ushort _timeSinceDamage = 0;
+        private ushort _timeSincePickup = 0;
+        private ushort _timeSinceHeal = 0;
+        private ushort _respawnTimer = 0;
+        public ushort RespawnTimer { get => _respawnTimer; set => _respawnTimer = value; }
+        private float _deathCountdown = 0;
+        private bool _deathProcessed = false;
+        private bool _deathLostOctolithSfxPlayed = false;
+        private bool _deathLostOctolithDialogShown = false;
+        public float DeathCountdown => _deathCountdown;
+        private int _lostOctolithEnemyIndex = -1;
+        private Vector3 _lostOctolithDrawPos;
+        private float _lostOctolithSpeed;
+        private const ushort MatchSpawnProtectionFrames = 3 * 60;
+        private ushort _damageInvulnTimer = 0;
+        // The engine's original short invulnerability timer is also used by
+        // scripted/bot states. Keep the custom multiplayer rule separate so an
+        // AI flag cannot accidentally shorten a three-second match protection.
+        private ushort _spawnInvulnTimer = 0;
+        private ushort _matchSpawnProtectionTimer = 0;
+        private ushort _camSwitchTimer = 0;
+        private ushort _doubleDmgTimer = 0;
+        public bool DoubleDamage => ModConfirmedTimedEffect(Mods.Network.TimedPowerUp.DoubleDamage);
+        private ushort _cloakTimer = 0;
+        private ushort _deathaltTimer = 0;
+        private ushort _frozenTimer = 0;
+        private ushort _frozenGfxTimer = 0;
+        private bool _drawIceLayer = false;
+        private ushort _disruptedTimer = 0;
+        private ushort _burnTimer = 0;
+        private ushort _timeSinceFrozen = 0;
+        private ushort _timeSinceDead = 0;
+        private ushort _hidingTimer = 0;
+        private ushort _timeStanding = 0;
+        private ushort _timeSinceStanding = 0;
+        private ushort _timeSinceGrounded = 0;
+        private ushort _timeBeforeLanding = 0;
+        private Vector3 _fieldC0;
+        private ushort _field449 = 0;
+        private float _field44C = 0; // basically landing speed/force?
+        private ushort _timeSinceHitTarget = 0;
+        private ushort _shockCoilTimer = 0;
+        public ushort ShockCoilTimer => _shockCoilTimer;
+        private ushort _timeSinceMorphCamera = 0;
+        private ushort _horizColTimer = 0;
+
+        private EffectEntry? _deathaltEffect = null;
+        private EffectEntry? _doubleDmgEffect = null;
+        private EffectEntry? _burnEffect = null;
+        private EffectEntry? _furlEffect = null;
+        private EffectEntry? _boostEffect = null;
+        private EffectEntry? _muzzleEffect = null;
+        private EffectEntry? _chargeEffect = null;
+
+        private float _curAlpha = 1;
+        public float CurAlpha => _curAlpha;
+        private float _targetAlpha = 1;
+        private float _smokeAlpha = 0;
+
+        // debug/viewer
+        public bool IgnoreItemPickups { get; set; }
+        public Vector3? ForcedSpawnPos { get; set; }
+
+        internal PlayerEntity(int slotIndex, Scene scene) : base(EntityType.Player, scene)
+        {
+            _soundSource.Bus = Sound.AudioBus.Player;
+            _timedSfxSource.Bus = Sound.AudioBus.Player;
+            SlotIndex = slotIndex;
+            CameraInfo.Random = scene.Random;
+            _timedSfxSource.Owner = scene;
+            _beams = SceneSetup.CreateBeamList(16, scene); // in-game: 5
+            AiData = new PlayerAiData(this);
+        }
+
+        public static void Construct(Scene scene) => scene.Players.Construct(scene);
+        public static void Reset() => LegacyRegistry.Reset();
+        public static PlayerEntity? Create(Hunter hunter, int recolor) => LegacyRegistry.Create(hunter, recolor);
+
+        public void CreateHalfturret()
+        {
+            if (_halfturret == null)
+            {
+                _halfturret = new HalfturretEntity(this, _scene);
+                _halfturret.Create();
+                _scene.InitEntity(_halfturret);
+            }
+        }
+
+        // for spawning after boss intro movie
+        public bool ReloadInit { get; set; }
+
+        public override void Initialize()
+        {
+            ModRetireSourceBody();
+            _modCharacterGameplayInitializationStarted = true;
+            Vector3 prevPos = _position;
+            Vector3 prevUp = _upVector;
+            Vector3 prevFacing = _facingVector;
+            NodeRef prevNodeRef = NodeRef;
+            int prevHealth = _health;
+            _models.Clear();
+            _bipedModelLods[0] = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
+            _bipedModelLods[1] = _scene.GetModelInstance(Metadata.HunterModels[Hunter][1]);
+            Mods.Render.ParkourPoseOverlay.Prewarm(_bipedModelLods[0].Model);
+            Mods.Render.ParkourPoseOverlay.Prewarm(_bipedModelLods[1].Model);
+            _bipedModel1 = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
+            _bipedModel2 = _scene.GetModelInstance(Metadata.HunterModels[Hunter][0]);
+            _altModel = _scene.GetModelInstance(Metadata.HunterModels[Hunter][2]);
+            _gunModel = _scene.GetModelInstance(Metadata.HunterModels[Hunter][3]);
+            _gunSmokeModel = _scene.GetModelInstance("gunSmoke");
+            _bipedIceModel = _scene.GetModelInstance(Hunter == Hunter.Noxus || Hunter == Hunter.Trace ? "nox_ice" : "samus_ice");
+            _altIceModel = _scene.GetModelInstance("alt_ice");
+            _doubleDmgModel = _scene.GetModelInstance("doubleDamage_img");
+            _octolithSimpleModel = _scene.GetModelInstance("octolith_simple");
+            _models.Add(_bipedModel1);
+            _models.Add(_bipedModel2);
+            _models.Add(_altModel);
+            _models.Add(_gunModel);
+            _models.Add(_gunSmokeModel);
+            _models.Add(_bipedIceModel);
+            _models.Add(_altIceModel);
+            _models.Add(_doubleDmgModel);
+            _models.Add(_octolithSimpleModel);
+            ScoutDroneInitialize();
+            if (ModCharacterGameplay.UsesPirateBlaster) _scene.EnablePirateBlaster(this);
+            _trailModel = _scene.GetModelInstance("trail");
+            Material material = _trailModel.Model.Materials[0];
+            _trailBindingId1 = _scene.BindGetTexture(_trailModel.Model, material.TextureId, material.PaletteId, 0);
+            material = _trailModel.Model.Materials[1];
+            _trailBindingId2 = _scene.BindGetTexture(_trailModel.Model, material.TextureId, material.PaletteId, 0);
+            _doubleDmgBindingId = _scene.BindGetTexture(_doubleDmgModel.Model, 0, 0, 0);
+            base.Initialize();
+            EquipInfo.Beams = _beams;
+            Values = Metadata.PlayerValues[(int)Hunter];
+            _hudObjects = HudElements.HunterObjects[(int)Hunter];
+            if (IsMainPlayer)
+            {
+                SetUpHud();
+            }
+            if (_scene.GameState.Multiplayer)
+            {
+                _healthMax = 2 * Values.EnergyTank - 1;
+                _ammoMax[UA] = _ammoMax[Missiles] = Values.MpAmmoCap;
+            }
+            else
+            {
+                StorySave save = _scene.GameState.StorySave;
+                _healthMax = save.HealthMax;
+                _ammoMax[UA] = save.AmmoMax[UA];
+                _ammoMax[Missiles] = save.AmmoMax[Missiles];
+            }
+            InitializeWeapon();
+            _availableWeapons[BeamType.PowerBeam] = true;
+            TryEquipWeapon(BeamType.PowerBeam, silent: true);
+            _facingVector = -Vector3.UnitZ;
+            _upVector = Vector3.UnitY;
+            SetTransform(_facingVector, _upVector, Vector3.Zero);
+            Speed = Vector3.Zero;
+            _gunVec1 = -Vector3.UnitZ;
+            _gunVec2 = -Vector3.UnitX;
+            _volumeUnxf = PlayerVolumes[(int)Hunter, 0];
+            _volume = CollisionVolume.Move(_volumeUnxf, Position);
+            _aimPosition = (Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance)).AddY(Fixed.ToFloat(Values.AimYOffset));
+            _aimY = 0;
+            _gunViewBob = 0;
+            _walkViewBob = 0;
+            _health = 0;
+            Flags2 |= PlayerFlags2.HideModel;
+            AttachedEnemy = null;
+            _field35C = null;
+            EquipInfo.ChargeLevel = 0;
+            _timeSinceShot = 255;
+            _timeSinceDamage = 255;
+            _timeSincePickup = 255;
+            _timeSinceHeal = 255;
+            _timeSinceStanding = 0;
+            _field449 = 0;
+            _respawnTimer = 0;
+            _timeSinceDead = 0;
+            _field551 = 255;
+            _field552 = 0;
+            _field553 = 0;
+            _bombCooldown = 0;
+            _bombRefillTimer = 0;
+            _bombAmmo = 3;
+            _damageInvulnTimer = 0;
+            _spawnInvulnTimer = 0;
+            _matchSpawnProtectionTimer = 0;
+            ModResetSpawnProtectionReplication();
+            ModResetMovementValidation();
+            ModResetTraversalStance();
+            ModResetGroundTravel();
+            ModResetWallClingForLife();
+            ModResetParkourWallrunForLife();
+            ModResetParkourGrappleForLife();
+            ScoutDroneResetForLife();
+            _abilities = AbilityFlags.None;
+            _walkSfxTimer = 0;
+            _walkSfxIndex = 0;
+            _burnSfxAmount = 0;
+            if (TeamIndex == -1)
+            {
+                TeamIndex = SlotIndex;
+            }
+            _field4E8 = Vector3.Zero;
+            _modelTransform = Matrix4.Identity;
+            _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff (use floats)
+            CameraInfo.Reset();
+            CameraInfo.Position = Position;
+            CameraInfo.UpVector = Vector3.UnitY;
+            CameraInfo.Target = Position + _facingVector;
+            CameraInfo.NodeRef = NodeRef.None;
+            NodeRef = NodeRef.None;
+            _timeIdle = 0;
+            _timeSinceInput = 0;
+            _field40C = 0;
+            _doubleDmgTimer = 0;
+            OctolithFlag = null;
+            ResetMorphBallTrail();
+            // todo?: point module
+            string shootNodeName = Hunter == Hunter.Guardian ? "Head_1" : "R_elbow";
+            for (int i = 0; i < 2; i++)
+            {
+                _spineNodes[i] = _bipedModelLods[i].Model.GetNodeByName("Spine_1");
+                _shootNodes[i] = _bipedModelLods[i].Model.GetNodeByName(shootNodeName);
+            }
+            if (Hunter == Hunter.Spire)
+            {
+                _spireAltNodes[0] = _altModel.Model.GetNodeByName("L_Rock01");
+                _spireAltNodes[1] = _altModel.Model.GetNodeByName("R_Rock01");
+                _spireAltNodes[2] = _altModel.Model.GetNodeByName("R_POS_ROT"); // parent of 0
+                _spireAltNodes[3] = _altModel.Model.GetNodeByName("R_POS_ROT_1"); // parent of 1
+            }
+            else
+            {
+                _spireAltNodes[0] = null;
+                _spireAltNodes[1] = null;
+                _spireAltNodes[2] = null;
+                _spireAltNodes[3] = null;
+            }
+            for (int i = 0; i < _bipedIceTransforms.Length; i++)
+            {
+                _bipedIceTransforms[i] = Matrix4.Identity;
+            }
+            if (ReloadInit)
+            {
+                // the game preserves a node name string across movie load, and there is functionality to specify it
+                // when starting the movie, but that value is ignored and rmMain is always set to be preserved instead
+                // on the other hand, we could be reloading a room without rmMain, so fall back to the previous value
+                NodeRef nodeRef = _scene.GetNodeRefByName("rmMain");
+                if (nodeRef == NodeRef.None)
+                {
+                    nodeRef = prevNodeRef;
+                }
+                Spawn(prevPos, prevFacing, prevUp, nodeRef, respawn: false);
+                _health = prevHealth;
+                Flags1 |= PlayerFlags1.Grounded;
+                Flags1 |= PlayerFlags1.GroundedPrevious;
+                ReloadInit = false;
+            }
+            else if (_scene.Room == null || _scene.Room.LoadEntityId == -1)
+            {
+                int checkpointId = _scene.GameState.StorySave.CheckpointEntityId;
+                if (IsMainPlayer && _scene.GameState.Mode == GameMode.SinglePlayer
+                    && checkpointId != -1 && _scene.TryGetEntity(checkpointId, out EntityBase? checkpoint))
+                {
+                    checkpoint.GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing);
+                    Spawn(position, facing, up, checkpoint.NodeRef, respawn: false);
+                }
+            }
+        }
+
+        public void Spawn(Vector3 pos, Vector3 facing, Vector3 up, NodeRef nodeRef, bool respawn)
+        {
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene))
+                Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
+            if (!_scene.Services.PlayerReplication.CanSpawn) return;
+            _scene.Services.PlayerReplication.OnSpawn(this);
+            ModResetTraversalStance();
+            ModResetGroundTravel();
+            _modFormStartedFrame = 0;
+            _scene.MatchEvents.Spawn(_scene, this);
+            _scene.PlayerReplication.NoteSpawn(SlotIndex);
+            if (IsMainPlayer)
+            {
+                _scene.NoteRenderLifecycle("spawn begin");
+            }
+            // Before anything below reads Hunter: a player who asked to come
+            // back as somebody else is changed here, so that the abilities,
+            // the energy tank and the HUD this call sets up are the new
+            // hunter's. See Mods.RespawnChoice.
+            if (respawn)
+            {
+                Mods.RespawnChoice.ApplyOnSpawn(this);
+            }
+            ModResetWallClingForLife();
+            ModResetParkourWallrunForLife();
+            ModResetParkourGrappleForLife();
+            ScoutDroneResetForLife();
+            LoadFlags |= LoadFlags.Spawned;
+            if (IsMainPlayer)
+            {
+                UpdateDoubleDamageSfx(index: 0, play: false);
+                UpdateCloakSfx(index: 0, play: false);
+            }
+            _abilities = AbilityFlags.AltForm;
+            if (Hunter == Hunter.Samus)
+            {
+                _abilities |= AbilityFlags.Bombs;
+                _abilities |= AbilityFlags.Boost;
+            }
+            else if (Hunter == Hunter.Kanden)
+            {
+                _abilities |= AbilityFlags.Bombs;
+                for (int i = 0; i < _kandenSegPos.Length; i++)
+                {
+                    _kandenSegPos[i] = Vector3.Zero;
+                }
+            }
+            else if (Hunter == Hunter.Trace)
+            {
+                _abilities |= AbilityFlags.TraceAltAttack;
+            }
+            else if (Hunter == Hunter.Sylux)
+            {
+                _abilities |= AbilityFlags.Bombs;
+                SyluxBombs[0] = null;
+                SyluxBombs[1] = null;
+                SyluxBombs[2] = null;
+                // The count indexes the array above, so it has to be forgotten
+                // with it. Left behind, it describes bombs that are no longer
+                // there: SpawnBomb writes the next bomb to SyluxBombs[count]
+                // and leaves the earlier entries null, so the tether -- which
+                // needs BombIndex 0 and a count of exactly three -- can never
+                // form again, and at three or more SpawnBomb detonates a slot
+                // holding nothing instead of laying anything. Both read, in a
+                // match, as Lockjaw quietly doing no damage for the rest of
+                // the round.
+                SyluxBombCount = 0;
+            }
+            else if (Hunter == Hunter.Noxus)
+            {
+                _abilities |= AbilityFlags.NoxusAltAttack;
+            }
+            else if (Hunter == Hunter.Spire)
+            {
+                _abilities |= AbilityFlags.SpireAltAttack;
+                _spireRockPosL = pos;
+                _spireRockPosR = pos;
+                _spireAltFacing = Vector3.UnitY;
+                _spireAltUp = Vector3.UnitX;
+                for (int i = 0; i < _spireAltVecs.Length; i++)
+                {
+                    _spireAltVecs[i] = Vector3.Zero;
+                }
+            }
+            else if (Hunter == Hunter.Weavel)
+            {
+                _abilities |= AbilityFlags.WeavelAltAttack;
+            }
+            if (_scene.GameState.Multiplayer)
+            {
+                int baseHealth = Values.EnergyTank - 1;
+                _health = _scene.GameState.BalancedMode
+                    ? BalancedModeRules.SpawnHealth(Hunter, baseHealth, _healthMax)
+                    : baseHealth;
+                BalancedModeTelemetry.NoteHunterSpawn(this);
+            }
+            else if (IsMainPlayer) // todo: MP1P
+            {
+                _healthMax = _scene.GameState.StorySave.HealthMax;
+                _health = _scene.GameState.StorySave.Health;
+            }
+            else
+            {
+                _health = _healthMax;
+            }
+            // todo?: a lot of this doesn't need to be set at all in create/init when it gets set every time you spawn anyway
+            _availableWeapons.ClearAll();
+            _availableCharges.ClearAll();
+            InitializeWeapon();
+            // todo: much of this is the same as what's done in init, so we could use a common method
+            bool instaGib = _scene.GameState.InstaGib;
+            EquipInfo.InfiniteAmmo = instaGib;
+            EquipInfo.ChargeLevel = 0;
+            EquipInfo.SmokeLevel = 0;
+            _doubleDmgTimer = 0;
+            _cloakTimer = 0;
+            _deathaltTimer = 0;
+            if (instaGib)
+            {
+                _availableWeapons.ClearAll();
+                _availableCharges.ClearAll();
+                _availableWeapons[BeamType.Imperialist] = true;
+                _availableCharges[BeamType.Imperialist] = true;
+                _weaponSlots[0] = BeamType.Imperialist;
+                _weaponSlots[1] = BeamType.None;
+                _weaponSlots[2] = BeamType.None;
+                // InfiniteAmmo owns the gameplay rule; keep the stored/displayed
+                // value human-sized instead of leaking Int32.MaxValue into HUD/state.
+                _ammo[UA] = 99;
+                _ammo[Missiles] = 0;
+            }
+            PreviousWeapon = instaGib ? BeamType.Imperialist : BeamType.PowerBeam;
+            TryEquipWeapon(PreviousWeapon, silent: true);
+            ApplyGunGameLoadout(force: true);
+            ApplySpawnLoadoutModifiers();
+            ModSeedShotProof();
+            Metadata.LoadEffectiveness(0x2AAAA, BeamEffectiveness);
+            _frozenTimer = 0;
+            _timeSinceFrozen = 255;
+            _frozenGfxTimer = 0;
+            _drawIceLayer = false;
+            _hidingTimer = 0;
+            _curAlpha = 1;
+            _targetAlpha = 1;
+            _disruptedTimer = 0;
+            _burnedBy = null;
+            ModBurnSource = null;
+            _burnTimer = 0;
+            ModResetBalancedAffinityState();
+            _modPendingHomingTarget = default;
+            ModContinuousNetworkTarget = Mods.Network.NetTargetIdentity.None;
+            ModContinuousTargetState = default;
+            ModContinuousFireTick = 0;
+            ModResetReportedBoostState();
+            if (IsMainPlayer)
+            {
+                ResetRespawnVisualState();
+            }
+            _hSpeedCap = Fixed.ToFloat(Values.WalkSpeedCap); // todo: FPS stuff?
+            Speed = Vector3.Zero;
+            if (respawn)
+            {
+                pos = pos.AddY(1);
+            }
+            bool facingFinite = Single.IsFinite(facing.X) && Single.IsFinite(facing.Y) && Single.IsFinite(facing.Z);
+            float facingHMagSqr = facing.X * facing.X + facing.Z * facing.Z;
+            if (!facingFinite || facing.LengthSquared < 0.000001f || facingHMagSqr < 0.000001f)
+            {
+                // Player spawns require a horizontal heading. A transient vertical
+                // or zero network facing used to produce zero cross products and
+                // divide-by-zero values that then reached the camera.
+                facing = -Vector3.UnitZ;
+            }
+            else
+            {
+                facing = facing.Normalized();
+            }
+            bool upFinite = Single.IsFinite(up.X) && Single.IsFinite(up.Y) && Single.IsFinite(up.Z);
+            if (!upFinite || up.LengthSquared < 0.000001f)
+            {
+                up = Vector3.UnitY;
+            }
+            else
+            {
+                up = up.Normalized();
+            }
+            if (MathF.Abs(Vector3.Dot(up, facing)) > 0.999f)
+            {
+                up = MathF.Abs(facing.Y) < 0.999f ? Vector3.UnitY : Vector3.UnitZ;
+            }
+
+            _upVector = up;
+            _facingVector = facing;
+            SetTransform(_facingVector, _upVector, pos);
+            PrevPosition = Position;
+            IdlePosition = Position;
+            _gunVec2 = Vector3.Cross(up, facing).Normalized();
+            _gunVec1 = facing;
+            float hMag = MathF.Sqrt(facing.X * facing.X + facing.Z * facing.Z);
+            _field70 = facing.X / hMag;
+            _field74 = facing.Z / hMag;
+            _field78 = _field74;
+            _field7C = -_field70;
+            _field80 = _field70;
+            _field84 = _field74;
+            _aimPosition = (Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance)).AddY(Fixed.ToFloat(Values.AimYOffset));
+            Acceleration = Vector3.Zero;
+            _accelerationTimer = 0;
+            _aimY = 0;
+            _buttonAimX = 0;
+            _buttonAimY = 0;
+            NodeRef = nodeRef;
+            _gunViewBob = 0;
+            _walkViewBob = 0;
+            if (_scene.GameState.SinglePlayer && _scene.CameraSequences.Current != null)
+            {
+                _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff
+                _viewTiltAngleH = 0;
+                _viewTiltAngleV = 0;
+            }
+            else
+            {
+                if (IsMainPlayer && _scene.GameState.Multiplayer && _scene.CameraSequences.Current?.IsIntro == true)
+                {
+                    _scene.CameraSequences.Current.End();
+                }
+                CameraInfo.Reset();
+                CameraInfo.Position = Position;
+                CameraInfo.UpVector = Vector3.UnitY;
+                CameraInfo.Target = Position + facing;
+                CameraInfo.Fov = Fixed.ToFloat(Values.NormalFov) * 2;
+                CameraInfo.NodeRef = NodeRef;
+                SwitchCamera(CameraType.First, facing);
+                _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff
+                _viewTiltAngleH = 0;
+                _viewTiltAngleV = 0;
+                UpdateCameraFirst();
+                CameraInfo.Update();
+                if (IsMainPlayer && _scene.GameState.Multiplayer)
+                    _scene.ModResetThirdPersonSpawnCamera(this);
+            }
+            _gunDrawPos = Fixed.ToFloat(Values.FieldB8) * facing
+                + CameraInfo.Position
+                + Fixed.ToFloat(Values.FieldB0) * _gunVec2
+                + Fixed.ToFloat(Values.FieldB4) * up;
+            _aimVec = _aimPosition - _gunDrawPos;
+            _timeSinceInput = 0;
+            Flags1 = PlayerFlags1.Standing | PlayerFlags1.StandingPrevious | PlayerFlags1.CanTouchBoost;
+            Flags2 = PlayerFlags2.NoShotsFired;
+            _volumeUnxf = PlayerVolumes[(int)Hunter, 0];
+            _volume = CollisionVolume.Move(_volumeUnxf, Position);
+            AttachedEnemy = null;
+            _field35C = null;
+            _timeSinceShot = 255;
+            _voltTapBuffer.Reset();
+            _timeSinceDamage = 255;
+            _timeSincePickup = 255;
+            _timeSinceHeal = 255;
+            _timeSinceStanding = 0;
+            _timeStanding = 0;
+            _field449 = 0;
+            _respawnTimer = 0;
+            _timeSinceDead = 0;
+            _field551 = 255;
+            _field552 = 0;
+            _field553 = 0;
+            _bombCooldown = 0;
+            _bombOveruse = 0;
+            _bombRefillTimer = 0;
+            _bombAmmo = 3;
+            _damageInvulnTimer = 0;
+            _matchSpawnProtectionTimer = 0;
+            ModResetSpawnProtectionReplication();
+            ModResetMovementValidation();
+            ModResetTraversalStance();
+            ModResetGroundTravel();
+            if (IsBot && _scene.GameState.SinglePlayer)
+            {
+                _spawnInvulnTimer = 0;
+            }
+            else if (_scene.GameState.Multiplayer)
+            {
+                // The Project Prime rule is its own timer. _spawnInvulnTimer is
+                // also used by native scripted/AI invulnerability and must not be
+                // allowed to overwrite or extend this match rule.
+                _spawnInvulnTimer = 0;
+                _matchSpawnProtectionTimer = _scene.GameState.SpawnProtection
+                    ? MatchSpawnProtectionFrames : (ushort)0;
+            }
+            else
+            {
+                _spawnInvulnTimer = (ushort)(Values.SpawnInvulnerability * 2); // todo: FPS stuff
+            }
+            _boostCharge = 0;
+            _boostAimLock = 0;
+            _altAttackCooldown = 0;
+            _field4E8 = Vector3.Zero;
+            _modelTransform = Matrix4.Identity;
+            _timeSinceMorphCamera = UInt16.MaxValue;
+            SetBipedAnimation(PlayerAnimation.Spawn, AnimFlags.None);
+            _altModel.SetAnimation(0, AnimFlags.Paused);
+            SetGunAnimation(GunAnimation.Idle, AnimFlags.NoLoop);
+            _gunSmokeModel.SetAnimation(0);
+            _smokeAlpha = 0;
+            MorphCamera = null;
+            OctolithFlag = null;
+            ResetMorphBallTrail();
+            _soundSource.StopAllSfx();
+            if (IsMainPlayer)
+            {
+                _soundSource.Update(Position, rangeIndex: -1);
+            }
+            else
+            {
+                int rangeIndex = 1;
+                if (_scene.GameState.SinglePlayer && Hunter == Hunter.Guardian) // todo: MP1P
+                {
+                    rangeIndex = 21;
+                }
+                _soundSource.Update(Position, rangeIndex);
+                UpdateNodeRefVolume();
+            }
+            if (respawn)
+            {
+                PlayHunterSfx(HunterSfx.Spawn);
+            }
+            _missileSfxHandle = -1;
+            _lastJumpPad = null;
+            _jumpPadControlLock = 0;
+            _jumpPadControlLockMin = 0;
+            _timeSinceJumpPad = UInt16.MaxValue; // the game doesn't do this
+            if (IsMainPlayer)
+            {
+                // the game only does this in multiplayer, but it can't hurt either way
+                ResetReticle();
+                _weaponIconInst.SetIndex(0, _scene);
+            }
+            _cloakTextTimer = 30 / 30f;
+            _doubleDamageTextTimer = 60 / 30f;
+            _drawIceLayer = false;
+            _hudShiftX = 0;
+            _hudShiftY = 0;
+            _objShiftX = 0;
+            _objShiftY = 0;
+            ScanVisor = false;
+            SwitchVisors(reset: true);
+            CloseDialogs();
+            // todo: update more UI fields
+            _altRollFbX = CameraInfo.Field48;
+            _altRollFbZ = CameraInfo.Field4C;
+            _altRollLrX = CameraInfo.Field50;
+            _altRollLrZ = CameraInfo.Field54;
+            _altCameraCollisionBasisLock = false;
+            _altCameraCollisionClearFrames = 0;
+            _altRollPrevInputX = _altRollPrevInputY = 0;
+            _altRollLockInputX = _altRollLockInputY = 0;
+            _light1Vector = _scene.Light1Vector;
+            _light1Color = _scene.Light1Color;
+            _light2Vector = _scene.Light2Vector;
+            _light2Color = _scene.Light2Color;
+            Controls.ClearPressed();
+            if (Mods.Network.NetAiClient.Drives(this)) Mods.Network.NetAiClient.InitializeAtSpawn(this);
+            else if (IsBot) AiData.InitializeAtSpawn();
+            // the player clears the enemy spawner reference here, using a global array to track them
+            _lastTarget = null;
+            UpdateScanIds();
+            if (respawn && (IsMainPlayer || _scene.GameState.Multiplayer))
+            {
+                // spawnEffectMP or spawnEffect
+                int effectId = _scene.GameState.Multiplayer && _scene.Players.PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
+                _scene.SpawnEffect(effectId, Vector3.UnitX, Vector3.UnitY, Position);
+            }
+            if (IsMainPlayer)
+            {
+                if (IsAltForm || IsMorphing)
+                {
+                    _healthbarYOffset = _hudObjects.HealthOffsetYAlt;
+                    _boostBombsYOffset = 160;
+                }
+                else
+                {
+                    _healthbarYOffset = _hudObjects.HealthOffsetY;
+                    _boostBombsYOffset = 208;
+                }
+                _scene.NoteRenderLifecycle("spawn complete");
+            }
+
+            // Respawn/rejoin is a new presentation lifetime even when the new
+            // spawn happens to be close to where the previous body died.
+            ModResetDrawState();
+            CameraInfo.ModResetDrawState();
+            ModResetFirstPersonDrawState();
+            _scene.PirateBlaster?.Spawned(this);
+        }
+
+        public void InitEnemyHunter()
+        {
+            Debug.Assert(EnemySpawner != null);
+            Debug.Assert(_scene.GameState.Mode == GameMode.SinglePlayer);
+            EnemySpawnFields09 data = EnemySpawner.Data.Fields.S09;
+            _healthMax = data.HunterHealthMax;
+            _health = data.HunterHealth;
+            AiData.HealthThreshold = data.HunterHealthThreshold;
+            if (Hunter == Hunter.Guardian)
+            {
+                if (_scene.Services.AllowsPresentationSideEffects) Music.PlayEncounterMusic(Hunter.Guardian);
+            }
+            // todo: update story save for multiplayer unlock
+            if (data.HunterWeapon != 255)
+            {
+                var weapon = (BeamType)data.HunterWeapon;
+                _availableWeapons[weapon] = true;
+                _availableCharges[weapon] = true;
+                _weaponSlots[0] = BeamType.None;
+                _weaponSlots[1] = BeamType.None;
+                _weaponSlots[2] = weapon;
+                _ammo[0] = 0;
+                _ammo[1] = 0;
+                WeaponInfo weaponInfo = _scene.WeaponRules[(int)weapon];
+                _ammo[weaponInfo.AmmoType] = Int32.MaxValue;
+                EquipInfo.InfiniteAmmo = true;
+                EquipInfo.ChargeLevel = 0;
+                EquipInfo.SmokeLevel = 0;
+                _doubleDmgTimer = 0;
+                PreviousWeapon = weapon;
+                TryEquipWeapon(weapon, silent: true);
+                if (Hunter == Hunter.Guardian)
+                {
+                    // todo: move to metadata
+                    if (weapon == BeamType.VoltDriver)
+                    {
+                        Metadata.LoadEffectiveness(0x255A1, BeamEffectiveness);
+                    }
+                    else if (weapon == BeamType.Magmaul)
+                    {
+                        Metadata.LoadEffectiveness(0x24D55, BeamEffectiveness);
+                    }
+                    else if (weapon == BeamType.Judicator)
+                    {
+                        Metadata.LoadEffectiveness(0x27155, BeamEffectiveness);
+                    }
+                }
+            }
+            LoadFlags |= LoadFlags.Active;
+        }
+
+        public void SaveStatus()
+        {
+            if (Health == 0)
+            {
+                return;
+            }
+            StorySave save = _scene.GameState.StorySave;
+            for (int i = 0; i < _weaponSlots.Length; i++)
+            {
+                save.WeaponSlots[i] = (int)_weaponSlots[i];
+            }
+            for (int i = 0; i < _ammo.Length; i++)
+            {
+                save.Ammo[i] = _ammo[i];
+            }
+            save.Health = _health;
+            if (_scene.FadeType == FadeType.None)
+            {
+                save.CheckpointRoomId = -1;
+                save.CheckpointEntityId = -1;
+            }
+        }
+
+        public void ResetReferences()
+        {
+            // Field35C and point module are also reset here
+            AttachedEnemy = null;
+            MorphCamera = null;
+            _lastJumpPad = null;
+            OctolithFlag = null;
+            EnemySpawner = null;
+            _lastTarget = null;
+        }
+
+        public override void GetPosition(out Vector3 position)
+        {
+            position = Position.AddY(IsAltForm ? 0 : 0.5f);
+        }
+
+        public override void GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing)
+        {
+            position = Position.AddY(IsAltForm ? 0 : 0.5f);
+            up = _upVector;
+            facing = _facingVector;
+        }
+
+        public override bool GetTargetable()
+        {
+            return _health != 0;
+        }
+
+        public override int GetScanId(bool alternate = false)
+        {
+            return alternate ? _altScanId : _scanId;
+        }
+
+        public override bool ScanVisible()
+        {
+            if (Health == 0 || IsMainPlayer)
+            {
+                return false;
+            }
+            return base.ScanVisible();
+        }
+
+        private void UpdateScanIds()
+        {
+            _scanId = ScanIds[(int)Hunter, IsAltForm ? 1 : 0];
+            _altScanId = ScanIds[(int)Hunter, IsAltForm ? 3 : 2];
+        }
+
+        private void SetBiped1Animation(PlayerAnimation anim, AnimFlags animFlags)
+        {
+            SetBipedAnimation(anim, animFlags, setBiped1: true, setBiped2: false, setIfMorphing: false);
+        }
+
+        private void SetBiped2Animation(PlayerAnimation anim, AnimFlags animFlags)
+        {
+            SetBipedAnimation(anim, animFlags, setBiped1: false, setBiped2: true, setIfMorphing: false);
+        }
+
+        private void SetBipedAnimation(PlayerAnimation anim, AnimFlags animFlags, bool setBiped1 = true,
+            bool setBiped2 = true, bool setIfMorphing = true)
+        {
+            if (setIfMorphing || !IsMorphing)
+            {
+                if (setBiped2 && (setIfMorphing || !IsUnmorphing))
+                {
+                    _bipedModel2.SetAnimation((int)anim, animFlags);
+                }
+                if (setBiped1)
+                {
+                    _bipedModel1.SetAnimation((int)anim, animFlags);
+                }
+            }
+        }
+
+        public void Teleport(Vector3 position, Vector3 facing, NodeRef nodeRef)
+        {
+            _q3LaunchGravity = 0; _q3LaunchFrames = 0;
+            ModCancelTraversalSlide(); _modCrouchWasDown = false;
+            ModNoteMovementValidationTeleport();
+            ModCancelParkourWallrun();
+            ModCancelParkourMantle();
+            ModCancelParkourGrapple();
+            ModResetWallClingForLife();
+            ScoutDroneMerge();
+            ScoutDroneRetireFlights();
+            _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
+            Reposition(position, facing, nodeRef);
+            if (_modCrouched && ModCanStand()) _modCrouched = false;
+            _modCrouchPresentation.Reset();
+            if (IsAltForm || IsMorphing || IsUnmorphing)
+            {
+                ResumeOwnCamera();
+                CameraInfo.Update();
+            }
+        }
+
+        public void Reposition(Vector3 position, Vector3 facing, NodeRef nodeRef)
+        {
+            _gunVec1 = facing;
+            _facingVector = facing;
+            SetTransform(facing, _upVector, position);
+            if (nodeRef != NodeRef.None)
+            {
+                NodeRef = nodeRef;
+                CameraInfo.NodeRef = nodeRef;
+            }
+        }
+
+        public void Reposition(Vector3 offset, NodeRef nodeRef)
+        {
+            Position += offset;
+            PrevPosition += offset;
+            _aimPosition += offset;
+            _gunDrawPos += offset;
+            _muzzlePos += offset;
+            _field544 += offset;
+            CameraInfo camInfo = CameraInfo;
+            camInfo.Position += offset;
+            camInfo.PrevPosition += offset;
+            camInfo.Target += offset;
+            _volume = CollisionVolume.Move(_volumeUnxf, Position);
+            for (int i = 0; i < _beams.Length; i++)
+            {
+                _beams[i].Reposition(offset);
+            }
+            NodeRef = nodeRef;
+            camInfo.NodeRef = nodeRef;
+            if (Flags2.TestFlag(PlayerFlags2.Halfturret))
+            {
+                Halfturret.Reposition(offset, nodeRef);
+            }
+        }
+
+        public void BlockFormSwitch()
+        {
+            Flags2 |= PlayerFlags2.NoFormSwitch;
+        }
+
+        public void SetBipedStuck(bool stuck)
+        {
+            if (stuck)
+            {
+                Flags2 |= PlayerFlags2.BipedStuck;
+            }
+            else
+            {
+                Flags2 &= ~PlayerFlags2.BipedStuck;
+            }
+        }
+
+        // The accepted bomb terminal uses the same native velocity floor without
+        // retesting distance after the owner has moved during network delivery.
+        internal void ModApplyBombJump(BombEntity? acceptedBomb = null)
+        {
+            float ySpeed = Fixed.ToFloat(Values.BombJumpSpeed);
+            if (Speed.Y < ySpeed) Speed = Speed.WithY(ySpeed);
+            if (acceptedBomb != null)
+            {
+                // Arrival-time distance affects only camera feedback, never the
+                // accepted movement result. Preserve native nearby-owner shake.
+                float radiusSquared = Fixed.ToFloat(Values.BombSelfRadiusSquared);
+                float distanceSquared = (Volume.SpherePosition - acceptedBomb.Position).LengthSquared;
+                if (distanceSquared <= radiusSquared)
+                    CameraInfo.SetShake((radiusSquared - distanceSquared) / radiusSquared * 0.1f);
+            }
+        }
+
+        // todo: visualize
+        public bool CheckHitByBomb(BombEntity bomb, bool halfturret)
+        {
+            if (!NetDamage.CurrentBomb(bomb)) return false;
+            if (bomb.Owner == this
+                && (!bomb.Flags.TestFlag(BombFlags.Exploding) && !bomb.Flags.TestFlag(BombFlags.Exploded) || halfturret))
+            {
+                return false;
+            }
+            bool hit = false;
+            Vector3 between;
+            if (halfturret)
+            {
+                between = Halfturret.Position - bomb.Position;
+            }
+            else
+            {
+                between = Volume.SpherePosition - bomb.Position;
+            }
+            float distSqr = between.LengthSquared;
+            float hitRadiusSqr = Fixed.ToFloat(Values.BombSelfRadiusSquared);
+            if (bomb.Owner == this)
+            {
+                if (distSqr <= hitRadiusSqr && between.Y > -Volume.SphereRadius)
+                {
+                    hit = true;
+                    ModApplyBombJump();
+                }
+            }
+            else if (distSqr <= bomb.Radius * bomb.Radius)
+            {
+                hit = true;
+                DamageFlags flags = DamageFlags.NoDmgInvuln;
+                if (halfturret)
+                {
+                    flags |= DamageFlags.Halfturret;
+                }
+                TakeDamage(bomb.Damage, flags, null, bomb);
+                _scene.SendMessage(Message.Impact, bomb, bomb.Owner, this, 0); // the game doesn't set anything as sender
+            }
+            if (hit)
+            {
+                float shake = (hitRadiusSqr - distSqr) / hitRadiusSqr * 0.1f;
+                CameraInfo.SetShake(shake);
+            }
+            return hit;
+        }
+
+        public void OnHalfturretDied()
+        {
+            Flags2 &= ~PlayerFlags2.Halfturret;
+        }
+
+        private void ResetMorphBallTrail()
+        {
+            for (int i = 0; i < _mbTrailSegments; i++)
+            {
+                _mbTrailAlphas[SlotIndex, i] = 0;
+            }
+            _mbTrailIndices[SlotIndex] = 0;
+        }
+
+        private void UpdateMorphBallTrail()
+        {
+            for (int i = 0; i < _mbTrailSegments; i++)
+            {
+                float alpha = _mbTrailAlphas[SlotIndex, i] - 3 / 31f / 2; // todo: FPS stuff
+                if (alpha < 0)
+                {
+                    alpha = 0;
+                }
+                _mbTrailAlphas[SlotIndex, i] = alpha;
+            }
+            if (IsAltForm)
+            {
+                Vector3 row0 = _modelTransform.Row0.Xyz;
+                if (Vector3.Dot(Vector3.UnitY, row0) < 0.5f && _hSpeedMag >= Fixed.ToFloat(1269))
+                {
+                    Vector3 cross = Vector3.Cross(row0, Vector3.UnitY).Normalized();
+                    var cross2 = Vector3.Cross(cross, row0);
+                    int index = _mbTrailIndices[SlotIndex];
+                    _mbTrailAlphas[SlotIndex, index] = 25 / 31f;
+                    _mbTrailMatrices[SlotIndex, index] = new Matrix4(
+                        row0.X, row0.Y, row0.Z, 0,
+                        cross2.X, cross2.Y, cross2.Z, 0,
+                        cross.X, cross.Y, cross.Z, 0,
+                        Position.X, Position.Y, Position.Z, 1
+                    );
+                    _mbTrailIndices[SlotIndex] = (index + 1) % _mbTrailSegments;
+                }
+            }
+        }
+
+        private void InitializeWeapon()
+        {
+            _balancedImperialistAmmo = 0;
+            _availableWeapons.ClearAll();
+            _availableCharges.ClearAll();
+            if (_scene.GameState.SinglePlayer && IsMainPlayer) // todo: MP1P
+            {
+                _availableWeapons.Set(_scene.GameState.StorySave.Weapons);
+                _availableCharges.CopyFrom(_availableWeapons);
+                StorySave save = _scene.GameState.StorySave;
+                for (int i = 0; i < _weaponSlots.Length; i++)
+                {
+                    _weaponSlots[i] = (BeamType)save.WeaponSlots[i];
+                }
+                for (int i = 0; i < _ammo.Length; i++)
+                {
+                    _ammo[i] = save.Ammo[i];
+                }
+            }
+            else if (_scene.GameState.SinglePlayer && IsBot)
+            {
+                BeamType affinityBeam = Weapons.GetAffinityBeam(Hunter);
+                WeaponInfo affinityInfo = _scene.WeaponRules[(int)affinityBeam];
+                _availableWeapons[affinityBeam] = true;
+                _availableCharges[affinityBeam] = true;
+                _weaponSlots[0] = _weaponSlots[1] = BeamType.None;
+                _weaponSlots[2] = affinityBeam;
+                _ammo[UA] = _ammo[Missiles] = 0;
+                _ammo[affinityInfo.AmmoType] = -1;
+                PreviousWeapon = affinityBeam;
+                TryEquipWeapon(affinityBeam, silent: true);
+            }
+            else
+            {
+                WeaponInfo missileInfo = _scene.WeaponRules[(int)BeamType.Missile];
+                _availableWeapons[BeamType.PowerBeam] = true;
+                _availableWeapons[BeamType.Missile] = true;
+                _availableCharges[BeamType.PowerBeam] = true;
+                _availableCharges[BeamType.Missile] = true;
+                _weaponSlots[0] = BeamType.PowerBeam;
+                _weaponSlots[1] = BeamType.Missile;
+                _weaponSlots[2] = BeamType.None;
+                _ammo[UA] = _ammo[Missiles] = 0;
+                _ammo[missileInfo.AmmoType] = 10 * missileInfo.AmmoCost;
+            }
+            if (IsMainPlayer)
+            {
+                // todo: set values for HUD graphics, probably
+            }
+        }
+
+        private bool TryEquipWeapon(BeamType beam, bool silent = false, bool debug = false)
+        {
+            if (_scene.GameState.OneInTheChamber && beam is not (BeamType.PowerBeam or BeamType.Imperialist)) return false;
+            if (_scene.GameState.Mode == GameMode.GunGame && beam != Mods.Multiplayer.GunGameRules.Weapon(_scene.GameState.Points[SlotIndex])) return false;
+            if (_scene.GameState.NoImperialist && beam == BeamType.Imperialist) return false;
+            int index = (int)beam;
+            if (index < 0 || index >= 9)
+            {
+                return false;
+            }
+            if (_scene.GameState.InstaGib
+                && LoadFlags.TestFlag(LoadFlags.Spawned) && beam != BeamType.Imperialist)
+            {
+                return false;
+            }
+            WeaponInfo info = _scene.WeaponRules[(int)beam];
+            byte ammoType = info.AmmoType;
+            if (debug && Cheats.FreeWeaponSelect)
+            {
+                _availableWeapons[beam] = true;
+                _availableCharges[beam] = true;
+                if (UsesBalancedImperialistAmmo(beam))
+                {
+                    _balancedImperialistAmmo = BalancedImperialistAmmoCap;
+                }
+                else
+                {
+                    _ammo[info.AmmoType] = _ammoMax[info.AmmoType];
+                }
+            }
+            int weaponAmmo = ModAmmoForWeapon(beam, info);
+            int weaponAmmoCost = ModAmmoCostForWeapon(beam, info);
+            bool hasAmmo = beam == BeamType.PowerBeam || weaponAmmo >= weaponAmmoCost || weaponAmmo == -1;
+            if (!silent && (!hasAmmo || !_availableWeapons[beam] || GunAnimation == GunAnimation.UpDown))
+            {
+                if (IsMainPlayer)
+                {
+                    if (!_scene.GameState.MenuPause)
+                    {
+                        _soundSource.PlayFreeSfx(SfxId.BEAM_SWITCH_FAIL);
+                    }
+                    if (!hasAmmo)
+                    {
+                        ShowNoAmmoMessage();
+                    }
+                }
+                return false;
+            }
+            StopBeamChargeSfx(CurrentWeapon);
+            UpdateZoom(false);
+            PreviousWeapon = CurrentWeapon;
+            CurrentWeapon = WeaponSelection = beam;
+            bool normalizeBalancedBattlehammer = _scene.GameState.Multiplayer
+                && _scene.GameState.BalancedMode && Hunter == Hunter.Weavel
+                && beam == BeamType.Battlehammer;
+            if (beam == Weapons.GetAffinityBeam(Hunter) && !normalizeBalancedBattlehammer
+                || _scene.GameState.SinglePlayer && (Hunter == Hunter.Samus && (beam == BeamType.PowerBeam || beam == BeamType.OmegaCannon)
+                || Hunter == Hunter.Guardian && beam == BeamType.VoltDriver))
+            {
+                EquipInfo.Weapon = _scene.WeaponRules[(int)beam + 9];
+            }
+            else
+            {
+                EquipInfo.Weapon = _scene.WeaponRules[(int)beam];
+            }
+            EquipInfo.ChargeLevel = 0;
+            EquipInfo.SmokeLevel = 0;
+            ModBindWeaponAmmo(beam, ammoType);
+            _timeSinceInput = 0;
+            if (!silent)
+            {
+                if (IsMainPlayer && !IsAltForm && beam != BeamType.Missile && !_scene.GameState.MenuPause)
+                {
+                    int sfx = Metadata.HunterSfx[(int)Hunter, (int)HunterSfx.BeamSwitch];
+                    if (sfx != -1)
+                    {
+                        _soundSource.PlayFreeSfx(sfx);
+                    }
+                }
+                if (beam == BeamType.Missile)
+                {
+                    SetGunAnimation(GunAnimation.MissileOpen, AnimFlags.NoLoop);
+                }
+                else if (PreviousWeapon == BeamType.Missile)
+                {
+                    SetGunAnimation(GunAnimation.MissileClose, AnimFlags.NoLoop);
+                }
+                else
+                {
+                    CurrentWeapon = WeaponSelection = PreviousWeapon;
+                    SetGunAnimation(GunAnimation.Switch, AnimFlags.NoLoop);
+                    CurrentWeapon = WeaponSelection = beam;
+                }
+            }
+            if (beam != BeamType.PowerBeam && beam != BeamType.Missile)
+            {
+                UpdateAffinityWeaponSlot(beam);
+            }
+            if (IsMainPlayer)
+            {
+                HudOnWeaponSwitch(beam);
+                // the game update the bottom screen weapon HUD objects here
+            }
+            return true;
+        }
+
+        private void ShowNoAmmoMessage()
+        {
+            string message = Strings.GetHudMessage(9); // AMMO DEPLETED!
+            QueueHudMessage(128, 120, Align.Center, 256, 8, new ColorRgba(0x295F), 1, 45 / 30f, 1, message);
+        }
+
+        public void UpdateZoom(bool zoom)
+        {
+            if (IsMainPlayer && EquipInfo.Zoomed != zoom)
+            {
+                _soundSource.PlayFreeSfx(zoom ? SfxId.SNIPER_ZOOM_IN : SfxId.SNIPER_ZOOM_OUT);
+                if (CurrentWeapon == BeamType.Imperialist)
+                {
+                    HudOnZoom(zoom);
+                }
+            }
+            EquipInfo.Zoomed = zoom;
+        }
+
+        private void UpdateAffinityWeaponSlot(BeamType beam, int slot = 2)
+        {
+            Debug.Assert(slot == 2);
+            if (_weaponSlots[slot] == BeamType.OmegaCannon && beam != BeamType.OmegaCannon)
+            {
+                _availableCharges[BeamType.OmegaCannon] = false;
+                _availableWeapons[BeamType.OmegaCannon] = false;
+            }
+            _weaponSlots[slot] = beam;
+            // the game updates the bottom screen weapon icon here
+        }
+
+        private void UnequipOmegaCannon()
+        {
+            if (CurrentWeapon == BeamType.OmegaCannon && _scene.GameState.Multiplayer)
+            {
+                _availableCharges[BeamType.OmegaCannon] = false;
+                _availableWeapons[BeamType.OmegaCannon] = false;
+                int priority = 0;
+                BeamType nextBeam = BeamType.None;
+                // find weapon to switch to (skip PB and Missiles)
+                for (int i = 1; i < 9; i++)
+                {
+                    if (i != 2 && _availableWeapons[i])
+                    {
+                        WeaponInfo info = _scene.WeaponRules[i];
+                        if (info.Priority > priority && _ammo[info.AmmoType] >= info.AmmoCost)
+                        {
+                            priority = info.Priority;
+                            nextBeam = (BeamType)i;
+                        }
+                    }
+                }
+                UpdateAffinityWeaponSlot(nextBeam);
+                if (nextBeam == BeamType.None)
+                {
+                    TryEquipWeapon(BeamType.PowerBeam);
+                }
+                else
+                {
+                    TryEquipWeapon(nextBeam);
+                }
+            }
+        }
+
+        private void SetGunAnimation(GunAnimation anim, AnimFlags animFlags = AnimFlags.None)
+        {
+            GunAnimation = anim;
+            int animId = Metadata.GunAnimationIds[(int)Hunter, (int)anim, 0];
+            SetFlags setFlags = SetFlags.Texture | SetFlags.Texcoord | SetFlags.Material | SetFlags.Unused | SetFlags.Node;
+            _gunModel.SetAnimation(animId, slot: 0, setFlags, animFlags);
+            animId = Metadata.GunAnimationIds[(int)Hunter, (int)anim, (int)CurrentWeapon + 1];
+            if (animId >= 0)
+            {
+                setFlags &= ~SetFlags.Node;
+                if (Hunter == Hunter.Sylux)
+                {
+                    setFlags &= ~SetFlags.Texcoord;
+                }
+                _gunModel.SetAnimation(animId, slot: 1, setFlags, animFlags);
+            }
+            if (IsMainPlayer)
+            {
+                if (anim == GunAnimation.MissileClose)
+                {
+                    _soundSource.StopSfxByHandle(_missileSfxHandle);
+                    _missileSfxHandle = -1;
+                    if (!IsAltForm)
+                    {
+                        PlayMissileSfx(HunterSfx.MissileClose);
+                    }
+                }
+                else if (anim == GunAnimation.MissileOpen && EquipInfo.ChargeLevel == 0)
+                {
+                    _soundSource.StopSfxByHandle(_missileSfxHandle);
+                    if (!IsAltForm && _health > 0)
+                    {
+                        _missileSfxHandle = PlayMissileSfx(HunterSfx.MissileSwitch);
+                    }
+                }
+            }
+            if (anim == GunAnimation.FullChargeMissile || anim == GunAnimation.ChargingMissile || anim == GunAnimation.MissileClose
+                || anim == GunAnimation.MissileOpen || anim == GunAnimation.Unknown9 || anim == GunAnimation.MissileShot)
+            {
+                Flags1 |= PlayerFlags1.GunOpenAnimation;
+            }
+            else
+            {
+                Flags1 &= ~PlayerFlags1.GunOpenAnimation;
+            }
+        }
+
+        private void UpdateGunAnimation()
+        {
+            if (_timeSinceInput == 0)
+            {
+                if (GunAnimation == GunAnimation.UpDown && _gunModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Reverse))
+                {
+                    _gunModel.AnimInfo.Flags[0] &= ~AnimFlags.Reverse;
+                    _gunModel.AnimInfo.Flags[0] &= ~AnimFlags.Ended;
+                }
+            }
+            else if (!Features.NoIdleSway && _timeSinceInput >= (ulong)Values.GunIdleTime * 2) // todo: FPS stuff
+            {
+                if (GunAnimation != GunAnimation.UpDown)
+                {
+                    if (CurrentWeapon != BeamType.Missile || GunAnimation == GunAnimation.MissileClose)
+                    {
+                        SetGunAnimation(GunAnimation.UpDown, AnimFlags.NoLoop | AnimFlags.Reverse);
+                    }
+                    else
+                    {
+                        SetGunAnimation(GunAnimation.MissileClose, AnimFlags.NoLoop);
+                    }
+                }
+                return;
+            }
+            if (GunAnimation == GunAnimation.UpDown)
+            {
+                if (!_gunModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
+                {
+                    return;
+                }
+                if (CurrentWeapon == BeamType.Missile)
+                {
+                    SetGunAnimation(GunAnimation.MissileOpen, AnimFlags.NoLoop);
+                }
+            }
+            if (Flags1.TestFlag(PlayerFlags1.ShotUncharged))
+            {
+                if (!Flags1.TestFlag(PlayerFlags1.ShotMissile))
+                {
+                    SetGunAnimation(GunAnimation.Shot, AnimFlags.NoLoop);
+                    return;
+                }
+                if (!Flags1.TestFlag(PlayerFlags1.GunOpenAnimation))
+                {
+                    SetGunAnimation(GunAnimation.Unknown9, AnimFlags.NoLoop);
+                    return;
+                }
+                SetGunAnimation(GunAnimation.MissileShot, AnimFlags.NoLoop);
+                return;
+            }
+            if (Flags1.TestFlag(PlayerFlags1.ShotCharged))
+            {
+                if (Flags1.TestFlag(PlayerFlags1.ShotMissile))
+                {
+                    SetGunAnimation(GunAnimation.MissileShot, AnimFlags.NoLoop);
+                    return;
+                }
+                SetGunAnimation(GunAnimation.ChargeShot, AnimFlags.NoLoop);
+                return;
+            }
+            if (EquipInfo.ChargeLevel >= EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
+            {
+                if ((GunAnimation == GunAnimation.Charging || GunAnimation == GunAnimation.ChargingMissile)
+                    && _scene.FrameCount != 0 && _scene.FrameCount % 2 == 0) // todo: FPS stuff
+                {
+                    int frame = (_gunModel.AnimInfo.FrameCount[0] - 1) * (EquipInfo.ChargeLevel / 2 - EquipInfo.Weapon.MinCharge)
+                        / (EquipInfo.Weapon.FullCharge - EquipInfo.Weapon.MinCharge); // todo: FPS stuff
+                    _gunModel.AnimInfo.Frame[0] = frame;
+                }
+                if (CurrentWeapon == BeamType.Missile)
+                {
+                    if (GunAnimation != GunAnimation.ChargingMissile && GunAnimation != GunAnimation.FullChargeMissile)
+                    {
+                        SetGunAnimation(GunAnimation.ChargingMissile, AnimFlags.NoLoop);
+                    }
+                    else if (GunAnimation != GunAnimation.FullChargeMissile && _gunModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
+                    {
+                        SetGunAnimation(GunAnimation.FullChargeMissile);
+                    }
+                }
+                else if (GunAnimation != GunAnimation.Charging && GunAnimation != GunAnimation.FullCharge)
+                {
+                    SetGunAnimation(GunAnimation.Charging, AnimFlags.NoLoop);
+                }
+                else if (GunAnimation != GunAnimation.FullCharge && _gunModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
+                {
+                    SetGunAnimation(GunAnimation.FullCharge);
+                }
+                return;
+            }
+            if ((GunAnimation == GunAnimation.Charging || GunAnimation == GunAnimation.ChargingMissile)
+                && !_gunModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Reverse))
+            {
+                _gunModel.AnimInfo.Flags[0] |= AnimFlags.Reverse;
+                return;
+            }
+            if (GunAnimation == GunAnimation.FullCharge)
+            {
+                SetGunAnimation(GunAnimation.Idle, AnimFlags.NoLoop);
+                return;
+            }
+            if (GunAnimation == GunAnimation.FullChargeMissile)
+            {
+                SetGunAnimation(GunAnimation.MissileOpen, AnimFlags.NoLoop);
+                _gunModel.AnimInfo.Frame[0] = _gunModel.AnimInfo.FrameCount[0] - 1;
+                return;
+            }
+            if (_gunModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
+            {
+                if (!Flags1.TestFlag(PlayerFlags1.GunOpenAnimation) || GunAnimation == GunAnimation.MissileClose)
+                {
+                    SetGunAnimation(GunAnimation.Idle, AnimFlags.NoLoop);
+                }
+                else if (CurrentWeapon == BeamType.Missile && WeaponSelection != BeamType.Missile)
+                {
+                    SetGunAnimation(GunAnimation.MissileClose, AnimFlags.NoLoop);
+                }
+            }
+        }
+
+        public void TakeDamage(int damage, DamageFlags flags, Vector3? direction, EntityBase? source)
+        {
+            TakeDamage((uint)damage, flags, direction, source);
+        }
+
+        public void TakeDamage(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source)
+            => TakeDamageCore(damage, flags, direction, source, scoutDroneLaser: false);
+
+        // Private synchronous attribution only; public/native and nested calls
+        // cannot inherit a laser label. Native protection/modifiers/stats below
+        // remain the sole damage owner.
+        private void TakeDamageCore(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source, bool scoutDroneLaser)
+        {
+            if (_scene.Services.SuppressDamage) return;
+            if (_scene.AimTrainer?.TryHandleDamage(this, source, damage, flags) == true) return;
+            bool enhancedWasFrozen = ModFrozen;
+            using var predictedScores = new Mods.Network.NetDamage.PredictionScoreScope(Mods.Network.NetHitPrediction.Predicting);
+            if (Mods.Network.NetDamage.Suppress(this, source, flags))
+            {
+                return;
+            }
+            if (_health == 0)
+            {
+                return;
+            }
+            var continuousBeam = NetSession.Active && !NetDamage.Replaying
+                && source is BeamProjectileEntity { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } coil
+                && coil.Owner is PlayerEntity ? coil : null;
+            // The selected, lifecycle-fenced target owns this pulse. A ray
+            // crossing an incidental player (or an explicit no-target pulse)
+            // cannot independently pay damage and contradict the source claim.
+            if (continuousBeam != null && (continuousBeam.ModContinuousTarget != NetTargetIdentity.ForSlot(SlotIndex)
+                || (flags.TestFlag(DamageFlags.Halfturret)
+                    ? continuousBeam.Target is not HalfturretEntity turret || turret.Owner != this
+                    : continuousBeam.Target != this))) return;
+            int continuousBodyBefore = _health, continuousTurretBefore = Halfturret?.Health ?? 0;
+            using var continuousPayment = continuousBeam != null && (NetSession.IsAuthority || NetSession.IsHost)
+                ? NetContinuousPayments.Begin(new ContinuousPaymentKey(continuousBeam.ModLaunchKey with { ShotId = (uint)continuousBeam.ModContinuousPhase },
+                    NetTargetIdentity.ForSlot(SlotIndex), flags.TestFlag(DamageFlags.Halfturret) ? ContinuousPaymentKey.Turret : ContinuousPaymentKey.Body),
+                    emittedShotId: continuousBeam.ModShotId)
+                : new NetContinuousPayments.Reservation(true);
+            if (!continuousPayment.Allowed) return;
+            using var combatPayment = Mods.Network.NetCombatPayments.Begin(this, source, flags);
+            if (!combatPayment.Allowed) return;
+            bool precisionLethalHit = false;
+            if (_scene.GameState.InstaGib || _scene.GameState.OneInTheChamber)
+            {
+                BeamType sourceBeam = source?.Type == EntityType.BeamProjectile
+                    ? ((BeamProjectileEntity)source).Beam
+                    : Mods.Network.NetDamage.ApplyingClaim
+                        ? Mods.Network.NetDamage.ClaimedBeam
+                        : Mods.Network.NetDamage.Replaying
+                            ? Mods.Network.NetDamage.ReplayBeam
+                            : BeamType.None;
+                bool playerCombatSource = source != null
+                    && source.Type is EntityType.BeamProjectile or EntityType.Player or EntityType.Bomb;
+                precisionLethalHit = playerCombatSource && sourceBeam == BeamType.Imperialist;
+                if (_scene.GameState.InstaGib && playerCombatSource && !precisionLethalHit)
+                {
+                    return;
+                }
+            }
+            if (IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
+            {
+                if (!flags.TestFlag(DamageFlags.Death))
+                {
+                    return;
+                }
+                CamSeqEntity.CancelCurrent(_scene);
+            }
+            if ((_spawnInvulnTimer > 0 || ModMatchSpawnProtectionActive)
+                && !flags.TestFlag(DamageFlags.Death)
+                && !flags.TestFlag(DamageFlags.IgnoreInvuln)
+                && !Mods.Network.NetDamage.Replaying)
+            {
+                return;
+            }
+            if (IsBot && AiData.Flags2.TestFlag(AiFlags2.Bit13))
+            {
+                return;
+            }
+            if (!flags.TestAny(DamageFlags.Death | DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln))
+            {
+                if (_damageInvulnTimer > 0)
+                {
+                    return;
+                }
+                _damageInvulnTimer = (ushort)(Values.DamageInvuln * 2); // todo: FPS stuff
+            }
+            PlayerEntity? attacker = null;
+            bool fromHalfturret = false;
+            BombEntity? bomb = null;
+            BeamProjectileEntity? beam = null;
+            if (source != null)
+            {
+                if (source.Type == EntityType.BeamProjectile)
+                {
+                    beam = (BeamProjectileEntity)source;
+                    Effectiveness effectiveness = Mods.CustomWeapons.PirateBlasterDefinition.Is(beam.ModCustomDefinition) ? BeamEffectiveness[0]
+                        : beam.ModCustomDefinition != null ? Effectiveness.Normal : BeamEffectiveness[(int)beam.Beam];
+                    if (effectiveness == Effectiveness.Zero)
+                    {
+                        return;
+                    }
+                    if (beam.Owner?.Type == EntityType.Player)
+                    {
+                        attacker = (PlayerEntity)beam.Owner;
+                    }
+                    else if (beam.Owner?.Type == EntityType.Halfturret)
+                    {
+                        attacker = ((HalfturretEntity)beam.Owner).Owner;
+                        fromHalfturret = true;
+                    }
+                    if (damage > 0)
+                    {
+                        damage = (uint)(damage * Metadata.DamageMultipliers[(int)effectiveness]);
+                        if (damage == 0)
+                        {
+                            damage = 1;
+                        }
+                    }
+                    if (!IsMainPlayer)
+                    {
+                        beam.SpawnDamageEffect(effectiveness);
+                    }
+                }
+                else if (source.Type == EntityType.Player)
+                {
+                    attacker = (PlayerEntity)source;
+                    // Not again for a rescued hit claim: the shooter's own
+                    // machine already doubled it before it sent the number.
+                    // Mods.Network.NetDamage.ApplyingClaim.
+                    if (attacker.DoubleDamage && !Mods.Network.NetDamage.ApplyingClaim
+                        && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus && NetBurnSource.Current == null)
+                    {
+                        damage *= 2;
+                    }
+                }
+                else if (source.Type == EntityType.Bomb)
+                {
+                    bomb = (BombEntity)source;
+                    attacker = !NetSession.Active || NetSession.MatchesStream(bomb.ModOwnerKey.MatchId, bomb.ModOwnerKey.AuthorityEpoch)
+                        && bomb.ModOwnerKey.Generation == NetPlayerLifecycle.Generation(bomb.ModOwnerKey.ShooterSlot)
+                        ? bomb.Owner : null;
+                }
+            }
+            bool ignoreDamage = false;
+            if (_scene.GameState.SinglePlayer && IsBot && attacker == this || _scene.GameState.Teams && !_scene.GameState.FriendlyFire
+                && attacker != null && attacker != this && TeamRules.AreAllies(attacker.TeamIndex, TeamIndex))
+            {
+                ignoreDamage = true;
+                damage = 0;
+            }
+            if (!ignoreDamage && flags.TestFlag(DamageFlags.Headshot) && attacker == _scene.Players.Main
+                && !Mods.Network.NetHitPrediction.Predicting)
+            {
+                // On a network client the local collision is a prediction.
+                // Do not announce HEADSHOT until the authority confirms the
+                // classification; NetDamage.ReplayEvent supplies the message
+                // for confirmed predicted hits that otherwise skip replay.
+                int messageId = _scene.GameState.Multiplayer ? 228 : 121; // HEADSHOT!
+                QueueHudMessage(128, 40, 20 / 30f, 0, messageId);
+                BeamType feedbackBeam = beam?.Beam ?? Mods.Network.NetDamage.ReplayBeam;
+                Mods.Sound.CombatFeedbackAudio.OnConfirmedHeadshot(_scene, feedbackBeam);
+            }
+            if (attacker != null && attacker != this && beam != null)
+            {
+                _scene.GameState.BeamDamageDealt[attacker.SlotIndex] = Math.Min(
+                    _scene.GameState.BeamDamageDealt[attacker.SlotIndex] + (int)damage,
+                    _scene.GameState.BeamDamageMax[attacker.SlotIndex]
+                );
+            }
+            // Likewise: the damage level is in the number a claim carries
+            // already. Mods.Network.NetDamage.ApplyingClaim.
+            if (damage > 0 && !Mods.Network.NetDamage.ApplyingClaim)
+            {
+                damage = (uint)(damage * Metadata.DamageLevels[_scene.GameState.DamageLevel]);
+                if (damage == 0)
+                {
+                    damage = 1;
+                }
+            }
+            // Handicap is a property of the victim's authoritative roster slot.
+            // Predicted hits and the authority both see the same frozen value.
+            // A rescued claim and an authority replay already carry finalized
+            // damage, so applying it again here would double-reduce the hit.
+            if (damage > 0 && !flags.TestFlag(DamageFlags.Death)
+                && !Mods.Network.NetDamage.ApplyingClaim && !Mods.Network.NetDamage.Replaying
+                && SlotIndex >= 0 && SlotIndex < Mods.Network.NetSession.SlotDamageReduction.Length)
+            {
+                byte reduction = Mods.Network.NetSession.SlotDamageReduction[SlotIndex];
+                if (reduction > 0)
+                    damage = Mods.Network.PlayerHandicap.ScaleDamage(damage, reduction);
+            }
+            // Balanced hunter durability is a final victim-side combat modifier.
+            // A rescued claim/replay already carries the finalized amount, so it
+            // must not be scaled twice. Headshots deliberately bypass this layer:
+            // the Imperialist's 200-damage precision breakpoint stays lethal.
+            bool balancedEnemyCombat = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                && !ignoreDamage && attacker != null && attacker != this
+                && !flags.TestFlag(DamageFlags.Death)
+                && !Mods.Network.NetDamage.ApplyingClaim && !Mods.Network.NetDamage.Replaying;
+            if (damage > 0 && balancedEnemyCombat)
+            {
+                bool headshot = flags.TestFlag(DamageFlags.Headshot);
+                damage = BalancedModeRules.ScaleIncomingDamage(Hunter, damage, headshot);
+                if (Hunter == Hunter.Weavel)
+                {
+                    damage = BalancedHunterAbilityRules.WeavelTransitionDamage(
+                        damage, headshot, IsMorphing || IsUnmorphing);
+                }
+                if (direction.HasValue)
+                {
+                    direction *= BalancedModeRules.ScaleKnockback(Hunter, 1f);
+                }
+            }
+            if (Flags2.TestFlag(PlayerFlags2.Halfturret) && attacker != null && !ignoreDamage)
+            {
+                _halfturret.OnTakeDamage(attacker, damage);
+            }
+            if (beam != null && attacker == this && beam.ModEnhancedSelfJump)
+            {
+                damage = (uint)System.Math.Ceiling(damage * .25f);
+                if (direction.HasValue) direction *= 1.35f;
+                if (Mods.EnhancedHunters.EnhancedHunters.Authority(this))
+                    Mods.EnhancedHunters.EnhancedHunterTelemetry.Event(Hunter, "rocket-jumps");
+            }
+            uint combatUnsplitDamage = damage;
+            if (flags.TestFlag(DamageFlags.Halfturret) && !ignoreDamage) // todo?: and either main player or not wifi
+            {
+                var ownedTurret = _halfturret ?? throw new InvalidOperationException("Half-turret damage requires the owned turret.");
+                uint turretDamage;
+                if (_health > ownedTurret.Health)
+                {
+                    turretDamage = damage - damage / 2;
+                }
+                else
+                {
+                    turretDamage = damage / 2;
+                }
+                if (ownedTurret.Health <= turretDamage)
+                {
+                    ownedTurret.Die();
+                }
+                else
+                {
+                    ownedTurret.Health -= (int)turretDamage;
+                }
+                damage -= turretDamage;
+                if (IsBot && _scene.GameState.SinglePlayer && AiData.Flags1)
+                {
+                    if (_health > AiData.HealthThreshold && (_health - damage) <= AiData.HealthThreshold)
+                    {
+                        damage = (uint)(_health - AiData.HealthThreshold - 1);
+                    }
+                }
+                else if (_health <= damage)
+                {
+                    damage = (uint)(_health - 1);
+                }
+                ownedTurret.TimeSinceDamage = 0;
+                if (IsBot)
+                {
+                    AiData.DamageFromHalfturret = turretDamage;
+                }
+            }
+            if (IsBot && source != null)
+            {
+                AiData.OnTakeDamage((int)damage, source, attacker);
+            }
+            // Hunter-specific damage routing above may split or clamp normal
+            // damage. Insta-Gib deliberately overrides that final amount so
+            // every accepted Imperialist hit is lethal.
+            if (precisionLethalHit && damage > 0 && !ignoreDamage)
+            {
+                damage = (uint)_health;
+            }
+            // todo?: something for wifi
+            // else...
+            // beam.ModLaunchFrame identifies the *shot*, not the moment it
+            // landed, so the authority's record of this hit and a claim for the
+            // same shot can be paired however long the projectile was in the
+            // air. Mods.Network.NetHitClaims.
+            int combatHealthBefore = _health;
+            int combatTurretBefore = Halfturret?.Health ?? 0;
+            ushort combatSequenceBefore = Mods.Network.NetDamage.Sequence(SlotIndex);
+            if (beam?.EnhancedSiegeRound == true && direction.HasValue) direction *= 1.2f;
+            // Derive the shared self-missile impulse before prediction can clamp
+            // damage. Claim/feedback paths already carry the authority's vector.
+            BeamType impulseWeapon = beam?.Beam ?? (NetDamage.ApplyingClaim ? NetDamage.ClaimedBeam
+                : NetDamage.Replaying ? NetDamage.ReplayBeam : BeamType.None);
+            bool quake3RocketImpulse = attacker == this && ModMovementBlastWeaponEligible(impulseWeapon)
+                && !flags.TestAny(DamageFlags.Burn | DamageFlags.Halfturret | DamageFlags.Death)
+                && (beam == null || beam.ModCustomShot == null);
+            if (quake3RocketImpulse && beam is { EnhancedDirectHit: false, SplashRadius: > 0 })
+            {
+                direction = Quake3MovementProfileV3.RocketImpulse((uint)Math.Max(0, beam.SplashDamage),
+                    beam.ModResolvedHitPointValid ? beam.ModResolvedHitPoint : beam.Position,
+                    Position, beam.SplashRadius, ModBipedBottom, ModBipedTop, Fixed.ToFloat(Values.BipedColRadius));
+            }
+            ushort replayDamageEventId = beam?.ModCustomShot != null ? (ushort)0 : Mods.Network.NetDamage.Note(this, attacker,
+                beam?.Beam ?? BeamType.None, flags, direction,
+                damage, bomb != null, beam?.ModLaunchFrame ?? 0, launchKey: beam?.ModLaunchKey ?? (bomb != null ? bomb.ModOwnerKey : NetBurnSource.Current?.Key),
+                enhancedChild: beam?.EnhancedMicroSeeker == true, componentId: beam?.ModComponentId ?? 0,
+                damageKind: (byte)((beam?.EnhancedDirectHit == true ? 1 : 2) | (flags.TestFlag(DamageFlags.Halfturret) ? 4 : 0)),
+                continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true }
+                    ? (uint)beam.ModContinuousPhase : 0);
+            if (flags.TestFlag(DamageFlags.Headshot) && (beam?.ModCustomDefinition == null
+                || beam != null && _scene.PirateBlaster?.OwnsDamage(this, beam) == true))
+                _scene.MatchEvents.Headshot(_scene, attacker, this, beam?.Beam ?? Mods.Network.NetDamage.ClaimedBeam, beam?.ModLaunchKey);
+            // The last point at which the damage is final and the death has
+            // not been decided: a hit this machine's own player has landed is
+            // marked here, and a predicted one on somebody else is clamped
+            // here so that it cannot be the hit that kills. A predicted hit on
+            // *this* player is not -- a fall into the void or a rocket jump at
+            // low health kills on the frame it happens.
+            // Mods.Network.NetHitPrediction.
+            // An authority self event may beat its local projectile collision.
+            // Until the exact claim receipt pairs them, avoid another HP debit
+            // or jump impulse. The full claim is still authored for settlement.
+            bool deferSelf = NetHitPrediction.Predicting && attacker == this && beam != null
+                && NetSelfSplash.Claimable(beam.Beam, flags, beam.EnhancedDirectHit, beam.ModShotId, beam.ModComponentId)
+                && NetDamage.HasUnclaimedSelfEvent((byte)beam.Beam);
+            if (beam?.ModCustomShot == null) Mods.Network.NetHitPrediction.NoteHit(this, attacker, ref flags, ref damage,
+                beam?.Beam ?? BeamType.None, beam?.ModLaunchFrame ?? 0, beam?.Age ?? 0, direction, shotId: beam?.ModShotId ?? 0, shotKey: beam?.ModLaunchKey, componentId: beam?.ModComponentId ?? 0,
+                direct: beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker?.IsAltForm == true && !flags.TestFlag(DamageFlags.Burn)
+                    || bomb?.BombType == BombType.Stinglarva,
+                afflictions: beam != null && !ignoreDamage && !flags.TestFlag(DamageFlags.Halfturret)
+                    ? beam.Afflictions : Affliction.None, unsplitDamage: combatUnsplitDamage,
+                continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } ? (uint)beam.ModContinuousPhase : 0, deferSelf: deferSelf);
+            if (deferSelf) return;
+            if (attacker != this)
+                Mods.Input.AimAssist.AimAssistTelemetry.Hit(attacker, beam?.Beam ?? BeamType.None, damage, flags);
+            bool dead = false;
+            if (IsBot && _scene.GameState.SinglePlayer && AiData.Flags1 && _health <= AiData.HealthThreshold)
+            {
+                dead = true;
+            }
+            else if (_health <= damage || flags.TestFlag(DamageFlags.Death))
+            {
+                dead = true;
+            }
+
+            var confirmedImpact = NetConfirmedImpacts.Describe(this, attacker, beam, bomb, replayDamageEventId, flags);
+            bool replayShotFactEligible = false;
+            uint replayShotId = 0;
+            BeamType replayWeapon = BeamType.None;
+            ShotKey replayKey = default;
+            Vector3 replayImpact = default;
+            var replayFactFlags = Mods.Network.ReplayShotFactFlags.None;
+            if (beam?.ModCustomShot == null && Mods.Network.NetSession.IsAuthority && attacker != null
+                && replayDamageEventId != 0 && damage > 0)
+            {
+                replayShotId = beam?.ModShotId ?? Mods.Network.NetHitClaims.CurrentClaimShotId;
+                replayWeapon = beam?.Beam ?? Mods.Network.NetDamage.ClaimedBeam;
+                if (replayShotId != 0 && replayWeapon is >= BeamType.PowerBeam and <= BeamType.OmegaCannon)
+                {
+                    replayKey = beam?.ModLaunchKey
+                        ?? Mods.Network.ShotKey.For(attacker.SlotIndex, replayShotId);
+                    if (replayKey.MatchId == Mods.Network.NetSession.CurrentMatchId
+                        && replayKey.AuthorityEpoch == Mods.Network.NetSession.AuthorityEpoch
+                        && replayKey.Generation != 0 && replayKey.LifeId != 0)
+                    {
+                        replayImpact = Mods.Network.NetDamage.ApplyingClaim
+                            ? Mods.Network.NetHitClaims.CurrentClaimHitPoint
+                            : beam?.ModResolvedHitPointValid == true
+                                ? beam.ModResolvedHitPoint : Position;
+                        if (!Single.IsFinite(replayImpact.X) || !Single.IsFinite(replayImpact.Y)
+                            || !Single.IsFinite(replayImpact.Z))
+                        {
+                            replayImpact = Position;
+                        }
+                        if (flags.TestFlag(DamageFlags.Headshot))
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Headshot;
+                        if (dead) replayFactFlags |= Mods.Network.ReplayShotFactFlags.Lethal;
+                        if (beam?.EnhancedDirectHit == true || Mods.Network.NetHitClaims.CurrentClaimDirect)
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Direct;
+                        if (Mods.Network.NetDamage.ApplyingClaim)
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Claimed;
+                        if (flags.TestFlag(DamageFlags.Halfturret)
+                            || Mods.Network.NetHitClaims.CurrentClaimTurret)
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.HalfturretTarget;
+                        if (fromHalfturret)
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.HalfturretSource;
+                        if (beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true }
+                            || Mods.Network.NetHitClaims.CurrentClaimContinuous)
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.Continuous;
+                        if (beam?.EnhancedMicroSeeker == true)
+                            replayFactFlags |= Mods.Network.ReplayShotFactFlags.EnhancedChild;
+                        replayShotFactEligible = true;
+                    }
+                }
+            }
+
+            Mods.Network.CareerMatchStats.NoteDamage(
+                this, attacker, damage, dead, _scene.FrameCount);
+            if (beam?.ModCustomShot == null) Mods.Network.MatchReportStats.NoteDamage(this, attacker, beam, damage);
+            if (beam?.ModCustomShot is { Action: not null } customSource)
+                _scene.MatchEvents.CustomDamage(_scene,attacker,this,damage,customSource.Owner);
+            else _scene.MatchEvents.Damage(_scene, attacker, this, damage, beam?.ModCustomShot == null ? beam?.ModLaunchKey : null);
+            // todo?: something for wifi
+            if (attacker != null)
+            {
+                if (attacker == _scene.Players.Main)
+                {
+                    _scene.Players.Main.UpdateOpponent(SlotIndex);
+                }
+                if (attacker != this)
+                {
+                    _scene.GameState.DamageCount[attacker.SlotIndex]++;
+                    attacker._hidingTimer = 0;
+                    _hidingTimer = 0;
+                }
+            }
+            if (damage > 0 || dead)
+                ModControllerFeedback(dead ? Mods.Input.GamepadFeedback.Death
+                    : bomb != null || beam?.Beam == BeamType.Missile || beam?.Beam == BeamType.Magmaul ? Mods.Input.GamepadFeedback.Explosion
+                    : Mods.Input.GamepadFeedback.Damage);
+            if (dead)
+            {
+                if (_scene.GameState.BalancedMode && ModBalancedImperialistShots > 0)
+                {
+                    BalancedModeTelemetry.NoteImperialistDeath(this, ModBalancedImperialistShots);
+                }
+                // todo?: the game encodes the beam in the damage flags for wifi stuff
+                BeamType beamType = BeamType.Platform;
+                if (beam != null)
+                {
+                    beamType = beam.Beam;
+                }
+                else if (NetBurnSource.Current is { } deathBurn) beamType = deathBurn.Weapon;
+                else if (Mods.Network.NetDamage.ReplayBeam != BeamType.None)
+                {
+                    // Replaying a kill the authority resolved: the beam entity
+                    // only ever existed on its machine, so the weapon for the
+                    // banner comes over the wire instead of being guessed.
+                    beamType = Mods.Network.NetDamage.ReplayBeam;
+                }
+                if (!flags.TestFlag(DamageFlags.Burn) && (source == attacker || fromHalfturret || bomb != null))
+                {
+                    // halfturret, bomb, or direct hit by player (not beam)
+                    // --> also if there's no source and no attacker
+                    flags |= DamageFlags.FromAlt;
+                }
+                if (_scene.GameState.Multiplayer)
+                {
+                    // Custom offline impacts retain typed local facts; do not
+                    // mislabel them as an alternate/native weapon semantic event.
+                    if (beam != null && _scene.PirateBlaster?.OwnsDamage(this, beam) == true)
+                        _scene.MatchEvents.PirateDeath(_scene, attacker, this, beam, flags);
+                    if (beam?.ModCustomDefinition == null)
+                    _scene.MatchEvents.Death(_scene, attacker, this,
+                        beam == null && Mods.Network.NetDamage.ClaimedBeam != BeamType.None ? Mods.Network.NetDamage.ClaimedBeam : beamType,
+                        flags, beam?.ModLaunchKey ?? NetBurnSource.Current?.Key ?? (bomb != null ? bomb.ModOwnerKey : null), bomb != null, fromHalfturret);
+                    if (beam != null && _scene.PirateBlaster?.OwnsDamage(this, beam) == true)
+                        _scene.KillFeed.RecordPirate(_scene, attacker, this, beam, flags);
+                    if (beam?.ModCustomDefinition == null)
+                        _scene.KillFeed.Record(_scene, attacker, this, beamType, flags, fromHalfturret, bomb);
+                }
+                _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
+                if (EnemySpawner != null)
+                {
+                    _scene.SendMessage(Message.Destroyed, this, EnemySpawner, 0, 0);
+                    Debug.Assert(EnemySpawner.Type == EntityType.EnemySpawn);
+                    ItemSpawnEntity.SpawnItemDrop(EnemySpawner.Data.ItemType, Position,
+                        NodeRef, EnemySpawner.Data.ItemChance, _scene);
+                }
+                ResetCombatVisor();
+                if (Flags2.TestFlag(PlayerFlags2.Halfturret))
+                {
+                    _halfturret.Die();
+                }
+                _healthRecovery = 0;
+                _ammoRecovery[0] = 0;
+                _ammoRecovery[1] = 0;
+                EquipInfo.ChargeLevel = 0;
+                CameraInfo.Shake = 0;
+                _doubleDmgTimer = 0;
+                _deathaltTimer = 0;
+                _cloakTimer = 0;
+                if (!_scene.Services.IsReplica && Mods.Network.NetSession.IsAuthority)
+                    Mods.Network.NetPowerUpLedger.RetireSlot(SlotIndex, Mods.Network.TimedGrantEnd.Death);
+                Flags2 &= ~PlayerFlags2.Cloaking;
+                _scene.GameState.KillStreak[SlotIndex] = 0;
+                if (IsMainPlayer)
+                {
+                    Mods.Sound.CombatFeedbackAudio.OnLocalDeath(_scene);
+                    // todo: license info
+                    HudEndDisrupted();
+                    if (_frozenGfxTimer > 0)
+                    {
+                        _drawIceLayer = false;
+                    }
+                }
+                _frozenTimer = 0;
+                _frozenGfxTimer = 0;
+                _disruptedTimer = 0;
+                _burnTimer = 0;
+                ModBurnSource = null;
+                if (_furlEffect != null)
+                {
+                    _scene.UnlinkEffectEntry(_furlEffect);
+                    _furlEffect = null;
+                }
+                if (_boostEffect != null)
+                {
+                    _scene.UnlinkEffectEntry(_boostEffect);
+                    _boostEffect = null;
+                }
+                if (_burnEffect != null)
+                {
+                    if (_burnEffect.EffectId == 188) // flamingGun
+                    {
+                        _scene.UnlinkEffectEntry(_burnEffect);
+                    }
+                    else
+                    {
+                        _scene.DetachEffectEntry(_burnEffect, setExpired: false);
+                    }
+                    _burnEffect = null;
+                }
+                if (_chargeEffect != null)
+                {
+                    _scene.UnlinkEffectEntry(_chargeEffect);
+                    _chargeEffect = null;
+                }
+                if (_muzzleEffect != null)
+                {
+                    _scene.UnlinkEffectEntry(_muzzleEffect);
+                    _muzzleEffect = null;
+                }
+                if (_doubleDmgEffect != null)
+                {
+                    _scene.UnlinkEffectEntry(_doubleDmgEffect);
+                    _doubleDmgEffect = null;
+                }
+                if (_deathaltEffect != null)
+                {
+                    _scene.UnlinkEffectEntry(_deathaltEffect);
+                    _deathaltEffect = null;
+                }
+                if (_health > 0)
+                {
+                    _soundSource.StopAllSfx(force: true);
+                    if (IsMainPlayer)
+                    {
+                        // the game stops the unused weapon alarm SFX here
+                        UpdateDoubleDamageSfx(index: 0, play: false);
+                        UpdateCloakSfx(index: 0, play: false);
+                        _soundSource.StopFreeSfxScripts();
+                        if (_scene.GameState.Multiplayer)
+                        {
+                            PlayHunterSfx(HunterSfx.Death);
+                        }
+                        else
+                        {
+                            _sfxStopTimer = 10 / 30f;
+                            // todo: rumble
+                            _soundSource.PlayFreeSfx(SfxId.SAMUS_DEATH);
+                        }
+                    }
+                    else
+                    {
+                        if (_scene.Services.AllowsPresentationSideEffects) Music.UpdateEncounterMusic((int)Hunter);
+                        PlayHunterSfx(HunterSfx.Death);
+                    }
+                    StopBeamChargeSfx(CurrentWeapon);
+                }
+                if (IsBot && AiData.Flags1)
+                {
+                    _health = AiData.HealthThreshold + 1;
+                    AiData.Flags2 |= AiFlags2.Bit13;
+                }
+                else
+                {
+                    _health = 0;
+                    ScoutDroneResetForLife();
+                    _scene.PirateBlaster?.Died(this);
+                }
+                UpdateZoom(false);
+                // the game stops the boost charge SFX here, but that SFX is empty
+                _boostCharge = 0;
+                _scene.GameState.Deaths[SlotIndex]++;
+                if (this == _scene.Players.Main && beamType == BeamType.OmegaCannon)
+                {
+                    _scene.SetFade(FadeType.FadeInWhite, 90 / 30f, overwrite: true);
+                }
+                Speed = Vector3.Zero;
+                _respawnTimer = RespawnTime;
+                _timeSinceDead = 0;
+                if (_scene.GameState.SinglePlayer)
+                {
+                    if (IsAltForm)
+                    {
+                        int effectId = IsMainPlayer ? 10 : 216; // ballDeath or deathAlt
+                        _scene.SpawnEffect(effectId, Vector3.UnitX, Vector3.UnitY, Position);
+                    }
+                    if (IsBot && _scene.GameState.GetAreaState(_scene.AreaId) == AreaState.Clear)
+                    {
+                        bool unlockDoors = true;
+                        foreach (EnemySpawnEntity spawner in _scene.GetEnemySpawnEntities())
+                        {
+                            if (spawner.Data.EnemyType != EnemyType.Hunter)
+                            {
+                                continue;
+                            }
+                            if (spawner.Flags.TestFlag(SpawnerFlags.Active)
+                                && (spawner.Data.SpawnTotal == 0 || spawner.SpawnedCount < spawner.Data.SpawnTotal
+                                || spawner.ActiveCount != 0))
+                            {
+                                for (int i = 1; i < _scene.Players.MaxPlayers; i++)
+                                {
+                                    if (_scene.Players.Items[i].EnemySpawner == spawner)
+                                    {
+                                        unlockDoors = false;
+                                        break;
+                                    }
+                                }
+                            }
+                            if (!unlockDoors)
+                            {
+                                break;
+                            }
+                        }
+                        if (unlockDoors)
+                        {
+                            _scene.GameState.CompleteRandomEncounter(_scene.RoomId);
+                            foreach (DoorEntity door in _scene.GetDoorEntities())
+                            {
+                                if (door.Data.ConnectorId == 255 && door.Id != -1)
+                                {
+                                    continue;
+                                }
+                                if (door.Data.PaletteId != 9)
+                                {
+                                    door.Flags &= ~DoorFlags.ShowLock;
+                                }
+                                if (door.Id == -1 || _scene.GameState.StorySave.GetRoomState(_scene.RoomId, door.Id) == 0)
+                                {
+                                    door.Unlock(updateState: false, noLockAnimSfx: false);
+                                }
+                            }
+                        }
+                    }
+                    if (IsMainPlayer)
+                    {
+                        // todo: update stats
+                        // note: the game doesn't cap either of these
+                        if (_scene.GameState.StorySave.Stats.Deaths != UInt32.MaxValue)
+                        {
+                            _scene.GameState.StorySave.Stats.Deaths++;
+                        }
+                        if (attacker != null && !attacker.IsMainPlayer && attacker.Hunter != Hunter.Guardian
+                            && _scene.GameState.StorySave.Stats.EnemyHunterDeaths != UInt32.MaxValue)
+                        {
+                            _scene.GameState.StorySave.Stats.EnemyHunterDeaths++;
+                        }
+                        _scene.GameState.PausePrevented = true;
+                        _deathCountdown = 150 / 30f;
+                        _deathProcessed = false;
+                        _deathLostOctolithSfxPlayed = false;
+                        _deathLostOctolithDialogShown = false;
+                        _respawnTimer = UInt16.MaxValue;
+                        CameraInfo.SetShake(0.25f);
+                        _lostOctolithEnemyIndex = -1;
+                        if (_scene.GameState.StorySave.CurrentOctoliths != 0 && _scene.Players.PlayerCount > 1
+                            && (_scene.GameState.EscapeTimer != 0 || _scene.GameState.EscapeState != EscapeState.Escape))
+                        {
+                            float minDistance = 0;
+                            for (int i = 1; i < _scene.Players.PlayerCount; i++)
+                            {
+                                PlayerEntity enemyHunter = _scene.Players.Items[i];
+                                if (enemyHunter.Health == 0 || enemyHunter.Hunter == Hunter.Guardian)
+                                {
+                                    continue;
+                                }
+                                float distance = (enemyHunter.Position - Position).LengthSquared;
+                                if (_lostOctolithEnemyIndex == -1 || distance < minDistance)
+                                {
+                                    _lostOctolithEnemyIndex = i;
+                                    minDistance = distance;
+                                }
+                            }
+                            if (_lostOctolithEnemyIndex != -1)
+                            {
+                                _lostOctolithDrawPos = Position.AddY(0.6f);
+                                _lostOctolithSpeed = 0.2f * 30; // frame-independent drag
+                            }
+                        }
+                        if (_scene.Services.AllowsPresentationSideEffects) Music.UpdateEncounterMusic(-2);
+                        if (_scene.Services.AllowsPresentationSideEffects) Music.Stop(fadeTime: 150 / 30f);
+                    }
+                    else if (attacker?.IsMainPlayer == true)
+                    {
+                        _scene.GameState.StorySave.DefeatedHunters |= (byte)(1 << (int)Hunter);
+                        _scene.GameState.StorySave.AreaHunters[_scene.AreaId / 2] &= (byte)~(1 << (int)Hunter);
+                        // todo: unlock hunter for multiplayer
+                        // note: the game doesn't cap hunter kills
+                        if (_scene.GameState.StorySave.Stats.HunterKills != UInt32.MaxValue)
+                        {
+                            _scene.GameState.StorySave.Stats.HunterKills++;
+                        }
+                        if (Hunter == Hunter.Guardian && _scene.GameState.StorySave.Stats.EnemyKills != UInt32.MaxValue)
+                        {
+                            _scene.GameState.StorySave.Stats.EnemyKills++;
+                        }
+
+                        void RestoreOctolith(int dropId)
+                        {
+                            _scene.GameState.StorySave.LostOctoliths
+                                = _scene.GameState.StorySave.LostOctoliths & (uint)(~(15 << (4 * dropId)) | (8 << (4 * dropId)));
+                            _scene.GameState.StorySave.CurrentOctoliths |= (ushort)(1 << dropId);
+                        }
+
+                        int dropId = _scene.GameState.StorySave.GetEnemyOctolithDrop((int)Hunter);
+                        if (dropId < 8)
+                        {
+                            RestoreOctolith(dropId);
+                            foreach (ArtifactEntity artifact in _scene.GetArtifactEntities())
+                            {
+                                if (artifact.Id != -1) // the game doesn't check the ID
+                                {
+                                    continue;
+                                }
+                                if (artifact.ModelId >= 8 && artifact.ArtifactId == dropId)
+                                {
+                                    artifact.Position = Position.AddY(1.5f);
+                                    artifact.NodeRef = NodeRef;
+                                    artifact.Active = true;
+                                    break;
+                                }
+                            }
+                        }
+                        // recover any additional Octoliths
+                        while (true)
+                        {
+                            dropId = _scene.GameState.StorySave.GetEnemyOctolithDrop((int)Hunter);
+                            if (dropId >= 8)
+                            {
+                                break;
+                            }
+                            RestoreOctolith(dropId);
+                        }
+                    }
+                }
+                else // multiplayer
+                {
+                    if (attacker != null)
+                    {
+                        if (IsMainPlayer)
+                        {
+                            CloseDialogs();
+                            if (attacker == this)
+                            {
+                                QueueHudMessage(128, 70, 140, 90 / 30f, 2, 235); // YOU SELF-DESTRUCTED!
+                            }
+                            else
+                            {
+                                // todo: update license
+                                string nickname = _scene.GameState.Nicknames[attacker.SlotIndex];
+                                // %s's HEADSHOT KILLED YOU! / %s KILLED YOU!
+                                string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 236 : 237);
+                                QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
+                            }
+                            string? killedBy = null;
+                            if (flags.TestFlag(DamageFlags.Deathalt))
+                            {
+                                killedBy = Strings.GetHudMessage(250); // DEATHALT
+                            }
+                            else if (flags.TestFlag(DamageFlags.Burn))
+                            {
+                                killedBy = Strings.GetHudMessage(251); // MAGMAUL BURN
+                            }
+                            else if (fromHalfturret)
+                            {
+                                killedBy = _altAttackNames[(int)attacker.Hunter];
+                            }
+                            else if (scoutDroneLaser && ReferenceEquals(source, attacker))
+                            {
+                                killedBy = "SENTRY DRONE LASER"; // local alt fact; no fabricated beam statistics
+                            }
+                            else if (beam != null && attacker.ModScoutDroneOwnsBeam(beam))
+                            {
+                                killedBy = "SENTRY DRONE"; // local label; native Power Beam stats remain unchanged
+                            }
+                            else if (beam?.ModCustomDefinition is { } customWeapon)
+                            {
+                                killedBy = customWeapon.Name;
+                            }
+                            else if (beamType >= BeamType.PowerBeam && beamType <= BeamType.OmegaCannon)
+                            {
+                                killedBy = _weaponNames[(int)beamType];
+                            }
+                            else if (source == attacker)
+                            {
+                                if (attacker.Hunter == Hunter.Weavel)
+                                {
+                                    killedBy = Strings.GetHudMessage(253); // HALFTURRET SLICE
+                                }
+                                else
+                                {
+                                    killedBy = _altAttackNames[(int)attacker.Hunter];
+                                }
+                            }
+                            else if (bomb != null)
+                            {
+                                if (bomb.BombType == BombType.MorphBall)
+                                {
+                                    killedBy = Strings.GetHudMessage(252); // MORPH BALL BOMB
+                                }
+                                else if (bomb.BombType == BombType.Stinglarva)
+                                {
+                                    killedBy = _altAttackNames[(int)Hunter.Kanden];
+                                }
+                                else if (bomb.BombType == BombType.Lockjaw)
+                                {
+                                    killedBy = _altAttackNames[(int)Hunter.Sylux];
+                                }
+                            }
+                            if (killedBy != null)
+                            {
+                                QueueHudMessage(128, 70, 140, 90 / 30f, 2, $"({killedBy})");
+                            }
+                        }
+                        if (attacker == this)
+                        {
+                            _scene.GameState.Suicides[SlotIndex]++;
+                            if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams)
+                            {
+                                _scene.GameState.Points[SlotIndex]--;
+                            }
+                        }
+                        else
+                        {
+                            if (TeamRules.AreAllies(attacker.TeamIndex, TeamIndex))
+                            {
+                                _scene.GameState.FriendlyKills[attacker.SlotIndex]++;
+                                _scene.GameState.KillStreak[attacker.SlotIndex] = 0;
+                                // todo: update license info
+                                if (attacker == _scene.Players.Main)
+                                {
+                                    string nickname = _scene.GameState.Nicknames[SlotIndex];
+                                    string message = Strings.GetHudMessage(240); // YOU KILLED A TEAMMATE, (%s)!
+                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)), styleId: "combat.kill");
+                                }
+                            }
+                            else
+                            {
+                                if (attacker == _scene.Players.Main)
+                                {
+                                    // todo: update license info
+                                    string nickname = _scene.GameState.Nicknames[SlotIndex];
+                                    // YOUR HEADSHOT KILLED %s! / YOU KILLED %s!
+                                    string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 239 : 238);
+                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)), styleId: "combat.kill");
+                                }
+                                _scene.GameState.Kills[attacker.SlotIndex]++;
+                                if (attacker.IsBot || Mods.Network.NetAiClient.Drives(attacker))
+                                {
+                                    attacker.AiData.OnTacticalKill(this);
+                                }
+                                // todo?: the game also updates another kills stat(?) here
+                                if (attacker.IsPrimeHunter)
+                                {
+                                    _scene.GameState.KillsAsPrime[attacker.SlotIndex]++;
+                                }
+                                if (beamType >= BeamType.PowerBeam && beamType <= BeamType.OmegaCannon)
+                                {
+                                    _scene.GameState.BeamKills[attacker.SlotIndex, (int)beamType]++;
+                                    // todo: update license info
+                                }
+                                if (_scene.GameState.KillStreak[attacker.SlotIndex] < 255)
+                                {
+                                    _scene.GameState.KillStreak[attacker.SlotIndex]++;
+                                }
+                                if (attacker == _scene.Players.Main)
+                                {
+                                    int matchKills = 0;
+                                    for (int i = 0; i < _scene.GameState.Kills.Length; i++)
+                                    {
+                                        matchKills += _scene.GameState.Kills[i];
+                                    }
+                                    bool firstBlood = matchKills == 1;
+                                    Mods.Sound.CombatFeedbackAwards awards =
+                                        Mods.Sound.CombatFeedbackAudio.OnConfirmedKill(_scene,
+                                            _scene.GameState.KillStreak[attacker.SlotIndex],
+                                            firstBlood);
+                                    if (Mods.Launcher.LauncherPrefs.CombatNotificationsVisible)
+                                    {
+                                        var medals = new List<string>(3);
+                                        if (awards.FirstBlood is Mods.Sound.CombatFeedbackCue firstBloodCue)
+                                        {
+                                            medals.Add(Mods.Sound.CombatFeedbackAudio.Label(
+                                                firstBloodCue).ToUpperInvariant());
+                                        }
+                                        if (awards.MultiKill is Mods.Sound.CombatFeedbackCue multiKill)
+                                        {
+                                            medals.Add(Mods.Sound.CombatFeedbackAudio.Label(
+                                                multiKill).ToUpperInvariant());
+                                        }
+                                        if (awards.LifeStreak is Mods.Sound.CombatFeedbackCue lifeStreak)
+                                        {
+                                            medals.Add(Mods.Sound.CombatFeedbackAudio.Label(
+                                                lifeStreak).ToUpperInvariant());
+                                        }
+                                        attacker.QueueCombatNotifications(medals, "combat.kill");
+                                    }
+                                }
+                                Mods.Network.CareerMatchStats.NoteKill(attacker);
+                                if (_scene.GameState.KillStreak[attacker.SlotIndex] == 5
+                                    && !Mods.MatchEvents.MatchSemanticPresentation.Enabled(_scene))
+                                {
+                                    // Avoid two announcers calling the same local milestone.
+                                    // If the Project Prime Killing Spree cue is disabled, preserve
+                                    // the original Hunter massacre line as the fallback.
+                                    bool customSpreeEnabled = attacker.IsMainPlayer
+                                        && !Mods.Sound.CombatFeedbackAudio.GetSelection(
+                                            Mods.Sound.CombatFeedbackCue.KillingSpree)
+                                            .Equals("off", StringComparison.OrdinalIgnoreCase);
+                                    if (!customSpreeEnabled)
+                                    {
+                                        _soundSource.QueueStream(
+                                            VoiceId.VOICE_CONSECUTIVE_KILLS, delay: 1);
+                                    }
+                                    // The Project Prime Killing Spree medal replaces the
+                                    // local vanilla "5 in a row" text when visual combat
+                                    // notifications are enabled. Keeping both was redundant and
+                                    // put two centered messages only a few pixels apart.
+                                    bool showNativeSpreeMessage = !attacker.IsMainPlayer
+                                        || !Mods.Launcher.LauncherPrefs.CombatNotificationsVisible;
+                                    if (showNativeSpreeMessage)
+                                    {
+                                        string message;
+                                        if (attacker.IsMainPlayer)
+                                        {
+                                            message = Strings.GetHudMessage(254); // YOU KILLED 5 IN A ROW!
+                                        }
+                                        else
+                                        {
+                                            string nickname = _scene.GameState.Nicknames[attacker.SlotIndex];
+                                            message = Strings.GetHudMessage(255); // %s KILLED 5 IN A ROW!
+                                            message = message.Replace("%s", PlayerNameCodec.ToNative(nickname));
+                                        }
+                                        if (attacker.IsMainPlayer
+                                            && Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom)
+                                        {
+                                            // The native five-kill fallback is still a local
+                                            // streak notification. Route it through the same
+                                            // editable lane so combat.notifications movement,
+                                            // scale, opacity and visibility remain authoritative.
+                                            attacker.QueueCombatNotifications(new[] { message }, "combat.kill");
+                                        }
+                                        else
+                                        {
+                                            QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
+                                        }
+                                    }
+                                }
+                                attacker.AwardChamberShot();
+                                if (_scene.GameState.Mode == GameMode.PrimeHunter)
+                                {
+                                    if (attacker.IsPrimeHunter)
+                                    {
+                                        attacker.GainHealth(70);
+                                    }
+                                    else if (attacker.Health > 0 && (_scene.GameState.PrimeHunter == -1 || IsPrimeHunter))
+                                    {
+                                        _scene.GameState.PrimeHunter = attacker.SlotIndex;
+                                        _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.PrimeChanged, attacker, this);
+                                        _scene.GameState.PrimesKilled[attacker.SlotIndex]++;
+                                        if (_scene.Players.Main.IsPrimeHunter)
+                                        {
+                                            _soundSource.QueueStream(VoiceId.VOICE_PRIME, delay: 1);
+                                        }
+                                        string nickname = _scene.GameState.Nicknames[attacker.SlotIndex];
+                                        string message = Strings.GetHudMessage(241); // %s is the new prime hunter!
+                                        QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
+                                    }
+                                }
+                                else if (_scene.GameState.Mode == GameMode.GunGame)
+                                {
+                                    int stage = _scene.GameState.Points[attacker.SlotIndex];
+                                    bool precisionKill = beam?.Beam == BeamType.Imperialist
+                                        || Mods.Network.NetDamage.ApplyingClaim && Mods.Network.NetDamage.ClaimedBeam == BeamType.Imperialist
+                                        || Mods.Network.NetDamage.Replaying && Mods.Network.NetDamage.ReplayBeam == BeamType.Imperialist;
+                                    if (stage < Mods.Multiplayer.GunGameRules.StageCount - 1 || precisionKill)
+                                    {
+                                        int slot = attacker.SlotIndex;
+                                        float duration = _scene.GameState.StageSeconds[slot];
+                                        if (_scene.GameState.FastestStageSeconds[slot] == 0 || duration < _scene.GameState.FastestStageSeconds[slot])
+                                            _scene.GameState.FastestStageSeconds[slot] = duration;
+                                        _scene.GameState.StageSeconds[slot] = 0;
+                                        _scene.GameState.Points[slot] = Math.Min(Mods.Multiplayer.GunGameRules.StageCount, stage + 1);
+                                        attacker.ApplyGunGameLoadout(force: true);
+                                    }
+                                }
+                                else if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams)
+                                {
+                                    if (_scene.GameState.Points[attacker.SlotIndex] < 99999)
+                                    {
+                                        _scene.GameState.Points[attacker.SlotIndex]++;
+                                    }
+                                }
+                                else if (_scene.GameState.IsOctolithMode && OctolithFlag != null)
+                                {
+                                    _scene.GameState.OctolithStops[attacker.SlotIndex]++;
+                                }
+                                // bugfix?: this flag is also set for suicides/environmental damage/etc.
+                                if (flags.TestFlag(DamageFlags.FromAlt))
+                                {
+                                    _scene.GameState.AltDamageCount[attacker.SlotIndex]++;
+                                }
+                            }
+                        }
+                    }
+                    else // no attacker
+                    {
+                        _scene.GameState.Suicides[SlotIndex]++;
+                        if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams)
+                        {
+                            _scene.GameState.Points[SlotIndex]--;
+                        }
+                    }
+                    if (IsAltForm || IsMorphing)
+                    {
+                        _scene.SpawnEffect(216, Vector3.UnitX, Vector3.UnitY, Position); // deathAlt
+                    }
+                    if (attacker == null || attacker == this)
+                    {
+                        Vector3 camFacing = CameraInfo.Position + CameraInfo.Facing;
+                        SwitchCamera(CameraType.Free, camFacing);
+                    }
+                    else
+                    {
+                        SwitchCamera(CameraType.Free, attacker.Position);
+                    }
+                    if (IsPrimeHunter)
+                    {
+                        _scene.GameState.PrimeHunter = -1;
+                        _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.PrimeChanged, target: this);
+                        QueueHudMessage(128, 70, 140, 90 / 30f, 2, 242); // the prime hunter is dead!
+                    }
+                }
+                Mods.Multiplayer.TokenRules.DropOnDeath(_scene, this);
+                if (_scene.GameState.Multiplayer && attacker != null && attacker != this)
+                {
+                    ItemType itemType = ItemType.UASmall;
+                    if (attacker.EquipInfo.Weapon.AmmoType == 1)
+                    {
+                        itemType = ItemType.MissileSmall;
+                    }
+                    Vector3 position = _volume.SpherePosition.AddY(0.35f);
+                    ItemSpawnEntity.SpawnItem(itemType, position, NodeRef, 300 * 2, _scene); // todo: FPS stuff
+                }
+                WeaponSelection = CurrentWeapon;
+                Flags1 &= ~PlayerFlags1.WeaponMenuOpen;
+                if (IsMainPlayer)
+                {
+                    _scene.NoteRenderLifecycle("death");
+                }
+            }
+            else // not dead
+            {
+                bool skipSfx = false;
+                _health -= (int)damage; // todo?: if wifi, only do this if main player
+                if (beam != null && !ignoreDamage)
+                {
+                    // Damage/flinch may be predicted on the shooter's client,
+                    // but gameplay afflictions are authority-owned. Predicting
+                    // a remote freeze made the next pre-hit snapshot thaw it,
+                    // then the authoritative snapshot froze it again; the ice
+                    // graphics outlived that one-frame thaw and made a frozen
+                    // hunter visibly slide. The exact affliction still travels
+                    // with the hit claim, so rescued hits retain it.
+                    bool applyBeamAfflictions = !Mods.Network.NetHitPrediction.Predicting
+                        || attacker == this;
+                    bool balancedKandenDisrupt = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                        && attacker != null && beam.ModOwnerHunter == Hunter.Kanden
+                        && BalancedModeRules.IsAffinity(beam.ModOwnerHunter, beam.Beam);
+                    bool balancedNoxusFreeze = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                        && attacker is { Hunter: Hunter.Noxus }
+                        && BalancedModeRules.IsAffinity(attacker.Hunter, beam.Beam);
+                    bool balancedSpireBurn = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                        && beam.ModOwnerHunter == Hunter.Spire
+                        && BalancedModeRules.IsAffinity(beam.ModOwnerHunter, beam.Beam);
+
+                    if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Freeze))
+                    {
+                        bool allowFreeze = !balancedNoxusFreeze
+                            || beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged)
+                                && _timeSinceFrozen >= BalancedModeRules.AffinityControlImmunityFrames;
+                        if (balancedNoxusFreeze)
+                        {
+                            BalancedModeTelemetry.NoteNoxusFreeze(this, allowFreeze);
+                        }
+                        if (allowFreeze)
+                        {
+                            if (beam.Beam == BeamType.Judicator && _scene.GameState.ShadowFreeze)
+                            {
+                                Mods.Input.AimAssist.AimAssistTelemetry.ShadowFreezeConfirmed(attacker);
+                            }
+                            if (flags.TestFlag(DamageFlags.Halfturret))
+                            {
+                                _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
+                                _halfturret.OnFrozen();
+                            }
+                            else
+                            {
+                                _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);
+                                if (IsMainPlayer)
+                                {
+                                    ResetCombatVisor();
+                                    _drawIceLayer = true;
+                                }
+                                if (_frozenTimer == 0)
+                                {
+                                    if (balancedNoxusFreeze)
+                                    {
+                                        _frozenTimer = BalancedModeRules.AffinityControlDurationFrames;
+                                    }
+                                    else if (_timeSinceFrozen > 60 * 2)
+                                    {
+                                        int time = (_scene.GameState.Multiplayer || attacker != null ? 75 : 30) * 2;
+                                        _frozenTimer = (ushort)time;
+                                    }
+                                    else if (_frozenTimer < 15 * 2)
+                                    {
+                                        _frozenTimer = 15 * 2;
+                                    }
+                                    _frozenGfxTimer = (ushort)(_frozenTimer + 5 * 2);
+                                }
+                                EndAltAttack();
+                            }
+                        }
+                    }
+                    if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Disrupt)
+                        && !flags.TestFlag(DamageFlags.Halfturret))
+                    {
+                        bool applied = balancedKandenDisrupt
+                            ? beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged)
+                                && ModApplyNativeDisruption(balancedKanden: true)
+                            : ModApplyNativeDisruption(balancedKanden: false);
+                        if (balancedKandenDisrupt)
+                        {
+                            BalancedModeTelemetry.NoteKandenDisrupt(this, applied);
+                        }
+                        if (applied && IsMainPlayer) skipSfx = true;
+                    }
+                    if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Burn))
+                    {
+                        bool allowBurn = !balancedSpireBurn
+                            || beam.EnhancedDirectHit && beam.Flags.TestFlag(BeamFlags.Charged);
+                        if (allowBurn)
+                        {
+                            if (balancedSpireBurn)
+                            {
+                                BalancedModeTelemetry.NoteSpireBurn(this);
+                            }
+                            if (flags.TestFlag(DamageFlags.Halfturret))
+                            {
+                                _halfturret.OnSetOnFire(NetBurnSource.From(beam, (ushort)(150 * 2), balancedSpireBurn));
+                            }
+                            else
+                            {
+                                ushort time = balancedSpireBurn
+                                    ? BalancedModeRules.SpireBurnDurationFrames
+                                    : (ushort)(150 * 2);
+                                if (!balancedSpireBurn && attacker != null)
+                                {
+                                    int encounter = _scene.GameState.EncounterState[attacker.SlotIndex];
+                                    if (attacker.IsBot && _scene.GameState.SinglePlayer
+                                        && (encounter == 1 || encounter == 3 || encounter == 4))
+                                    {
+                                        time = 75 * 2;
+                                    }
+                                }
+                                ModStartBurn(NetBurnSource.From(beam, time, balancedSpireBurn));
+                            }
+                        }
+                    }
+                }
+                if (!skipSfx && !flags.TestFlag(DamageFlags.NoSfx))
+                {
+                    PlayHunterSfx(HunterSfx.Damage);
+                }
+                if (IsMainPlayer && !IsAltForm)
+                {
+                    PlayRandomDamageSfx();
+                }
+            }
+            _timeSinceDamage = 0;
+            if (_health > 0 && _frozenTimer == 0)
+            {
+                Vector3? hitDirection = null;
+                if (direction.HasValue)
+                {
+                    if (!IsAltForm)
+                    {
+                        if (!flags.TestFlag(DamageFlags.Halfturret))
+                        {
+                            // todo: FPS stuff?
+                            Vector3 speed = Speed + direction.Value.WithY(0);
+                            if (quake3RocketImpulse || direction.Value.Y <= 0)
+                            {
+                                speed.Y += direction.Value.Y;
+                            }
+                            else if (speed.Y < 0.25f)
+                            {
+                                speed.Y += direction.Value.Y;
+                                if (speed.Y > 0.25f)
+                                {
+                                    speed.Y = 0.25f;
+                                }
+                            }
+                            Speed = speed;
+                        }
+                        if (direction.Value != Vector3.Zero)
+                        {
+                            hitDirection = direction.Value;
+                        }
+                        else if (beam != null)
+                        {
+                            hitDirection = beam.Velocity;
+                        }
+                    }
+                    else if (!flags.TestFlag(DamageFlags.Halfturret))
+                    {
+                        Speed += (direction.Value * 0.4f).WithY(0); // todo: FPS stuff?
+                    }
+                }
+                else if (attacker != null)
+                {
+                    hitDirection = Position - attacker.Position;
+                }
+                if (hitDirection.HasValue && !IsAltForm)
+                {
+                    // todo: clean this up
+                    float hitZ = hitDirection.Value.Z;
+                    float hitX = -hitDirection.Value.X;
+                    float v126 = -hitZ * _field74;
+                    float dirHorizontal = -hitZ * _gunVec2.Z;
+                    float dirLeftRight = hitX * _gunVec2.X + dirHorizontal;
+                    if (dirLeftRight < 0)
+                    {
+                        dirHorizontal = -dirLeftRight;
+                    }
+                    float v125 = hitX * _field70;
+                    float dirUpDown = v125 + v126;
+                    if (dirLeftRight >= 0)
+                    {
+                        dirHorizontal = dirLeftRight;
+                    }
+                    float dirVertical;
+                    if (dirUpDown >= 0)
+                    {
+                        dirVertical = v125 + v126;
+                    }
+                    else
+                    {
+                        dirVertical = -dirUpDown;
+                    }
+                    // todo: diagonals (behind feature switch)
+                    PlayerAnimation anim = PlayerAnimation.None;
+                    if (dirVertical <= dirHorizontal)
+                    {
+                        if (dirLeftRight <= 0)
+                        {
+                            anim = PlayerAnimation.DamageRight;
+                            if (IsMainPlayer)
+                            {
+                                _damageIndicatorTimers[2] = 63 * 2; // todo: FPS stuff
+                            }
+                        }
+                        else
+                        {
+                            anim = PlayerAnimation.DamageLeft;
+                            if (IsMainPlayer)
+                            {
+                                _damageIndicatorTimers[6] = 63 * 2; // todo: FPS stuff
+                            }
+                        }
+                    }
+                    else if (dirUpDown <= 0)
+                    {
+                        anim = PlayerAnimation.DamageBack;
+                        if (IsMainPlayer)
+                        {
+                            _damageIndicatorTimers[4] = 63 * 2; // todo: FPS stuff
+                        }
+                    }
+                    else
+                    {
+                        anim = PlayerAnimation.DamageFront;
+                        if (IsMainPlayer)
+                        {
+                            _damageIndicatorTimers[0] = 63 * 2; // todo: FPS stuff
+                        }
+                    }
+                    if (anim != PlayerAnimation.None)
+                    {
+                        SetBipedAnimation(anim, AnimFlags.NoLoop, setBiped1: false, setBiped2: true, setIfMorphing: false);
+                    }
+                }
+            }
+            if (_health > 0 && !IsAltForm)
+            {
+                float shake = 0.03f;
+                if (!flags.TestFlag(DamageFlags.Burn))
+                {
+                    shake = Math.Max(damage * 0.01f, 0.05f);
+                }
+                CameraInfo.SetShake(shake);
+            }
+            if (IsMainPlayer)
+            {
+                // todo: rumble
+            }
+            ushort combatSequence = Mods.Network.NetDamage.Sequence(SlotIndex);
+            if (replayShotFactEligible && attacker != null && combatSequence == replayDamageEventId)
+            {
+                uint healthDamage = (uint)Math.Max(0, combatHealthBefore - _health);
+                int turretAfterValue = Halfturret?.Health ?? 0;
+                uint turretDamage = (uint)Math.Max(0, combatTurretBefore - turretAfterValue);
+                if (healthDamage != 0 || turretDamage != 0)
+                {
+                    ushort healthAfter = (ushort)Math.Clamp(_health, 0, ushort.MaxValue);
+                    ushort turretHealthAfter = (ushort)Math.Clamp(turretAfterValue, 0, ushort.MaxValue);
+                    if (healthAfter == 0)
+                        replayFactFlags |= Mods.Network.ReplayShotFactFlags.Lethal;
+                    else
+                        replayFactFlags &= ~Mods.Network.ReplayShotFactFlags.Lethal;
+                    Mods.Network.ReplayCapture.AcceptedShotFact(new Mods.Network.ReplayShotFact(
+                        Mods.Network.NetSession.CurrentMatchId,
+                        Mods.Network.NetSession.AuthorityEpoch,
+                        Mods.Network.NetSession.NetFrame,
+                        beam?.ModLaunchFrame ?? Mods.Network.NetHitClaims.CurrentClaimLaunch,
+                        replayShotId,
+                        replayDamageEventId,
+                        (byte)attacker.SlotIndex,
+                        replayKey.Generation,
+                        replayKey.LifeId,
+                        (byte)SlotIndex,
+                        Mods.Network.NetPlayerLifecycle.Generation(SlotIndex),
+                        Mods.Network.NetPlayerLifecycle.Get(SlotIndex),
+                        (byte)replayWeapon,
+                        replayFactFlags,
+                        healthDamage,
+                        healthAfter,
+                        turretDamage,
+                        turretHealthAfter,
+                        replayImpact));
+                }
+            }
+            // A local accepted health delta owns this cosmetic fact. Online
+            // clients consume authority facts instead of speculative damage.
+            if (!Mods.Network.NetSession.Active && !_scene.Services.IsReplica
+                && _health > 0 && _health < combatHealthBefore
+                && flags.TestFlag(DamageFlags.Headshot) && !flags.TestFlag(DamageFlags.Halfturret))
+                _scene.ModAcceptLocalHeadHit(this, direction ?? Vector3.Zero);
+            if (!Mods.Network.NetSession.Active && !_scene.Services.IsReplica
+                && _health == 0 && combatHealthBefore > 0)
+                _scene.ModAcceptLocalDeath(this, flags.TestFlag(DamageFlags.Headshot)
+                    && !flags.TestFlag(DamageFlags.Halfturret), direction ?? Vector3.Zero, enhancedWasFrozen);
+            if (bomb != null)
+                NetBombEvidence.Damage(bomb, this, replayDamageEventId,
+                    Math.Max(0, combatHealthBefore - _health),
+                    Math.Max(0, combatTurretBefore - (Halfturret?.Health ?? 0)));
+            if (_health < combatHealthBefore || (Halfturret?.Health ?? 0) < combatTurretBefore)
+            {
+                combatPayment.Commit(Mods.Network.NetHitClaims.CaptureOutcome(this, Math.Max(0, combatHealthBefore - _health),
+                    (flags.TestFlag(DamageFlags.Headshot) ? Mods.Network.CombatAckFlags.Headshot : 0)
+                    | (flags.TestFlag(DamageFlags.Halfturret) ? Mods.Network.CombatAckFlags.HalfturretAffected : 0)),
+                    NetCampaignEvidence.Enabled ? Math.Max(0, combatTurretBefore - (Halfturret?.Health ?? 0)) : 0);
+                if (confirmedImpact is { } impact && combatSequence == replayDamageEventId)
+                    NetConfirmedImpacts.Publish(impact);
+                if (beam != null && beam.ModCustomDefinition == null)
+                    Mods.Network.NetShotProof.Physical(this, beam, damage, flags, direction ?? Vector3.Zero, combatHealthBefore);
+            }
+            if (continuousBeam?.Owner is PlayerEntity drainOwner)
+            {
+                int bodyRemoved = Math.Max(0, continuousBodyBefore - _health);
+                int turretRemoved = Math.Max(0, continuousTurretBefore - (Halfturret?.Health ?? 0));
+                if (bodyRemoved > 0 || turretRemoved > 0)
+                {
+                    uint phase = (uint)continuousBeam.ModContinuousPhase;
+                    bool authority = NetSession.IsAuthority || NetSession.IsHost;
+                    var healed = authority || NetHitPrediction.CanPredictDrain(drainOwner, phase)
+                        ? NetContinuousPayments.Heal(drainOwner, this, bodyRemoved, turretRemoved,
+                            continuousBeam.Flags.TestFlag(BeamFlags.LifeDrain)) : default;
+                    var paid = NetHitClaims.CaptureOutcome(this, bodyRemoved,
+                        flags.TestFlag(DamageFlags.Halfturret) ? CombatAckFlags.HalfturretAffected : 0);
+                    paid.ShotId = continuousBeam.ModShotId;
+                    continuousPayment.Commit(paid, healed.Body, healed.Turret, turretRemoved);
+                    if (authority) NetContinuousPresentation.Confirm(new ContinuousPaymentKey(
+                        continuousBeam.ModLaunchKey with { ShotId = phase }, NetTargetIdentity.ForSlot(SlotIndex),
+                        flags.TestFlag(DamageFlags.Halfturret) ? ContinuousPaymentKey.Turret : ContinuousPaymentKey.Body),
+                        continuousBeam.ModResolvedHitPointValid ? continuousBeam.ModResolvedHitPoint : Position);
+                    NetHitPrediction.NoteDrain(drainOwner, healed.Body, (uint)continuousBeam.ModContinuousPhase,
+                        NetHitClaims.ContinuousClaimId(SlotIndex, (uint)continuousBeam.ModContinuousPhase));
+                }
+            }
+            if (beam?.ModCustomShot == null && combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
+                Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? NetBurnSource.Current?.LaunchFrame ?? 0, beam?.Beam ?? NetBurnSource.Current?.Weapon ?? BeamType.None);
+            if (beam?.ModCustomShot == null && attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)
+                Mods.EnhancedHunters.EnhancedHunters.OnConfirmedHit(attacker, this, beam?.Beam ?? BeamType.None,
+                    beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker.IsAltForm && !flags.TestFlag(DamageFlags.Burn) || bomb?.BombType == BombType.Stinglarva,
+                    beam?.Flags.TestFlag(BeamFlags.Charged) == true,
+                    flags.TestFlag(DamageFlags.Headshot), fromHalfturret, enhancedWasFrozen);
+            if (beam?.EnhancedMicroSeeker == true && attacker != null && _health < combatHealthBefore
+                && Mods.EnhancedHunters.EnhancedHunters.Authority(attacker))
+                Mods.EnhancedHunters.EnhancedHunterTelemetry.Event(attacker.Hunter, "micro-missile-hits");
+            if (beam?.ModCustomShot == null)
+                _scene.CustomCombat?.NoteCanonicalDeath(this,combatHealthBefore,
+                    Mods.Network.NetHitClaims.CanonicalDamageWorld(attacker,source,flags));
+            if (_health == 0) Mods.EnhancedHunters.EnhancedHunters.ResetPlayer(this);
+        }
+
+        private static readonly string[] _altAttackNames = new string[8];
+        private static readonly string[] _hunterNames = new string[8];
+        private static readonly string[] _weaponNames = new string[9];
+
+        public static void LoadWeaponNames()
+        {
+            for (int i = 0; i < 9; ++i)
+            {
+                _weaponNames[i] = Strings.GetMessage('W', i + 1, StringTables.WeaponNames);
+            }
+            for (int i = 0; i < 8; ++i)
+            {
+                _hunterNames[i] = Strings.GetMessage('H', i + 1, StringTables.WeaponNames);
+            }
+            // todo: Guardian alt form
+            for (int i = 0; i < 7; ++i)
+            {
+                _altAttackNames[i] = Strings.GetMessage('A', i + 1, StringTables.WeaponNames);
+            }
+        }
+
+        public static readonly CollisionVolume[,] PlayerVolumes = new CollisionVolume[8, 3];
+
+        public static void GeneratePlayerVolumes()
+        {
+            for (int i = 0; i < 8; i++)
+            {
+                PlayerValues values = Metadata.PlayerValues[i];
+                // placed so the bottom of the sphere coincides with the min pickup height (0.5f below y pos)
+                float radius = Fixed.ToFloat(values.BipedColRadius);
+                var center = new Vector3(0, Fixed.ToFloat(values.MinPickupHeight) + radius, 0);
+                PlayerVolumes[i, 0] = new CollisionVolume(center, radius);
+                // placed so the top of the sphere coincides with the max pickup height (1.1f above y pos)
+                center = new Vector3(0, Fixed.ToFloat(values.MaxPickupHeight) - radius, 0);
+                PlayerVolumes[i, 1] = new CollisionVolume(center, radius);
+                // placed so the bottom of the sphere coincides with the ground level in alt form
+                radius = Fixed.ToFloat(values.AltColRadius);
+                center = new Vector3(0, Fixed.ToFloat(values.AltColYPos), 0);
+                PlayerVolumes[i, 2] = new CollisionVolume(center, radius);
+            }
+        }
+
+        public static readonly float[] KandenAltNodeDistances = new float[4];
+
+        public static void GenerateKandenAltNodeDistances()
+        {
+            if (KandenAltNodeDistances[0] == 0 && KandenAltNodeDistances[1] == 0
+                && KandenAltNodeDistances[2] == 0 && KandenAltNodeDistances[3] == 0)
+            {
+                Model model = Read.GetModelInstance("KandenAlt_lod0").Model;
+                model.ComputeNodeMatrices(0);
+                IReadOnlyList<Node> nodes = model.Nodes;
+                for (int i = 0; i < 4; i++)
+                {
+                    Vector3 pos1 = nodes[i].Transform.Row3.Xyz;
+                    Vector3 pos2 = nodes[i + 1].Transform.Row3.Xyz;
+                    KandenAltNodeDistances[i] = Vector3.Distance(pos1, pos2);
+                }
+            }
+        }
+    }
+
+    [Flags]
+    public enum DamageFlags : int
+    {
+        None = 0,
+        NoDmgInvuln = 1,
+        IgnoreInvuln = 2,
+        Death = 4,
+        Halfturret = 8,
+        Headshot = 0x10,
+        Deathalt = 0x20,
+        Burn = 0x40,
+        NoSfx = 0x80,
+        FromAlt = 0x100
+    }
+
+    [Flags]
+    public enum PlayerFlags1 : uint
+    {
+        None = 0,
+        Standing = 1,
+        StandingPrevious = 2,
+        NoUnmorph = 4,
+        NoUnmorphPrevious = 8,
+        CollidingLateral = 0x10,
+        OnAcid = 0x20,
+        OnLava = 0x40,
+        CollidingEntity = 0x80,
+        UsedJump = 0x100,
+        AltForm = 0x200,
+        AltFormPrevious = 0x400,
+        Morphing = 0x800,
+        Unmorphing = 0x1000,
+        Strafing = 0x2000,
+        FreeLook = 0x4000,
+        FreeLookPrevious = 0x8000,
+        ShotUncharged = 0x10000,
+        ShotMissile = 0x20000,
+        ShotCharged = 0x40000,
+        GunOpenAnimation = 0x80000,
+        Grounded = 0x100000,
+        GroundedPrevious = 0x200000,
+        Walking = 0x400000,
+        MovingBiped = 0x800000,
+        NoAimInput = 0x1000000,
+        WeaponMenuOpen = 0x2000000,
+        Boosting = 0x4000000,
+        CanTouchBoost = 0x8000000,
+        UsedJumpPad = 0x10000000,
+        AltDirOverride = 0x20000000,
+        DrawGunSmoke = 0x80000000
+    }
+
+    [Flags]
+    public enum PlayerFlags2 : uint
+    {
+        None = 0,
+        ChargeEffect = 1,
+        HideModel = 2,
+        Shooting = 4,
+        AltAttack = 8,
+        BipedStuck = 0x10,
+        Halfturret = 0x20,
+        Cloaking = 0x40,
+        GravityOverride = 0x80,
+        NoFormSwitch = 0x100,
+        BipedLock = 0x200,
+        AltFormGravity = 0x400,
+        Lod1 = 0x800,
+        DrawnThirdPerson = 0x1000,
+        RadarReveal = 0x2000,
+        RadarRevealPrevious = 0x4000,
+        SpireClimbing = 0x8000,
+        NoShotsFired = 0x10000,
+        UnequipOmegaCannon = 0x20000,
+        /// <summary>Quake-3-style spectating: hidden and non-solid to everyone, replicated via <see cref="Mods.Network.PlayerState"/>'s FlagSpectating bit.</summary>
+        Spectating = 0x40000
+    }
+
+    [Flags]
+    public enum AbilityFlags : short
+    {
+        None = 0,
+        AltForm = 1,
+        SpaceJump = 2,
+        Bombs = 4,
+        Boost = 0x40,
+        NoxusAltAttack = 0x100,
+        SpireAltAttack = 0x200,
+        TraceAltAttack = 0x400,
+        WeavelAltAttack = 0x1000
+    }
+
+    [Flags]
+    public enum FhPlayerFlags : uint
+    {
+        None = 0,
+        Standing = 1,
+        StandingPrevious = 2,
+        CollidingLateral = 4,
+        UsedJump = 8,
+        AltForm = 0x10,
+        AltFormPrevious = 0x20,
+        FreeStrafe = 0x40,
+        LockedOn = 0x80,
+        AutoLockOn = 0x100,
+        FreeLook = 0x200,
+        FreeLookPrevious = 0x400,
+        ShotUncharged = 0x800,
+        ShotMissile = 0x1000,
+        ShotCharged = 0x2000,
+        GunOpenAnimation = 0x4000,
+        Grounded = 0x8000,
+        GroundedPrevious = 0x10000,
+        Walking = 0x20000,
+        MovingBiped = 0x40000,
+        NoAttack = 0x80000,
+        Boosting = 0x100000,
+        Targeted = 0x200000,
+        UsedJumpPad = 0x400000,
+        AltDirOverride = 0x800000,
+        CenterAltFormCamera = 0x1000000,
+        DrawGunSmoke = 0x2000000,
+        DrawMuzzleEffect = 0x4000000,
+        DrawBallDeath = 0x8000000,
+        HideModel = 0x10000000
+    }
+
+    public readonly struct PlayerValues
+    {
+        public readonly Hunter Hunter; // the game doesn't have this
+        public readonly int WalkBipedTraction;
+        public readonly int StrafeBipedTraction;
+        public readonly int WalkSpeedCap;
+        public readonly int StrafeSpeedCap;
+        public readonly int AltMinHSpeed;
+        public readonly int BoostSpeedCap;
+        public readonly int BipedGravity;
+        public readonly int AltAirGravity;
+        public readonly int AltGroundGravity;
+        public readonly int JumpSpeed;
+        public readonly int WalkSpeedFactor;
+        public readonly int AltGroundSpeedFactor;
+        public readonly int StrafeSpeedFactor;
+        public readonly int AirSpeedFactor;
+        public readonly int StandSpeedFactor;
+        public readonly int RollAltTraction;
+        public readonly int AltColRadius;
+        public readonly int AltColYPos;
+        public readonly ushort BoostChargeMin;
+        public readonly ushort BoostChargeMax;
+        public readonly int BoostSpeedMin;
+        public readonly int BoostSpeedMax;
+        public readonly int AltHSpeedCapIncrement;
+        public readonly int Field58;
+        public readonly int Field5C;
+        public readonly int WalkBobMax;
+        public readonly int AimDistance;
+        public readonly ushort CamSwitchTime;
+        public readonly ushort Padding6A;
+        public readonly int NormalFov;
+        public readonly int ZoomSensitivityFactor;
+        public readonly int AimYOffset;
+        public readonly int Field78;
+        public readonly int Field7C;
+        public readonly int Field80;
+        public readonly int Field84;
+        public readonly int Field88;
+        public readonly int Field8C;
+        public readonly int Field90;
+        public readonly int MinPickupHeight;
+        public readonly int MaxPickupHeight;
+        public readonly int BipedColRadius;
+        public readonly int LockOnTolerance; // unused FH leftover
+        public readonly int LockOnMinDistance; // unused FH leftover
+        public readonly int LockOnMaxDistance; // unused FH leftover
+        public readonly short DamageInvuln;
+        public readonly ushort DamageFlashTime;
+        public readonly int FieldB0;
+        public readonly int FieldB4;
+        public readonly int FieldB8;
+        public readonly int MuzzleOffset;
+        public readonly int BombCooldown;
+        public readonly int BombSelfRadius;
+        public readonly int BombSelfRadiusSquared;
+        public readonly int BombRadius;
+        public readonly int BombRadiusSquared;
+        public readonly int BombJumpSpeed;
+        public readonly int BombRefillTime;
+        public readonly short BombDamage;
+        public readonly short BombEnemyDamage;
+        public readonly short LockOnSnapTime; // unused FH leftover
+        public readonly short SpawnInvulnerability;
+        public readonly ushort AimMinTouchTime;
+        public readonly ushort PaddingE6;
+        public readonly int AutoAimFindTolerance; // unused FH leftover
+        public readonly int AutoAimHoldTolerance; // unused FH leftover
+        public readonly int SwayStartTime;
+        public readonly int SwayIncrement;
+        public readonly int SwayLimit;
+        public readonly int GunIdleTime;
+        public readonly short MpAmmoCap;
+        public readonly byte AmmoRecharge;
+        public readonly byte Padding103;
+        public readonly ushort EnergyTank;
+        public readonly short AmmoTank; // unused FH leftover
+        public readonly byte AltFormStrafe;
+        public readonly byte Padding109;
+        public readonly ushort Padding10A;
+        public readonly int FallDamageSpeed;
+        public readonly int FallDamageMax;
+        public readonly int ViewTiltIncrement;
+        public readonly int ViewTiltFactor;
+        public readonly int JumpPadSlideFactor;
+        public readonly int AltTiltAngleCap;
+        public readonly int AltMinWobble;
+        public readonly int AltMaxWobble;
+        public readonly int AltMinSpinAccel;
+        public readonly int AltMaxSpinAccel;
+        public readonly int AltMinSpinSpeed;
+        public readonly int AltMaxSpinSpeed;
+        public readonly int AltTiltAngleMax;
+        public readonly int AltBounceWobble;
+        public readonly int AltBounceTilt;
+        public readonly int AltBounceSpin;
+        public readonly int AltAttackKnockbackAccel;
+        public readonly short AltAttackKnockbackTime;
+        public readonly ushort AltAttackStartup;
+        public readonly int Field154; // unused -- 409 (0.1f)
+        public readonly int Field158; // unused -- 1024 (0.25f)
+        public readonly int LungeHSpeed;
+        public readonly int LungeVSpeed;
+        public readonly ushort AltAttackDamage;
+        public readonly short AltAttackCooldown;
+
+        public PlayerValues(Hunter hunter, int walkBipedTraction, int strafeBipedTraction, int walkSpeedCap, int strafeSpeedCap,
+            int altMinHSpeed, int boostSpeedCap, int bipedGravity, int altAirGravity, int altGroundGravity, int jumpSpeed, int walkSpeedFactor,
+            int altGroundSpeedFactor, int strafeSpeedFactor, int airSpeedFactor, int standSpeedFactor, int rollAltTraction, int altColRadius,
+            int altColYPos, ushort boostChargeMin, ushort boostChargeMax, int boostSpeedMin, int boostSpeedMax, int altHSpeedCapIncrement,
+            int field58, int field5C, int walkBobMax, int aimDistance, ushort camSwitchTime, ushort padding6A, int normalFov, int zoomSensitivityFactor,
+            int aimYOffset, int field78, int field7C, int field80, int field84, int field88, int field8C, int field90, int minPickupHeight,
+            int maxPickupHeight, int bipedColRadius, int lockOnTolerance, int lockOnMinDistance, int lockOnMaxDistance, short damageInvuln, ushort damageFlashTime,
+            int fieldB0, int fieldB4, int fieldB8, int muzzleOffset, int bombCooldown, int bombSelfRadius, int bombSelfRadiusSquared,
+            int bombRadius, int bombRadiusSquared, int bombJumpSpeed, int bombRefillTime, short bombDamage, short bombEnemyDamage,
+            short lockOnSnapTime, short spawnInvulnerability, ushort aimMinTouchTime, ushort paddingE6, int autoAimFindTolerance, int autoAimHoldTolerance, int swayStartTime,
+            int swayIncrement, int swayLimit, int gunIdleTime, short mpAmmoCap, byte ammoRecharge, byte padding103, ushort energyTank,
+            short ammoTank, byte altFormStrafe, byte padding109, ushort padding10A, int fallDamageSpeed, int fallDamageMax, int viewTiltIncrement,
+            int viewTiltFactor, int jumpPadSlideFactor, int altTiltAngleCap, int altMinWobble, int altMaxWobble, int altMinSpinAccel, int altMaxSpinAccel,
+            int altMinSpinSpeed, int altMaxSpinSpeed, int altTiltAngleMax, int altBounceWobble, int altBounceTilt, int altBounceSpin,
+            int altAttackKnockbackAccel, short altAttackKnockbackTime, ushort altAttackStartup, int field154, int field158, int lungeHSpeed,
+            int lungeVSpeed, ushort altAttackDamage, short altAttackCooldown)
+        {
+            Hunter = hunter;
+            WalkBipedTraction = walkBipedTraction;
+            StrafeBipedTraction = strafeBipedTraction;
+            WalkSpeedCap = walkSpeedCap;
+            StrafeSpeedCap = strafeSpeedCap;
+            AltMinHSpeed = altMinHSpeed;
+            BoostSpeedCap = boostSpeedCap;
+            BipedGravity = bipedGravity;
+            AltAirGravity = altAirGravity;
+            AltGroundGravity = altGroundGravity;
+            JumpSpeed = jumpSpeed;
+            WalkSpeedFactor = walkSpeedFactor;
+            AltGroundSpeedFactor = altGroundSpeedFactor;
+            StrafeSpeedFactor = strafeSpeedFactor;
+            AirSpeedFactor = airSpeedFactor;
+            StandSpeedFactor = standSpeedFactor;
+            RollAltTraction = rollAltTraction;
+            AltColRadius = altColRadius;
+            AltColYPos = altColYPos;
+            BoostChargeMin = boostChargeMin;
+            BoostChargeMax = boostChargeMax;
+            BoostSpeedMin = boostSpeedMin;
+            BoostSpeedMax = boostSpeedMax;
+            AltHSpeedCapIncrement = altHSpeedCapIncrement;
+            Field58 = field58;
+            Field5C = field5C;
+            WalkBobMax = walkBobMax;
+            AimDistance = aimDistance;
+            CamSwitchTime = camSwitchTime;
+            Padding6A = padding6A;
+            NormalFov = normalFov;
+            ZoomSensitivityFactor = zoomSensitivityFactor;
+            AimYOffset = aimYOffset;
+            Field78 = field78;
+            Field7C = field7C;
+            Field80 = field80;
+            Field84 = field84;
+            Field88 = field88;
+            Field8C = field8C;
+            Field90 = field90;
+            MinPickupHeight = minPickupHeight;
+            MaxPickupHeight = maxPickupHeight;
+            BipedColRadius = bipedColRadius;
+            LockOnTolerance = lockOnTolerance;
+            LockOnMinDistance = lockOnMinDistance;
+            LockOnMaxDistance = lockOnMaxDistance;
+            DamageInvuln = damageInvuln;
+            DamageFlashTime = damageFlashTime;
+            FieldB0 = fieldB0;
+            FieldB4 = fieldB4;
+            FieldB8 = fieldB8;
+            MuzzleOffset = muzzleOffset;
+            BombCooldown = bombCooldown;
+            BombSelfRadius = bombSelfRadius;
+            BombSelfRadiusSquared = bombSelfRadiusSquared;
+            BombRadius = bombRadius;
+            BombRadiusSquared = bombRadiusSquared;
+            BombJumpSpeed = bombJumpSpeed;
+            BombRefillTime = bombRefillTime;
+            BombDamage = bombDamage;
+            BombEnemyDamage = bombEnemyDamage;
+            LockOnSnapTime = lockOnSnapTime;
+            SpawnInvulnerability = spawnInvulnerability;
+            AimMinTouchTime = aimMinTouchTime;
+            PaddingE6 = paddingE6;
+            AutoAimFindTolerance = autoAimFindTolerance;
+            AutoAimHoldTolerance = autoAimHoldTolerance;
+            SwayStartTime = swayStartTime;
+            SwayIncrement = swayIncrement;
+            SwayLimit = swayLimit;
+            GunIdleTime = gunIdleTime;
+            MpAmmoCap = mpAmmoCap;
+            AmmoRecharge = ammoRecharge;
+            Padding103 = padding103;
+            EnergyTank = energyTank;
+            AmmoTank = ammoTank;
+            AltFormStrafe = altFormStrafe;
+            Padding109 = padding109;
+            Padding10A = padding10A;
+            FallDamageSpeed = fallDamageSpeed;
+            FallDamageMax = fallDamageMax;
+            ViewTiltIncrement = viewTiltIncrement;
+            ViewTiltFactor = viewTiltFactor;
+            JumpPadSlideFactor = jumpPadSlideFactor;
+            AltTiltAngleCap = altTiltAngleCap;
+            AltMinWobble = altMinWobble;
+            AltMaxWobble = altMaxWobble;
+            AltMinSpinAccel = altMinSpinAccel;
+            AltMaxSpinAccel = altMaxSpinAccel;
+            AltMinSpinSpeed = altMinSpinSpeed;
+            AltMaxSpinSpeed = altMaxSpinSpeed;
+            AltTiltAngleMax = altTiltAngleMax;
+            AltBounceWobble = altBounceWobble;
+            AltBounceTilt = altBounceTilt;
+            AltBounceSpin = altBounceSpin;
+            AltAttackKnockbackAccel = altAttackKnockbackAccel;
+            AltAttackKnockbackTime = altAttackKnockbackTime;
+            AltAttackStartup = altAttackStartup;
+            Field154 = field154;
+            Field158 = field158;
+            LungeHSpeed = lungeHSpeed;
+            LungeVSpeed = lungeVSpeed;
+            AltAttackDamage = altAttackDamage;
+            AltAttackCooldown = altAttackCooldown;
+        }
+    }
+}

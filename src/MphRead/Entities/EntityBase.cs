@@ -1,0 +1,1044 @@
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using System.Linq;
+using MphRead.Formats.Collision;
+using MphRead.Formats.Culling;
+using MphRead.Mods.Network;
+using MphRead.Sound;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    public abstract partial class EntityBase
+    {
+        public int Id { get; protected set; } = -1; // todo: use init for Id
+        public virtual int Recolor { get; set; }
+        public EntityType Type { get; }
+        public bool ShouldDraw { get; protected set; } = true;
+        public bool Initialized { get; set; } = true;
+        public bool Active { get; protected set; } = true;
+        public bool Hidden { get; set; }
+        public float Alpha { get; set; } = 1.0f;
+
+        protected Scene _scene;
+        internal Scene OwningScene => _scene;
+        protected SceneGameState GameState => _scene.GameState;
+        protected MatchRandom Random => _scene.Random;
+        public ISceneServices SceneServices => _scene.Services;
+
+        protected readonly string? _nodeName;
+        public NodeRef NodeRef { get; set; } = NodeRef.None;
+        protected int _scanId = 0;
+
+        protected float _drawScale = 1;
+        protected Matrix4 _transform = Matrix4.Identity;
+        protected Vector3 _scale = new Vector3(1, 1, 1);
+        protected Vector3 _rotation = Vector3.Zero;
+        protected Vector3 _position = Vector3.Zero;
+
+        // Presentation-only transform history. The simulation, collision and
+        // network code continue to read _transform directly. Keeping the two
+        // worlds separate is what lets a high-refresh display look smooth
+        // without changing a single 60 Hz gameplay decision.
+        private Mods.Render.DisplayPoseHistory _drawPose;
+
+        // Frozen replay-world schema slots. Preserve their original canonical
+        // capture values and names for existing capsules/generated accessors.
+        // Rendering never reads these compatibility fields; the lifetime-keyed
+        // _drawPose is the sole draw history and is excluded from the schema.
+        private Matrix4 _drawPrevious = Matrix4.Identity;
+        private Matrix4 _drawCurrent = Matrix4.Identity;
+        private bool _drawStateValid;
+
+        /// <summary>
+        /// Local first-person players override this: their camera is late
+        /// latched instead, so their own movement never pays an interpolation
+        /// frame just to make everybody else smoother.
+        /// </summary>
+        protected virtual bool InterpolateDrawTransform => true;
+
+        protected Node? _colAttachNode = null;
+        private bool _drawColUpdated = true;
+        public EntityCollision?[] EntityCollision { get; } = new EntityCollision?[2];
+        // todo: look into getting rid of this in favor of EntityCollision
+        public Matrix4 CollisionTransform => _colAttachNode == null ? _transform : _colAttachNode.Animation;
+
+        protected readonly SoundSource _soundSource = new SoundSource();
+
+        public Matrix4 Transform
+        {
+            get
+            {
+                return _transform;
+            }
+            set
+            {
+                if (_transform != value)
+                {
+                    _scale = value.ExtractScale();
+                    value.ExtractRotation().ToEulerAngles(out _rotation);
+                    _position = value.Row3.Xyz;
+                    _transform = value;
+                    _drawColUpdated = false;
+                }
+            }
+        }
+
+        public Vector3 Scale
+        {
+            get
+            {
+                return _scale;
+            }
+            set
+            {
+                if (_scale != value)
+                {
+                    _transform = Matrix4.CreateScale(value) * Matrix4.CreateRotationZ(Rotation.Z)
+                        * Matrix4.CreateRotationY(Rotation.Y) * Matrix4.CreateRotationX(Rotation.X);
+                    _transform.Row3.Xyz = Position;
+                    _scale = value;
+                    _drawColUpdated = false;
+                }
+            }
+        }
+
+        public Vector3 Rotation
+        {
+            get
+            {
+                return _rotation;
+            }
+            set
+            {
+                if (_rotation != value)
+                {
+                    _transform = Matrix4.CreateScale(Scale) * Matrix4.CreateRotationZ(value.Z)
+                        * Matrix4.CreateRotationY(value.Y) * Matrix4.CreateRotationX(value.X);
+                    _transform.Row3.Xyz = Position;
+                    _rotation = value;
+                    _drawColUpdated = false;
+                }
+            }
+        }
+
+        public Vector3 Position
+        {
+            get
+            {
+                return _position;
+            }
+            set
+            {
+                if (_position != value)
+                {
+                    _transform.Row3.Xyz = value;
+                    _position = value;
+                    _drawColUpdated = false;
+                }
+            }
+        }
+
+        public virtual Vector3 RightVector => Transform.Row0.Xyz.Normalized();
+        public virtual Vector3 UpVector => Transform.Row1.Xyz.Normalized();
+        public virtual Vector3 FacingVector => Transform.Row2.Xyz.Normalized();
+
+        protected bool _anyLighting = false;
+        protected readonly List<ModelInstance> _models = new List<ModelInstance>();
+        internal IReadOnlyList<ModelInstance> ReplayModels => _models;
+
+        protected virtual bool UseNodeTransform => true;
+        protected virtual Vector4? OverrideColor { get; } = null;
+        protected virtual Vector4? PaletteOverride { get; set; } = null;
+
+        protected EntityBase(EntityType type, Scene scene)
+        {
+            Type = type;
+            _scene = scene;
+            _soundSource.Owner = scene;
+        }
+
+        protected EntityBase(EntityType type, string nodeName, Scene scene)
+        {
+            Type = type;
+            _scene = scene;
+            _soundSource.Owner = scene;
+            _nodeName = nodeName;
+        }
+
+        protected EntityBase(EntityType type, NodeRef nodeRef, Scene scene)
+        {
+            Type = type;
+            _scene = scene;
+            _soundSource.Owner = scene;
+            NodeRef = nodeRef;
+        }
+
+        public virtual void Initialize()
+        {
+            _anyLighting |= _models.Any(n => n.Model.Materials.Any(m => m.Lighting != 0));
+            if (_nodeName != null)
+            {
+                NodeRef = _scene.GetNodeRefByName(_nodeName);
+            }
+        }
+
+        protected ModelInstance SetUpModel(string name, int animIndex = 0, AnimFlags animFlags = AnimFlags.None, bool firstHunt = false)
+        {
+            ModelInstance inst = _scene.GetModelInstance(name, firstHunt);
+            inst.SetAnimation(animIndex, animFlags);
+            _models.Add(inst);
+            return inst;
+        }
+
+        protected void SetCollision(CollisionInstance collision, int slot = 0, ModelInstance? attach = null)
+        {
+            var entCol = new EntityCollision(collision, this);
+            SetCollisionMaxAvg(entCol);
+            EntityCollision[slot] = entCol;
+            _drawColUpdated = false;
+            UpdateCollisionTransform(slot, Transform.ClearScale());
+            UpdateLinkedInverse(slot);
+            if (entCol.Collision != null)
+            {
+                for (int i = 0; i < entCol.Collision.Info.Points.Count; i++)
+                {
+                    entCol.DrawPoints.Add(entCol.Collision.Info.Points[i]);
+                }
+            }
+            if (attach != null)
+            {
+                _colAttachNode = attach.Model.GetNodeByName("attach");
+            }
+        }
+
+        private void SetCollisionMaxAvg(EntityCollision entCol)
+        {
+            if (entCol.Collision == null)
+            {
+                return;
+            }
+            int count = entCol.Collision.Info.Points.Count;
+            Vector3 avg = Vector3.Zero;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 point = entCol.Collision.Info.Points[i];
+                avg.X += point.X;
+                avg.Y += point.Y;
+                avg.Z += point.Z;
+            }
+            avg /= count;
+            entCol.InitialCenter = avg; // centroid
+            float maxDist = 0;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 point = entCol.Collision.Info.Points[i];
+                float dist = Vector3.Distance(avg, point);
+                if (dist > maxDist)
+                {
+                    maxDist = dist;
+                }
+            }
+            entCol.MaxDistance = maxDist;
+        }
+
+        protected void UpdateCollisionTransform(int slot, Matrix4 transform)
+        {
+            EntityCollision? entCol = EntityCollision[slot];
+            if (entCol != null)
+            {
+                entCol.Transform = transform;
+                entCol.Inverse1 = transform.Inverted();
+                entCol.CurrentCenter = Matrix.Vec3MultMtx4(entCol.InitialCenter, transform);
+            }
+        }
+
+        protected void UpdateLinkedInverse(int slot)
+        {
+            EntityCollision? entCol = EntityCollision[slot];
+            if (entCol != null)
+            {
+                entCol.Inverse2 = entCol.Transform.Inverted();
+            }
+        }
+
+        private void UpdateDrawCollision()
+        {
+            if (!_drawColUpdated || _colAttachNode != null)
+            {
+                Matrix4 transform = CollisionTransform;
+                for (int i = 0; i < 2; i++)
+                {
+                    EntityCollision? entCol = EntityCollision[i];
+                    if (entCol?.Collision != null)
+                    {
+                        CollisionInfo collision = entCol.Collision.Info;
+                        for (int j = 0; j < collision.Points.Count; j++)
+                        {
+                            entCol.DrawPoints[j] = Matrix.Vec3MultMtx4(collision.Points[j], transform);
+                        }
+                    }
+                }
+                _drawColUpdated = true;
+            }
+        }
+
+        /// <summary>
+        /// Reset presentation history to the entity's current transform.
+        /// Pooled objects call this when a new lifetime begins; it is also
+        /// called from Initialize for ordinary entities.
+        /// </summary>
+        internal void ModResetDrawState()
+        {
+            if (this is PlayerEntity sourceBodyPlayer) sourceBodyPlayer.ModResetSourceBodyLife();
+            if (this is PlayerEntity radarPlayer) radarPlayer.ModResetRadarHistory();
+            _drawPrevious = _drawCurrent = _transform;
+            _drawStateValid = true;
+            _drawPose.Reset(_transform, DrawLifetime(), _scene.FrameCount);
+            if (this is BeamProjectileEntity beam) beam.ModCaptureBeamDrawState(reset: true);
+            if (this is PlayerEntity specialized) specialized.ModCaptureSpecializedDrawState(DrawLifetime(), reset: true);
+        }
+
+        private Mods.Render.DisplayPoseLifetime DrawLifetime()
+        {
+            ulong epoch = 0;
+            ushort match = 0, generation = 0, life = 0;
+            byte form = 0, hunter = 0;
+            bool eligible = Initialized && Active && !_scene.Exiting;
+            long timeline = Mods.Render.FrameTiming.PresentationGeneration;
+            if (_scene.Services is ReplaySceneServices replay)
+            {
+                epoch = replay.State.Match?.AuthorityEpoch ?? 0;
+                match = replay.State.Match?.MatchId ?? 0;
+                timeline = replay.Session.Transport.SeekGeneration;
+                if (this is PlayerEntity recordedPlayer)
+                {
+                    if (replay.State.TryGetPlayer(recordedPlayer.SlotIndex, out var recorded))
+                    { generation = recorded.SlotGeneration; life = recorded.LifeId; }
+                    else eligible = false;
+                }
+            }
+            else if (NetSession.Active)
+            {
+                epoch = NetSession.AuthorityEpoch;
+                match = NetSession.CurrentMatchId;
+                if (this is PlayerEntity livePlayer)
+                {
+                    generation = NetPlayerLifecycle.Generation(livePlayer.SlotIndex);
+                    life = NetPlayerLifecycle.Get(livePlayer.SlotIndex);
+                }
+            }
+            if (this is PlayerEntity player)
+            {
+                form = (byte)((player.IsAltForm ? 1 : 0) | (player.IsMorphing ? 2 : 0)
+                    | (player.IsUnmorphing ? 4 : 0));
+                hunter = (byte)player.Hunter;
+                eligible &= player.Health > 0
+                    && (player.LoadFlags & (LoadFlags.Active | LoadFlags.Spawned))
+                        == (LoadFlags.Active | LoadFlags.Spawned);
+            }
+            return new(_scene.LifetimeGeneration, _scene.Room, epoch, match, generation, life,
+                form, timeline, eligible, _scene.Services.IsReplica, hunter);
+        }
+
+        /// <summary>
+        /// Capture the completed simulation state once per 60 Hz step.
+        /// Teleports and respawns are discontinuities, not motion to smear
+        /// across, so a large jump re-bases the visual history immediately.
+        /// </summary>
+        internal void ModCaptureDrawState()
+        {
+            if (this is PlayerEntity radarPlayer) radarPlayer.ModCaptureRadarHistory();
+            // Keep the archival slots byte-compatible with the pre-CPP-03
+            // canonical capture rules, including duplicate ticks and pauses.
+            Matrix4 current = _transform;
+            if (!_drawStateValid || (current.Row3.Xyz - _drawCurrent.Row3.Xyz).LengthSquared > 16f)
+            {
+                _drawPrevious = _drawCurrent = current;
+                _drawStateValid = true;
+            }
+            else
+            {
+                _drawPrevious = _drawCurrent;
+                _drawCurrent = current;
+            }
+            _drawPose.Capture(_transform, DrawLifetime(), _scene.FrameCount,
+                this is BeamProjectileEntity travel ? travel.ModDrawTravelBoundSquared : 16f);
+            if (this is BeamProjectileEntity beam) beam.ModCaptureBeamDrawState(reset: false);
+            if (this is PlayerEntity specialized) specialized.ModCaptureSpecializedDrawState(DrawLifetime(), reset: false);
+        }
+
+        /// <summary>
+        /// Transform used only by the draw pass. Scale, orientation and
+        /// translation are blended independently so the matrix stays
+        /// orthogonal instead of linearly blending sixteen unrelated values.
+        /// </summary>
+        internal Matrix4 ReplayDrawTransform => ModDrawTransform();
+        internal Vector3 SimulationDrawPosition => _drawPose.TryGetPosition(_transform, DrawLifetime(),
+            _scene.FrameCount, _scene.Services.IsReplica ? _scene.ReplayRenderAlpha
+                : Mods.Render.FrameTiming.PresentationAlpha, out Vector3 position) ? position : Position;
+        protected Matrix4 ModDrawTransform()
+        {
+            Matrix4 transform = SimulationDrawTransform();
+            if (this is PlayerEntity player && _scene.ReplayPoses != null)
+            {
+                // A first-person replay should show the world the watched player
+                // actually aimed at. Their intent ACK names that server-time world;
+                // everybody else is sampled there while the watched shooter remains
+                // on the replay's ordinary presentation clock. This changes drawing
+                // only: the replica simulation and authoritative recorded outcomes
+                // keep their existing timeline.
+                bool shooterView = _scene.Services.IsReplica
+                    && Mods.Network.DemoPlayback.IsActive
+                    && Mods.SpectatorMode.IsSpectating
+                    && !Mods.SpectatorMode.FreeCamera
+                    && Mods.Replay.ReplayCamera.Mode == Mods.Replay.ReplayCameraMode.FirstPerson;
+                int viewerSlot = _scene.Players.Main.SlotIndex;
+                if (_scene.ReplayPoses.SamplePresentedForViewer(player.SlotIndex,
+                    viewerSlot, shooterView, _scene.ReplayRenderAlpha,
+                    out Vector3 position, out _))
+                {
+                    transform.Row3.Xyz = position;
+                }
+            }
+            return transform;
+        }
+        private Matrix4 SimulationDrawTransform()
+        {
+            if (!InterpolateDrawTransform)
+            {
+                return _transform;
+            }
+            return ModTrySampleCapturedDrawTransform(out Matrix4 transform, out _) ? transform : _transform;
+        }
+
+        protected bool ModTrySampleCapturedDrawTransform(out Matrix4 transform, out double alpha)
+        {
+            transform = _transform;
+            alpha = _scene.Services.IsReplica ? _scene.ReplayRenderAlpha : Mods.Render.FrameTiming.PresentationAlpha;
+            if (!_scene.Services.IsReplica && !Mods.Render.FrameTiming.Active) return false;
+            return _drawPose.TryGetTransform(_transform, DrawLifetime(), _scene.FrameCount, alpha, out transform);
+        }
+
+        public virtual void Destroy()
+        {
+        }
+
+        protected virtual Matrix4 GetModelTransform(ModelInstance inst, int index)
+        {
+            return Matrix4.CreateScale(inst.Model.Scale) * ModDrawTransform();
+        }
+
+        public virtual void GetPosition(out Vector3 position)
+        {
+            position = Position;
+        }
+
+        public virtual void GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing)
+        {
+            position = Position;
+            up = UpVector;
+            facing = FacingVector;
+        }
+
+        public virtual bool GetTargetable()
+        {
+            return true;
+        }
+
+        public virtual int GetScanId(bool alternate = false)
+        {
+            return _scanId;
+        }
+
+        public virtual void OnScanned()
+        {
+        }
+
+        public virtual bool Process()
+        {
+            if (Active)
+            {
+                for (int i = 0; i < _models.Count; i++)
+                {
+                    UpdateAnimFrames(_models[i]);
+                }
+            }
+            return true;
+        }
+
+        protected void UpdateAnimFrames(ModelInstance inst)
+        {
+            if (_scene.FrameCount != 0 && _scene.FrameCount % 2 == 0) // todo: FPS stuff
+            {
+                inst.UpdateAnimFrames();
+            }
+        }
+
+        protected virtual int GetModelRecolor(ModelInstance inst, int index)
+        {
+            return Recolor;
+        }
+
+        public IReadOnlyList<ModelInstance> GetModels()
+        {
+            return _models;
+        }
+
+        protected void AddPlaceholderModel()
+        {
+            ModelInstance inst = _scene.GetModelInstance("pick_wpn_missile");
+            inst.IsPlaceholder = true;
+            _models.Add(inst);
+        }
+
+        protected virtual Vector4? GetOverrideColor(ModelInstance inst, int index)
+        {
+            return OverrideColor;
+        }
+
+        protected virtual Vector4? GetRenderColor(ModelInstance inst, int index, Material material)
+        {
+            return inst.IsPlaceholder ? GetOverrideColor(inst, index) : null;
+        }
+
+        protected virtual Vector4? GetPlayerOutlineColor(ModelInstance inst) => null;
+
+        protected virtual bool UseTexturedPlayerSkin(ModelInstance inst) => false;
+
+        protected virtual LightInfo GetLightInfo()
+        {
+            return new LightInfo(_scene.Light1Vector, _scene.Light1Color, _scene.Light2Vector, _scene.Light2Color);
+        }
+
+        protected virtual Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index) => default;
+
+        protected virtual int? GetBindingOverride(ModelInstance inst, Material material, int index)
+        {
+            return null;
+        }
+
+        protected virtual void UpdateTransforms(ModelInstance inst, int index)
+        {
+            Model model = inst.Model;
+            model.AnimateMaterials(inst.AnimInfo);
+            model.AnimateTextures(inst.AnimInfo);
+            model.ComputeNodeMatrices(index: 0);
+            Matrix4 transform = GetModelTransform(inst, index);
+            model.AnimateNodes(index: 0, UseNodeTransform || _scene.TransformRoomNodes, transform, model.Scale, inst.AnimInfo);
+            model.UpdateMatrixStack();
+            // todo: could skip this unless a relevant material property changed this update (and we're going to draw this entity)
+            _scene.UpdateMaterials(model, GetModelRecolor(inst, index));
+            if (_scene.ShowCollision)
+            {
+                // if collision is not shown, the "needs update" state will persist until it is
+                // --> this is fine since _colPoints are only for display, not detection
+                UpdateDrawCollision();
+            }
+        }
+
+        protected void UpdateTransforms(ModelInstance inst, Matrix4 transform, int recolor)
+        {
+            Model model = inst.Model;
+            model.AnimateMaterials(inst.AnimInfo);
+            model.AnimateTextures(inst.AnimInfo);
+            model.ComputeNodeMatrices(index: 0);
+            model.AnimateNodes(index: 0, UseNodeTransform, transform, model.Scale, inst.AnimInfo);
+            model.UpdateMatrixStack();
+            _scene.UpdateMaterials(model, recolor);
+        }
+
+        protected void UpdateMaterials(ModelInstance inst, int recolor)
+        {
+            Model model = inst.Model;
+            model.AnimateMaterials(inst.AnimInfo);
+            model.AnimateTextures(inst.AnimInfo);
+            _scene.UpdateMaterials(model, recolor);
+        }
+
+        protected void GetDrawItems(ModelInstance inst, int i, LightInfo? lightInfo = null, ModelInstance? detachedSource = null)
+        {
+            int polygonId = _scene.GetNextPolygonId();
+            GetItems(inst, i, inst.Model.Nodes[0], polygonId);
+
+            void GetItems(ModelInstance inst, int index, Node node, int polygonId)
+            {
+                if (detachedSource != null && !_scene.DetachedShadowCapacityAvailable) return;
+                Model model = inst.Model;
+                ModelInstance materialOwner = detachedSource ?? inst;
+                if (node.Enabled)
+                {
+                    int start = node.MeshId / 2;
+                    for (int k = 0; k < node.MeshCount; k++)
+                    {
+                        if (detachedSource != null && !_scene.DetachedShadowCapacityAvailable) break;
+                        Mesh mesh = model.Meshes[start + k];
+                        if (!mesh.Visible)
+                        {
+                            continue;
+                        }
+                        Material material = model.Materials[mesh.MaterialId];
+                        Vector3 emission = GetEmission(materialOwner, material, mesh.MaterialId);
+                        Matrix4 texcoordMatrix = GetTexcoordMatrix(materialOwner, material, mesh.MaterialId, node);
+                        Vector4? color = GetRenderColor(materialOwner, index, material);
+                        SelectionType selectionType = Selection.CheckSelection(this, inst, node, mesh);
+                        int? bindingOverride = GetBindingOverride(materialOwner, material, mesh.MaterialId);
+                        var previousCosmeticMaterial = _scene.CosmeticMaterialSubmission;
+                        _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(materialOwner, material, mesh.MaterialId);
+                        _scene.AddRenderItem(material, polygonId, Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix,
+                            node.Animation, mesh.ListId, model.NodeMatrixIds.Count, model.MatrixStackValues, color,
+                            PaletteOverride, selectionType, node.BillboardMode, _drawScale, bindingOverride,
+                            UseTexturedPlayerSkin(materialOwner), GetPlayerOutlineColor(materialOwner));
+                        _scene.CosmeticMaterialSubmission = previousCosmeticMaterial;
+                    }
+                    if (node.ChildIndex != -1)
+                    {
+                        GetItems(inst, index, model.Nodes[node.ChildIndex], polygonId);
+                    }
+                }
+                if (node.NextIndex != -1)
+                {
+                    GetItems(inst, index, model.Nodes[node.NextIndex], polygonId);
+                }
+            }
+        }
+
+        protected void UpdateNodeRefVolume()
+        {
+            _soundSource.Volume = IsAudible(NodeRef) ? 1 : 0;
+        }
+
+        protected bool IsAudible(NodeRef nodeRef)
+        {
+            if (nodeRef == NodeRef.None || _scene.CameraMode != CameraMode.Player)
+            {
+                return true;
+            }
+            return _scene.IsNodeRefAudible(nodeRef);
+        }
+
+        protected bool IsVisible(NodeRef nodeRef)
+        {
+            if (nodeRef == NodeRef.None
+                || _scene.CameraMode != CameraMode.Player || _scene.ShowInvisibleEntities // skdebug
+                || _scene.Services.IsReplica)
+            {
+                // Replay cameras can move independently of actor portal crossings.
+                // Their owning scene bypasses that culling without changing live views.
+                return true;
+            }
+            return _scene.IsNodeRefVisible(nodeRef);
+        }
+
+        public virtual bool ScanVisible()
+        {
+            return IsVisible(NodeRef);
+        }
+
+        // Pilot for base-rendered world entities only. Player biped models are
+        // composed from multiple animation instances and muzzle-effect nodes;
+        // bosses/turrets/platforms also derive gameplay facts from their model
+        // matrices. They are excluded until independent ownership tests pass.
+        private static readonly bool WorldAnimationBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_WORLD_ANIMATION_BLEND");
+        private static readonly bool BossAnimationBlendEnabled = Mods.Render.AnimationRollout.Enabled(
+            "PROJECT_PRIME_BOSS_ANIMATION_BLEND");
+
+        public virtual void GetDrawInfo()
+        {
+            for (int i = 0; i < _models.Count; i++)
+            {
+                ModelInstance inst = _models[i];
+                if ((!inst.Active && !_scene.ShowAllEntities) || (inst.IsPlaceholder && !_scene.ShowInvisibleEntities && !_scene.ShowAllEntities))
+                {
+                    continue;
+                }
+                UpdateTransforms(inst, i);
+                if (!Hidden)
+                {
+                    bool blended = false;
+                    Matrix4 canonicalTransform = default;
+                    bool transformNodes = false;
+                    try
+                    {
+                        // Explicitly allow only static cosmetic Object entities
+                        // through this pilot. Do not touch weapons, collision
+                        // platforms, animated room surfaces or arbitrary
+                        // derived GetDrawInfo paths yet.
+                        if ((WorldAnimationBlendEnabled && Type == EntityType.Object
+                            || BossAnimationBlendEnabled && Type == EntityType.EnemyInstance)
+                            && !_scene.Services.IsReplica && Mods.Render.FrameTiming.Active
+                            && Mods.Render.FrameTiming.HighRefreshPresentation
+                            && inst.PresentationSamples.TryGet(inst.AnimInfo, inst.AnimInfo.Node.Slot,
+                                Mods.Render.FrameTiming.TotalSteps
+                                    + Mods.Render.FrameTiming.PresentationAlpha, out var sample))
+                        {
+                            canonicalTransform = GetModelTransform(inst, i);
+                            transformNodes = UseNodeTransform || _scene.TransformRoomNodes;
+                            blended = true;
+                            inst.Model.AnimateNodes(0, transformNodes, canonicalTransform,
+                                inst.Model.Scale, inst.AnimInfo, sample);
+                            inst.Model.UpdateMatrixStack();
+                        }
+                        // AddRenderItem snapshots the palette before it enters
+                        // world queues; the draw-only pose never escapes here.
+                        GetDrawItems(inst, i);
+                    }
+                    finally
+                    {
+                        if (blended)
+                        {
+                            inst.Model.AnimateNodes(0, transformNodes, canonicalTransform,
+                                inst.Model.Scale, inst.AnimInfo);
+                            inst.Model.UpdateMatrixStack();
+                        }
+                    }
+                }
+            }
+            if (_scene.ShowCollision && (_scene.ColEntDisplay == EntityType.All || _scene.ColEntDisplay == Type))
+            {
+                GetCollisionDrawInfo();
+            }
+        }
+
+        protected virtual void GetCollisionDrawInfo()
+        {
+            for (int i = 0; i < 2; i++)
+            {
+                EntityCollision? entCol = EntityCollision[i];
+                if (entCol?.Collision != null && entCol.Collision.Active)
+                {
+                    entCol.Collision.Info.GetDrawInfo(entCol.DrawPoints, Vector3.Zero, Type, _scene);
+                }
+            }
+        }
+
+        protected virtual Vector3 GetEmission(ModelInstance inst, Material material, int index)
+        {
+            return Vector3.Zero;
+        }
+
+        // Only an explicitly scoped presentation pass may bind a fractional UV
+        // sample. It must restore both fields in finally before returning.
+        private protected ModelInstance? _presentationTexcoordOwner;
+        private protected Mods.Render.AnimationSamples.Sample? _presentationTexcoordSample;
+
+        protected virtual Matrix4 GetTexcoordMatrix(ModelInstance inst, Material material, int materialId, Node node, int recolor = -1)
+        {
+            Model model = inst.Model;
+            Matrix4 texcoordMatrix = Matrix4.Identity;
+            TexcoordAnimationGroup? group = inst.AnimInfo.Texcoord.Group;
+            TexcoordAnimation? animation = null;
+            if (group != null && group.Animations.TryGetValue(material.Name, out TexcoordAnimation result))
+            {
+                animation = result;
+            }
+            if (group != null && animation != null && (!inst.Model.FirstHunt || material.TexgenMode != TexgenMode.None))
+            {
+                // MPH overwrites a material's None texgen with Texcoord when parsing a texcoord animation; FH does not
+                texcoordMatrix = model.AnimateTexcoords(group, animation.Value, inst.AnimInfo.TexcoordFrame,
+                    ReferenceEquals(inst, _presentationTexcoordOwner) ? _presentationTexcoordSample : null);
+            }
+            if (material.TexgenMode != TexgenMode.None)
+            {
+                Matrix4 materialMatrix;
+                // in-game, this is a list of precomputed matrices that we compute on the fly in the next block;
+                // however, we only use it for the one hard-coded matrix in AlimbicCapsule
+                if (model.TextureMatrices.Count > 0)
+                {
+                    materialMatrix = model.TextureMatrices[material.MatrixId];
+                }
+                else
+                {
+                    materialMatrix = Matrix4.CreateTranslation(material.ScaleS * material.TranslateS,
+                        material.ScaleT * material.TranslateT, 0.0f);
+                    materialMatrix = Matrix4.CreateScale(material.ScaleS, material.ScaleT, 1.0f) * materialMatrix;
+                    materialMatrix = Matrix4.CreateRotationZ(material.RotateZ) * materialMatrix;
+                }
+                // for texcoord texgen, the animation result is used if any, otherwise the material matrix is used.
+                // for normal texgen, two matrices are multiplied. the first is always the material matrix.
+                // the second is the animation result if any, otherwise it's the material matrix again.
+                if (group == null || animation == null)
+                {
+                    texcoordMatrix = materialMatrix;
+                }
+                if (material.TexgenMode == TexgenMode.Normal)
+                {
+                    Texture texture = model.Recolors[recolor == -1 ? Recolor : recolor].Textures[material.TextureId];
+                    // product should start with the upper 3x3 of the node animation result,
+                    // texgenMatrix should be multiplied with the view matrix if lighting is enabled,
+                    // and the result should be transposed.
+                    // these steps are done in the shader so the view matrix can be updated when frame advance is on.
+                    // strictly speaking, the use_light check in the shader is not the same as what the game does,
+                    // since the game checks if *any* material in the model uses lighting, but the result is the same.
+                    Matrix4 texgenMatrix = Matrix4.Identity;
+                    // in-game, there's only one uniform scale factor for models
+                    if (model.Scale.X != 1 || model.Scale.Y != 1 || model.Scale.Z != 1)
+                    {
+                        texgenMatrix = Matrix4.CreateScale(model.Scale);
+                    }
+                    Matrix4 product = texgenMatrix;
+                    product.M12 *= -1;
+                    product.M13 *= -1;
+                    product.M22 *= -1;
+                    product.M23 *= -1;
+                    product.M32 *= -1;
+                    product.M33 *= -1;
+                    product *= materialMatrix;
+                    product *= texcoordMatrix;
+                    product *= 1.0f / (texture.Width / 2);
+                    texcoordMatrix = new Matrix4(
+                        product.Row0 * 16.0f,
+                        product.Row1 * 16.0f,
+                        product.Row2 * 16.0f,
+                        product.Row3
+                    );
+                }
+            }
+            return texcoordMatrix;
+        }
+
+        protected void SetTransform(Vector3Fx facing, Vector3Fx up, Vector3Fx position)
+        {
+            SetTransform(facing.ToFloatVector(), up.ToFloatVector(), position.ToFloatVector());
+        }
+
+        protected void SetTransform(Vector3 facing, Vector3 up, Vector3 position)
+        {
+            Matrix4 transform = GetTransformMatrix(facing, up);
+            //transform.ExtractRotation().ToEulerAngles(out Vector3 rotation);
+            //Rotation = rotation;
+            //Position = position;
+            transform = Matrix4.CreateScale(_scale) * transform;
+            transform.Row3.Xyz = position;
+            Transform = transform;
+        }
+
+        public static Matrix4 GetTransformMatrix(Vector3 facing, Vector3 up)
+        {
+            Vector3 right = Vector3.Cross(up, facing).Normalized();
+            up = Vector3.Cross(facing, right);
+            Matrix4 transform = default;
+            transform.M11 = right.X;
+            transform.M12 = right.Y;
+            transform.M13 = right.Z;
+            transform.M14 = 0;
+            transform.M21 = up.X;
+            transform.M22 = up.Y;
+            transform.M23 = up.Z;
+            transform.M24 = 0;
+            transform.M31 = facing.X;
+            transform.M32 = facing.Y;
+            transform.M33 = facing.Z;
+            transform.M34 = 0;
+            transform.M41 = 0;
+            transform.M42 = 0;
+            transform.M43 = 0;
+            transform.M44 = 1;
+            return transform;
+        }
+
+        public static Matrix4 GetTransformMatrix(Vector3 facing, Vector3 up, Vector3 position)
+        {
+            Vector3 right = Vector3.Cross(up, facing).Normalized();
+            up = Vector3.Cross(facing, right);
+            Matrix4 transform = default;
+            transform.M11 = right.X;
+            transform.M12 = right.Y;
+            transform.M13 = right.Z;
+            transform.M14 = 0;
+            transform.M21 = up.X;
+            transform.M22 = up.Y;
+            transform.M23 = up.Z;
+            transform.M24 = 0;
+            transform.M31 = facing.X;
+            transform.M32 = facing.Y;
+            transform.M33 = facing.Z;
+            transform.M34 = 0;
+            transform.M41 = position.X;
+            transform.M42 = position.Y;
+            transform.M43 = position.Z;
+            transform.M44 = 1;
+            return transform;
+        }
+
+        protected void AddDotItem(Vector3 position, Vector3 color)
+        {
+            AddVolumeItem(new CollisionVolume(position, 0.1f), color, 1);
+        }
+
+        protected void AddVolumeItem(CollisionVolume volume, Vector3 color, float alpha = 0.5f)
+        {
+            if (!Selection.CheckVolume(this))
+            {
+                return;
+            }
+            Vector3[] verts = Array.Empty<Vector3>();
+            if (volume.Type == VolumeType.Box)
+            {
+                verts = ArrayPool<Vector3>.Shared.Rent(8);
+                Vector3 point0 = volume.BoxPosition;
+                Vector3 sideX = volume.BoxVector1 * volume.BoxDot1;
+                Vector3 sideY = volume.BoxVector2 * volume.BoxDot2;
+                Vector3 sideZ = volume.BoxVector3 * volume.BoxDot3;
+                verts[0] = point0;
+                verts[1] = point0 + sideZ;
+                verts[2] = point0 + sideX;
+                verts[3] = point0 + sideX + sideZ;
+                verts[4] = point0 + sideY;
+                verts[5] = point0 + sideY + sideZ;
+                verts[6] = point0 + sideX + sideY;
+                verts[7] = point0 + sideX + sideY + sideZ;
+            }
+            else if (volume.Type == VolumeType.Cylinder)
+            {
+                verts = ArrayPool<Vector3>.Shared.Rent(34);
+                Vector3 vector = volume.CylinderVector.Normalized();
+                float radius = volume.CylinderRadius;
+                Matrix3 rotation = Matrix.RotateAlign(Vector3.UnitY, vector);
+                Vector3 start;
+                Vector3 end;
+                // cylinder volumes are always axis-aligned, so we can use this hack to avoid normal issues
+                if (vector == Vector3.UnitX || vector == Vector3.UnitY || vector == Vector3.UnitZ)
+                {
+                    start = volume.CylinderPosition;
+                    end = volume.CylinderPosition + vector * volume.CylinderDot;
+                }
+                else
+                {
+                    start = volume.CylinderPosition + vector * volume.CylinderDot;
+                    end = volume.CylinderPosition;
+                }
+                for (int i = 0; i < 16; i++)
+                {
+                    verts[i] = GetDiscVertices(radius, i) * rotation + start;
+                }
+                for (int i = 0; i < 16; i++)
+                {
+                    verts[i + 16] = GetDiscVertices(radius, i) * rotation + end;
+                }
+                verts[32] = start;
+                verts[33] = end;
+            }
+            else if (volume.Type == VolumeType.Sphere)
+            {
+                int stackCount = Scene.DisplaySphereStacks;
+                int sectorCount = Scene.DisplaySphereSectors;
+                verts = ArrayPool<Vector3>.Shared.Rent((stackCount + 1) * (sectorCount + 1));
+                float radius = volume.SphereRadius;
+                float sectorStep = 2 * MathF.PI / sectorCount;
+                float stackStep = MathF.PI / stackCount;
+                float sectorAngle, stackAngle, x, y, z, xy;
+                for (int i = 0; i <= stackCount; i++)
+                {
+                    stackAngle = MathF.PI / 2 - i * stackStep;
+                    xy = radius * MathF.Cos(stackAngle);
+                    z = radius * MathF.Sin(stackAngle);
+                    for (int j = 0; j <= sectorCount; j++)
+                    {
+                        sectorAngle = j * sectorStep;
+                        x = xy * MathF.Cos(sectorAngle);
+                        y = xy * MathF.Sin(sectorAngle);
+                        verts[i * (sectorCount + 1) + j] = new Vector3(x, z, y) + volume.SpherePosition;
+                    }
+                }
+            }
+            CullingMode cullingMode = volume.TestPoint(_scene.CameraPosition) ? CullingMode.Front : CullingMode.Back;
+            _scene.AddRenderItem(cullingMode, _scene.GetNextPolygonId(), new Vector4(color, alpha), (RenderItemType)(volume.Type + 1), verts);
+        }
+
+        private Vector3 GetDiscVertices(float radius, int index)
+        {
+            return new Vector3(
+                radius * MathF.Cos(2f * MathF.PI * index / 16f),
+                0.0f,
+                radius * MathF.Sin(2f * MathF.PI * index / 16f)
+            );
+        }
+
+        protected void AddVectorItem(Vector3 point, Vector3 vector, Vector3 color)
+        {
+            CollisionVolume volume;
+            if (vector == Vector3.Zero)
+            {
+                volume = new CollisionVolume(point, 0.1f);
+            }
+            else
+            {
+                volume = new CollisionVolume(vector.Normalized(), point, 0.05f, vector.Length);
+            }
+            AddVolumeItem(volume, color);
+        }
+
+        public virtual void GetDisplayVolumes()
+        {
+        }
+
+        public virtual void SetActive(bool active)
+        {
+            Active = active;
+        }
+
+        public virtual void SetScanId(int scanId)
+        {
+            _scanId = scanId;
+        }
+
+        // todo: item and enemy spawners
+        public virtual EntityBase? GetParent()
+        {
+            return null;
+        }
+
+        public virtual EntityBase? GetChild()
+        {
+            return null;
+        }
+
+        public virtual void HandleMessage(MessageInfo info)
+        {
+        }
+
+        public virtual void CheckContactDamage(ref DamageResult result)
+        {
+        }
+
+        public virtual void CheckBeamReflection(ref bool result)
+        {
+        }
+
+        protected (float, float) ConstantAcceleration(float step, float velocity,
+            float minVelocity = Single.MinValue, float maxVelocity = Single.MaxValue)
+        {
+            float newVelocity = velocity + step * 30 * 31 * _scene.FrameTime;
+            newVelocity = Math.Clamp(newVelocity, minVelocity, maxVelocity);
+            float displacement = velocity * _scene.FrameTime + (newVelocity - velocity) / 2 * _scene.FrameTime;
+            return (newVelocity, displacement);
+        }
+
+        protected (float, float) Drag(float step, float velocity)
+        {
+            float decay = MathF.Pow(step, 30);
+            float newVelocity = velocity * MathF.Pow(decay, _scene.FrameTime);
+            float displacement = (newVelocity - velocity) / MathF.Log(decay);
+            return (newVelocity, displacement);
+        }
+
+        protected float ExponentialDecay(float step, float value)
+        {
+            float decay = MathF.Pow(step, 30);
+            return value * MathF.Pow(decay, _scene.FrameTime);
+        }
+    }
+
+    public class ModelEntity : EntityBase
+    {
+        public ModelEntity(ModelInstance model, Scene scene, int recolor = 0) : base(EntityType.Model, scene)
+        {
+            Recolor = recolor;
+            _models.Add(model);
+            model.SetAnimation(0);
+        }
+    }
+}

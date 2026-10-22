@@ -1,0 +1,38 @@
+# Managed by deploy-map-service.sh; game/directory services use different binaries.
+[Unit]
+Description=Project Prime community map library
+Wants=network-online.target
+After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=__USER__
+WorkingDirectory=__DIR__/data
+Environment=PROJECT_PRIME_USER_DATA=__DIR__/data
+Environment=DOTNET_BUNDLE_EXTRACT_BASE_DIR=__DIR__/data/.dotnet-bundle
+EnvironmentFile=/etc/project-prime/maps.env
+ExecStart=__DIR__/current/ProjectPrime -maphub http://127.0.0.1:__PORT__/ -maphubstorage __DIR__/data/packages
+Restart=on-failure
+RestartSec=5
+KillSignal=SIGINT
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=__DIR__/data
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+MemoryMax=768M
+TasksMax=128
+LimitNOFILE=4096
+
+[Install]
+WantedBy=multi-user.target

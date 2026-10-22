@@ -1,0 +1,80 @@
+{
+  "format": 1,
+  "scenario": {
+    "id": "identity.match-epoch",
+    "version": 1,
+    "ticks": 7,
+    "seed": 0,
+    "content": "none",
+    "captureInterval": 1,
+    "tier": "F1",
+    "description": "Production match control fences stale epochs, serial match wrap and ended-round reopening; socket-free playback admission."
+  },
+  "engineRevision": "e80098f4",
+  "canonicalHash": "6220ab5c708bb6d933e850c033c019924bbbd3d99763c8b63677009d8f955f7c",
+  "checkpoints": [
+    {
+      "tick": 1,
+      "values": {
+        "ending": 0,
+        "epochHigh": 2147483648,
+        "epochLow": 4,
+        "match": 65535
+      }
+    },
+    {
+      "tick": 2,
+      "values": {
+        "ending": 0,
+        "epochHigh": 2147483648,
+        "epochLow": 4,
+        "match": 65535
+      }
+    },
+    {
+      "tick": 3,
+      "values": {
+        "ending": 0,
+        "epochHigh": 2147483648,
+        "epochLow": 4,
+        "match": 1
+      }
+    },
+    {
+      "tick": 4,
+      "values": {
+        "ending": 0,
+        "epochHigh": 2147483648,
+        "epochLow": 4,
+        "match": 1
+      }
+    },
+    {
+      "tick": 5,
+      "values": {
+        "ending": 1,
+        "epochHigh": 2147483648,
+        "epochLow": 4,
+        "match": 1
+      }
+    },
+    {
+      "tick": 6,
+      "values": {
+        "ending": 1,
+        "epochHigh": 2147483648,
+        "epochLow": 4,
+        "match": 1
+      }
+    },
+    {
+      "tick": 7,
+      "values": {
+        "ending": 0,
+        "epochHigh": 2147483648,
+        "epochLow": 5,
+        "match": 1
+      }
+    }
+  ]
+}

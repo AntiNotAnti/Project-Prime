@@ -1,0 +1,1027 @@
+using System;
+using System.IO;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using MphRead.Entities;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+
+namespace MphRead.Mods.Input
+{
+    /// <summary>Deterministic source-ownership regressions; no assets, window or tablet required.</summary>
+    public static class PointerCheck
+    {
+        private static int _checks;
+
+        public static int Run()
+        {
+            try
+            {
+                _checks = 0;
+                CheckBindings();
+                CheckMovement();
+                TouchSamplingChecks.Run();
+                NativeTouchChecks.Run();
+                CheckCameraBasis();
+                CheckZone();
+                CheckPlayerInput();
+                CheckOfflineInput();
+                CheckSettings();
+                Require(!WindowsPenInput.IsPromotedPointer(0), "physical mouse signature");
+                Require(WindowsPenInput.IsPromotedPointer(0xFF515701), "promoted pen signature");
+                Require(WindowsPenInput.IsPromotedPointer(0xFF515781), "promoted touch signature");
+                Require(WindowsPenInput.IsPromotedPrimaryRelease(0x0202, 0xFF515701),
+                    "promoted pen mouse-up is a release fallback");
+                Require(!WindowsPenInput.IsPromotedPrimaryRelease(0x0201, 0xFF515701),
+                    "promoted pen mouse-down is not a release fallback");
+                Console.WriteLine($"POINTERCHECK PASS ({_checks} assertions)");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"POINTERCHECK FAIL: {ex}");
+                return 1;
+            }
+            finally
+            {
+                PointerDevice.Reset();
+            }
+        }
+
+        private static void Require(bool condition, string label)
+        {
+            _checks++;
+            if (!condition)
+            {
+                throw new InvalidOperationException(label);
+            }
+        }
+
+        private static void CheckBindings()
+        {
+            var source = new PointerBindings();
+            source.Update(rawDown: true, captured: true);
+            Keybind[] independent = { new(Keys.F), new(Keys.G), new(MouseButton.Right),
+                new(MouseButton.Middle), new(ButtonType.ScrollUp), new(ButtonType.ScrollDown) };
+            foreach (Keybind bind in independent)
+            {
+                bind.IsDown = bind.IsPressed = true;
+                Require(!source.Resolve(bind) && bind.IsDown && bind.IsPressed,
+                    $"independent {bind.Type}/{bind} preserved during capture");
+            }
+            var controls = PlayerControls.GetDefault();
+            controls.Shoot.Type = controls.AltAttack.Type = ButtonType.Mouse;
+            controls.Shoot.MouseButton = controls.AltAttack.MouseButton = MouseButton.Left;
+            Keybind[] captured = { controls.Shoot, controls.AltAttack, new(MouseButton.Left) };
+            foreach (Keybind bind in captured)
+            {
+                bind.IsDown = bind.IsPressed = bind.IsReleased = true;
+                Require(source.Resolve(bind) && !bind.IsDown && !bind.IsPressed && !bind.IsReleased,
+                    "every primary binding suppressed before additive actions");
+            }
+            source.Update(false, false);
+            source.Resolve(controls.Shoot);
+            Require(!controls.Shoot.IsReleased, "captured tip release does not leak an action edge");
+            source.Update(true, false);
+            source.Resolve(controls.Shoot);
+            Require(controls.Shoot.IsDown && controls.Shoot.IsPressed, "ordinary mouse press");
+            source.Update(true, false);
+            source.Resolve(controls.Shoot);
+            Require(controls.Shoot.IsDown && !controls.Shoot.IsPressed, "ordinary mouse hold");
+            source.Update(false, false);
+            source.Resolve(controls.Shoot);
+            Require(!controls.Shoot.IsDown && controls.Shoot.IsReleased, "ordinary mouse release");
+            source.Update(true, true, independentDown: true);
+            source.Resolve(controls.Shoot);
+            Require(controls.Shoot.IsDown && controls.Shoot.IsPressed, "physical mouse fires beside captured native pen");
+            source.Update(true, true, independentDown: false);
+            source.Resolve(controls.Shoot);
+            Require(!controls.Shoot.IsDown && controls.Shoot.IsReleased, "physical mouse releases while pen stays down");
+        }
+
+        private static void CheckMovement()
+        {
+            PointerInput.StylusMode = PointerInput.GuardJumps = true;
+            PointerInput.JumpPixels = 600;
+            PointerInput.Reset();
+            Require(PointerInput.Filter(700, 400) == (0f, 0f), "vector teleport");
+            Require(PointerInput.JumpsIgnored == 1, "one rejected sample counted once");
+            Require(PointerInput.Filter(450, 450) == (0f, 0f), "diagonal threshold uses distance");
+            Require(PointerInput.Filter(300, 250) == (300f, 250f), "legal fast movement");
+            Require(PointerInput.Filter(-600, 0) == (0f, 0f), "negative threshold boundary");
+            PointerInput.GuardJumps = false;
+            Require(PointerInput.Filter(700, 400) == (700f, 400f), "filter off independently of stylus mode");
+            PointerInput.GuardJumps = true;
+            PointerInput.StylusMode = false;
+            Require(PointerInput.Filter(900, 900) == (900f, 900f), "normal high-DPI mouse unchanged");
+            PointerInput.StylusMode = true;
+            PointerInput.JumpPixels = 0;
+            Require(PointerInput.Filter(900, 900) == (900f, 900f), "zero threshold disables filtering");
+            PointerInput.JumpPixels = 600;
+
+            Require(AltFormGesture.Direction(0, -20, 5) == AltMoveDirection.Up,
+                "alt gesture maps upward drag to roll up");
+            Require(AltFormGesture.Direction(20, -20, 5)
+                == (AltMoveDirection.Up | AltMoveDirection.Right),
+                "alt gesture preserves diagonal movement");
+            Require(AltFormGesture.Direction(3, 2, 5) == AltMoveDirection.None,
+                "alt gesture dead zone rejects pointer jitter");
+            Require(AltFormGesture.Direction(float.NaN, 10, 0) == AltMoveDirection.None,
+                "alt gesture rejects non-finite input");
+
+            (float driveX, float driveY) = AltFormGesture.Drive(0, -96, 18, 96, 1);
+            Require(Math.Abs(driveX) < 0.0001f && Math.Abs(driveY + 1) < 0.0001f,
+                "alt swipe reaches full analogue deflection");
+            var partialDrive = AltFormGesture.Drive(0, -57, 18, 96, 1);
+            driveY = partialDrive.Y;
+            Require(Math.Abs(driveY + 0.5f) < 0.001f,
+                "alt swipe preserves partial analogue travel");
+            var sensitiveDrive = AltFormGesture.Drive(0, -57, 18, 96, 2);
+            Require(Math.Abs(sensitiveDrive.Y) > Math.Abs(driveY),
+                "higher alt swipe sensitivity reaches stronger deflection with the same travel");
+            // Use a shorter drag here so neither the baseline nor 2x case is
+            // already saturated. That leaves room for the 4x endpoint to prove
+            // that the expanded range still changes response at the top end.
+            var rangeBaseline = AltFormGesture.Drive(0, -30, 18, 96, 1);
+            var rangeSensitive = AltFormGesture.Drive(0, -30, 18, 96, 2);
+            var lowRangeDrive = AltFormGesture.Drive(0, -30, 18, 96,
+                InputSettings.MinAltSwipeSensitivity);
+            var highRangeDrive = AltFormGesture.Drive(0, -30, 18, 96,
+                InputSettings.MaxAltSwipeSensitivity);
+            Require(Math.Abs(lowRangeDrive.Y) < Math.Abs(rangeBaseline.Y)
+                    && Math.Abs(rangeBaseline.Y) < Math.Abs(rangeSensitive.Y)
+                    && Math.Abs(rangeSensitive.Y) < Math.Abs(highRangeDrive.Y),
+                "expanded alt swipe range remains effective at both endpoints");
+
+            var mouseHalfDrive = AltFormGesture.MouseDrive(0, -12, 1);
+            var mouseFullDrive = AltFormGesture.MouseDrive(0, -12, 2);
+            var mouseIdleDrive = AltFormGesture.MouseDrive(0, 0, 4);
+            Require(Math.Abs(mouseHalfDrive.X) < 0.0001f
+                    && Math.Abs(mouseHalfDrive.Y + 0.5f) < 0.001f,
+                "relative mouse movement preserves analogue partial deflection");
+            Require(Math.Abs(mouseFullDrive.Y + 1f) < 0.001f,
+                "alt swipe sensitivity scales relative mouse movement");
+            Require(mouseIdleDrive == (0f, 0f),
+                "stopping the mouse returns the virtual alt-form stick to centre");
+
+            var samusPartial = AltFormGesture.StockRollDrive(12, -6, 24, 1);
+            Require(Math.Abs(samusPartial.X - 0.5f) < 0.0001f
+                    && Math.Abs(samusPartial.Y + 0.25f) < 0.0001f,
+                "Samus stock swipe scales current-frame motion continuously");
+            var samusDiagonal = AltFormGesture.StockRollDrive(24, -24, 24, 1);
+            Require(Math.Abs(samusDiagonal.X - 1) < 0.0001f
+                    && Math.Abs(samusDiagonal.Y + 1) < 0.0001f,
+                "Samus diagonal swipe preserves full independent roll axes");
+            var samusTiny = AltFormGesture.StockRollDrive(1, 0, 24, 1);
+            Require(samusTiny.X > 0 && samusTiny.X < 0.05f && samusTiny.Y == 0,
+                "Samus stock swipe has no artificial steering dead zone");
+            Require(AltFormGesture.StockRollDrive(0, 0, 24, 4) == (0f, 0f),
+                "Samus idle pointer adds no autonomous traction");
+            var samusSensitive = AltFormGesture.StockRollDrive(12, 0, 24, 2);
+            Require(Math.Abs(samusSensitive.X - 1) < 0.0001f,
+                "Samus stock swipe sensitivity scales per-frame traction");
+
+            Require(AltFormGesture.TryPrecisionVelocity(0.31f, 0, -1, 0, 0.32f,
+                    out float reversedX, out float reversedZ)
+                && Math.Abs(reversedX + 0.32f) < 0.0001f && Math.Abs(reversedZ) < 0.0001f,
+                "precision swipe reverses normal roll velocity in one step");
+            Require(AltFormGesture.TryPrecisionVelocity(0.2f, 0, 0, 0, 0.32f,
+                    out float stoppedX, out float stoppedZ)
+                && stoppedX == 0 && stoppedZ == 0,
+                "precision swipe centre stops normal roll immediately");
+            Require(!AltFormGesture.TryPrecisionVelocity(0.6f, 0, -1, 0, 0.32f,
+                    out _, out _),
+                "precision swipe preserves high-speed boost or impact momentum");
+
+            Require(AltFormInputDirection.SignificantChange(0, 1, 0.7071f, 0.7071f),
+                "analogue forward-to-diagonal turn is a fresh direction without IsPressed");
+            Require(AltFormInputDirection.SignificantChange(0.7071f, 0.7071f, 1, 0),
+                "dropping one key from a WASD diagonal is a fresh direction");
+            Require(!AltFormInputDirection.SignificantChange(0, 1, 0.1f, 0.995f),
+                "small analogue steering noise does not create a fresh direction");
+            // A fast stick turn can be composed of individually-small samples.
+            // Frame-to-frame they stay below the threshold, but comparing the
+            // current stick against the vector captured when collision locked
+            // the basis still breaks out once the cumulative turn is deliberate.
+            Require(!AltFormInputDirection.SignificantChange(0, 1, 0.2588f, 0.9659f),
+                "fifteen degree analogue step stays inside collision lock");
+            Require(!AltFormInputDirection.SignificantChange(0.2588f, 0.9659f, 0.5f, 0.8660f),
+                "second fifteen degree analogue step is individually small");
+            Require(AltFormInputDirection.SignificantChange(0, 1, 0.5f, 0.8660f),
+                "thirty degree cumulative turn breaks the collision lock");
+            Require(AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Samus)
+                && AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Kanden)
+                && AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Spire)
+                && AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Noxus)
+                && !AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Trace)
+                && !AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Sylux)
+                && !AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Weavel),
+                "only rolling alt forms consume pointer drags as movement");
+            Require(AltFormGesture.FlickAction(global::MphRead.Hunter.Samus)
+                    == AltFlickAction.SamusBoost
+                && AltFormGesture.FlickAction(global::MphRead.Hunter.Spire)
+                    == AltFlickAction.SpireMomentum
+                && AltFormGesture.FlickAction(global::MphRead.Hunter.Kanden)
+                    == AltFlickAction.None,
+                "flick routing is ability-specific");
+            Require(!AltFormGesture.UsesPrecisionSwipe(global::MphRead.Hunter.Samus)
+                && AltFormGesture.UsesPrecisionSwipe(global::MphRead.Hunter.Kanden)
+                && AltFormGesture.UsesPrecisionSwipe(global::MphRead.Hunter.Spire)
+                && AltFormGesture.UsesPrecisionSwipe(global::MphRead.Hunter.Noxus),
+                "Samus swipe keeps stock morph-ball inertia while other rolling forms retain precision drive");
+
+            float oldMouseSensitivity = InputSettings.MouseSensitivity;
+            float oldAltSwipeSensitivity = InputSettings.AltSwipeSensitivity;
+            try
+            {
+                InputSettings.MouseSensitivity = 1;
+                InputSettings.AltSwipeSensitivity = 1;
+                MouseFlick.Reset();
+                MouseFlick.Check(0, 0, 100000, out _, out _);
+                Require(!MouseFlick.Check(300, 0, 100001, out _, out _),
+                    "default alt swipe sensitivity keeps the desktop flick threshold");
+
+                InputSettings.AltSwipeSensitivity = 2;
+                MouseFlick.Reset();
+                MouseFlick.Check(0, 0, 200000, out _, out _);
+                Require(MouseFlick.Check(300, 0, 200001, out float flickX, out float flickY)
+                        && flickX > 0.99f && Math.Abs(flickY) < 0.001f,
+                    "higher alt swipe sensitivity lowers desktop mouse flick travel");
+
+                // Reproduce a bot/offline rematch: the recognizer is static, but
+                // the replacement Scene starts FrameCount over at zero. The old
+                // absolute cooldown must not strand swipes until the new match
+                // reaches the previous match's frame number.
+                InputSettings.AltSwipeSensitivity = 1;
+                MouseFlick.Reset();
+                MouseFlick.Check(0, 0, 50000, out _, out _);
+                Require(MouseFlick.Check(500, 0, 50001, out _, out _),
+                    "desktop flick fires late in the old match");
+                MouseFlick.Reset();
+                MouseFlick.Check(0, 0, 10, out _, out _);
+                Require(MouseFlick.Check(500, 0, 11, out _, out _),
+                    "new match frame epoch clears stale desktop flick cooldown");
+            }
+            finally
+            {
+                InputSettings.MouseSensitivity = oldMouseSensitivity;
+                InputSettings.AltSwipeSensitivity = oldAltSwipeSensitivity;
+                MouseFlick.Reset();
+            }
+        }
+
+        private static void CheckCameraBasis()
+        {
+            var camera = new CameraInfo();
+            camera.Reset();
+            Require(camera.Field48 == 0 && camera.Field4C == -1
+                && camera.Field50 == -1 && camera.Field54 == 0,
+                "camera reset supplies a valid roll basis");
+            camera.Position = OpenTK.Mathematics.Vector3.Zero;
+            camera.Target = new OpenTK.Mathematics.Vector3(3, 2, 4);
+            camera.Update();
+            float forwardX = camera.Field48;
+            float forwardZ = camera.Field4C;
+            float leftX = camera.Field50;
+            float leftZ = camera.Field54;
+            camera.Target = OpenTK.Mathematics.Vector3.UnitY;
+            camera.Update();
+            Require(camera.Field48 == forwardX && camera.Field4C == forwardZ
+                && camera.Field50 == leftX && camera.Field54 == leftZ,
+                "vertical camera preserves the last trustworthy roll basis");
+        }
+
+        private static void Frame(float x, float y, bool down, bool independentDown = false,
+            bool acceptsInput = true, uint id = 1)
+        {
+            PointerDevice.Update(new PointerSample(PointerDeviceType.Pen, id, x, y, down, down, true),
+                1920, 1080, independentDown, acceptsInput);
+        }
+
+        private static void CheckZone()
+        {
+            PointerDevice.Reset();
+            PointerInput.StylusMode = true;
+            PointerInput.GuardJumps = false; // first-contact protection must not depend on jump filtering
+            StylusZone.Enabled = true;
+            StylusZone.AspectCorrection = 1920f / 1080;
+            StylusZone.SetRect(0, 0, 1);
+
+            StylusRegion AtDs(float x, float y)
+                => StylusZone.RegionAt(x / StylusZone.DsWidth,
+                    y / StylusZone.DsHeight * StylusZone.Height);
+            Require(AtDs(86, 42) == StylusRegion.PowerBeam
+                && AtDs(126, 42) == StylusRegion.Missile
+                && AtDs(174, 42) == StylusRegion.Weapons,
+                "native weapon strip has three direct-select boxes");
+            Require(AtDs(106, 42) == StylusRegion.Aim
+                && AtDs(146, 42) == StylusRegion.Aim,
+                "gaps between the three weapon boxes remain aim surface");
+            Require(AtDs(232, 43) == StylusRegion.WeaponSelect,
+                "round sub-weapon-change icon is separate from the three boxes");
+            Require(AtDs(68, 24) == StylusRegion.PowerBeam
+                && AtDs(104, 60) == StylusRegion.PowerBeam
+                && AtDs(67.9f, 42) == StylusRegion.Aim,
+                "BEAM rectangular hitbox follows native art edges");
+
+            Frame(100, 600, false);
+            Frame(1500, 600, true);
+            Require(StylusZone.Held == StylusRegion.Aim && !StylusZone.Aiming, "first contact belongs to aim without rotating");
+            Require(!PointerDevice.PrimaryDown && PointerDevice.TakeDelta() == (0f, 0f), "contact teleport cannot aim or fire");
+            Frame(1510, 605, true);
+            Frame(1520, 610, true); // two pictures before the simulation reads
+            Require(StylusZone.Aiming && PointerDevice.TakeDelta() == (20f, 10f), "drag accumulates between simulation steps");
+            Require(PointerDevice.TakeDelta() == (0f, 0f), "catch-up simulation cannot apply movement twice");
+            Frame(1530, 615, true, independentDown: true);
+            Require(PointerDevice.PrimaryDown, "native independent mouse is not captured");
+            Frame(1540, 620, false);
+            PointerDevice.AdvanceSimulationStep();
+            Frame(100, 600, false);
+            Frame(1500, 600, true);
+            Frame(1505, 602, true); // touchdown picture had no simulation step
+            Require(PointerDevice.TakeDelta() == (5f, 2f), "high-refresh touchdown excludes hover teleport");
+            Frame(1510, 604, true, acceptsInput: false);
+            Frame(1800, 650, true, acceptsInput: false);
+            Frame(1810, 650, true);
+            Require(!StylusZone.Aiming && PointerDevice.TakeDelta() == (0f, 0f),
+                "pause/focus return quarantines held stylus input");
+            Frame(1820, 650, true, id: 2);
+            Require(!StylusZone.Aiming && !StylusZone.CapturingPointer
+                && PointerDevice.TakeDelta() == (0f, 0f),
+                "pointer id churn cannot escape the held-input quarantine");
+            Frame(1820, 650, false, id: 2);
+            PointerDevice.AdvanceSimulationStep();
+            Frame(1820, 650, false, id: 2);
+            Frame(1830, 650, true, id: 3);
+            Require(StylusZone.Held == StylusRegion.Aim && !StylusZone.Aiming,
+                "stable release rearms stylus aim without a touchdown jump");
+            Frame(1840, 655, true, id: 3);
+            Require(StylusZone.Aiming && PointerDevice.TakeDelta() == (10f, 5f),
+                "rearmed stylus aim resumes after the first drag sample");
+
+            // A real tablet can rotate native pointer IDs while the tip is still
+            // physically touching the same WPN/affinity icon. That must remain
+            // one press; only a real pen-up may re-arm the one-shot action.
+            PointerDevice.Reset();
+            PointerInput.StylusMode = true;
+            StylusZone.Enabled = true;
+            StylusZone.AspectCorrection = 1920f / 1080;
+            StylusZone.SetRect(0, 0, 1);
+            StylusZone.Button weapons = Array.Find(StylusZone.Buttons,
+                button => button.Region == StylusRegion.Weapons);
+            float weaponX = weapons.X / StylusZone.DsWidth * 1920;
+            float weaponY = weapons.Y / StylusZone.DsHeight * StylusZone.Height * 1080;
+            Frame(weaponX, weaponY, true, id: 10);
+            Require(StylusZone.TakePressed() == StylusRegion.Weapons,
+                "WPN contact produces one action");
+            Frame(weaponX, weaponY, true, id: 11);
+            Require(StylusZone.Held == StylusRegion.Weapons
+                && StylusZone.TakePressed() == StylusRegion.None,
+                "WPN id churn does not repeat the action");
+
+            // XP-Pen and similar drivers can report the old WM_POINTER id up,
+            // then the replacement id down on the next picture while the tip
+            // never left the tablet. The one-frame gap must not re-arm WPN.
+            Frame(weaponX, weaponY, false, id: 11);
+            Require(StylusZone.Held == StylusRegion.Weapons
+                && StylusZone.TakePressed() == StylusRegion.None,
+                "transient WPN release stays inside the active gesture");
+            Frame(weaponX, weaponY, true, id: 12);
+            Require(StylusZone.Held == StylusRegion.Weapons
+                && StylusZone.TakePressed() == StylusRegion.None,
+                "WPN handoff after transient release does not repeat the action");
+
+            // Render frequency must not decide when the action rearms. At 240 Hz
+            // several up samples can arrive before gameplay advances once; all of
+            // them still belong to the same gesture until a 60 Hz step observes it.
+            Frame(weaponX, weaponY, false, id: 12);
+            Frame(weaponX, weaponY, false, id: 12);
+            Frame(weaponX, weaponY, false, id: 12);
+            Require(StylusZone.Held == StylusRegion.Weapons
+                && StylusZone.TakePressed() == StylusRegion.None,
+                "high-refresh release samples cannot rearm WPN before simulation");
+            PointerDevice.AdvanceSimulationStep();
+            Frame(weaponX, weaponY, false, id: 12);
+            Require(StylusZone.Held == StylusRegion.None,
+                "release ends only after crossing a simulation boundary");
+            Frame(weaponX, weaponY, true, id: 13);
+            Require(StylusZone.TakePressed() == StylusRegion.Weapons,
+                "stable WPN release rearms the next touch");
+
+            // A settings/menu click may still be physically held when the overlay
+            // closes. That contact is UI-owned and must stay quarantined until a
+            // real release, rather than becoming a fresh gameplay WPN press.
+            PointerDevice.Reset();
+            PointerInput.StylusMode = true;
+            StylusZone.Enabled = true;
+            StylusZone.AspectCorrection = 1920f / 1080;
+            StylusZone.SetRect(0, 0, 1);
+            Frame(weaponX, weaponY, true, acceptsInput: false, id: 20);
+            Frame(weaponX, weaponY, true, acceptsInput: true, id: 20);
+            Require(!StylusZone.CapturingPointer
+                && StylusZone.TakePressed() == StylusRegion.None,
+                "held UI contact cannot click through into gameplay");
+            Frame(weaponX, weaponY, false, acceptsInput: true, id: 20);
+            Frame(weaponX, weaponY, true, acceptsInput: true, id: 21);
+            Require(!StylusZone.CapturingPointer
+                && StylusZone.TakePressed() == StylusRegion.None,
+                "transient UI-contact release cannot escape quarantine");
+            Frame(weaponX, weaponY, false, acceptsInput: true, id: 21);
+            PointerDevice.AdvanceSimulationStep();
+            Frame(weaponX, weaponY, false, acceptsInput: true, id: 21);
+            Frame(weaponX, weaponY, true, acceptsInput: true, id: 22);
+            Require(StylusZone.TakePressed() == StylusRegion.Weapons,
+                "UI-owned contact rearms only after a stable release");
+
+            foreach (StylusZone.Button button in StylusZone.Buttons)
+            {
+                StylusZone.Reset();
+                float x = button.X / StylusZone.DsWidth;
+                float y = button.Y / StylusZone.DsHeight * StylusZone.Height;
+                StylusZone.Update(x, y, true);
+                Require(StylusZone.CapturingPointer && StylusZone.CapturingPrimaryButton, $"{button.Label} captures tip");
+                Require(!StylusZone.Aiming, $"{button.Label} never aims");
+                if (button.Region == StylusRegion.WeaponSelect)
+                {
+                    StylusZone.Update(-1, -1, true);
+                    Require(StylusZone.MenuHeld, "SEL holds wheel after dragging outside");
+                }
+                else
+                {
+                    Require(StylusZone.TakePressed() == button.Region, $"{button.Label} action latched");
+                    Require(StylusZone.TakePressed() == StylusRegion.None, "latched action consumed once");
+                }
+                StylusZone.Update(x, y, false);
+                Require(!StylusZone.CapturingPointer && !StylusZone.MenuHeld, "release ends ownership");
+            }
+            // Use the centre of the DS map as a known aim point. The old
+            // hard-coded (.5, .4) landed inside the Missile box after the
+            // native three-box weapon strip geometry was corrected.
+            float aimX = 128f / StylusZone.DsWidth;
+            float aimY = 96f / StylusZone.DsHeight * StylusZone.Height;
+            Require(StylusZone.RegionAt(aimX, aimY) == StylusRegion.Aim,
+                "centre of native bottom screen remains aim surface");
+            StylusZone.Reset();
+            StylusZone.Update(-1, -1, true);
+            StylusZone.Update(aimX, aimY, true);
+            Require(!StylusZone.CapturingPointer && StylusZone.Held == StylusRegion.None, "outside contact stays ordinary");
+            StylusZone.Reset();
+            StylusZone.Update(aimX, aimY, true);
+            StylusZone.Update(-1, -1, true);
+            Require(StylusZone.Aiming && StylusZone.Held == StylusRegion.Aim, "aim ownership stays sticky outside zone");
+            StylusZone.BeginPlacement();
+            StylusZone.Update(aimX, aimY, true);
+            Require(StylusZone.CapturingPointer && !StylusZone.CapturingPrimaryButton && !StylusZone.Aiming,
+                "placement owns pointer separately from zone contact");
+            StylusZone.CancelPlacement();
+            PointerInput.StylusMode = false;
+            StylusZone.Update(.5f, .4f, true);
+            Require(!StylusZone.Enabled && !StylusZone.CapturingPointer, "master off disables DS zone");
+        }
+
+        private static void CheckPlayerInput()
+        {
+            // Only the input pass runs. Construct the real owned state without
+            // loading cartridge music, models or a GL context.
+            var scene = new Scene(new OpenTK.Mathematics.Vector2i(256, 192),
+                SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { },
+                initializeRuntime: false);
+            typeof(Scene).GetField("_cameraMode", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(scene, CameraMode.Player);
+            var player = scene.Players.Main;
+            player.LoadFlags = LoadFlags.Active;
+            var keyboard = SyntheticInput.CreateKeyboard();
+            var mouse = SyntheticInput.CreateMouse();
+            var setKey = typeof(KeyboardState).GetMethod("SetKeyState",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!
+                .CreateDelegate<Action<KeyboardState, Keys, bool>>();
+            var setButton = typeof(MouseState).GetProperty("Item",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!.SetMethod!
+                .CreateDelegate<Action<MouseState, MouseButton, bool>>();
+            var setScroll = typeof(MouseState).GetProperty("Scroll",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!.SetMethod!
+                .CreateDelegate<Action<MouseState, OpenTK.Mathematics.Vector2>>();
+            var setPosition = typeof(MouseState).GetProperty("Position")!.SetMethod!
+                .CreateDelegate<Action<MouseState, OpenTK.Mathematics.Vector2>>();
+            var input = (PlayerEntity.PlayerInput)typeof(PlayerEntity).GetProperty("Input",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(player)!;
+            var controls = player.Controls;
+            var processTouchInput = typeof(PlayerEntity).GetMethod("ProcessTouchInput",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+            // Offline multiplayer must enter play the same way online does.
+            // Otherwise slot zero remains behind the multiplayer intro camera
+            // while bots spawn immediately, which makes MnK/stylus aim appear
+            // locked to screen centre. Only the never-spawned initial life is
+            // forced; ordinary later respawns keep their timer.
+            GameMode originalMode = scene.GameState.Mode;
+            scene.GameState.Mode = GameMode.Battle;
+            player.LoadFlags &= ~LoadFlags.Spawned;
+            Require(Mods.Network.NetHooks.ForceSpawn(player),
+                "offline multiplayer local human auto-spawns from intro camera");
+            player.LoadFlags |= LoadFlags.Spawned;
+            Require(!Mods.Network.NetHooks.ForceSpawn(player),
+                "offline multiplayer later lives keep normal respawn timing");
+            player.LoadFlags &= ~LoadFlags.Spawned;
+            scene.GameState.Mode = GameMode.SinglePlayer;
+            Require(!Mods.Network.NetHooks.ForceSpawn(player),
+                "single-player keeps authored spawn flow");
+            scene.GameState.Mode = originalMode;
+
+            // The shell and the match share one OpenTK window. Scroll is an absolute
+            // position for that window, so the first scene must baseline whatever the
+            // launcher accumulated instead of treating it as a gameplay wheel edge.
+            setScroll(mouse, new OpenTK.Mathematics.Vector2(0, 7));
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.NextWeapon.IsPressed && !controls.PrevWeapon.IsPressed,
+                "first gameplay sample baselines launcher wheel history");
+            setScroll(mouse, new OpenTK.Mathematics.Vector2(0, 8));
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.PrevWeapon.IsPressed,
+                "wheel still produces a real edge after startup baseline");
+
+            // A side/preview scene may become the compatibility registry while the
+            // foreground match is still alive. Gameplay input must stay attached to
+            // the scene that owns this simulation step, not whichever scene most
+            // recently touched the legacy static bridge.
+            ScenePlayerRegistry foregroundRegistry = PlayerEntity.LegacyRegistry;
+            PlayerEntity.LegacyRegistry = new ScenePlayerRegistry();
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.NextWeapon.IsPressed && !controls.PrevWeapon.IsPressed,
+                "side scene cannot steal foreground keyboard/mouse/stylus input");
+            PlayerEntity.LegacyRegistry = foregroundRegistry;
+
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.NextWeapon.IsPressed && !controls.PrevWeapon.IsPressed,
+                "absolute wheel position does not repeat without another notch");
+
+            // Additive sources (controller/stylus) write after the raw keyboard
+            // pass. An unbound keyboard action used to skip that pass completely,
+            // leaving the previous additive IsPressed/IsDown latched forever.
+            controls.NextWeapon.Type = ButtonType.Key;
+            controls.NextWeapon.Key = Keys.Unknown;
+            controls.NextWeapon.IsDown = controls.NextWeapon.IsPressed = true;
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed
+                && !controls.NextWeapon.IsReleased,
+                "unbound keyboard action clears previous additive state");
+
+            // Suppressed gameplay must clear the shared Keybind surface and still
+            // advance its raw baselines. Otherwise a one-frame press stays asserted
+            // for every suppressed step, or a key held in Settings becomes a new
+            // gameplay edge when Settings closes.
+            controls.NextWeapon.Type = ButtonType.Key;
+            controls.NextWeapon.Key = Keys.H;
+            setKey(keyboard, Keys.H, true);
+            setPosition(mouse, new OpenTK.Mathematics.Vector2(20, 10));
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.NextWeapon.IsDown && controls.NextWeapon.IsPressed,
+                "keyboard weapon edge begins normally");
+            setPosition(mouse, new OpenTK.Mathematics.Vector2(500, 300));
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, true);
+            Require(!controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed
+                && !controls.NextWeapon.IsReleased,
+                "suppressed gameplay clears stale held and pressed keybind state");
+            Require(input.MouseDeltaX == 0 && input.MouseDeltaY == 0,
+                "suppressed gameplay discards mouse movement instead of banking it");
+            setPosition(mouse, new OpenTK.Mathematics.Vector2(504, 302));
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
+                "held UI key resumes as state, not a new gameplay edge");
+            Require(Math.Abs(input.MouseDeltaX) <= 8 && Math.Abs(input.MouseDeltaY) <= 8,
+                "resumed mouse delta starts from the suppressed baseline, not UI travel");
+            setKey(keyboard, Keys.H, false);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+
+            // The overlay can open and close entirely between two simulation steps
+            // on a high-refresh display. The context revision must still quarantine
+            // the held key for the first gameplay step after that transition.
+            setKey(keyboard, Keys.H, true);
+            Mods.Input.GamepadContexts.MenuVisible = true;
+            Mods.Input.GamepadContexts.MenuVisible = false;
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
+                "between-step UI transition cannot leak a held key into gameplay");
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
+                "post-transition held key remains edge-neutral until release");
+            setKey(keyboard, Keys.H, false);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+
+            // Chat owns input without setting MenuVisible. Its dedicated
+            // ownership boundary must provide the same between-step quarantine.
+            setKey(keyboard, Keys.H, true);
+            Mods.Input.GamepadContexts.TextEntryActive = true;
+            Mods.Input.GamepadContexts.TextEntryActive = false;
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
+                "between-step chat transition cannot leak a held key into gameplay");
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
+                "post-chat held key remains edge-neutral until release");
+            setKey(keyboard, Keys.H, false);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+
+            // The stylus WPN box is a direct affinity-slot select, not a
+            // weapon-cycle action. If its keyboard side is unbound, that virtual
+            // contribution must still last exactly one simulation frame.
+            controls.AffinitySlot.Type = ButtonType.Key;
+            controls.AffinitySlot.Key = Keys.Unknown;
+            PointerDevice.Reset();
+            PointerInput.StylusMode = true;
+            StylusZone.Enabled = true;
+            StylusZone.SetRect(0, 0, 1);
+            StylusZone.Button wpn = Array.Find(StylusZone.Buttons,
+                button => button.Region == StylusRegion.Weapons);
+            float wpnX = wpn.X / StylusZone.DsWidth * 1920;
+            float wpnY = wpn.Y / StylusZone.DsHeight * StylusZone.Height * 1080;
+            Frame(wpnX, wpnY, false);
+            Frame(wpnX, wpnY, true);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.AffinitySlot.IsDown && controls.AffinitySlot.IsPressed,
+                "stylus reaches keyboard-unbound affinity WPN action once");
+            Frame(wpnX, wpnY, false);
+            PointerDevice.AdvanceSimulationStep();
+            Frame(wpnX, wpnY, false);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.AffinitySlot.IsDown && !controls.AffinitySlot.IsPressed,
+                "stylus affinity WPN contribution clears after release when keyboard side is unbound");
+
+            // Continue with the ordinary aim/capture path.
+            Frame(1000, 600, false);
+            Frame(1000, 600, true);
+            setButton(mouse, MouseButton.Left, true);
+            controls.Shoot.Type = controls.AltAttack.Type = ButtonType.Key;
+            controls.Shoot.Key = Keys.F;
+            controls.AltAttack.Key = Keys.G;
+            setKey(keyboard, Keys.F, true);
+            setKey(keyboard, Keys.G, true);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.Shoot.IsDown && controls.Shoot.IsPressed && controls.AltAttack.IsDown,
+                "real input pass preserves rebound Shoot and AltAttack during tip contact");
+            Frame(1010, 605, true);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.Shoot.IsDown && !controls.Shoot.IsPressed && StylusZone.Aiming,
+                "real input pass keeps firing while aiming");
+            controls.Shoot.Type = controls.AltAttack.Type = controls.Jump.Type = ButtonType.Mouse;
+            controls.Shoot.MouseButton = controls.AltAttack.MouseButton = controls.Jump.MouseButton = MouseButton.Left;
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(!controls.Shoot.IsDown && !controls.AltAttack.IsDown && !controls.Jump.IsDown,
+                "real input pass captures all LMB-bound actions");
+            GamepadContexts.Current = GamepadContext.Gameplay;
+
+            // Exercise the real additive controller path on a keyboard-unbound
+            // action. AffinitySlot ships unbound on keyboard, which made it the
+            // cleanest reproduction of the permanent IsPressed latch.
+            PadBindings.Reset();
+            PadBindings.SetSlot(PadAction.AffinitySlot, 0, GamepadButtons.X);
+            GamepadManager.UpdateDevice("pointercheck", new GamepadState { Connected = true }, mapped: true);
+            GamepadInput.BeginFrame(); // adopt the binding revision on neutral input
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            GamepadInput.Apply(player);
+            GamepadManager.UpdateDevice("pointercheck",
+                new GamepadState { Connected = true, Buttons = GamepadButtons.X }, mapped: true);
+            GamepadInput.BeginFrame();
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            GamepadInput.Apply(player);
+            Require(controls.AffinitySlot.IsDown && controls.AffinitySlot.IsPressed,
+                "controller reaches keyboard-unbound weapon action once");
+            GamepadManager.UpdateDevice("pointercheck", new GamepadState { Connected = true }, mapped: true);
+            GamepadInput.BeginFrame();
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            GamepadInput.Apply(player);
+            Require(!controls.AffinitySlot.IsDown && !controls.AffinitySlot.IsPressed,
+                "released controller cannot leave keyboard-unbound weapon action latched");
+
+            // Establish the default binding revision on a neutral frame first. A binding
+            // change intentionally blocks buttons already held at that transition so
+            // remapping cannot leak the capture press into gameplay.
+            PadBindings.Reset();
+            GamepadManager.UpdateDevice("pointercheck", new GamepadState { Connected = true }, mapped: true);
+            GamepadInput.BeginFrame();
+            GamepadManager.UpdateDevice("pointercheck", new GamepadState { Connected = true, Buttons = GamepadButtons.RightTrigger }, mapped: true);
+            GamepadInput.BeginFrame();
+            GamepadInput.Apply(player);
+            Require(controls.Shoot.IsDown && controls.AltAttack.IsDown, "real controller contribution survives stylus capture");
+            GamepadManager.RemoveDevice("pointercheck");
+            GamepadInput.BeginFrame();
+            foreach (StylusZone.Button button in StylusZone.Buttons)
+            {
+                // This fixture calls ProcessInput directly, so model the fixed-step
+                // boundary that RenderWindow normally supplies between pen-up
+                // samples. Render count alone must never re-arm a one-shot action.
+                Frame(0, 0, false);
+                PointerDevice.AdvanceSimulationStep();
+                Frame(0, 0, false);
+                Frame(button.X / StylusZone.DsWidth * 1920, button.Y / StylusZone.DsHeight * StylusZone.Height * 1080, true);
+                PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+                Require(!controls.Shoot.IsDown && !controls.AltAttack.IsDown, $"{button.Label} does not fire in real input pass");
+                Keybind bind = button.Region switch
+                {
+                    StylusRegion.PowerBeam => controls.PowerBeam,
+                    StylusRegion.Missile => controls.Missile,
+                    StylusRegion.Weapons => controls.AffinitySlot,
+                    StylusRegion.WeaponSelect => controls.WeaponMenu,
+                    _ => controls.Morph
+                };
+                if (button.Region == StylusRegion.WeaponSelect)
+                {
+                    Require(!bind.IsDown && StylusZone.MenuHeld,
+                        "SEL stays source-owned instead of mutating the shared WeaponMenu bind");
+                }
+                else
+                {
+                    Require(bind.IsDown, $"{button.Label} reaches its gameplay action");
+                }
+            }
+
+            // SEL is a source-owned hold: contact opens the weapon menu and pen-up
+            // must close it without depending on a stale value in WeaponMenu.IsDown.
+            // Keep selection empty so closing this synthetic menu has no audio/equip side effect.
+            typeof(PlayerEntity).GetField("<WeaponSelection>k__BackingField",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(player, BeamType.None);
+            Frame(0, 0, false);
+            PointerDevice.AdvanceSimulationStep();
+            Frame(0, 0, false);
+            var select = Array.Find(StylusZone.Buttons,
+                button => button.Region == StylusRegion.WeaponSelect);
+            Frame(select.X / StylusZone.DsWidth * 1920,
+                select.Y / StylusZone.DsHeight * StylusZone.Height * 1080, true);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            processTouchInput.Invoke(player, null);
+            Require(player.Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen),
+                "stylus SEL opens weapon menu");
+            Frame(select.X / StylusZone.DsWidth * 1920,
+                select.Y / StylusZone.DsHeight * StylusZone.Height * 1080, false);
+            PointerDevice.AdvanceSimulationStep();
+            Frame(select.X / StylusZone.DsWidth * 1920,
+                select.Y / StylusZone.DsHeight * StylusZone.Height * 1080, false);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            processTouchInput.Invoke(player, null);
+            Require(!player.Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen)
+                && !player.Flags1.TestFlag(PlayerFlags1.NoAimInput),
+                "stylus SEL release closes weapon menu");
+
+            PointerInput.StylusMode = false;
+            Frame(1000, 600, true);
+            setButton(mouse, MouseButton.Left, false);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            setButton(mouse, MouseButton.Left, true);
+            PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+            Require(controls.Shoot.IsDown && controls.AltAttack.IsDown && controls.Jump.IsPressed,
+                "normal mouse restores all primary bindings");
+            PlayerEntity.Reset();
+        }
+
+        private static void CheckOfflineInput()
+        {
+            // Include the post-simulation and presentation killcam hooks. Testing
+            // ProcessInput alone misses a reset that erases its history afterwards.
+            var keyboard = SyntheticInput.CreateKeyboard();
+            var mouse = SyntheticInput.CreateMouse();
+            var scene = new Scene(new OpenTK.Mathematics.Vector2i(256, 192),
+                keyboard, mouse, _ => { }, () => { }, initializeRuntime: false);
+            var player = scene.Players.Main;
+            player.LoadFlags = LoadFlags.Active;
+            player.Controls.MoveUp.Type = ButtonType.Key;
+            player.Controls.MoveUp.Key = Keys.W;
+            player.Controls.Shoot.Type = ButtonType.Mouse;
+            player.Controls.Shoot.MouseButton = MouseButton.Left;
+            var input = (PlayerEntity.PlayerInput)typeof(PlayerEntity).GetProperty("Input",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(player)!;
+            var setPosition = typeof(MouseState).GetProperty("Position")!.SetMethod!
+                .CreateDelegate<Action<MouseState, OpenTK.Mathematics.Vector2>>();
+            var setKey = typeof(KeyboardState).GetMethod("SetKeyState",
+                BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!
+                .CreateDelegate<Action<KeyboardState, Keys, bool>>();
+            var setButton = typeof(MouseState).GetProperty("Item")!.SetMethod!
+                .CreateDelegate<Action<MouseState, MouseButton, bool>>();
+            foreach (var device in new[] { PointerDeviceType.Mouse, PointerDeviceType.Pen, PointerDeviceType.Touch })
+            {
+                PointerDevice.Reset();
+                PointerInput.StylusMode = device != PointerDeviceType.Mouse;
+                StylusZone.Enabled = false;
+                player.ModForgetInputDeltas();
+                setKey(keyboard, Keys.W, false);
+                setButton(mouse, MouseButton.Left, false);
+                for (int frame = 0; frame < 180; frame++)
+                {
+                    setPosition(mouse, new(frame * 4, frame * 2));
+                    setKey(keyboard, Keys.W, frame > 0);
+                    setButton(mouse, MouseButton.Left, frame > 0);
+                    PointerDevice.Update(new(device, 1, frame * 4, frame * 2,
+                        true, true, true), 1920, 1080);
+                    PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
+                    if (frame > 0)
+                    {
+                        Require(input.MouseDeltaX == 4 && input.MouseDeltaY == 2,
+                            $"offline {device} movement survives killcam housekeeping at frame {frame}");
+                        Require(player.Controls.MoveUp.IsDown && player.Controls.Shoot.IsDown,
+                            $"offline {device} held controls survive killcam housekeeping");
+                    }
+                    KillCam.AfterSimulation(scene);
+                    Require(KillCam.Presentation(scene) == null, "offline match has no killcam presentation");
+                }
+            }
+            KillCam.Reset();
+            PointerDevice.Reset();
+            PointerInput.StylusMode = false;
+            PlayerEntity.Reset();
+        }
+
+        private static void CheckSettings()
+        {
+            string originalDirectory = Launcher.LauncherPrefs.Directory;
+            string directory = Path.Combine(Path.GetTempPath(), "project-prime-pointer-check-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "controls.txt");
+            try
+            {
+                Launcher.LauncherPrefs.Directory = directory;
+                File.WriteAllText(path, "sensitivity=2\nhorizontal_sensitivity=1.5\nvertical_sensitivity=0.5\n"
+                    + "imperialist_zoom_sensitivity=0.75\ncustom_scope_25_sensitivity=1.2\ncustom_scope_4_sensitivity=1.3\n"
+                    + "ds_layout=true\nds_screen_aspect=5:3\nds_radar_size=1.25\nds_radar_x=0.2\nds_radar_y=0.7\nstylus_select_size=0.75\n");
+                InputSettings.Load();
+                Require(InputSettings.MouseAimSensitivityX() == 3 && InputSettings.MouseAimSensitivityY() == 1
+                    && InputSettings.MouseAimSensitivityX(true) == 2.25f && InputSettings.MouseAimSensitivityY(true) == .75f,
+                    "independent axes compose with base and Imperialist scoped sensitivity");
+                Require(InputSettings.CustomScope25Sensitivity == 1.2f && InputSettings.CustomScope4Sensitivity == 1.3f,
+                    "axis restoration preserves newer custom scope settings");
+                Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3" && DsLayout.RadarSize == 1.25f
+                    && DsLayout.RadarX == .2f && DsLayout.RadarY == .7f && StylusZone.SelectSize == .75f,
+                    "stacked display preferences load independently of stylus enable");
+                InputSettings.Save();
+                InputSettings.HorizontalSensitivity = InputSettings.VerticalSensitivity = 1;
+                DsLayout.Enabled = false; DsLayout.ScreenAspect = "4:3";
+                DsLayout.RadarSize = 1; DsLayout.RadarX = DsLayout.RadarY = .5f; StylusZone.SelectSize = 1;
+                InputSettings.Load();
+                Require(InputSettings.HorizontalSensitivity == 1.5f && InputSettings.VerticalSensitivity == .5f
+                    && DsLayout.Enabled && DsLayout.ScreenAspect == "5:3" && DsLayout.RadarSize == 1.25f
+                    && DsLayout.RadarX == .2f && DsLayout.RadarY == .7f && StylusZone.SelectSize == .75f,
+                    "independent axes and stacked display preferences survive save and reload");
+                InputSettings.HorizontalSensitivity = Single.NaN; InputSettings.VerticalSensitivity = Single.PositiveInfinity;
+                Require(InputSettings.HorizontalSensitivity == 1 && InputSettings.VerticalSensitivity == 1,
+                    "nonfinite axis multipliers restore neutral defaults");
+                File.WriteAllText(path, "horizontal_sensitivity=99\nvertical_sensitivity=-99\n");
+                InputSettings.Load();
+                Require(InputSettings.HorizontalSensitivity == 3 && InputSettings.VerticalSensitivity == .01f,
+                    "hand edited axis values clamp to supported bounds");
+                DsLayout.UpdateInputBounds(1920, 1080);
+                PointerInput.StylusMode = true;
+                StylusZone.SetRect(.2f, .3f, .25f);
+                InputSettings.Save();
+                Require(File.ReadAllText(path).Contains("stylus_zone_rect=0.2,0.3,0.25", StringComparison.Ordinal),
+                    "saving active stacked display preserves separate free stylus rectangle");
+                var bounds = DsLayout.Bounds(1920, 1080);
+                Require(bounds.Top.Z == 900 && bounds.Top.W == 540 && bounds.Bottom.Y == bounds.Top.Y + 540
+                    && Math.Abs(StylusZone.Left - bounds.Bottom.X / 1920f) < .0001f,
+                    "5:3 stacked input uses centered client pixel bounds");
+                Require(!Settings.PreferenceText.IsValid("ds_layout", "maybe", launcher: false)
+                    && !Settings.PreferenceText.IsValid("ds_screen_aspect", "16:9", launcher: false)
+                    && !Settings.PreferenceText.IsValid("ds_radar_size", "NaN", launcher: false),
+                    "malformed stacked preferences rejected by detached and runtime grammar");
+                InputSettings.Reset();
+                Require(InputSettings.HorizontalSensitivity == 1 && InputSettings.VerticalSensitivity == 1
+                    && !DsLayout.Enabled && DsLayout.ScreenAspect == "4:3" && DsLayout.RadarSize == 1
+                    && DsLayout.RadarX == .5f && DsLayout.RadarY == .5f && StylusZone.SelectSize == 1,
+                    "reset restores independent axes and every stacked display default");
+                File.WriteAllText(path, "pointer_jump_guard=true\nstylus_zone=true\n");
+                InputSettings.Load();
+                Require(!PointerInput.StylusMode && PointerInput.GuardJumps && !StylusZone.Enabled,
+                    "legacy jump guard does not enable stylus mode");
+                File.WriteAllText(path, "pointer_jump_guard=false\n");
+                InputSettings.Load();
+                Require(!PointerInput.StylusMode, "legacy disabled file migrates");
+                File.WriteAllText(path, "pointer_jump_guard=true\nstylus_mode=false\n");
+                InputSettings.Load();
+                Require(!PointerInput.StylusMode && PointerInput.GuardJumps,
+                    "explicit disabled stylus mode wins after legacy guard");
+                File.WriteAllText(path, "stylus_mode=false\npointer_jump_guard=true\n");
+                InputSettings.Load();
+                Require(!PointerInput.StylusMode && PointerInput.GuardJumps,
+                    "explicit disabled stylus mode wins before legacy guard");
+                File.WriteAllText(path, "stylus_mode=true\npointer_jump_guard=false\n");
+                InputSettings.Load();
+                Require(PointerInput.StylusMode && !PointerInput.GuardJumps && StylusZone.Enabled, "mode independent of guard, explicit setting first");
+                File.WriteAllText(path, "pointer_jump_guard=false\nstylus_mode=true\n");
+                InputSettings.Load();
+                Require(PointerInput.StylusMode && !PointerInput.GuardJumps, "explicit setting last");
+                InputSettings.Save();
+                PointerInput.StylusMode = false;
+                PointerInput.GuardJumps = true;
+                InputSettings.Load();
+                Require(PointerInput.StylusMode && !PointerInput.GuardJumps, "independent settings round trip");
+
+                File.WriteAllText(path,
+                    "mouse_movement_boost=false\nmouse_alt_form_movement=true\n"
+                    + "stylus_movement_boost=false\n");
+                InputSettings.Load();
+                Require(!InputSettings.MouseMovementBoost && InputSettings.MouseAltFormMovement
+                        && !InputSettings.StylusMovementBoost,
+                    "mouse alt movement is independent of movement-triggered boost");
+                InputSettings.Save();
+                InputSettings.MouseMovementBoost = true;
+                InputSettings.MouseAltFormMovement = false;
+                InputSettings.StylusMovementBoost = true;
+                InputSettings.Load();
+                Require(!InputSettings.MouseMovementBoost && InputSettings.MouseAltFormMovement
+                        && !InputSettings.StylusMovementBoost,
+                    "movement gesture settings round trip");
+
+                InputSettings.MouseMovementBoost = false;
+                InputSettings.StylusMovementBoost = true;
+                Require(!AltFormGesture.DesktopMovementBoostEnabled(false, PointerDeviceType.Mouse)
+                        && !AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Mouse)
+                        && !AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Unknown)
+                        && AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Pen)
+                        && AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Touch),
+                    "a physical mouse never inherits the stylus boost preference");
+                InputSettings.MouseMovementBoost = true;
+                InputSettings.StylusMovementBoost = false;
+                Require(AltFormGesture.DesktopMovementBoostEnabled(false, PointerDeviceType.Mouse)
+                        && AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Mouse)
+                        && !AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Pen)
+                        && !AltFormGesture.DesktopMovementBoostEnabled(true, PointerDeviceType.Touch),
+                    "pen and touch do not inherit the mouse boost preference");
+                InputSettings.MouseMovementBoost = false;
+                InputSettings.StylusMovementBoost = false;
+
+                File.WriteAllText(path, "alt_swipe_sensitivity=1.75\n");
+                InputSettings.Load();
+                Require(Math.Abs(InputSettings.AltSwipeSensitivity - 1.75f) < 0.0001f,
+                    "alt swipe sensitivity loads");
+                InputSettings.Save();
+                InputSettings.AltSwipeSensitivity = 1;
+                InputSettings.Load();
+                Require(Math.Abs(InputSettings.AltSwipeSensitivity - 1.75f) < 0.0001f,
+                    "alt swipe sensitivity round trips");
+                File.WriteAllText(path, "alt_swipe_sensitivity=99\n");
+                InputSettings.Load();
+                Require(InputSettings.AltSwipeSensitivity == InputSettings.MaxAltSwipeSensitivity,
+                    "alt swipe sensitivity clamps hand-edited high values");
+                File.WriteAllText(path, "alt_swipe_sensitivity=-99\n");
+                InputSettings.Load();
+                Require(InputSettings.AltSwipeSensitivity == InputSettings.MinAltSwipeSensitivity,
+                    "alt swipe sensitivity clamps hand-edited low values");
+
+                File.WriteAllText(path,
+                    "stylus_mode=true\nstylus_zone=true\nstylus_zone_opacity=0.4\n");
+                InputSettings.Load();
+                Require(Math.Abs(StylusZone.OutlineOpacity - 0.4f) < 0.0001f
+                    && Math.Abs(StylusZone.ButtonOpacity - 0.2f) < 0.0001f,
+                    "legacy combined overlay opacity preserves its appearance");
+
+                File.WriteAllText(path,
+                    "stylus_mode=true\nstylus_zone=true\nstylus_zone_opacity=0.4\n"
+                    + "stylus_native_ui=false\nstylus_native_ui_opacity=0.65\n"
+                    + "stylus_cursor_opacity=0\nstylus_zone_outline_opacity=0\n"
+                    + "stylus_zone_button_opacity=0.75\n"
+                    + "stylus_zone_color=#33AAFF\n");
+                InputSettings.Load();
+                Require(!StylusZone.NativeUi
+                    && Math.Abs(StylusZone.NativeUiOpacity - 0.65f) < 0.0001f
+                    && StylusZone.CursorOpacity == 0 && StylusZone.OutlineOpacity == 0
+                    && Math.Abs(StylusZone.ButtonOpacity - 0.75f) < 0.0001f
+                    && StylusZone.GuideColor == "#33AAFF",
+                    "native UI, guide color and per-element opacity settings load");
+
+                InputSettings.Save();
+                StylusZone.NativeUi = true;
+                StylusZone.NativeUiOpacity = 1;
+                StylusZone.CursorOpacity = 1;
+                StylusZone.OutlineOpacity = 1;
+                StylusZone.ButtonOpacity = 1;
+                StylusZone.GuideColor = "#FFFFFF";
+                InputSettings.Load();
+                Require(!StylusZone.NativeUi
+                    && Math.Abs(StylusZone.NativeUiOpacity - 0.65f) < 0.0001f
+                    && StylusZone.CursorOpacity == 0 && StylusZone.OutlineOpacity == 0
+                    && Math.Abs(StylusZone.ButtonOpacity - 0.75f) < 0.0001f
+                    && StylusZone.GuideColor == "#33AAFF",
+                    "native UI, guide color and per-element opacity settings round trip");
+
+                InputSettings.Reset();
+                Require(!PointerInput.StylusMode && PointerInput.GuardJumps && !StylusZone.Enabled,
+                    "reset restores ordinary mouse defaults");
+                Require(InputSettings.MouseMovementBoost && InputSettings.StylusMovementBoost,
+                    "reset restores movement-triggered boost defaults");
+                Require(!InputSettings.MouseAltFormMovement,
+                    "reset keeps optional mouse alt-form movement disabled");
+                Require(InputSettings.AltSwipeSensitivity == 1,
+                    "reset restores alt swipe sensitivity");
+                Require(StylusZone.NativeUi == StylusZone.DefaultNativeUi
+                    && Math.Abs(StylusZone.NativeUiOpacity - StylusZone.DefaultNativeUiOpacity) < 0.0001f
+                    && Math.Abs(StylusZone.CursorOpacity - StylusZone.DefaultCursorOpacity) < 0.0001f
+                    && Math.Abs(StylusZone.OutlineOpacity - StylusZone.DefaultOutlineOpacity) < 0.0001f
+                    && Math.Abs(StylusZone.ButtonOpacity - StylusZone.DefaultButtonOpacity) < 0.0001f
+                    && StylusZone.GuideColor == StylusZone.DefaultGuideColor,
+                    "reset restores stylus appearance defaults");
+            }
+            finally
+            {
+                Launcher.LauncherPrefs.Directory = originalDirectory;
+                File.Delete(path);
+                Directory.Delete(directory);
+            }
+        }
+    }
+}

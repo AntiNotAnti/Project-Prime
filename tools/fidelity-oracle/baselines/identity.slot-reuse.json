@@ -1,0 +1,67 @@
+{
+  "format": 1,
+  "scenario": {
+    "id": "identity.slot-reuse",
+    "version": 1,
+    "ticks": 5,
+    "seed": 0,
+    "content": "none",
+    "captureInterval": 1,
+    "tier": "F1",
+    "description": "Production lifecycle tracker fences occupants and wraps nonzero generations."
+  },
+  "engineRevision": "e80098f4",
+  "canonicalHash": "935eee6e5c8a154eac482433e3ba1656b1205f8e12824f5a03559bfe1d8ac841",
+  "checkpoints": [
+    {
+      "tick": 1,
+      "values": {
+        "generation": 65535,
+        "life": 1,
+        "newLife": 0,
+        "rejection": 0,
+        "state": 2
+      }
+    },
+    {
+      "tick": 2,
+      "values": {
+        "generation": 65535,
+        "life": 1,
+        "newLife": 0,
+        "rejection": 0,
+        "state": 3
+      }
+    },
+    {
+      "tick": 3,
+      "values": {
+        "generation": 65535,
+        "life": 1,
+        "newLife": 0,
+        "rejection": 3,
+        "state": 3
+      }
+    },
+    {
+      "tick": 4,
+      "values": {
+        "generation": 1,
+        "life": 1,
+        "newLife": 0,
+        "rejection": 0,
+        "state": 2
+      }
+    },
+    {
+      "tick": 5,
+      "values": {
+        "generation": 1,
+        "life": 1,
+        "newLife": 0,
+        "rejection": 1,
+        "state": 2
+      }
+    }
+  ]
+}

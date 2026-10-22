@@ -1,0 +1,35 @@
+<rml>
+<head>
+  <title>Project Prime | Quick Preferences</title>
+  <link type="text/template" href="../../components/app-shell.rml"/>
+  <link type="text/rcss" href="../../themes/prime.rcss"/>
+  <link type="text/rcss" href="quick.rcss"/>
+</head>
+<body template="prime-shell">
+  <div id="native_quick_settings" class="native_quick_settings">
+    <div id="quick_settings_content" class="native_quick_content">
+    <div class="eyebrow">PROJECT PRIME // DISPLAY PREFERENCES</div>
+    <h1>QUICK SETTINGS</h1>
+    <p>Safe launcher options. Advanced video, audio, controls and online settings remain in the full Settings screen.</p>
+    <div class="native_quick_grid">
+      <button id="quick_motion" class="play_action" data-action="settings:action:1">
+        REDUCE MOTION <span id="quick_motion_state"></span>
+      </button>
+      <button id="quick_updates" class="play_action" data-action="settings:action:2">
+        AUTOMATIC UPDATES <span id="quick_updates_state"></span>
+      </button>
+      <button id="quick_debug" class="play_action" data-action="settings:action:3">
+        DEBUG LOGGING <span id="quick_debug_state"></span>
+      </button>
+    </div>
+    <p id="quick_setting_status" role="status"></p>
+    </div>
+    <div class="native_quick_toolbar">
+      <button id="quick_apply" class="play_action primary" data-action="settings:apply">APPLY</button>
+      <button id="quick_discard" class="play_action" data-action="settings:discard">DISCARD</button>
+      <button id="quick_full" class="play_action" data-action="settings:action:5">ALL SETTINGS</button>
+      <button id="quick_close" class="play_action" data-action="settings:close">BACK</button>
+    </div>
+  </div>
+</body>
+</rml>

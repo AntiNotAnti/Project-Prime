@@ -1,0 +1,130 @@
+{
+  "date": "2026-10-01",
+  "baseCommit": "bc654546",
+  "change": "Track applied camera mode per scene, including changes after initial presentation.",
+  "regression": "In both cycles set Free then FirstPerson, explicitly clear process-wide Changed before each new mode renders; assert presented scene observes both modes.",
+  "command": "ProjectPrime.dll -renderer vulkan -renderadvanced -shellshot /tmp/prime-lifecycle-vulkan-mode-tracking -shelllifecycle /tmp/prime-lifecycle-replays/Battle.ppdemo -shelllifecycleonly",
+  "exitCode": 0,
+  "actualBackend": "Vulkan/MoltenVK Apple M4 Pro",
+  "captures": [
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-1-forge.png.evidence.json",
+      "sha256": "e49bba4899696ffd88c2d0e8134f2e3cfb2d71f47a2bfd0cde3ce9da6da02553",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-1-rejoin.png.evidence.json",
+      "sha256": "4d344550e65459fd2aacc8487eb526b0258c88b2bd2d85757435af478adb52e6",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-1-replay-seek.png.evidence.json",
+      "sha256": "29a16309fb4d8a3110c5d826e4058062df74dcfbf2d34cabcc467c37214e23d8",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-1-replay.png.evidence.json",
+      "sha256": "fdf3a4159bb6c1c6c512317d68bc6c292bd318cb2b603925e90d345d84f77b6c",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-1-return.png.evidence.json",
+      "sha256": "bfb59458465b6a20f205e01fd4e82dffee491a229a33fee64bc7af63b363423b",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-1-spectator.png.evidence.json",
+      "sha256": "4d344550e65459fd2aacc8487eb526b0258c88b2bd2d85757435af478adb52e6",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-2-forge.png.evidence.json",
+      "sha256": "fbca259e0a3484d8645152fb34d4e8ccb02acd33596069a22de858a80b882186",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-2-rejoin.png.evidence.json",
+      "sha256": "308c52b5b14a38ec4bc3205894afb2d385850c07aa61772009cffc8962a2506a",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-2-replay-seek.png.evidence.json",
+      "sha256": "0c13f8d8f0e53548c1389ca96e2971780a913907d535e6c1f7a2c1851cf79440",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-2-replay.png.evidence.json",
+      "sha256": "790b5733bcd7b1090782f0326a6c3df3d3680ab044afcb4a0e3ca15d89125d33",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-2-return.png.evidence.json",
+      "sha256": "db92e7e1f587e5936ecfe3aa8ebcf371290414871c87a9431400380d891b5484",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-2-spectator.png.evidence.json",
+      "sha256": "308c52b5b14a38ec4bc3205894afb2d385850c07aa61772009cffc8962a2506a",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/lifecycle-device-recovery.png.evidence.json",
+      "sha256": "ca88297f99850200455fe745c7c7046788537db6a84edcd54c74e50596c2f36a",
+      "width": 2560,
+      "height": 1536,
+      "generation": 2
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/shell-startup-transition.png.evidence.json",
+      "sha256": "a7d17bb9fbd3a580daf8e7826870b64cf09407f8feb3af0eb35b91477a2a4a67",
+      "width": 2560,
+      "height": 1536,
+      "generation": 1
+    },
+    {
+      "file": "/tmp/prime-lifecycle-vulkan-mode-tracking/shell-startup.png.evidence.json",
+      "sha256": "a7d17bb9fbd3a580daf8e7826870b64cf09407f8feb3af0eb35b91477a2a4a67",
+      "width": 2560,
+      "height": 1536,
+      "generation": 1
+    }
+  ],
+  "log": "/tmp/prime-lifecycle-vulkan-mode-tracking.log",
+  "logSha256": "d0ad5d21e7c7c38eb4d35d49c029dfcfd4f02e235476eb31f61f56f8f0436f3c",
+  "results": [
+    "[shelllifecycle] replay format=3 protocol=34 frames=1800",
+    "[shelllifecycle] replay camera=(-6.8004704, 1.5969371, -2.2483864) main=1 actor=(-6.8004704, 0.6970347, -2.2483864) warning=",
+    "[shelllifecycle] pass=1 resources=ResourceCounts { Textures = 8, Renderbuffers = 0, Geometry = 4, Pipelines = 61, Programs = 3, Lists = 4, Views = 8, Samplers = 6, Buffers = 6392, ShaderModules = 14, BindGroups = 0, Surfaces = 1 }",
+    "[shelllifecycle] PASS cycle=1 spectator/rejoin/Forge/replay/seek/return",
+    "[shelllifecycle] replay camera=(-6.8004704, 1.5969371, -2.2483864) main=1 actor=(-6.8004704, 0.6970347, -2.2483864) warning=",
+    "[shelllifecycle] pass=2 resources=ResourceCounts { Textures = 8, Renderbuffers = 0, Geometry = 4, Pipelines = 62, Programs = 3, Lists = 4, Views = 8, Samplers = 6, Buffers = 6422, ShaderModules = 14, BindGroups = 0, Surfaces = 1 }",
+    "[shelllifecycle] PASS cycle=2 spectator/rejoin/Forge/replay/seek/return"
+  ],
+  "desktopBuild": "Release71warnings0errors",
+  "androidBuild": "Debug managed Compile85warnings0errors",
+  "scope": "Focused startup plus two lifecycle cycles; no fullscreen/rematch rerun. Native driver destruction reported853MB still allocated; no native reclamation claim. Existing initial6black Vulkan respawn frames remain unresolved."
+}

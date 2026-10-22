@@ -1,0 +1,50 @@
+{
+  "schema": 1,
+  "name": "NCX emulated open-box controls",
+  "historical109Equivalent": false,
+  "nativeSource": "12ff677b9700bc8dabde37eb9a3fdd10c62b87b6",
+  "scope": "Existing native scripted input semantics emulated only by explicit Prime harness modes; ordinary supported solid box geometry, no invisible/beam-transparent brushes",
+  "roles": {
+    "0": "Samus participant: both source and victim",
+    "1": "Samus participant: both source and victim",
+    "2": "Optional connected Samus observer: no fire, real native camera"
+  },
+  "controls": {
+    "weapon": "Stock uncharged PowerBeam only",
+    "ammunition": "Existing harness native ammo cap refill",
+    "tap": "stock ShotCooldown*2+3 frames; held first3 while aim error<2.5 degrees",
+    "aim": "native convergence helper, +/-6 degrees per frame, y+.95 for300 frames then y+.30 for300",
+    "placement": "slot0 x=-6 and slot1 x=6; if |x-cellX|>2 place own harness actor at(cellX,.6,0); record placements",
+    "lateral": "MoveLeft/MoveRight alternate every40 local simulation frames",
+    "jump": "No Jump input; normal declared vertical pads own motion",
+    "observer": "No controls; if alive and |x|>1 or |z-9|>1, scripted placement(0,.6,9); no camera relocation",
+    "deadParticipant": "Native Shoot input requests respawn, aiming down6 degrees per frame; incidental respawn shots remain measured"
+  },
+  "fixtures": {
+    "ncx-static": {
+      "room": "NCX EMULATED STATIC",
+      "map": "static.json",
+      "sha256": "61d0ed4fbdb06b79cb7de8e7bc119eb925955c54b35759c8c2c8c15a4e5ac1c5",
+      "nativeHitrig": "wells:powerbeam"
+    },
+    "ncx-lateral": {
+      "room": "NCX EMULATED LATERAL",
+      "map": "lateral.json",
+      "sha256": "f803f94b63ff28b598eb146bfc0e324a27fd25aa5122771680ffbb336d92a805",
+      "nativeHitrig": "lanes:powerbeam"
+    },
+    "ncx-jump": {
+      "room": "NCX EMULATED JUMP",
+      "map": "jump.json",
+      "sha256": "060571703ba48ca2deb5737ed8e50857500958378d9d250f0aeabb6a384820ce",
+      "nativeHitrig": "wells:powerbeam"
+    }
+  },
+  "limits": [
+    "Not a legal-hit oracle or pixel certification",
+    "Native observed motion, placements, rates and role assignment must be measured",
+    "Both participants fire; generic Prime powerbeam Volley with one shooter is a different workload",
+    "Observer keeps actual native camera and may lack a visible shot; no invented visibility",
+    "No native presentation-hz equivalent is qualified"
+  ]
+}

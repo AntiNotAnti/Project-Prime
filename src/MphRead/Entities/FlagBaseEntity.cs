@@ -1,0 +1,94 @@
+using MphRead.Formats;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    public class FlagBaseEntity : EntityBase
+    {
+        private readonly FlagBaseEntityData _data;
+        public FlagBaseEntityData Data => _data;
+        private readonly CollisionVolume _volume;
+        private readonly bool _capture = false;
+
+        public NodeData3? ClosestNode { get; set; } = null;
+
+        // flag base has a model in Bounty, but is invisible in Capture
+        protected override Vector4? OverrideColor { get; } = new ColorRgb(15, 207, 255).AsVector4();
+
+        public FlagBaseEntity(FlagBaseEntityData data, Scene scene) : base(EntityType.FlagBase, scene)
+        {
+            _data = data;
+            Id = data.Header.EntityId;
+            SetTransform(data.Header.FacingVector, data.Header.UpVector, data.Header.Position);
+            _volume = CollisionVolume.Move(_data.Volume, Position);
+            // note: an explicit mode check is necessary because e.g. Sic Transit has OctolithFlags/FlagBases
+            // enabled in Defender mode according to their layer masks, but they don't appear in-game
+            GameMode mode = _scene.GameState.Mode;
+            if (mode == GameMode.Capture)
+            {
+                AddPlaceholderModel();
+            }
+            else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Headhunter)
+            {
+                SetUpModel("flagbase_cap");
+            }
+            _capture = mode == GameMode.Capture;
+        }
+
+        public override bool Process()
+        {
+            if (Mods.Network.NetObjectiveSync.IsClient(_scene)) return true;
+            if (_scene.GameState.Mode == GameMode.Headhunter)
+            {
+                if (!_scene.Services.IsReplica)
+                    foreach (var player in _scene.GetPlayerEntities())
+                        if (player.Health > 0 && _volume.TestPoint(player.Position))
+                            Mods.Multiplayer.TokenRules.Bank(_scene, player);
+                return true;
+            }
+            if (_scene.GameState.Mode == GameMode.Relic) return true;
+            base.Process();
+            foreach (PlayerEntity player in _scene.GetPlayerEntities())
+            {
+                if (player.OctolithFlag == null || _capture && player.TeamIndex != _data.TeamId)
+                {
+                    continue;
+                }
+                if (_volume.TestPoint(player.Position))
+                {
+                    if (_capture && !CheckOwnOctolith(player))
+                    {
+                        if (player == _scene.Players.Main)
+                        {
+                            _scene.Players.Main.QueueHudMessage(128, 50, 1 / 1000f, 0, 232); // your octolith is missing!
+                        }
+                        continue;
+                    }
+                    player.OctolithFlag.OnCaptured();
+                }
+            }
+            return true;
+        }
+
+        private bool CheckOwnOctolith(PlayerEntity player)
+        {
+            foreach (OctolithFlagEntity octolith in _scene.GetOctolithFlagEntities())
+            {
+                if (octolith.Data.TeamId == player.TeamIndex && !octolith.AtBase)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        // todo: is_visible
+        public override void GetDisplayVolumes()
+        {
+            if (_scene.ShowVolumes == VolumeDisplay.FlagBase)
+            {
+                AddVolumeItem(_volume, Vector3.One);
+            }
+        }
+    }
+}

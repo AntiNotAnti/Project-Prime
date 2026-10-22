@@ -1,0 +1,1083 @@
+using System;
+using System.Buffers.Binary;
+using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
+using System.Runtime.CompilerServices;
+using MphRead.Entities;
+using MphRead.Mods.Network;
+using OpenTK.Mathematics;
+
+namespace MphRead.NetTest
+{
+    // Runs the production packet parser, session, lifecycle, prediction, damage
+    // and history code without proprietary assets or a graphics/audio device.
+    internal static class LifecycleTests
+    {
+        private static int _checks;
+        private static Scene _scene = null!;
+        public static int Run()
+        {
+            try
+            {
+                _scene = new Scene(new Vector2i(256, 192),
+                    Mods.Input.SyntheticInput.CreateKeyboard(), Mods.Input.SyntheticInput.CreateMouse(),
+                    _ => { }, () => { }, initializeRuntime: false);
+                Wire();
+                PresentationStateSafety();
+                SpawnProtectionState();
+                ClientAuthorityPacketsRejected();
+                StateMachine();
+                LoopbackAdmission();
+                TransportCoalescing();
+                PacketOrdering();
+                Prediction();
+                DamageHistory();
+                PresentationClock();
+                PresentationWrapAndCadence();
+                PresentationSlotDiagnostics();
+                PresentationTimingDiagnostics();
+                ReportedVelocityWrap();
+                RemoteIntentAgeWrap();
+                SnapshotAgeWrap();
+                HistoryBoundaries();
+                ClaimBoundaries();
+                FaultStream();
+                Console.WriteLine($"PASS: {_checks} lifecycle assertions (production code, deterministic seed 8128)");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                return 1;
+            }
+            finally { NetSession.Stop(); }
+        }
+
+        private static void Check(bool ok, string name)
+        {
+            _checks++;
+            if (!ok) throw new InvalidOperationException($"FAIL: {name}");
+        }
+
+        private static PlayerState State(ushort life, ushort health = 50, ushort generation = 10) => new()
+        {
+            SlotIndex = 1, SlotGeneration = generation, LifeId = life, Health = health,
+            Flags = (byte)(PlayerState.FlagActive | (health > 0 ? PlayerState.FlagSpawned : 0)),
+            Position = new Vector3(10, 2, 3), Facing = Vector3.UnitZ
+        };
+
+        private static void Wire()
+        {
+            Check(NetUnlagged.PressAgeEnabled, "recovered trigger pulls include their age by default");
+            Check(PlayerState.Protocol48Size == 145 && PlayerState.Size == 192 && PlayerFormState.Size == 28, "canonical player state appends lifecycle-fenced form to unchanged protocol48 fields");
+            Check(Protocol17Tests.SplitSnapshotBudgets(), "canonical state uses bounded internal storage and split live/bootstrap datagrams");
+            byte[] buffer = new byte[NetConfig.MaxPacketSize];
+            var state = State(ushort.MaxValue, 99, 65400);
+            state.SpawnProtected = true;
+            state.HalfturretActive = false;
+            state.JumpPadEventId = 65534;
+            state.DamageEventId = 65535;
+            state.Damage3 = new DamageEvent { EventId = 65535,
+                AttackerSlot = 0, AttackerGeneration = 123, Damage = 32,
+                Beam = 2, Flags = 7, Direction = new Vector3(.25f, .1f, 0) };
+            state.Write(buffer);
+            PlayerState read = PlayerState.Read(buffer);
+            Check(read.LifeId == 65535 && read.SlotGeneration == 65400 && read.Damage3.Damage == 32
+                && (read.Damage3.Direction - state.Damage3.Direction).Length < 0.0002f
+                && read.Damage3.AttackerGeneration == 123 && read.AttackerSlot == 0
+                && read.SpawnProtected && !read.HalfturretActive && read.JumpPadEventId == 65534,
+                "player, damage, jump-pad and spawn-protection state round trip");
+            state.SpawnProtected = false;
+            state.HalfturretActive = true;
+            state.Write(buffer);
+            read = PlayerState.Read(buffer);
+            Check(!read.SpawnProtected && read.HalfturretActive,
+                "spawn protection and Weavel turret activity use independent bits");
+            var intent = new IntentPacket { MatchId = 51, AuthorityEpoch = 9, SlotGeneration = 22,
+                LifeId = 65535, Frame = uint.MaxValue, Position = state.Position, Aim = state.Facing,
+                ChargeLevel = 99, ShotFlags = (byte)(2 | IntentPacket.FlagSpawnProtectionReleased),
+                HomingTarget = 0x82, AckSubFrame = 77, MoveX = 48, MoveY = -64 };
+            intent.Write(buffer);
+            IntentPacket input = IntentPacket.Read(buffer.AsSpan(0, IntentPacket.FullSize));
+            Check(input.MatchId == 51 && input.AuthorityEpoch == 9 && input.SlotGeneration == 22
+                && input.LifeId == 65535 && input.ChargeLevel == 99 && input.HomingTarget == 0x82
+                && (input.ShotFlags & IntentPacket.FlagSpawnProtectionReleased) != 0
+                && input.AckSubFrame == 77 && input.HasAnalogMove && input.MoveX == 48 && input.MoveY == -64,
+                "intent and spawn-protection release round trip");
+            var claim = new HitClaimPacket { MatchId = 51, AuthorityEpoch = 3, ShooterGeneration = 5,
+                ShooterLifeId = 8, VictimGeneration = 10, VictimLifeId = 9, HitPoint = state.Position,
+                ClaimId = 65535, Damage = 127, LaunchFrame = 72,
+                Direction = new Vector3(.35f, .05f, -.1f) };
+            claim.Write(buffer);
+            var hit = HitClaimPacket.Read(buffer);
+            Check(hit.MatchId == 51 && hit.AuthorityEpoch == 3 && hit.ShooterLifeId == 8
+                && hit.VictimLifeId == 9 && hit.VictimGeneration == 10 && hit.HitPoint == state.Position
+                && hit.Damage == 127 && hit.LaunchFrame == 72
+                && (hit.Direction - claim.Direction).Length < 0.0002f, "claim round trip");
+            var match = new MatchStatePacket { MatchId = 51, AuthorityEpoch = 638900000000000000UL,
+                RoomKey = new string('r', 40), NextRoomKey = new string('n', 40) };
+            match.Write(buffer);
+            var control = MatchStatePacket.Read(buffer);
+            Check(control.NextRoomKey == match.NextRoomKey && control.AuthorityEpoch == 638900000000000000UL, "epoch does not overlap room names");
+            var roster = Roster(10, 11);
+            roster.Write(buffer);
+            var people = RosterPacket.Read(buffer);
+            Check(people.Generations[1] == 10 && people.Revision == 11 && people.Names[1] == "victim", "roster identity round trip");
+        }
+
+        private static void PresentationStateSafety()
+        {
+            var camera = new CameraInfo();
+            camera.Reset();
+            camera.Position = Vector3.Zero;
+            camera.Target = Vector3.UnitY;
+            camera.UpVector = Vector3.UnitY;
+            camera.Update();
+            Check(Single.IsFinite(camera.Facing.X) && Single.IsFinite(camera.Facing.Y)
+                && Single.IsFinite(camera.Facing.Z) && Single.IsFinite(camera.Field48)
+                && Single.IsFinite(camera.Field4C) && Single.IsFinite(camera.ViewMatrix.Row0.X),
+                "vertical camera basis remains finite");
+
+            camera.Target = camera.Position;
+            camera.Update();
+            Check(Single.IsFinite(camera.ViewMatrix.Row0.X)
+                && Single.IsFinite(camera.ViewMatrix.Row1.Y)
+                && Single.IsFinite(camera.ViewMatrix.Row2.Z),
+                "coincident camera target repairs itself");
+
+            PlayerEntity player = Player(1, 100);
+            FieldInfo frozen = typeof(PlayerEntity).GetField("_frozenTimer",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            FieldInfo frozenGfx = typeof(PlayerEntity).GetField("_frozenGfxTimer",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            frozen.SetValue(player, (ushort)20);
+            frozenGfx.SetValue(player, (ushort)0);
+            typeof(PlayerEntity).GetMethod("ModSetFrozen",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(player, new object[] { true });
+            Check((ushort)frozenGfx.GetValue(player)! >= 30,
+                "replicated freeze keeps the visible ice alive");
+
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.HudDisruptedState))!
+                .SetValue(player, (byte)2);
+            FieldInfo disruptionTimer = typeof(PlayerEntity).GetField("_hudDisruptedTimer",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            disruptionTimer.SetValue(player, (ushort)0);
+            typeof(PlayerEntity).GetMethod("UpdateDisruptedState",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(player, Array.Empty<object>());
+            Check(player.HudDisruptedState == 3 && (ushort)disruptionTimer.GetValue(player)! == 0,
+                "zero disruption timer cannot underflow into a stuck distorted HUD");
+        }
+
+        private static void SpawnProtectionState()
+        {
+            _scene.GameState.Mode = GameMode.Battle;
+            _scene.GameState.SpawnProtection = true;
+            PlayerEntity player = Player(1, 99);
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            FieldInfo matchTimer = typeof(PlayerEntity).GetField("_matchSpawnProtectionTimer", flags)!;
+            FieldInfo nativeTimer = typeof(PlayerEntity).GetField("_spawnInvulnTimer", flags)!;
+            PropertyInfo active = typeof(PlayerEntity).GetProperty("ModMatchSpawnProtectionActive", flags)!;
+            MethodInfo reset = typeof(PlayerEntity).GetMethod("ModResetSpawnProtectionReplication", flags)!;
+            MethodInfo authority = typeof(PlayerEntity).GetMethod("ModSetSpawnProtectionFromAuthority", flags)!;
+            MethodInfo release = typeof(PlayerEntity).GetMethod("ModReleaseSpawnProtection", flags)!;
+            MethodInfo releaseNetwork = typeof(PlayerEntity).GetMethod("ModReleaseSpawnProtectionFromNetwork", flags)!;
+            MethodInfo report = typeof(PlayerEntity).GetMethod("ModReportSpawnProtectionReleased", flags)!;
+
+            reset.Invoke(player, Array.Empty<object>());
+            matchTimer.SetValue(player, (ushort)180);
+            Check((bool)active.GetValue(player)!, "fresh local match timer presents spawn protection");
+
+            authority.Invoke(player, new object[] { false });
+            // Recreate the old join-in-progress failure: a replayed Spawn() had
+            // started a brand-new local 180-frame timer even though the server
+            // said this life was already vulnerable.
+            matchTimer.SetValue(player, (ushort)180);
+            Check(!(bool)active.GetValue(player)!,
+                "authoritative unprotected state defeats stale join-in-progress timer");
+
+            reset.Invoke(player, Array.Empty<object>());
+            matchTimer.SetValue(player, (ushort)180);
+            authority.Invoke(player, new object[] { true });
+            Check((bool)active.GetValue(player)!, "authoritative protected state is presented");
+            releaseNetwork.Invoke(player, Array.Empty<object>());
+            Check(!(bool)active.GetValue(player)! && (ushort)matchTimer.GetValue(player)! == 0,
+                "successful-shot network signal releases authority protection immediately");
+
+            reset.Invoke(player, Array.Empty<object>());
+            matchTimer.SetValue(player, (ushort)180);
+            release.Invoke(player, Array.Empty<object>());
+            bool persistent = true;
+            for (int i = 0; i < 64; i++)
+            {
+                persistent &= (bool)report.Invoke(player, Array.Empty<object>())!;
+            }
+            Check(persistent,
+                "successful shot release remains reportable for the rest of the life");
+            reset.Invoke(player, Array.Empty<object>());
+            Check(!(bool)report.Invoke(player, Array.Empty<object>())!,
+                "new life clears the previous life's successful-shot release");
+
+            reset.Invoke(player, Array.Empty<object>());
+            matchTimer.SetValue(player, (ushort)0);
+            nativeTimer.SetValue(player, (ushort)2);
+            Check(!(bool)active.GetValue(player)!,
+                "native scripted invulnerability is not advertised as match spawn protection");
+        }
+
+        private static void LoopbackAdmission()
+        {
+            NetSession.Stop();
+            using var cancel = new System.Threading.CancellationTokenSource();
+            var server = new DedicatedServer(0);
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            typeof(DedicatedServer).GetField("_controlPlaneOnlyForTests", flags)!.SetValue(server, true);
+            var running = System.Threading.Tasks.Task.Run(() => server.Run(cancel.Token));
+            try
+            {
+                Check(System.Threading.SpinWait.SpinUntil(() => server.BoundPort != 0 || running.IsCompleted, 3000)
+                    && !running.IsCompleted, "asset-free control-plane server starts");
+                using var socket = new LoopbackPeer();
+                socket.Client.ReceiveTimeout = 2000;
+                var endpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, server.BoundPort);
+                byte[] hello = new byte[7] { (byte)PacketType.Hello, NetConfig.ProtocolVersion, 255, 42, 0, 0, 0 };
+                socket.Send(hello, hello.Length, endpoint);
+                bool welcome = false, match = false, roster = false, authorityPacket = false;
+                MatchStatePacket admission = default;
+                for (int i = 0; i < 24 && !(welcome && match && roster); i++)
+                {
+                    var from = endpoint; byte[] packet = socket.Receive(ref from); var body = packet.AsSpan(1);
+                    switch ((PacketType)packet[0])
+                    {
+                        case PacketType.Welcome:
+                            welcome = body.Length == 17 && BinaryPrimitives.ReadUInt32LittleEndian(body[1..]) == 42
+                                && BinaryPrimitives.ReadUInt16LittleEndian(body[15..]) == 1; break;
+                        case PacketType.MatchState:
+                            admission = MatchStatePacket.Read(body); match = admission.AuthorityEpoch != 0; break;
+                        case PacketType.Roster:
+                            var members = RosterPacket.Read(body);
+                            roster = members.AuthorityEpoch != 0 && members.Generations[0] == 1; break;
+                        case PacketType.Authority: authorityPacket = true; break;
+                    }
+                }
+                Check(welcome && match && roster, "real UDP admission agrees on match and occupant identity");
+                Check(!authorityPacket, "dedicated server never grants a player simulation authority");
+
+                hello[1]--; socket.Send(hello, hello.Length, endpoint);
+                bool refused = false;
+                for (int i = 0; i < 20 && !refused; i++)
+                { var from = endpoint; refused = socket.Receive(ref from)[0] == (byte)PacketType.Refused; }
+                Check(refused, "old protocol is explicitly refused");
+
+                while (socket.Available > 0) { var from = endpoint; socket.Receive(ref from); }
+                byte[] end = new byte[11]; end[0] = (byte)PacketType.MatchEnd;
+                BinaryPrimitives.WriteUInt16LittleEndian(end.AsSpan(1), admission.MatchId);
+                BinaryPrimitives.WriteUInt64LittleEndian(end.AsSpan(3), admission.AuthorityEpoch);
+                socket.Send(end, end.Length, endpoint);
+                hello[1] = NetConfig.ProtocolVersion; socket.Send(hello, hello.Length, endpoint);
+                bool stayedOpen = false;
+                for (int i = 0; i < 20 && !stayedOpen; i++)
+                {
+                    var from = endpoint; byte[] reply = socket.Receive(ref from);
+                    if (reply[0] == (byte)PacketType.MatchState)
+                        stayedOpen = !MatchStatePacket.Read(reply.AsSpan(1)).Ending;
+                }
+                Check(stayedOpen, "client MatchEnd cannot end a server-authoritative match");
+            }
+            finally
+            {
+                cancel.Cancel();
+                Check(running.Wait(3000), "loopback server stops cleanly");
+            }
+        }
+
+        private static void ClientAuthorityPacketsRejected()
+        {
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var server = new DedicatedServer(0);
+            Check(typeof(DedicatedServer).GetProperty("RunsTheMatch") == null,
+                "dedicated server has no client-authority mode switch");
+            Check(typeof(DedicatedServer).GetField("_authority", flags) == null,
+                "dedicated server keeps no player authority slot");
+            Check(typeof(DedicatedServer).GetMethod("NotifyAuthority", flags) == null,
+                "dedicated server has no authority-grant path");
+            Check(typeof(DedicatedServer).GetMethod("HandleSnapshot", flags) == null,
+                "dedicated server has no client snapshot authority handler");
+            var sender = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, 31001);
+            void Send(PacketType type, byte[] body)
+            {
+                byte[] data = new byte[body.Length + 1]; data[0] = (byte)type; body.CopyTo(data, 1);
+                typeof(DedicatedServer).GetMethod("Handle", flags)!.Invoke(server,
+                    new object[] { new ReceivedPacket(sender, data, data.Length), 1.0 });
+            }
+            int beforeSnapshot = (int)typeof(DedicatedServer).GetField("_lastSnapshotLength", flags)!.GetValue(server)!;
+            double beforeEnd = (double)typeof(DedicatedServer).GetField("_matchEndedAt", flags)!.GetValue(server)!;
+            Send(PacketType.Snapshot, new byte[] { 1, 2, 3 });
+            Send(PacketType.SnapshotFast, new byte[] { 4, 5, 6 });
+            Send(PacketType.PlayerSlowState, new byte[] { 7 });
+            Send(PacketType.WorldState, new byte[] { 8 });
+            Send(PacketType.MatchEnd, new byte[10]);
+            Check((int)typeof(DedicatedServer).GetField("_lastSnapshotLength", flags)!.GetValue(server)! == beforeSnapshot
+                && (double)typeof(DedicatedServer).GetField("_matchEndedAt", flags)!.GetValue(server)! == beforeEnd,
+                "legacy client authority packets cannot mutate dedicated-server world state");
+        }
+
+        private static void ClaimBoundaries()
+        {
+            Session(local: true);
+            var shooter = State(2, 50, 9); shooter.SlotIndex = 0;
+            NetPlayerLifecycle.AcceptState(shooter, 1);
+            NetPlayerLifecycle.AcceptState(State(8), 1);
+            typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, true);
+            try
+            {
+                var claim = new HitClaimPacket { MatchId = 51, AuthorityEpoch = 4, ShooterGeneration = 9,
+                    ShooterLifeId = 2, VictimSlot = 1, VictimGeneration = 10, VictimLifeId = 7, ClaimId = 20000 };
+                byte[] body = new byte[1 + HitClaimPacket.Size]; body[0] = 1;
+                claim.Write(body.AsSpan(1));
+                NetHitClaims.Receive(0, body);
+                Check(NetPlayerLifecycle.OldLifeClaims == 1 && NetHitClaims.AppliedHere == 0,
+                    "delayed claim cannot damage victim's next life");
+                var newest = (ushort[])typeof(NetHitClaims).GetField("_newestId",
+                    BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+                Check(newest[0] == 0, "wrong-victim-life receipt retains current claim-order frontier");
+                var retained = (ushort[,])typeof(NetHitClaims).GetField("_seenIds",
+                    BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null)!;
+                Check(Enumerable.Range(0, NetHitClaims.SeenCapacity).Any(index => retained[0, index] == claim.ClaimId),
+                    "wrong-life terminal receipt remains retained despite not advancing ordering");
+                claim.VictimLifeId = 8; claim.ShooterLifeId = 1;
+                claim.Write(body.AsSpan(1)); NetHitClaims.Receive(0, body);
+                Check(NetPlayerLifecycle.OldLifeClaims == 2, "claim from previous shooter life refused");
+                Check(newest[0] == 0, "wrong-shooter-life receipt retains current claim-order frontier");
+                claim.ShooterLifeId = 2; claim.ClaimId = 1;
+                claim.Write(body.AsSpan(1)); NetHitClaims.Receive(0, body);
+                Check(NetHitClaims.RepeatsHere == 0, "stale-life claim does not poison current claim ordering");
+                NetHitClaims.Receive(0, body);
+                Check(NetHitClaims.RepeatsHere == 1, "current claim retransmission is deduplicated");
+            }
+            finally { typeof(NetSession).GetProperty(nameof(NetSession.IsAuthority))!.SetValue(null, false); }
+        }
+
+        private static void StateMachine()
+        {
+            var tracker = new NetLifecycleTracker();
+            tracker.SetOccupant(10);
+            Check(tracker.Accept(10, 7, NetworkPlayerState.Alive, out bool fresh) == LifecycleRejection.None && fresh, "first life");
+            Check(tracker.Accept(10, 7, NetworkPlayerState.Dead, out _) == LifecycleRejection.None, "death");
+            Check(tracker.Accept(10, 7, NetworkPlayerState.Alive, out _) == LifecycleRejection.InvalidResurrection, "same-life resurrection refused");
+            tracker.Accept(10, 7, NetworkPlayerState.Spectating, out _);
+            Check(tracker.Accept(10, 7, NetworkPlayerState.Alive, out _) == LifecycleRejection.InvalidResurrection, "spectator cannot erase death");
+            Check(tracker.Accept(10, 8, NetworkPlayerState.Alive, out fresh) == LifecycleRejection.None && fresh, "respawn");
+            Check(tracker.Accept(10, 7, NetworkPlayerState.Dead, out _) == LifecycleRejection.OldLife, "old death refused");
+            tracker.SetOccupant(11);
+            Check(tracker.Accept(10, 9, NetworkPlayerState.Alive, out _) == LifecycleRejection.WrongGeneration, "old occupant refused");
+            Check(NetLifecycleTracker.Next(65535) == 1 && NetLifecycleTracker.Newer((ushort)1, (ushort)65535)
+                && !NetLifecycleTracker.Newer((ushort)65535, (ushort)1), "life wrap skips zero");
+            Check(NetLifecycleTracker.Newer(0u, uint.MaxValue), "frame wrap");
+        }
+
+        private static RosterPacket Roster(ushort victimGeneration = 10, uint revision = 1)
+        {
+            var roster = RosterPacket.Create();
+            roster.MatchId = 51; roster.AuthorityEpoch = 4; roster.Revision = revision; roster.Count = 2;
+            roster.Slots[0] = 0; roster.Generations[0] = 9; roster.Names[0] = "shooter";
+            roster.Slots[1] = 1; roster.Generations[1] = victimGeneration; roster.Names[1] = "victim";
+            return roster;
+        }
+
+        private static void Session(bool local = false)
+        {
+            NetSession.StartPlayback();
+            NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 51, AuthorityEpoch = 4 }, false);
+            NetSession.ApplyRoster(Roster());
+            if (local)
+            {
+                byte[] welcome = new byte[18]; welcome[0] = (byte)PacketType.Welcome;
+                BinaryPrimitives.WriteUInt32LittleEndian(welcome.AsSpan(2), NetSession.ClientId);
+                BinaryPrimitives.WriteUInt16LittleEndian(welcome.AsSpan(6), 51);
+                BinaryPrimitives.WriteUInt64LittleEndian(welcome.AsSpan(8), 4);
+                BinaryPrimitives.WriteUInt16LittleEndian(welcome.AsSpan(16), 9);
+                Deliver(welcome);
+                Check(NetSession.LocalSlot == -1, "socket-free playback refuses a valid local admission");
+                // Prediction/claim fixtures need a local actor but do not test
+                // admission. Real UDP admission is covered by LoopbackAdmission.
+                typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, 0);
+            }
+        }
+
+        private static byte[] Packet(uint frame, PlayerState state, ushort match = 51, ulong epoch = 4)
+        {
+            const int timeSyncSize = PlayerEntity.SlotCapacity * sizeof(float) * 2;
+            int payloadSize = SnapshotHeader.Size + PlayerState.Size + timeSyncSize + NetHealthSync.HeaderSize;
+            byte[] bytes = new byte[1 + payloadSize];
+            bytes[0] = (byte)PacketType.Snapshot;
+            new SnapshotHeader { MatchId = match, AuthorityEpoch = epoch, Frame = frame, PlayerCount = 1 }
+                .Write(bytes.AsSpan(1));
+            state.Write(bytes.AsSpan(1 + SnapshotHeader.Size));
+            int healthOffset = 1 + SnapshotHeader.Size + PlayerState.Size + timeSyncSize;
+            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(healthOffset), match);
+            return bytes;
+        }
+        private static void Deliver(byte[] bytes)
+        {
+            NetSession.InjectPlaybackPacket(bytes, bytes.Length);
+            NetSession.Update(0);
+        }
+
+        private static void TransportCoalescing()
+        {
+            using var transport = new NetTransport(0);
+            transport.EnableRealtimeStateCoalescing();
+            using var sender = new LoopbackPeer();
+            var endpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback,
+                transport.LocalPort);
+
+            Protocol17Tests.Connect(sender.Transport, transport);
+            sender.Send(new byte[] { (byte)PacketType.Snapshot, 1 }, 2, endpoint);
+            sender.Send(new byte[] { (byte)PacketType.Snapshot, 2 }, 2, endpoint);
+            sender.Send(new byte[] { (byte)PacketType.Snapshot, 3 }, 2, endpoint);
+            sender.Send(new byte[] { (byte)PacketType.SlotIntent, 1, 4 }, 3, endpoint);
+            sender.Send(new byte[] { (byte)PacketType.SlotIntent, 1, 5 }, 3, endpoint);
+            sender.Send(new byte[] { (byte)PacketType.Bye }, 1, endpoint);
+
+            Check(System.Threading.SpinWait.SpinUntil(
+                () => transport.StatePacketsCoalesced >= 2, 2000),
+                "transport actually coalesces burst state");
+            // The counter above proves every replaceable packet arrived; give
+            // the ordered Bye immediately behind them one scheduler slice too.
+            System.Threading.Thread.Sleep(20);
+
+            int snapshots = 0, intents = 0, byes = 0;
+            byte newestSnapshot = 0, newestIntent = 0;
+            foreach (ReceivedPacket packet in transport.Drain())
+            {
+                if (packet.Type == PacketType.Snapshot)
+                {
+                    snapshots++;
+                    newestSnapshot = packet.Payload[0];
+                }
+                else if (packet.Type == PacketType.SlotIntent)
+                {
+                    intents++;
+                    newestIntent = packet.Payload[1];
+                }
+                else if (packet.Type == PacketType.Bye)
+                {
+                    byes++;
+                }
+            }
+            Check(snapshots == 1 && newestSnapshot == 3,
+                "latest snapshot wins after a receive burst");
+            Check(intents == 2 && newestIntent == 5,
+                "both slot intent carriers survive state coalescing");
+            Check(byes == 1, "control traffic is not coalesced");
+            Check(transport.PacketsDropped == 0,
+                "coalescing burst does not overflow transport queue");
+        }
+
+        private static void PacketOrdering()
+        {
+            Session();
+            Deliver(Packet(100, State(7)));
+            Deliver(Packet(102, State(7, 0)));
+            Deliver(Packet(101, State(7)));
+            Check(NetSession.RemoteStates[1].Health == 0 && NetSession.SnapshotsOutOfOrder == 1, "reordered alive snapshot cannot resurrect");
+            Deliver(Packet(103, State(7)));
+            Check(NetPlayerLifecycle.InvalidResurrections == 1 && !NetSession.RemoteStateValid[1], "newer frame cannot resurrect same life");
+            Deliver(Packet(104, State(8)));
+            Deliver(Packet(105, State(7, 0)));
+            Check(NetPlayerLifecycle.Get(1) == 8 && NetPlayerLifecycle.StaleLifeStates == 1, "delayed death cannot kill new life");
+            uint last = NetSession.LastSnapshotFrame;
+            Deliver(Packet(10000, State(9), 50));
+            Check(NetSession.LastSnapshotFrame == last && NetPlayerLifecycle.CrossMatch == 1, "old match cannot poison frame ordering");
+            Deliver(Packet(10000, State(9), 51, 3));
+            Check(NetSession.LastSnapshotFrame == last && NetPlayerLifecycle.CrossAuthority == 1, "old authority cannot poison ordering");
+            NetSession.ApplyRoster(Roster(11, 2));
+            Deliver(Packet(106, State(1, 99, 11)));
+            NetSession.ApplyRoster(Roster(10, 1));
+            Deliver(Packet(107, State(8)));
+            Check(NetPlayerLifecycle.Generation(1) == 11 && NetPlayerLifecycle.Get(1) == 1, "old roster/snapshot cannot restore former occupant");
+            var input = new IntentPacket { MatchId = 51, AuthorityEpoch = 4, SlotGeneration = 10, LifeId = 8, Frame = 5000 };
+            NetSession.AcceptSlotIntent(1, input);
+            Check(!NetSession.RemoteIntentValid[1], "previous occupant intent rejected");
+            input.SlotGeneration = 11; input.LifeId = 1; input.Frame = 1;
+            NetSession.AcceptSlotIntent(1, input);
+            Check(NetSession.RemoteIntentValid[1], "rejected packet did not advance intent ordering");
+            input.Frame = 3; input.Position = new Vector3(3, 0, 0);
+            Check(NetSession.AcceptSlotIntent(1, input), "newer carrier admitted");
+            input.Frame = 2; input.Position = new Vector3(2, 0, 0);
+            Check(NetSession.AcceptSlotIntent(1, input) && NetSession.RemoteIntents[1].Frame == 3
+                && NetSession.RemoteIntents[1].Position.X == 3, "admitted older carrier cannot overwrite movement");
+            input.LifeId = 2; input.Frame = 2;
+            NetSession.AcceptSlotIntent(1, input);
+            Check(NetSession.RemoteIntents[1].Frame == 3, "unallocated life intent rejected");
+            NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 51, AuthorityEpoch = 5 }, false);
+            var nextRoster = Roster(11, 1); nextRoster.AuthorityEpoch = 5;
+            NetSession.ApplyRoster(nextRoster);
+            Deliver(Packet(1, State(1, 99, 11), 51, 5));
+            Check(NetSession.LastSnapshotFrame == 1 && NetSession.RemoteStateValid[1], "new epoch permits new frame origin");
+            NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 50, AuthorityEpoch = 4 }, false);
+            Check(NetSession.CurrentMatchId == 51 && NetSession.AuthorityEpoch == 5, "old control cannot roll back stream");
+            NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 1, AuthorityEpoch = 6 }, false);
+            nextRoster.MatchId = 1; nextRoster.AuthorityEpoch = 6; nextRoster.Generations[1] = 1;
+            NetSession.ApplyRoster(nextRoster);
+            Deliver(Packet(1, State(1, 99, 1), 1, 6));
+            Deliver(Packet(20000, State(1, 0, 1), 1, 5));
+            Check(NetSession.RemoteStateValid[1] && NetSession.RemoteStates[1].Health == 99,
+                "restarted authority can reset counters without accepting old epoch");
+            byte[] malformed = Packet(30000, State(1, 0, 1), 1, 6);
+            Deliver(malformed[..^1]);
+            Check(NetSession.LastSnapshotFrame == 1, "truncated snapshot cannot advance stream");
+        }
+
+        private static PlayerEntity Player(int slot, int health)
+        {
+            // Only plain state is used; spawning/rendering requires cartridge assets.
+            var player = (PlayerEntity)RuntimeHelpers.GetUninitializedObject(typeof(PlayerEntity));
+            typeof(EntityBase).GetField("_scene", BindingFlags.Instance | BindingFlags.NonPublic)!
+                .SetValue(player, _scene);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.SlotIndex))!.SetValue(player, slot);
+            player.Health = health;
+            return player;
+        }
+
+        private static void Prediction()
+        {
+            Session(local: true);
+            GameState.Mode = GameMode.Battle;
+            var localState = State(2, 50, 9); localState.SlotIndex = 0;
+            NetPlayerLifecycle.AcceptState(localState, 1);
+            Deliver(Packet(1, State(7)));
+            var shooter = Player(0, 50); var victim = Player(1, 50);
+            NetHitPrediction.DeathEnabled = true;
+            uint damage = 100; DamageFlags flags = DamageFlags.Death;
+            var impact = new Vector3(.35f, .05f, 0);
+            NetHitPrediction.NoteHit(victim, shooter, ref flags, ref damage,
+                BeamType.Missile, direction: impact);
+            Check(damage == 49 && !flags.HasFlag(DamageFlags.Death)
+                && NetHitPrediction.DeathsPredicted == 0 && !NetHitPrediction.HeldDead(1), "remote lethal clamps even with death flag/option");
+            byte[] claims = new byte[NetConfig.MaxPacketSize];
+            int length = NetHitClaims.Compose(claims);
+            Check(length > 0, "lethal prediction still declares hit");
+            var claim = HitClaimPacket.Read(claims.AsSpan(1));
+            Check(claim.Damage == 100 && claim.VictimLifeId == 7 && claim.ShooterLifeId == 2
+                && (claim.Direction - impact).Length < 0.0002f,
+                "claim preserves full lethal damage, identities and impact momentum");
+            byte[] verdict = new byte[HitVerdictPacket.HeaderSize + HitVerdictPacket.EntrySize];
+            HitVerdictPacket.Write(verdict, new[] { (claim.ClaimId, HitVerdictPacket.ResultRefused) }, 51, 4, 9, 2);
+            NetHitClaims.ApplyVerdicts(verdict);
+            Check(NetHitPrediction.HealthFor(1, 50) == 50 && NetHitPrediction.LethalDenied == 1,
+                "denied lethal restores health without a death and records one denial");
+            NetHitClaims.ApplyVerdicts(verdict);
+            Check(NetHitPrediction.LethalDenied == 1, "duplicate verdict does not settle prediction twice");
+            damage = 20; flags = 0;
+            NetHitPrediction.NoteHit(victim, shooter, ref flags, ref damage);
+            Check(NetHitPrediction.HealthFor(1, 50) == 30, "normal predicted damage immediate");
+            Deliver(Packet(2, State(8, 99)));
+            Check(NetHitPrediction.HealthFor(1, 99) == 99, "new life clears prediction debit and floor");
+            damage = 100; flags = DamageFlags.Death;
+            NetHitPrediction.NoteHit(shooter, shooter, ref flags, ref damage);
+            Check(damage == 100 && flags.HasFlag(DamageFlags.Death) && NetHitPrediction.SelfDeathsPredicted == 1,
+                "self death remains immediate");
+            Check(!NetPlayerLifecycle.CanSpawn, "client engine cannot allocate spawn");
+            var projectile = (BeamProjectileEntity)RuntimeHelpers.GetUninitializedObject(typeof(BeamProjectileEntity));
+            typeof(EntityBase).GetField("_scene", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(projectile, _scene);
+            projectile.Owner = shooter;
+            NetPlayerLifecycle.StampProjectile(projectile);
+            Check(NetPlayerLifecycle.CurrentProjectile(projectile), "projectile remembers firing life");
+            localState.LifeId++;
+            NetPlayerLifecycle.AcceptState(localState, 3);
+            Check(NetPlayerLifecycle.CurrentProjectile(projectile), "registered projectile retains its launch life after shooter respawn");
+            GameState.Points[0] = 4;
+            using (new NetDamage.PredictionScoreScope(true)) GameState.Points[0]++;
+            Check(GameState.Points[0] == 4, "predicted death cannot award score");
+        }
+
+        private static void DamageHistory()
+        {
+            Session();
+            var state = State(7, 0);
+            NetPlayerLifecycle.AcceptState(state, 1);
+            var player = Player(1, 0); // already down: count events without rendering feedback
+            NetDamage.BeginLife(1, state);
+            state.DamageEventId = 3;
+            state.Damage1 = new DamageEvent { EventId = 1 };
+            state.Damage2 = new DamageEvent { EventId = 2 };
+            state.Damage3 = new DamageEvent { EventId = 3 };
+            NetDamage.Replay(player, state);
+            NetDamage.Replay(player, state);
+            Check(NetDamage.Replayed[1] == 3, "three hits replay exactly once despite duplicate snapshot");
+            state.DamageEventId = 65534;
+            NetDamage.BeginLife(1, state);
+            state.DamageEventId = 1;
+            state.Damage1.EventId = 65535; state.Damage2.EventId = 1; state.Damage3 = default;
+            NetDamage.Replay(player, state);
+            NetDamage.Replay(player, state);
+            Check(NetDamage.Replayed[1] == 5, "damage event wrap skips zero and deduplicates");
+            var next = State(8, 0);
+            NetPlayerLifecycle.AcceptState(next, 2);
+            NetDamage.Replay(player, next);
+            NetDamage.Replay(player, state);
+            Check(NetDamage.Replayed[1] == 5 && NetPlayerLifecycle.OldLifeDamage == 1, "old damage cannot cross life boundary");
+        }
+
+        private static void PresentationWrapAndCadence()
+        {
+            Session();
+            var state = State(7); NetPlayerLifecycle.AcceptState(state, 1);
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            long step = System.Diagnostics.Stopwatch.Frequency / 60;
+            NetSmoothing.Reset();
+            uint[] frames = { uint.MaxValue - 3, uint.MaxValue - 2, uint.MaxValue - 1,
+                uint.MaxValue, 1, 2, 3, 4 };
+            for (int i = 0; i < frames.Length; i++)
+            {
+                state.Position = new Vector3(10 + i, 2, 3);
+                NetSmoothing.Record(frames[i], new[] { state }, now + step * (i < 4 ? i : i + 1));
+                NetSmoothing.Tick();
+            }
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.SamplePresentation(1, out var wrappedPose, out _)
+                && Single.IsFinite(wrappedPose.X) && wrappedPose.X >= 13,
+                "wrapped authority stream advances to post-wrap poses");
+            Check(Double.IsFinite(NetSmoothing.Delay) && Double.IsFinite(NetSmoothing.JitterFrames)
+                && NetSmoothing.Delay <= NetSmoothing.MaxDelayFrames && NetSmoothing.JitterFrames < 1,
+                "wrap preserves finite bounded delay and 60 Hz arrival jitter");
+            Check(NetSmoothing.AckPoint(out uint frame, out byte fraction) && frame != 0,
+                "wrapped presentation produces nonzero wire ACK");
+            Vector3 before = wrappedPose; uint beforeFrame = frame; byte beforeFraction = fraction;
+            var stale = state; stale.Position = new Vector3(1000, 2, 3);
+            NetSmoothing.Record(uint.MaxValue - 1, new[] { stale }, now + step * 20);
+            NetSmoothing.Record(0, new[] { stale }, now + step * 21);
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.SamplePresentation(1, out var after, out _) && after == before
+                && NetSmoothing.AckPoint(out frame, out fraction) && frame == beforeFrame && fraction == beforeFraction,
+                "stale pre-wrap sample and frame zero cannot alter presented world or ACK");
+
+            NetSmoothing.Reset();
+            for (int i = 0; i < 60; i++)
+            {
+                state.Position = new Vector3(10 + i * .1f, 2, 3);
+                NetSmoothing.Record((uint)(100 + i), new[] { state }, now + step * i);
+                NetSmoothing.Tick();
+            }
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.SamplePresentation(1, out before, out _)
+                && NetSmoothing.AckPoint(out beforeFrame, out beforeFraction), "60 Hz fixture has pose and ACK");
+            long stepsBefore = NetSmoothing.Steps;
+            foreach (int refresh in new[] { 60, 120, 144, 240, 360 })
+            {
+                for (int i = 0; i < refresh; i++)
+                {
+                    NetSmoothing.PreparePresentation((i % 6) / 5.0);
+                    NetSmoothing.SamplePresentation(1, out _, out _);
+                }
+                NetSmoothing.PreparePresentation(1);
+                Check(NetSmoothing.SamplePresentation(1, out after, out _) && after == before
+                    && NetSmoothing.AckPoint(out frame, out fraction) && frame == beforeFrame && fraction == beforeFraction
+                    && NetSmoothing.Steps == stepsBefore, $"{refresh} Hz presentation does not advance 60 Hz simulation");
+            }
+            double point = frame + fraction / 256.0;
+            Check(Math.Abs(point - (100 + (after.X - 10) / .1)) < .03,
+                "steady 60 Hz rendered pose and fractional ACK identify same authority point");
+        }
+
+        private static void PresentationSlotDiagnostics()
+        {
+            Session();
+            var roster = Roster(revision: 2); roster.Count = 3;
+            roster.Slots[2] = 2; roster.Generations[2] = 10; roster.Names[2] = "second-puppet";
+            NetSession.ApplyRoster(roster);
+            var one = State(7); var two = one; two.SlotIndex = 2;
+            NetPlayerLifecycle.AcceptState(one, 1); NetPlayerLifecycle.AcceptState(two, 1);
+            NetSmoothing.Reset();
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            long step = System.Diagnostics.Stopwatch.Frequency / 60;
+            for (int i = 0; i < 20; i++)
+            {
+                typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)(100 + i));
+                NetSmoothing.Record((uint)(100 + i), i < 4 ? new[] { one, two } : new[] { one }, now + i * step);
+                NetSmoothing.Tick();
+                if (i >= 4)
+                {
+                    NetSmoothing.Sample(1, out _, out _); NetSmoothing.Sample(2, out _, out _);
+                    NetSmoothing.Sample(1, out _, out _); NetSmoothing.Sample(2, out _, out _);
+                }
+            }
+            var rows = NetPresentationDiagnostics.Capture();
+            var stationary = rows.Single(r => r.Slot == 1); var missing = rows.Single(r => r.Slot == 2);
+            Check(stationary.Samples <= 20 && missing.Samples <= 20,
+                "per-slot presentation diagnostics count once per simulation frame");
+            Check(stationary.Starved == 0 && missing.Starved > 0 && missing.Unavailable > 0,
+                "missing slot starves independently while stationary received slot does not");
+            Check(missing.LongestStarvation > 0 && stationary.AgeSamples > 0
+                && stationary.AgeHistogram.Sum() == stationary.AgeSamples,
+                "bounded slot diagnostics expose starvation runs and age denominator");
+            // Exact boundaries isolate availability from delay steering. Integer
+            // holds, form changes and discontinuities are not packet starvation.
+            NetSmoothing.Reset();
+            NetPresentationDiagnostics.Reset();
+            var discontinuous = one; discontinuous.Position = new Vector3(100, 2, 3);
+            NetSmoothing.Record(100, new[] { one }, now);
+            NetSmoothing.Record(101, new[] { discontinuous }, now + step);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 150u);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 100.5);
+            Check(NetSmoothing.Sample(1, out var held, out _) && held == one.Position,
+                "large pose discontinuity holds prior received position");
+            Check(NetPresentationDiagnostics.Capture().Single(r => r.Slot == 1).Starved == 0,
+                "discontinuity hold is not starvation");
+            discontinuous.Position = one.Position; discontinuous.Flags |= PlayerState.FlagAltForm;
+            NetSmoothing.Record(102, new[] { discontinuous }, now + step * 2);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 151u);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 101.5);
+            Check(NetSmoothing.Sample(1, out _, out _) && NetPresentationDiagnostics.Capture().Single(r => r.Slot == 1).Starved == 0,
+                "form-boundary hold is not starvation");
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 152u);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 102.0);
+            Check(NetSmoothing.Sample(1, out _, out _) && NetPresentationDiagnostics.Capture().Single(r => r.Slot == 1).Starved == 0,
+                "integer received pose needs no upper sample and is not starvation");
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 153u);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 102.5);
+            NetSmoothing.Sample(1, out _, out _);
+            Check(NetPresentationDiagnostics.Capture().Single(r => r.Slot == 1).Starved == 1,
+                "fractional missing upper pose counts one starvation");
+            var nextLife = State(8); nextLife.SlotIndex = 2;
+            NetPlayerLifecycle.AcceptState(nextLife, 200);
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, 200u);
+            NetSmoothing.Record(200, new[] { one, nextLife }, now + step * 100);
+            NetSmoothing.Tick(); NetSmoothing.Sample(2, out _, out _);
+            var renewed = NetPresentationDiagnostics.Capture().Single(r => r.Slot == 2);
+            Check(renewed.Generation == nextLife.SlotGeneration && renewed.Life == nextLife.LifeId
+                && renewed.Samples <= 1, "slot lifecycle change fences and resets presentation diagnostics");
+        }
+
+        private static void PresentationTimingDiagnostics()
+        {
+            long frequency = System.Diagnostics.Stopwatch.Frequency;
+            long start = frequency * 10, step = frequency / 60;
+            NetTimingDiagnostics.Reset();
+            for (int i = 0; i <= 60; i++)
+            {
+                NetTimingDiagnostics.Simulation(start + step * i);
+                NetTimingDiagnostics.Snapshot(start + step * i);
+            }
+            double interval = step * 1000.0 / frequency;
+            Check(Math.Abs(NetTimingDiagnostics.SimulationIntervalMs - interval) < .00011
+                && Math.Abs(NetTimingDiagnostics.SnapshotIntervalMs - interval) < .00011
+                && interval > 16.6 && interval < 16.7, "deterministic steady 60 Hz timing intervals");
+            long latest = start + step * 60;
+            NetTimingDiagnostics.Snapshot(latest); NetTimingDiagnostics.Snapshot(latest - step * 10);
+            NetTimingDiagnostics.Simulation(latest); NetTimingDiagnostics.Simulation(latest - step * 10);
+            NetTimingDiagnostics.Snapshot(latest + step); NetTimingDiagnostics.Simulation(latest + step);
+            Check(Math.Abs(NetTimingDiagnostics.SimulationIntervalMs - interval) < .00011
+                && Math.Abs(NetTimingDiagnostics.SnapshotIntervalMs - interval) < .00011,
+                "equal and reordered timestamps cannot move timing origin backwards");
+            NetTimingDiagnostics.Reset();
+            NetTimingDiagnostics.Simulation(start);
+            long fifty = frequency / 20;
+            NetTimingDiagnostics.Simulation(start + fifty);
+            NetTimingDiagnostics.Correction(start + fifty);
+            Check(NetTimingDiagnostics.CorrectionsAfterLocalStall == 0
+                && NetTimingDiagnostics.CorrectionsWithoutLocalStall == 1,
+                "exactly 50 ms simulation interval is not a local stall");
+            long epsilon = Math.Max(1, frequency / 100000); // 10 us survives TimeSpan rounding.
+            long stall = start + fifty + fifty + epsilon;
+            NetTimingDiagnostics.Simulation(stall);
+            NetTimingDiagnostics.Correction(stall - epsilon);
+            NetTimingDiagnostics.Correction(stall);
+            NetTimingDiagnostics.Correction(stall + frequency / 4 - epsilon);
+            NetTimingDiagnostics.Correction(stall + frequency / 4);
+            Check(NetTimingDiagnostics.CorrectionsAfterLocalStall == 2
+                && NetTimingDiagnostics.CorrectionsWithoutLocalStall == 3,
+                "stall attribution accepts only nonnegative ages strictly below 250 ms");
+
+            Session(); var origin = State(7); origin.Position = Vector3.Zero;
+            NetPlayerLifecycle.AcceptState(origin, 1); NetSmoothing.Reset();
+            NetSmoothing.Record(100, new[] { origin }, start);
+            NetSmoothing.Record(101, new[] { origin }, start + step);
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!.SetValue(null, 100.5);
+            Check(NetSmoothing.Sample(1, out var pose, out _) && pose == Vector3.Zero,
+                "valid received origin pose remains available to smoothing");
+        }
+
+        private static void SnapshotAgeWrap()
+        {
+            Session();
+            Check(NetSession.SnapshotAge == uint.MaxValue, "snapshot age unknown before acceptance");
+            var clock = typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!;
+            clock.SetValue(null, uint.MaxValue);
+            Deliver(Packet(100, State(7)));
+            Check(NetSession.SnapshotArrived == 0 && NetSession.SnapshotAge == 0,
+                "real snapshot acceptance preserves valid receiver frame zero");
+            clock.SetValue(null, 20u);
+            Check(NetSession.SnapshotAge == 20, "frame-zero snapshot becomes stale normally");
+            clock.SetValue(null, uint.MaxValue - 2);
+            Deliver(Packet(101, State(7)));
+            clock.SetValue(null, 1u);
+            Check(NetSession.SnapshotAge == 3, "snapshot age crosses receiver frame wrap");
+            clock.SetValue(null, 200u);
+            Check(NetSession.SnapshotAge == 202, "wrapped snapshot continues aging through stale cutoff");
+            Session();
+            Check(NetSession.SnapshotAge == uint.MaxValue, "new session resets snapshot known state");
+        }
+
+        private static void RemoteIntentAgeWrap()
+        {
+            Session();
+            Deliver(Packet(100, State(7)));
+            var clock = typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!;
+            clock.SetValue(null, uint.MaxValue - 1);
+            var intent = new IntentPacket { MatchId = 51, AuthorityEpoch = 4,
+                SlotGeneration = 10, LifeId = 7, Frame = 1 };
+            Check(NetSession.AcceptSlotIntent(1, intent), "age fixture accepts current owner intent");
+            clock.SetValue(null, 1u);
+            Check(NetSession.RemoteIntentAge(1) == 3, "receiver intent age crosses frame wrap");
+            clock.SetValue(null, 0u);
+            intent.Frame = 2;
+            Check(NetSession.AcceptSlotIntent(1, intent) && NetSession.RemoteIntentArrived[1] == 0,
+                "real acceptance preserves receiver frame-zero arrival");
+            clock.SetValue(null, 1u);
+            Check(NetSession.RemoteIntentAge(1) == 1, "valid frame-zero arrival is not unknown");
+            clock.SetValue(null, 0u);
+            Check(NetSession.RemoteIntentAge(1) == 0, "valid frame-zero arrival has zero age");
+            NetSession.RemoteIntentArrived[1] = 1;
+            Check(NetSession.RemoteIntentAge(1) == 0, "future arrival clamps conservatively to zero");
+            NetSession.RemoteIntentValid[1] = false;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "invalid intent is unknown regardless of arrival");
+            NetSession.RemoteIntentValid[1] = true;
+            var stale = intent; stale.LifeId = 6;
+            NetSession.RemoteIntents[1] = stale;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "previous-life intent age is unknown");
+            stale = intent; stale.SlotGeneration = 9; NetSession.RemoteIntents[1] = stale;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "previous occupant intent age is unknown");
+            stale = intent; stale.MatchId = 50; NetSession.RemoteIntents[1] = stale;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "previous match intent age is unknown");
+            stale = intent; stale.AuthorityEpoch = 3; NetSession.RemoteIntents[1] = stale;
+            Check(NetSession.RemoteIntentAge(1) == uint.MaxValue, "previous authority intent age is unknown");
+            Check(NetSession.RemoteIntentAge(-1) == uint.MaxValue
+                && NetSession.RemoteIntentAge(NetSession.RemoteIntentArrived.Length) == uint.MaxValue,
+                "out-of-range intent age is unknown");
+            Session();
+        }
+
+        private static void ReportedVelocityWrap()
+        {
+            var bridge = new PlayerReplicationBridge(LivePlayerReplicationHost.Instance);
+            var player = Player(1, 50);
+            var note = typeof(PlayerReplicationBridge).GetMethod("NoteReportedVelocity",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            note.Invoke(bridge, new object[] { player, Vector3.Zero, uint.MaxValue, (byte)0 });
+            note.Invoke(bridge, new object[] { player, new Vector3(.4f, 0, 0), 1u, (byte)0 });
+            Check(Math.Abs(player.Speed.X - .2f) < .00001f,
+                "reported velocity uses modular two-frame delta across skipped frame zero");
+            note.Invoke(bridge, new object[] { player, new Vector3(100, 0, 0), uint.MaxValue, (byte)0 });
+            note.Invoke(bridge, new object[] { player, new Vector3(.6f, 0, 0), 2u, (byte)0 });
+            Check(Math.Abs(player.Speed.X - .2f) < .00001f,
+                "reordered pre-wrap report cannot corrupt next authoritative velocity");
+        }
+
+        private static void PresentationClock()
+        {
+            Session();
+            PlayerState a = State(7);
+            a.Position = new Vector3(10, 2, 3);
+            Deliver(Packet(100, a));
+
+            // Rebuild the smoothing history with deterministic 60 Hz arrival
+            // times so this test measures presentation arithmetic, not how
+            // quickly the test process happened to execute three statements.
+            NetSmoothing.Reset();
+            long now = System.Diagnostics.Stopwatch.GetTimestamp();
+            long step = System.Diagnostics.Stopwatch.Frequency / 60;
+            NetSmoothing.Record(100, new[] { a }, now);
+
+            PlayerState b = a;
+            b.Position = new Vector3(11, 2, 3);
+            NetSmoothing.Record(101, new[] { b }, now + step);
+            PlayerState c = a;
+            c.Position = new Vector3(12, 2, 3);
+            NetSmoothing.Record(102, new[] { c }, now + step * 2);
+
+            NetSmoothing.Tick();
+            NetSmoothing.Tick();
+            NetSmoothing.PreparePresentation(.5);
+            Check(NetSmoothing.SamplePresentation(1, out Vector3 presented, out _),
+                "high-refresh playout has a presentation sample");
+            Check(NetSmoothing.AckPoint(out uint ackFrame, out byte ackSub),
+                "presentation playout has an ack");
+            double ackPoint = ackFrame + ackSub / 256.0;
+            double positionPoint = 100 + (presented.X - 10);
+            Check(Math.Abs(ackPoint - positionPoint) < .02,
+                "rendered puppet and sub-frame ack name the same world");
+
+            // A fixed-step cosmetic consumer needs the completed read point,
+            // even when the last draw presented an earlier fractional world.
+            Check(NetSmoothing.Sample(1, out Vector3 completed, out bool completedAlt)
+                && (completed - presented).Length > .0001f,
+                "completed-position fixture separates simulation and last-drawn playout points");
+            NetPresentationDiagnostics.Reset();
+            var diagnosticsBefore = NetPresentationDiagnostics.Capture();
+            var countersBefore = (NetSmoothing.Interpolated, NetSmoothing.Held, NetSmoothing.Starved,
+                NetSmoothing.Snaps, NetSmoothing.Steps, NetSmoothing.StepSum, NetSmoothing.WorstStep,
+                NetSmoothing.StalledFrames, NetSmoothing.WorstStall, NetSmoothing.Delay, NetSmoothing.JitterFrames);
+            object? ReadClock(string name) => typeof(NetSmoothing)
+                .GetField(name, BindingFlags.Static | BindingFlags.NonPublic)!.GetValue(null);
+            var clocksBefore = (ReadClock("_readFrame"), ReadClock("_previousReadFrame"),
+                ReadClock("_presentationReadFrame"), ReadClock("_presentationValid"));
+            for (int repeat = 0; repeat < 16; repeat++)
+            {
+                Check(NetSmoothing.SampleCompletedPresentation(1, out var cosmetic, out bool cosmeticAlt)
+                    && cosmetic == completed && cosmeticAlt == completedAlt,
+                    "repeated cosmetic captures sample the completed point independently of the last draw");
+            }
+            Check(!NetSmoothing.SampleCompletedPresentation(-1, out var unavailable, out bool unavailableAlt)
+                && unavailable == Vector3.Zero && !unavailableAlt,
+                "invalid cosmetic sample fails without inventing a position or form");
+            Check(clocksBefore.Equals((ReadClock("_readFrame"), ReadClock("_previousReadFrame"),
+                    ReadClock("_presentationReadFrame"), ReadClock("_presentationValid")))
+                && countersBefore == (NetSmoothing.Interpolated, NetSmoothing.Held, NetSmoothing.Starved,
+                    NetSmoothing.Snaps, NetSmoothing.Steps, NetSmoothing.StepSum, NetSmoothing.WorstStep,
+                    NetSmoothing.StalledFrames, NetSmoothing.WorstStall, NetSmoothing.Delay, NetSmoothing.JitterFrames),
+                "cosmetic capture leaves read/presentation clocks and all playout diagnostics exact");
+            var diagnosticsAfter = NetPresentationDiagnostics.Capture();
+            for (int slot = 0; slot < diagnosticsBefore.Length; slot++)
+            {
+                var before = diagnosticsBefore[slot]; var after = diagnosticsAfter[slot];
+                Check((before with { AgeHistogram = after.AgeHistogram }) == after
+                    && before.AgeHistogram.SequenceEqual(after.AgeHistogram),
+                    "cosmetic capture leaves every per-slot diagnostic and age bucket exact");
+            }
+            Check(NetSmoothing.SamplePresentation(1, out var stillPresented, out _)
+                && stillPresented == presented && NetSmoothing.AckPoint(out uint stillAckFrame, out byte stillAckSub)
+                && stillAckFrame == ackFrame && stillAckSub == ackSub,
+                "completed cosmetic sampling cannot move the rendered world or its shot acknowledgement");
+
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.Sample(1, out Vector3 current, out _)
+                && NetSmoothing.SamplePresentation(1, out Vector3 atCurrent, out _)
+                && (current - atCurrent).Length < .0001f,
+                "60 Hz/current presentation keeps the simulation playout point");
+
+            // A missing authority frame must hold a world the client actually
+            // received, and the ack must name that held world rather than the
+            // fractional point the authority could have reconstructed.
+            NetSmoothing.Reset();
+            NetSmoothing.Record(100, new[] { a }, now);
+            NetSmoothing.Record(102, new[] { c }, now + step * 2);
+            NetSmoothing.Tick();
+            NetSmoothing.Tick();
+            NetSmoothing.PreparePresentation(.5);
+            Check(NetSmoothing.SamplePresentation(1, out Vector3 held, out _)
+                && Math.Abs(held.X - 10) < .0001f,
+                "lost snapshot holds the nearest recorded presentation");
+            Check(NetSmoothing.AckPoint(out ackFrame, out ackSub)
+                && ackFrame == 100 && ackSub == 0,
+                "held presentation acks the world the client actually received");
+
+            // The read clock can reach an authority frame absent from the
+            // buffer. Completed drawing deliberately holds an earlier received
+            // world; cosmetic capture must use that same hold, not fail and
+            // cause the caller to fall back to the newest raw snapshot.
+            typeof(NetSmoothing).GetField("_readFrame", BindingFlags.Static | BindingFlags.NonPublic)!
+                .SetValue(null, 101.5);
+            Check(!NetSmoothing.Sample(1, out _, out _), "missing-lower-frame fixture has no direct read-clock pose");
+            NetSmoothing.PreparePresentation(1);
+            Check(NetSmoothing.SamplePresentation(1, out held, out bool heldAlt) && held == a.Position
+                && NetSmoothing.AckPoint(out ackFrame, out ackSub) && ackFrame == 100 && ackSub == 0,
+                "completed drawing resolves a missing lower frame to the earlier received world");
+            NetPresentationDiagnostics.Reset();
+            diagnosticsBefore = NetPresentationDiagnostics.Capture();
+            countersBefore = (NetSmoothing.Interpolated, NetSmoothing.Held, NetSmoothing.Starved,
+                NetSmoothing.Snaps, NetSmoothing.Steps, NetSmoothing.StepSum, NetSmoothing.WorstStep,
+                NetSmoothing.StalledFrames, NetSmoothing.WorstStall, NetSmoothing.Delay, NetSmoothing.JitterFrames);
+            clocksBefore = (ReadClock("_readFrame"), ReadClock("_previousReadFrame"),
+                ReadClock("_presentationReadFrame"), ReadClock("_presentationValid"));
+            for (int repeat = 0; repeat < 16; repeat++)
+            {
+                Check(NetSmoothing.SampleCompletedPresentation(1, out var cosmetic, out bool cosmeticAlt)
+                    && cosmetic == held && cosmeticAlt == heldAlt,
+                    "completed cosmetic sampling preserves the drawn hold across a missing authority frame");
+            }
+            Check(clocksBefore.Equals((ReadClock("_readFrame"), ReadClock("_previousReadFrame"),
+                    ReadClock("_presentationReadFrame"), ReadClock("_presentationValid")))
+                && countersBefore == (NetSmoothing.Interpolated, NetSmoothing.Held, NetSmoothing.Starved,
+                    NetSmoothing.Snaps, NetSmoothing.Steps, NetSmoothing.StepSum, NetSmoothing.WorstStep,
+                    NetSmoothing.StalledFrames, NetSmoothing.WorstStall, NetSmoothing.Delay, NetSmoothing.JitterFrames)
+                && NetSmoothing.AckPoint(out uint heldAckFrame, out byte heldAckSub)
+                && heldAckFrame == ackFrame && heldAckSub == ackSub,
+                "missing-frame cosmetic sampling leaves read/presentation clocks, ACK and diagnostics exact");
+            diagnosticsAfter = NetPresentationDiagnostics.Capture();
+            for (int slot = 0; slot < diagnosticsBefore.Length; slot++)
+            {
+                var before = diagnosticsBefore[slot]; var after = diagnosticsAfter[slot];
+                Check((before with { AgeHistogram = after.AgeHistogram }) == after
+                    && before.AgeHistogram.SequenceEqual(after.AgeHistogram),
+                    "missing-frame cosmetic sampling leaves per-slot diagnostics and age buckets exact");
+            }
+        }
+
+        private static void HistoryBoundaries()
+        {
+            Session();
+            Deliver(Packet(100, State(7)));
+            NetSmoothing.Record(101, new[] { State(7) });
+            var spawn = State(8); spawn.Position = new Vector3(150, 20, -70);
+            Deliver(Packet(102, spawn));
+            Check(!NetSmoothing.Sample(1, out var position, out _) || position == spawn.Position,
+                "smoothing never returns old life position");
+            var players = PlayerEntity._players;
+            var saved = (PlayerEntity[])players.Clone();
+            try
+            {
+                for (int i = 0; i < players.Length; i++) players[i] = Player(i, i == 1 ? 50 : 0);
+                players[1].LoadFlags = LoadFlags.Active | LoadFlags.Spawned;
+                NetUnlagged.Record(200);
+                Check(NetUnlagged.PositionAt(1, 200, 10, 8, out _), "rewind finds current life");
+                Check(!NetUnlagged.PositionAt(1, 200, 10, 7, out _)
+                    && !NetUnlagged.PositionAt(1, 200, 9, 8, out _), "rewind refuses old life and occupant");
+                NetUnlagged.ResetSlot(1);
+                Check(!NetUnlagged.PositionAt(1, 200, 10, 8, out _), "slot reset clears rewind");
+            }
+            finally { Array.Copy(saved, players, players.Length); }
+        }
+
+        private static void FaultStream()
+        {
+            static List<int> Trace(int seed)
+            {
+                var queue = new NetFaultQueue<int>(seed, 200, 80, .02, .05, .02);
+                for (int i = 0; i < 1000; i++) queue.Enqueue(i * 16.0, i);
+                var result = new List<int>();
+                while (queue.TryDequeue(20000, out int value)) result.Add(value);
+                return result;
+            }
+            Check(Trace(8128).SequenceEqual(Trace(8128)) && !Trace(8128).SequenceEqual(Trace(17)), "seeded fault schedule reproducible");
+            Session();
+            var stream = new NetFaultQueue<byte[]>(8128, 200, 80, .02, .05, .02);
+            ushort lastLife = 0;
+            for (int frame = 1; frame <= 3700; frame++)
+            {
+                if (frame <= 3600)
+                {
+                    ushort life = (ushort)((frame - 1) / 90 + 1);
+                    ushort health = (ushort)((frame - 1) % 90 < 70 ? 50 : 0);
+                    stream.Enqueue(frame * 1000.0 / 60, Packet((uint)frame, State(life, health)));
+                }
+                while (stream.TryDequeue(frame * 1000.0 / 60, out byte[] packet))
+                {
+                    Deliver(packet);
+                    ushort life = NetPlayerLifecycle.Get(1);
+                    Check(life >= lastLife, "fault stream never regresses life");
+                    lastLife = life;
+                }
+            }
+            Check(lastLife == 40 && NetSession.RemoteStates[1].Health == 0 && NetPlayerLifecycle.InvalidResurrections == 0,
+                "400ms RTT profile: forty lives, no invalid resurrection");
+            Check(stream.Dropped > 0 && stream.Duplicated > 0 && stream.Reordered > 0 && NetSession.SnapshotsOutOfOrder > 0,
+                "loss, duplication and reordering actually exercised");
+            var bounded = new NetFaultQueue<int>(1, 200, 0, 0, 0, 1, 4);
+            for (int i = 0; i < 100; i++) bounded.Enqueue(0, i);
+            Check(bounded.Count == 4 && bounded.Dropped > 0, "fault queue bounded under stalled consumer");
+        }
+    }
+}

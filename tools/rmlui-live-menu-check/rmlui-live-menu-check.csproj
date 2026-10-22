@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/MphRead/MphRead.csproj" />
+    <Content Include="../../src/MphRead/Mods/Launcher/RmlUi/Pages/hunters/identity.rml" Link="lobby-hunter-identity.rml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

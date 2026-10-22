@@ -1,0 +1,535 @@
+{
+  "name": "TEST MOMENTUM COLLISION",
+  "description": "Original authored PR04 collision course; no imported assets.",
+  "textureSource": "MP3 PROVING GROUND",
+  "scaleFactor": 4,
+  "killHeight": -12,
+  "fogEnabled": false,
+  "materials": [
+    {
+      "name": "floor",
+      "sourceMaterial": 2,
+      "texScale": 16
+    }
+  ],
+  "brushes": [
+    {
+      "min": [
+        -64,
+        0,
+        8
+      ],
+      "max": [
+        64,
+        10,
+        9
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        -64,
+        0,
+        -24
+      ],
+      "max": [
+        -63,
+        10,
+        24
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        63,
+        0,
+        -24
+      ],
+      "max": [
+        64,
+        10,
+        24
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        -30,
+        0,
+        0
+      ],
+      "max": [
+        -29,
+        8,
+        8
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        -22,
+        0,
+        0
+      ],
+      "max": [
+        -10,
+        0.25,
+        8
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        10,
+        3,
+        0
+      ],
+      "max": [
+        22,
+        4,
+        7
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        28,
+        0,
+        -8
+      ],
+      "max": [
+        29,
+        8,
+        8
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        31.5,
+        0,
+        -8
+      ],
+      "max": [
+        32.5,
+        8,
+        8
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        -64,
+        -1,
+        -24
+      ],
+      "max": [
+        38,
+        0,
+        24
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        46,
+        -1,
+        -24
+      ],
+      "max": [
+        50,
+        0,
+        24
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        58,
+        -1,
+        -24
+      ],
+      "max": [
+        64,
+        0,
+        24
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        38,
+        -1,
+        -24
+      ],
+      "max": [
+        46,
+        0,
+        -8
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        38,
+        -1,
+        6
+      ],
+      "max": [
+        46,
+        0,
+        24
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        50,
+        -1,
+        -24
+      ],
+      "max": [
+        58,
+        0,
+        -8
+      ],
+      "material": 0,
+      "solid": true
+    },
+    {
+      "min": [
+        50,
+        -1,
+        6
+      ],
+      "max": [
+        58,
+        0,
+        24
+      ],
+      "material": 0,
+      "solid": true
+    }
+  ],
+  "geometry": [
+    {
+      "kind": "mesh",
+      "id": "918c11c4-c922-521f-a292-36315c5a79d3",
+      "label": "Down ramp",
+      "vertices": [
+        [
+          -6,
+          2,
+          -8
+        ],
+        [
+          -6,
+          0,
+          4
+        ],
+        [
+          6,
+          0,
+          4
+        ],
+        [
+          6,
+          2,
+          -8
+        ],
+        [
+          -6,
+          -0.5,
+          -8
+        ],
+        [
+          -6,
+          -0.5,
+          4
+        ],
+        [
+          6,
+          -0.5,
+          4
+        ],
+        [
+          6,
+          -0.5,
+          -8
+        ]
+      ],
+      "faces": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          7,
+          6,
+          5,
+          4
+        ],
+        [
+          0,
+          4,
+          5,
+          1
+        ],
+        [
+          1,
+          5,
+          6,
+          2
+        ],
+        [
+          2,
+          6,
+          7,
+          3
+        ],
+        [
+          3,
+          7,
+          4,
+          0
+        ]
+      ],
+      "material": 0
+    },
+    {
+      "kind": "mesh",
+      "id": "a1c9a708-3f04-535e-a307-67b5c68c874d",
+      "label": "Contact installs slip1",
+      "vertices": [
+        [
+          38,
+          0.02,
+          -8
+        ],
+        [
+          38,
+          0.02,
+          6
+        ],
+        [
+          46,
+          0.02,
+          6
+        ],
+        [
+          46,
+          0.02,
+          -8
+        ],
+        [
+          38,
+          -0.5,
+          -8
+        ],
+        [
+          38,
+          -0.5,
+          6
+        ],
+        [
+          46,
+          -0.5,
+          6
+        ],
+        [
+          46,
+          -0.5,
+          -8
+        ]
+      ],
+      "faces": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          7,
+          6,
+          5,
+          4
+        ],
+        [
+          0,
+          4,
+          5,
+          1
+        ],
+        [
+          1,
+          5,
+          6,
+          2
+        ],
+        [
+          2,
+          6,
+          7,
+          3
+        ],
+        [
+          3,
+          7,
+          4,
+          0
+        ]
+      ],
+      "slipperiness": 1,
+      "material": 0
+    },
+    {
+      "kind": "mesh",
+      "id": "c35f2fa6-5762-5c00-bc0b-8abaf0948225",
+      "label": "Contact installs slip3",
+      "vertices": [
+        [
+          50,
+          0.02,
+          -8
+        ],
+        [
+          50,
+          0.02,
+          6
+        ],
+        [
+          58,
+          0.02,
+          6
+        ],
+        [
+          58,
+          0.02,
+          -8
+        ],
+        [
+          50,
+          -0.5,
+          -8
+        ],
+        [
+          50,
+          -0.5,
+          6
+        ],
+        [
+          58,
+          -0.5,
+          6
+        ],
+        [
+          58,
+          -0.5,
+          -8
+        ]
+      ],
+      "faces": [
+        [
+          0,
+          1,
+          2,
+          3
+        ],
+        [
+          7,
+          6,
+          5,
+          4
+        ],
+        [
+          0,
+          4,
+          5,
+          1
+        ],
+        [
+          1,
+          5,
+          6,
+          2
+        ],
+        [
+          2,
+          6,
+          7,
+          3
+        ],
+        [
+          3,
+          7,
+          4,
+          0
+        ]
+      ],
+      "slipperiness": 3,
+      "material": 0
+    },
+    {
+      "kind": "mesh",
+      "id": "e102b515-e1b3-51c8-a9e5-05c975e4dc65",
+      "label": "Spire finite wall face without supporting top",
+      "vertices": [
+        [
+          -62,
+          0,
+          2
+        ],
+        [
+          -62,
+          3,
+          2
+        ],
+        [
+          -58,
+          3,
+          2
+        ],
+        [
+          -58,
+          0,
+          2
+        ]
+      ],
+      "faces": [
+        [
+          0,
+          1,
+          2,
+          3
+        ]
+      ],
+      "material": 0
+    }
+  ],
+  "spawns": [
+    {
+      "position": [
+        -48,
+        0.1,
+        -12
+      ],
+      "yaw": 0
+    }
+  ]
+}

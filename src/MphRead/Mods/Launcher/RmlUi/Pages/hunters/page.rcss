@@ -1,0 +1,80 @@
+body { background-color: transparent; }
+.hunter-panel { left: 2%; top: 12dp; width: 96%; height: auto; bottom: 12dp; border: 0dp; background-color: rgba(5,19,31,94%); }
+#nav_hunters { color: #ffffff; background-color: #0b2942; border-bottom: 3dp #78caff; }
+.hunter-panel .hint { line-height: 12dp; }
+#hunter_cosmetics_visibility { display: block; margin: 6dp 0dp; white-space: normal; }
+.native-hunter-preview-controls { flex-shrink: 0; }
+.hunter-preview .native-hunter-preview-controls button { width:auto; flex:0 0 auto; }
+@media (max-height: 760dp) { .hunter-grid { top: 90dp; } .hunter-grid button { min-height: 26dp; padding: 3dp 6dp; font-size: 12dp; } .hunter-preview .hunter-actions button { width: 30%; } .hunter-panel .hint { font-size: 10dp; line-height: 11dp; } }
+@media (max-height: 500dp) {
+  .hunter-panel { overflow-y:auto; overflow-x:hidden; }
+  .hunter-grid { position:relative; left:0; right:0; top:0; bottom:auto; width:100%; height:auto; display:block; }
+  .hunter-picker,.hunter-preview { width:100%; height:auto; margin-left:0; }
+  .hunter-preview-space { height:180dp; flex:0 0 auto; }
+}
+/* Keep the native picker's model inside its clipped panel on short displays.
+   Selection details scroll independently, so focus never pushes the model out. */
+@media (max-height: 500dp) {
+  .native-hunter-panel { overflow:hidden; padding:8dp; }
+  .native-hunter-panel > .eyebrow { display:none; }
+  .native-hunter-panel h1 { font-size:18dp; line-height:20dp; margin:0dp; }
+  .native-hunter-panel > .hunter-status { font-size:10dp; line-height:12dp; padding:2dp 4dp; }
+  .native-hunter-panel .hunter-grid { position:absolute; left:8dp; right:8dp; top:46dp; bottom:8dp; width:auto; height:auto; display:flex; }
+  .native-hunter-panel .hunter-picker { width:50%; height:100%; overflow-y:auto; overflow-x:hidden; }
+  .native-hunter-panel .hunter-preview { width:48%; height:100%; margin-left:2%; display:flex; flex-direction:column; }
+  .native-hunter-panel .hunter-preview > .section-title { font-size:10dp; line-height:12dp; margin:0dp 0dp 2dp; }
+  .native-hunter-panel .hunter-preview-space { height:auto; min-height:64dp; flex:1; }
+  .native-hunter-panel .native-hunter-preview-controls button { width:30%; min-height:18dp; font-size:9dp; line-height:11dp; padding:1dp 3dp; margin:0dp 2dp 2dp 0dp; white-space:nowrap; }
+  .native-hunter-panel .hunter-preview > .hint { display:none; }
+}
+/* The selection draft grows with catalog descriptions. Keep it scrollable at
+   every height while the engine preview retains a stable, clipped rectangle. */
+.native-hunter-panel .hunter-grid { bottom:12dp; }
+.native-hunter-panel .hunter-picker { height:100%; overflow-y:auto; overflow-x:hidden; padding-right:8dp; box-sizing:border-box; }
+.native-hunter-panel .hunter-preview { overflow:hidden; }
+.native-hunter-panel .hunter-preview-space { min-height:80dp; }
+.native-hunter-panel .hunter-cosmetic-actions > button { display:block; width:96%; text-align:left; }
+.native-hunter-panel .cosmetic-description { margin:0dp 8dp 8dp 0dp; white-space:normal; }
+.native-hunter-panel #hunter_switch_hint { margin-bottom:6dp; white-space:normal; }
+.native-hunter-panel #hunter_preview_state { flex-shrink:0; white-space:normal; }
+.native-hunter-panel button:disabled { color:#7e95a8; background-color:#0c2236; border-color:#253e52; }
+.native-hunter-panel button.selected:disabled { color:#d8edff; border-color:#78caff; }
+@media (max-width: 760dp) {
+  .native-hunter-panel { padding:10dp; }
+  .native-hunter-panel .hunter-grid { left:10dp; right:10dp; }
+  .native-hunter-panel .hunter-picker { width:52%; }
+  .native-hunter-panel .hunter-preview { width:46%; margin-left:2%; }
+  .native-hunter-panel .hunter-grid button { padding:4dp; font-size:11dp; }
+  .native-hunter-panel .native-hunter-preview-controls button { width:46%; white-space:normal; }
+  .native-hunter-panel .hunter-preview > .hint { display:none; }
+}
+@media (max-height: 500dp) {
+  .native-hunter-panel .hunter-grid { bottom:8dp; }
+  .native-hunter-panel .cosmetic-description { margin-bottom:4dp; }
+  .native-hunter-panel .hunter-preview-space { min-height:64dp; }
+  .native-hunter-panel .native-hunter-preview-controls button { width:30%; min-height:16dp; font-size:9dp; padding:1dp 3dp; }
+}
+
+/* The selection draft owns one scroll region; Equip and Back never scroll
+   away. The engine still renders inside native_hunter_preview's actual box. */
+.native-hunter-panel .hunter-picker { display:flex; flex-direction:column; overflow:visible; min-height:0; }
+.hunter-options { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
+.native-hunter-panel .hunter-equip-actions { flex-shrink:0; border-top:1dp #285274; padding-top:8dp; }
+.native-hunter-panel .hunter-equip-actions > button { flex:1; min-width:42%; white-space:normal; }
+.native-hunter-panel .hunter-cosmetic-actions { display:flex; flex-wrap:wrap; }
+.hunter-cosmetic-option { width:49%; min-width:0; margin-right:1%; }
+.native-hunter-panel .hunter-cosmetic-option > button { display:block; width:100%; white-space:normal; }
+.native-hunter-panel .hunter-cosmetic-actions > .section-title { width:100%; }
+.native-hunter-panel .hunter-cosmetic-actions > button { width:99%; }
+.native-hunter-panel .hunter-preview .native-hunter-preview-controls button { flex:1; min-width:21%; margin:0 4dp 4dp 0; white-space:normal; }
+@media (max-width:900dp) { .hunter-cosmetic-option { width:99%; } }
+body.touch-targets .native-hunter-panel .hunter-preview { overflow:hidden; }
+body.touch-targets .native-hunter-panel .native-hunter-preview-controls { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; }
+body.touch-targets .native-hunter-panel .hunter-preview-space { flex:1; }
+
+/* On short touch windows the pinned draft commands themselves can exceed the
+   column height. Let that whole column scroll, preserving every 48dp target. */
+@media (max-height:500dp) {
+    body.touch-targets .native-hunter-panel .hunter-picker { display:block; overflow-y:auto; overflow-x:hidden; }
+    body.touch-targets .native-hunter-panel .hunter-options { overflow-y:visible; height:auto; }
+}

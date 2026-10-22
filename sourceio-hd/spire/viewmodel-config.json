@@ -1,0 +1,52 @@
+{
+  "format": 1,
+  "hunter": "Spire",
+  "sourceRelative": "models/spire/spire_a.glb",
+  "sourceSha256": "bb69dd16dd60092ab8aaa45c1c73a819d615efefcfa889bfce26ee057b572eba",
+  "bodygroups": [
+    "Spire_Body.smd"
+  ],
+  "collapsedJoint": "R_elbow",
+  "minimumAverageWeight": 0.5,
+  "mainMaterial": "blinn1",
+  "nativeEffectMaterials": [
+    "GlowM",
+    "MetalM"
+  ],
+  "sourceAxis": [
+    -0.573500931,
+    -0.332165301,
+    -0.748840988
+  ],
+  "sourceMuzzle": [
+    -1.1055408716201782,
+    -0.10181327164173126,
+    0.5268601179122925
+  ],
+  "idleAnimation": 3,
+  "partition": "native-surface-centroid Voronoi cuts",
+  "expectedSourceFeaturePass": "all selected Source weapon triangles retained; no automatic remesh or decimation",
+  "partitionExcludedNodes": [
+    "Mag",
+    "Bullet1",
+    "Bullet2"
+  ],
+  "nativeEffectNodes": [
+    "Mag",
+    "Bullet1",
+    "Bullet2"
+  ],
+  "sourceMaterialMap": {
+    "Spire_Crystal": "CrystalM",
+    "Spire_Body": "blinn1",
+    "Spire_Torso": "lambert10"
+  },
+  "fitRadialEnvelope": "contain both native width and height; preserve Source cross-section aspect",
+  "teamRecolorMaterials": [
+    "blinn1"
+  ],
+  "nativeEffectExcludedNodes": [
+    "Base"
+  ],
+  "nativeEffectPreservation": "Keep native Mag/Bullet ammo animation; omit the native base glow shell overlapping Source rock surfaces."
+}

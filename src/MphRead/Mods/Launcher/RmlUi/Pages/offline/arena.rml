@@ -1,0 +1,27 @@
+<rml>
+<head>
+    <title>Select Offline arena</title>
+    <link type="text/template" href="../../components/dialog.rml" />
+    <link type="text/rcss" href="offline.rcss" />
+</head>
+<body template="prime-dialog">
+    <div class="offline_dialog">
+        <h1>SELECT ARENA</h1>
+        <p>Choose an installed arena compatible with this game type and combatant count.</p>
+        <div class="offline_field"><label for="offline_arena_search">Search arena name</label><input id="offline_arena_search" type="text" maxlength="80" /></div>
+        <button class="offline_action" id="offline_arena_search_apply" data-action="offline:arena-search">SEARCH</button>
+        <div id="offline_arena_page" class="offline_summary" />
+        <div id="offline_arena_picker_error" class="offline_error" />
+        <div class="offline_arena_list">
+            <div id="offline_arena_row_0" class="offline_arena_row"><button id="offline_arena_pick_0" data-action="offline:arena:0"><div class="offline_arena_art"><img style="display: none" id="offline_arena_image_0"/><span id="offline_arena_preview_status_0" class="offline_arena_art_label">PREVIEW UNAVAILABLE</span></div><span id="offline_arena_name_0" /></button><div id="offline_arena_reason_0" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_1" class="offline_arena_row"><button id="offline_arena_pick_1" data-action="offline:arena:1"><div class="offline_arena_art"><img style="display: none" id="offline_arena_image_1"/><span id="offline_arena_preview_status_1" class="offline_arena_art_label">PREVIEW UNAVAILABLE</span></div><span id="offline_arena_name_1" /></button><div id="offline_arena_reason_1" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_2" class="offline_arena_row"><button id="offline_arena_pick_2" data-action="offline:arena:2"><div class="offline_arena_art"><img style="display: none" id="offline_arena_image_2"/><span id="offline_arena_preview_status_2" class="offline_arena_art_label">PREVIEW UNAVAILABLE</span></div><span id="offline_arena_name_2" /></button><div id="offline_arena_reason_2" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_3" class="offline_arena_row"><button id="offline_arena_pick_3" data-action="offline:arena:3"><div class="offline_arena_art"><img style="display: none" id="offline_arena_image_3"/><span id="offline_arena_preview_status_3" class="offline_arena_art_label">PREVIEW UNAVAILABLE</span></div><span id="offline_arena_name_3" /></button><div id="offline_arena_reason_3" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_4" class="offline_arena_row"><button id="offline_arena_pick_4" data-action="offline:arena:4"><div class="offline_arena_art"><img style="display: none" id="offline_arena_image_4"/><span id="offline_arena_preview_status_4" class="offline_arena_art_label">PREVIEW UNAVAILABLE</span></div><span id="offline_arena_name_4" /></button><div id="offline_arena_reason_4" class="offline_arena_reason" /></div>
+            <div id="offline_arena_row_5" class="offline_arena_row"><button id="offline_arena_pick_5" data-action="offline:arena:5"><div class="offline_arena_art"><img style="display: none" id="offline_arena_image_5"/><span id="offline_arena_preview_status_5" class="offline_arena_art_label">PREVIEW UNAVAILABLE</span></div><span id="offline_arena_name_5" /></button><div id="offline_arena_reason_5" class="offline_arena_reason" /></div>
+        </div>
+        <div class="offline_actions"><button id="offline_arena_previous" class="offline_action" data-action="offline:arena-page:previous">PREVIOUS</button><button id="offline_arena_next" class="offline_action" data-action="offline:arena-page:next">NEXT</button></div>
+        <button id="offline_arena_cancel" class="offline_action" data-action="offline:cancel-arena">CANCEL</button>
+    </div>
+</body>
+</rml>

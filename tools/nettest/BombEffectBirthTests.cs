@@ -1,0 +1,255 @@
+using System;
+using System.Linq;
+using System.Reflection;
+using MphRead;
+using MphRead.Entities;
+using MphRead.Effects;
+using MphRead.Mods;
+using MphRead.Mods.Network;
+using MphRead.Mods.Replay;
+using OpenTK.Mathematics;
+
+namespace MphRead.NetTest;
+
+internal static class BombEffectBirthTests
+{
+    private static int _checks;
+    private static readonly BindingFlags Private = BindingFlags.Instance | BindingFlags.NonPublic;
+    private static readonly FieldInfo Time = typeof(Scene).GetField("_elapsedTime", Private)!;
+    private static readonly FieldInfo Frame = typeof(Scene).GetField("_effectFrame", Private)!;
+    private static readonly MethodInfo Effects = typeof(Scene).GetMethod("ProcessEffects", Private)!;
+    private static readonly MethodInfo DrawEffects = typeof(Scene).GetMethod("PrepareEffectDraw", Private)!;
+    private static readonly FieldInfo OwedEffects = typeof(Scene).GetField("_pendingEffectSteps", Private)!;
+    private static void Check(bool value, string label)
+    { _checks++; if (!value) throw new InvalidOperationException(label); Console.WriteLine("BOMB EFFECT PASS " + label); }
+    private static void AdvanceClock(Scene scene)
+    {
+        Time.SetValue(scene, (float)Time.GetValue(scene)! + 1f / 60);
+        Frame.SetValue(scene, (ulong)Frame.GetValue(scene)! + 1);
+    }
+    private static void ProcessEffects(Scene scene) => Effects.Invoke(scene, new[] { Frame.GetValue(scene) });
+    private static int Particles(BombEntity bomb) => bomb.Effect?.Elements.Sum(e => e.Particles.Count) ?? 0;
+    private static BombEntity Ghost(PassiveReplayScene replay, BombType kind)
+    {
+        var match = replay.State.Match!.Value;
+        var scene = replay.Scene;
+        scene.Bombs.Begin(match.MatchId, match.AuthorityEpoch);
+        var key = new ShotKey(match.AuthorityEpoch, match.MatchId, 0, 1, 1, 1);
+        var state = new BombState(key, kind, 0, scene.Players.Items[0].Position,
+            Vector3.UnitZ, Vector3.UnitY, Vector3.Zero, 80, 0, 0, 0, 0);
+        return BombEntity.SpawnReplica(scene.Players.Items[0], state, scene)!;
+    }
+    private static BombEntity RestoredGhost(PassiveReplayScene replay)
+    {
+        foreach (var bomb in replay.Scene.GetBombEntities()) if (bomb.ModReplica) return bomb;
+        throw new InvalidOperationException("Restored canonical ghost is missing.");
+    }
+    private static EffectElementEntry[] ActiveElements(Scene scene)
+        => ((System.Collections.Generic.IEnumerable<EffectElementEntry>)typeof(Scene)
+            .GetField("_activeElements", Private)!.GetValue(scene)!).ToArray();
+    private static void CatchupTerminal(string replayPath, BombType kind)
+    {
+        using var replay = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        var ghost = Ghost(replay, kind);
+        var before = ActiveElements(replay.Scene);
+        ghost.ModPresentDetonation();
+        // Initialize now creates pooled body elements; terminal spawn can reuse
+        // those same objects after unlinking them, so select authored effect ID.
+        var terminal = ActiveElements(replay.Scene)
+            .Where(e => e.EffectId == (kind == BombType.Lockjaw ? 146 : 145)).ToArray();
+        Check(terminal.Length > 0 && terminal.All(e => e.ModCanonicalBirthPending),
+            $"{kind} canonical terminal arms only newly created effect elements");
+        float delay = terminal.Max(e => e.Lifespan) + 1;
+        Time.SetValue(replay.Scene, (float)Time.GetValue(replay.Scene)! + delay);
+        Frame.SetValue(replay.Scene, (ulong)Frame.GetValue(replay.Scene)! + 3);
+        ProcessEffects(replay.Scene);
+        Check(terminal.Sum(e => e.Particles.Count) > 0 && terminal.All(e => !e.ModCanonicalBirthPending),
+            $"{kind} terminal delayed beyond original lifespan emits before expiry");
+        var after = ActiveElements(replay.Scene);
+        ghost.ModPresentDetonation();
+        Check(ActiveElements(replay.Scene).SequenceEqual(after),
+            $"{kind} repeated terminal presentation creates no additional effect elements");
+        before = ActiveElements(replay.Scene);
+        replay.Scene.SpawnEffect(kind == BombType.Lockjaw ? 146 : 145, ghost.Transform);
+        var native = ActiveElements(replay.Scene).Except(before).ToArray();
+        Check(native.Length > 0 && native.All(e => !e.ModCanonicalBirthPending),
+            $"{kind} ordinary native terminal never receives canonical birth override");
+        var nativeBirthTimes = native.Select(e => e.CreationTime).ToArray();
+        Time.SetValue(replay.Scene, (float)Time.GetValue(replay.Scene)! + native.Max(e => e.Lifespan) + 1);
+        Frame.SetValue(replay.Scene, (ulong)Frame.GetValue(replay.Scene)! + 3);
+        ProcessEffects(replay.Scene);
+        Check(native.Select(e => e.CreationTime).SequenceEqual(nativeBirthTimes)
+            && native.Sum(e => e.Particles.Count) == 0,
+            $"{kind} delayed ordinary native effect retains native expiry and birth clock");
+    }
+
+    private static void InitialDrawBirth(string replayPath, BombType kind)
+    {
+        using var replay = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        var ghost = Ghost(replay, kind);
+        Check(ghost.Effect != null && Particles(ghost) == 0
+            && ghost.Effect.Elements.All(e => e.ModCanonicalBirthPending),
+            $"{kind} Initialize arms body before any bomb Process");
+        using var initialCheckpoint = ReplayWorldCheckpoint.Capture(replay);
+        replay.Scene.SpawnEffect(145, ghost.Transform);
+        var unmarked = ActiveElements(replay.Scene).Where(e => !e.ModCanonicalBirthPending)
+            .Select(e => (Element: e, e.CreationTime, e.ExpirationTime, e.ParticleAmount,
+                Count: e.Particles.Count, e.Expired, e.Func39Called)).ToArray();
+        OwedEffects.SetValue(replay.Scene, 0);
+        DrawEffects.Invoke(replay.Scene, null);
+        Check(unmarked.All(v => v.Element.CreationTime == v.CreationTime
+            && v.Element.ExpirationTime == v.ExpirationTime && v.Element.ParticleAmount == v.ParticleAmount
+            && v.Element.Particles.Count == v.Count && v.Element.Expired == v.Expired
+            && v.Element.Func39Called == v.Func39Called),
+            $"{kind} zero-owed draw leaves every unmarked existing/native effect untouched");
+        int particles = Particles(ghost);
+        Check(particles > 0, $"{kind} zero-owed native draw dispatch emits body before any bomb Process");
+        string once = replay.Scene.ReplayPresentationHash(replay.Session.CurrentFrame);
+        DrawEffects.Invoke(replay.Scene, null);
+        Check(replay.Scene.ReplayPresentationHash(replay.Session.CurrentFrame) == once,
+            $"{kind} repeated zero-owed draw changes no existing particles or effects");
+        var effect = ghost.Effect;
+        AdvanceClock(replay.Scene); ghost.Process(); ProcessEffects(replay.Scene);
+        Check(ReferenceEquals(effect, ghost.Effect) && Particles(ghost) == particles,
+            $"{kind} first Process after draw does not duplicate initialized body");
+        using var restored = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        initialCheckpoint.Restore(restored);
+        var initial = RestoredGhost(restored);
+        Check(initial.Effect != null && Particles(initial) == 0
+            && initial.Effect.Elements.All(e => e.ModCanonicalBirthPending),
+            $"{kind} checkpoint retains Initialize-only birth without Process");
+        AdvanceClock(restored.Scene); OwedEffects.SetValue(restored.Scene, 0);
+        DrawEffects.Invoke(restored.Scene, null);
+        Check(Particles(initial) == particles,
+            $"{kind} restored Initialize-only birth emits before any bomb Process at later clock");
+    }
+
+    private static void CatchupBirth(string replayPath, BombType kind)
+    {
+        using var source = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        var ghost = Ghost(source, kind);
+        ghost.Process();
+        Check(ghost.Effect != null && ghost.Effect.Elements.All(e => e.ModCanonicalBirthPending)
+            && Particles(ghost) == 0, $"{kind} first Process arms exact body birth before effects pass");
+        using var armedCheckpoint = ReplayWorldCheckpoint.Capture(source);
+        AdvanceClock(source.Scene); ghost.Process();
+        AdvanceClock(source.Scene); ghost.Process();
+        ProcessEffects(source.Scene);
+        int particles = Particles(ghost);
+        Check(particles > 0 && ghost.Effect!.Elements.All(e => !e.ModCanonicalBirthPending),
+            $"{kind} multi-step catchup emits first body despite missing creation parity and zero age");
+        AdvanceClock(source.Scene); ghost.Process(); ProcessEffects(source.Scene);
+        Check(Particles(ghost) == particles, $"{kind} catchup initial body emission runs once");
+        using var restored = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        armedCheckpoint.Restore(restored);
+        var armed = RestoredGhost(restored);
+        Check(armed.Effect != null && armed.Effect.Elements.All(e => e.ModCanonicalBirthPending)
+            && Particles(armed) == 0, $"{kind} armed unprocessed birth flag survives full world checkpoint");
+        AdvanceClock(restored.Scene); armed.Process(); ProcessEffects(restored.Scene);
+        Check(Particles(armed) == particles && armed.Effect!.Elements.All(e => !e.ModCanonicalBirthPending),
+            $"{kind} restored armed effect emits initial body at delayed first pass");
+        AdvanceClock(restored.Scene); armed.Process(); ProcessEffects(restored.Scene);
+        Check(Particles(armed) == particles, $"{kind} restored armed body does not emit twice");
+    }
+
+    private static void ManagerCheckpoint(string replayPath)
+    {
+        using var source = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        var ghost = Ghost(source, BombType.MorphBall);
+        var state = ghost.ModCaptureState();
+        var receiver = new BombStateReceiver();
+        foreach (var page in BombStatePage.PackSnapshot(state.Key.MatchId, state.Key.AuthorityEpoch, 0, 7, new[] { state }))
+            receiver.Accept(page);
+        source.Scene.Bombs.ApplyBaseline(receiver);
+        var terminal = new BombEvent(8, 1, BombEventKind.Detonated, 0, state);
+        Check(source.Scene.Bombs.ReceiveEvent(terminal) && source.Scene.Bombs.Frontier == 8,
+            "canonical exact terminal advances baseline frontier once");
+        var next = state with { Key = state.Key with { ShotId = 2 } };
+        Check(source.Scene.Bombs.ReceiveEvent(new BombEvent(10, 3, BombEventKind.Placed, 0, next))
+            && source.Scene.Bombs.Frontier == 8 && source.Scene.Bombs.PendingEvents == 1,
+            "canonical out-of-order birth remains pending behind exact sequence gap");
+        using var checkpoint = ReplayWorldCheckpoint.Capture(source);
+        using var restored = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+        checkpoint.Restore(restored);
+        Check(restored.Scene.Bombs.Canonical && restored.Scene.Bombs.Frontier == 8
+            && restored.Scene.Bombs.PendingEvents == 1,
+            "world checkpoint preserves canonical stream baseline frontier and ordered pending event");
+        var before = restored.Scene.ReplayPresentationHash(restored.Session.CurrentFrame);
+        Check(!restored.Scene.Bombs.ReceiveEvent(terminal)
+            && restored.Scene.ReplayPresentationHash(restored.Session.CurrentFrame) == before,
+            "restored terminal retry produces no additional ghost or terminal effect");
+        var refused = new BombState(state.Key with { ShotId = 3 }, default, 0,
+            default, default, default, default, 0, 0, 0, 0, 0);
+        Check(restored.Scene.Bombs.ReceiveEvent(new BombEvent(9, 2, BombEventKind.Refused, 0, refused))
+            && restored.Scene.Bombs.Frontier == 10 && restored.Scene.Bombs.PendingEvents == 0,
+            "restored baseline admits missing sequence then drains pending birth exactly");
+        int nextCount = 0, oldCount = 0;
+        foreach (var bomb in restored.Scene.GetBombEntities())
+        {
+            if (bomb.ModReplica && bomb.ModOwnerKey == next.Key) nextCount++;
+            if (bomb.ModReplica && bomb.ModOwnerKey == state.Key) oldCount++;
+        }
+        Check(nextCount == 1 && oldCount == 0,
+            "restored canonical terminal stays removed while pending birth materializes once");
+        var resurrect = new BombEvent(11, 4, BombEventKind.Placed, 0, state);
+        Check(restored.Scene.Bombs.ReceiveEvent(resurrect) && restored.Scene.Bombs.Frontier == 11,
+            "restored terminal tombstone consumes later birth without replaying terminal identity");
+        oldCount = 0;
+        foreach (var bomb in restored.Scene.GetBombEntities())
+            if (bomb.ModReplica && bomb.ModOwnerKey == state.Key) oldCount++;
+        Check(oldCount == 0, "restored exact terminal tombstone prevents ghost resurrection");
+    }
+
+    internal static int Run(string replayPath)
+    {
+        Headless.Enter();
+        try
+        {
+            foreach (var kind in new[] { BombType.MorphBall, BombType.Lockjaw })
+            {
+                InitialDrawBirth(replayPath, kind);
+                CatchupBirth(replayPath, kind);
+                CatchupTerminal(replayPath, kind);
+                foreach (bool beforeClock in new[] { false, true })
+                {
+                    using var replay = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+                    var ghost = Ghost(replay, kind);
+                    Check(ghost.Effect != null && ghost.Effect.Elements.All(e => e.ModCanonicalBirthPending),
+                        $"{kind} bootstrap birth immediately arms clock-safe body emitter");
+                    if (beforeClock) AdvanceClock(replay.Scene);
+                    ghost.Process(); ProcessEffects(replay.Scene);
+                    int particles = Particles(ghost);
+                    Check(particles > 0, $"{kind} {(beforeClock ? "next-clock" : "same-step")} native effects phase emits body");
+                    var effect = ghost.Effect;
+                    AdvanceClock(replay.Scene); ghost.Process(); ProcessEffects(replay.Scene);
+                    Check(ReferenceEquals(effect, ghost.Effect) && Particles(ghost) == particles,
+                        $"{kind} following step retains body without duplicate birth");
+                }
+                using var source = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+                var pending = Ghost(source, kind);
+                using var pendingCheckpoint = ReplayWorldCheckpoint.Capture(source);
+                using var restored = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+                pendingCheckpoint.Restore(restored);
+                var ghostRestored = RestoredGhost(restored);
+                Check(restored.Scene.Bombs.Canonical && ghostRestored.Effect != null
+                    && ghostRestored.Effect.Elements.All(e => e.ModCanonicalBirthPending),
+                    $"{kind} pre-emission world restore retains canonical armed birth");
+                AdvanceClock(restored.Scene); ghostRestored.Process(); ProcessEffects(restored.Scene);
+                int restoredParticles = Particles(ghostRestored);
+                Check(restoredParticles > 0, $"{kind} restored pending ghost emits at first simulation effects phase");
+                using var emittedCheckpoint = ReplayWorldCheckpoint.Capture(restored);
+                using var continued = new PassiveReplayScene(replayPath, new Vector2i(256, 192));
+                emittedCheckpoint.Restore(continued);
+                var existing = RestoredGhost(continued);
+                Check(Particles(existing) == restoredParticles, $"{kind} emitted body particles survive world restore");
+                var existingEffect = existing.Effect;
+                AdvanceClock(continued.Scene); existing.Process(); ProcessEffects(continued.Scene);
+                Check(ReferenceEquals(existingEffect, existing.Effect) && Particles(existing) == restoredParticles,
+                    $"{kind} post-emission restore does not emit duplicate body");
+            }
+            ManagerCheckpoint(replayPath);
+            Console.WriteLine($"PASS: {_checks} bomb effect birth/checkpoint assertions"); return 0;
+        }
+        catch (Exception error) { Console.Error.WriteLine(error); return 1; }
+    }
+}

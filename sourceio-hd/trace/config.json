@@ -1,0 +1,126 @@
+{
+  "format": 1,
+  "hunter": "Trace",
+  "sourceRelative": "models/trace/trace_a.glb",
+  "sourceMeshes": [
+    "MPH/Trace_A.mdl_Body_Trace_Body.smd_MESH"
+  ],
+  "bodygroups": [
+    "Trace_Body.smd"
+  ],
+  "expectedSourceBones": 14,
+  "expectedTriangles": 40113,
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "Skeleton_Root",
+  "yawDegrees": 180,
+  "fit": {
+    "Skeleton_Root": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "preserveSourceShape": true
+    },
+    "L_hip": {
+      "anchor": "ValveBiped.Bip01_L_Thigh",
+      "endSource": "ValveBiped.Bip01_L_Calf",
+      "endNative": "L_knee"
+    },
+    "L_knee": {
+      "anchor": "ValveBiped.Bip01_L_Calf",
+      "endSource": "ValveBiped.Bip01_L_Foot",
+      "endNative": "L_ankle"
+    },
+    "L_ankle": {
+      "anchor": "ValveBiped.Bip01_L_Foot",
+      "groundShape": true
+    },
+    "R_hip": {
+      "anchor": "ValveBiped.Bip01_R_Thigh",
+      "endSource": "ValveBiped.Bip01_R_Calf",
+      "endNative": "R_knee"
+    },
+    "R_knee": {
+      "anchor": "ValveBiped.Bip01_R_Calf",
+      "endSource": "ValveBiped.Bip01_R_Foot",
+      "endNative": "R_ankle"
+    },
+    "R_ankle": {
+      "anchor": "ValveBiped.Bip01_R_Foot",
+      "groundShape": true
+    },
+    "Spine_1": {
+      "anchor": "ValveBiped.Bip01_Pelvis",
+      "endSource": "ValveBiped.Bip01_Spine1",
+      "endNative": "Spine_2",
+      "preserveSourceShape": true
+    },
+    "Spine_2": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "endSource": "ValveBiped.Bip01_Head1",
+      "endNative": "Head_1",
+      "preserveSourceShape": true
+    },
+    "Collar": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "preserveSourceShape": true
+    },
+    "L_collar": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "preserveSourceShape": true
+    },
+    "L_shoulder": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm",
+      "endSource": "ValveBiped.Bip01_L_Forearm",
+      "endNative": "L_elbow"
+    },
+    "L_elbow": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "orientFrom": "ValveBiped.Bip01_L_UpperArm",
+      "orientNative": "L_shoulder"
+    },
+    "Head_1": {
+      "anchor": "ValveBiped.Bip01_Head1",
+      "preserveSourceShape": true
+    },
+    "R_collar": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "preserveSourceShape": true
+    },
+    "R_shoulder": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm",
+      "endSource": "ValveBiped.Bip01_R_Forearm",
+      "endNative": "R_elbow"
+    },
+    "R_elbow": {
+      "anchor": "ValveBiped.Bip01_R_Forearm",
+      "muzzle": true
+    }
+  },
+  "muzzle": {
+    "object": "Trace_Body.smd",
+    "sourceBone": "ValveBiped.Bip01_R_Hand",
+    "nativeBone": "R_elbow",
+    "axis": [
+      -0.7801686845105505,
+      -0.28739470329914785,
+      -0.5556447680170057
+    ],
+    "frontBand": 0.015,
+    "nativeLocalPoint": [
+      1.2,
+      0,
+      -0.2
+    ],
+    "method": "Trace_Body.smd distal rigid weapon cap -> native Metadata.MuzzleOffests[Trace] through R_elbow"
+  },
+  "reuseSingleMaterialTextures": true,
+  "sourceSha256": "91ae65858b2b3f3159e41902fbd48d3a812f0337be9a0a25c94041981373edb3",
+  "emissiveMaterials": [
+    "TraceEyeGlow_tga"
+  ],
+  "teamRecolorMaterials": [
+    "Trace_TGA"
+  ],
+  "globalAnchor": "floor",
+  "preserveSourceNormals": true,
+  "sourceShapeChains": true,
+  "preserveSourceMaterialAlpha": true
+}

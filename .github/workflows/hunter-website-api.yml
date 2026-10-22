@@ -1,0 +1,61 @@
+name: Hunter website career API
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/functions/hunter-leaderboard/**'
+      - 'src/MphRead/Mods/Launcher/Portable/HunterLicenseClient.cs'
+      - 'src/MphRead/Mods/Launcher/Gui/Workspaces/LicenseWorkspace.cs'
+      - 'src/MphRead/Mods/Launcher/Gui/PrimeUiChecks.cs'
+      - 'supabase/tests/hunter-leaderboard.test.mjs'
+      - 'supabase/tests/hunter-public-default.test.mjs'
+      - 'supabase/tests/hunter-public-default.sql'
+      - 'supabase/tests/hunter-website-visibility.sql'
+      - 'supabase/migrations/*hunter_website_visibility.sql'
+      - 'supabase/migrations/*hunter_public_default_opt_out.sql'
+      - '.github/workflows/hunter-website-api.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/hunter-leaderboard/**'
+      - 'src/MphRead/Mods/Launcher/Portable/HunterLicenseClient.cs'
+      - 'src/MphRead/Mods/Launcher/Gui/Workspaces/LicenseWorkspace.cs'
+      - 'src/MphRead/Mods/Launcher/Gui/PrimeUiChecks.cs'
+      - 'supabase/tests/hunter-leaderboard.test.mjs'
+      - 'supabase/tests/hunter-public-default.test.mjs'
+      - 'supabase/tests/hunter-public-default.sql'
+      - 'supabase/tests/hunter-website-visibility.sql'
+      - 'supabase/migrations/*hunter_website_visibility.sql'
+      - 'supabase/migrations/*hunter_public_default_opt_out.sql'
+
+permissions:
+  contents: read
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate whitelist and public identifier contracts
+        run: node --experimental-strip-types --test supabase/tests/hunter-leaderboard.test.mjs
+      - name: Public-by-default and opt-out regression tests
+        run: node --test supabase/tests/hunter-public-default.test.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Typecheck public leaderboard Edge function
+        run: deno check supabase/functions/hunter-leaderboard/index.ts
+
+  license-ui:
+    name: Hunter License native client compile (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+      - name: Compile desktop Hunter License UI and authenticated client
+        run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadServer=false

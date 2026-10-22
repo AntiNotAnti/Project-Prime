@@ -1,0 +1,125 @@
+<rml>
+<head>
+    <title>Project Prime Replay Library</title>
+    <link type="text/template" href="../../components/app-shell.rml"/>
+    <link type="text/rcss" href="theatre.rcss"/>
+</head>
+<body template="prime-shell">
+    <div id="theatre_page">
+        <div class="theatre_heading">
+            <div class="eyebrow">THEATRE // REPLAY ARCHIVE</div>
+            <h1 id="theatre_title">YOUR RECORDINGS</h1>
+        </div>
+        <div class="theatre_discovery_tools">
+        <div class="theatre_search_bar">
+            <input id="theatre_search" class="play_input" type="text" maxlength="512" placeholder="Search replays, maps, players and named moments"/>
+            <button id="theatre_search_submit" class="play_action" data-action="theatre:search">SEARCH</button>
+            <button id="theatre_clear_search" class="play_action" data-action="theatre:clear-search">CLEAR</button>
+        </div>
+        <div class="theatre_toolbar">
+                <div class="theatre_pagination">
+                    <button id="theatre_previous_page" class="play_action" data-action="theatre:previous-page">PREVIOUS</button>
+                    <span id="theatre_page_number">1 / 1</span>
+                    <button id="theatre_next_page" class="play_action" data-action="theatre:next-page">NEXT</button>
+                </div>
+            <button id="theatre_next_filter" class="play_action" data-action="theatre:next-filter">
+                SMART VIEW // <span id="theatre_filter_label">ALL REPLAYS</span>
+            </button>
+            <button id="theatre_next_sort" class="play_action" data-action="theatre:next-sort">
+                <span id="theatre_sort_label">NEWEST FIRST</span>
+            </button>
+            <button id="theatre_refresh" class="play_action" data-action="theatre:refresh">REFRESH</button>
+        </div>
+        </div>
+        <p class="theatre_hint">Same Map and Same Players use the selected recording.</p>
+        <div class="theatre_columns">
+            <div class="theatre_library">
+                <div id="theatre_results" class="theatre_results">
+                    <div id="theatre_summary">SCANNING REPLAY LIBRARY</div>
+                <div id="theatre_empty" style="display:none" class="theatre_notice"/>
+                <button id="theatre_entry0" class="theatre_entry" data-action="theatre:entry:0">
+                    <b id="theatre_entry0_title"/>
+                    <span id="theatre_entry0_detail"/>
+                </button>
+                <button id="theatre_entry1" class="theatre_entry" data-action="theatre:entry:1">
+                    <b id="theatre_entry1_title"/>
+                    <span id="theatre_entry1_detail"/>
+                </button>
+                <button id="theatre_entry2" class="theatre_entry" data-action="theatre:entry:2">
+                    <b id="theatre_entry2_title"/>
+                    <span id="theatre_entry2_detail"/>
+                </button>
+                <button id="theatre_entry3" class="theatre_entry" data-action="theatre:entry:3">
+                    <b id="theatre_entry3_title"/>
+                    <span id="theatre_entry3_detail"/>
+                </button>
+                <button id="theatre_entry4" class="theatre_entry" data-action="theatre:entry:4">
+                    <b id="theatre_entry4_title"/>
+                    <span id="theatre_entry4_detail"/>
+                </button>
+                <button id="theatre_entry5" class="theatre_entry" data-action="theatre:entry:5">
+                    <b id="theatre_entry5_title"/>
+                    <span id="theatre_entry5_detail"/>
+                </button>
+                <button id="theatre_entry6" class="theatre_entry" data-action="theatre:entry:6">
+                    <b id="theatre_entry6_title"/>
+                    <span id="theatre_entry6_detail"/>
+                </button>
+                <button id="theatre_entry7" class="theatre_entry" data-action="theatre:entry:7">
+                    <b id="theatre_entry7_title"/>
+                    <span id="theatre_entry7_detail"/>
+                </button>
+                </div>
+
+            </div>
+            <div class="theatre_selected">
+                <div id="theatre_selected_scroll" class="theatre_selected_scroll">
+                <h2 id="theatre_selected_title">SELECT A REPLAY</h2>
+        <div id="theatre_status" style="display:none" class="theatre_notice"/>
+        <div id="theatre_error" style="display:none" class="theatre_notice theatre_error"/>
+        <div id="theatre_launch_problem" style="display:none" class="theatre_notice theatre_error"/>
+        <button id="theatre_cancel_job" style="display:none" class="play_action" data-action="theatre:cancel-job">CANCEL SCAN / CHECK</button>
+                <div id="theatre_hero" class="theatre_hint">ARCHIVE STANDBY</div>
+                <div id="theatre_metadata">Choose a recording to see its metadata.</div>
+                <div id="theatre_no_preview" class="theatre_hint">Watch recordings or open Prime Studio to edit.</div>
+                <div class="theatre_actions"><button id="theatre_favorite" class="play_action" data-action="theatre:favorite">TOGGLE FAVORITE</button></div>
+                <div class="theatre_file_tools">
+                  <h2>LIBRARY TOOLS</h2>
+                  <div class="theatre_actions">
+                    <button id="theatre_validate" class="play_action" data-action="theatre:validate">CHECK INTEGRITY</button>
+                    <button id="theatre_recover" class="play_action" data-action="theatre:recover">RECOVER RECORDING</button>
+                    <button id="theatre_export" class="play_action" data-action="theatre:export">EXPORT REPLAY FILE</button>
+                    <button id="theatre_reveal" class="play_action" data-action="theatre:reveal">OPEN LIBRARY FOLDER</button>
+                  </div>
+                  <label for="theatre_rename">DISPLAY NAME</label><input id="theatre_rename" type="text" maxlength="100"/>
+                  <button id="theatre_rename_apply" class="play_action" data-action="theatre:rename">SAVE NAME</button>
+                  <label for="theatre_tags">TAGS // COMMA SEPARATED</label><input id="theatre_tags" type="text" maxlength="1024"/>
+                  <label for="theatre_collections">COLLECTIONS // COMMA SEPARATED</label><input id="theatre_collections" type="text" maxlength="1024"/>
+                  <button id="theatre_organize" class="play_action" data-action="theatre:organize">SAVE ORGANIZATION</button>
+                  <button id="theatre_delete" class="play_action" data-action="theatre:delete">DELETE RECORDING</button>
+                  <div id="theatre_delete_confirmation">
+                    <p id="theatre_delete_prompt"/>
+                    <button id="theatre_confirm_delete" class="play_action" data-action="theatre:confirm-delete">CONFIRM DELETE</button>
+                    <button id="theatre_cancel_delete" class="play_action" data-action="theatre:cancel-delete">KEEP RECORDING</button>
+                  </div>
+                  <h2>IMPORT REPLAY FILE</h2>
+                  <p class="theatre_hint">Absolute .ppdemo, .ppreplay bundle or legacy replay path. Import adds a verified copy; the source is preserved.</p>
+                  <input id="theatre_import_path" type="text" maxlength="4096"/>
+                  <button id="theatre_import_path_apply" class="play_action" data-action="theatre:import-path">IMPORT VERIFIED COPY</button>
+                  <p id="theatre_workflow_hint" class="theatre_hint">Prime Studio provides replay editing and video export.</p>
+                </div>
+                </div>
+
+            </div>
+        </div>
+        <div class="theatre_navigation">
+                <div class="theatre_primary">
+<button id="theatre_watch" class="play_action primary" data-action="theatre:watch">WATCH REPLAY</button>
+<button id="theatre_studio" class="play_action" data-action="theatre:studio">OPEN IN PRIME STUDIO</button>
+                </div>
+
+            <button id="theatre_home" class="play_action" data-action="route:home">HOME</button>
+        </div>
+    </div>
+</body>
+</rml>

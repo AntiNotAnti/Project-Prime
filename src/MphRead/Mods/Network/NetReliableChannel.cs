@@ -1,0 +1,216 @@
+using System;
+using System.Collections.Generic;
+
+namespace MphRead.Mods.Network;
+
+public readonly record struct NetReliableSnapshot(int Pending, int HighWater, long Refused, long ReserveUses,
+    long SpanRefused, long Retransmissions, long Duplicates, double? OldestAgeMilliseconds, bool Failed,
+    double CurrentRtoMilliseconds);
+public readonly record struct ReliableTransmission(uint EventId, PacketType Type, ReadOnlyMemory<byte> Payload);
+
+/// <summary>Bounded, unordered, exactly-once event delivery within one live connection.
+/// Application state streams still validate revisions. The sender never advances
+/// beyond the receiver's dedup window while an older event is pending.</summary>
+public sealed class NetReliableChannel
+{
+    public const int OrdinaryCapacity = 32, Capacity = 40, History = 256;
+    public const double LifetimeMilliseconds = 15000;
+    public const double MinimumRtoMilliseconds = 75, MaximumRtoMilliseconds = 1200;
+    internal const int MaximumReceiptsPerEvent = 64;
+    private readonly record struct SentReceipt(uint Sequence, double SentAt);
+    private double _baseRto = 150;
+    private sealed class PendingEvent
+    {
+        public uint Id;
+        public PacketType Type;
+        public byte[] Payload = null!;
+        public double Created, Due, Rto;
+        public int Attempts;
+        public bool Critical;
+        // This event owns its ACK correlations through settlement, independent
+        // of unrelated packet traffic. Power-of-two growth stops at64 slots.
+        public readonly List<SentReceipt> Receipts = new(4);
+    }
+    private readonly PendingEvent?[] _pending = new PendingEvent?[Capacity];
+    private readonly uint[] _received = new uint[History];
+    private readonly bool[] _valid = new bool[History];
+    private uint _next = 1, _latest;
+    private bool _seen;
+    private int _count, _ordinary, _high;
+    private long _refused, _reserve, _spanRefused, _retransmissions, _duplicates;
+    public bool Failed { get; private set; }
+    public string? FailureReason { get; private set; }
+    internal void Fail(string reason = "reliable admission refused")
+    {
+        Failed = true; FailureReason ??= reason;
+        foreach (var pending in _pending) pending?.Receipts.Clear();
+    }
+    internal int RetainedAttemptCount
+    {
+        get { int count = 0; foreach (var pending in _pending) count += pending?.Receipts.Count ?? 0; return count; }
+    }
+    internal void RetainAttempt(uint eventId, uint sequence, double nowMs)
+    {
+        if (Failed) return;
+        foreach (var pending in _pending)
+        {
+            if (pending?.Id != eventId) continue;
+            if (pending.Receipts.Count >= MaximumReceiptsPerEvent)
+            { Fail($"reliable receipt capacity event={eventId} limit={MaximumReceiptsPerEvent}"); return; }
+            // A sequence must identify only one live send in this incarnation.
+            foreach (var owner in _pending)
+                if (owner != null)
+                    foreach (var receipt in owner.Receipts)
+                        if (receipt.Sequence == sequence)
+                        { Fail($"reliable receipt sequence reused event={eventId}"); return; }
+            pending.Receipts.Add(new(sequence, nowMs));
+            return;
+        }
+        // A queued event may settle or be superseded between TrySend and a
+        // transport copy. It no longer needs another retained correlation.
+    }
+    internal bool AcknowledgeAttempt(uint sequence, out double sentAt)
+    {
+        sentAt = 0;
+        if (Failed) return false;
+        foreach (var pending in _pending)
+        {
+            if (pending == null) continue;
+            foreach (var receipt in pending.Receipts)
+                if (receipt.Sequence == sequence)
+                {
+                    sentAt = receipt.SentAt;
+                    Acknowledge(pending.Id);
+                    return true;
+                }
+        }
+        return false;
+    }
+    public void UpdateRto(double? smoothedRttMilliseconds, double? variationMilliseconds)
+    {
+        if (smoothedRttMilliseconds is not double rtt || variationMilliseconds is not double variation
+            || !double.IsFinite(rtt) || !double.IsFinite(variation) || rtt < 0 || variation < 0) return;
+        _baseRto = Math.Clamp(rtt + 4 * variation, MinimumRtoMilliseconds, MaximumRtoMilliseconds);
+    }
+    public bool HasPending(PacketType type)
+    { foreach (var pending in _pending) if (pending?.Type == type) return true; return false; }
+    public static bool IsReliable(PacketType type) => type is PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
+        or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
+        or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
+        or PacketType.CustomWeaponPickupState or PacketType.CustomWeaponPickupAck
+        or PacketType.WeaponPackageOffer or PacketType.WeaponPackageReady or PacketType.WeaponPackageConfirmed
+                or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest
+        or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
+        or PacketType.PartyReservationRequest or PacketType.PartyReservationState or PacketType.PartyReservationAction
+        or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
+        or PacketType.Welcome or PacketType.SessionState
+        or PacketType.Roster or PacketType.MapChange or PacketType.Authority or PacketType.LobbyCommand
+        or PacketType.LobbyCommandResult or PacketType.WorldReady or PacketType.WorldBootstrap or PacketType.MatchLoaded or PacketType.MatchLoadFailed or PacketType.Refused
+        or PacketType.Bye or PacketType.MatchEnd or PacketType.MatchSemanticEvent or PacketType.MatchAward
+        or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome
+        or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady or PacketType.TimedGrant;
+    public static bool IsCritical(PacketType type) => type is not (PacketType.CustomWeaponAction or PacketType.CustomWeaponReceipt or PacketType.CustomWeaponContact
+        or PacketType.CustomWeaponResultAck or PacketType.CustomWeaponState or PacketType.CustomWeaponControl
+        or PacketType.CustomWeaponControlDenied or PacketType.CustomWeaponReplicaPage
+        or PacketType.CustomWeaponPickupState or PacketType.CustomWeaponPickupAck
+        or PacketType.WeaponPackageOffer or PacketType.WeaponPackageReady or PacketType.WeaponPackageConfirmed
+                or PacketType.CustomWeaponReplicaEvent or PacketType.CustomWeaponReplicaAck or PacketType.CustomWeaponManifest
+        or PacketType.CustomWeaponReady or PacketType.CustomWeaponReadyConfirmed or PacketType.Roster or PacketType.LobbyCommand
+        or PacketType.LobbyCommandResult or PacketType.MatchSemanticEvent or PacketType.MatchAward
+        or PacketType.ReplayShotFact or PacketType.BombIntent or PacketType.BombEvent or PacketType.TurretFireOutcome
+        or PacketType.PickupClaim or PacketType.PickupVerdict or PacketType.PickupItem or PacketType.PickupReady or PacketType.TimedGrant);
+
+    public bool TryQueue(PacketType type, ReadOnlySpan<byte> payload, double nowMs, out uint eventId,
+        bool expedite = false, bool supersedeState = false)
+    {
+        eventId = 0;
+        if (!IsReliable(type) || payload.Length > NetConfig.MaxPayloadSize - 4)
+            throw new ArgumentException("Not a bounded reliable control payload");
+        if (supersedeState && type is not (PacketType.SessionState or PacketType.Roster or PacketType.QueueState or PacketType.QueueSeatOffer))
+            throw new ArgumentException("Only revision-fenced full state can supersede pending state");
+        bool critical = IsCritical(type);
+        if (Failed) return false;
+        // Periodic publication may repeat an identical outstanding state. Keep
+        // its event identity, without replacing or coalescing distinct events.
+        foreach (var pending in _pending)
+            if (pending != null && pending.Type == type && payload.SequenceEqual(pending.Payload))
+            {
+                eventId = pending.Id;
+                if (expedite) pending.Due = Math.Min(pending.Due, nowMs);
+                return true;
+            }
+        // These publications contain the complete current state and receivers
+        // fence them by revision. Retrying obsolete versions behind a slow
+        // scene load can fill the control queue before its bootstrap fits.
+        // Retire only the old retry; the replacement gets a NEW event ID so
+        // a receiver that already saw the old version still applies this one.
+        if (supersedeState)
+            for (int i = 0; i < _pending.Length; i++)
+                if (_pending[i] is { } old && old.Type == type)
+                {
+                    if (!old.Critical) _ordinary--;
+                    _pending[i] = null; _count--;
+                }
+        bool spanFull = false;
+        foreach (var pending in _pending)
+            if (pending != null && SequenceMath.Distance(_next, pending.Id) >= History) spanFull = true;
+        if (_count >= Capacity || !critical && _ordinary >= OrdinaryCapacity || spanFull)
+        {
+            _refused++; if (spanFull) _spanRefused++;
+            if (critical) Fail($"{type}: pending={_count} ordinary={_ordinary} spanFull={spanFull}");
+            return false;
+        }
+        for (int i = 0; i < _pending.Length; i++) if (_pending[i] == null)
+        {
+            eventId = _next++;
+            _pending[i] = new PendingEvent { Id = eventId, Type = type, Payload = payload.ToArray(),
+                Created = nowMs, Due = nowMs, Rto = _baseRto, Critical = critical };
+            if (!critical) _ordinary++;
+            _count++; _high = Math.Max(_high, _count); if (critical && _count > OrdinaryCapacity) _reserve++;
+            return true;
+        }
+        throw new InvalidOperationException("Reliable capacity accounting");
+    }
+    public bool TrySend(double nowMs, out ReliableTransmission transmission)
+    {
+        transmission = default;
+        if (Failed) return false;
+        for (int i = 0; i < _pending.Length; i++)
+        {
+            var pending = _pending[i];
+            if (pending == null) continue;
+            if (nowMs - pending.Created >= LifetimeMilliseconds)
+            { Fail($"expired {pending.Type} event={pending.Id}"); return false; }
+            if (pending.Due > nowMs) continue;
+            if (pending.Attempts++ > 0) _retransmissions++;
+            pending.Due = nowMs + pending.Rto; pending.Rto = Math.Min(MaximumRtoMilliseconds, pending.Rto * 2);
+            transmission = new(pending.Id, pending.Type, pending.Payload);
+            return true;
+        }
+        return false;
+    }
+    public void Acknowledge(uint eventId)
+    {
+        for (int i = 0; i < _pending.Length; i++) if (_pending[i]?.Id == eventId)
+        {
+            if (!_pending[i]!.Critical) _ordinary--;
+            _pending[i] = null; _count--; return;
+        }
+    }
+    public bool AlreadyReceived(uint id) => _valid[id % History] && _received[id % History] == id
+        || _seen && !SequenceMath.Newer(id, _latest) && SequenceMath.Distance(_latest, id) >= History;
+    public bool Receive(uint id)
+    {
+        if (AlreadyReceived(id)) { _duplicates++; return false; }
+        if (!_seen || SequenceMath.Newer(id, _latest)) { _seen = true; _latest = id; }
+        _valid[id % History] = true; _received[id % History] = id;
+        return true;
+    }
+    public NetReliableSnapshot Capture(double nowMs)
+    {
+        double? oldest = null;
+        foreach (var pending in _pending) if (pending != null) oldest = Math.Max(oldest ?? 0, nowMs - pending.Created);
+        return new(_count, _high, _refused, _reserve, _spanRefused, _retransmissions, _duplicates,
+            oldest, Failed, _baseRto);
+    }
+}

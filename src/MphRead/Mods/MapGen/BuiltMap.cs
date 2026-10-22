@@ -1,0 +1,118 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using MphRead.Editor;
+using OpenTK.Mathematics;
+
+namespace MphRead.Mods.MapGen
+{
+    /// <summary>
+    /// What the packer actually consumes: polygons, collision faces and
+    /// entities, with no memory of where they came from.
+    ///
+    /// Hand-written maps arrive here from a MapDefinition's boxes; a converted
+    /// map arrives from another engine's level. Keeping the packer behind this
+    /// means an importer only has to produce geometry, and gets the model
+    /// format, the collision grid and the room registration for free.
+    /// </summary>
+    public class BuiltMap
+    {
+        public MapDefinition Definition { get; }
+        public MapDefinition? SourceDefinition { get; set; }
+        public List<BuiltFace> Faces { get; } = new List<BuiltFace>();
+        public List<BuiltFace> Solid { get; } = new List<BuiltFace>();
+        public List<EntityEditorBase> Entities { get; } = new List<EntityEditorBase>();
+        // Imported maps may append authored native geometry. These counts mark
+        // the immutable BSP portion so the editor can cache it separately.
+        public int ImportedFaceCount { get; set; }
+        public int ImportedCollisionFaceCount { get; set; }
+        public int ImportedPatchCollisionLevel { get; set; } = -2;
+        public int ImportedPatchCollisionSourceFaces { get; set; }
+        public int ImportedPatchCollisionFaces { get; set; }
+        public MapCollisionHealth? CollisionHealth { get; set; }
+        public List<MapCollisionRepair> CollisionRepairs { get; } = new();
+        public List<MapDiagnostic> ImportDiagnostics { get; } = new();
+
+        public BuiltMap(MapDefinition definition)
+        {
+            Definition = definition;
+        }
+    }
+
+    public sealed class MapSourceUvSnapshot
+    {
+        public string Contract { get; }
+        public IReadOnlyList<Vector2> Base { get; }
+        public IReadOnlyList<Vector2> Lightmap { get; }
+
+        public MapSourceUvSnapshot(string contract, IReadOnlyList<Vector2> baseCoordinates,
+            IReadOnlyList<Vector2> lightmapCoordinates)
+        {
+            Contract = contract;
+            Base = Array.AsReadOnly(baseCoordinates.ToArray());
+            Lightmap = Array.AsReadOnly(lightmapCoordinates.ToArray());
+        }
+    }
+
+    /// <summary>
+    /// One convex polygon. Texture coordinates are in texels, which is what
+    /// the hardware wants; the caller decides whether they come from a
+    /// projection or from the source data.
+    /// </summary>
+    public class BuiltFace
+    {
+        public Vector3[] Points { get; }
+        public Vector2[] Texcoords { get; }
+        public Vector3 Normal { get; }
+        public int Material { get; internal set; }
+        public float Shade { get; }
+        /// <summary>
+        /// Optional source vertex color collapsed to this face. Native-room imports
+        /// retain RGB modulation here instead of flattening it to grayscale.
+        /// Null keeps the historical authored/imported-map Shade behavior.
+        /// </summary>
+        public Vector3? VertexColor { get; set; }
+        public MapSourceUvSnapshot? SourceUv { get; set; }
+        public bool Damaging { get; set; }
+        public Terrain Terrain { get; set; } = Terrain.Metal;
+
+        // The rest of what the collision format holds per face. Nothing in the
+        // importers sets these -- a converted level says nothing about them --
+        // but a hand-edited OBJ does, and CollisionObj is where they come
+        // from. IgnoreBeams is the one that earns its keep: a Quake
+        // player-clip brush is a wall that shots are meant to fly through,
+        // and without it every clip in a converted level stops bullets.
+        /// <summary>
+        /// Drawn sky, which is never collision -- so the check that every
+        /// drawn surface has something solid behind it has to know to skip it,
+        /// or a level with a sky shell reports a hole the size of the sky.
+        /// </summary>
+        public bool Sky { get; set; }
+
+        public int Slipperiness { get; set; }
+        public bool SurfSurface { get; set; }
+        public bool ReflectBeams { get; set; }
+        public bool IgnorePlayers { get; set; }
+        public bool IgnoreBeams { get; set; }
+        public bool IgnoreScan { get; set; }
+
+        // Import/editor provenance. Never serialized into the runtime format.
+        public string CollisionSource { get; set; } = "Unknown";
+        public int CollisionSourceId { get; set; } = -1;
+        public string? CollisionShader { get; set; }
+        public bool PlayerClip { get; set; }
+        public float CollisionConfidence { get; set; } = 1f;
+        // Original Q3/native source material slot, for editor eyedropper and
+        // replace-all workflows. -1 means ordinary authored geometry.
+        public int SourceMaterial { get; set; } = -1;
+
+        public BuiltFace(Vector3[] points, Vector2[] texcoords, Vector3 normal, int material, float shade)
+        {
+            Points = points;
+            Texcoords = texcoords;
+            Normal = normal;
+            Material = material;
+            Shade = shade;
+        }
+    }
+}

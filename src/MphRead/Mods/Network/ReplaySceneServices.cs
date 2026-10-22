@@ -1,0 +1,212 @@
+using System;
+using System.Buffers.Binary;
+using MphRead.Entities;
+using MphRead.Mods.Replay;
+
+namespace MphRead.Mods.Network
+{
+    internal sealed class ReplaySceneServices : ISceneServices
+    {
+        public ReplayPlaybackSession Session { get; }
+        public ReplayReplicaState State { get; }
+        public bool IsReplica => true;
+        public bool MayEndOnScore => false;
+        public bool ShouldLeaveAfterMatch => false;
+        public bool SuppressDamage => true;
+        public bool AllowsPresentationSideEffects => false;
+        public IPlayerReplicationHost PlayerReplication { get; }
+        public bool DisablePowerups => State.Configuration?.Match.DisablePowerups == true;
+        public Multiplayer.MatchWorldProfile? NetworkWorldProfile => State.Configuration?.WorldProfile
+            ?? Multiplayer.MatchWorldProfile.Resolve(State.Match?.PlayerCount ?? 2);
+        public bool ReplicatesHealthSpawns => true;
+        public bool TryGetHealthSpawn(short id, out HealthSpawnState state)
+        {
+            if (State.TryGetHealthSpawn(id, out state)) return true;
+            if (State.AuthorityWorld is { } world)
+                foreach (var pickup in world.Pickups) if (pickup.Id == id) { state = pickup.State; return true; }
+            return State.TryGetHealthSpawn(id, out state);
+        }
+        internal bool HasAuthorityWorld => State.AuthorityWorld != null;
+        private readonly ushort[] _generations = new ushort[PlayerEntity.SlotCapacity];
+        private uint? _rngTick;
+        public ReplaySceneServices(ReplayPlaybackSession session, ReplayReplicaState state)
+        { Session = session; State = state; PlayerReplication = new ReplayPlayerReplicationHost(state); }
+
+        public void BeforeSimulation(Scene scene)
+        {
+            State.Advance(Session.RecordingFrame);
+            State.TimedGrants.Advance(Session.RecordingFrame, life => State.MatchesLife(life.ShooterSlot, life.Generation, life.LifeId)
+                && State.TryGetPlayer(life.ShooterSlot, out var actor) && actor.Health > 0);
+            if (State.Match is not MatchStatePacket match) return;
+            if (!string.Equals(scene.Room?.Meta.Name, match.RoomKey, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException("The replica scene belongs to a different recorded room.");
+            ApplyRules(scene, Session.RecordingFrame);
+            State.PrepareBombWorld(scene);
+            TimedPickupProjection.ApplyDynamic(scene);
+            scene.EnhancedWorld.Read(State.EnhancedWorldState);
+            if (State.AuthorityWorld is { } clock)
+            {
+                scene.GameState.MatchState = clock.Phase;
+                scene.GameState.MatchTime = clock.MatchTime < 0 ? -1
+                    : Math.Max(0, clock.MatchTime - Math.Max(0L, (long)State.ServerTick - clock.Tick) / 60f);
+            }
+            if (_rngTick != State.ServerTick)
+            {
+                _rngTick = State.ServerTick;
+                scene.Random.SetRng1(State.Rng1);
+                scene.Random.SetRng2(State.Rng2);
+            }
+            int active = 0;
+            for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+            {
+                PlayerEntity player = scene.Players.Items[slot];
+                ReplayOccupant occupant = State.Occupant(slot);
+                bool changed = _generations[slot] != occupant.Generation;
+                if (changed) { _generations[slot] = occupant.Generation; scene.PlayerReplication.ForgetSlot(slot); }
+                if (occupant.Generation == 0)
+                {
+                    player.LoadFlags &= ~(LoadFlags.Active | LoadFlags.Spawned);
+                    player.Controls.ClearAll();
+                    continue;
+                }
+                active++;
+                scene.GameState.Nicknames[slot] = occupant.Name;
+                if (changed || player.Hunter != occupant.Hunter)
+                {
+                    player.ModPrepareHunterResources(occupant.Hunter);
+                    player.ModSetHunter(occupant.Hunter);
+                    player.Initialize();
+                }
+                player.IsBot = false;
+                player.TeamIndex = scene.GameState.Teams ? occupant.Team : slot;
+                player.Recolor = occupant.Color;
+                if (scene.GameState.Teams) Multiplayer.TeamVisuals.Apply(player);
+                player.LoadFlags |= LoadFlags.Active | LoadFlags.SlotActive;
+                if (State.TryGetPlayer(slot, out var recorded)) scene.PlayerReplication.ApplyState(player, recorded, isLocal: false);
+                NetHooks.TryApplyRemoteInput(player, slot);
+                // Modern replays pre-index repeated FireEvents far enough ahead
+                // to recover a lost carrier and put the visual shot back on its
+                // authored frame. Movement/aim still come from the ordinary
+                // accepted intent; only the firing edge/weapon/charge are
+                // replaced here, immediately before ProcessInput consumes them.
+                scene.ReplayPoses?.ApplyFireEvent(player);
+                if (State.TimedGrants.HasCoverage && State.TryGetPlayer(slot, out var grantPlayer))
+                    player.ModProjectTimedGrants(State.TimedGrants,
+                        new(match.AuthorityEpoch, match.MatchId, slot, grantPlayer.SlotGeneration, grantPlayer.LifeId, 0),
+                        Session.RecordingFrame, quiet: Session.Transport.IsSeeking || !ReplayAudioOwner.MayPlay(scene));
+            }
+            scene.Players.PlayerCount = scene.GameState.ActivePlayers = active;
+        }
+
+        // Modifiers belong to the decoder configuration in every checkpoint.
+        // Reapply them after world restore without changing its exact clock or
+        // requiring a new world-object field contract for historical capsules.
+        internal void RestoreMatchModifiers(Scene scene)
+        {
+            if (State.Match is not MatchStatePacket match) return;
+            var definition = (State.Configuration?.Match ?? new MatchDefinition { Mode = (GameMode)match.Mode,
+                MovementModel = Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits) }).NormalizeLegacy();
+            definition.ApplyModifiers(scene.GameState);
+            scene.GameState.Mode = definition.Mode;
+            scene.GameState.FriendlyFire = match.FriendlyFire;
+            scene.GameState.ShadowFreeze = match.ShadowFreeze;
+            scene.GameState.EnhancedHunters = match.EnhancedHunters;
+            scene.GameState.SpawnProtection = State.Configuration?.Match.SpawnProtection ?? match.SpawnProtection;
+            if (match.StatesRules) scene.GameState.AffinityWeapons = match.AffinityWeapons;
+        }
+
+        internal void ApplyRules(Scene scene, uint frame)
+        {
+            if (State.Match is not MatchStatePacket match) return;
+            var definition = (State.Configuration?.Match ?? new MatchDefinition { Mode = (GameMode)match.Mode,
+                MovementModel = Movement.MovementModelRules.FromRules((MatchModifierFlags)match.RuleBits) }).NormalizeLegacy();
+            definition.ApplyModifiers(scene.GameState);
+            scene.GameState.Mode = definition.Mode;
+            if (MatchGoalRules.UsesTimeTarget((GameMode)match.Mode)) scene.GameState.TimeGoal = match.PointGoal;
+            else scene.GameState.PointGoal = match.PointGoal;
+            scene.GameState.FriendlyFire = match.FriendlyFire;
+            scene.GameState.ShadowFreeze = match.ShadowFreeze;
+            scene.GameState.EnhancedHunters = match.EnhancedHunters;
+            scene.GameState.SpawnProtection = State.Configuration?.Match.SpawnProtection
+                ?? match.SpawnProtection;
+            if (match.StatesRules) scene.GameState.AffinityWeapons = match.AffinityWeapons;
+            else if (State.Configuration is { } configuration) scene.GameState.AffinityWeapons = configuration.Match.AffinityWeapons;
+            scene.GameState.Teams = scene.GameState.IsTeamMode((GameMode)match.Mode);
+            scene.GameState.MatchTime = HistoricalMatchTime(match, State.Configuration, frame, State.MatchRecordingFrame);
+            scene.GameState.MatchState = match.Ending ? MatchState.Ending : MatchState.InProgress;
+        }
+
+        internal static float HistoricalMatchTime(MatchStatePacket match, SessionStatePacket? configuration,
+            uint frame, uint acceptedAt)
+        {
+            if (!match.Ending && configuration is { Match.TimeLimitSeconds: 0 } || match.TimeRemaining < 0) return -1;
+            uint elapsed = frame >= acceptedAt && !match.Ending ? frame - acceptedAt : 0;
+            return Math.Max(0, match.TimeRemaining - elapsed / 60f);
+        }
+
+        private readonly (ushort Generation, ushort Life, byte Flags, bool Alive, bool Crouched, bool Tucked)[] _presentationLives =
+            new (ushort, ushort, byte, bool, bool, bool)[PlayerEntity.SlotCapacity];
+        private readonly bool[] _presentationKnown = new bool[PlayerEntity.SlotCapacity];
+        internal void RebindCompletedPresentationLives()
+        {
+            // Completed worlds already projected their accepted player state.
+            // The serialized generation fence distinguishes those worlds from
+            // a fresh construction that has not taken its first replica step.
+            // Missing players remain unknown: removal clears the decoder's
+            // player only on a generation change, which also requires a reset
+            // when the next occupant's first snapshot arrives.
+            Array.Clear(_presentationKnown);
+            Array.Clear(_presentationLives);
+            for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+                if (State.TryGetPlayer(slot, out var recorded) && _generations[slot] != 0
+                    && _generations[slot] == recorded.SlotGeneration)
+                {
+                    _presentationKnown[slot] = true;
+                    _presentationLives[slot] = (recorded.SlotGeneration, recorded.LifeId,
+                        (byte)(recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm)),
+                        recorded.Health > 0, recorded.Crouched, recorded.Tucked);
+                }
+        }
+        public void AfterSimulation(Scene scene)
+        {
+            // Reconcile visual projectile endpoints after replica simulation has
+            // stepped, so authority evidence cannot feed back into collision,
+            // damage, RNG, or checkpoint state.
+            scene.ReplayPoses?.PresentResolvedImpacts(scene);
+            scene.SemanticPresentation.UpdateReplay(scene, State.SemanticEvents, Session.Transport.IsSeeking);
+            for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+                if (State.TryGetPlayer(slot, out var recorded))
+                {
+                    var player = scene.Players.Items[slot];
+                    var cameraAnchor = player.Position;
+                    scene.PlayerReplication.ApplyState(player, recorded, isLocal: false);
+                    player.ModTranslateReplayPresentation(player.Position - cameraAnchor);
+                    var life = (recorded.SlotGeneration, recorded.LifeId,
+                        (byte)(recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm)), recorded.Health > 0, recorded.Crouched, recorded.Tucked);
+                    if (!_presentationKnown[slot] || _presentationLives[slot] != life)
+                    {
+                        player.ModResetDrawState(); player.CameraInfo.ModResetDrawState(); player.ModResetFirstPersonDrawState();
+                    }
+                    _presentationKnown[slot] = true; _presentationLives[slot] = life;
+                }
+
+            State.ApplyBombPackets(scene);
+            State.ApplyTurretOutcomes(scene);
+
+            // A lethal ReplayShotFact owns the visible death frame. If the next
+            // accepted snapshot is a frame or two late, hold only the replica
+            // presentation dead until that snapshot catches up.
+            scene.ReplayPoses?.PresentResolvedDeaths(scene, Session.Transport.IsSeeking);
+
+            if (State.AuthorityWorld is { } world && State.AuthorityAppliedTick != world.Tick)
+            { world.Apply(scene, State); State.AuthorityAppliedTick = world.Tick; }
+            ReadOnlySpan<byte> tail = State.WorldTail;
+            if (tail.Length >= NetMatchTimeSync.Size)
+                for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
+                {
+                    scene.GameState.Time[i] = BinaryPrimitives.ReadSingleLittleEndian(tail[(i * 8)..]);
+                    scene.GameState.TeamTime[i] = BinaryPrimitives.ReadSingleLittleEndian(tail[(i * 8 + 4)..]);
+                }
+        }
+    }
+}

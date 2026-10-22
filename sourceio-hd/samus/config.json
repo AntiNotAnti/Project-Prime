@@ -1,0 +1,111 @@
+{
+  "format": 1,
+  "hunter": "Samus",
+  "sourceRelative": "models/samus/samus_a.glb",
+  "sourceMeshes": [
+    "MPH/Samus_A.mdl_Body_Samus.smd_MESH",
+    "MPH/Samus_A.mdl_Arm_Samus_Arm1.smd_MESH"
+  ],
+  "bodygroups": [
+    "Samus.smd",
+    "Samus_Arm1.smd"
+  ],
+  "expectedSourceBones": 50,
+  "expectedTriangles": 10106,
+  "rootSource": "ValveBiped.Bip01_Pelvis",
+  "rootNative": "Pelvis",
+  "yawDegrees": 180,
+  "fit": {
+    "Pelvis": {
+      "anchor": "ValveBiped.Bip01_Pelvis"
+    },
+    "Spine_1": {
+      "anchor": "ValveBiped.Bip01_Spine",
+      "endSource": "ValveBiped.Bip01_Spine1",
+      "endNative": "Spine_2"
+    },
+    "Spine_2": {
+      "anchor": "ValveBiped.Bip01_Spine1",
+      "endSource": "ValveBiped.Bip01_Head1",
+      "endNative": "Head_1"
+    },
+    "Head_1": {
+      "anchor": "ValveBiped.Bip01_Head1",
+      "boundZ": "top"
+    },
+    "L_wrist": {
+      "anchor": "bip_hand_L",
+      "orientFrom": "ValveBiped.Bip01_L_Forearm",
+      "orientNative": "L_elbow"
+    },
+    "L_hip": {
+      "anchor": "ValveBiped.Bip01_L_Thigh",
+      "endSource": "ValveBiped.Bip01_L_Calf",
+      "endNative": "L_knee"
+    },
+    "L_knee": {
+      "anchor": "ValveBiped.Bip01_L_Calf",
+      "endSource": "ValveBiped.Bip01_L_Foot",
+      "endNative": "L_ankle"
+    },
+    "L_ankle": {
+      "anchor": "ValveBiped.Bip01_L_Foot",
+      "boundZ": "bottom"
+    },
+    "L_shoulder": {
+      "anchor": "ValveBiped.Bip01_L_UpperArm",
+      "endSource": "ValveBiped.Bip01_L_Forearm",
+      "endNative": "L_elbow"
+    },
+    "L_elbow": {
+      "anchor": "ValveBiped.Bip01_L_Forearm",
+      "endSource": "bip_hand_L",
+      "endNative": "L_wrist"
+    },
+    "L_varias2_SDK": {
+      "anchor": "Shoulder_L",
+      "boundZ": "topClamp"
+    },
+    "R_hip": {
+      "anchor": "ValveBiped.Bip01_R_Thigh",
+      "endSource": "ValveBiped.Bip01_R_Calf",
+      "endNative": "R_knee"
+    },
+    "R_knee": {
+      "anchor": "ValveBiped.Bip01_R_Calf",
+      "endSource": "ValveBiped.Bip01_R_Foot",
+      "endNative": "R_ankle"
+    },
+    "R_ankle": {
+      "anchor": "ValveBiped.Bip01_R_Foot",
+      "boundZ": "bottom"
+    },
+    "R_shoulder": {
+      "anchor": "ValveBiped.Bip01_R_UpperArm",
+      "endSource": "ValveBiped.Bip01_R_Forearm",
+      "endNative": "R_elbow"
+    },
+    "R_elbow": {
+      "anchor": "ValveBiped.Bip01_R_Forearm",
+      "muzzle": true
+    },
+    "R_varias2_SDK": {
+      "anchor": "Shoulder_R",
+      "boundZ": "topClamp"
+    }
+  },
+  "muzzle": {
+    "sourcePoint": [
+      -0.4986066520214081,
+      0.04833194613456726,
+      0.7438738346099854
+    ],
+    "nativeMesh": "geom2_obj",
+    "nativeBone": "R_elbow",
+    "method": "Proven area-weighted front-cap centroid -> native GunTip center"
+  },
+  "emissiveMaterials": [
+    "body_full_bright"
+  ],
+  "sourceSha256": "9a576881d54ac87fb82666bc1813904a55390b33fef15e3ed15fd9bb91f51dc9"
+}

@@ -1,0 +1,692 @@
+using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Network;
+using System;
+using System.Diagnostics;
+using MphRead.Effects;
+using MphRead.Formats;
+using MphRead.Formats.Culling;
+using MphRead.Mods.Render;
+using MphRead.Mods.Render.Characters;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    public class HalfturretEntity : DynamicLightEntityBase
+    {
+        public PlayerEntity Owner { get; }
+        private EntityBase? _target = null;
+        public EntityBase? Target => _target;
+        internal object ModNativeFiringGateSnapshot()
+        {
+            float? distance = null;
+            if (_target != null)
+            {
+                float value = (_target.Position - Position).Length;
+                if (float.IsFinite(value)) distance = value;
+            }
+            float? cooldown = null;
+            bool enhanced = Mods.EnhancedHunters.EnhancedHunters.Enabled(Owner) && Owner.EnhancedState.TimerB > 0;
+            if (EquipInfo.Weapon != null)
+            {
+                float value = EquipInfo.Weapon.ShotCooldown * _cooldownFactor;
+                if (value < 7.5f) value = 7;
+                if (enhanced) value /= 1.25f;
+                if (float.IsFinite(value)) cooldown = value;
+            }
+            int? targetHealth = _target switch
+            {
+                PlayerEntity player => player.Health,
+                HalfturretEntity turret => turret.Health,
+                EnemyInstanceEntity enemy => enemy.Health,
+                _ => null
+            };
+            return new { Health = _health, OwnerHalfturret = Owner.Flags2.TestFlag(PlayerFlags2.Halfturret),
+                FreezeTimer = _freezeTimer, TargetSlot = (_target as PlayerEntity)?.SlotIndex,
+                TargetId = _target?.Id, TargetType = _target?.Type.ToString(), TargetHealth = targetHealth,
+                TargetAlive = targetHealth.HasValue ? targetHealth > 0 : (bool?)null,
+                TargetTeam = (_target as PlayerEntity)?.TeamIndex, TargetAlpha = (_target as PlayerEntity)?.CurAlpha,
+                TargetDistance = distance, CooldownFactor = _cooldownFactor, ComputedCooldown = cooldown,
+                RequiredTimeSinceShot = cooldown * 2, EnhancedCooldown = enhanced,
+                Owner.TimeSinceShot, CooldownTimer = _cooldownTimer, TargetTimer = _targetTimer };
+        }
+        internal void ModEnhancedTarget(PlayerEntity target)
+        { _target = target; _targetTimer = 36; }
+        public NodeData3? ClosestNode { get; set; } = null;
+
+        private int _health = 0;
+        private ushort _timeSinceDamage = UInt16.MaxValue;
+        private ushort _timeSinceFrozen = 0;
+        private ushort _freezeTimer = 0;
+        private ushort _burnTimer = 0;
+        private NetBurnSource? _modBurnSource;
+        private EffectEntry? _burnEffect = null;
+
+        public int Health { get => _health; set => _health = value; }
+        public ushort TimeSinceDamage { get => _timeSinceDamage; set => _timeSinceDamage = value; }
+
+        private float _ySpeed = 0;
+        private bool _grounded = false;
+        private Vector3 _aimVector;
+        private ushort _targetTimer = 0; // todo: is this always zero?
+        private ushort _cooldownTimer = 0;
+        private float _cooldownFactor = 1.5f;
+
+        public EquipInfo EquipInfo { get; } = new EquipInfo();
+
+        private Node _baseNode = null!;
+        private Node _baseNodeParent = null!;
+        private ModelInstance _altIceModel = null!;
+        private Vector4? _brightSkin;
+        private Vector4? _outlineColor;
+
+        public HalfturretEntity(PlayerEntity owner, Scene scene) : base(EntityType.Halfturret, scene)
+        {
+            Owner = owner;
+        }
+
+        public void Create()
+        {
+            ModelInstance inst = SetUpModel("WeavelAlt_Turret_lod0");
+            _baseNode = inst.Model.GetNodeByName("TurretBase")!;
+            _baseNodeParent = inst.Model.Nodes[_baseNode.ParentIndex];
+            _altIceModel = SetUpModel("alt_ice");
+        }
+
+        public override void Initialize()
+        {
+            Recolor = Owner.Recolor;
+            base.Initialize();
+            float minY = Fixed.ToFloat(Owner.Values.MinPickupHeight);
+            Vector3 position = Owner.Position.AddY(minY + 0.45f);
+            var facing = new Vector3(Owner.Field70, 0, Owner.Field74);
+            Transform = GetTransformMatrix(facing, Vector3.UnitY, position);
+            _aimVector = facing;
+            NodeRef = Owner.NodeRef;
+            int health = Owner.Health;
+            if (health > 1)
+            {
+                _health = health / 2;
+                Owner.Health -= _health;
+            }
+            else
+            {
+                _health = 1;
+            }
+            _grounded = Owner.Flags1.TestFlag(PlayerFlags1.Standing);
+            EquipInfo.Beams = Owner.EquipInfo.Beams;
+            EquipInfo.Weapon = _scene.WeaponRules[3]; // non-affinity Battlehammer
+            _models[0].SetAnimation(1, AnimFlags.NoLoop);
+            _light1Vector = Owner.Light1Vector;
+            _light1Color = Owner.Light1Color;
+            _light2Vector = Owner.Light2Vector;
+            _light2Color = Owner.Light2Color;
+            _scanId = PlayerEntity.ScanIds[(int)Hunter.Weavel, 1];
+        }
+
+        public override void GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing)
+        {
+            position = Position;
+            up = Vector3.UnitY;
+            facing = FacingVector;
+        }
+
+        public void Reposition(Vector3 offset, NodeRef nodeRef)
+        {
+            Position += offset;
+            _target = null;
+            _targetTimer = 0;
+            NodeRef = nodeRef;
+        }
+
+        internal void ModApplyAuthorityAnchor(Vector3 position)
+        {
+            NodeRef = _scene.UpdateNodeRef(NodeRef, Position, position);
+            Position = position;
+            _ySpeed = 0;
+            _grounded = true; // Subsequent authority samples own falling motion too.
+            ClosestNode = null;
+            UpdateLightSources(Position);
+        }
+
+        public void OnTakeDamage(EntityBase attacker, uint damage)
+        {
+            _target = attacker;
+            _targetTimer = 30 * 2; // todo: FPS stuff
+            _cooldownFactor -= 61 * damage;
+            if (_cooldownFactor < 0.7f)
+            {
+                _cooldownFactor = 0.7f;
+            }
+        }
+
+        public void OnFrozen()
+        {
+            // todo: FPS stuff
+            if (_timeSinceFrozen > 60 * 2)
+            {
+                _freezeTimer = 75 * 2;
+            }
+            else if (_freezeTimer < 15 * 2)
+            {
+                _freezeTimer = 15 * 2;
+            }
+        }
+
+        internal void OnSetOnFire(NetBurnSource? source = null)
+        {
+            if (source is { } incoming && incoming.Key.ShotId != 0 && _modBurnSource is { } previous
+                && incoming.Key == previous.Key && incoming.Component == previous.Component) return;
+            _modBurnSource = source;
+            _burnTimer = source?.Duration ?? (ushort)(150 * 2); // todo: FPS stuff
+            if (_burnEffect != null)
+            {
+                _scene.UnlinkEffectEntry(_burnEffect);
+                _burnEffect = null;
+            }
+            _burnEffect = _scene.SpawnEffectGetEntry(187, FacingVector.WithY(0), Vector3.UnitY, Position); // flamingAltForm
+            _burnEffect?.SetElementExtension(true);
+        }
+
+        public override bool Process()
+        {
+            // A lost private rule can retire this body synchronously. Resolve
+            // it before the lifetime gate; a removed drone body must never
+            // fall through into native autonomous firing in this invocation.
+            bool scoutDrone = Owner.ScoutDroneEnabled;
+            Mods.Network.NetFireEvents.ObserveAuthorityTurret(Owner);
+            if (_health == 0 || !Owner.Flags2.TestFlag(PlayerFlags2.Halfturret))
+            {
+                // A predicted turret death must remain correctable by a newer
+                // matching snapshot. Keep the inert form-owned replica until
+                // unmorph/death; health replication never creates an entity.
+                return Mods.Network.NetHitPrediction.Predicting && (Owner.IsAltForm || Owner.IsMorphing) && Owner.ModIsInPlay;
+            }
+            if (_burnTimer > 0)
+            {
+                _burnTimer--;
+                if (_burnTimer % (_modBurnSource?.TickFrames ?? 8 * 2) == 0) // todo: FPS stuff
+                {
+                    if (_modBurnSource is { } burnSource) burnSource.Apply(Owner, DamageFlags.Halfturret);
+                    else if (!NetSession.Active) Owner.TakeDamage(1, DamageFlags.NoSfx | DamageFlags.Burn | DamageFlags.NoDmgInvuln | DamageFlags.Halfturret,
+                        direction: null, Owner.BurnedBy);
+                }
+                if (_burnEffect != null)
+                {
+                    Vector3 facing = FacingVector;
+                    facing = new Vector3(facing.X, 0, facing.Z);
+                    _burnEffect.Transform(facing, Vector3.UnitY, Position);
+                }
+            }
+            else if (_burnEffect != null)
+            {
+                _scene.UnlinkEffectEntry(_burnEffect);
+                _burnEffect = null;
+            }
+            if (_freezeTimer == 0)
+            {
+                base.Process();
+                if (_targetTimer > 0)
+                {
+                    _targetTimer--;
+                }
+                else
+                {
+                    _target = null;
+                }
+                if (_cooldownFactor < 1.5f)
+                {
+                    _cooldownFactor = Math.Min(_cooldownFactor + 0.015f / 2, 1.5f); // todo: FPS stuff
+                }
+                else if (_cooldownFactor > 1.5f)
+                {
+                    _cooldownFactor = Math.Max(_cooldownFactor - 0.015f / 2, 1.5f); // todo: FPS stuff
+                }
+                if (_target == null)
+                {
+                    float minDistSqr = 15 * 15;
+                    foreach (PlayerEntity player in _scene.GetPlayerEntities())
+                    {
+                        if (player == Owner || player.Health == 0 || TeamRules.AreAllies(player.TeamIndex, Owner.TeamIndex) || player.CurAlpha < 6 / 31f)
+                        {
+                            continue;
+                        }
+                        Vector3 between = player.Position - Position;
+                        float distSqr = between.LengthSquared;
+                        if (distSqr < minDistSqr)
+                        {
+                            minDistSqr = distSqr;
+                            _target = player;
+                        }
+                    }
+                }
+                if (_target != null && !scoutDrone)
+                {
+                    Vector3 muzzlePos = Position.AddY(0.4f);
+                    int encounter = _scene.GameState.EncounterState[Owner.SlotIndex];
+                    if (Owner.IsBot && _scene.GameState.SinglePlayer
+                        && (encounter == 1 || encounter == 3 || encounter == 4))
+                    {
+                        if (_cooldownTimer > 0)
+                        {
+                            _cooldownTimer--;
+                        }
+                        else
+                        {
+                            _cooldownTimer = 65 * 2; // todo: FPS stuff
+                        }
+
+                    }
+                    else
+                    {
+                        _cooldownTimer = 1; // not being used
+                    }
+                    UpdateAim(muzzlePos, _target.Position, EquipInfo, out _aimVector);
+                    float cooldown = EquipInfo.Weapon.ShotCooldown * _cooldownFactor;
+                    if (cooldown < 7.5f)
+                    {
+                        cooldown = 7;
+                    }
+                    if (Mods.EnhancedHunters.EnhancedHunters.Enabled(Owner) && Owner.EnhancedState.TimerB > 0) cooldown /= 1.25f;
+                    if (Owner.TimeSinceShot >= cooldown * 2 && _cooldownTimer < 60 * 2) // todo: FPS stuff
+                    {
+                        if (Owner.IsBot && _scene.GameState.SinglePlayer
+                            && (encounter == 1 || encounter == 3 || encounter == 4))
+                        {
+                            // no need to set infinite ammo since we don't have an ammo getter/setter
+                            EquipInfo.UnchargedDamage = 3;
+                            EquipInfo.HeadshotDamage = 3;
+                            EquipInfo.SplashDamage = 3;
+                            EquipInfo.MinChargeSplashDamage = 3;
+                            EquipInfo.ChargedSplashDamage = 3;
+                            EquipInfo.DmgDirTypes[0] = 0;
+                            EquipInfo.DmgDirTypes[1] = 0;
+                        }
+                        BeamSpawnFlags flags = Owner.DoubleDamage ? BeamSpawnFlags.DoubleDamage : BeamSpawnFlags.None;
+                        BeamResultFlags result = BeamProjectileEntity.Spawn(this, EquipInfo, muzzlePos, _aimVector, flags, NodeRef, _scene);
+                        if (result != BeamResultFlags.NoSpawn)
+                        {
+                            _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.WeaponFired, Owner,
+                                entity: Id, weapon: (int)EquipInfo.Weapon.Beam, flags: Mods.MatchEvents.MatchSemanticEventFlags.Turret);
+                            _models[0].SetAnimation(0, AnimFlags.NoLoop);
+                            Owner.TimeSinceShot = 0;
+                        }
+                    }
+                }
+            }
+            else
+            {
+                _freezeTimer--;
+                _timeSinceFrozen = 0;
+            }
+            if (_timeSinceFrozen != UInt16.MaxValue)
+            {
+                _timeSinceFrozen++;
+            }
+            if (_timeSinceDamage != UInt16.MaxValue)
+            {
+                _timeSinceDamage++;
+            }
+            if (Owner == _scene.Players.Main)
+            {
+                string message = Text.Strings.GetHudMessage(233); // turret energy: %d
+                // hide during dialog pause to prevent overlap -- the game doesn't do this, and also can't play as Weavel in 1P anyway
+                Owner.QueueHudMessage(128, 150, 1 / 1000f, 0, message.Replace("%d", _health.ToString()), dialogHide: true);
+            }
+            if (!_grounded)
+            {
+                // future: it would be cool to have the halfturret move with platforms, etc.
+                Vector3 prevPos = Position;
+                _ySpeed -= 0.02f / 2; // todo: FPS stuff
+                Position = Position.AddY(_ySpeed / 2); // todo: FPS stuff
+                var results = new CollisionResult[1];
+                if (CollisionDetection.CheckSphereBetweenPoints(prevPos, Position, 0.45f, limit: 1,
+                    includeOffset: false, TestFlags.None, _scene, results) > 0)
+                {
+                    CollisionResult result = results[0];
+                    float dot = Vector3.Dot(Position, result.Plane.Xyz) - result.Plane.W;
+                    dot = 0.45f - dot;
+                    Position = result.Position + result.Plane.Xyz * dot;
+                    _ySpeed = 0;
+                    _grounded = true;
+                    // todo?: wifi stuff
+                }
+                UpdateLightSources(Position);
+                NodeRef = _scene.UpdateNodeRef(NodeRef, prevPos, Position);
+                ClosestNode = null;
+            }
+            // todo?: wifi stuff
+            Debug.Assert(_scene.Room != null);
+            if (Position.Y < _scene.Room.Meta.KillHeight)
+            {
+                Die();
+            }
+            return true;
+        }
+
+        public void ResetGroundedState()
+        {
+            _grounded = false;
+        }
+
+        public static bool UpdateAim(Vector3 muzzlePos, Vector3 targetPos, EquipInfo equipInfo, out Vector3 aimVector)
+        {
+            WeaponInfo weapon = equipInfo.Weapon;
+            float chargePct = 0;
+            // todo: FPS stuff
+            if (weapon.Flags.TestFlag(WeaponFlags.CanCharge) && equipInfo.ChargeLevel >= weapon.MinCharge * 2)
+            {
+                chargePct = (equipInfo.ChargeLevel - weapon.MinCharge * 2) / (weapon.FullCharge * 2 - weapon.MinCharge * 2);
+            }
+            aimVector = targetPos - muzzlePos;
+            float hMagSqr = aimVector.X * aimVector.X + aimVector.Z * aimVector.Z;
+            float hMag = MathF.Sqrt(hMagSqr);
+            // todo?: seems okay without FPS stuff here, but we need to confirm
+            float uncSpeed = Fixed.ToFloat(weapon.UnchargedSpeed);
+            float speed = (Fixed.ToFloat(weapon.MinChargeSpeed) - uncSpeed) * chargePct;
+            float uncGravity = Fixed.ToFloat(weapon.UnchargedGravity);
+            float gravity = (Fixed.ToFloat(weapon.MinChargeGravity) - uncGravity) * chargePct;
+            float v23 = hMagSqr * (uncGravity + gravity) / ((uncSpeed + speed) * (uncSpeed + speed));
+            float v24 = v23 / 2;
+            bool result = true;
+            if (v24 >= 1 / 4096f || v24 <= -1 / 4096f) // v24 != 0
+            {
+                if ((Fixed.ToInt(v23) & 1) == 1)
+                {
+                    v23 -= 1 / 4096f;
+                }
+                float v26 = hMagSqr - 4 * v24 * (v24 - aimVector.Y);
+                if (v26 > 0)
+                {
+                    aimVector.Y = (MathF.Sqrt(v26) - hMag) / v23 * hMag;
+                }
+                else if (v26 > -1 / 4096f) // v26 == 0
+                {
+                    aimVector.Y = -hMag / v23 * hMag;
+                }
+                else // v26 < 0
+                {
+                    aimVector.Y = hMag;
+                    result = false;
+                }
+            }
+            if (aimVector != Vector3.Zero)
+            {
+                aimVector = aimVector.Normalized();
+            }
+            else
+            {
+                aimVector = Vector3.UnitX;
+            }
+            return result;
+        }
+
+        public void Die()
+        {
+            Owner.OnHalfturretDied();
+            if (_health > 0)
+            {
+                _health = 0;
+                _scene.SpawnEffect(216, Vector3.UnitX, Vector3.UnitY, Position); // deathAlt
+            }
+        }
+
+        public override void Destroy()
+        {
+            _modBurnSource = null;
+            _burnTimer = 0;
+            if (_burnEffect != null)
+            {
+                _scene.UnlinkEffectEntry(_burnEffect);
+                _burnEffect = null;
+            }
+            base.Destroy();
+        }
+
+        public override void GetDrawInfo()
+        {
+            if (_health <= 0 || !Owner.Flags2.TestFlag(PlayerFlags2.Halfturret)) return;
+            if (!IsVisible(NodeRef))
+            {
+                return;
+            }
+            ModelInstance inst = _models[0];
+            Model model = inst.Model;
+            AnimationInfo animInfo = inst.AnimInfo;
+            if (_timeSinceDamage < Owner.Values.DamageFlashTime * 2) // todo: FPS stuff
+            {
+                PaletteOverride = Metadata.RedPalette;
+            }
+            Matrix4 root = GetTransformMatrix(FacingVector, Vector3.UnitY);
+            _baseNodeParent.AnimIgnoreChild = true;
+            model.AnimateNodes2(index: 0, false, root, Vector3.One, animInfo);
+            _baseNodeParent.AnimIgnoreChild = false;
+            _baseNode.BeforeTransform = GetTransformMatrix(_aimVector, Vector3.UnitY, _baseNodeParent.Animation.Row3.Xyz);
+            _baseNode.AnimIgnoreParent = true;
+            model.AnimateNodes2(_baseNodeParent.ChildIndex, false, Matrix4.Identity, Vector3.One, animInfo);
+            _baseNode.AnimIgnoreParent = false;
+            _baseNode.BeforeTransform = null;
+            root = Matrix4.CreateTranslation(Position.AddY(-0.45f));
+            for (int i = 0; i < model.Nodes.Count; i++)
+            {
+                Node node = model.Nodes[i];
+                node.Animation *= root; // todo?: could do this in the shader
+            }
+            model.UpdateMatrixStack();
+            UpdateMaterials(inst, Recolor);
+            _brightSkin = _health > 0 && PaletteOverride == null ? BrightSkins.GetColor(Owner) : null;
+            _outlineColor = _health > 0 && _freezeTimer == 0 && PaletteOverride == null ? BrightSkins.GetOutlineColor(Owner) : null;
+            var previousCosmetic = _scene.CosmeticSubmission;
+            _scene.CosmeticSubmission = _freezeTimer == 0 && PaletteOverride == null
+                ? Owner.CosmeticMaterial(false) : default;
+            try
+            {
+                if (!TryDrawModernHalfturret(inst))
+                    GetDrawItems(inst, 0);
+            }
+            finally { _scene.CosmeticSubmission = previousCosmetic; }
+            _brightSkin = null;
+            _outlineColor = null;
+            PaletteOverride = null;
+            if (_freezeTimer > 0)
+            {
+                _useRoomLights = true;
+                float radius = 0.65f;
+                var transform = Matrix4.CreateScale(radius);
+                transform.Row3.Xyz = Position;
+                UpdateTransforms(_altIceModel, transform, recolor: 0);
+                GetDrawItems(_altIceModel, 1);
+                _useRoomLights = false;
+            }
+        }
+
+        private bool TryDrawModernHalfturret(ModelInstance inst)
+        {
+            Model model = inst.Model;
+            if (CharacterModelRuntime.TryGetWeighted(_scene, Hunter.Weavel,
+                CharacterModelPart.Halfturret, model,
+                out CharacterWeightedRenderModel weighted))
+            {
+                weighted.UpdatePalette(model);
+                int weightedPolygonId = _scene.GetNextPolygonId();
+                Node texgenNode = model.Nodes[0];
+                foreach (CharacterWeightedRenderSegment segment in weighted.Segments)
+                {
+                    Material material = model.Materials[segment.NativeMaterialIndex];
+                    Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
+                    Vector4? color = GetRenderColor(inst, 0, material);
+                    int? authoredAlbedo = segment.GetAlbedo(_scene, Recolor);
+                    int? bindingOverride = GetBindingOverride(
+                        inst, material, segment.NativeMaterialIndex) ?? authoredAlbedo;
+                    bool authoredTexture = segment.AlbedoBinding.HasValue
+                        && bindingOverride == authoredAlbedo;
+                    Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
+                        ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
+                            texgenNode, Recolor)
+                        : Matrix4.Identity;
+                    var previousMaterial = _scene.CosmeticMaterialSubmission;
+                    _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
+                        inst, material, segment.NativeMaterialIndex);
+                    if (authoredTexture && _scene.CosmeticMaterialSubmission == default
+                        && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
+                        _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
+                            segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
+                    try
+                    {
+                        _scene.AddRenderItem(material, weightedPolygonId, Alpha,
+                            emission, GetLightInfo(), texcoordMatrix, Matrix4.Identity,
+                            segment.ListId, weighted.Joints.Count, weighted.MatrixPalette,
+                            color, PaletteOverride, SelectionType.None, BillboardMode.None,
+                            _drawScale, bindingOverride, UseTexturedPlayerSkin(inst),
+                            GetPlayerOutlineColor(inst), weightedSkinning: true, authoredTexture: authoredTexture,
+                            authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
+                            authoredDoubleSided: segment.DoubleSided,
+                            authoredTransparent: authoredTexture && segment.Transparent,
+                            independentSurface: weighted.Asset.IndependentSurface,
+                        authoredSurfaceTint: segment.SurfaceTint, authoredNeutralAlbedo: segment.NeutralAlbedo);
+                    }
+                    finally
+                    {
+                        _scene.CosmeticMaterialSubmission = previousMaterial;
+                    }
+                }
+                return true;
+            }
+
+            if (!CharacterModelRuntime.TryGetRigid(_scene, Hunter.Weavel,
+                CharacterModelPart.Halfturret, model,
+                out CharacterRigidRenderModel replacement))
+                return false;
+
+            int polygonId = _scene.GetNextPolygonId();
+            foreach (CharacterRigidRenderSegment segment in replacement.Segments)
+            {
+                Node node = model.Nodes[segment.NativeNodeIndex];
+                if (!replacement.Asset.IndependentVisibility
+                    && (!node.Enabled || !model.NodeParentsEnabled(node))) continue;
+                Material material = model.Materials[segment.NativeMaterialIndex];
+                Vector3 emission = GetEmission(inst, material, segment.NativeMaterialIndex);
+                Vector4? color = GetRenderColor(inst, 0, material);
+                int? authoredAlbedo = segment.GetAlbedo(_scene, Recolor);
+                int? bindingOverride = GetBindingOverride(inst, material,
+                    segment.NativeMaterialIndex) ?? authoredAlbedo;
+                bool authoredTexture = segment.AlbedoBinding.HasValue && bindingOverride == authoredAlbedo;
+                Matrix4 texcoordMatrix = !authoredTexture && bindingOverride.HasValue
+                    ? GetTexcoordMatrix(inst, material, segment.NativeMaterialIndex,
+                        node, Recolor)
+                    : Matrix4.Identity;
+
+                var previousMaterial = _scene.CosmeticMaterialSubmission;
+                _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(
+                    inst, material, segment.NativeMaterialIndex);
+                if (authoredTexture && _scene.CosmeticMaterialSubmission == default
+                    && Mods.RenderOptions.AdvancedMaterials && segment.MaterialMaps.Any)
+                    _scene.CosmeticMaterialSubmission = new(0, segment.MaterialMaps.Normal,
+                        segment.MaterialMaps.Specular, segment.MaterialMaps.Emissive);
+                try
+                {
+                    _scene.AddRenderItem(material, polygonId, Alpha, emission,
+                        GetLightInfo(), texcoordMatrix, node.Animation,
+                        segment.ListId, 0, Array.Empty<float>(), color,
+                        PaletteOverride, SelectionType.None, node.BillboardMode,
+                        _drawScale, bindingOverride, UseTexturedPlayerSkin(inst),
+                        GetPlayerOutlineColor(inst), authoredTexture: authoredTexture,
+                        authoredWrapS: segment.WrapS, authoredWrapT: segment.WrapT,
+                            authoredDoubleSided: segment.DoubleSided,
+                            authoredTransparent: authoredTexture && segment.Transparent,
+                            independentSurface: replacement.Asset.IndependentSurface, authoredSurfaceTint: segment.SurfaceTint, authoredNeutralAlbedo: segment.NeutralAlbedo);
+                }
+                finally
+                {
+                    _scene.CosmeticMaterialSubmission = previousMaterial;
+                }
+            }
+            return true;
+        }
+
+        protected override Vector4? GetRenderColor(ModelInstance inst, int index, Material material)
+        {
+            if (inst == _models[0] && _brightSkin.HasValue && PaletteOverride == null)
+            {
+                return BrightSkins.ForMaterial(_brightSkin, material.TextureId != -1,
+                    material.CurrentAlpha * Alpha, _scene.ShowTextures);
+            }
+            return base.GetRenderColor(inst, index, material);
+        }
+
+        protected override Vector4? GetPlayerOutlineColor(ModelInstance inst)
+            => inst == _models[0] && PaletteOverride == null ? _outlineColor : null;
+
+        protected override bool UseTexturedPlayerSkin(ModelInstance inst)
+            => inst == _models[0] && _brightSkin.HasValue && Mods.RenderOptions.BrightSkins
+                && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid;
+
+        protected override Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index)
+            => Mods.RenderOptions.ShowCustomCosmetics && !_scene.GameState.Teams && _freezeTimer == 0 && PaletteOverride == null
+                && !Owner.BrightSkinStatusOverride && !Owner.ModMatchSpawnProtectionActive
+                ? _scene.GetCosmeticMaterial(Mods.Cosmetics.CosmeticRuntime.Get(_scene, Owner.SlotIndex, Owner.Hunter, Owner.IsMainPlayer).Skin,
+                    inst.Model, index, Mods.Cosmetics.SkinContext.Halfturret) : default;
+
+        protected override int? GetBindingOverride(ModelInstance inst, Material material, int index)
+        {
+            if (Owner.DoubleDamage && material.Lighting > 0)
+            {
+                return Owner.DoubleDmgBindingId;
+            }
+            return base.GetBindingOverride(inst, material, index);
+        }
+
+        protected override Vector3 GetEmission(ModelInstance inst, Material material, int index)
+        {
+            // todo?: it's kinda weird that this doesn't use the team emission color
+            if (Owner.DoubleDamage && material.Lighting > 0)
+            {
+                return Metadata.EmissionGray;
+            }
+            return base.GetEmission(inst, material, index);
+        }
+
+        // todo: share with player
+        protected override Matrix4 GetTexcoordMatrix(ModelInstance inst, Material material, int materialId,
+            Node node, int recolor)
+        {
+            if (Owner.DoubleDamage && material.Lighting > 0 && node.BillboardMode == BillboardMode.None)
+            {
+                Texture texture = Owner.DoubleDamageModel.Model.Recolors[0].Textures[0];
+                // product should start with the upper 3x3 of the node animation result,
+                // texgenMatrix should be multiplied with the view matrix if lighting is enabled,
+                // and the result should be transposed.
+                // these steps are done in the shader so the view matrix can be updated when frame advance is on.
+                // strictly speaking, the use_light check in the shader is not the same as what the game does,
+                // since the game checks if *any* material in the model uses lighting, but the result is the same.
+                Matrix4 texgenMatrix = Matrix4.Identity;
+                // in-game, there's only one uniform scale factor for models
+                if (inst.Model.Scale.X != 1 || inst.Model.Scale.Y != 1 || inst.Model.Scale.Z != 1)
+                {
+                    texgenMatrix = Matrix4.CreateScale(inst.Model.Scale) * texgenMatrix;
+                }
+                Matrix4 product = texgenMatrix;
+                product.M12 *= -1;
+                product.M13 *= -1;
+                product.M22 *= -1;
+                product.M23 *= -1;
+                product.M32 *= -1;
+                product.M33 *= -1;
+                ulong frame = _scene.LiveFrames / 2;
+                float rotZ = ((int)(16 * ((781874935307L * (53248 * frame) >> 32) + 2048)) >> 20) * (360 / 4096f);
+                float rotY = ((int)(16 * ((781874935307L * (26624 * frame) + 0x80000000000) >> 32)) >> 20) * (360 / 4096f);
+                var rot = Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(rotZ));
+                rot *= Matrix4.CreateRotationY(MathHelper.DegreesToRadians(rotY));
+                product = rot * product;
+                product *= 1.0f / (texture.Width / 2);
+                product = new Matrix4(
+                    product.Row0 * 16.0f,
+                    product.Row1 * 16.0f,
+                    product.Row2 * 16.0f,
+                    product.Row3
+                );
+                return product;
+            }
+            return base.GetTexcoordMatrix(inst, material, materialId, node, recolor);
+        }
+    }
+}

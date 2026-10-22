@@ -1,0 +1,3743 @@
+using System;
+using MphRead.Formats;
+using MphRead.Mods.Network;
+using MphRead.Mods.Multiplayer;
+using OpenTK.Mathematics;
+using OpenTK.Windowing.GraphicsLibraryFramework;
+
+namespace MphRead.Entities
+{
+    public partial class PlayerEntity
+    {
+        private readonly float[] _pastAimX = new float[8];
+        private readonly float[] _pastAimY = new float[8];
+        private float _buttonAimX = 0;
+        private float _buttonAimY = 0;
+        private const float _maxButtonAimX = 8;
+        private const float _maxButtonAimY = 8;
+        private VoltDriverTapBuffer _voltTapBuffer;
+
+        private void ProcessInput()
+        {
+            RepairSpatialState();
+            ModSampleGrappleControl();
+            ModMaintainParkourGrapple();
+            // Queued trigger edges are per-life, biped-only input, never a future
+            // shot after a death, freeze, transformation or scripted lock.
+            if (_health <= 0 || _frozenTimer > 0 || _field6D0 || IsAltForm || IsMorphing || IsUnmorphing)
+                _voltTapBuffer.Reset();
+            var replication = _scene.Services.PlayerReplication;
+            if (replication.Active && !IsBot)
+            {
+                bool local = SlotIndex == replication.LocalSlot && replication.LocalSlot >= 0;
+                bool fresh = local || (replication.TryGetIntent(SlotIndex, out var intent)
+                    && intent.Frame != 0 && replication.IntentAge(SlotIndex)
+                        <= Mods.Network.ContinuousWeaponPhase.MaxIntentAge);
+                if (!fresh || CurrentWeapon != BeamType.ShockCoil || !Controls.Shoot.IsDown || !ModIsInPlay)
+                    NetContinuousTargeting.ResetPlayer(this);
+                _scene.WeaponPhase.Observe(SlotIndex, _scene.FrameCount,
+                    EquipWeapon.Flags.TestFlag(WeaponFlags.Continuous) && Controls.Shoot.IsDown&&!ModCustomOwnsBipedControls, fresh);
+            }
+            if (_health > 0)
+            {
+                if (Flags1.TestFlag(PlayerFlags1.FreeLook))
+                {
+                    Flags1 |= PlayerFlags1.FreeLookPrevious;
+                }
+                else
+                {
+                    Flags1 &= ~PlayerFlags1.FreeLookPrevious;
+                }
+                Flags1 &= ~PlayerFlags1.FreeLook;
+                Flags1 &= ~PlayerFlags1.Walking;
+                Flags1 &= ~PlayerFlags1.Strafing;
+                if (!IsBot)
+                {
+                    ProcessTouchInput();
+                    // todo: actual pause menu should require pressed
+                    if (_scene.GameState.Multiplayer && !Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) && Controls.Pause.IsDown)
+                    {
+                        _showScoreboard = true;
+                    }
+                    else
+                    {
+                        _showScoreboard = false;
+                    }
+                }
+                if (_frozenTimer > 0)
+                {
+                    _frozenTimer--;
+                    _timeSinceFrozen = 0;
+                    if (_frozenTimer == 0)
+                    {
+                        _soundSource.PlaySfx(SfxId.SHOTGUN_BREAK_FREEZE);
+                        if (IsAltForm)
+                        {
+                            CreateIceBreakEffectAlt();
+                        }
+                        else if (IsMainPlayer)
+                        {
+                            CreateIceBreakEffectGun();
+                        }
+                        else if (Flags2.TestFlag(PlayerFlags2.DrawnThirdPerson))
+                        {
+                            int lod = Flags2.TestFlag(PlayerFlags2.Lod1) ? 1 : 0;
+                            CreateIceBreakEffectBiped(_bipedModelLods[lod].Model);
+                        }
+                    }
+                }
+                if (_frozenGfxTimer > 0)
+                {
+                    _frozenGfxTimer--;
+                    if (IsMainPlayer && _frozenGfxTimer == 0)
+                    {
+                        _drawIceLayer = false;
+                    }
+                }
+                if (_timeSinceFrozen != UInt16.MaxValue)
+                {
+                    _timeSinceFrozen++;
+                }
+            }
+            else
+            {
+                _showScoreboard = _scene.GameState.Multiplayer && Controls.Pause.IsDown;
+            }
+            if (IsAltForm || IsMorphing)
+            {
+                ProcessAlt();
+            }
+            else
+            {
+                // Pointer gestures made on foot must never survive into a
+                // later morph and fire or steer an ability the player did not
+                // just ask for.
+                ModClearAltFlick();
+                ModResetAltSwipeDrive();
+                ModStopNativeTouch();
+                ProcessBiped();
+                ScoutDroneStep();
+            }
+            // Current native aim is ready and form switching has settled. An
+            // accepted morph must cancel a paid tail in this same source step.
+            _scene.PirateBlaster?.CompleteInput(this);
+        }
+
+        private static readonly BeamType[] _weaponOrder = new BeamType[9]
+        {
+            /* 0 */ BeamType.PowerBeam,
+            /* 1 */ BeamType.Missile,
+            /* 2 */ BeamType.VoltDriver,
+            /* 3 */ BeamType.Battlehammer,
+            /* 4 */ BeamType.Imperialist,
+            /* 5 */ BeamType.Judicator,
+            /* 6 */ BeamType.Magmaul,
+            /* 7 */ BeamType.ShockCoil,
+            /* 8 */ BeamType.OmegaCannon
+        };
+
+        /// <summary>
+        /// The DS bottom screen, worked with a pen.
+        ///
+        /// Written straight into the binds rather than synthesised as key
+        /// presses: there is no keyboard here to put a key into, and a bind
+        /// is what every one of these actions is actually read from.
+        ///
+        /// Add DS actions after raw pointer ownership has been resolved. Independent
+        /// firing sources have already been preserved by the binding resolver.
+        /// </summary>
+        private static void ApplyStylusZone(PlayerEntity player)
+        {
+            PlayerControls controls = player.Controls;
+            // Keep the stylus hold as its own input source instead of writing it
+            // into the shared WeaponMenu bind. That shared bind is also used by
+            // keyboard, mouse and controller input, and leaving a virtual hold in
+            // it can keep the menu open after pen contact ends.
+            player.Input.StylusWeaponMenuDown = Mods.Input.StylusZone.MenuHeld;
+            if (!Mods.Input.StylusZone.CapturingPointer)
+            {
+                return;
+            }
+            if (player.Input.StylusWeaponMenuDown)
+            {
+                player.Input.HasInput = true;
+                return;
+            }
+            Mods.Input.StylusRegion pressed = Mods.Input.StylusZone.TakePressed();
+            if (pressed == Mods.Input.StylusRegion.None)
+            {
+                return;
+            }
+            Keybind? bind = pressed switch
+            {
+                Mods.Input.StylusRegion.PowerBeam => controls.PowerBeam,
+                Mods.Input.StylusRegion.Missile => controls.Missile,
+                // The large WPN button is the quick-select slot for the
+                // affinity weapon chosen by the wheel. The small SEL button
+                // beside it opens that wheel and is handled above as a hold.
+                Mods.Input.StylusRegion.Weapons => controls.AffinitySlot,
+                Mods.Input.StylusRegion.AltForm => controls.Morph,
+                _ => null
+            };
+            // Pattern match, not "!= null": Keybind's own != dereferences both
+            // sides, so comparing one against null threw rather than answering.
+            if (bind is not null)
+            {
+                bind.IsDown = true;
+                bind.IsPressed = true;
+                bind.IsReleased = false;
+                player.Input.HasInput = true;
+            }
+        }
+
+        private void ProcessTouchInput()
+        {
+            // the game explicitly checks for Samus, and doesn't check if the weapon menu is open
+            if (_scene.GameState.SinglePlayer && Controls.ScanVisor.IsPressed && !Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen)
+                && !IsAltForm && !IsMorphing)
+            {
+                if (ScanVisor)
+                {
+                    SwitchVisors(reset: false);
+                }
+                else
+                {
+                    // todo?: play SFX for the "hold scan" feature
+                    SwitchVisors(reset: false);
+                    UpdateZoom(zoom: false);
+                }
+            }
+            bool weaponMenuDown = Controls.WeaponMenu.IsDown
+                || (IsMainPlayer && Input.StylusWeaponMenuDown);
+            if ((_scene.GameState.Multiplayer || _weaponSlots[2] != BeamType.OmegaCannon) && weaponMenuDown)
+            {
+                Flags1 |= PlayerFlags1.NoAimInput;
+                Flags1 |= PlayerFlags1.WeaponMenuOpen;
+                _showScoreboard = false;
+            }
+            bool selected = false;
+            if (!weaponMenuDown)
+            {
+                selected = EndWeaponMenu();
+            }
+            if (!selected)
+            {
+                if (Controls.PowerBeam.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.PowerBeam)
+                    {
+                        TryEquipWeapon(BeamType.PowerBeam, debug: true);
+                    }
+                }
+                else if (Controls.Missile.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.Missile)
+                    {
+                        TryEquipWeapon(BeamType.Missile, debug: true);
+                    }
+                }
+                else if (Controls.VoltDriver.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.VoltDriver)
+                    {
+                        TryEquipWeapon(BeamType.VoltDriver, debug: true);
+                    }
+                }
+                else if (Controls.Battlehammer.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.Battlehammer)
+                    {
+                        TryEquipWeapon(BeamType.Battlehammer, debug: true);
+                    }
+                }
+                else if (Controls.Imperialist.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.Imperialist)
+                    {
+                        TryEquipWeapon(BeamType.Imperialist, debug: true);
+                    }
+                }
+                else if (Controls.Judicator.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.Judicator)
+                    {
+                        TryEquipWeapon(BeamType.Judicator, debug: true);
+                    }
+                }
+                else if (Controls.Magmaul.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.Magmaul)
+                    {
+                        TryEquipWeapon(BeamType.Magmaul, debug: true);
+                    }
+                }
+                else if (Controls.ShockCoil.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.ShockCoil)
+                    {
+                        TryEquipWeapon(BeamType.ShockCoil, debug: true);
+                    }
+                }
+                else if (Controls.OmegaCannon.IsPressed)
+                {
+                    if (CurrentWeapon != BeamType.OmegaCannon)
+                    {
+                        TryEquipWeapon(BeamType.OmegaCannon, debug: true);
+                    }
+                }
+                else if (Controls.AffinitySlot.IsPressed && _scene.PirateBlaster?.Available(this) != true)
+                {
+                    BeamType weapon = _weaponSlots[2];
+                    if (weapon != BeamType.None && CurrentWeapon != weapon)
+                    {
+                        TryEquipWeapon(weapon);
+                    }
+                }
+                else if (ModApplyPirateCycle() || ModApplyCustomCycle())
+                {
+                    // The scene already routed this acquired custom cycle edge.
+                }
+                else if (Controls.ScrollAllWeapons || CurrentWeapon != BeamType.PowerBeam && CurrentWeapon != BeamType.Missile)
+                {
+                    int currentIndex = -1;
+                    for (int i = 0; i < _weaponOrder.Length; i++)
+                    {
+                        if (_weaponOrder[i] == CurrentWeapon)
+                        {
+                            currentIndex = i;
+                        }
+                    }
+                    int nextIndex = currentIndex;
+                    BeamType nextBeam = CurrentWeapon;
+                    // Bounded as well as terminated by the index, because the
+                    // predicate can now be false for every weapon at once --
+                    // and because a CurrentWeapon that is not in the order at
+                    // all leaves currentIndex at -1, which the wraps below can
+                    // never land back on.
+                    int steps = _weaponOrder.Length;
+                    if (Controls.NextWeapon.IsPressed)
+                    {
+                        do
+                        {
+                            nextIndex++;
+                            if (Controls.ScrollAllWeapons && nextIndex > 8)
+                            {
+                                nextIndex = 0;
+                            }
+                            else if (!Controls.ScrollAllWeapons && nextIndex > 7)
+                            {
+                                nextIndex = 2;
+                            }
+                            nextBeam = _weaponOrder[nextIndex];
+                        }
+                        while (nextIndex != currentIndex && --steps > 0 && !CanCycleToWeapon(nextBeam));
+                    }
+                    else if (Controls.PrevWeapon.IsPressed)
+                    {
+                        do
+                        {
+                            nextIndex--;
+                            if (Controls.ScrollAllWeapons && nextIndex < 0)
+                            {
+                                nextIndex = 8;
+                            }
+                            else if (!Controls.ScrollAllWeapons && nextIndex < 2)
+                            {
+                                nextIndex = 7;
+                            }
+                            nextBeam = _weaponOrder[nextIndex];
+                        }
+                        while (nextIndex != currentIndex && --steps > 0 && !CanCycleToWeapon(nextBeam));
+                    }
+                    if (nextBeam != CurrentWeapon)
+                    {
+                        TryEquipWeapon(nextBeam);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Whether next/previous weapon should stop on this beam.
+        ///
+        /// Availability is not enough, and that was the bug: the cycle used to
+        /// skip only weapons the player had not picked up, so it would happily
+        /// stop on one that was out of ammo -- where <c>TryEquipWeapon</c>
+        /// refuses it, plays the fail sound, and leaves the current weapon
+        /// where it was. The next press then computed the same index from the
+        /// same starting weapon and stopped on the same empty one, so the
+        /// cycle was stuck for good in that direction and the only way past it
+        /// was to cycle the other way round.
+        ///
+        /// The ammo test is <c>TryEquipWeapon</c>'s own, so the two cannot
+        /// drift: anything this stops on is something that will equip. An
+        /// empty weapon is still reachable by its own key, which is where the
+        /// "you have no ammo" message belongs -- it answers a player who asked
+        /// for that weapon, rather than one who asked for the next one.
+        /// </summary>
+        private bool CanCycleToWeapon(BeamType beam)
+        {
+            if (!_availableWeapons[beam])
+            {
+                return false;
+            }
+            WeaponInfo info = _scene.WeaponRules[(int)beam];
+            int ammo = ModAmmoForWeapon(beam, info);
+            int cost = ModAmmoCostForWeapon(beam, info);
+            return beam == BeamType.PowerBeam || ammo == -1 || ammo >= cost;
+        }
+
+        private bool EndWeaponMenu()
+        {
+            bool selected = false;
+            if (ModEndCustomWheel(out bool customSelected))
+            {
+                Flags1 &= ~PlayerFlags1.NoAimInput;
+                Flags1 &= ~PlayerFlags1.WeaponMenuOpen;
+                if (!_scene.Services.IsReplica) Mods.Input.WeaponWheel.Close();
+                return customSelected;
+            }
+            if (WeaponSelection != BeamType.None)
+            {
+                if (WeaponSelection != CurrentWeapon)
+                {
+                    TryEquipWeapon(WeaponSelection);
+                    selected = true;
+                }
+                else if (IsMainPlayer && Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen))
+                {
+                    _soundSource.PlayFreeSfx(SfxId.BEAM_SWITCH_FAIL);
+                }
+                WeaponSelection = CurrentWeapon;
+            }
+            Flags1 &= ~PlayerFlags1.NoAimInput;
+            Flags1 &= ~PlayerFlags1.WeaponMenuOpen;
+            if (!_scene.Services.IsReplica) Mods.Input.WeaponWheel.Close();
+            return selected;
+        }
+
+        private static bool SpatialFinite(Vector3 value)
+            => Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
+
+        private static bool SpatialDirection(Vector3 value)
+            => SpatialFinite(value) && value.LengthSquared > 0.0000001f;
+
+        private static Vector3 NormalizeSpatialOr(Vector3 value, Vector3 fallback)
+        {
+            if (SpatialDirection(value))
+            {
+                return value / MathF.Sqrt(value.LengthSquared);
+            }
+            if (SpatialDirection(fallback))
+            {
+                return fallback / MathF.Sqrt(fallback.LengthSquared);
+            }
+            return Vector3.UnitZ;
+        }
+
+        private void RepairAimBasis()
+        {
+            if (!SpatialDirection(_gunVec1))
+            {
+                _gunVec1 = NormalizeSpatialOr(_facingVector, Vector3.UnitZ);
+            }
+            if (!SpatialDirection(_facingVector))
+            {
+                _facingVector = _gunVec1;
+            }
+            if (!SpatialDirection(_gunVec2))
+            {
+                Vector3 right = new(_facingVector.Z, 0, -_facingVector.X);
+                _gunVec2 = NormalizeSpatialOr(right, Vector3.UnitX);
+            }
+            if (!SpatialDirection(_upVector))
+            {
+                _upVector = NormalizeSpatialOr(
+                    Vector3.Cross(_facingVector, _gunVec2), Vector3.UnitY);
+            }
+        }
+
+        private void RepairSpatialState()
+        {
+            Vector3 originalPosition = Position, originalPreviousPosition = PrevPosition,
+                originalSpeed = Speed, originalPreviousSpeed = PrevSpeed, originalAcceleration = Acceleration,
+                originalCameraPosition = CameraInfo.Position, originalCameraTarget = CameraInfo.Target,
+                originalCameraUp = CameraInfo.UpVector;
+            bool repaired = false;
+            if (!SpatialFinite(Position))
+            {
+                Position = SpatialFinite(PrevPosition) ? PrevPosition : Vector3.Zero;
+                repaired = true;
+            }
+            if (!SpatialFinite(PrevPosition))
+            {
+                PrevPosition = Position;
+                repaired = true;
+            }
+            if (!SpatialFinite(Speed))
+            {
+                Speed = Vector3.Zero;
+                repaired = true;
+            }
+            if (!SpatialFinite(PrevSpeed))
+            {
+                PrevSpeed = Speed;
+                repaired = true;
+            }
+            if (!SpatialFinite(Acceleration))
+            {
+                Acceleration = Vector3.Zero;
+                repaired = true;
+            }
+
+            Vector3 oldGun = _gunVec1;
+            Vector3 oldFacing = _facingVector;
+            RepairAimBasis();
+            repaired |= oldGun != _gunVec1 || oldFacing != _facingVector;
+
+            Vector3 fallbackCamera = Position.AddY(Fixed.ToFloat(Values.AimYOffset));
+            if (!SpatialFinite(CameraInfo.Position))
+            {
+                CameraInfo.Position = fallbackCamera;
+                CameraInfo.PrevPosition = fallbackCamera;
+                repaired = true;
+            }
+            if (!SpatialFinite(CameraInfo.Target))
+            {
+                CameraInfo.Target = CameraInfo.Position + _gunVec1;
+                repaired = true;
+            }
+            if (!SpatialDirection(CameraInfo.UpVector))
+            {
+                CameraInfo.UpVector = _upVector;
+                repaired = true;
+            }
+
+            if (!SpatialFinite(_aimPosition) || !SpatialFinite(_muzzlePos)
+                || !SpatialFinite(_gunDrawPos) || repaired)
+            {
+                _aimPosition = CameraInfo.Position
+                    + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
+                _aimVec = _gunVec1;
+                _gunDrawPos = CameraInfo.Position;
+                _muzzlePos = CameraInfo.Position
+                    + _gunVec1 * Fixed.ToFloat(Values.MuzzleOffset);
+                ModInvalidateFirstPersonRenderPose();
+                if (repaired)
+                {
+                    Mods.DebugLog.Line("player",
+                        $"slot {SlotIndex} repaired non-finite spatial state: position={originalPosition} previous={originalPreviousPosition} speed={originalSpeed} previousSpeed={originalPreviousSpeed} acceleration={originalAcceleration} gun={oldGun} facing={oldFacing} camera={originalCameraPosition} target={originalCameraTarget} up={originalCameraUp}");
+                }
+            }
+        }
+
+        private void UpdateAimFacing()
+        {
+            RepairAimBasis();
+            if (Features.FixedAimCamera || ModCustomScopeActive)
+            {
+                // Static/Quake presentation welds the camera to raw aim. A
+                // fixed reticle animation alone must not do that: Pro HUD also
+                // freezes that animation in Dynamic/Metroid mode, where the
+                // original camera easing is exactly what creates the visible
+                // camera-to-aim delta used by the moving crosshair.
+                _facingVector = _gunVec1;
+                return;
+            }
+
+            float dot = Math.Clamp(Vector3.Dot(_gunVec1, _facingVector), -1, 1);
+            if (dot < Fixed.ToFloat(3956))
+            {
+                Vector3 tangent = _facingVector - _gunVec1 * dot;
+                if (!SpatialDirection(tangent))
+                {
+                    // Exactly opposed aim/body vectors have no unique shortest
+                    // tangent. Choose a stable perpendicular rather than
+                    // normalizing zero and poisoning the whole movement basis.
+                    tangent = Vector3.UnitY - _gunVec1 * Vector3.Dot(Vector3.UnitY, _gunVec1);
+                    if (!SpatialDirection(tangent))
+                    {
+                        tangent = Vector3.UnitX - _gunVec1 * Vector3.Dot(Vector3.UnitX, _gunVec1);
+                    }
+                }
+                tangent = NormalizeSpatialOr(tangent, Vector3.UnitX);
+                _facingVector = NormalizeSpatialOr(
+                    Fixed.ToFloat(3956) * _gunVec1 + Fixed.ToFloat(1060) * tangent,
+                    _gunVec1);
+            }
+            Vector3 temp2 = _gunVec1 - _facingVector;
+            _facingVector = NormalizeSpatialOr(_facingVector + temp2 * 0.1f, _gunVec1);
+        }
+
+        private float AimScopeBlend()
+        {
+            if (_customScopeTransition) return ModCustomScopeBlend;
+            float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
+            if (normalFov <= 0 || EquipInfo.Weapon == null)
+            {
+                return EquipInfo.Zoomed ? 1 : 0;
+            }
+            float zoomFov = Fixed.ToFloat(EquipInfo.Weapon.ZoomFov) * 2;
+            float span = normalFov - zoomFov;
+            if (!float.IsFinite(span) || MathF.Abs(span) < .001f)
+            {
+                return EquipInfo.Zoomed ? 1 : 0;
+            }
+            return Math.Clamp((normalFov - CameraInfo.Fov) / span, 0, 1);
+        }
+
+        private float AimZoomScale()
+        {
+            float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
+            if (_customScopeTransition) return Mods.CustomWeapons.CustomScopeMath.AimScale(normalFov, CameraInfo.Fov);
+            return normalFov > 0 && AimScopeBlend() > 0
+                ? Math.Clamp(CameraInfo.Fov / normalFov, .05f, 1) : 1;
+        }
+
+        private void UpdateAimY(float amount, bool applyInputSettings = true)
+        {
+            if (!Single.IsFinite(amount))
+            {
+                return;
+            }
+            RepairAimBasis();
+            if (!Single.IsFinite(_aimY))
+            {
+                float horizontal = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
+                _aimY = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, horizontal));
+            }
+            if (applyInputSettings && Controls.InvertAimY)
+            {
+                amount *= -1;
+            }
+            if (applyInputSettings) amount *= AimZoomScale() * ModCustomScopeSensitivity;
+            // unimpl-controls: these calculations are different when exact aim is not set
+            float prevAim = _aimY;
+            _aimY += amount;
+            if (IsAltForm)
+            {
+                _aimY = Math.Clamp(_aimY, -25, 5);
+            }
+            else
+            {
+                _aimY = Math.Clamp(_aimY, -85, 85);
+            }
+            float diff = MathHelper.DegreesToRadians(_aimY - prevAim);
+            Matrix4 transform = GetTransformMatrix(_gunVec1, Vector3.UnitY);
+            Vector3 vector;
+            if (diff <= 0)
+            {
+                vector = new Vector3(0, MathF.Sin(diff), MathF.Cos(diff));
+            }
+            else
+            {
+                vector = new Vector3(0, -MathF.Sin(-diff), MathF.Cos(-diff));
+            }
+            Vector3 previousGun = _gunVec1;
+            _gunVec1 = NormalizeSpatialOr(
+                Matrix.Vec3MultMtx3(vector, transform), previousGun);
+            _aimPosition = CameraInfo.Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
+            UpdateAimFacing();
+        }
+
+        private void UpdateAimX(float amount, bool applyInputSettings = true)
+        {
+            if (!Single.IsFinite(amount))
+            {
+                return;
+            }
+            RepairAimBasis();
+            if (applyInputSettings && Controls.InvertAimX)
+            {
+                amount *= -1;
+            }
+            if (applyInputSettings) amount *= AimZoomScale() * ModCustomScopeSensitivity;
+            // unimpl-controls: these calculations are different when exact aim is not set
+            float sin;
+            float cos;
+            float angle = MathHelper.DegreesToRadians(amount);
+            if (amount <= 0)
+            {
+                sin = MathF.Sin(angle);
+                cos = MathF.Cos(angle);
+            }
+            else
+            {
+                sin = -MathF.Sin(-angle);
+                cos = MathF.Cos(-angle);
+            }
+            float x = _gunVec1.X;
+            float z = _gunVec1.Z;
+            _gunVec1.X = x * cos + z * sin;
+            _gunVec1.Z = x * -sin + z * cos;
+            _gunVec1 = NormalizeSpatialOr(_gunVec1, _facingVector);
+            _aimPosition = CameraInfo.Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
+            if (EquipInfo.Zoomed)
+            {
+                _facingVector = _gunVec1;
+            }
+            else
+            {
+                UpdateAimFacing();
+            }
+        }
+
+        private void UpdateHudShiftY(float amount)
+        {
+            if (IsMainPlayer)
+            {
+                float sum = 0;
+                for (int i = 6; i >= 0; i--)
+                {
+                    float past = _pastAimY[i];
+                    sum += past;
+                    _pastAimY[i + 1] = past;
+                }
+                _pastAimY[0] = amount;
+                if (Features.HudSway && !Features.FixedWeapon)
+                {
+                    float average = (sum + amount) / 8;
+                    _hudShiftY = Math.Clamp(-MathF.Round(average), -8, 8);
+                }
+                else
+                {
+                    _hudShiftY = 0;
+                }
+                _objShiftY = -_hudShiftY / 2;
+            }
+        }
+
+        private void UpdateHudShiftX(float amount)
+        {
+            if (IsMainPlayer)
+            {
+                float sum = 0;
+                for (int i = 6; i >= 0; i--)
+                {
+                    float past = _pastAimX[i];
+                    sum += past;
+                    _pastAimX[i + 1] = past;
+                }
+                _pastAimX[0] = amount;
+                if (Features.HudSway && !Features.FixedWeapon)
+                {
+                    float average = (sum + amount) / 8;
+                    _hudShiftX = Math.Clamp(MathF.Round(average), -8, 8);
+                }
+                else
+                {
+                    _hudShiftX = 0;
+                }
+                _objShiftX = _hudShiftX / 2;
+            }
+        }
+
+        private void ProcessBiped()
+        {
+            if (IsBot && _scene.MomentumOwnsPlayer(this))
+                ModUpdateTraversalStance(Controls.Crouch.IsDown && (IsBot || _scene.DeveloperMomentumInputAllowed));
+            if (IsMainPlayer && _scene.GameState.SinglePlayer && _scene.CameraSequences.Current != null)
+            {
+                _timeIdle = 0;
+            }
+            if (EquipInfo.SmokeLevel < EquipInfo.Weapon.SmokeDrain)
+            {
+                EquipInfo.SmokeLevel = 0;
+            }
+            else
+            {
+                EquipInfo.SmokeLevel -= EquipInfo.Weapon.SmokeDrain;
+            }
+            Vector3 speedDelta = Vector3.Zero;
+            bool nativeJumpAccepted = false;
+            PlayerAnimation anim1 = PlayerAnimation.None;
+            PlayerAnimation anim2 = PlayerAnimation.None;
+            AnimFlags animFlags1 = AnimFlags.None;
+            AnimFlags animFlags2 = AnimFlags.None;
+            if (_frozenTimer == 0 && _health > 0 && !_field6D0)
+            {
+                if (Biped1Anim == PlayerAnimation.Turn)
+                {
+                    if (Biped1Frame <= Biped1FrameCount / 2)
+                    {
+                        Biped1Flags |= AnimFlags.Reverse;
+                    }
+                    else
+                    {
+                        Biped1Flags &= ~AnimFlags.Reverse;
+                    }
+                    Biped1Flags |= AnimFlags.NoLoop;
+                }
+                if (Biped2Anim == PlayerAnimation.Turn)
+                {
+                    if (Biped2Frame <= Biped2FrameCount / 2)
+                    {
+                        Biped2Flags |= AnimFlags.Reverse;
+                    }
+                    else
+                    {
+                        Biped2Flags &= ~AnimFlags.Reverse;
+                    }
+                    Biped2Flags |= AnimFlags.NoLoop;
+                }
+                ApplyModAim();
+                if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot && !Mods.Network.NetAiClient.Drives(this))
+                {
+                    // The 1/4 was the whole of the sensitivity setting; it is
+                    // now the point where one lives (1.0 = this exact feel).
+                    bool imperialistZoomed = EquipInfo.Zoomed && CurrentWeapon == BeamType.Imperialist;
+                    float aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseAimSensitivityY(imperialistZoomed)
+                        * (Mods.InputSettings.InvertMouseY ? -1 : 1);
+                    float aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseAimSensitivityX(imperialistZoomed)
+                        * (Mods.InputSettings.InvertMouseX ? -1 : 1);
+                    if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
+                        || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame) // skdebug
+                    {
+                        aimX = aimY = 0;
+                    }
+                    if (Controls.KeyboardAim && (Controls.AimLeft.IsDown || Controls.AimRight.IsDown
+                        || Controls.AimUp.IsDown || Controls.AimDown.IsDown))
+                    {
+                        aimX = aimY = 0;
+                    }
+                    if (aimX != 0 || aimY != 0)
+                    {
+                        Input.HasInput = true;
+                    }
+                    UpdateHudShiftY(aimY);
+                    UpdateHudShiftX(aimX);
+                    UpdateAimY(aimY);
+                    UpdateAimX(aimX);
+                    if (Flags1.TestFlag(PlayerFlags1.Grounded))
+                    {
+                        // sktodo: threshold values
+                        if (aimX > 3)
+                        {
+                            _timeIdle = 0;
+                            anim1 = PlayerAnimation.Turn;
+                            animFlags1 = AnimFlags.Reverse;
+                            if (Biped2Anim == PlayerAnimation.Turn)
+                            {
+                                _bipedModel2.AnimInfo.Flags[0] &= ~AnimFlags.NoLoop;
+                                _bipedModel2.AnimInfo.Flags[0] |= AnimFlags.Reverse;
+                            }
+                            if (Biped1Anim == PlayerAnimation.Turn)
+                            {
+                                _bipedModel1.AnimInfo.Flags[0] &= ~AnimFlags.NoLoop;
+                                _bipedModel1.AnimInfo.Flags[0] |= AnimFlags.Reverse;
+                            }
+                        }
+                        else if (aimX < -3)
+                        {
+                            _timeIdle = 0;
+                            anim1 = PlayerAnimation.Turn;
+                            if (Biped2Anim == PlayerAnimation.Turn)
+                            {
+                                _bipedModel2.AnimInfo.Flags[0] &= ~AnimFlags.NoLoop;
+                                _bipedModel2.AnimInfo.Flags[0] &= ~AnimFlags.Reverse;
+                            }
+                            if (Biped1Anim == PlayerAnimation.Turn)
+                            {
+                                _bipedModel1.AnimInfo.Flags[0] &= ~AnimFlags.NoLoop;
+                                _bipedModel1.AnimInfo.Flags[0] &= ~AnimFlags.Reverse;
+                            }
+                        }
+                    }
+                }
+                if (Controls.KeyboardAim || IsBot || Mods.Network.NetAiClient.Drives(this))
+                {
+                    UpdateAimX(_buttonAimX);
+                    UpdateAimY(_buttonAimY);
+                    if (!IsBot)
+                    {
+                        // itodo: button aim (see free cam code for FPS-independent stuff)
+                    }
+                }
+                ModPrepareParkourGrapple();
+                ModPrepareParkourWallrun();
+                ModPrepareParkourMantle();
+                bool jumping = WallClingInput() || _modWallkickPending || _modMantlePending || _modMantling;
+                if (!Flags2.TestAny(PlayerFlags2.BipedLock | PlayerFlags2.BipedStuck) && !WallClingHeld)
+                {
+                    // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
+                    // and later, for up/down, it tests for either flag, or the look button not held
+
+                    void MoveRightLeft(PlayerAnimation walkAnim, int sign)
+                    {
+                        Flags1 |= PlayerFlags1.Strafing;
+                        Flags1 |= PlayerFlags1.MovingBiped;
+                        if (Flags1.TestFlag(PlayerFlags1.Standing))
+                        {
+                            Flags1 |= PlayerFlags1.Walking;
+                        }
+                        else
+                        {
+                            Flags1 &= ~PlayerFlags1.Walking;
+                        }
+                        float traction = Fixed.ToFloat(Values.StrafeBipedTraction)
+                            * Controls.AnalogScaleX(sign);
+                        if (_jumpPadControlLockMin > 0)
+                        {
+                            traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
+                        }
+                        else if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness != 0)
+                        {
+                            traction *= Metadata.TractionFactors[_slipperiness];
+                        }
+                        speedDelta.X -= _field78 * traction * sign;
+                        speedDelta.Z -= _field7C * traction * sign;
+                        if (!Controls.MoveUp.IsDown && !Controls.MoveDown.IsDown
+                            && Flags1.TestFlag(PlayerFlags1.Grounded) && _timeSinceJumpPad > 7 * 2) // todo: FPS stuff
+                        {
+                            anim1 = walkAnim;
+                        }
+                        if (!EquipInfo.Zoomed)
+                        {
+                            _viewTiltAngleH += Fixed.ToFloat(Values.ViewTiltIncrement) * sign / 2; // todo: FPS stuff
+                            _viewTiltAngleH = Math.Clamp(_viewTiltAngleH, -180, 180);
+                        }
+                    }
+
+                    void MoveForwardBack(PlayerAnimation walkAnim, int sign)
+                    {
+                        Flags1 |= PlayerFlags1.MovingBiped;
+                        if (Flags1.TestFlag(PlayerFlags1.Standing))
+                        {
+                            Flags1 |= PlayerFlags1.Walking;
+                        }
+                        else
+                        {
+                            Flags1 &= ~PlayerFlags1.Walking;
+                        }
+                        float traction = Fixed.ToFloat(Values.WalkBipedTraction)
+                            * Controls.AnalogScaleY(sign);
+                        if (_jumpPadControlLockMin > 0)
+                        {
+                            traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
+                        }
+                        else if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness != 0)
+                        {
+                            traction *= Metadata.TractionFactors[_slipperiness];
+                        }
+                        speedDelta.X += _field70 * traction * sign;
+                        speedDelta.Z += _field74 * traction * sign;
+                        if (Flags1.TestFlag(PlayerFlags1.Grounded) && _timeSinceJumpPad > 7 * 2) // todo: FPS stuff
+                        {
+                            anim1 = walkAnim;
+                        }
+                        if (!EquipInfo.Zoomed)
+                        {
+                            _viewTiltAngleV += Fixed.ToFloat(Values.ViewTiltIncrement) * sign / 2; // todo: FPS stuff
+                            _viewTiltAngleV = Math.Clamp(_viewTiltAngleV, -180, 180);
+                        }
+                    }
+
+                    if (Controls.MoveRight.IsDown)
+                    {
+                        MoveRightLeft(PlayerAnimation.WalkRight, sign: 1);
+                    }
+                    else if (Controls.MoveLeft.IsDown)
+                    {
+                        MoveRightLeft(PlayerAnimation.WalkLeft, sign: -1);
+                    }
+                    if (_viewTiltAngleH < Fixed.ToFloat(500) && _viewTiltAngleH > Fixed.ToFloat(-500))
+                    {
+                        _viewTiltAngleH = 0;
+                    }
+                    else
+                    {
+                        _viewTiltAngleH *= 0.9f; // sktodo: FPS stuff
+                    }
+                    if (Controls.MoveUp.IsDown)
+                    {
+                        MoveForwardBack(PlayerAnimation.WalkForward, sign: 1);
+                    }
+                    else if (Controls.MoveDown.IsDown)
+                    {
+                        MoveForwardBack(PlayerAnimation.WalkBackward, sign: -1);
+                    }
+                    if (_viewTiltAngleV < Fixed.ToFloat(500) && _viewTiltAngleV > Fixed.ToFloat(-500))
+                    {
+                        _viewTiltAngleV = 0;
+                    }
+                    else
+                    {
+                        _viewTiltAngleV *= 0.9f; // sktodo: FPS stuff
+                    }
+                    if (Cheats.UnlimitedJumps)
+                    {
+                        Flags1 &= ~PlayerFlags1.UsedJump;
+                    }
+                    // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
+                    // unimpl-controls: the aim input disable flag is also checked by the game
+                    if (!_modWallkickPending && !_modMantlePending && !_modMantling && _jumpPadControlLockMin == 0 && (Controls.Jump.IsPressed || ModQuake3HeldJumpRequested)
+                        && !Flags1.TestFlag(PlayerFlags1.UsedJump))
+                    {
+                        // unimpl-controls: double tap jump is hard coded as an alternate condition to the jump input
+                        jumping = true;
+                        if (!Flags1.TestFlag(PlayerFlags1.Standing) || !_abilities.TestFlag(AbilityFlags.SpaceJump))
+                        {
+                            Flags1 |= PlayerFlags1.UsedJump;
+                        }
+                        if (IsPrimeHunter)
+                        {
+                            Speed = Speed.WithY(0.35f); // todo: FPS stuff?
+                        }
+                        else
+                        {
+                            Speed = Speed.WithY(Fixed.ToFloat(Values.JumpSpeed) + ModRampJumpLift); // fixed 60 Hz
+                        }
+                        WallClingNoteJump();
+                        nativeJumpAccepted = true;
+                        _timeSinceGrounded = 8 * 2; // todo: FPS stuff
+                        PlayHunterSfx(HunterSfx.Jump);
+                    }
+                }
+                // unimpl-controls: the game attempts to play free look SFX, but they don't exist
+                // --> it does this in between L/R/U/D and jump, while we have jump in the condition above
+                if (jumping || _timeSinceJumpPad == 1)
+                {
+                    animFlags1 = AnimFlags.NoLoop;
+                    if (Controls.MoveUp.IsDown)
+                    {
+                        anim1 = PlayerAnimation.JumpForward;
+                    }
+                    else if (Controls.MoveDown.IsDown)
+                    {
+                        anim1 = PlayerAnimation.JumpBack;
+                    }
+                    else if (Controls.MoveLeft.IsDown)
+                    {
+                        anim1 = PlayerAnimation.JumpLeft;
+                    }
+                    else if (Controls.MoveRight.IsDown)
+                    {
+                        anim1 = PlayerAnimation.JumpRight;
+                    }
+                    else
+                    {
+                        anim1 = PlayerAnimation.JumpNeutral;
+                    }
+                }
+            }
+            if (nativeJumpAccepted) ModCancelTraversalSlide();
+            bool momentumApplied = ProcessMovement(allowMomentum: true, nativeJumpAccepted: nativeJumpAccepted);
+            Mods.Network.NetHooks.AfterRemoteMovement(this);
+            // Refresh replicated facing before building the camera and weapon.
+            // Doing this after UpdateCamera mixed two aim samples in one POV.
+            ModRefreshNetworkAim();
+            UpdateCamera();
+            UpdateAimVecs();
+            _scene.OfflineWeapons?.CompleteInput(this);
+            NetShotInputHistory.Capture(this, _frozenTimer == 0 && _health > 0 && !_field6D0
+                && !ScanVisor && !IsUnmorphing && !IsAltForm);
+            if (_frozenTimer == 0 && _health > 0 && !_field6D0)
+            {
+                bool scanInput = false;
+                if (ScanVisor)
+                {
+                    scanInput = true;
+                    if (!_scanning && Controls.Scan.IsPressed || _scanning && Controls.Scan.IsDown)
+                    {
+                        UpdateScanning(scanning: true);
+                    }
+                    else
+                    {
+                        UpdateScanning(scanning: false);
+                        if (Controls.Scan != Controls.Shoot
+                            && (Controls.Shoot.IsPressed || Controls.Morph.IsPressed))
+                        {
+                            SwitchVisors(reset: false);
+                            scanInput = false;
+                        }
+                    }
+                    if (EquipInfo.ChargeLevel > 0)
+                    {
+                        EquipInfo.ChargeLevel = 0;
+                        StopBeamChargeSfx(CurrentWeapon);
+                    }
+                }
+                if (scanInput || IsUnmorphing) _voltTapBuffer.Reset();
+                if (!scanInput && !IsUnmorphing)
+                {
+                    ModSynchronizeCustomNativeSuppression();
+                    // Native Volt accepts a real tap made during cooldown at the
+                    // first legal frame after release. All other weapons retain
+                    // their original fire/charge handling.
+                    bool bufferedVoltPress = _voltTapBuffer.Step(
+                        enabled: CurrentWeapon == BeamType.VoltDriver && !IsBot
+                            && !_scene.Services.IsReplica && !ModCustomOwnsBipedControls
+                            && (!NetSession.Active || SlotIndex == NetSession.LocalSlot)
+                            && !NetFireEvents.UsesEvents(this),
+                        pressed: Controls.Shoot.IsPressed, held: Controls.Shoot.IsDown,
+                        framesSinceShot: _timeSinceShot,
+                        cooldownFrames: EquipWeapon.ShotCooldown * 2);
+                    if(!ModCustomOwnsBipedControls)
+                    {
+                        if (!Controls.Shoot.IsDown)
+                        {
+                            Flags2 &= ~PlayerFlags2.Shooting;
+                        }
+                        else if (Controls.Shoot.IsPressed || !Flags2.TestFlag(PlayerFlags2.NoShotsFired))
+                        {
+                            Flags2 |= PlayerFlags2.Shooting;
+                            Flags2 &= ~PlayerFlags2.NoShotsFired;
+                        }
+                        if (!_availableCharges[CurrentWeapon] || !EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge))
+                        {
+                            EquipInfo.ChargeLevel = 0;
+                        }
+                        else
+                        {
+                            bool releaseCharge = false;
+                            if (!Flags2.TestFlag(PlayerFlags2.Shooting) || EquipInfo.Ammo < EquipWeapon.ChargeCost)
+                            {
+                                releaseCharge = true; // charge released/insufficient
+                            }
+                            else
+                            {
+                                if (EquipInfo.ChargeLevel > 0 && GunAnimation != GunAnimation.MissileClose)
+                                {
+                                    // the game doesn't need this condition, but we do because "the next frame will
+                                    // overwrite it" type stuff isn't guaranteed to get in ahead of the audio system
+                                    if (CurrentWeapon != BeamType.PowerBeam
+                                        || EquipInfo.ChargeLevel >= EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
+                                    {
+                                        PlayBeamChargeSfx(CurrentWeapon);
+                                    }
+                                    if (Biped2Flags.TestFlag(AnimFlags.Ended) || Biped2Anim == PlayerAnimation.Charge
+                                        || Biped2Anim == PlayerAnimation.Shoot && Biped2Frame > 8)
+                                    {
+                                        anim2 = PlayerAnimation.Charge;
+                                    }
+                                }
+                                if (EquipInfo.ChargeLevel >= EquipWeapon.FullCharge * 2) // todo: FPS stuff
+                                {
+                                    EquipInfo.SmokeLevel += EquipWeapon.SmokeChargeAmount;
+                                    EquipInfo.SmokeLevel = (ushort)Math.Min(EquipInfo.SmokeLevel, EquipWeapon.SmokeStart * 2); // todo: FPS stuff
+                                }
+                                else
+                                {
+                                    EquipInfo.ChargeLevel++;
+                                    int minCharge = EquipWeapon.MinCharge * 2; // todo: FPS stuff
+                                    if (EquipInfo.ChargeLevel > minCharge)
+                                    {
+                                        int fullCharge = EquipWeapon.FullCharge * 2; // todo: FPS stuff
+                                        int chargeCost = EquipWeapon.ChargeCost * 2; // todo: FPS stuff
+                                        int minCost = EquipWeapon.MinChargeCost * 2; // todo: FPS stuff
+                                        int cost = minCost + (chargeCost - minCost) * (EquipInfo.ChargeLevel - minCharge) / (fullCharge - minCharge);
+                                        if (EquipInfo.Ammo < cost / 2) // todo: FPS stuff
+                                        {
+                                            EquipInfo.ChargeLevel--;
+                                        }
+                                    }
+                                }
+                                // todo?: auto release
+                            }
+                            if (releaseCharge)
+                            {
+                                StopBeamChargeSfx(CurrentWeapon);
+                                if (EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2) // todo: FPS stuff
+                                {
+                                    TryFireWeapon();
+                                    anim2 = PlayerAnimation.ChargeShoot;
+                                    animFlags2 = AnimFlags.NoLoop;
+                                }
+                                EquipInfo.ChargeLevel = 0;
+                            }
+                        }
+                        if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
+                        {
+                            if (Controls.Zoom.IsPressed)
+                            {
+                                UpdateZoom(!EquipInfo.Zoomed);
+                            }
+                            if (EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
+                            {
+                                // note: the game does this during cam seqs, resulting in the FOV thrashing a bit, but it has no visible effect
+                                // since the sin/cos values for projection are set aside in the cam info update that's already occurred above.
+                                float zoomFov = Fixed.ToFloat(EquipInfo.Weapon.ZoomFov);
+                                Vector3 facing = _facingVector;
+
+                                void CheckZoomTargets(EntityType type)
+                                {
+                                    foreach (EntityBase entity in _scene.Entities)
+                                    {
+                                        if (entity.Type != type || entity == this || !entity.GetTargetable())
+                                        {
+                                            continue;
+                                        }
+                                        if (entity.Type == EntityType.Object
+                                            && !((ObjectEntity)entity).Data.EffectFlags.TestFlag(ObjEffFlags.WeaponZoom))
+                                        {
+                                            continue;
+                                        }
+                                        entity.GetPosition(out Vector3 position);
+                                        Vector3 between = position - Position;
+                                        float dot = Vector3.Dot(between, facing);
+                                        if (dot > 1 && dot / between.Length >= Fixed.ToFloat(4074))
+                                        {
+                                            float angle = MathHelper.RadiansToDegrees(MathF.Atan2(3, dot));
+                                            if (angle < zoomFov)
+                                            {
+                                                zoomFov = angle;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                CheckZoomTargets(EntityType.Player);
+                                CheckZoomTargets(EntityType.EnemyInstance);
+                                CheckZoomTargets(EntityType.Object);
+                                zoomFov *= 2;
+                                if (CurrentWeapon == BeamType.Imperialist)
+                                {
+                                    float normalFov = Fixed.ToFloat(Values.NormalFov) * 2;
+                                    zoomFov = Mods.InputSettings.ScaleImperialistZoomFov(normalFov, zoomFov);
+                                }
+                                float currentFov = CameraInfo.Fov;
+                                float zoomStep = 2 * 2;
+                                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                                    && BalancedModeRules.IsAffinity(Hunter, CurrentWeapon))
+                                {
+                                    zoomStep *= BalancedModeRules.ScopeVisualSpeed(Hunter, CurrentWeapon);
+                                }
+                                if (zoomFov > currentFov)
+                                {
+                                    currentFov += zoomStep;
+                                    if (currentFov > zoomFov)
+                                    {
+                                        currentFov = zoomFov;
+                                    }
+                                }
+                                else if (zoomFov < currentFov)
+                                {
+                                    currentFov -= zoomStep;
+                                    if (currentFov < zoomFov)
+                                    {
+                                        currentFov = zoomFov;
+                                    }
+                                }
+                                CameraInfo.Fov = currentFov;
+                            }
+                        }
+                        if (NetFireEvents.HasPending(this)
+                                && (!Controls.Shoot.IsReleased || _scene.Services.IsReplica)
+                            || Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
+                            || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
+                            && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2) // todo: FPS stuff
+                            || bufferedVoltPress)
+                        {
+                            bool fired = TryFireWeapon(bufferedVoltPress);
+                            // A buffered tap is one attempt, not a new held-fire
+                            // source that repeats if the gun is empty or blocked.
+                            if (fired || bufferedVoltPress) _voltTapBuffer.Reset();
+                            if (fired)
+                            {
+                                anim2 = PlayerAnimation.Shoot;
+                                animFlags2 |= AnimFlags.NoLoop;
+                                if (Biped2Anim == PlayerAnimation.Shoot)
+                                {
+                                    SetBiped2Animation(PlayerAnimation.Shoot, Biped2Flags);
+                                }
+                            }
+                        }
+                    }
+                    // the game doesn't require pressed here, but presumably the control scheme would have the pressed flag
+                    // todo: use the ability flag for the morph touch button too, even though the game doesn't
+                    if (!Flags2.TestFlag(PlayerFlags2.BipedStuck) && _abilities.TestFlag(AbilityFlags.AltForm)
+                        && Controls.Morph.IsPressed || IsMainPlayer && _scene.CameraSequences.Current?.ForceAlt == true)
+                    {
+                        if (TrySwitchForms() && IsMainPlayer && IsMorphing)
+                        {
+                            // the game only does this when using the touch screen button, but this is equivalent,
+                            // and we want to call this beause it updates the reticle expansion
+                            HudOnMorphStart();
+                        }
+                        anim1 = PlayerAnimation.Morph;
+                        anim2 = PlayerAnimation.Morph;
+                    }
+                }
+                if (!momentumApplied)
+                {
+                    float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                    speedDelta = WallClingSteer(speedDelta);
+                    ModMovementShadowNoteHorizontalImpulse(speedDelta, _hSpeedCap);
+                    Speed += speedDelta; // todo: FPS stuff?
+                    float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                    if (magAfter > magBefore && magAfter > _hSpeedCap)
+                    {
+                        float factor;
+                        if (magBefore <= _hSpeedCap)
+                        {
+                            factor = _hSpeedCap / magAfter;
+                        }
+                        else
+                        {
+                            factor = magBefore / magAfter;
+                        }
+                        Speed = Speed.WithX(Speed.X * factor).WithZ(Speed.Z * factor);
+                    }
+                }
+                if (EquipInfo.Zoomed)
+                {
+                    Vector3 diff = _gunVec1 - _facingVector;
+                    _facingVector += diff * 0.3f / 2; // todo: FPS stuff
+                    _facingVector = _facingVector.Normalized();
+                }
+                if (anim1 == PlayerAnimation.None)
+                {
+                    if (Flags1.TestFlag(PlayerFlags1.Grounded))
+                    {
+                        if (Biped1Anim == PlayerAnimation.Idle)
+                        {
+                            if (++_timeIdle > 300 * 2 && _timeSinceInput > 300 * 2) // todo: FPS stuff
+                            {
+                                SetBiped1Animation(PlayerAnimation.Flourish, AnimFlags.NoLoop);
+                            }
+                        }
+                        else if (!Biped1Flags.TestFlag(AnimFlags.NoLoop) || Biped1Flags.TestFlag(AnimFlags.Ended))
+                        {
+                            _timeIdle = 0;
+                            SetBiped1Animation(PlayerAnimation.Idle, AnimFlags.None);
+                        }
+                    }
+                }
+                else if (anim1 != Biped1Anim || anim1 == PlayerAnimation.JumpForward || anim1 == PlayerAnimation.JumpBack
+                    || anim1 == PlayerAnimation.JumpLeft || anim1 == PlayerAnimation.JumpRight || anim1 == PlayerAnimation.JumpNeutral)
+                {
+                    SetBiped1Animation(anim1, animFlags1);
+                }
+                if (anim2 == PlayerAnimation.None)
+                {
+                    if ((!Biped2Flags.TestFlag(AnimFlags.NoLoop) || Biped2Flags.TestFlag(AnimFlags.Ended)) && Biped2Anim != Biped1Anim)
+                    {
+                        SetBiped2Animation(Biped1Anim, Biped1Flags);
+                        _bipedModel2.AnimInfo.Frame[0] = Biped1Frame;
+                    }
+                }
+                else if (anim2 != Biped2Anim)
+                {
+                    SetBiped2Animation(anim2, animFlags2);
+                }
+            }
+        }
+
+        private bool TryFireWeapon(bool bufferedVoltPress = false)
+        {
+            if(ModCustomOwnsBipedControls)return false;
+            if (!NetFireEvents.CanFire(this)) return false;
+            bool exactReplayFire = _scene.Services.IsReplica && NetFireEvents.HasPending(this);
+            if (_scene.AimTrainer is { } trainer)
+            {
+                if (trainer.OwnsTarget(this) || trainer.Completed) return false;
+                if (CurrentWeapon != trainer.Definition.Weapon) ModArmWeapon(trainer.Definition.Weapon);
+            }
+            if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene)) ModEnhancedBeforeShot();
+            if (!Flags2.TestFlag(PlayerFlags2.Cloaking))
+            {
+                _cloakTimer = 0;
+            }
+            if (AttachedEnemy != null)
+            {
+                return false;
+            }
+            bool pressed = Controls.Shoot.IsPressed || bufferedVoltPress;
+            bool balancedBurst = BalancedModeRules.IsBattlehammerBurst(
+                _scene.GameState.Multiplayer, _scene.GameState.BalancedMode, CurrentWeapon);
+            int shotCooldownFrames = balancedBurst
+                ? BalancedModeRules.BattlehammerBurstCooldownFrames : EquipWeapon.ShotCooldown * 2;
+            if (pressed || CurrentWeapon != BeamType.PowerBeam)
+            {
+                _autofireCooldown = (ushort)(balancedBurst
+                    ? shotCooldownFrames : EquipWeapon.AutofireCooldown * 2); // todo: FPS stuff
+                _powerBeamAutofire = 0;
+            }
+            else
+            {
+                if (_powerBeamAutofire < UInt16.MaxValue)
+                {
+                    _powerBeamAutofire++;
+                }
+                // basically adds 0, 1, or 2 to the base autofire cooldown depending on how long the PB has repeated fire
+                // --> could add more, but the min charge is reaached quickly
+                int pbAuto = Math.Min(_powerBeamAutofire / 2, 90); // todo: FPS stuff
+                pbAuto = (int)(pbAuto * 15 / 90f);
+                _autofireCooldown = (ushort)((pbAuto + EquipWeapon.AutofireCooldown) * 2); // todo: FPS stuff
+            }
+            if (!exactReplayFire
+                && _scene.AimTrainer?.SkipImperialistReload(this) != true
+                && (_timeSinceShot < shotCooldownFrames
+                || !pressed && _timeSinceShot < _autofireCooldown)
+                && (balancedBurst || !IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
+            {
+                return false;
+            }
+            if (!exactReplayFire && GunAnimation == GunAnimation.UpDown)
+            {
+                return false;
+            }
+            Vector3 shotOrigin = Mods.Network.NetHooks.RemoteShotOrigin(this, _muzzlePos);
+            Vector3 shotVec = Mods.Network.NetHooks.RemoteShotDirection(this, _aimPosition - _muzzlePos);
+            if (shotOrigin != _muzzlePos)
+            {
+                shotVec = Mods.Network.NetHooks.RemoteShotDirection(this, shotVec);
+            }
+            if (!SpatialFinite(shotOrigin) || !SpatialDirection(shotVec))
+            {
+                // Invalid geometry must fail closed. A NaN beam can make
+                // overlap comparisons against unrelated actors fall through
+                // their rejection branches and appear to hit the whole map.
+                return NetShotDiagnostics.Finish(this, ShotAttemptResult.InvalidSpatialState);
+            }
+            // Charged Volt Driver disruption is visual-only. Do not introduce
+            // random shot spread or move the fire ray while its HUD effect is
+            // active. Replays and authoritative hits use the same aimed ray.
+            Vector3 shotAim = NormalizeSpatialOr(shotVec, _gunVec1);
+            shotVec = shotAim;
+            if (!SpatialDirection(shotVec))
+                return NetShotDiagnostics.Finish(this, ShotAttemptResult.InvalidSpatialState);
+            shotVec = NormalizeSpatialOr(shotVec, shotAim);
+
+            Vector3 shotView = CameraInfo.Facing;
+            Vector2 shotReticle = new(0.5f, 0.5f);
+            bool shotReticleValid = true;
+            bool dynamicProReticle = ModDynamicReticlePresentation(
+                Features.ProHud, Features.FixedWeapon);
+            if (!Features.FixedWeapon
+                && (!Features.ResponsiveAimCamera || dynamicProReticle))
+            {
+                Matrix.ProjectPosition(_aimPosition, CameraInfo.ViewMatrix,
+                    _scene.PerspectiveMatrix, out shotReticle);
+                shotReticle = new Vector2(MathF.Round(shotReticle.X, 5),
+                    MathF.Round(shotReticle.Y, 5));
+                shotReticleValid = float.IsFinite(shotReticle.X)
+                    && float.IsFinite(shotReticle.Y)
+                    && shotReticle.X is >= 0 and <= 1
+                    && shotReticle.Y is >= 0 and <= 1;
+            }
+
+            WeaponInfo curWeapon = EquipInfo.Weapon;
+            if (IsPrimeHunter)
+            {
+                // todo?: make this more solid to avoid e.g. the battlehammer ammo cost thing
+                EquipInfo.Weapon = _scene.WeaponRules[(int)CurrentWeapon + 9];
+            }
+            if (IsBot && _scene.GameState.SinglePlayer)
+            {
+                UpdateAdventureModeBotWeapon();
+            }
+            BeamSpawnFlags flags = BeamSpawnFlags.NoMuzzle;
+            if (DoubleDamage)
+            {
+                flags |= BeamSpawnFlags.DoubleDamage;
+            }
+            else if (IsPrimeHunter)
+            {
+                flags |= BeamSpawnFlags.PrimeHunter;
+            }
+            // Rewind everybody else to the frame this player was actually
+            // looking at, spawn into that world, then walk the shot forward to
+            // the present. A no-op except on the machine simulating a match,
+            // and there only for players who are not on it. Mods.Network.NetUnlagged.
+            BeamResultFlags result;
+            _scene.AimTrainer?.BeginShot(this);
+            bool replayAmmoBypass = exactReplayFire && !EquipInfo.InfiniteAmmo;
+            if (replayAmmoBypass) EquipInfo.InfiniteAmmo = true;
+            TimedShotCertificate? timedAttempt = null;
+            try
+            {
+                NetFireEvents.Begin(this, shotOrigin, shotVec, shotAim,
+                    shotView, shotReticle, shotReticleValid, bufferedPress: bufferedVoltPress);
+                Mods.Network.NetUnlagged.BeginShot(this, shotOrigin, shotVec);
+                timedAttempt = NetTimedShotProof.NativeAttempt(this);
+                var modifiers = NetTimedShotModifiers.Resolve(timedAttempt, this);
+                if (modifiers.Applied)
+                {
+                    flags &= ~(BeamSpawnFlags.DoubleDamage | BeamSpawnFlags.PrimeHunter);
+                    if (modifiers.Double) flags |= BeamSpawnFlags.DoubleDamage;
+                    else if (modifiers.Prime) flags |= BeamSpawnFlags.PrimeHunter;
+                }
+                result = BeamProjectileEntity.SpawnWithEmission(this, EquipInfo, shotOrigin, shotVec,
+                    flags, NodeRef, _scene, out var timedEmission);
+                if (result != BeamResultFlags.NoSpawn)
+                {
+                    NetFireEvents.Commit(this);
+                    NetTimedShotProof.Complete(timedAttempt, timedEmission);
+                }
+                else if (timedEmission.HasSpend) NetTimedShotProof.Abort(timedAttempt);
+                Mods.Network.NetUnlagged.EndShot(this);
+            }
+            catch { NetTimedShotProof.Abort(timedAttempt); throw; }
+            finally
+            {
+                if (replayAmmoBypass) EquipInfo.InfiniteAmmo = false;
+                Mods.Network.NetUnlagged.AbortShot();
+            }
+            _scene.AimTrainer?.EndShot(result != BeamResultFlags.NoSpawn);
+            if (result == BeamResultFlags.NoSpawn)
+            {
+                EquipInfo.Weapon = curWeapon;
+                PlayBeamEmptySfx(EquipInfo.Weapon.Beam);
+                return NetShotDiagnostics.Finish(this, ShotAttemptResult.NoAmmo);
+            }
+            _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.WeaponFired, this, weapon: (int)CurrentWeapon);
+            if (!_scene.Services.IsReplica) Mods.Network.ReplayCapture.Event(Mods.Network.ReplayEventType.WeaponFired,
+                SlotIndex, value: (int)CurrentWeapon);
+            else _scene.ReplayShotPresented?.Invoke(SlotIndex, (int)CurrentWeapon);
+            NetShotDiagnostics.Finish(this, ShotAttemptResult.Spawned, shotVec, _gunVec1);
+            NoteChamberShot();
+            ModControllerFeedback(EquipWeapon.MinCharge > 0 && EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2
+                ? Mods.Input.GamepadFeedback.ChargedShot : Mods.Input.GamepadFeedback.Fire);
+            // A protected player gives up spawn safety as soon as a real shot exists.
+            // Dry fire does not consume the protection window. The network helper
+            // also repeats this successful release to the authority so a puppet-side
+            // spawn failure cannot accidentally leave the shooter protected.
+            ModReleaseSpawnProtection();
+            // todo: update license stats
+            _timeSinceShot = 0;
+            if (IsMainPlayer)
+            {
+                HudOnFiredShot();
+            }
+            if (CurrentWeapon == BeamType.Missile)
+            {
+                Flags1 |= PlayerFlags1.ShotMissile;
+            }
+            if (EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2) // todo: FPS stuff
+            {
+                Flags1 |= PlayerFlags1.ShotUncharged;
+            }
+            else
+            {
+                Flags1 |= PlayerFlags1.ShotCharged;
+            }
+            if (_muzzleEffect == null || !EquipWeapon.Flags.TestFlag(WeaponFlags.Continuous))
+            {
+                if (_muzzleEffect != null)
+                {
+                    _scene.UnlinkEffectEntry(_muzzleEffect);
+                    _muzzleEffect = null;
+                }
+                int effectId = Metadata.MuzzleEffectIds[(int)CurrentWeapon];
+                _muzzleEffect = _scene.SpawnEffectGetEntry(effectId, _gunVec2, _gunVec1, _muzzlePos);
+                if (_muzzleEffect != null && !IsMainPlayer)
+                {
+                    _muzzleEffect.SetDrawEnabled(false);
+                }
+            }
+            bool charged;
+            if (EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.PartialCharge))
+            {
+                charged = Flags1.TestFlag(PlayerFlags1.ShotCharged);
+            }
+            else
+            {
+                charged = EquipInfo.ChargeLevel >= EquipInfo.Weapon.FullCharge * 2; // todo: FPS stuff
+            }
+            bool continuous = EquipInfo.Weapon.Flags.TestFlag(WeaponFlags.Continuous);
+            bool homing = result.TestFlag(BeamResultFlags.Homing);
+            float amountA = 0x3FFF * _shockCoilTimer / (30f * 2); // todo: FPS stuff
+            PlayBeamShotSfx(EquipInfo.Weapon.Beam, charged, continuous, homing, amountA);
+            if (EquipInfo.Weapon.Beam == BeamType.Imperialist && EquipInfo.Ammo >= EquipInfo.Weapon.AmmoCost)
+            {
+                _soundSource.PlaySfx(SfxId.SNIPER_RELOAD);
+            }
+            EquipInfo.Weapon = curWeapon;
+            UnequipOmegaCannon(); // todo?: set the flag if wifi
+            return true;
+        }
+
+        public void ResetAdventureModeBotWeapon()
+        {
+            EquipInfo.DrawFuncIds[0] = 255;
+            EquipInfo.DrawFuncIds[1] = 255;
+            EquipInfo.DmgDirTypes[0] = 255;
+            EquipInfo.DmgDirTypes[1] = 255;
+            EquipInfo.UnchargedDamage = UInt16.MaxValue;
+            EquipInfo.HeadshotDamage = UInt16.MaxValue;
+            EquipInfo.MinChargeDamage = UInt16.MaxValue;
+            EquipInfo.ChargedDamage = UInt16.MaxValue;
+            EquipInfo.MinChargeHeadshotDamage = UInt16.MaxValue;
+            EquipInfo.ChargedHeadshotDamage = UInt16.MaxValue;
+            EquipInfo.SplashDamage = UInt16.MaxValue;
+            EquipInfo.MinChargeSplashDamage = UInt16.MaxValue;
+            EquipInfo.ChargedSplashDamage = UInt16.MaxValue;
+            EquipInfo.HomingTolerance = Int32.MaxValue;
+            EquipInfo.InfiniteAmmo = false;
+        }
+
+        private void UpdateAdventureModeBotWeapon()
+        {
+            int encounter = _scene.GameState.EncounterState[SlotIndex];
+            if (encounter == 1 || encounter == 3 || encounter == 4)
+            {
+                if (Hunter == Hunter.Kanden)
+                {
+                    EquipInfo.HomingTolerance = 4006;
+                }
+                else if (Hunter == Hunter.Spire || Hunter == Hunter.Weavel)
+                {
+                    EquipInfo.DmgDirTypes[0] = 0;
+                    EquipInfo.DmgDirTypes[1] = 0;
+                }
+            }
+            int index;
+            if (Hunter == Hunter.Guardian)
+            {
+                index = 0;
+                if (EquipInfo.Weapon.Beam == BeamType.Magmaul)
+                {
+                    EquipInfo.DrawFuncIds[0] = 22;
+                    EquipInfo.DrawFuncIds[1] = 22;
+                }
+            }
+            else if (encounter == 1 || encounter == 3 || encounter == 4)
+            {
+                index = 1;
+            }
+            else if (BotLevel == 0)
+            {
+                index = 2;
+            }
+            else if (BotLevel == 1)
+            {
+                index = 3;
+            }
+            else // if (BotLevel == 2)
+            {
+                // note: the game uses index 3, not index 4, for out-of-range bot levels
+                index = 4;
+            }
+            if (encounter == 3 && Hunter == Hunter.Trace)
+            {
+                EquipInfo.UnchargedDamage = 50;
+                EquipInfo.HeadshotDamage = 50;
+            }
+            else if (EquipInfo.Weapon.Beam != BeamType.OmegaCannon) // the game doesn't have this check
+            {
+                Weapons.BotWeaponValues values = Weapons.BotWeapons[index][(int)EquipInfo.Weapon.Beam];
+                EquipInfo.UnchargedDamage = values.UnchargedDamage;
+                EquipInfo.HeadshotDamage = values.UnchargedDamage;
+                EquipInfo.MinChargeDamage = values.ChargedDamage;
+                EquipInfo.ChargedDamage = values.ChargedDamage;
+                EquipInfo.MinChargeHeadshotDamage = values.ChargedDamage;
+                EquipInfo.ChargedHeadshotDamage = values.ChargedDamage;
+                EquipInfo.SplashDamage = values.SplashDamage;
+                EquipInfo.MinChargeSplashDamage = values.ChargedSplashDamage;
+                EquipInfo.ChargedSplashDamage = values.ChargedSplashDamage;
+            }
+            EquipInfo.InfiniteAmmo = true;
+        }
+
+        private void ModGetAltRollInput(out float x, out float y)
+        {
+            bool explicitRoll = Controls.RollUp.IsDown || Controls.RollDown.IsDown
+                || Controls.RolltLeft.IsDown || Controls.RollRight.IsDown;
+            if (Controls.AnalogMoveActive)
+            {
+                x = Controls.AnalogMoveX;
+                y = Controls.AnalogMoveY;
+            }
+            else if (Input.AltSwipeEngaged && !explicitRoll)
+            {
+                x = Input.AltSwipeX;
+                y = -Input.AltSwipeY;
+            }
+            else
+            {
+                x = (Controls.RollRight.IsDown ? 1 : 0)
+                    - (Controls.RolltLeft.IsDown ? 1 : 0);
+                y = (Controls.RollUp.IsDown ? 1 : 0)
+                    - (Controls.RollDown.IsDown ? 1 : 0);
+            }
+        }
+
+        private void ModUpdateSpireLedgeCrest(bool wasClimbing)
+        {
+            if (Hunter != Hunter.Spire || !IsAltForm || IsMorphing || IsUnmorphing)
+            {
+                _spireLedgeCrestTimer = 0;
+                _spireClimbWallNormal = Vector3.Zero;
+                return;
+            }
+
+            if (Flags2.TestFlag(PlayerFlags2.SpireClimbing))
+            {
+                // Live wall contact owns the climb. The collision path refreshes
+                // the wall normal and vertical assist directly.
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+            if (Flags1.TestFlag(PlayerFlags1.Standing))
+            {
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+
+            float wallSq = _spireClimbWallNormal.X * _spireClimbWallNormal.X
+                + _spireClimbWallNormal.Z * _spireClimbWallNormal.Z;
+            if (wallSq < 0.25f)
+            {
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+
+            ModGetAltRollInput(out float inputX, out float inputY);
+            float driveX = _altRollFbX * inputY - _altRollLrX * inputX;
+            float driveZ = _altRollFbZ * inputY - _altRollLrZ * inputX;
+            float driveSq = driveX * driveX + driveZ * driveZ;
+            if (driveSq < 0.01f)
+            {
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+            float invDrive = 1f / MathF.Sqrt(driveSq);
+            driveX *= invDrive;
+            driveZ *= invDrive;
+
+            // Collision planes point out of the wall. A crest is only valid
+            // while the player continues steering into/over that wall.
+            float inwardX = -_spireClimbWallNormal.X;
+            float inwardZ = -_spireClimbWallNormal.Z;
+            float intoWall = driveX * inwardX + driveZ * inwardZ;
+            if (intoWall <= 0.1f)
+            {
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+
+            // Losing wall contact while still rising and steering through it is
+            // the lip of a ledge. Give Dialanche a very short continuation of
+            // the climb so its centre can pass the edge instead of being pulled
+            // back down by gravity. This changes velocity only, never position.
+            if (wasClimbing && _spireLedgeCrestTimer == 0 && Speed.Y > -0.08f)
+            {
+                _spireLedgeCrestTimer = (byte)(_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    ? BalancedHunterAbilityRules.SpireLedgeGraceFrames : 8);
+            }
+            if (_spireLedgeCrestTimer == 0)
+            {
+                return;
+            }
+
+            float crestInwardSpeed = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                ? BalancedHunterAbilityRules.SpireCrestInwardSpeed : 0.10f;
+            float crestUpSpeed = _scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                ? BalancedHunterAbilityRules.SpireCrestUpSpeed : 0.11f;
+            float inwardSpeed = Speed.X * inwardX + Speed.Z * inwardZ;
+            if (inwardSpeed < crestInwardSpeed)
+            {
+                float add = crestInwardSpeed - inwardSpeed;
+                Speed = Speed.AddX(inwardX * add).AddZ(inwardZ * add);
+            }
+            if (Speed.Y < crestUpSpeed)
+            {
+                Speed = Speed.WithY(crestUpSpeed);
+            }
+            _spireLedgeCrestTimer--;
+        }
+
+        private void ProcessAlt()
+        {
+            bool droneWasAlt = ScoutDroneEnabled && IsAltForm;
+            Vector3 speedDelta = Vector3.Zero;
+            int animId = -1;
+            AnimFlags animFlags = AnimFlags.None;
+            Flags1 |= PlayerFlags1.UsedJump;
+            ModStepNativeTouch();
+            if (_frozenTimer == 0 && _health > 0)
+            {
+                bool explicitRoll = Controls.RollUp.IsDown || Controls.RollDown.IsDown
+                    || Controls.RolltLeft.IsDown || Controls.RollRight.IsDown;
+                bool rollPressed = Controls.RollUp.IsPressed || Controls.RollDown.IsPressed
+                    || Controls.RolltLeft.IsPressed || Controls.RollRight.IsPressed;
+
+                ModGetAltRollInput(out float controlInputX, out float controlInputY);
+                float controlInputSq = controlInputX * controlInputX + controlInputY * controlInputY;
+                bool rollInputHeld = Single.IsFinite(controlInputSq) && controlInputSq >= 0.0001f;
+
+                // A controller stick has no press edge, and WASD can turn by
+                // releasing one half of a diagonal. Compare the actual movement
+                // vector both frame-to-frame and against the vector that existed
+                // when collision first locked the camera basis. The latter catches
+                // a fast analogue sweep made from several individually-small steps.
+                bool directionChanged = rollPressed
+                    || Mods.Input.AltFormInputDirection.SignificantChange(
+                        _altRollPrevInputX, _altRollPrevInputY,
+                        controlInputX, controlInputY)
+                    || _altCameraCollisionBasisLock
+                    && Mods.Input.AltFormInputDirection.SignificantChange(
+                        _altRollLockInputX, _altRollLockInputY,
+                        controlInputX, controlInputY);
+                _altRollPrevInputX = controlInputX;
+                _altRollPrevInputY = controlInputY;
+
+                bool releaseCollisionBasis = false;
+                if (!rollInputHeld || directionChanged)
+                {
+                    releaseCollisionBasis = _altCameraCollisionBasisLock;
+                    Flags1 &= ~PlayerFlags1.AltDirOverride;
+                    _altCameraCollisionBasisLock = false;
+                    _altCameraCollisionClearFrames = 0;
+                }
+                else if (_altCameraCollisionBasisLock && _altCameraCollisionClearFrames >= 3)
+                {
+                    // Three clear simulation frames (~50 ms) are enough to avoid
+                    // camera-collision chatter without the old ~333 ms stale basis.
+                    releaseCollisionBasis = true;
+                    Flags1 &= ~PlayerFlags1.AltDirOverride;
+                    _altCameraCollisionBasisLock = false;
+                    _altCameraCollisionClearFrames = 0;
+                }
+
+                if ((_timeSinceMorphCamera > 10 * 2 || releaseCollisionBasis)
+                    && !Flags1.TestFlag(PlayerFlags1.AltDirOverride)
+                    && (MathF.Abs(CameraInfo.Field48) >= 1 / 4096f
+                        || MathF.Abs(CameraInfo.Field4C) >= 1 / 4096f))
+                {
+                    // No yaw interpolation here. Once a basis is trusted, input is
+                    // camera-relative immediately, so fast turns cannot outrun it.
+                    _altRollFbX = CameraInfo.Field48;
+                    _altRollFbZ = CameraInfo.Field4C;
+                    _altRollLrX = CameraInfo.Field50;
+                    _altRollLrZ = CameraInfo.Field54;
+                }
+                // todo?: field35C targeting(?) stuff
+
+                void UpdateAnimation(float aimX, float aimY)
+                {
+                    if ((Hunter == Hunter.Trace || Hunter == Hunter.Weavel) && Flags1.TestFlag(PlayerFlags1.Grounded))
+                    {
+                        // sktodo: threshold values
+                        if (aimX > 3)
+                        {
+                            _timeIdle = 0;
+                            animId = (int)WeavelAltAnim.Turn; // or TraceAltAnim.MoveBackward
+                            animFlags = AnimFlags.Reverse;
+                            if (_altModel.AnimInfo.Index[0] == animId)
+                            {
+                                _altModel.AnimInfo.Flags[0] &= ~AnimFlags.NoLoop;
+                                _altModel.AnimInfo.Flags[0] |= AnimFlags.Reverse;
+                            }
+                        }
+                        else if (aimX < -3)
+                        {
+                            _timeIdle = 0;
+                            animId = (int)WeavelAltAnim.Turn; // or TraceAltAnim.MoveBackward
+                            if (_altModel.AnimInfo.Index[0] == animId)
+                            {
+                                _altModel.AnimInfo.Flags[0] &= ~AnimFlags.NoLoop;
+                                _altModel.AnimInfo.Flags[0] &= ~AnimFlags.Reverse;
+                            }
+                        }
+                    }
+                }
+
+                if (Values.AltFormStrafe != 0)
+                {
+                    // Trace, Sylux, Weavel
+                    // The pad's stick and a remote player's relayed aim, in
+                    // the same place the mouse's goes in -- as in ProcessBiped,
+                    // which was the only caller until now. An alt form that
+                    // can aim at all is one of these three, and for them this
+                    // is the same turn the mouse makes: without it a pad could
+                    // walk and shoot in alt form but not look, and a puppet in
+                    // alt form faced wherever its last snapshot left it.
+                    // The pad's stick and a remote player's relayed aim, in
+                    // the same place the mouse's goes in -- as in ProcessBiped,
+                    // which was the only caller until now. An alt form that
+                    // can aim at all is one of these three, and for them this
+                    // is the same turn the mouse makes: without it a pad could
+                    // walk and shoot in alt form but not look, and a puppet in
+                    // alt form faced wherever its last snapshot left it.
+                    ApplyModAim();
+                    if (Controls.MouseAim && !Flags1.TestFlag(PlayerFlags1.NoAimInput) && !IsBot && !Mods.Network.NetAiClient.Drives(this))
+                    {
+                        float aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseAimSensitivityY()
+                            * (Mods.InputSettings.InvertMouseY ? -1 : 1);
+                        float aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseAimSensitivityX()
+                            * (Mods.InputSettings.InvertMouseX ? -1 : 1);
+                        if (_scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) == true
+                            || _scene.FrameAdvance || _scene.FrameAdvanceLastFrame) // skdebug
+                        {
+                            aimX = aimY = 0;
+                        }
+                        if (aimX != 0 || aimY != 0)
+                        {
+                            Input.HasInput = true;
+                        }
+                        UpdateHudShiftY(aimY);
+                        UpdateHudShiftX(aimX);
+                        UpdateAimY(aimY);
+                        UpdateAimX(aimX);
+                        UpdateAnimation(aimX, aimY);
+                    }
+                    if (Controls.KeyboardAim || IsBot || Mods.Network.NetAiClient.Drives(this))
+                    {
+                        UpdateAimX(_buttonAimX);
+                        UpdateAimY(_buttonAimY);
+                        UpdateAnimation(_buttonAimX, _buttonAimY);
+                        if (!IsBot)
+                        {
+                            // itodo: button aim (see free cam code for FPS-independent stuff)
+                        }
+                    }
+                    if (!Flags2.TestFlag(PlayerFlags2.BipedLock) && (Hunter != Hunter.Trace || !Flags2.TestFlag(PlayerFlags2.AltAttack)))
+                    {
+                        // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
+                        // and later, for up/down, it tests for either flag, or the look button not held
+
+                        void MoveRightLeft(int walkAnim, int sign)
+                        {
+                            Flags1 |= PlayerFlags1.Strafing;
+                            Flags1 |= PlayerFlags1.MovingBiped;
+                            if (Flags1.TestFlag(PlayerFlags1.Standing))
+                            {
+                                Flags1 |= PlayerFlags1.Walking;
+                            }
+                            else
+                            {
+                                Flags1 &= ~PlayerFlags1.Walking;
+                            }
+                            float traction = Fixed.ToFloat(Values.StrafeBipedTraction)
+                            * Controls.AnalogScaleX(sign);
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                            {
+                                traction = BalancedHunterAbilityRules.StrafeTraction(Hunter, traction);
+                            }
+                            if (_jumpPadControlLockMin > 0)
+                            {
+                                traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
+                            }
+                            speedDelta.X -= _field78 * traction * sign;
+                            speedDelta.Z -= _field7C * traction * sign;
+                            if (!EquipInfo.Zoomed)
+                            {
+                                // todo: update field684 (using sign)
+                            }
+                            if (Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
+                            {
+                                animId = walkAnim;
+                                animFlags = AnimFlags.None;
+                            }
+                        }
+
+                        void MoveForwardBack(int walkAnim, int sign)
+                        {
+                            Flags1 |= PlayerFlags1.MovingBiped;
+                            if (Flags1.TestFlag(PlayerFlags1.Standing))
+                            {
+                                Flags1 |= PlayerFlags1.Walking;
+                            }
+                            else
+                            {
+                                Flags1 &= ~PlayerFlags1.Walking;
+                            }
+                            float traction = Fixed.ToFloat(Values.WalkBipedTraction)
+                            * Controls.AnalogScaleY(sign);
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                            {
+                                traction = BalancedHunterAbilityRules.StrafeTraction(Hunter, traction);
+                            }
+                            if (_jumpPadControlLockMin > 0)
+                            {
+                                traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
+                            }
+                            else if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness != 0)
+                            {
+                                traction *= Metadata.TractionFactors[_slipperiness];
+                            }
+                            speedDelta.X += _field70 * traction * sign;
+                            speedDelta.Z += _field74 * traction * sign;
+                            if (!EquipInfo.Zoomed)
+                            {
+                                // todo: update field688 (using sign)
+                            }
+                            if (Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
+                            {
+                                animId = walkAnim;
+                                animFlags = AnimFlags.None;
+                            }
+                        }
+
+                        if (Controls.MoveRight.IsDown)
+                        {
+                            MoveRightLeft(walkAnim: 4, sign: 1); // TraceAltAnim.MoveRight or WeavelAltAnim.MoveRight
+                        }
+                        else if (Controls.MoveLeft.IsDown)
+                        {
+                            MoveRightLeft(walkAnim: 2, sign: -1); // TraceAltAnim.MoveLeft or WeavelAltAnim.MoveLeft
+                        }
+                        // todo: update field684
+                        if (Controls.MoveUp.IsDown)
+                        {
+                            MoveForwardBack(walkAnim: 3, sign: 1); // TraceAltAnim.MoveForward or WeavelAltAnim.MoveForward
+                        }
+                        else if (Controls.MoveDown.IsDown)
+                        {
+                            MoveForwardBack(walkAnim: 5, sign: -1); // TraceAltAnim.MoveBackward or WeavelAltAnim.MoveBackward
+                        }
+                        // todo: update field684
+                        // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
+                    }
+                }
+                else
+                {
+                    // Samus, Kanden, Spire, Noxus
+                    float traction = Fixed.ToFloat(Values.RollAltTraction);
+                    if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                    {
+                        traction = BalancedHunterAbilityRules.RollTraction(Hunter,
+                            Flags2.TestFlag(PlayerFlags2.SpireClimbing),
+                            Hunter == Hunter.Noxus && _altAttackTime > 0, traction);
+                    }
+                    if (_jumpPadControlLockMin > 0)
+                    {
+                        traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
+                    }
+                    // A boost a flick aimed travels where it was aimed. See
+                    // _boostAimLock: the clamp below keeps the speed and lets
+                    // the direction go, so roll traction across a 0.6 dash
+                    // rotates it about three degrees a frame and a sideways
+                    // boost is pointing forwards again a quarter of a second
+                    // later. Short, and only after an aimed one, so the DS's
+                    // boost still steers exactly as it always did.
+                    if (_boostAimLock > 0)
+                    {
+                        traction = 0;
+                    }
+
+                    if (Hunter == Hunter.Samus && ModUsesClassicTouch)
+                        ModApplyNativeTouchRoll(ref speedDelta);
+
+                    bool swipeRequested = Input.AltSwipeEngaged || Input.AltSwipeStopRequested;
+                    bool swipeCanDrive = !explicitRoll
+                        && IsAltForm && !IsMorphing && !IsUnmorphing
+                        && _boostAimLock == 0
+                        && _jumpPadControlLockMin == 0 && AttachedEnemy == null;
+                    bool stockSamusSwipe = swipeCanDrive && Hunter == Hunter.Samus && !ModUsesClassicTouch
+                        && Input.AltSwipeEngaged;
+                    bool preciseSwipe = swipeCanDrive && swipeRequested
+                        && Mods.Input.AltFormGesture.UsesPrecisionSwipe(Hunter);
+
+                    if (stockSamusSwipe || preciseSwipe)
+                    {
+                        float screenX = Input.AltSwipeEngaged ? Input.AltSwipeX : 0;
+                        float screenY = Input.AltSwipeEngaged ? Input.AltSwipeY : 0;
+                        float forward = -screenY;
+                        float left = -screenX;
+                        float driveX = _altRollFbX * forward + _altRollLrX * left;
+                        float driveZ = _altRollFbZ * forward + _altRollLrZ * left;
+
+                        if (stockSamusSwipe)
+                        {
+                            // Samus is a morph ball, not a virtual stick. Swiping
+                            // applies the same traction as Roll input and releasing
+                            // the swipe simply stops accelerating; inertia and the
+                            // stock ground/air damping decide how she slows down.
+                            speedDelta.X += driveX * traction;
+                            speedDelta.Z += driveZ * traction;
+                        }
+                        else
+                        {
+                            float normalSpeed = Fixed.ToFloat(Values.AltMinHSpeed);
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                            {
+                                normalSpeed = BalancedModeRules.ScaleAltSpeedCap(Hunter, normalSpeed);
+                            }
+                            if (Mods.Input.AltFormGesture.TryPrecisionVelocity(
+                                Speed.X, Speed.Z, driveX, driveZ, normalSpeed,
+                                out float preciseX, out float preciseZ))
+                            {
+                                Speed = Speed.WithX(preciseX).WithZ(preciseZ);
+                            }
+                            else if (Input.AltSwipeEngaged)
+                            {
+                                speedDelta.X += driveX * traction;
+                                speedDelta.Z += driveZ * traction;
+                            }
+                        }
+                    }
+
+                    // Dialanche flicks are mobility now, not the slam attack.
+                    // Add only a small nudge in the swipe direction and permit
+                    // a short ~10% overspeed window. Existing momentum/collision
+                    // physics remain in charge; this is not a second boost.
+                    if (Hunter == Hunter.Spire && SwipeBoostRequested)
+                    {
+                        float forward = -SwipeBoostY;
+                        float left = -SwipeBoostX;
+                        float dirX = _altRollFbX * forward + _altRollLrX * left;
+                        float dirZ = _altRollFbZ * forward + _altRollLrZ * left;
+                        float dirMag = MathF.Sqrt(dirX * dirX + dirZ * dirZ);
+                        if (dirMag > 1 / 4096f)
+                        {
+                            dirX /= dirMag;
+                            dirZ /= dirMag;
+                            // A flick is only a mobility nudge, not a
+                            // second boost ability. One normal Spire traction
+                            // tick is ~0.045; use 1.25x that and allow at most
+                            // ~10% above normal rolling speed.
+                            float normalCap = Fixed.ToFloat(Values.AltMinHSpeed);
+                            if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                            {
+                                normalCap = BalancedModeRules.ScaleAltSpeedCap(Hunter, normalCap);
+                            }
+                            float slightCap = normalCap * 1.10f;
+                            if (_hSpeedCap < slightCap)
+                            {
+                                _hSpeedCap = slightCap;
+                            }
+                            float impulse = Fixed.ToFloat(Values.RollAltTraction) * 1.25f;
+                            speedDelta.X += dirX * impulse;
+                            speedDelta.Z += dirZ * impulse;
+                        }
+                        SwipeBoostRequested = false;
+                        SwipeBoostX = 0;
+                        SwipeBoostY = 0;
+                    }
+
+                    Input.AltSwipeStopRequested = false;
+
+                    if (!preciseSwipe && !stockSamusSwipe)
+                    {
+                        if (Controls.RollUp.IsDown)
+                        {
+                            float scale = Controls.AnalogScaleY(1);
+                            speedDelta.X += _altRollFbX * traction * scale;
+                            speedDelta.Z += _altRollFbZ * traction * scale;
+                        }
+                        else if (Controls.RollDown.IsDown)
+                        {
+                            float scale = Controls.AnalogScaleY(-1);
+                            speedDelta.X -= _altRollFbX * traction * scale;
+                            speedDelta.Z -= _altRollFbZ * traction * scale;
+                        }
+                        if (Controls.RolltLeft.IsDown)
+                        {
+                            float scale = Controls.AnalogScaleX(-1);
+                            speedDelta.X += _altRollLrX * traction * scale;
+                            speedDelta.Z += _altRollLrZ * traction * scale;
+                        }
+                        else if (Controls.RollRight.IsDown)
+                        {
+                            float scale = Controls.AnalogScaleX(1);
+                            speedDelta.X -= _altRollLrX * traction * scale;
+                            speedDelta.Z -= _altRollLrZ * traction * scale;
+                        }
+                    }
+                }
+                if (!IsMorphing)
+                {
+                    if (_abilities.TestFlag(AbilityFlags.Bombs) && Controls.AltAttack.IsPressed
+                        && _bombAmmo > 0 && _bombCooldown == 0 && _field35C == null)
+                    {
+                        SpawnBomb();
+                    }
+                    if (_abilities.TestFlag(AbilityFlags.NoxusAltAttack))
+                    {
+                        int startupTime = Values.AltAttackStartup * 2; // todo: FPS stuff
+                        if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                        {
+                            startupTime = BalancedHunterAbilityRules.NoxusStartupFrames(startupTime);
+                        }
+                        if (Controls.AltAttack.IsDown)
+                        {
+                            if (Controls.AltAttack.IsPressed)
+                            {
+                                _altAttackTime = 1;
+                                _altModel.SetAnimation((int)NoxusAltAnim.Extend, AnimFlags.NoLoop);
+                            }
+                            else if (_altAttackTime > 0)
+                            {
+                                _altAttackTime++;
+                                if (_altAttackTime == 7 * 2) // todo: FPS stuff
+                                {
+                                    _soundSource.PlaySfx(SfxId.NOX_TOP_ATTACK1);
+                                }
+                                else
+                                {
+                                    if (_altAttackTime == startupTime / 2)
+                                    {
+                                        _soundSource.PlaySfx(SfxId.NOX_TOP_ATTACK2, loop: true);
+                                    }
+                                    else if (_altAttackTime >= startupTime)
+                                    {
+                                        _altAttackTime = (ushort)startupTime;
+                                        Flags2 |= PlayerFlags2.AltAttack;
+                                    }
+                                }
+                            }
+                            int startupAnimTicks = Math.Max(1, startupTime / 2);
+                            _altModel.AnimInfo.Frame[0] = (_altAttackTime / 2 * _altModel.AnimInfo.FrameCount[0] - 1)
+                                / startupAnimTicks; // todo: FPS stuff ^
+                        }
+                        else
+                        {
+                            EndAltAttack();
+                        }
+                    }
+                    if (_abilities.TestFlag(AbilityFlags.SpireAltAttack))
+                    {
+                        if (Flags2.TestFlag(PlayerFlags2.AltAttack))
+                        {
+                            if (_altModel.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended))
+                            {
+                                EndAltAttack();
+                            }
+                        }
+                        else if (Controls.AltAttack.IsPressed)
+                        {
+                            Flags2 |= PlayerFlags2.AltAttack;
+                            _altModel.SetAnimation((int)SpireAltAnim.Attack, AnimFlags.NoLoop);
+                            _soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK);
+                            _spireRockPosR = Position;
+                            _spireRockPosL = Position;
+                            _spireAltUp = _fieldC0;
+                            var cross = Vector3.Cross(_facingVector, _spireAltUp);
+                            _spireAltFacing = Vector3.Cross(_spireAltUp, cross).Normalized();
+                        }
+                    }
+                    if (_abilities.TestFlag(AbilityFlags.TraceAltAttack))
+                    {
+                        if (Flags2.TestFlag(PlayerFlags2.AltAttack) || _altAttackCooldown > 0)
+                        {
+                            if (Flags1.TestFlag(PlayerFlags1.Standing))
+                            {
+                                EndAltAttack();
+                            }
+                        }
+                        else if (Controls.AltAttack.IsPressed)
+                        {
+                            Flags2 |= PlayerFlags2.AltAttack;
+                            float attackHSpeed = Fixed.ToFloat(Values.LungeHSpeed)
+                                * Mods.EnhancedHunters.TraceEnhancement.LaunchScale(this);
+                            float attackVSpeed = Fixed.ToFloat(Values.LungeVSpeed);
+                            float accelX = _field70 * attackHSpeed;
+                            float accelZ = _field74 * attackHSpeed;
+                            if (_field70 * Speed.X + _field74 * Speed.Z < attackHSpeed)
+                            {
+                                Speed = Speed.WithX(accelX).WithZ(accelZ);
+                            }
+                            _accelerationTimer = 6 * 2; // todo: FPS stuff
+                            Acceleration = new Vector3(accelX, 0, accelZ);
+                            if (Speed.Y < attackVSpeed)
+                            {
+                                float newYSpeed = Speed.Y + attackVSpeed;
+                                if (newYSpeed > attackVSpeed)
+                                {
+                                    newYSpeed = attackVSpeed;
+                                }
+                                Speed = Speed.WithY(newYSpeed);
+                            }
+                            animId = (int)TraceAltAnim.Attack;
+                            animFlags = AnimFlags.NoLoop;
+                            _soundSource.PlaySfx(SfxId.TRACE_ALT_ATTACK);
+                        }
+                    }
+                    if (_abilities.TestFlag(AbilityFlags.WeavelAltAttack) && !ScoutDroneEnabled)
+                    {
+                        if (Flags2.TestFlag(PlayerFlags2.AltAttack) || _altAttackCooldown > 0)
+                        {
+                            if (Flags1.TestFlag(PlayerFlags1.Standing))
+                            {
+                                EndAltAttack();
+                            }
+                        }
+                        else if (Controls.AltAttack.IsPressed)
+                        {
+                            Flags2 |= PlayerFlags2.AltAttack;
+                            float attackHSpeed = Fixed.ToFloat(Values.LungeHSpeed);
+                            float attackVSpeed = Fixed.ToFloat(Values.LungeVSpeed);
+                            if (IsBot && _scene.GameState.SinglePlayer && _scene.GameState.EncounterState[SlotIndex] == 1)
+                            {
+                                attackHSpeed = 0.3f;
+                                attackVSpeed = 0.45f;
+                            }
+                            if (_field70 * Speed.X + _field74 * Speed.Z < attackHSpeed)
+                            {
+                                Speed = Speed.WithX(_field70 * attackHSpeed).WithZ(_field74 * attackHSpeed);
+                            }
+                            if (Speed.Y < attackVSpeed)
+                            {
+                                float newYSpeed = Speed.Y + attackVSpeed;
+                                if (newYSpeed > attackVSpeed)
+                                {
+                                    newYSpeed = attackVSpeed;
+                                }
+                                Speed = Speed.WithY(newYSpeed);
+                            }
+                            animId = (int)WeavelAltAnim.Attack;
+                            animFlags = AnimFlags.NoLoop;
+                            _soundSource.PlaySfx(SfxId.WEAVEL_ALT_ATTACK);
+                        }
+                    }
+                    if (_abilities.TestFlag(AbilityFlags.Boost) && AttachedEnemy == null)
+                    {
+                        // melonPrimeDS keeps its normal Zoom input live in Samus' ball:
+                        // right-click (or the controller's Zoom action) becomes the
+                        // native charge-and-release boost. Keep the dedicated Boost bind
+                        // too, so existing keyboard/controller layouts remain additive.
+                        bool dedicatedBoost = Controls.Boost.IsDown;
+                        bool buttonBoost = dedicatedBoost || Controls.Zoom.IsDown;
+                        if (ModUsesClassicTouch)
+                        {
+                            ModProcessNativeTouchBoost(ref speedDelta, buttonBoost);
+                        }
+                        else
+                        {
+                        // Samus does not need a network press edge for boost, so
+                        // desktop mouse/pen flick detection stays here after the
+                        // controller contribution has been applied. Zoom/right-click
+                        // remains a normal charge-and-release boost input, but it is
+                        // deliberately non-exclusive: a flick may override that charge
+                        // on the frame it is recognized. Only the dedicated Boost bind
+                        // suppresses movement-triggered flicks while held.
+                        ModCheckMouseFlick(dedicatedBoost);
+                        // A touch platform's swipe gesture is a flick, not a
+                        // hold-and-release: it forces a full charge straight
+                        // into the release branch below instead of building
+                        // one up over several frames.
+                        bool swipeBoost = SwipeBoostRequested;
+                        SwipeBoostRequested = false;
+                        // Where the flick pointed, turned into a world
+                        // direction against the basis the ball already rolls
+                        // with: up the screen is forward and left is left,
+                        // exactly as RollUp and RolltLeft are read above. A
+                        // boost that always went wherever the ball was already
+                        // heading made the direction of the flick worth
+                        // nothing -- and aiming a boost is the whole of what
+                        // the gesture is for.
+                        float boostDirX = _field70;
+                        float boostDirZ = _field74;
+                        bool boostAimed = false;
+                        if (swipeBoost && (SwipeBoostX != 0 || SwipeBoostY != 0))
+                        {
+                            float forward = -SwipeBoostY;
+                            float left = -SwipeBoostX;
+                            // Taken as an aim, not snapped. It *was* snapped
+                            // to the four directions the roll binds offer, on
+                            // the reading that the gesture is a choice between
+                            // four things and that the leftover on a sideways
+                            // flick is what made one read as "forward again".
+                            // That was the wrong cure for a real complaint:
+                            // the direction being handed over was contaminated
+                            // by the frames the hand spends breaking out of
+                            // rest, and snapping hid it on two axes out of
+                            // four while making the other two a lie -- a flick
+                            // back and to the left came out flat back, every
+                            // time, whatever the hand did. The measurement is
+                            // fixed where it is taken (see MouseFlick's
+                            // speed-weighted direction) and what arrives here
+                            // is used as it is: the ball leaves along the
+                            // whip, at whatever angle the whip was.
+                            float dirX = _altRollFbX * forward + _altRollLrX * left;
+                            float dirZ = _altRollFbZ * forward + _altRollLrZ * left;
+                            float dirMag = MathF.Sqrt(dirX * dirX + dirZ * dirZ);
+                            if (dirMag > 1 / 4096f)
+                            {
+                                boostDirX = dirX / dirMag;
+                                boostDirZ = dirZ / dirMag;
+                                boostAimed = true;
+                                // Long enough to read as the direction that
+                                // was asked for -- 18 frames at 0.6 a frame
+                                // is eleven units of travel, most of a small
+                                // room's width -- and short enough that the
+                                // ball is never somewhere the player cannot
+                                // steer out of.
+                                _boostAimLock = 18;
+                                if (Mods.DebugLog.Active)
+                                {
+                                    // Every flick: which way the hand went,
+                                    // what that is against the basis the ball
+                                    // rolls in, and where the ball was sent.
+                                    // "It goes forward when I flick sideways"
+                                    // is three questions and this is the only
+                                    // line that separates them.
+                                    Mods.DebugLog.Line("input", "boost flick screen "
+                                        + $"({SwipeBoostX:0.00}, {SwipeBoostY:0.00}) -> "
+                                        + $"({forward:0.00} fwd, {left:0.00} left)"
+                                        + $" -> world ({boostDirX:0.00}, {boostDirZ:0.00})");
+                                }
+                            }
+                        }
+                        SwipeBoostX = 0;
+                        SwipeBoostY = 0;
+                        if (buttonBoost && !swipeBoost)
+                        {
+                            // the game plays the boost charge SFX here, but that SFX is empty
+                            if (_boostCharge < Values.BoostChargeMax * 2) // todo: FPS stuff
+                            {
+                                _boostCharge++;
+                            }
+                        }
+                        else
+                        {
+                            if (swipeBoost)
+                            {
+                                _boostCharge = (ushort)(Values.BoostChargeMax * 2);
+                            }
+                            if (_boostCharge > Values.BoostChargeMin * 2) // todo: FPS stuff
+                            {
+                                if (Features.FullBoostCharge)
+                                {
+                                    _boostCharge = (ushort)(Values.BoostChargeMax * 2);
+                                }
+                                if (_boostCharge > 0)
+                                {
+                                    int sfx = Metadata.HunterSfx[(int)Hunter, (int)HunterSfx.Boost];
+                                    _soundSource.PlaySfx(sfx);
+                                }
+                                float boostHCap = Fixed.ToFloat(Values.BoostSpeedCap) * _boostCharge
+                                    / (Values.BoostChargeMax * 2); // todo: FPS stuff
+                                if (_hSpeedCap < boostHCap)
+                                {
+                                    _hSpeedCap = boostHCap;
+                                }
+                                float factor = Fixed.ToFloat(Values.BoostSpeedMin)
+                                    + _boostCharge * (Fixed.ToFloat(Values.BoostSpeedMax) - Fixed.ToFloat(Values.BoostSpeedMin))
+                                    / (Values.BoostChargeMax * 2); // todo: FPS stuff
+                                if (boostAimed)
+                                {
+                                    // Whatever the roll binds put into this
+                                    // frame goes first. The traction block
+                                    // runs earlier in the frame than this one
+                                    // and only checks _boostAimLock, which is
+                                    // set below -- so a player holding forward
+                                    // as they flick sideways had one frame of
+                                    // forward added on top of the dash before
+                                    // the lock took hold, and the aimed boost
+                                    // left at an angle nobody asked for. Only
+                                    // the horizontal part, and only when a
+                                    // flick aimed this: gravity and the alt
+                                    // attacks are on Y and untouched.
+                                    speedDelta.X = 0;
+                                    speedDelta.Z = 0;
+                                    // A boost asked for in a direction has to
+                                    // go in it. Upstream's is an impulse added
+                                    // to whatever the ball is already doing,
+                                    // which is right when it goes where the
+                                    // ball was already pointing and useless
+                                    // when it does not: flicked backwards at
+                                    // speed it merely cancelled some of the
+                                    // roll and the ball carried on forwards,
+                                    // reported as "the mouse goes down and
+                                    // Samus still goes up". So the horizontal
+                                    // speed is projected onto the direction
+                                    // asked for first -- the part of it going
+                                    // the other way is dropped, the part going
+                                    // sideways with it, and nothing is added:
+                                    // the ball leaves along the flick with the
+                                    // momentum it had in that direction and no
+                                    // more. Only an aimed boost does this, so
+                                    // the DS's own is untouched.
+                                    float along = Speed.X * boostDirX + Speed.Z * boostDirZ;
+                                    if (along < 0)
+                                    {
+                                        along = 0;
+                                    }
+                                    Speed = Speed.WithX(boostDirX * along).WithZ(boostDirZ * along);
+                                }
+                                speedDelta = speedDelta.AddX(boostDirX * factor).AddZ(boostDirZ * factor);
+                                _altAttackCooldown = (ushort)(Values.AltAttackCooldown * 2); // todo: FPS stuff
+                                Flags1 |= PlayerFlags1.Boosting;
+                                ModControllerFeedback(Mods.Input.GamepadFeedback.Boost);
+                                _boostDamage = (ushort)(Values.AltAttackDamage * _boostCharge / (Values.BoostChargeMax * 2)); // todo: FPS stuff
+                                if (IsMainPlayer)
+                                {
+                                    _boostInst.SetAnimation(start: 0, target: 10, frames: 11, afterAnim: 0);
+                                }
+                                if (_boostEffect != null)
+                                {
+                                    _scene.UnlinkEffectEntry(_boostEffect);
+                                    _boostEffect = null;
+                                }
+                                // The dash trail goes with the boost. Aimed
+                                // sideways it would otherwise streak along the
+                                // way the ball was pointing while the ball
+                                // left in another direction entirely. The
+                                // vectors are built the way _gunVec2 is built
+                                // from the facing, so an unaimed boost spawns
+                                // exactly what it always did.
+                                Vector3 boostVec1 = boostAimed
+                                    ? new Vector3(boostDirZ, 0, -boostDirX) : _gunVec2;
+                                Vector3 boostVec2 = boostAimed
+                                    ? new Vector3(boostDirX, 0, boostDirZ) : _facingVector;
+                                _boostEffect = _scene.SpawnEffectGetEntry(136, boostVec1, boostVec2, Position); // samusDash
+                                if (_boostEffect != null)
+                                {
+                                    _boostEffect.SetElementExtension(true);
+                                }
+                            }
+                            _boostCharge = 0;
+                        }
+                        } // Legacy ModernFlick route.
+                    }
+                }
+                float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                ModMovementShadowNoteHorizontalImpulse(speedDelta, _hSpeedCap);
+                Speed += speedDelta; // todo: FPS stuff?
+                float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                if (magAfter > magBefore && magAfter > _hSpeedCap)
+                {
+                    float factor;
+                    if (magBefore <= _hSpeedCap)
+                    {
+                        factor = _hSpeedCap / magAfter;
+                    }
+                    else
+                    {
+                        factor = magBefore / magAfter;
+                    }
+                    Speed = Speed.WithX(Speed.X * factor).WithZ(Speed.Z * factor);
+                }
+                if (_field35C != null)
+                {
+                    Speed = Speed.WithX(0).WithZ(0);
+                }
+                else if (AttachedEnemy != null)
+                {
+                    Speed = Speed.WithX(Speed.X / 2).WithZ(Speed.Z / 2);
+                }
+                // the game doesn't require pressed here, but presumably the control scheme would have the pressed flag
+                // the game also doesn't check the ability flag here
+                if (_abilities.TestFlag(AbilityFlags.AltForm) && Controls.Morph.IsPressed
+                    || IsMainPlayer && _scene.CameraSequences.Current?.ForceBiped == true)
+                {
+                    TrySwitchForms();
+                }
+                if (Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
+                {
+                    AnimationInfo info = _altModel.AnimInfo;
+                    if (animId != -1)
+                    {
+                        if ((info.Index[0] != 1 || info.Flags[0].TestFlag(AnimFlags.Ended)) && animId != info.Index[0])
+                        {
+                            _altModel.SetAnimation(animId, animFlags);
+                        }
+                    }
+                    else if (info.Index[0] != 0 && (!info.Flags[0].TestFlag(AnimFlags.NoLoop) || info.Flags[0].TestFlag(AnimFlags.Ended)))
+                    {
+                        _altModel.SetAnimation(0);
+                    }
+                }
+            }
+            ScoutDroneStep(mergedThisStep: droneWasAlt && !IsAltForm);
+            ProcessMovement();
+            Mods.Network.NetHooks.AfterRemoteMovement(this);
+            UpdateCamera();
+        }
+
+        private BombEntity? SpawnBomb()
+        {
+            if (!NetBombs.AllowNativePlacement(this)) return null;
+            if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnCalls++;
+            // todo?: wi-fi condition and alternate function for spawning Lockjaw bombs
+            Matrix4 transform = ModBombTransform();
+            if (Hunter != Hunter.Kanden)
+            {
+                if (Hunter == Hunter.Sylux && SyluxBombCount >= 3)
+                {
+                    // Detonate what is actually there, newest first.
+                    //
+                    // The three entries were dereferenced with `!` on a count
+                    // that nothing kept in step with them, so the one state
+                    // this used to reach -- a full count over an emptied array
+                    // -- was a null dereference here rather than a dud press.
+                    // The reset on respawn and the guarded decrement in
+                    // BombEntity.Destroy are what stop that state arising;
+                    // clearing a count that turns out to describe nothing is
+                    // what stops it lasting the whole match if it ever does.
+                    bool detonated = false;
+                    for (int i = SyluxBombs.Length - 1; i >= 0; i--)
+                    {
+                        BombEntity? placed = SyluxBombs[i];
+                        if (placed != null)
+                        {
+                            placed.Countdown = 0;
+                            detonated = true;
+                        }
+                    }
+                    if (detonated)
+                    {
+                        if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnDetonated++;
+                        return null;
+                    }
+                    if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnStaleCount++;
+                    SyluxBombCount = 0;
+                }
+            }
+            var bomb = BombEntity.Spawn(this, transform, _scene);
+            if (bomb == null)
+            {
+                if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnPoolEmpty++;
+            }
+            if (bomb != null)
+            {
+                if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnMade++;
+                _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.WeaponFired, this,
+                    entity: bomb.Id, value: (int)bomb.BombType, weapon: (int)BeamType.None, flags: Mods.MatchEvents.MatchSemanticEventFlags.AltForm);
+                if (Hunter == Hunter.Sylux)
+                {
+                    SyluxBombs[SyluxBombCount] = bomb;
+                    bomb.BombIndex = SyluxBombCount++;
+                    // todo?: wifi stuff
+                }
+                bomb.NodeRef = NodeRef;
+                bomb.Radius = Fixed.ToFloat(Values.BombRadius);
+                bomb.SelfRadius = Fixed.ToFloat(Values.BombSelfRadius);
+                bomb.Damage = (ushort)Values.BombDamage;
+                bomb.EnemyDamage = (ushort)Values.BombEnemyDamage;
+                if (IsBot && _scene.GameState.SinglePlayer && (Hunter == Hunter.Kanden || Hunter == Hunter.Sylux))
+                {
+                    int encounter = _scene.GameState.EncounterState[SlotIndex];
+                    if (encounter == 1 || encounter == 3 || encounter == 4
+                        || encounter == 0 && BotLevel == 0)
+                    {
+                        bomb.Damage = bomb.EnemyDamage = (ushort)(Hunter == Hunter.Kanden ? 2 : 6);
+                    }
+                    else if (encounter != 0 || BotLevel < 2) // in-game: level !=2
+                    {
+                        bomb.Damage = bomb.EnemyDamage = (ushort)(Hunter == Hunter.Kanden ? 4 : 3);
+                    }
+                    else
+                    {
+                        bomb.Damage = bomb.EnemyDamage = (ushort)(Hunter == Hunter.Kanden ? 8 : 6);
+                    }
+                }
+                if (DoubleDamage)
+                {
+                    bomb.Damage *= 2;
+                    bomb.EnemyDamage *= 2;
+                }
+                if (_bombAmmo >= 2)
+                {
+                    _bombRefillTimer = (ushort)(Values.BombRefillTime * 2); // todo: FPS stuff
+                }
+                _bombAmmo--;
+                // BombCooldown is copied from the native player table as a packed/raw
+                // integer. Stock behavior has always narrowed the doubled value to
+                // ushort when it reaches _bombCooldown. Kanden's table entry is
+                // 0x0023001E, so that narrowing is what turns it into 60 simulation
+                // ticks. Apply Balanced Mode's 15% reduction to those stock ticks,
+                // not to the packed 32-bit value, or the later ushort cast wraps
+                // into a multi-minute cooldown.
+                int bombCooldown = unchecked((ushort)(Values.BombCooldown * 2));
+                if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode
+                    && Hunter == Hunter.Kanden)
+                {
+                    bombCooldown = BalancedHunterAbilityRules.KandenCooldownFrames(bombCooldown);
+                }
+                _bombCooldown = (ushort)bombCooldown; // todo: FPS stuff
+                if (Hunter == Hunter.Kanden)
+                {
+                    _altModel.SetAnimation((int)KandenAltAnim.TailOut, AnimFlags.NoLoop);
+                }
+                else if (Hunter == Hunter.Sylux && SyluxBombCount == 3)
+                {
+                    // todo: FPS stuff
+                    _bombOveruse += 27 * 2;
+                    if (_bombOveruse >= 100 * 2)
+                    {
+                        _bombCooldown = 150 * 2;
+                    }
+                }
+                bomb.PlaySpawnSfx();
+                NetBombs.Placed(bomb);
+            }
+            return bomb;
+        }
+
+        private void EndAltAttack()
+        {
+            if (Hunter == Hunter.Samus)
+            {
+                Flags1 &= ~PlayerFlags1.Boosting;
+            }
+            else if (Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
+            {
+                if (Flags2.TestFlag(PlayerFlags2.AltAttack))
+                {
+                    if (IsBot && _scene.GameState.SinglePlayer && _scene.GameState.EncounterState[SlotIndex] == 1)
+                    {
+                        _altAttackCooldown = 10 * 2; // todo: FPS stuff
+                    }
+                    else
+                    {
+                        _altAttackCooldown = (ushort)(Values.AltAttackCooldown * 2); // todo: FPS stuff
+                    }
+                }
+            }
+            else if (Hunter == Hunter.Noxus)
+            {
+                if (_altAttackTime > 0)
+                {
+                    _soundSource.StopSfx(SfxId.NOX_TOP_ATTACK1);
+                    _soundSource.StopSfx(SfxId.NOX_TOP_ATTACK2);
+                    if (_altAttackTime >= Values.AltAttackStartup / 2 * 2) // todo: FPS stuff
+                    {
+                        _soundSource.PlaySfx(SfxId.NOX_TOP_ATTACK3);
+                    }
+                    _altModel.SetAnimation((int)NoxusAltAnim.Extend, AnimFlags.Paused);
+                    _altAttackTime = 0;
+                }
+            }
+            Flags2 &= ~PlayerFlags2.AltAttack;
+        }
+
+        private bool ProcessMovement(bool allowMomentum = false, bool nativeJumpAccepted = false)
+        {
+            // Fence before and after triggers/external acceleration: a newly
+            // launched or teleported body retains its existing native owner.
+            bool momentumAllowed = allowMomentum && ModMomentumEligible;
+            Vector3 beforeTriggers = momentumAllowed ? Position : default;
+            ModProcessQ3Triggers();
+            if (momentumAllowed && Position != beforeTriggers) momentumAllowed = false;
+            // Capture native ownership before one-tick flags/timers are cleared
+            // below. A mantle must not reclaim a just-triggered native impulse.
+            if ((_modMantling || _modMantlePending) && !ModMantleBodyAllowed) ModCancelParkourMantle();
+            if (ModGrappleControllerOwns && _modGrapple.Active && !ModGrappleBodyAllowed) ModCancelParkourGrapple();
+            Vector3 q3IncomingSpeed = Speed;
+            if (_accelerationTimer > 0)
+            {
+                _accelerationTimer--;
+                Speed += Acceleration / 2; // todo: FPS stuff
+            }
+            WallClingHold();
+            var hSpeed = new Vector3(Speed.X, 0, Speed.Z);
+            float hSpeedMag = hSpeed.Length;
+            if (hSpeedMag == 0)
+            {
+                _hSpeedMag = 0;
+            }
+            else
+            {
+                hSpeed /= hSpeedMag;
+                if (Values.AltFormStrafe == 0)
+                {
+                    if (hSpeedMag > Fixed.ToFloat(Values.Field5C)) // todo: FPS stuff?
+                    {
+                        _field80 = hSpeed.X;
+                        _field84 = hSpeed.Z;
+                    }
+                    if ((IsAltForm || IsMorphing) && hSpeedMag > Fixed.ToFloat(Values.Field58)) // todo: FPS stuff?
+                    {
+                        // Native roll facing follows actual velocity for visuals,
+                        // attacks and cartridge physics. The virtual _altRoll
+                        // control basis is intentionally not derived from this:
+                        // a wall redirecting Speed must not rotate WASD/stick.
+                        _field70 = hSpeed.X;
+                        _field74 = hSpeed.Z;
+                        _facingVector = new Vector3(_field70, 0, _field74);
+                        _gunVec1 = _facingVector;
+                        float add = _gunVec1.X * Fixed.ToFloat(Values.AimDistance);
+                        _aimPosition = Position.AddX(add).AddZ(add);
+                    }
+                }
+                if (IsAltForm)
+                {
+                    float altMin = Fixed.ToFloat(Values.AltMinHSpeed); // todo: FPS stuff?
+                    if (_scene.GameState.Multiplayer && _scene.GameState.BalancedMode)
+                    {
+                        altMin = BalancedModeRules.ScaleAltSpeedCap(Hunter, altMin);
+                    }
+                    if (!_scene.GameState.BalancedMode && Hunter == Hunter.Spire
+                        && Mods.EnhancedHunters.EnhancedHunters.Enabled(this))
+                        foreach (var zone in _scene.EnhancedWorld.Zones)
+                            if (zone.Type == Mods.EnhancedHunters.EnhancedZoneType.MagmaPool
+                                && Mods.EnhancedHunters.EnhancedHunterWorld.Owned(this, zone)
+                                && Mods.EnhancedHunters.EnhancedHunterWorld.Contains(zone, Position))
+                            { altMin *= 1.2f; break; }
+                    if (_hSpeedCap <= altMin)
+                    {
+                        _hSpeedCap = altMin;
+                    }
+                    else if (hSpeedMag >= _hSpeedCap)
+                    {
+                        _hSpeedCap -= Fixed.ToFloat(Values.AltHSpeedCapIncrement) / 2; // todo: FPS stuff
+                    }
+                    else
+                    {
+                        _hSpeedCap = hSpeedMag;
+                    }
+                }
+                else
+                {
+                    bool strafing = Flags1.TestFlag(PlayerFlags1.Strafing);
+                    _hSpeedCap = Fixed.ToFloat(strafing ? Values.StrafeSpeedCap : Values.WalkSpeedCap); // todo: FPS stuff?
+                }
+                if (IsPrimeHunter && !IsAltForm)
+                {
+                    _hSpeedCap = 0.4f; // todo: FPS stuff?
+                }
+                _hSpeedMag = hSpeedMag;
+            }
+            // todo: check how much of this overwrites stuff done above
+            RepairAimBasis();
+            float horizontalSq = _facingVector.X * _facingVector.X
+                + _facingVector.Z * _facingVector.Z;
+            if (!Single.IsFinite(horizontalSq) || horizontalSq < 0.0000001f)
+            {
+                Vector3 horizontal = new(_gunVec1.X, 0, _gunVec1.Z);
+                if (!SpatialDirection(horizontal))
+                {
+                    horizontal = new Vector3(_field70, 0, _field74);
+                }
+                horizontal = NormalizeSpatialOr(horizontal, Vector3.UnitZ);
+                _field70 = horizontal.X;
+                _field74 = horizontal.Z;
+            }
+            else
+            {
+                float hMag = MathF.Sqrt(horizontalSq);
+                _field70 = _facingVector.X / hMag;
+                _field74 = _facingVector.Z / hMag;
+            }
+            _gunVec2 = new Vector3(_field74, 0, -_field70);
+            _field78 = _gunVec2.X;
+            _field7C = _gunVec2.Z;
+            _upVector = NormalizeSpatialOr(
+                Vector3.Cross(_facingVector, _gunVec2), Vector3.UnitY);
+            if (Values.AltFormStrafe != 0)
+            {
+                _field80 = _field70;
+                _field84 = _field74;
+            }
+            _aimPosition = _gunVec1 * Fixed.ToFloat(Values.AimDistance);
+            _aimPosition += CameraInfo.Position;
+            // unimpl-controls: this calculation is different when exact aim is not set
+            float aimHorizontalMag = MathF.Sqrt(MathF.Max(0,
+                _gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z));
+            _aimY = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, aimHorizontalMag));
+            if (_aimY > 75 || _aimY < -75)
+            {
+                UpdateAimY(0);
+            }
+            if (Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
+            {
+                // basically exclude the jump pad speed for the rest of the speed calc, then restore it below
+                float prevX = Speed.X;
+                Speed = Speed.AddX(-_jumpPadAccel.X);
+                if (prevX <= 0 && Speed.X > 0 || prevX > 0 && Speed.X < 0)
+                {
+                    _jumpPadAccel.X += Speed.X / 2; // todo: FPS stuff
+                    Speed = Speed.WithX(0);
+                }
+                float prevZ = Speed.Z;
+                Speed = Speed.AddZ(-_jumpPadAccel.Z);
+                if (prevZ <= 0 && Speed.Z > 0 || prevZ > 0 && Speed.Z < 0)
+                {
+                    _jumpPadAccel.Z += Speed.Z / 2; // todo: FPS stuff
+                    Speed = Speed.WithZ(0);
+                }
+            }
+            float slideSfxAmount = 0;
+            float speedFactor;
+            if (IsAltForm || IsMorphing)
+            {
+                if (Flags2.TestFlag(PlayerFlags2.AltAttack) && (Hunter == Hunter.Trace || Hunter == Hunter.Weavel))
+                {
+                    speedFactor = 0.96f;
+                }
+                else if (Flags1.TestFlag(PlayerFlags1.Standing))
+                {
+                    speedFactor = Fixed.ToFloat(Values.AltGroundSpeedFactor);
+                }
+                else
+                {
+                    speedFactor = Fixed.ToFloat(Values.AirSpeedFactor);
+                }
+            }
+            else if (Flags1.TestFlag(PlayerFlags1.Standing))
+            {
+                if (Flags1.TestFlag(PlayerFlags1.Strafing))
+                {
+                    speedFactor = Fixed.ToFloat(Values.StrafeSpeedFactor);
+                }
+                else if (Flags1.TestFlag(PlayerFlags1.Walking))
+                {
+                    speedFactor = Fixed.ToFloat(Values.WalkSpeedFactor);
+                }
+                else
+                {
+                    speedFactor = Fixed.ToFloat(Values.StandSpeedFactor);
+                }
+            }
+            else
+            {
+                speedFactor = Fixed.ToFloat(Values.AirSpeedFactor);
+            }
+            if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness != 0)
+            {
+                speedFactor += (1 - speedFactor) * Metadata.SlipSpeedFactors[_slipperiness];
+                if (!Flags1.TestFlag(PlayerFlags1.MovingBiped))
+                {
+                    slideSfxAmount = 0xFFFF * _hSpeedMag / Fixed.ToFloat(Values.WalkSpeedCap);
+                }
+            }
+            // Native slippery/form audio keeps its existing update point. Eligible Traversal
+            // feedback uses the completed contact below, without advancing smoothing twice.
+            bool traversalSlideFeedback = ModTraversalActive && ModMomentumEligible;
+            if (!traversalSlideFeedback) UpdateSlidingSfx(slideSfxAmount);
+            bool momentumApplied = momentumAllowed && ModTryApplyMomentum(nativeJumpAccepted);
+            if (!momentumApplied)
+            {
+                ModMovementShadowNoteSpeedFactor(speedFactor);
+                Vector3 speedMul = Speed.WithX(Speed.X * speedFactor).WithZ(Speed.Z * speedFactor);
+                if (_q3LaunchGravity != 0) Speed = q3IncomingSpeed;
+                else Speed += (speedMul - Speed) / 2; // todo: FPS stuff
+            }
+            ModApplyParkourWallkick(momentumAllowed);
+            if (Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
+            {
+                Speed = Speed.AddX(_jumpPadAccel.X);
+                Speed = Speed.AddZ(_jumpPadAccel.Z);
+            }
+            if (Flags1.TestFlag(PlayerFlags1.Standing) && _timeSinceJumpPad > 5 * 2) // todo: FPS stuff
+            {
+                _lastJumpPad = null;
+                Flags1 &= ~PlayerFlags1.UsedJumpPad;
+                _jumpPadControlLock = 0;
+                _jumpPadControlLockMin = 0;
+            }
+            if (IsAltForm)
+            {
+                Flags2 |= PlayerFlags2.AltFormGravity;
+            }
+            else if (Speed.Y <= 0.01f)
+            {
+                Flags2 &= ~PlayerFlags2.AltFormGravity;
+            }
+            if (_health > 0)
+            {
+                if (_jumpPadControlLock == 0 && !Flags2.TestFlag(PlayerFlags2.BipedStuck) && !WallClingHeld
+                    && !ScoutDroneHover())
+                {
+                    bool nativeGravityOverride = Flags2.TestFlag(PlayerFlags2.GravityOverride);
+                    if (nativeGravityOverride)
+                    {
+                        Flags2 &= ~PlayerFlags2.GravityOverride;
+                    }
+                    else
+                    {
+                        if (ScoutDroneEnabled && _dronePadFall && Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
+                        {
+                            _gravity = Fixed.ToFloat(Values.BipedGravity);
+                        }
+                        else if (IsAltForm || Flags2.TestFlag(PlayerFlags2.AltFormGravity))
+                        {
+                            if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness == 0 && Values.AltFormStrafe != 0)
+                            {
+                                _gravity = 0;
+                            }
+                            else if (Flags1.TestFlag(PlayerFlags1.Standing))
+                            {
+                                _gravity = Fixed.ToFloat(Values.AltGroundGravity);
+                            }
+                            else
+                            {
+                                _gravity = Fixed.ToFloat(Values.AltAirGravity);
+                            }
+                        }
+                        else if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness == 0)
+                        {
+                            _gravity = 0;
+                        }
+                        else
+                        {
+                            _gravity = Fixed.ToFloat(Values.BipedGravity);
+                        }
+                    }
+                    if (_q3LaunchGravity != 0) _gravity = _q3LaunchGravity;
+                    float appliedGravity = ModParkourGravity(_gravity, nativeGravityOverride);
+                    ModMovementShadowNoteGravity(appliedGravity);
+                    Speed = Speed.AddY(appliedGravity / 2); // todo: FPS stuff
+                }
+                ModApplyParkourMantle(momentumAllowed);
+                ModApplyParkourGrapple(momentumAllowed, nativeJumpAccepted);
+                Vector3 position = Position + Speed / 2; // todo: FPS stuff
+                if (AttachedEnemy?.EnemyType == EnemyType.Quadtroid)
+                {
+                    position.X = Position.X;
+                    position.Z = Position.Z;
+                }
+                Position = position;
+                // unimpl-controls: the game does more calculation here if exact aim is off
+                // --> does so outside of the _health > 0 condition, before the player collision check (which is inside another _health > 0)
+                CheckPlayerCollision();
+                if (_q3LaunchGravity != 0 && Flags1.TestFlag(PlayerFlags1.Standing) && Speed.Y <= 0.01f)
+                { _q3LaunchGravity = 0; _q3LaunchFrames = 0; }
+            }
+            if (Hunter == Hunter.Kanden && IsAltForm && Flags1.TestFlag(PlayerFlags1.Standing))
+            {
+                for (int i = 1; i < _kandenSegPos.Length; i++)
+                {
+                    _kandenSegPos[i] = _kandenSegPos[i].AddY(-0.1f / 2); // todo: FPS stuff
+                }
+            }
+            if (_standingEntCol != null)
+            {
+                Vector3 position = Matrix.Vec3MultMtx4(Position, _standingEntCol.Inverse2);
+                Position = Matrix.Vec3MultMtx4(position, _standingEntCol.Transform);
+            }
+            if (!Flags1.TestFlag(PlayerFlags1.CollidingLateral))
+            {
+                _horizColTimer = 0;
+            }
+            else if (_horizColTimer != UInt16.MaxValue)
+            {
+                _horizColTimer++;
+            }
+            Terrain prevTerrain = _standTerrain;
+            bool standingPrev = Flags1.TestFlag(PlayerFlags1.Standing);
+            bool spireClimbingPrev = Flags2.TestFlag(PlayerFlags2.SpireClimbing);
+            bool noUnmorphPev = Flags1.TestFlag(PlayerFlags1.NoUnmorph);
+            Flags1 &= ~PlayerFlags1.Standing;
+            Flags1 &= ~PlayerFlags1.StandingPrevious;
+            Flags1 &= ~PlayerFlags1.NoUnmorph;
+            Flags1 &= ~PlayerFlags1.NoUnmorphPrevious;
+            Flags1 &= ~PlayerFlags1.OnLava;
+            Flags1 &= ~PlayerFlags1.OnAcid;
+            Flags2 &= ~PlayerFlags2.SpireClimbing;
+            Flags1 &= ~PlayerFlags1.CollidingLateral;
+            Flags1 &= ~PlayerFlags1.NoUnmorph;
+            Flags1 &= ~PlayerFlags1.CollidingEntity;
+            Flags1 &= ~PlayerFlags1.Standing;
+            if (standingPrev)
+            {
+                Flags1 |= PlayerFlags1.StandingPrevious;
+            }
+            if (noUnmorphPev)
+            {
+                Flags1 |= PlayerFlags1.NoUnmorphPrevious;
+            }
+            Vector3 prevC0 = _fieldC0;
+            _fieldC0 = Vector3.Zero;
+            ResolveMovementCollision(standingPrev);
+            ModBeginParkourContacts();
+            CheckCollision();
+            ModApplyParkourWallstrafe();
+            ModUpdateSpireLedgeCrest(spireClimbingPrev);
+            if (_field449 > 0 && _field449 < 30 * 2) // todo: FPS stuff
+            {
+                _fieldC0 = prevC0;
+            }
+            else if (_fieldC0 != Vector3.Zero)
+            {
+                _fieldC0 = _fieldC0.Normalized();
+            }
+            else
+            {
+                _fieldC0 = Vector3.UnitY;
+            }
+            if (_standTerrain != prevTerrain)
+            {
+                StopTerrainSfx(prevTerrain);
+            }
+            if (Flags1.TestFlag(PlayerFlags1.Standing) && !Flags1.TestFlag(PlayerFlags1.StandingPrevious))
+            {
+                // landing
+                _timeStanding = 0;
+                if (PrevSpeed.Y >= 0)
+                {
+                    _field44C = 0;
+                }
+                else
+                {
+                    _field44C = -PrevSpeed.Y * 0.35f;
+                    if (_field44C > Fixed.ToFloat(800))
+                    {
+                        _field44C = Fixed.ToFloat(800);
+                    }
+                    if (PrevSpeed.Y < -0.65f)
+                    {
+                        CameraInfo.SetShake(Fixed.ToFloat(204));
+                    }
+                }
+            }
+            else if (_timeStanding != UInt16.MaxValue)
+            {
+                _timeStanding++;
+            }
+            if (IsAltForm)
+            {
+                UpdateAltTransform();
+            }
+            if (Flags1.TestFlag(PlayerFlags1.Grounded))
+            {
+                Flags1 |= PlayerFlags1.GroundedPrevious;
+            }
+            else
+            {
+                Flags1 &= ~PlayerFlags1.GroundedPrevious;
+            }
+            if (Flags1.TestFlag(PlayerFlags1.Standing) || Flags2.TestFlag(PlayerFlags2.SpireClimbing))
+            {
+                _timeBeforeLanding = _timeSinceGrounded;
+                _timeSinceGrounded = 0;
+                Flags1 |= PlayerFlags1.Grounded;
+            }
+            else if (_timeSinceGrounded < 90 * 2) // todo: FPS stuff
+            {
+                _timeSinceGrounded++;
+                if (_timeSinceGrounded >= 8 * 2) // todo: FPS stuff
+                {
+                    Flags1 &= ~PlayerFlags1.Grounded;
+                    _walkSfxTimer = 0;
+                    _walkSfxIndex = 0;
+                }
+            }
+            ModCompleteTuckContact();
+            ModCompleteParkourMantle();
+            ModCompleteParkourWallrun(nativeJumpAccepted);
+            WallClingAfterCollision();
+            bool burning = false;
+            if (_health > 0 && (_burnTimer > 0 || Hunter != Hunter.Spire
+                && Flags1.TestFlag(PlayerFlags1.OnLava) && Flags1.TestFlag(PlayerFlags1.Grounded)))
+            {
+                burning = true;
+            }
+            UpdateBurningSfx(burning);
+            if ((!IsAltForm || Hunter == Hunter.Weavel) && Flags1.TestFlag(PlayerFlags1.Grounded))
+            {
+                UpdateWalkingSfx();
+            }
+            if (traversalSlideFeedback)
+            {
+                float horizontalSpeed = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                float traversalAmount = Mods.Movement.TraversalSlideFeedback.Amount(horizontalSpeed,
+                    Fixed.ToFloat(Values.WalkSpeedCap),
+                    Flags1.TestFlag(PlayerFlags1.Standing) && ModTraversalActive && ModMomentumEligible, ModSliding);
+                UpdateSlidingSfx(Math.Max(slideSfxAmount, traversalAmount), allowTraversalFallback: true);
+            }
+            _scene.FinalizeMovementTelemetry(this);
+            return momentumApplied;
+        }
+
+        /// <summary>
+        /// Whether a keybind is held, from a snapshot alone -- for the paths
+        /// that read one control without running the pass that updates them
+        /// all. Scroll binds have no state to read here and answer false.
+        /// </summary>
+        private static bool IsDown(Keybind control, KeyboardState keyboard, MouseState mouse)
+        {
+            if (control.Type == ButtonType.Key)
+            {
+                return control.Key != Keys.Unknown && keyboard.IsKeyDown(control.Key);
+            }
+            return control.Type == ButtonType.Mouse && mouse.IsButtonDown(control.MouseButton);
+        }
+
+        private static bool _isScrollingUp = false;
+        private static bool _isScrollingDown = false;
+
+        public static void ProcessInput(ScenePlayerRegistry players, KeyboardState keyboardState, MouseState mouseState, bool noPlayerInput)
+        {
+            KeyboardState keyboardSnap = keyboardState.GetSnapshot();
+            MouseState mouseSnap = mouseState.GetSnapshot();
+            if (Mods.SpectatorMode.IsSpectating)
+            {
+                // The one control somebody watching keeps, because a
+                // scoreboard is the match's and not a player's. Read straight
+                // off the snapshot and against the bindings themselves: the
+                // pass below fills in each keybind's state from the player it
+                // belongs to, and a spectator's own player is skipped there
+                // while the player they are watching takes somebody else's
+                // input entirely.
+                Mods.SpectatorMode.NoteScoreboard(
+                    IsDown(Mods.InputSettings.Current.Pause, keyboardSnap, mouseSnap)
+                    || (Mods.Input.GamepadContexts.Current == Mods.Input.GamepadContext.Gameplay
+                        && Mods.Input.GamepadInput.State.Down(Mods.Input.GamepadButtons.Back)));
+            }
+            for (int i = 0; i < players.Items.Count; i++)
+            {
+                PlayerEntity player = players.Items[i];
+                if (player.OwningScene.AimTrainer?.TryDriveTarget(player) == true) continue;
+                if (Mods.Network.NetAiClient.Drives(player))
+                {
+                    if (player.LoadFlags.TestFlag(LoadFlags.Active) && !Mods.SpectatorMode.IsSpectating)
+                        Mods.Network.NetAiClient.ApplyInput(player);
+                    continue;
+                }
+                if (player.IsBot && !player.SceneServices.IsReplica
+                    && (!Mods.Network.NetSession.Active || Mods.Network.NetSession.IsAuthority))
+                {
+                    if (player.LoadFlags.TestFlag(LoadFlags.Active))
+                    {
+                        if (Mods.Network.NetCampaignDrain.Quiescing) Mods.Network.NetTestScript.ApplyQuiescentControls(player);
+                        else player.AiData.ProcessInput();
+                        Mods.Network.NetBotInput.Capture(player);
+                    }
+                    continue;
+                }
+                if (Mods.Network.NetHooks.TryApplyRemoteInput(player, i))
+                {
+                    continue;
+                }
+                if (i != Mods.Network.NetHooks.LocalSlot
+                    || Mods.SpectatorMode.IsSpectating) // todo: multiple input?
+                {
+                    continue;
+                }
+
+                // Menus, settings, focus changes and binding capture all share the same
+                // gameplay controls. Never leave the last gameplay Keybind snapshot alive
+                // while one of those surfaces owns input: an IsPressed bit that survives
+                // even one suppressed simulation step is read again as a fresh action
+                // (most visibly Next/Prev weapon), and a held UI key can otherwise become
+                // a gameplay edge the instant the overlay closes. The context revision is
+                // the cross-device ownership boundary, so it covers keyboard/mouse,
+                // controller and stylus with the same rule.
+                long contextRevision = Mods.Input.GamepadContexts.Revision;
+                bool contextChanged = player.Input.ContextRevision != contextRevision;
+                player.Input.ContextRevision = contextRevision;
+
+                // A scene is created inside the same long-lived window as the launcher.
+                // OpenTK mouse-wheel position is cumulative for the lifetime of that
+                // window, and keys/buttons can still be physically held from the click
+                // that started the match. The first gameplay sample therefore establishes
+                // a baseline only; treating "no previous snapshot" as an all-up device
+                // turns launcher input into a fresh gameplay edge on the first match.
+                bool firstInputSample = player.Input.KeyboardState == null
+                    && player.Input.MouseState == null;
+                if (noPlayerInput || contextChanged || firstInputSample)
+                {
+                    player.Controls.ClearAll();
+                    player.Input.SynchronizeSuppressed(keyboardSnap, mouseSnap);
+                    player._ignoreClick = false;
+                    continue;
+                }
+
+                player.Input.HasInput = false;
+                KeyboardState? prevKeyboardSnap = player.Input.KeyboardState;
+                MouseState? prevMouseSnap = player.Input.MouseState;
+                player.Input.PrevKeyboardState = prevKeyboardSnap;
+                player.Input.PrevMouseState = prevMouseSnap;
+                player.Input.KeyboardState = keyboardSnap;
+                player.Input.MouseState = mouseSnap;
+                player.Input.UpdatePointer();
+                _isScrollingUp = false;
+                _isScrollingDown = false;
+                // todo?: deal with overflow or whatever
+                float curScrollY = mouseSnap.Scroll.Y;
+                float prevScrollY = prevMouseSnap?.Scroll.Y ?? 0;
+                if (curScrollY > prevScrollY)
+                {
+                    _isScrollingUp = true;
+                }
+                else if (curScrollY < prevScrollY)
+                {
+                    _isScrollingDown = true;
+                }
+                if (player.LoadFlags.TestFlag(LoadFlags.Active))
+                {
+                    for (int j = 0; j < player.Controls.All.Length; j++)
+                    {
+                        Keybind control = player.Controls.All[j];
+
+                        // Rebuild the local control surface from raw input every simulation
+                        // step before controller/stylus add their contribution. Additive
+                        // sources deliberately only turn flags on. If a keyboard action is
+                        // unbound (Keys.Unknown), the old code skipped it entirely and left
+                        // whatever an additive source wrote last frame behind forever. One
+                        // controller/stylus NextWeapon press could therefore remain
+                        // IsPressed=true and cycle weapons at the full 60 Hz simulation rate.
+                        control.IsDown = false;
+                        control.IsPressed = false;
+                        control.IsReleased = false;
+
+                        if (control.Type == ButtonType.Key)
+                        {
+                            if (control.Key != Keys.Unknown)
+                            {
+                                bool prevDown = prevKeyboardSnap?.IsKeyDown(control.Key) ?? false;
+                                control.IsDown = keyboardSnap.IsKeyDown(control.Key);
+                                control.IsPressed = control.IsDown && !prevDown;
+                                control.IsReleased = !control.IsDown && prevDown;
+                                if (control.IsDown || control.IsPressed || control.IsReleased)
+                                {
+                                    player.Input.HasInput = true;
+                                }
+                            }
+                        }
+                        else if (control.Type == ButtonType.Mouse)
+                        {
+                            if (global::MphRead.GameState.DialogPause)
+                            {
+                                continue;
+                            }
+                            if (control.MouseButton == MouseButton.Left && player._ignoreClick)
+                            {
+                                control.NeedsRepress = true;
+                            }
+                            bool primary = control.MouseButton == MouseButton.Left;
+                            bool down = primary ? player.Input.Primary.Down : mouseSnap.IsButtonDown(control.MouseButton);
+                            bool prevDown = primary ? player.Input.Primary.PreviousDown
+                                : prevMouseSnap?.IsButtonDown(control.MouseButton) ?? false;
+                            if (control.NeedsRepress && !player._ignoreClick)
+                            {
+                                if (!down || !prevDown)
+                                {
+                                    control.NeedsRepress = false;
+                                }
+                            }
+                            if (control.NeedsRepress)
+                            {
+                                control.IsDown = control.IsPressed = control.IsReleased = false;
+                            }
+                            else
+                            {
+                                if (!player.Input.Primary.Resolve(control))
+                                {
+                                    control.IsDown = down;
+                                    control.IsPressed = down && !prevDown;
+                                    control.IsReleased = !down && prevDown;
+                                }
+                                if (control.IsDown || control.IsPressed || control.IsReleased)
+                                {
+                                    player.Input.HasInput = true;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            control.IsDown = control.Type == ButtonType.ScrollUp && _isScrollingUp
+                                || control.Type == ButtonType.ScrollDown && _isScrollingDown;
+                            control.IsPressed = control.IsDown;
+                            control.IsReleased = false;
+                            if (control.IsDown)
+                            {
+                                player.Input.HasInput = true;
+                            }
+                        }
+                    }
+                }
+                if (player.LoadFlags.TestFlag(LoadFlags.Active))
+                {
+                    // Stylus actions are additive; raw tip capture happens before bindings.
+                    ApplyStylusZone(player);
+                    // Pointer-driven rolling and one-shot alt-form flicks must
+                    // land on the canonical controls before NetHooks records
+                    // press history. Android's swipe request is already queued
+                    // by GameView; desktop mouse/pen flicks are detected here.
+                    player.ModApplyPointerAltMove();
+                    player.ModMarkAltSwipeInput();
+                    player.ModPrepareAltFlick();
+                }
+                player._ignoreClick = false;
+                if (mouseSnap.IsButtonDown(MouseButton.Left) && prevMouseSnap?.IsButtonDown(MouseButton.Left) != true)
+                {
+                    player.Input.ClickX = mouseSnap.X;
+                    player.Input.ClickY = mouseSnap.Y;
+                    player.Input.HasInput = true;
+                }
+                else
+                {
+                    player.Input.ClickX = -1;
+                    player.Input.ClickY = -1;
+                }
+                // todo?: besides the code duplication, input processing like this should work even if
+                // there's no player or the player is not active (will need to revisit this for menus)
+                if (i == 0 && player.OwningScene.MoviePlaying)
+                {
+                    bool skipMovie = false;
+                    Keybind skipControl = player.Controls.Shoot;
+                    if (skipControl.Type == ButtonType.Key)
+                    {
+                        if (skipControl.Key != Keys.Unknown)
+                        {
+                            bool prevDown = prevKeyboardSnap?.IsKeyDown(skipControl.Key) ?? false;
+                            bool isDown = keyboardSnap.IsKeyDown(skipControl.Key);
+                            bool isPressed = isDown && !prevDown;
+                            skipMovie = isPressed;
+                        }
+                    }
+                    else if (skipControl.Type == ButtonType.Mouse)
+                    {
+                        bool prevDown = prevMouseSnap?.IsButtonDown(skipControl.MouseButton) ?? false;
+                        bool isDown = mouseSnap.IsButtonDown(skipControl.MouseButton);
+                        bool isPressed = isDown && !prevDown;
+                        skipMovie = isPressed;
+                    }
+                    else
+                    {
+                        bool isDown = skipControl.Type == ButtonType.ScrollUp && _isScrollingUp
+                            || skipControl.Type == ButtonType.ScrollDown && _isScrollingDown;
+                        skipMovie = isDown;
+                    }
+                    if (skipMovie)
+                    {
+                        player.OwningScene.SkipMovie();
+                    }
+                }
+            }
+        }
+
+        public PlayerControls Controls { get; } = PlayerControls.GetDefault();
+        private PlayerInput Input { get; } = new PlayerInput();
+
+        internal class PlayerInput
+        {
+            public KeyboardState? PrevKeyboardState { get; set; }
+            public KeyboardState? KeyboardState { get; set; }
+            public MouseState? PrevMouseState { get; set; }
+            public MouseState? MouseState { get; set; }
+
+            public Mods.Input.PointerBindings Primary { get; } = new();
+            public float MouseDeltaX { get; private set; }
+            public float MouseDeltaY { get; private set; }
+            public float PointerX => Mods.Input.PointerDevice.Active
+                ? Mods.Input.PointerDevice.Current.X : MouseState?.X ?? 0;
+            public float PointerY => Mods.Input.PointerDevice.Active
+                ? Mods.Input.PointerDevice.Current.Y : MouseState?.Y ?? 0;
+            public long ContextRevision { get; set; } = Mods.Input.GamepadContexts.Revision;
+
+            // Transient local-only precision steering. Movement position is
+            // owner-reported, so none of this belongs in the network protocol
+            // or replay checkpoint schema.
+            public bool AltSwipeEngaged { get; set; }
+            public bool AltSwipeStopRequested { get; set; }
+            public float AltSwipeX { get; set; }
+            public float AltSwipeY { get; set; }
+            public bool StylusAltTracking { get; set; }
+            public float StylusAltOriginX { get; set; }
+            public float StylusAltOriginY { get; set; }
+
+            public void ResetAltSwipe()
+            {
+                AltSwipeEngaged = false;
+                AltSwipeStopRequested = false;
+                AltSwipeX = AltSwipeY = 0;
+                StylusAltTracking = false;
+                StylusAltOriginX = StylusAltOriginY = 0;
+            }
+
+            private bool _loggedCapture;
+
+            /// <summary>
+            /// Advance raw input baselines while gameplay does not own input, without
+            /// producing any gameplay edge. This is the keyboard/mouse/stylus half of
+            /// the controller held-input barrier in GamepadInput.BeginFrame.
+            /// </summary>
+            public void SynchronizeSuppressed(KeyboardState keyboard, MouseState mouse)
+            {
+                PrevKeyboardState = KeyboardState = keyboard;
+                PrevMouseState = MouseState = mouse;
+                bool active = Mods.Input.PointerDevice.Active;
+                bool captured = Mods.Input.StylusZone.CapturingPrimaryButton || Mods.Input.StylusZone.Placing;
+                Primary.Synchronize(active ? Mods.Input.PointerDevice.PrimaryDown
+                    : mouse.IsButtonDown(MouseButton.Left), !active && captured);
+                Mods.Input.PointerDevice.TakeDelta();
+                Mods.Input.StylusZone.TakePressed();
+                MouseDeltaX = MouseDeltaY = 0;
+                ClickX = ClickY = -1;
+                StylusWeaponMenuDown = false;
+                ResetAltSwipe();
+                HasInput = false;
+            }
+
+            public void UpdatePointer()
+            {
+                bool active = Mods.Input.PointerDevice.Active;
+                bool captured = Mods.Input.StylusZone.CapturingPrimaryButton || Mods.Input.StylusZone.Placing;
+                Primary.Update(active ? Mods.Input.PointerDevice.PrimaryDown
+                    : MouseState?.IsButtonDown(MouseButton.Left) == true, !active && captured);
+                (MouseDeltaX, MouseDeltaY) = active ? Mods.Input.PointerDevice.TakeDelta()
+                    : Mods.Input.PointerInput.Filter((MouseState?.X - PrevMouseState?.X) ?? 0,
+                        (MouseState?.Y - PrevMouseState?.Y) ?? 0);
+                if (Mods.DebugLog.Active && captured && !_loggedCapture)
+                {
+                    PlayerControls controls = Mods.InputSettings.Current;
+                    Mods.DebugLog.Line("input", $"stylus firing sources preserved: "
+                        + $"Shoot={controls.Shoot.Type}:{controls.Shoot} AltAttack={controls.AltAttack.Type}:{controls.AltAttack}");
+                }
+                _loggedCapture = captured;
+            }
+            public float ClickX { get; set; } = -1;
+            public float ClickY { get; set; } = -1;
+            public bool StylusWeaponMenuDown { get; set; }
+
+            public bool HasInput { get; set; }
+        }
+    }
+
+    public enum ButtonType
+    {
+        Key,
+        Mouse,
+        ScrollUp,
+        ScrollDown
+    }
+
+    public class Keybind
+    {
+        public ButtonType Type { get; set; }
+        public Keys Key { get; set; }
+        public MouseButton MouseButton { get; set; }
+
+        public bool IsPressed { get; set; }
+        public bool IsDown { get; set; }
+        public bool IsReleased { get; set; }
+        public bool NeedsRepress { get; set; }
+
+        public Keybind(Keys key)
+        {
+            Type = ButtonType.Key;
+            Key = key;
+        }
+
+        public Keybind(MouseButton mouseButton)
+        {
+            Type = ButtonType.Mouse;
+            MouseButton = mouseButton;
+        }
+
+        public Keybind(ButtonType scrollType)
+        {
+            if (scrollType != ButtonType.ScrollUp && scrollType != ButtonType.ScrollDown)
+            {
+                throw new ProgramException("Unexpected control type.");
+            }
+            Type = scrollType;
+        }
+
+        public static bool operator ==(Keybind lhs, Keybind rhs)
+        {
+            return lhs.Type == rhs.Type && lhs.Key == rhs.Key && lhs.MouseButton == rhs.MouseButton;
+        }
+
+        public static bool operator !=(Keybind lhs, Keybind rhs)
+        {
+            return lhs.Type != rhs.Type || lhs.Key != rhs.Key || lhs.MouseButton != rhs.MouseButton;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            return obj is Keybind other && Type == other.Type && Key == other.Key && MouseButton == other.MouseButton;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Type, Key, MouseButton);
+        }
+    }
+
+    public class PlayerControls
+    {
+        public bool MouseAim { get; set; }
+        public bool KeyboardAim { get; set; }
+
+        // Controller movement stays analogue all the way to the movement step.
+        // Keyboard/touch/bot writers leave this false and retain full-strength
+        // digital movement. Remote controller values arrive through IntentPacket.
+        public bool AnalogMoveActive;
+        public float AnalogMoveX;
+        public float AnalogMoveY;
+
+        public void SetAnalogMovement(float x, float y)
+        {
+            if (!float.IsFinite(x) || !float.IsFinite(y))
+            {
+                ClearAnalogMovement();
+                return;
+            }
+            AnalogMoveX = Math.Clamp(x, -1, 1);
+            AnalogMoveY = Math.Clamp(y, -1, 1);
+            AnalogMoveActive = AnalogMoveX != 0 || AnalogMoveY != 0;
+        }
+
+        public void ClearAnalogMovement()
+        {
+            AnalogMoveActive = false;
+            AnalogMoveX = AnalogMoveY = 0;
+        }
+
+        public float AnalogScaleX(int sign)
+            => AnalogMoveActive ? Math.Clamp(AnalogMoveX * sign, 0, 1) : 1;
+        public float AnalogScaleY(int sign)
+            => AnalogMoveActive ? Math.Clamp(AnalogMoveY * sign, 0, 1) : 1;
+
+        public Keybind MoveLeft { get; }
+        public Keybind MoveRight { get; }
+        public Keybind MoveUp { get; }
+        public Keybind MoveDown { get; }
+        public Keybind RolltLeft { get; }
+        public Keybind RollRight { get; }
+        public Keybind RollUp { get; }
+        public Keybind RollDown { get; }
+        public Keybind AimLeft { get; }
+        public Keybind AimRight { get; }
+        public Keybind AimUp { get; }
+        public Keybind AimDown { get; }
+        public Keybind Shoot { get; }
+        public Keybind Zoom { get; }
+        public Keybind Jump { get; }
+        public Keybind Crouch { get; }
+        public Keybind Grapple { get; } = new Keybind(Keys.G);
+        public Keybind Morph { get; }
+        public Keybind Boost { get; }
+        public Keybind AltAttack { get; }
+        public Keybind ScanVisor { get; }
+        public Keybind Scan { get; }
+        public Keybind NextWeapon { get; }
+        public Keybind PrevWeapon { get; }
+        public Keybind WeaponMenu { get; }
+        public Keybind PowerBeam { get; }
+        public Keybind Missile { get; }
+        public Keybind VoltDriver { get; }
+        public Keybind Battlehammer { get; }
+        public Keybind Imperialist { get; }
+        public Keybind Judicator { get; }
+        public Keybind Magmaul { get; }
+        public Keybind ShockCoil { get; }
+        public Keybind OmegaCannon { get; }
+        public Keybind AffinitySlot { get; }
+        public Keybind Pause { get; }
+        public Keybind HudOverlay { get; }
+        public Keybind CustomWeapon { get; }=new Keybind(Keys.Unknown);
+        public Keybind CustomReload { get; }=new Keybind(Keys.Unknown);
+        public Keybind CustomOptic { get; }=new Keybind(Keys.Unknown);
+
+        public bool InvertAimY { get; }
+        public bool InvertAimX { get; }
+        /// <summary>
+        /// Whether the wheel walks the whole list, Power Beam and Missile
+        /// included, or only the seven affinity slots.
+        ///
+        /// Settable, and <see cref="Mods.InputSettings.ScrollAllWeapons"/> is
+        /// where the player's answer lives. It was a readonly false, and the
+        /// weapon-cycling block above only runs at all when it is true *or*
+        /// the equipped weapon is neither the Power Beam nor the Missile -- so
+        /// with the wheel's own defaults bound, scrolling did nothing
+        /// whatsoever while holding the beam every player spawns with.
+        /// </summary>
+        public bool ScrollAllWeapons { get; set; }
+
+        public Keybind[] All { get; }
+
+        public PlayerControls(Keybind moveLeft, Keybind moveRight, Keybind moveUp, Keybind moveDown, Keybind rollLeft, Keybind rollRight,
+            Keybind rollUp, Keybind rollDown, Keybind aimLeft, Keybind aimRight, Keybind aimUp, Keybind aimDown, Keybind shoot, Keybind zoom,
+            Keybind jump, Keybind morph, Keybind boost, Keybind altAttack, Keybind scanVisor, Keybind scan, Keybind nextWeapon,
+            Keybind prevWeapon, Keybind weaponMenu, Keybind powerBeam, Keybind missile, Keybind voltDriver, Keybind battlehammer,
+            Keybind imperialist, Keybind judicator, Keybind magmaul, Keybind shockCoil, Keybind omegaCannon, Keybind affinitySlot,
+            Keybind pause, Keybind hudOverlay, Keybind? crouch = null)
+        {
+            MouseAim = true;
+            KeyboardAim = true;
+            ScrollAllWeapons = true;
+            MoveLeft = moveLeft;
+            MoveRight = moveRight;
+            MoveUp = moveUp;
+            MoveDown = moveDown;
+            RolltLeft = rollLeft;
+            RollRight = rollRight;
+            RollUp = rollUp;
+            RollDown = rollDown;
+            AimLeft = aimLeft;
+            AimRight = aimRight;
+            AimUp = aimUp;
+            AimDown = aimDown;
+            Shoot = shoot;
+            Zoom = zoom;
+            Jump = jump;
+            Crouch = crouch ?? new Keybind(Keys.LeftControl);
+            Morph = morph;
+            Boost = boost;
+            AltAttack = altAttack;
+            ScanVisor = scanVisor;
+            Scan = scan;
+            NextWeapon = nextWeapon;
+            PrevWeapon = prevWeapon;
+            WeaponMenu = weaponMenu;
+            PowerBeam = powerBeam;
+            Missile = missile;
+            VoltDriver = voltDriver;
+            Battlehammer = battlehammer;
+            Imperialist = imperialist;
+            Judicator = judicator;
+            Magmaul = magmaul;
+            ShockCoil = shockCoil;
+            OmegaCannon = omegaCannon;
+            AffinitySlot = affinitySlot;
+            Pause = pause;
+            HudOverlay = hudOverlay;
+            All = new[]
+            {
+                moveLeft, moveRight, moveUp, moveDown, rollLeft, rollRight, rollUp, rollDown, aimLeft, aimRight, aimUp, aimDown,
+                shoot, zoom, jump, morph, boost, altAttack, scanVisor, scan, nextWeapon, prevWeapon, weaponMenu, powerBeam,
+                missile, voltDriver, battlehammer, imperialist, judicator, magmaul, shockCoil, omegaCannon, affinitySlot,
+                pause, hudOverlay, Crouch, CustomWeapon, CustomReload, CustomOptic, Grapple
+            };
+        }
+
+        public void ClearAll()
+        {
+            for (int i = 0; i < All.Length; i++)
+            {
+                All[i].IsDown = false;
+                All[i].IsPressed = false;
+                All[i].IsReleased = false;
+            }
+            ClearAnalogMovement();
+        }
+
+        public void ClearPressed()
+        {
+            for (int i = 0; i < All.Length; i++)
+            {
+                All[i].IsPressed = false;
+            }
+        }
+
+        public static PlayerControls GetDefault()
+        {
+            PlayerControls controls = CreateDefault();
+            // Whatever the player has bound, applied to every set of controls
+            // the game creates. Mods.InputSettings holds the canonical one.
+            Mods.InputSettings.Apply(controls);
+            return controls;
+        }
+
+        private static PlayerControls CreateDefault()
+        {
+            return new PlayerControls(
+                moveLeft: new Keybind(Keys.A),
+                moveRight: new Keybind(Keys.D),
+                moveUp: new Keybind(Keys.W),
+                moveDown: new Keybind(Keys.S),
+                rollLeft: new Keybind(Keys.A),
+                rollRight: new Keybind(Keys.D),
+                rollUp: new Keybind(Keys.W),
+                rollDown: new Keybind(Keys.S),
+                aimLeft: new Keybind(Keys.Left),
+                aimRight: new Keybind(Keys.Right),
+                aimUp: new Keybind(Keys.Up),
+                aimDown: new Keybind(Keys.Down),
+                shoot: new Keybind(MouseButton.Left),
+                zoom: new Keybind(MouseButton.Right),
+                jump: new Keybind(Keys.Space),
+                morph: new Keybind(Keys.C),
+                boost: new Keybind(Keys.Space),
+                altAttack: new Keybind(MouseButton.Left),
+                scanVisor: new Keybind(Keys.E),
+                scan: new Keybind(Keys.Q),
+                nextWeapon: new Keybind(ButtonType.ScrollDown),
+                prevWeapon: new Keybind(ButtonType.ScrollUp),
+                weaponMenu: new Keybind(MouseButton.Middle),
+                powerBeam: new Keybind(Keys.D1),
+                missile: new Keybind(Keys.D2),
+                voltDriver: new Keybind(Keys.D3),
+                battlehammer: new Keybind(Keys.D4),
+                imperialist: new Keybind(Keys.D5),
+                judicator: new Keybind(Keys.D6),
+                magmaul: new Keybind(Keys.D7),
+                shockCoil: new Keybind(Keys.D8),
+                omegaCannon: new Keybind(Keys.D9),
+                affinitySlot: new Keybind(Keys.Unknown),
+                pause: new Keybind(Keys.Tab),
+                hudOverlay: new Keybind(Keys.LeftShift)
+            );
+        }
+    }
+}

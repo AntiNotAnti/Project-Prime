@@ -1,0 +1,1364 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using MphRead.Formats;
+using MphRead.Formats.Culling;
+using OpenTK.Mathematics;
+
+namespace MphRead.Entities
+{
+    public partial class PlayerEntity
+    {
+        public CameraInfo CameraInfo { get; } = new CameraInfo();
+        public CameraType CameraType { get; private set; } = CameraType.First;
+        private Vector3 _field544;
+        private float _field554 = 0;
+        private float _field558 = 0;
+        private float _field68C = 0;
+        private float _field690 = 0;
+
+        private void SwitchCamera(CameraType type, Vector3 facing)
+        {
+            if (type == CameraType.Third1)
+            {
+                CameraInfo.Target = CameraInfo.Position + facing;
+                CameraInfo.Position -= facing / 64;
+            }
+            else if (type == CameraType.Free)
+            {
+                CameraInfo.Target = facing;
+                if (CameraType == CameraType.First)
+                {
+                    Vector3 camVec = CameraInfo.Position - CameraInfo.Target;
+                    if (camVec != Vector3.Zero)
+                    {
+                        camVec = camVec.Normalized();
+                    }
+                    else
+                    {
+                        camVec = Vector3.UnitX;
+                    }
+                    CameraInfo.Position += camVec / 64;
+                }
+            }
+            CameraType = type;
+            _field544 = CameraInfo.Position;
+            _camSwitchTimer = (ushort)(Values.CamSwitchTime * 2 - _camSwitchTimer); // todo: FPS stuff
+            CameraInfo.Shake = 0;
+        }
+
+        private void UpdateCamera()
+        {
+            CameraInfo.PrevPosition = CameraInfo.Position;
+            if (_camSwitchTimer < Values.CamSwitchTime * 2) // todo: FPS stuff
+            {
+                _camSwitchTimer++;
+                if (!IsAltForm && _camSwitchTimer == Values.CamSwitchTime * 2)
+                {
+                    SetGunAnimation(GunAnimation.UpDown, AnimFlags.NoLoop);
+                }
+            }
+            if (IsMainPlayer && _scene.CameraSequences.Current != null)
+            {
+                return;
+            }
+            if (CameraType == CameraType.Third1)
+            {
+                UpdateCameraThird1();
+            }
+            else if (CameraType == CameraType.Third2)
+            {
+                UpdateCameraThird2();
+            }
+            else if (CameraType == CameraType.Free)
+            {
+                UpdateCameraFree();
+            }
+            else if (CameraType == CameraType.Spectator)
+            {
+                UpdateCameraSpectator();
+            }
+            else // if (CameraType == CameraType.First)
+            {
+                UpdateCameraFirst();
+            }
+            CameraInfo.Update();
+        }
+
+        private void UpdateCameraFirst()
+        {
+            Vector3 position = Position;
+            _modTraversalCameraWalkBob = 0;
+            if (!_field6D0)
+            {
+                _modTraversalCameraWalkBob = MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob)) * _walkViewBob;
+                position.Y += (IsAltForm ? Fixed.ToFloat(Values.AimYOffset) : ModBipedEyeOffset)
+                    + _modTraversalCameraWalkBob;
+            }
+            if (_timeStanding < 9 * 2) // todo: FPS stuff
+            {
+                float angle = MathHelper.DegreesToRadians(360 * _timeStanding / (9 * 2)); // todo: FPS stuff
+                position.Y += MathF.Cos(angle) * _field44C - _field44C;
+            }
+            float switchTime = Values.CamSwitchTime * 2; // todo: FPS stuff
+            if (_camSwitchTimer < switchTime)
+            {
+                float pct = _camSwitchTimer / (float)switchTime;
+                _modTraversalCameraWalkBob *= pct;
+                CameraInfo.Position = _field544 + (position - _field544) * pct;
+                Vector3 target = CameraInfo.Position + _facingVector;
+                CameraInfo.Target = Position + (target - Position) * pct;
+            }
+            else
+            {
+                CameraInfo.Position = position;
+                CameraInfo.Target = CameraInfo.Position + _facingVector;
+            }
+            CameraInfo.Target.Y += Fixed.ToFloat(Values.ViewTiltFactor) * MathF.Sin(MathHelper.DegreesToRadians(_viewTiltAngleV));
+            if (MathF.Abs(_viewTiltAngleH) >= 1 / 4096f)
+            {
+                Vector3 toTarget = CameraInfo.Target - CameraInfo.Position;
+                Vector3 upVec = new Vector3(-toTarget.Z, 0, toTarget.X).Normalized();
+                float factor = Fixed.ToFloat(Values.ViewTiltFactor) * MathF.Sin(MathHelper.DegreesToRadians(_viewTiltAngleH));
+                CameraInfo.UpVector = new Vector3(upVec.X * factor, 1, upVec.Z * factor);
+            }
+            else
+            {
+                CameraInfo.UpVector = Vector3.UnitY;
+            }
+            if (EquipInfo.Zoomed && Flags1.TestFlag(PlayerFlags1.Walking))
+            {
+                CameraInfo.Target.Y += MathF.Cos(MathHelper.DegreesToRadians(_gunViewBob)) * 0.025f;
+            }
+        }
+
+        private void UpdateCameraThird1()
+        {
+            float v5;
+            float v6;
+            float v7;
+            if (!Flags1.TestFlag(PlayerFlags1.NoUnmorph))
+            {
+                v5 = Fixed.ToFloat(Values.Field78);
+                v6 = Fixed.ToFloat(Values.Field7C);
+                v7 = Fixed.ToFloat(Values.Field80);
+            }
+            else
+            {
+                v5 = 1.5f;
+                v6 = 0.7f;
+                v7 = 0.5f;
+            }
+            CameraInfo.Target.X = Volume.SpherePosition.X;
+            CameraInfo.Target.Y -= v7;
+            CameraInfo.Target.Y += (Volume.SpherePosition.Y - CameraInfo.Target.Y) / 2;
+            CameraInfo.Target.Z = Volume.SpherePosition.Z;
+            if (MorphCamera != null)
+            {
+                CameraInfo.Position = MorphCamera.Position;
+                _altCameraCollisionBasisLock = false;
+                _altCameraCollisionClearFrames = 0;
+                return;
+            }
+            Vector3 posVec;
+            if (_jumpPadControlLock > 0)
+            {
+                Vector3 camVec = (CameraInfo.Position - CameraInfo.Target).WithY(0).Normalized();
+                posVec = new Vector3(
+                    CameraInfo.Target.X + camVec.X,
+                    CameraInfo.Target.Y + v6,
+                    CameraInfo.Target.Z + camVec.Z
+                );
+            }
+            else if (_field551 <= 1)
+            {
+                Vector3 camVec = (CameraInfo.Position - CameraInfo.Target).Normalized();
+                posVec = new Vector3(
+                    CameraInfo.Target.X + camVec.X * v5,
+                    CameraInfo.Position.Y,
+                    CameraInfo.Target.Z + camVec.Z * v5
+                );
+            }
+            else
+            {
+                Vector3 camVec;
+                if (_camSwitchTimer >= Values.CamSwitchTime * 2) // todo: FPS stuff
+                {
+                    camVec = (CameraInfo.Position - CameraInfo.Target).WithY(0);
+                }
+                else
+                {
+                    camVec = -CameraInfo.Facing.WithY(0);
+                    _field544 += (Position - PrevPosition) / 2; // sktodo: FPS stuff?
+                }
+                camVec = camVec.Normalized();
+                posVec = new Vector3(
+                    CameraInfo.Target.X + camVec.X * v5,
+                    CameraInfo.Target.Y + v6,
+                    CameraInfo.Target.Z + camVec.Z * v5
+                );
+            }
+            CameraInfo.Target.Y += v7;
+            if (_camSwitchTimer < Values.CamSwitchTime * 2) // todo: FPS stuff
+            {
+                float pct = _camSwitchTimer / (Values.CamSwitchTime * 2f); // todo: FPS stuff
+                CameraInfo.Position = _field544 + (posVec - _field544) * pct;
+                Vector3 facingVec = CameraInfo.Position + CameraInfo.Facing;
+                CameraInfo.Target = facingVec + (CameraInfo.Target - facingVec) * pct;
+            }
+            else
+            {
+                float factor = Fixed.ToFloat(Values.Field84);
+                CameraInfo.Position += (posVec - CameraInfo.Position) * factor; // sktodo: FPS stuff?
+            }
+            if (_field553 > 0)
+            {
+                _field553--;
+            }
+            Vector3 cameraCollisionStart = CameraInfo.Position;
+            bool cameraObstructed = false;
+            if ((CameraInfo.Position - Volume.SpherePosition).LengthSquared >= 6 * 6)
+            {
+                _field551 = 255;
+            }
+            else
+            {
+                float speedMagSqr = (Speed / 2).LengthSquared; // sktodo: FPS stuff?
+                if (speedMagSqr > Fixed.ToFloat(36) && _field551 != 255)
+                {
+                    _field551++;
+                }
+                bool blocked1 = false;
+                bool blocked2 = false;
+                bool blocked4 = false;
+                bool blocked8 = false;
+                Vector3 point1 = Volume.SpherePosition;
+                Vector3 point2 = CameraInfo.Position;
+                float margin = Volume.SphereRadius;
+                using var candidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
+                    margin, null, Vector3.Zero, includeEntities: true, _scene);
+                float v35 = CameraInfo.Field50 * margin;
+                float v36 = CameraInfo.Field54 * margin;
+                point1 = CameraInfo.Position.AddX(v35).AddZ(v36);
+                point2 = Volume.SpherePosition.AddX(v35).AddZ(v36);
+                CollisionResult res = default;
+                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point1, TestFlags.Players, _scene, ref res))
+                {
+                    blocked1 = true;
+                }
+                point1 = CameraInfo.Position.AddX(-v35).AddZ(-v36);
+                point2 = Volume.SpherePosition.AddX(-v35).AddZ(-v36);
+                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point1, TestFlags.Players, _scene, ref res))
+                {
+                    blocked2 = true;
+                }
+                point1 = CameraInfo.Position + CameraInfo.UpVector * margin;
+                point2 = Volume.SpherePosition + CameraInfo.UpVector * margin;
+                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point1, TestFlags.Players, _scene, ref res))
+                {
+                    blocked4 = true;
+                    _field551 = 0;
+                }
+                point1 = CameraInfo.Position - CameraInfo.UpVector * (margin / 2);
+                point2 = Volume.SpherePosition - CameraInfo.UpVector * (margin / 2);
+                if (CollisionDetection.CheckBetweenPoints(candidates, point1, point1, TestFlags.Players, _scene, ref res))
+                {
+                    blocked8 = true;
+                    _field551 = 0;
+                }
+                float max = Fixed.ToFloat(100);
+                if (speedMagSqr > max) // sktodo: FPS stuff?
+                {
+                    speedMagSqr = max;
+                }
+                if (!blocked1 || _field558 <= 0 && blocked2)
+                {
+                    if (!blocked2)
+                    {
+                        _field558 = 0;
+                    }
+                    else
+                    {
+                        if (_field558 > 0)
+                        {
+                            _field558 = 0;
+                        }
+                        _field558 -= Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
+                        if (_field558 < -Fixed.ToFloat(Values.Field8C))
+                        {
+                            _field558 = -Fixed.ToFloat(Values.Field8C);
+                        }
+                        float angle = MathHelper.DegreesToRadians(_field558 * 22.5f); // 360 / 16 = 22.5
+                        float cos;
+                        float sin;
+                        if (angle <= 0)
+                        {
+                            cos = MathF.Cos(angle);
+                            sin = MathF.Sin(angle);
+                        }
+                        else
+                        {
+                            cos = MathF.Cos(-angle);
+                            sin = -MathF.Sin(-angle);
+                        }
+                        Vector3 v119 = CameraInfo.Position - CameraInfo.Target;
+                        float x = v119.X;
+                        float z = v119.Z;
+                        v119.X = x * cos + z * sin;
+                        v119.Z = x * -sin + z * cos;
+                        CameraInfo.Position = v119 + CameraInfo.Target;
+                    }
+                }
+                else
+                {
+                    // todo?: similar to above except for some signs/comparisons
+                    if (_field558 < 0)
+                    {
+                        _field558 = 0;
+                    }
+                    _field558 += Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
+                    if (_field558 > Fixed.ToFloat(Values.Field8C))
+                    {
+                        _field558 = Fixed.ToFloat(Values.Field8C);
+                    }
+                    float angle = MathHelper.DegreesToRadians(_field558 * 22.5f); // 360 / 16 = 22.5
+                    float cos;
+                    float sin;
+                    if (angle <= 0)
+                    {
+                        cos = MathF.Cos(angle);
+                        sin = MathF.Sin(angle);
+                    }
+                    else
+                    {
+                        cos = MathF.Cos(-angle);
+                        sin = -MathF.Sin(-angle);
+                    }
+                    Vector3 v219 = CameraInfo.Position - CameraInfo.Target;
+                    float x = v219.X;
+                    float z = v219.Z;
+                    v219.X = x * cos + z * sin;
+                    v219.Z = x * -sin + z * cos;
+                    CameraInfo.Position = v219 + CameraInfo.Target;
+                }
+                if (!blocked8 || _field554 <= 0 && blocked4)
+                {
+                    if (!blocked4)
+                    {
+                        _field554 = 0;
+                    }
+                    else
+                    {
+                        if (_field558 > 0) // bug?: seems like this should have been _field554?
+                        {
+                            _field558 = 0;
+                        }
+                        _field554 -= Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
+                        if (_field554 < -Fixed.ToFloat(Values.Field8C))
+                        {
+                            _field554 = -Fixed.ToFloat(Values.Field8C);
+                        }
+                        float angle = MathHelper.DegreesToRadians(_field554);
+                        float cos;
+                        float sin;
+                        if (angle <= 0)
+                        {
+                            cos = MathF.Cos(angle);
+                            sin = MathF.Sin(angle);
+                        }
+                        else
+                        {
+                            cos = MathF.Cos(-angle);
+                            sin = -MathF.Sin(-angle);
+                        }
+                        Vector3 v319 = CameraInfo.Position - CameraInfo.Target;
+                        float x = v319.X;
+                        float y = v319.Y;
+                        float z = v319.Z;
+                        v319.X = CameraInfo.UpVector.X * sin + x * cos;
+                        v319.Y = CameraInfo.UpVector.Y * sin + y * cos;
+                        v319.Z = CameraInfo.UpVector.Z * sin + z * cos;
+                        CameraInfo.Position = v319 + CameraInfo.Target;
+                    }
+                }
+                else
+                {
+                    // todo?: similar to above except for some signs/comparisons
+                    if (_field558 < 0) // bug?: seems like this should have been _field554?
+                    {
+                        _field558 = 0;
+                    }
+                    _field554 += Fixed.ToFloat(Values.Field88) * speedMagSqr / max / 2; // todo: FPS stuff
+                    if (_field554 > Fixed.ToFloat(Values.Field8C))
+                    {
+                        _field554 = Fixed.ToFloat(Values.Field8C);
+                    }
+                    float angle = MathHelper.DegreesToRadians(_field554);
+                    float cos;
+                    float sin;
+                    if (angle <= 0)
+                    {
+                        cos = MathF.Cos(angle);
+                        sin = MathF.Sin(angle);
+                    }
+                    else
+                    {
+                        cos = MathF.Cos(-angle);
+                        sin = -MathF.Sin(-angle);
+                    }
+                    Vector3 v419 = CameraInfo.Position - CameraInfo.Target;
+                    float x = v419.X;
+                    float y = v419.Y;
+                    float z = v419.Z;
+                    v419.X = CameraInfo.UpVector.X * sin + x * cos;
+                    v419.Y = CameraInfo.UpVector.Y * sin + y * cos;
+                    v419.Z = CameraInfo.UpVector.Z * sin + z * cos;
+                    CameraInfo.Position = v419 + CameraInfo.Target;
+                }
+                point1 = CameraInfo.PrevPosition;
+                point2 = CameraInfo.Position;
+                margin = Fixed.ToFloat(Values.Field90);
+                using var cameraCandidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
+                    margin, null, Vector3.Zero, includeEntities: true, _scene);
+                var results = _cameraCollisionScratch;
+            Array.Clear(results);
+                int count = CollisionDetection.CheckSphereBetweenPoints(cameraCandidates, point1, point2, margin,
+                    limit: 8, includeOffset: true, TestFlags.Players, _scene, results);
+                bool v85 = false;
+                for (int i = 0; i < count; i++)
+                {
+                    CollisionResult result = results[i];
+                    if (result.Field0 == 0)
+                    {
+                        float dot = -(Vector3.Dot(CameraInfo.Position, result.Plane.Xyz) - result.Plane.W - margin);
+                        if (dot > 0)
+                        {
+                            CameraInfo.Position += result.Plane.Xyz * dot;
+                            v85 = true;
+                        }
+                    }
+                }
+                if (v85)
+                {
+                    Vector3 toTarget = CameraInfo.Target - CameraInfo.Position;
+                    for (int i = 0; i < count; i++)
+                    {
+                        CollisionResult result = results[i];
+                        if (result.Field0 == 1 && Vector3.Dot(toTarget, result.Plane.Xyz) >= 0)
+                        {
+                            float dot = -(Vector3.Dot(CameraInfo.Position, result.Plane.Xyz) - result.Plane.W - margin);
+                            if (dot > 0)
+                            {
+                                CameraInfo.Position += result.Plane.Xyz * dot;
+                            }
+                        }
+                    }
+                }
+                foreach (DoorEntity door in _scene.GetDoorEntities())
+                {
+                    if (door.Flags.TestFlag(DoorFlags.Open) || door.ConnectorInactive)
+                    {
+                        continue;
+                    }
+                    Vector3 toLock = Position - door.LockPosition; // player pos, not cam info pos
+                    Vector3 doorFacing = door.FacingVector;
+                    Vector4 doorPlane;
+                    if (Vector3.Dot(toLock, doorFacing) >= 0)
+                    {
+                        doorPlane = new Vector4(doorFacing);
+                    }
+                    else
+                    {
+                        doorPlane = new Vector4(-doorFacing);
+                    }
+                    Vector3 wvec = doorPlane.Xyz * (door.LockPosition + 0.4f * doorPlane.Xyz);
+                    doorPlane.W = wvec.X + wvec.Y + wvec.Z;
+                    CollisionResult planeRes = default;
+                    if (CollisionDetection.CheckCylinderIntersectPlane(Position, CameraInfo.Position, doorPlane, ref planeRes))
+                    {
+                        if ((planeRes.Position - door.LockPosition).LengthSquared < door.RadiusSquared + 1)
+                        {
+                            float dot = Vector3.Dot(CameraInfo.Position, doorPlane.Xyz) - doorPlane.W;
+                            if (dot <= 0)
+                            {
+                                dot += 0.1f;
+                                CameraInfo.Position -= doorPlane.Xyz * dot;
+                            }
+                        }
+                    }
+                }
+                if (!blocked1 && !blocked2 && !blocked4 && !blocked8)
+                {
+                    _field552 = 255;
+                }
+                else
+                {
+                    cameraObstructed = true;
+                }
+            }
+            CollisionResult targResult = default;
+            if (CollisionDetection.CheckBetweenPoints(CameraInfo.Target, CameraInfo.Position,
+                TestFlags.Players, _scene, ref targResult))
+            {
+                cameraObstructed = true;
+                if (_field552 < 15 * 2) // todo: FPS stuff
+                {
+                    _field552++;
+                }
+                else
+                {
+                    Vector3 between = CameraInfo.Position - CameraInfo.Target;
+                    CameraInfo.Position = CameraInfo.Target + between * targResult.Distance;
+                }
+            }
+            else
+            {
+                _field552 = 0;
+            }
+
+            // Some collision paths (sphere push-out and closed doors)
+            // correct the camera without tripping the side/vertical probes above.
+            // Any displacement produced by this collision phase counts too.
+            cameraObstructed |= (CameraInfo.Position - cameraCollisionStart).LengthSquared > 0.000001f;
+
+            bool playerCollision = Flags1.TestFlag(PlayerFlags1.CollidingLateral);
+            bool collisionNow = cameraObstructed || playerCollision;
+            ModGetAltRollInput(out float rollInputX, out float rollInputY);
+            float rollInputSq = rollInputX * rollInputX + rollInputY * rollInputY;
+            bool rollInputHeld = Single.IsFinite(rollInputSq) && rollInputSq >= 0.0001f;
+
+            if (collisionNow && IsMainPlayer && rollInputHeld)
+            {
+                if (!_altCameraCollisionBasisLock)
+                {
+                    _altRollLockInputX = rollInputX;
+                    _altRollLockInputY = rollInputY;
+                }
+                _altCameraCollisionBasisLock = true;
+                _altCameraCollisionClearFrames = 0;
+                Flags1 |= PlayerFlags1.AltDirOverride;
+            }
+            else if (_altCameraCollisionBasisLock)
+            {
+                if (collisionNow)
+                {
+                    _altCameraCollisionClearFrames = 0;
+                }
+                else if (_altCameraCollisionClearFrames < Byte.MaxValue)
+                {
+                    _altCameraCollisionClearFrames++;
+                }
+            }
+
+            if (IsMainPlayer && Mods.Input.AltFormMoveDebug.Enabled)
+            {
+                Vector3 physicalFacing = CameraInfo.Target - CameraInfo.Position;
+                bool directionChanged = _altCameraCollisionBasisLock
+                    && Mods.Input.AltFormInputDirection.SignificantChange(
+                        _altRollLockInputX, _altRollLockInputY, rollInputX, rollInputY);
+                Mods.Input.AltFormMoveDebug.Log(SlotIndex,
+                    physicalFacing.X, physicalFacing.Z,
+                    _altRollFbX, _altRollFbZ,
+                    rollInputX, rollInputY,
+                    cameraObstructed, playerCollision,
+                    _altCameraCollisionBasisLock, _altCameraCollisionClearFrames,
+                    directionChanged);
+            }
+        }
+
+        private void UpdateCameraThird2()
+        {
+            float switchTime = Values.CamSwitchTime * 2; // todo: FPS stuff
+            if (_camSwitchTimer < switchTime)
+            {
+                _field68C = Fixed.ToFloat(Values.Field80);
+                _field690 = Fixed.ToFloat(Values.Field78);
+            }
+            else if (Flags1.TestFlag(PlayerFlags1.NoUnmorph))
+            {
+                // sktodo: FPS stuff
+                Debug.Assert(_field68C >= 0);
+                _field68C += -0.2f * _field68C / 2;
+                _field690 += 0.2f * (1.5f - _field690) / 2;
+            }
+            else
+            {
+                // sktodo: FPS stuff
+                _field68C += 0.2f * (Fixed.ToFloat(Values.Field80) - _field68C) / 2;
+                _field690 += 0.2f * (Fixed.ToFloat(Values.Field78) - _field690) / 2;
+            }
+            CameraInfo.Target = Volume.SpherePosition;
+            Vector3 camTarget = CameraInfo.Target;
+            CameraInfo.Target.Y += _field68C;
+            if (MorphCamera != null)
+            {
+                CameraInfo.Position = MorphCamera.Position;
+                return;
+            }
+            Vector3 camVec;
+            if (Flags1.TestFlag(PlayerFlags1.NoUnmorph))
+            {
+                camVec = new Vector3(_field70 * _field690, 0, _field74 * _field690);
+            }
+            else
+            {
+                camVec = _facingVector * _field690;
+            }
+            Vector3 posVec = CameraInfo.Target - camVec;
+            if (_camSwitchTimer < switchTime)
+            {
+                float pct = _camSwitchTimer / (float)switchTime;
+                CameraInfo.Position = _field544 + (posVec - _field544) * pct;
+                Vector3 facingVec = CameraInfo.Position + _facingVector;
+                CameraInfo.Target = facingVec + (CameraInfo.Target - facingVec) * pct;
+            }
+            else
+            {
+                float factor = Fixed.ToFloat(Values.Field84);
+                CameraInfo.Position += (posVec - CameraInfo.Position) * factor; // sktodo: FPS stuff?
+            }
+            CollisionResult result = default;
+            if (CollisionDetection.CheckBetweenPoints(camTarget, CameraInfo.Position, TestFlags.Players, _scene, ref result))
+            {
+                Vector3 toTarget = CameraInfo.Position - camTarget;
+                CameraInfo.Position = camTarget + toTarget * result.Distance;
+                CameraInfo.Position += 0.15f * result.Plane.Xyz;
+            }
+        }
+
+        // todo: enhanced free cam
+        private void UpdateCameraFree()
+        {
+            Debug.Assert(_scene.Room != null);
+            ushort switchTime = (ushort)(Values.CamSwitchTime * 2); // todo: FPS stuff
+            if (_camSwitchTimer < switchTime)
+            {
+                float pct = _camSwitchTimer / (float)switchTime;
+                Vector3 camVec = CameraInfo.Position - CameraInfo.Target;
+                camVec = camVec != Vector3.Zero ? camVec.Normalized() : _facingVector;
+                Vector3 posVec = Volume.SpherePosition + camVec * Fixed.ToFloat(Values.Field78);
+                if (_scene.Room.Meta.HasLimits)
+                {
+                    posVec = Vector3.Clamp(posVec, _scene.Room.Meta.CameraMin, _scene.Room.Meta.CameraMax);
+                }
+                CameraInfo.Position = _field544 + (posVec - _field544) * pct;
+            }
+            else
+            {
+                float limit = Fixed.ToFloat(40);
+                if (CameraInfo.Facing.X < limit && CameraInfo.Facing.X > -limit
+                    && CameraInfo.Facing.Z < limit && CameraInfo.Facing.Z > -limit)
+                {
+                    if (MathF.Abs(CameraInfo.Facing.X) >= 1 / 4096f || MathF.Abs(CameraInfo.Facing.X) >= 1 / 4096f)
+                    {
+                        CameraInfo.Facing.X *= 4;
+                        CameraInfo.Facing.Z *= 4;
+                    }
+                    else
+                    {
+                        CameraInfo.Facing.X = limit;
+                    }
+                }
+                // todo: FPS stuff
+                if (Controls.MoveUp.IsDown)
+                {
+                    CameraInfo.Position += CameraInfo.Facing * 0.4f / 2;
+                }
+                else if (Controls.MoveDown.IsDown)
+                {
+                    CameraInfo.Position -= CameraInfo.Facing * 0.4f / 2;
+                }
+                if (Controls.MoveLeft.IsDown)
+                {
+                    CameraInfo.Position.X += CameraInfo.Field50 * 0.4f / 2;
+                    CameraInfo.Position.Z += CameraInfo.Field54 * 0.4f / 2;
+                }
+                else if (Controls.MoveRight.IsDown)
+                {
+                    CameraInfo.Position.X -= CameraInfo.Field50 * 0.4f / 2;
+                    CameraInfo.Position.Z -= CameraInfo.Field54 * 0.4f / 2;
+                }
+                float aimY = 0;
+                float aimX = 0;
+                if (Controls.MouseAim && !IsBot)
+                {
+                    if (!Controls.KeyboardAim || !Controls.AimUp.IsDown && !Controls.AimDown.IsDown)
+                    {
+                        aimY = -Input.MouseDeltaY / 4f * Mods.InputSettings.MouseAimSensitivityY();
+                    }
+                    if (!Controls.KeyboardAim || !Controls.AimLeft.IsDown && !Controls.AimRight.IsDown)
+                    {
+                        aimX = -Input.MouseDeltaX / 4f * Mods.InputSettings.MouseAimSensitivityX();
+                    }
+                }
+                if (Controls.KeyboardAim || IsBot)
+                {
+                    // 8 degrees per frame at 30 fps (45f/1.5s to complete one revolution)
+                    float maxAimX = _maxButtonAimX * 30;
+                    float aimStepX = maxAimX * (40 / 4096f);
+                    float maxAimY = _maxButtonAimY * 30;
+                    float aimStepY = maxAimY * (40 / 4096f);
+                    if (Controls.AimRight.IsDown)
+                    {
+                        (_buttonAimX, aimX) = ConstantAcceleration(-aimStepX, _buttonAimX, -maxAimX, -maxAimX * 0.4f);
+                    }
+                    else if (Controls.AimLeft.IsDown)
+                    {
+                        (_buttonAimX, aimX) = ConstantAcceleration(aimStepX, _buttonAimX, maxAimY * 0.4f, maxAimX);
+                    }
+                    else if (_buttonAimX != 0)
+                    {
+                        if (_buttonAimX > 0 && _buttonAimX < 1 / 4096f
+                        || _buttonAimX < 0 && _buttonAimX > -1 / 4096f)
+                        {
+                            _buttonAimX = 0;
+                        }
+                        else
+                        {
+                            (_buttonAimX, float updateAimX) = Drag(0.4f, _buttonAimX);
+                            if (aimX == 0)
+                            {
+                                aimX = updateAimX;
+                            }
+                        }
+                    }
+                    if (Controls.AimUp.IsDown)
+                    {
+                        (_buttonAimY, aimY) = ConstantAcceleration(aimStepY, _buttonAimY, maxAimY * 0.4f, maxAimY);
+                    }
+                    else if (Controls.AimDown.IsDown)
+                    {
+                        (_buttonAimY, aimY) = ConstantAcceleration(-aimStepY, _buttonAimY, -maxAimY, -maxAimY * 0.4f);
+                    }
+                    else if (_buttonAimY != 0)
+                    {
+                        if (_buttonAimY > 0 && _buttonAimY < 1 / 4096f
+                        || _buttonAimY < 0 && _buttonAimY > -1 / 4096f)
+                        {
+                            _buttonAimY = 0;
+                        }
+                        else
+                        {
+                            (_buttonAimY, float updateAimY) = Drag(0.4f, _buttonAimY);
+                            if (aimY == 0)
+                            {
+                                aimY = updateAimY;
+                            }
+                        }
+                    }
+                }
+                if (Controls.InvertAimY)
+                {
+                    aimY *= -1;
+                }
+                if (Controls.InvertAimX)
+                {
+                    aimX *= -1;
+                }
+                bool updateY = aimY != 0 && (CameraInfo.Facing.Y < 0.985f || aimY < 0) && (CameraInfo.Facing.Y > -0.985f || aimY > 0);
+                bool updateX = aimX != 0;
+                if (updateY || updateX)
+                {
+                    // button aim causes constant acceleration/decay of the rate of change of the pitch/yaw of the facing vector.
+                    // to make that easy to implement independent of the frame rate, we convert the vector to angles and back.
+                    // there may be a better way to do this by operating on the vector itself.
+                    float pitch = MathHelper.RadiansToDegrees(MathF.Asin(CameraInfo.Facing.Y));
+                    float yaw = MathHelper.RadiansToDegrees(MathF.Atan2(CameraInfo.Facing.X, CameraInfo.Facing.Z));
+                    if (updateY)
+                    {
+                        pitch = (pitch + aimY) % 360;
+                    }
+                    if (updateX)
+                    {
+                        yaw = (yaw + aimX) % 360;
+                    }
+                    pitch = MathHelper.DegreesToRadians(pitch);
+                    yaw = MathHelper.DegreesToRadians(yaw);
+                    float cos = MathF.Cos(pitch);
+                    CameraInfo.Facing = new Vector3(MathF.Sin(yaw) * cos, MathF.Sin(pitch), MathF.Cos(yaw) * cos);
+                }
+                Vector3 pos = CameraInfo.Position;
+                if (_scene.Room.Meta.HasLimits)
+                {
+                    pos = Vector3.Clamp(pos, _scene.Room.Meta.CameraMin, _scene.Room.Meta.CameraMax);
+                }
+                CameraInfo.Position = pos;
+                CameraInfo.Target = CameraInfo.Position + CameraInfo.Facing;
+            }
+            // getting candidates separately since CheckBetweenPoints doesn't include entities when doing the candidate query
+            Vector3 point1 = CameraInfo.PrevPosition;
+            Vector3 point2 = CameraInfo.Position;
+            float margin = 0.5f;
+            using var candidates = CollisionDetection.GetCandidatesForLimits(point1, point2,
+                margin, null, Vector3.Zero, includeEntities: true, _scene);
+            var results = _cameraCollisionScratch;
+            Array.Clear(results);
+            int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, margin,
+                limit: 8, includeOffset: false, TestFlags.Players, _scene, results);
+            for (int i = 0; i < count; i++)
+            {
+                CollisionResult result = results[i];
+                float dot = -(Vector3.Dot(CameraInfo.Position, result.Plane.Xyz) - result.Plane.W - margin);
+                if (dot > 0)
+                {
+                    CameraInfo.Position += result.Plane.Xyz * dot;
+                    _camSwitchTimer = switchTime;
+                }
+            }
+            if (_camSwitchTimer >= switchTime)
+            {
+                CameraInfo.Target = CameraInfo.Position + CameraInfo.Facing;
+            }
+        }
+
+        private void UpdateCameraSpectator()
+        {
+            // camtodo
+        }
+
+        public void SetUpMatchEndCamera()
+        {
+            _field70 = CameraInfo.Field48;
+            _field74 = CameraInfo.Field4C;
+            _gunVec2 = new Vector3(CameraInfo.Field50, 0, CameraInfo.Field54);
+            _facingVector = CameraInfo.Facing;
+            SetTransform(_facingVector, _upVector, Position);
+        }
+
+        public void UpdateMatchEndCamera(PlayerEntity winner, float timeSinceMatchEnd)
+        {
+            // Presentation-only winner shot. Camera position/target/FOV are never
+            // written to any authoritative player state or recorded hit fact.
+            float progress = Math.Clamp(timeSinceMatchEnd / SceneGameState.MatchFinalCameraSeconds, 0f, 1f);
+            float ease = progress * progress * (3f - 2f * progress);
+            bool reduceMotion = Mods.Launcher.LauncherPrefs.ReduceMotion
+                || Mods.Render.Hud.HudProfiles.Runtime.ReduceMotion;
+
+            // Use the Hunter's *horizontal* pose for a stable orbital plane,
+            // including alt form and steep uphill/downhill aim.
+            Vector3 forward = winner.FacingVector;
+            forward.Y = 0;
+            if (!float.IsFinite(forward.X) || !float.IsFinite(forward.Z)
+                || forward.LengthSquared < 0.0001f)
+                forward = new Vector3(winner.Field70, 0, winner.Field74);
+            if (!float.IsFinite(forward.X) || !float.IsFinite(forward.Z)
+                || forward.LengthSquared < 0.0001f) forward = Vector3.UnitZ;
+            else forward.Normalize();
+            Vector3 side = Vector3.Cross(forward, Vector3.UnitY);
+            if (side.LengthSquared < 0.0001f) side = Vector3.UnitX;
+            else side.Normalize();
+
+            bool alt = winner.IsAltForm || winner.IsMorphing || winner.IsUnmorphing;
+            Vector3 focus = winner.Position + Vector3.UnitY * (alt ? 0.75f : 1.25f);
+            // Sweeping 1.06 radians over five seconds is enough to reveal the
+            // winner's silhouette without disorienting rapid camera spins.
+            float azimuth = reduceMotion ? -0.18f : -0.35f + 1.06f * ease;
+            float range = (alt ? 4.2f : 4.6f) - (reduceMotion ? 0f : 0.75f * ease);
+            Vector3 desired = focus + (-forward * MathF.Cos(azimuth) + side * MathF.Sin(azimuth)) * range
+                + Vector3.UnitY * (alt ? 1.65f : 1.15f);
+            Vector3 desiredTarget = focus + forward * (alt ? 0.15f : 0.4f);
+            float nativeFov = Fixed.ToFloat(Values.NormalFov) * 2;
+            float desiredFov = nativeFov * (reduceMotion ? 1f : 1f - 0.065f * ease);
+
+            // Check the actual camera ray before *and* after smoothing, since
+            // a filtered camera can drift behind geometry the target avoids.
+            Vector3 proposed = MatchEndSafeCamera(focus, desired);
+            bool firstFrame = CameraType != CameraType.Third2 || timeSinceMatchEnd <= 1f / 30f;
+            CameraType = CameraType.Third2;
+            if (firstFrame || reduceMotion)
+            {
+                CameraInfo.Position = proposed;
+                CameraInfo.Target = desiredTarget;
+                CameraInfo.Fov = desiredFov;
+            }
+            else
+            {
+                // The simulation ticks at 60 Hz; smoothing is performed on
+                // camera poses, not by adding independent render-frame motion.
+                float alpha = 1f - MathF.Exp(-12f * MathF.Max(_scene.FrameTime, 1f / 60f));
+                CameraInfo.Position = MatchEndSafeCamera(focus,
+                    Vector3.Lerp(CameraInfo.Position, proposed, alpha));
+                CameraInfo.Target = Vector3.Lerp(CameraInfo.Target, desiredTarget, alpha);
+                CameraInfo.Fov += (desiredFov - CameraInfo.Fov) * alpha;
+            }
+            CameraInfo.UpVector = Vector3.UnitY;
+            CameraInfo.Shake = 0;
+            CameraInfo.Update();
+            CameraInfo.NodeRef = _scene.UpdateNodeRef(winner.NodeRef, winner.Position, CameraInfo.Position);
+        }
+
+        private Vector3 MatchEndSafeCamera(Vector3 focus, Vector3 target)
+        {
+            CollisionResult hit = default;
+            if (!CollisionDetection.CheckBetweenPoints(focus, target, TestFlags.Players, _scene, ref hit))
+                return target;
+            // The existing collision distance is a segment fraction. Keep a
+            // small surface margin without crossing behind the first hit.
+            // Malformed collision distances are not allowed into view matrices.
+            if (!float.IsFinite(hit.Distance)) return focus + Vector3.UnitY * 0.5f;
+            float fraction = Math.Clamp(hit.Distance - 0.025f, 0.05f, 1f);
+            return focus + (target - focus) * fraction + hit.Plane.Xyz * 0.05f;
+        }
+
+        public void RefreshExternalCamera()
+        {
+            Flags1 |= PlayerFlags1.AltDirOverride;
+            _timeSinceMorphCamera = 0;
+        }
+
+        public void ResumeOwnCamera()
+        {
+            if (CameraType == CameraType.Third1)
+            {
+                CameraInfo.Target = Position;
+                CameraInfo.Position = CameraInfo.Target;
+                CameraInfo.Position.X -= _field80 * Fixed.ToFloat(Values.Field78);
+                CameraInfo.Position.Z -= _field84 * Fixed.ToFloat(Values.Field78);
+                _field544 = CameraInfo.Position;
+                CameraInfo.Target.Y += Fixed.ToFloat(Values.Field80);
+            }
+            else
+            {
+                _field68C = Fixed.ToFloat(Values.Field80);
+                _field690 = Fixed.ToFloat(Values.Field78);
+                CameraInfo.Target = Position.AddY(_field68C + Fixed.ToFloat(Values.AltColYPos));
+                CameraInfo.Position = CameraInfo.Target - _facingVector * _field690;
+                _field544 = CameraInfo.Position;
+            }
+        }
+    }
+
+    public class CameraInfo
+    {
+        private const float HorizontalBasisEpsilon = 1f / 4096f;
+        internal MatchRandom Random { get; set; } = Rng.Current;
+        public Vector3 Position;
+        public Vector3 PrevPosition;
+        public Vector3 Target;
+        public Vector3 UpVector;
+        public Vector3 TrueUp;
+        public Vector3 Facing;
+        public float Fov;
+        public float Shake;
+        public Matrix4 ViewMatrix;
+        public float Field48;
+        public float Field4C;
+        public float Field50;
+        public float Field54;
+        public NodeRef NodeRef = NodeRef.None;
+
+        private bool _shake = true;
+
+        // Render-only camera history. Gameplay always reads the public fields
+        // above; this history exists solely to turn 60 Hz spectator/replay
+        // cameras into smooth high-refresh presentation.
+        private Vector3 _drawPreviousPosition, _drawCurrentPosition;
+        private Vector3 _drawPreviousTarget, _drawCurrentTarget;
+        private Vector3 _drawPreviousUp = Vector3.UnitY, _drawCurrentUp = Vector3.UnitY;
+        private float _drawPreviousFov, _drawCurrentFov;
+        private long _drawPreviousFovGeneration, _drawCurrentFovGeneration;
+        private bool _drawStateValid;
+
+        public void Reset()
+        {
+            PrevPosition = Vector3.UnitZ;
+            Position = PrevPosition;
+            Target = Vector3.Zero;
+            UpVector = Vector3.UnitY;
+            Fov = 39 * 2;
+            // The roll/alt-form movement basis is valid before the first
+            // camera update and remains the fallback for vertical geometry.
+            Field48 = 0;
+            Field4C = -1;
+            Field50 = -1;
+            Field54 = 0;
+            ModResetDrawState();
+        }
+
+        internal void ModResetDrawState()
+        {
+            _drawPreviousPosition = _drawCurrentPosition = Position;
+            _drawPreviousTarget = _drawCurrentTarget = Target;
+            _drawPreviousUp = _drawCurrentUp = UpVector;
+            _drawPreviousFov = _drawCurrentFov = Fov;
+            _drawPreviousFovGeneration = _drawCurrentFovGeneration = Mods.Render.FrameTiming.PresentationGeneration;
+            _drawStateValid = true;
+        }
+
+        internal void ModCaptureDrawState()
+        {
+            if (!_drawStateValid || (Position - _drawCurrentPosition).LengthSquared > 16f)
+            {
+                ModResetDrawState();
+                return;
+            }
+            _drawPreviousPosition = _drawCurrentPosition;
+            _drawPreviousTarget = _drawCurrentTarget;
+            _drawPreviousUp = _drawCurrentUp;
+            _drawPreviousFov = _drawCurrentFov;
+            _drawPreviousFovGeneration = _drawCurrentFovGeneration;
+            _drawCurrentPosition = Position;
+            _drawCurrentTarget = Target;
+            _drawCurrentUp = UpVector;
+            _drawCurrentFov = Fov;
+            _drawCurrentFovGeneration = Mods.Render.FrameTiming.PresentationGeneration;
+        }
+
+        private bool ModCanSampleLiveHistory(double alpha)
+            => _drawPreviousFovGeneration == Mods.Render.FrameTiming.PresentationGeneration
+                && _drawCurrentFovGeneration == Mods.Render.FrameTiming.PresentationGeneration
+                && double.IsFinite(alpha);
+
+        internal bool ModHasLiveDrawHistory(double alpha)
+            => _drawStateValid && ModCanSampleLiveHistory(alpha);
+
+        internal Vector3 ModGetDrawPosition(double alpha, bool fenceLiveClock = false)
+        {
+            if (!_drawStateValid || fenceLiveClock && !ModCanSampleLiveHistory(alpha)) return Position;
+            float t = (float)Math.Clamp(alpha, 0.0, 1.0);
+            return Vector3.Lerp(_drawPreviousPosition, _drawCurrentPosition, t);
+        }
+
+        internal Matrix4 ModGetDrawView(double alpha)
+        {
+            if (!ModGetDrawPose(alpha, out Vector3 position, out Vector3 target,
+                out Vector3 up, out _))
+            {
+                return ViewMatrix;
+            }
+            return Matrix4.LookAt(position, target, up);
+        }
+
+        internal bool ModGetDrawPose(double alpha, out Vector3 position,
+            out Vector3 target, out Vector3 up, out float fov)
+        {
+            if (!_drawStateValid)
+            {
+                position = Position;
+                target = Target;
+                up = UpVector.LengthSquared > 0.000001f ? UpVector.Normalized() : Vector3.UnitY;
+                fov = Fov;
+                return IsFinite(position) && IsFinite(target)
+                    && (target - position).LengthSquared >= 0.000001f;
+            }
+
+            float t = (float)Math.Clamp(alpha, 0.0, 1.0);
+            position = Vector3.Lerp(_drawPreviousPosition, _drawCurrentPosition, t);
+            target = Vector3.Lerp(_drawPreviousTarget, _drawCurrentTarget, t);
+            up = Vector3.Lerp(_drawPreviousUp, _drawCurrentUp, t);
+            fov = _drawPreviousFov + (_drawCurrentFov - _drawPreviousFov) * t;
+            if (!IsFinite(position) || !IsFinite(target) || !IsFinite(up)
+                || (target - position).LengthSquared < 0.000001f || up.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+            up = up.Normalized();
+            return true;
+        }
+
+        /// <summary>
+        /// Local first-person legacy aiming needs angular interpolation rather
+        /// than target-point interpolation: the target is just a direction endpoint,
+        /// and during a fast spin two endpoints can cross through the camera.
+        /// Scripted/replay/spectator cameras keep <see cref="ModGetDrawPose"/>,
+        /// where the target may be an authored world-space point.
+        /// </summary>
+        internal bool ModGetFirstPersonDrawPose(double alpha, out Vector3 position,
+            out Vector3 target, out Vector3 up, out float fov, bool fenceLiveClock = false)
+        {
+            if (!_drawStateValid || fenceLiveClock && !ModCanSampleLiveHistory(alpha))
+            {
+                position = Position;
+                Vector3 facingNow = Target - Position;
+                if (!ModInterpolateDirection(facingNow, facingNow, 1, out Vector3 initialFacing))
+                {
+                    target = Target;
+                    up = Vector3.UnitY;
+                    fov = Fov;
+                    return false;
+                }
+                up = UpVector;
+                up -= initialFacing * Vector3.Dot(up, initialFacing);
+                if (!IsFinite(up) || up.LengthSquared < 0.000001f)
+                {
+                    Vector3 reference = MathF.Abs(initialFacing.Y) < 0.999f
+                        ? Vector3.UnitY : Vector3.UnitZ;
+                    up = reference - initialFacing * Vector3.Dot(reference, initialFacing);
+                }
+                if (!IsFinite(up) || up.LengthSquared < 0.000001f)
+                {
+                    target = Target;
+                    fov = Fov;
+                    return false;
+                }
+                up = up.Normalized();
+                target = position + initialFacing * Math.Max(facingNow.Length, 1f);
+                fov = Fov;
+                return true;
+            }
+
+            float t = (float)Math.Clamp(alpha, 0.0, 1.0);
+            position = Vector3.Lerp(_drawPreviousPosition, _drawCurrentPosition, t);
+
+            Vector3 previousFacing = _drawPreviousTarget - _drawPreviousPosition;
+            Vector3 currentFacing = _drawCurrentTarget - _drawCurrentPosition;
+            if (!ModInterpolateDirection(previousFacing, currentFacing, t, out Vector3 facing))
+            {
+                target = Target;
+                up = UpVector;
+                fov = Fov;
+                return false;
+            }
+
+            float previousDistance = previousFacing.Length;
+            float currentDistance = currentFacing.Length;
+            if (!Single.IsFinite(previousDistance) || previousDistance < 0.000001f)
+            {
+                previousDistance = 1f;
+            }
+            if (!Single.IsFinite(currentDistance) || currentDistance < 0.000001f)
+            {
+                currentDistance = previousDistance;
+            }
+            float distance = previousDistance + (currentDistance - previousDistance) * t;
+            target = position + facing * distance;
+
+            if (!ModInterpolateDirection(_drawPreviousUp, _drawCurrentUp, t, out up))
+            {
+                up = Vector3.UnitY;
+            }
+            up -= facing * Vector3.Dot(up, facing);
+            if (!IsFinite(up) || up.LengthSquared < 0.000001f)
+            {
+                Vector3 reference = MathF.Abs(facing.Y) < 0.999f
+                    ? Vector3.UnitY : Vector3.UnitZ;
+                up = reference - facing * Vector3.Dot(reference, facing);
+            }
+            if (!IsFinite(up) || up.LengthSquared < 0.000001f)
+            {
+                fov = Fov;
+                return false;
+            }
+            up = up.Normalized();
+
+            fov = _drawPreviousFov + (_drawCurrentFov - _drawPreviousFov) * t;
+            return IsFinite(position) && IsFinite(target)
+                && (target - position).LengthSquared >= 0.000001f;
+        }
+
+        internal float ModGetDrawFov(double alpha, bool fenceLiveClock = false)
+        {
+            if (!_drawStateValid) return Fov;
+            // Live responsive scopes share the completed camera history, but
+            // must not reveal an old scope state after focus recovery or a
+            // discarded clock interval. Await two endpoints from the new
+            // presentation generation. Replay keeps its existing explicit
+            // seek/lifetime reset owner and does not opt into this live fence.
+            if (fenceLiveClock && !ModCanSampleLiveHistory(alpha)) return Fov;
+            float t = (float)Math.Clamp(alpha, 0.0, 1.0);
+            return _drawPreviousFov + (_drawCurrentFov - _drawPreviousFov) * t;
+        }
+
+        /// <summary>
+        /// Interpolate an orientation on the unit sphere instead of linearly
+        /// blending world-space target points. Fast camera turns can put the
+        /// two target vectors on opposite sides of the camera; target lerp then
+        /// cuts through the camera itself and briefly produces a near-zero
+        /// LookAt direction, which reads as a doubled/ghosted frame.
+        /// </summary>
+        internal static bool ModInterpolateDirection(Vector3 from, Vector3 to,
+            float amount, out Vector3 direction)
+        {
+            direction = Vector3.Zero;
+            if (!IsFinite(from) || !IsFinite(to)
+                || from.LengthSquared < 0.000001f || to.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+
+            Vector3 a = from.Normalized();
+            Vector3 b = to.Normalized();
+            float t = Math.Clamp(amount, 0f, 1f);
+            float dot = Math.Clamp(Vector3.Dot(a, b), -1f, 1f);
+
+            if (dot > 0.9995f)
+            {
+                Vector3 blended = Vector3.Lerp(a, b, t);
+                if (!IsFinite(blended) || blended.LengthSquared < 0.000001f)
+                {
+                    return false;
+                }
+                direction = blended.Normalized();
+                return true;
+            }
+
+            if (dot < -0.9995f)
+            {
+                // Exactly opposite vectors have infinitely many valid great
+                // circles. Camera turns are overwhelmingly yaw, so prefer the
+                // world-up rotation axis whenever the direction is not itself
+                // vertical. That keeps a 180-degree horizontal spin horizontal
+                // instead of choosing an arbitrary path through the sky.
+                Vector3 axis = MathF.Abs(a.Y) < 0.999f
+                    ? Vector3.UnitY : Vector3.UnitX;
+                if (MathF.Abs(Vector3.Dot(axis, a)) > 0.999f)
+                {
+                    axis = Vector3.UnitZ;
+                }
+                axis -= a * Vector3.Dot(axis, a);
+                if (!IsFinite(axis) || axis.LengthSquared < 0.000001f)
+                {
+                    return false;
+                }
+                axis = axis.Normalized();
+                float angle = MathF.PI * t;
+                float cos = MathF.Cos(angle);
+                float sin = MathF.Sin(angle);
+                direction = a * cos + Vector3.Cross(axis, a) * sin
+                    + axis * Vector3.Dot(axis, a) * (1 - cos);
+                if (!IsFinite(direction) || direction.LengthSquared < 0.000001f)
+                {
+                    return false;
+                }
+                direction = direction.Normalized();
+                return true;
+            }
+
+            float theta = MathF.Acos(dot);
+            float sinTheta = MathF.Sin(theta);
+            if (MathF.Abs(sinTheta) < 0.000001f)
+            {
+                direction = a;
+                return true;
+            }
+            float wa = MathF.Sin((1 - t) * theta) / sinTheta;
+            float wb = MathF.Sin(t * theta) / sinTheta;
+            direction = a * wa + b * wb;
+            if (!IsFinite(direction) || direction.LengthSquared < 0.000001f)
+            {
+                return false;
+            }
+            direction = direction.Normalized();
+            return true;
+        }
+
+        private static bool IsFinite(Vector3 value)
+        {
+            return Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
+        }
+
+        public void Update()
+        {
+            // A room/match handoff can briefly give the camera a coincident target,
+            // a vertical facing vector, or a stale non-finite vector. The old code
+            // divided by the horizontal magnitude unconditionally, which poisoned
+            // the camera basis/ViewMatrix with NaNs and left the whole frame warped
+            // until the room was rebuilt.
+            Vector3 previousFacing = Facing;
+            if (!IsFinite(Position))
+            {
+                Position = IsFinite(PrevPosition) ? PrevPosition : Vector3.Zero;
+            }
+            Vector3 toTarget = Target - Position;
+            if (!IsFinite(toTarget) || toTarget.LengthSquared < 0.000001f)
+            {
+                Vector3 fallback = IsFinite(previousFacing) && previousFacing.LengthSquared > 0.000001f
+                    ? previousFacing.Normalized()
+                    : -Vector3.UnitZ;
+                Target = Position + fallback;
+                toTarget = fallback;
+            }
+
+            // todo: FPS stuff
+            if (Shake > 0 && _shake)
+            {
+                Target.X += Fixed.ToFloat(Random.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
+                Target.Y += Fixed.ToFloat(Random.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
+                Target.Z += Fixed.ToFloat(Random.GetRandomInt2(Fixed.ToInt(Shake))) - Shake / 2;
+                if (toTarget.X * (Target.X - Position.X) + toTarget.Z * (Target.Z - Position.Z) < 0)
+                {
+                    Target.X = Position.X + toTarget.X / 2;
+                    Target.Z = Position.Z + toTarget.Z / 2;
+                }
+                Shake *= 0.85f;
+                if (Shake < 0.01f)
+                {
+                    Shake = 0;
+                }
+            }
+            _shake = !_shake;
+
+            toTarget = Target - Position;
+            if (!IsFinite(toTarget) || toTarget.LengthSquared < 0.000001f)
+            {
+                Vector3 fallback = IsFinite(previousFacing) && previousFacing.LengthSquared > 0.000001f
+                    ? previousFacing.Normalized()
+                    : -Vector3.UnitZ;
+                Target = Position + fallback;
+                toTarget = fallback;
+            }
+            Facing = toTarget.Normalized();
+
+            Vector3 referenceUp = IsFinite(UpVector) && UpVector.LengthSquared > 0.000001f
+                ? UpVector.Normalized()
+                : Vector3.UnitY;
+            if (MathF.Abs(Vector3.Dot(Facing, referenceUp)) > 0.999f)
+            {
+                referenceUp = MathF.Abs(Facing.Y) < 0.999f ? Vector3.UnitY : Vector3.UnitZ;
+            }
+            Vector3 right = Vector3.Cross(Facing, referenceUp);
+            if (!IsFinite(right) || right.LengthSquared < 0.000001f)
+            {
+                referenceUp = MathF.Abs(Facing.Z) < 0.999f ? Vector3.UnitZ : Vector3.UnitX;
+                right = Vector3.Cross(Facing, referenceUp);
+            }
+            Vector3 camUp = Vector3.Cross(right, Facing).Normalized();
+
+            float facingX = Facing.X;
+            float facingZ = Facing.Z;
+            float hMag = MathF.Sqrt(facingX * facingX + facingZ * facingZ);
+            if (hMag > HorizontalBasisEpsilon && Single.IsFinite(hMag))
+            {
+                Field48 = facingX / hMag;
+                Field4C = facingZ / hMag;
+            }
+            else
+            {
+                float oldMag = MathF.Sqrt(Field48 * Field48 + Field4C * Field4C);
+                if (oldMag > HorizontalBasisEpsilon && Single.IsFinite(oldMag))
+                {
+                    Field48 /= oldMag;
+                    Field4C /= oldMag;
+                }
+                else
+                {
+                    Field48 = 0;
+                    Field4C = -1;
+                }
+            }
+            Field50 = Field4C;
+            Field54 = -Field48;
+            ViewMatrix = Matrix4.LookAt(Position, Target, camUp);
+            TrueUp = camUp;
+            // todo?: set transposes and stuff
+        }
+
+        public void SetShake(float value)
+        {
+            if (Shake < value)
+            {
+                Shake = value;
+            }
+        }
+
+    }
+
+    public enum CameraType
+    {
+        First = 0,
+        Third1 = 1,
+        Third2 = 2,
+        Free = 3,
+        Spectator = 4
+    }
+}

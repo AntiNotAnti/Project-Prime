@@ -1,0 +1,128 @@
+/* Shell density: 4/8/12/16/24/32dp spacing; 64dp header, 44dp footer.
+   Keep viewport geometry here so pages consume the same available stage. */
+#screen { position:relative; width:100%; height:100%; overflow:hidden; }
+#topbar {
+    position:absolute; left:0; top:0; width:100%; height:64dp;
+    display:flex; align-items:center; padding:0 24dp;
+    background-color:rgba(2,8,15,90%); border-bottom:1dp rgba(97,182,246,20%);
+}
+#top_rule { position:absolute; left:0; top:64dp; width:100%; height:1dp; background-color:rgba(97,182,246,25%); }
+#brand, #account_cluster { display:flex; flex:1; min-width:0; align-items:center; }
+#brand { margin-right:16dp; }
+#brand_copy { min-width:0; }
+.brand_title { display:block; color:#ffffff; font-size:20dp; line-height:24dp; font-weight:bold; letter-spacing:1dp; }
+.brand_subtitle { display:block; margin-top:2dp; color:#91a6b8; font-size:10dp; line-height:12dp; letter-spacing:1dp; }
+#brand_mark { width:40dp; height:40dp; line-height:40dp; text-align:center; margin-right:12dp; color:#ffffff; font-size:24dp; background-color:#1c72e1; }
+#primary_nav { display:flex; flex:0 0 auto; align-items:stretch; justify-content:center; height:100%; }
+#primary_nav .nav {
+    display:block; box-sizing:border-box; width:104dp; min-width:0;
+    margin:0 2dp; padding:0 8dp; line-height:60dp; white-space:nowrap;
+    text-align:center; color:#9bb5c8; font-size:14dp; font-weight:bold;
+    border-bottom:3dp transparent; background-color:transparent;
+}
+#primary_nav #nav_studio { width:120dp; }
+#primary_nav .nav.active { color:#ffffff; background-color:#0b2942; border-bottom-color:#78caff; }
+#primary_nav .nav:hover, #primary_nav .nav:focus { color:#ffffff; background-color:#12364b; border-bottom-color:#2b9ef7; }
+#account_cluster { justify-content:flex-end; margin-left:16dp; }
+.utility, .footer_button { padding:8dp 12dp; min-height:36dp; border:1dp rgba(97,182,246,35%); background-color:rgba(7,18,31,90%); font-size:12dp; font-weight:bold; color:#b2cadc; }
+.utility:hover, .utility:focus, .footer_button:hover, .footer_button:focus { color:#ffffff; border-color:#78caff; background-color:#12364b; }
+#profile { min-width:72dp; max-width:140dp; overflow:hidden; nav-left:#nav_studio; nav-right:#header_settings; }
+#header_settings { margin-left:8dp; nav-left:#profile; }
+#nav_play { nav-left:#activity_selector; nav-right:#nav_hunters; }
+#nav_hunters { nav-left:#nav_play; nav-right:#nav_community; }
+#nav_community { nav-left:#nav_hunters; nav-right:#nav_theatre; }
+#nav_theatre { nav-left:#nav_community; nav-right:#nav_studio; }
+#nav_studio { nav-left:#nav_theatre; nav-right:#profile; }
+#nav_studio_home { nav-right:#nav_theatre; }
+.studio-application #nav_theatre { nav-left:#nav_studio_home; nav-right:#header_settings; }
+.lobby #nav_hunters, .lobby #nav_community, .lobby #nav_studio { opacity:0.34; cursor:default; }
+#stage { position:absolute; left:0; right:0; top:65dp; bottom:44dp; }
+#footerbar {
+    position:absolute; left:0; bottom:0; width:100%; height:44dp;
+    display:flex; align-items:center; padding:0 24dp;
+    background-color:rgba(2,8,15,90%); border-top:1dp rgba(97,182,246,20%);
+}
+#build_info { color:#91a6b8; font-size:10dp; letter-spacing:0.5dp; }
+#build_info .build_version_link { padding:0; margin:0; border-width:0; background-color:transparent; text-align:left; color:#49caff; }
+#build_info .build_version_link:hover, #build_info .build_version_link:focus { color:#d9f6ff; }
+#footer_actions { display:flex; margin-left:auto; flex:0 0 auto; justify-content:flex-end; }
+.footer_button { min-width:80dp; margin-left:8dp; min-height:32dp; padding:4dp 12dp; }
+.footer_button.danger:hover, .footer_button.danger:focus { border-color:#ef6870; background-color:rgba(178,47,58,28%); }
+#lobby_footer_state { margin-left:12dp; min-width:0; color:#91a6b8; font-family:"JetBrains Mono"; font-size:10dp; }
+#system_status_toast { position:absolute; left:6vw; right:6vw; bottom:52dp; color:#edf7ff; background-color:#081a29; font-size:14dp; text-align:center; pointer-events:none; }
+#diagnostics_panel { display:none; position:absolute; right:24dp; bottom:52dp; width:330dp; max-width:90%; max-height:70%; overflow-y:auto; padding:12dp; color:#91a6b8; background-color:#020a12; border:1dp #426983; border-left:3dp #2b9ef7; }
+#diagnostics_panel.open { display:block; }
+.diag_header { display:flex; justify-content:space-between; margin-bottom:8dp; color:#ffffff; font-size:12dp; font-weight:bold; }
+.diag_key { color:#78caff; }
+.diag_row { display:flex; justify-content:space-between; padding:4dp 0; border-bottom:1dp rgba(114,199,255,12%); font-size:10dp; }
+.diag_row b { max-width:220dp; color:#dcebf7; text-align:right; font-weight:bold; }
+@media (max-width:1200dp) {
+    #topbar, #footerbar { padding-left:16dp; padding-right:16dp; }
+    .brand_title { font-size:16dp; letter-spacing:0; }
+    #primary_nav .nav { width:86dp; padding:0 4dp; font-size:13dp; }
+    #primary_nav #nav_studio { width:106dp; }
+    #brand { margin-right:8dp; }
+    #account_cluster { margin-left:8dp; }
+    #profile { max-width:96dp; }
+}
+@media (max-width:1000dp) {
+    #brand { display:none; }
+    #primary_nav { flex:1; }
+    #account_cluster { flex:0 0 auto; }
+    #primary_nav .nav { width:78dp; }
+    #primary_nav #nav_studio { width:98dp; }
+    #profile { max-width:86dp; }
+}
+/* Short labels keep all five destinations and two utilities in one row. */
+.nav_short { display:none; }
+@media (max-width:640dp) {
+    #topbar { height:56dp; padding:0 8dp; }
+    #brand { display:none; }
+    #primary_nav { flex:1; min-width:0; }
+    #primary_nav .nav, #primary_nav #nav_studio { flex:1; width:auto; margin:0; padding:0 3dp; line-height:52dp; font-size:12dp; }
+    .nav_full { display:none; }
+    .nav_short { display:inline; }
+    #account_cluster { flex:0 0 auto; margin-left:8dp; }
+    #profile { min-width:48dp; max-width:64dp; }
+    #header_settings { margin-left:4dp; }
+    #profile, #header_settings { padding:8dp 6dp; font-size:11dp; }
+    #top_rule { top:56dp; }
+    #stage { top:57dp; }
+    #client_label, #build_info .divider { display:none; }
+    #footerbar { padding:0 12dp; }
+}
+.studio-application #primary_nav .nav { width:120dp; }
+@media (max-width:640dp) { .studio-application #primary_nav .nav { flex:1; width:auto; } }
+/* Studio has two destinations, leaving room to retain its application identity
+   in windows where the full game navigation needs the entire header. */
+@media (max-width:1000dp) {
+    .studio-application #brand { display:flex; flex:0 1 190dp; margin-right:8dp; }
+    .studio-application #brand_mark { display:none; }
+    .studio-application .brand_title { font-size:14dp; line-height:18dp; white-space:normal; }
+    .studio-application #primary_nav .nav { flex:1; width:auto; }
+}
+@media (max-width:640dp) {
+    .studio-application #brand { flex-basis:155dp; }
+    .studio-application .brand_subtitle { font-size:10dp; letter-spacing:0; }
+}
+/* Increased touch targets are accounted for by their containing chrome. */
+body.touch-targets #footerbar { height:56dp; }
+body.touch-targets #stage { bottom:56dp; }
+body.touch-targets #system_status_toast { bottom:64dp; }
+body.touch-targets #primary_nav .nav { line-height:60dp; }
+@media (max-width:640dp) {
+    body.touch-targets #primary_nav .nav { line-height:60dp; }
+    body.touch-targets #topbar { height:64dp; }
+    body.touch-targets #top_rule { top:64dp; }
+    body.touch-targets #stage { top:65dp; }
+}
+/* Large-text layouts use a separate utility row instead of clipping labels. */
+@media (max-width:640dp) {
+    body.large-text #topbar { height:108dp; }
+    body.large-text #brand { display:flex; position:absolute; top:10dp; left:12dp; }
+    body.large-text #account_cluster { position:absolute; right:12dp; top:8dp; }
+    body.large-text #primary_nav { position:absolute; left:8dp; right:8dp; bottom:0; height:48dp; }
+    body.large-text #screen #primary_nav .nav { font-size:16dp; line-height:44dp; }
+    body.large-text #top_rule { top:108dp; }
+    body.large-text #stage { top:109dp; }
+}
