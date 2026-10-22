@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -88,22 +89,30 @@ internal static class CommunityByteRange
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(destination);
         if (count < 0) throw new ArgumentOutOfRangeException(nameof(count));
+        if (count == 0) return 0;
 
-        byte[] buffer = new byte[CopyBufferSize];
-        long remaining = count;
-        while (remaining > 0)
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(CopyBufferSize);
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            int requested = (int)Math.Min(buffer.Length, remaining);
-            int read = await source.ReadAsync(buffer.AsMemory(0, requested),
-                cancellationToken).ConfigureAwait(false);
-            if (read == 0)
-                throw new EndOfStreamException("The selected immutable object ended before its declared range.");
-            await destination.WriteAsync(buffer.AsMemory(0, read),
-                cancellationToken).ConfigureAwait(false);
-            remaining -= read;
+            long remaining = count;
+            while (remaining > 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                int requested = (int)Math.Min(CopyBufferSize, remaining);
+                int read = await source.ReadAsync(buffer.AsMemory(0, requested),
+                    cancellationToken).ConfigureAwait(false);
+                if (read == 0)
+                    throw new EndOfStreamException("The selected immutable object ended before its declared range.");
+                await destination.WriteAsync(buffer.AsMemory(0, read),
+                    cancellationToken).ConfigureAwait(false);
+                remaining -= read;
+            }
+            return count;
         }
-        return count;
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
     }
 
     private static bool TryParseUnsigned(ReadOnlySpan<char> text, out long value)
