@@ -13,6 +13,7 @@ tools/native-render-check/fixtures/gl-evidence/**/*.log text eol=lf
 
 # Exact collision-result golden rows use LF on every CI checkout.
 docs/audits/engineering-consolidation/collision-query-baseline.txt text eol=lf
+tools/collision-query-check/fixtures/collision-query-baseline.txt text eol=lf
 
 # Keep the exact artwork allowlist LF-terminated for Windows Bash checks.
 tools/asset-guard-allow.txt text eol=lf

@@ -152,12 +152,18 @@ internal static class NativeFullSettingsGlAcceptance
             {
                 Send(RmlUiIntentKind.SettingsCategory,category);if(category==3)Send(RmlUiIntentKind.SettingsAction,216);Settle();
                 Check(Read().Label("native_settings_title")==NativeFullSettingsController.Categories[category],"native category title: "+NativeFullSettingsController.Categories[category]);
-                foreach(string id in new[]{"native_settings_title","native_settings_status","native_settings_category_"+category})Contained(page.Document,id,"category "+category);
+                foreach(string id in new[]{"native_settings_title","native_settings_status","native_settings_back","native_settings_category_"+category})Contained(page.Document,id,"category "+category);
                 var subpages=NativeFullSettingsPage.Subpages(category);
                 for(int pane=0;pane<Math.Max(1,subpages.Length);pane++)
                 {
                     if(subpages.Length>0){Send(RmlUiIntentKind.SettingsAction,232+pane);Reveal("native_settings_subpage_"+pane,false);Contained(page.Document,"native_settings_subpage_"+pane,"meaningful "+subpages[pane]+" subpage");}
                     var displayedRows=VisibleRows();
+                    bool advanced=(bool)typeof(NativeFullSettingsPage).GetField("_advanced",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(page)!;
+                    var canonicalRows=controller.Rows.Where(r=>r.Category==NativeFullSettingsController.Categories[category]
+                        &&(subpages.Length==0||NativeFullSettingsPage.RowSubpage(r)==pane)&&!r.HudOnly
+                        &&!NativeSettingsCatalog.HasVisualEditor(r)&&(advanced||!r.Advanced))
+                        .OrderBy(NativeSettingsCatalog.Group,StringComparer.Ordinal).ToArray();
+                    Check(displayedRows.SequenceEqual(canonicalRows),"native pane presents the complete canonical owner row order: "+category+"/"+pane);
                     Check(displayedRows.Length<=NativeFullSettingsPage.Slots,"complete natural form including Advanced fits bounded authored row slots: "+displayedRows.Length);
                     NativeFullSettingsPage.RequireRowCapacity(displayedRows.Length);
                     if(displayedRows.Length==0)continue;

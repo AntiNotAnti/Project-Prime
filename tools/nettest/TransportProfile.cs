@@ -26,7 +26,7 @@ internal static class TransportProfile
             File.WriteAllText(Path.GetFullPath(path), JsonSerializer.Serialize(new {
                 sourceSha = Environment.GetEnvironmentVariable("PRIME_BENCHMARK_COMMIT") ?? "working-tree",
                 protocol = NetConfig.ProtocolVersion, runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
-                cpu = NetworkBenchmark.CpuDescription(), scope = "loopback UDP; production pumps; nominal60Hz synthetic intent/snapshot/control payloads; no world simulation",
+                cpu = NetworkBenchmark.CpuDescription(), scope = "loopback UDP; production pumps; nominal60Hz synthetic intent, compact SnapshotFast, and control payloads; no world simulation",
                 mainThreadAllocationScope = "measured send/pump loop; excludes admission, preallocated fixture buffers/sets/timing storage and result serialization; socket workers excluded",
                 emptyPump,
                 rows }, new JsonSerializerOptions { WriteIndented = true }));
@@ -96,10 +96,11 @@ internal static class TransportProfile
                             int id = BinaryPrimitives.ReadInt32LittleEndian(packet.Payload);
                             if (!controls[i].Add(id)) throw new InvalidOperationException("Reliable control applied twice.");
                         }
-                        if (packet.Type == PacketType.Snapshot)
+                        if (packet.Type == PacketType.SnapshotFast)
                         {
-                            var header = SnapshotHeader.Read(packet.Payload);
-                            if (header.PlayerCount != players) throw new InvalidOperationException("Snapshot player count differs.");
+                            if (!NetReplicationReceiver.ValidateFast(packet.Payload, 1, 1, out var header)
+                                || header.PlayerCount != players)
+                                throw new InvalidOperationException("Production fast snapshot validation/player count failed.");
                             if (SequenceMath.Newer(header.Frame, snapshotFrames[i])) { snapshotFrames[i] = header.Frame; snapshotCount[i]++; }
                         }
                     }
@@ -118,6 +119,7 @@ internal static class TransportProfile
             // reliable application IDs distinct from admission/warmup packets.
             byte[] intent = NetArchitectureTests.IntentFixture();
             byte[] snapshot = new byte[SnapshotHeader.Size + players * PlayerState.Size];
+            byte[] fastSnapshot = new byte[SnapshotFast.MaximumEncodedSize - NetHeader.Size];
             var controlBytes = Enumerable.Range(1, 16).Select(BitConverter.GetBytes).ToArray();
             for (int i = 0; i < 30; i++) Pump(false);
             server.ResetContentionStats(); foreach (var client in clients) client.ResetContentionStats();
@@ -139,7 +141,14 @@ internal static class TransportProfile
                     new SnapshotHeader { Frame = frame, MatchId = 1, AuthorityEpoch = 1, PlayerCount = (byte)players }.Write(snapshot);
                     for (int slot = 0; slot < players; slot++)
                         new PlayerState { SlotIndex = (byte)slot, SlotGeneration = 1, LifeId = 1, Health = 99 }.Write(snapshot.AsSpan(SnapshotHeader.Size + slot * PlayerState.Size));
-                    for (int slot = 0; slot < players; slot++) { clients[slot].Send(address, PacketType.Intent, intent); server.Send(endpoints[slot], PacketType.Snapshot, snapshot); }
+                    int fastSnapshotLength = SnapshotFast.Write(snapshot, fastSnapshot);
+                    if (fastSnapshotLength + NetHeader.Size > 1200)
+                        throw new InvalidOperationException("Production fast snapshot exceeded the realtime datagram budget.");
+                    for (int slot = 0; slot < players; slot++)
+                    {
+                        clients[slot].Send(address, PacketType.Intent, intent);
+                        server.Send(endpoints[slot], PacketType.SnapshotFast, fastSnapshot.AsSpan(0, fastSnapshotLength));
+                    }
                 }
                 long started = Stopwatch.GetTimestamp();
                 Pump(now is >= 500 and < 900);
