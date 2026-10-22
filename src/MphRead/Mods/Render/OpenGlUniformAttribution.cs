@@ -13,7 +13,7 @@ internal static class OpenGlUniformAttribution
     internal const int MaximumPrograms = 32;
     private const int ProgramSlots = MaximumPrograms + 2; // Unknown and overflow.
     private const int OwnerCount = (int)OpenGlDrawOwner.Hud + 1;
-    private const int PassCount = (int)OpenGlCpuPass.PaletteCollection + 2;
+    private const int PassCount = (int)OpenGlCpuPass.CombinedGeometryUpload + 2;
     private const int OriginCount = (int)OpenGlItemOrigin.Geometry + 1;
     private const int Metrics = 4;
     private const int Requests = 0, Uploads = 1, Bytes = 2, Skips = 3;
@@ -134,6 +134,8 @@ internal static class OpenGlUniformAttribution
         int failures = 0;
         void Check(bool pass, string name)
         { Console.WriteLine($"[uniformattributioncheck] {(pass ? "PASS" : "FAIL")}: {name}"); if (!pass) failures++; }
+        Check(PassCount - 1 == Enum.GetValues<OpenGlCpuPass>().Length,
+            "source storage covers every current pass and unknown sources");
         State? prior = _state;
         try
         {
@@ -175,6 +177,22 @@ internal static class OpenGlUniformAttribution
                 conserved &= programs == sources;
             }
             Check(conserved, "source and program partitions conserve every operation and byte");
+            CancelFrame(); BeginFrame(); OpenGlDrawAttribution.BeginFrame();
+            foreach (OpenGlCpuPass pass in new[] { OpenGlCpuPass.CombinedGeometryBuild, OpenGlCpuPass.CombinedGeometryUpload })
+            {
+                using (OpenGlDrawAttribution.Measure(palette, (int)pass, true)) NoteMatrixArray(7, 1, true);
+            }
+            NoteMatrixArray(7, 1, true);
+            EndFrame(); OpenGlDrawAttribution.EndFrame();
+            foreach (OpenGlCpuPass pass in new[] { OpenGlCpuPass.CombinedGeometryBuild, OpenGlCpuPass.CombinedGeometryUpload })
+            {
+                int index = (((int)pass * OwnerCount + (int)OpenGlDrawOwner.PaletteMesh)
+                    * OriginCount + (int)OpenGlItemOrigin.Geometry) * Metrics;
+                Check(s.SourceSums[index + Uploads] == 1 && s.SourceSums[index + Bytes] == 64,
+                    "combined geometry pass retains its own uniform attribution: " + pass);
+            }
+            Check(s.SourceSums[unknown + Uploads] == 1,
+                "unknown uniform source remains distinct after combined geometry attribution");
             CancelFrame(); BeginFrame();
             for (int i = 1; i <= MaximumPrograms + 5; i++) NoteMatrixArray(i, 1, true);
             EndFrame();
