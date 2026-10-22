@@ -1478,6 +1478,8 @@ jobs:
       # The same check, on the head it was written for: this is the project
       # whose asset list drifted from the desktop's, and the APK builds and
       # signs perfectly well without the fonts its every label asks for.
+      - name: guard dynamic HudFonts asset declarations
+        run: python3 tools/test_check_avares.py
       - name: the launcher's assets are in the APK
         run: >
           tools/check-avares.py src/MphRead.Android/MphRead.Android.csproj
