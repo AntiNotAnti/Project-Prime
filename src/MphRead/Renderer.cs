@@ -1747,15 +1747,10 @@ namespace MphRead
             ReleaseWorldMaterialResidency(_lastTextureId);
             _modernTextureSampling.Remove(_lastTextureId);
             InvalidateTextureSampling(_lastTextureId);
-            bool onlyOpaque = true;
-            var pixels = new List<uint>();
-            var average = new FlatColor();
-            foreach (ColorRgba pixel in model.GetPixels(textureId, paletteId, recolorId))
-            {
-                pixels.Add(pixel.ToUint());
-                onlyOpaque &= pixel.Alpha == 255;
-                average.Add(pixel);
-            }
+            ColorRgba[] pixels = Mods.Render.NativeTexturePixelBuffer.Decode(
+                model, textureId, paletteId, recolorId);
+            Mods.Render.NativeTexturePixelBuffer.Summary pixelSummary =
+                Mods.Render.NativeTexturePixelBuffer.Summarize(pixels);
             Texture texture = model.Recolors[recolorId].Textures[textureId];
             Mods.Render.Materials.MaterialInventory.Observe(
                 authoredKey ?? Mods.Render.Materials.MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
@@ -1805,15 +1800,23 @@ namespace MphRead
                 // texture live until its decoded replacement is ready. The
                 // binding ID never changes, so material/display-list references
                 // remain valid while the image is promoted later.
-                uint[] uploadPixels = pixels.ToArray();
-                int uploadWidth = texture.Width;
-                int uploadHeight = texture.Height;
-                uploadPixels = Mods.Render.TextureUpscaler.Scale(uploadPixels,
-                    uploadWidth, uploadHeight, Mods.RenderOptions.TextureUpscaleFactor,
-                    out uploadWidth, out uploadHeight);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
-                    uploadWidth, uploadHeight, 0, PixelFormat.Rgba,
-                    PixelType.UnsignedByte, uploadPixels);
+                int upscaleFactor = Mods.RenderOptions.TextureUpscaleFactor;
+                if (upscaleFactor <= 1)
+                {
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                        texture.Width, texture.Height, 0, PixelFormat.Rgba,
+                        PixelType.UnsignedByte, pixels);
+                }
+                else
+                {
+                    uint[] uploadPixels = Mods.Render.NativeTexturePixelBuffer.Pack(pixels);
+                    uploadPixels = Mods.Render.TextureUpscaler.Scale(uploadPixels,
+                        texture.Width, texture.Height, upscaleFactor,
+                        out int uploadWidth, out int uploadHeight);
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                        uploadWidth, uploadHeight, 0, PixelFormat.Rgba,
+                        PixelType.UnsignedByte, uploadPixels);
+                }
             }
             // Native cartridge textures keep lazy mip generation so the
             // legacy path pays nothing when filtering is disabled. Modern
@@ -1858,8 +1861,8 @@ namespace MphRead
                     if (maps.Any) _materialMaps[_lastTextureId] = maps;
                 }
             }
-            _flatColors[_lastTextureId] = average.Result;
-            return onlyOpaque;
+            _flatColors[_lastTextureId] = pixelSummary.FlatColor;
+            return pixelSummary.OnlyOpaque;
         }
 
         private void RegisterModernTexture(int bindingId, Mods.Render.TextureAssetClass assetClass,
@@ -2101,7 +2104,7 @@ namespace MphRead
                     Mods.Render.TextureAssetChannel.Albedo, asset);
                 if (request.Image.IsRawRgba && asset is Mods.Render.ModernTextureAsset rgba)
                 {
-                    var average = new FlatColor();
+                    var average = new Mods.Render.NativeTexturePixelBuffer.FlatColor();
                     for (int at = 0; at < rgba.Pixels.Length; at += 4)
                         average.Add(new ColorRgba(rgba.Pixels[at], rgba.Pixels[at + 1],
                             rgba.Pixels[at + 2], rgba.Pixels[at + 3]));
@@ -2159,57 +2162,6 @@ namespace MphRead
         /// </summary>
         private readonly Dictionary<int, Vector3> _flatColors = new Dictionary<int, Vector3>();
 
-        /// <summary>
-        /// A texture's average colour, weighted by alpha.
-        ///
-        /// Weighted because a cut-out texture -- a grate, a decal, a sprite --
-        /// is mostly transparent, and the transparent texels usually carry
-        /// black or whatever happened to be in that corner of the sheet.
-        /// Averaging those in drags every such surface towards black, which is
-        /// the one colour an outline pass needs to keep for itself.
-        /// </summary>
-        private struct FlatColor
-        {
-            private float _red;
-            private float _green;
-            private float _blue;
-            private float _weight;
-            private float _count;
-            private float _plainRed;
-            private float _plainGreen;
-            private float _plainBlue;
-
-            public void Add(ColorRgba pixel)
-            {
-                float alpha = pixel.Alpha / 255f;
-                _red += pixel.Red * alpha;
-                _green += pixel.Green * alpha;
-                _blue += pixel.Blue * alpha;
-                _weight += alpha;
-                _plainRed += pixel.Red;
-                _plainGreen += pixel.Green;
-                _plainBlue += pixel.Blue;
-                _count++;
-            }
-
-            public Vector3 Result
-            {
-                get
-                {
-                    if (_weight > 0.01f)
-                    {
-                        return new Vector3(_red, _green, _blue) / _weight / 255f;
-                    }
-                    // fully transparent: nothing is drawn with it anyway
-                    if (_count > 0)
-                    {
-                        return new Vector3(_plainRed, _plainGreen, _plainBlue) / _count / 255f;
-                    }
-                    return Vector3.One;
-                }
-            }
-        }
-
         public int BindGetTexture(IReadOnlyList<ColorRgba> data, int width, int height)
         {
             using var uploadTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.TextureUpload);
@@ -2241,12 +2193,7 @@ namespace MphRead
 
         private static Vector3 AverageOf(IReadOnlyList<ColorRgba> data)
         {
-            var average = new FlatColor();
-            for (int i = 0; i < data.Count; i++)
-            {
-                average.Add(data[i]);
-            }
-            return average.Result;
+            return Mods.Render.NativeTexturePixelBuffer.AverageOf(data);
         }
 
         public void UpdateMaterials(Model model, int recolorId)

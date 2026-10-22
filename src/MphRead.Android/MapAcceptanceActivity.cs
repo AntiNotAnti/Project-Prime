@@ -17,8 +17,13 @@ public sealed class MapAcceptanceActivity : Activity
         string report=Path.Combine(FilesDir!.AbsolutePath,"map-runtime-check.txt");
         try
         {
-            await Task.Run(()=>MapRuntimeCheck.RunAsync(Path.Combine(CacheDir!.AbsolutePath,"map-runtime-"+Guid.NewGuid().ToString("N"))));
-            File.WriteAllText(report,"PASS: ppmap load, package verification, download, registration and runtime decode\n");
+            await Task.Run(async () =>
+            {
+                if (Mods.Render.NativeTexturePixelBufferCheck.Run() != 0)
+                    throw new InvalidOperationException("Native texture parity check failed.");
+                await MapRuntimeCheck.RunAsync(Path.Combine(CacheDir!.AbsolutePath,"map-runtime-"+Guid.NewGuid().ToString("N")));
+            });
+            File.WriteAllText(report,"PASS: ppmap load, package verification, download, registration and runtime decode\nPASS: native texture parity and compact storage\n");
         }
         catch(Exception ex){File.WriteAllText(report,"FAIL: "+ex+"\n");}
         finally{Finish();}
