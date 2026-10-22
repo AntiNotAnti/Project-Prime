@@ -990,6 +990,8 @@ jobs:
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -pointercheck
       - name: map load receipt readiness and failure contracts
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -maploadreceiptcheck
+      - name: native texture decode and upload byte parity
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release -- -nativepixelbuffercheck
       - name: native audio ownership, failure fallback and headless lifecycle
         run: dotnet run --project tools/audio-check -c Release
 
