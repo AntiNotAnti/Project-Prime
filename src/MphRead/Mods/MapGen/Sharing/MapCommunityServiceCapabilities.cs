@@ -15,6 +15,9 @@ public sealed record MapCommunityServiceCapabilities
     public bool SupportsParallelUploadRanges { get; init; }
     public bool SupportsGenericContentCatalog { get; init; } = true;
     public bool SupportsGenericContentPublishing { get; init; } = false;
+    public bool SupportsWeaponPublishing { get; init; } = System.Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_COMMUNITY_PUBLISH") == "1";
+    public bool SupportsWeaponReports { get; init; } = true;
+    public long MaxWeaponArchiveBytes { get; init; } = CustomWeapons.Packages.WeaponPackageLimits.MaximumArchiveBytes;
     public long MaxArchiveBytes { get; init; } = MapPackageReader.MaxArchiveBytes;
     public int MaxUploadChunkBytes { get; init; } = MapCommunityClient.UploadChunkBytes;
     public int RecommendedUploadChunkBytes { get; init; } = 4 * 1024 * 1024;

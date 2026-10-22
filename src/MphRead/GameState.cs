@@ -65,8 +65,10 @@ namespace MphRead
         /// <c>Mods.Network.DedicatedServer.EndSequenceSeconds</c>, which has
         /// to cover this and MatchFinalCameraSeconds before it.
         /// </summary>
+        // Keep client and dedicated-server intermission in sync. The 6s
+        // scoreboard follows the native winner shot and an eligible killcam.
         public const float MatchFinalCameraSeconds = 5;
-        public const float MatchEndingSeconds = 10;
+        public const float MatchEndingSeconds = 6;
         public const float MatchKillcamSeconds = 5;
 
         // Value-only evidence of how an Adventure session exited. The ship
@@ -678,6 +680,7 @@ namespace MphRead
                     MatchState = MatchState.GameOver;
                     scene.MatchEvents.Transition(scene, Mods.MatchEvents.MatchSemanticEventType.MatchEnded);
                     MatchTime = MatchFinalCameraSeconds;
+                    Mods.DebugLog.Line("endgame", $"cinematic-v2 winner-phase={MatchFinalCameraSeconds:0}s net={Mods.Network.NetSession.Active}");
                     scene.SetFade(FadeType.None, length: 0, overwrite: true);
                     _stateChanged = true;
                     _matchEndTime = scene.GlobalElapsedTime;
@@ -734,6 +737,7 @@ namespace MphRead
                     // servers return everyone together, while continuous servers
                     // retain their existing rotation policy.
                     MatchTime = MatchEndingSeconds;
+                    Mods.DebugLog.Line("endgame", $"scoreboard-v2 duration={MatchEndingSeconds:0}s");
                     // todo: update license info, stop SFX
                 }
             }

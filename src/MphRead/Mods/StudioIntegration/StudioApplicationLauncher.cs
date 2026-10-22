@@ -12,6 +12,8 @@ public static class StudioApplicationLauncher
     public static bool TryOpen(string? documentPath, bool recover, out string? error)
         => TryOpenRequest(StudioApplicationInstance.CreateRequest(documentPath, recover), out error);
 
+    public static bool TryOpenWeapon(string? path, out string? error)
+        => TryOpenRequest(new StudioOpenRequest(Guid.NewGuid(), StudioOpenKind.Weapon, path), out error);
     public static bool TryOpenWorkspace(bool replay, out string? error)
         => TryOpenRequest(CreateWorkspaceRequest(replay), out error);
 
@@ -64,7 +66,12 @@ public static class StudioApplicationLauncher
         }
         else launch.FileName = executable;
         if (request.Kind == StudioOpenKind.ReplayLibrary) launch.ArgumentList.Add("--replay-library");
-        if (request.Path != null)
+        if (request.Kind == StudioOpenKind.Weapon)
+        {
+            launch.ArgumentList.Add("--weapon");
+            if (request.Path != null) launch.ArgumentList.Add(Path.GetFullPath(request.Path));
+        }
+        else if (request.Path != null)
         {
             string path = Path.GetFullPath(request.Path);
             string extension = Path.GetExtension(path);

@@ -7,9 +7,11 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.CustomWeapons.Packages;
 
 namespace MphRead.Mods.MapGen;
 
@@ -171,6 +173,15 @@ public sealed class MapCommunityClient : IDisposable
             throw new InvalidDataException("Maps must publish as exact .ppmap packages.");
         CommunityAssetValidator.Validate(source, metadata.Kind, metadata.MimeType);
         string hash = MapBuildFingerprint.HashFile(source);
+        WeaponPackage? weapon = null;
+        if (metadata.Kind == CommunityContentKinds.Weapon)
+        {
+            weapon = ReadWeaponPackage(source);
+            if (weapon.Project.ContentId != metadata.ContentId
+                || !StringComparer.Ordinal.Equals(weapon.Project.Name, metadata.Name)
+                || weapon.PackageHash != hash)
+                throw new InvalidDataException("Weapon publication metadata differs from the exact package.");
+        }
         byte[] info = JsonSerializer.SerializeToUtf8Bytes(metadata,
             MapPackageReader.JsonOptions);
         if (info.Length > 6144)
@@ -201,6 +212,7 @@ public sealed class MapCommunityClient : IDisposable
         if (result.Kind != metadata.Kind || result.ContentId != metadata.ContentId
             || result.LatestHash != hash)
             throw new InvalidDataException("Typed Community publish response changed immutable identity.");
+        if (weapon != null) ValidateWeaponRevision(result.LatestRevision, weapon);
         return result;
     }
 
@@ -211,6 +223,64 @@ public sealed class MapCommunityClient : IDisposable
             throw new InvalidDataException("Invalid typed Community content identity.");
         return DownloadVerifiedPackageAsync("v3/objects/" + sha256, destination,
             bytes, sha256, token, progress);
+    }
+
+    /// <summary>Fetch and validate exact weapon bytes; never installs, equips or grants.</summary>
+    public async Task<WeaponPackage> DownloadWeaponPackageAsync(Guid contentId, string packageName,
+        CommunityContentRevision revision, string destination, CancellationToken token,
+        Action<long, long>? progress = null)
+    {
+        ArgumentNullException.ThrowIfNull(revision);
+        if (contentId == Guid.Empty || string.IsNullOrWhiteSpace(packageName)
+            || revision.MimeType != CommunityAssetValidator.WeaponMimeType || revision.WeaponPackage == null
+            || revision.Bytes is <= 0 or > WeaponPackageLimits.MaximumArchiveBytes
+            || !ValidHash(revision.ContentHash) || revision.WeaponPackage.ArchiveHash != revision.ContentHash)
+            throw new InvalidDataException("Invalid typed weapon revision.");
+        await DownloadContentAsync(revision.ContentHash, destination, revision.Bytes, token, progress).ConfigureAwait(false);
+        token.ThrowIfCancellationRequested();
+        var package = ReadWeaponPackage(destination);
+        if (package.Project.ContentId != contentId || !StringComparer.Ordinal.Equals(package.Project.Name, packageName))
+            throw new InvalidDataException("Downloaded weapon differs from its requested project.");
+        ValidateWeaponRevision(revision, package);
+        return package;
+    }
+
+    private static WeaponPackage ReadWeaponPackage(string path)
+    {
+        if (new FileInfo(path).LinkTarget != null) throw new InvalidDataException("Weapon package inputs cannot be links.");
+        using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (input.Length is <= 0 or > WeaponPackageLimits.MaximumArchiveBytes)
+            throw new InvalidDataException("Weapon package exceeds its byte budget.");
+        byte[] bytes = new byte[checked((int)input.Length)]; input.ReadExactly(bytes);
+        return WeaponPackage.Parse(bytes);
+    }
+
+    private static void ValidateWeaponRevision(CommunityContentRevision revision, WeaponPackage package)
+    {
+        var expected = new WeaponPackageRevisionIdentity(package.PackageHash, package.ContentHash,
+            package.DependencyHash, package.Definition.Mechanics.DefinitionHash);
+        if (revision.ContentHash != package.PackageHash || revision.Bytes != package.CopyArchive().Length
+            || revision.MimeType != CommunityAssetValidator.WeaponMimeType || revision.WeaponPackage != expected)
+            throw new InvalidDataException("Weapon revision metadata differs from its exact immutable package identities.");
+    }
+
+    public async Task<CommunityContentProject> SetWeaponVisibilityAsync(Guid contentId, string archiveHash,
+        string visibility, CancellationToken token)
+    {
+        if (contentId == Guid.Empty || !ValidHash(archiveHash)) throw new InvalidDataException("Invalid exact weapon revision.");
+        visibility = CommunityContentVisibility.Normalize(visibility);
+        using var request = new HttpRequestMessage(HttpMethod.Post, "v3/content/weapon/" + contentId + "/visibility");
+        request.Content = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(new CommunityWeaponVisibilityRequest(archiveHash, visibility), MapPackageReader.JsonOptions));
+        request.Content.Headers.ContentType = new MediaTypeHeaderValue("application/json");
+        using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+        EnsureSuccess(response);
+        using var data = new MemoryStream();
+        await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false), data, 1024 * 1024, token).ConfigureAwait(false);
+        var result = JsonSerializer.Deserialize<CommunityContentProject>(data.ToArray(), MapPackageReader.JsonOptions)
+            ?? throw new InvalidDataException("Weapon visibility returned no project.");
+        if (result.Kind != CommunityContentKinds.Weapon || result.ContentId != contentId || !result.CanManage)
+            throw new InvalidDataException("Weapon visibility response changed the owned project identity.");
+        return result;
     }
 
     public async Task ArchiveContentAsync(string kind, Guid contentId,
@@ -773,6 +843,14 @@ public sealed class MapCommunityClient : IDisposable
     {
         using var content=new StringContent(JsonSerializer.Serialize(report,MapPackageReader.JsonOptions),System.Text.Encoding.UTF8,"application/json");
         using var response=await _http.PostAsync("maps/"+map+"/reports",content,token);EnsureSuccess(response);
+    }
+    public async Task ReportWeaponAsync(Guid contentId,string hash,string reason,CancellationToken token)
+    {
+        if(contentId==Guid.Empty||!ValidHash(hash)||string.IsNullOrWhiteSpace(reason)||reason.Length>512||reason.Any(char.IsControl))
+            throw new InvalidDataException("Select an exact weapon revision and enter a report reason (1–512 printable characters).");
+        using var content=new StringContent(JsonSerializer.Serialize(new CommunityWeaponReportRequest(hash,reason),MapPackageReader.JsonOptions),Encoding.UTF8,"application/json");
+        using var response=await _http.PostAsync("v3/content/weapon/"+contentId+"/reports",content,token).ConfigureAwait(false);
+        EnsureSuccess(response);
     }
     public async Task SetVisibilityAsync(string hash,string visibility,CancellationToken token)
     {
