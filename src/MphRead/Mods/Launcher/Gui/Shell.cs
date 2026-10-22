@@ -1221,6 +1221,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static string? _shotDirectory;
         private static int _shotStep;
         private static int _shotWait;
+        private static readonly List<string> _shotFiles = new();
 
         /// <summary>
         /// Clicks and hovers the script asked for and the screen did not have.
@@ -1233,17 +1234,21 @@ namespace MphRead.Mods.Launcher.Gui
         /// press what it named.
         /// </summary>
         public static int ShotMisses { get; private set; }
+        public static int ShotCount => _shotFiles.Count;
+        public static IReadOnlyList<string> ShotFiles => _shotFiles;
+        public static bool ShotCompleted { get; private set; }
+        public static string? ShotFailure { get; private set; }
+        public static string? ShotScope { get; private set; }
+        public static bool ShotManifestWritten { get; private set; }
+        public static bool ShotNativeManifestRequired { get; private set; }
 
         /// <summary>
         /// Photograph the shell rather than play in it: `-shellshot DIR`.
-        ///
-        /// <c>-uishot</c> renders the screens on their own and proves the
-        /// layout; this proves what replaced the windows. It walks the whole
-        /// loop the change is about -- front screen, a match loaded into the
-        /// same window, the pause menu over it, leaving the match, the front
-        /// screen again -- and photographs the *window* at each stop, so a
-        /// picture that is black or a step that never arrives is a failure
-        /// with a name rather than a report that "the launcher looks wrong".
+        /// The legacy/lifecycle script walks its game-and-menu loop; ordinary
+        /// native smoke uses an explicitly named setup-only or configured
+        /// navigation scope and writes the checks that scope actually ran.
+        /// Both photograph the *window* at each stop, so a picture that is
+        /// black or a step that never arrives is a named failure.
         ///
         /// Escape is pressed on the front screen before anything else: on that
         /// screen it is the quit prompt, so a second picture that differs from
@@ -1256,6 +1261,16 @@ namespace MphRead.Mods.Launcher.Gui
             _shotStep = 0;
             _shotWait = 0;
             ShotMisses = 0;
+            _shotFiles.Clear();
+            ShotCompleted = false;
+            ShotFailure = null;
+            ShotScope = null;
+            ShotManifestWritten = false;
+            ShotNativeManifestRequired = false;
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            ShotNativeManifestRequired = UseNativeShellShot;
+            ResetNativeShellShot();
+#endif
             // No modal dialog may open while the script is running; see the
             // property, and ClickSettings for what presses one.
             NativeFilePicker.Suppressed = true;
@@ -1288,6 +1303,13 @@ namespace MphRead.Mods.Launcher.Gui
             }
             Diagnostics.LauncherWindowCheck.AfterDraw(window);
             ObserveSamusReturn(window);
+#if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
+            if (_shotDirectory != null && UseNativeShellShot)
+            {
+                AfterDrawNativeShellShot(window);
+                return;
+            }
+#endif
             if (_shotDirectory == null)
             {
                 return;
@@ -1300,8 +1322,7 @@ namespace MphRead.Mods.Launcher.Gui
             Action<RenderWindow>[] script = Script;
             if (_shotStep >= script.Length)
             {
-                _shotDirectory = null;
-                window.Close();
+                FinishShotSequence(window, completed: true);
                 return;
             }
             script[_shotStep++](window);
@@ -1638,8 +1659,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if (!GameFiles.Ready || _rooms.Count == 0)
                 {
                     Console.WriteLine("[shellshot] no game files; screen-only checks complete");
-                    _shotDirectory = null;
-                    w.Close();
+                    FinishShotSequence(w, completed: true);
                     return;
                 }
 
@@ -1982,7 +2002,7 @@ namespace MphRead.Mods.Launcher.Gui
             else Console.WriteLine($"[shellshot] bot restart from lobby loaded {expected}");
         }
 
-        private static void Shot(RenderWindow window, string name)
+        private static bool Shot(RenderWindow window, string name)
         {
             string path = System.IO.Path.Combine(_shotDirectory!, $"{name}.png");
             System.IO.Directory.CreateDirectory(_shotDirectory!);
@@ -1992,12 +2012,29 @@ namespace MphRead.Mods.Launcher.Gui
             bool saved = Mods.ScreenCapture.SaveWindow(
                 window.FramebufferSize.X, window.FramebufferSize.Y, path);
             if (saved)
+            {
                 Mods.Render.FinalCompositeCapture.WriteEvidence(path, window.FramebufferSize.X,
                     window.FramebufferSize.Y, "Application final composite: after scene and shell overlay/hunter, before Present");
+                _shotFiles.Add(path);
+            }
             else ShotMisses++;
             Console.WriteLine(saved
                 ? $"[shellshot] {path}"
                 : $"[shellshot] {name} could not be read from the window");
+            return saved;
+        }
+
+        private static void FinishShotSequence(RenderWindow window, bool completed, string? failure = null)
+        {
+            if (!String.IsNullOrWhiteSpace(failure))
+            {
+                ShotMisses++;
+                ShotFailure = failure;
+                Console.WriteLine("[shellshot] " + failure);
+            }
+            ShotCompleted = completed;
+            _shotDirectory = null;
+            window.Close();
         }
 
         // -------------------------------------------------------------- input

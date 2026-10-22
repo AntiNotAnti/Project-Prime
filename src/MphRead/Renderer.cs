@@ -10174,6 +10174,9 @@ localCenter *= _profileHudScale;
         /// </summary>
         internal void FeedKey(KeyboardKeyEventArgs e) => OnKeyDown(e);
 
+        /// <summary>Put a key release through the window's own handler.</summary>
+        internal void FeedKeyUp(KeyboardKeyEventArgs e) => OnKeyUp(e);
+
         protected override void OnKeyDown(KeyboardKeyEventArgs e)
         {
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
