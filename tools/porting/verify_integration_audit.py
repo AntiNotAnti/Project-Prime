@@ -14,9 +14,9 @@ def git(repository, *arguments):
 
 
 def verify(root=ROOT, upstream=None):
-    manifest = json.loads((root / "docs/porting/second-hunt-manifest.json").read_text())
+    manifest = json.loads((root / "tools/porting/fixtures/second-hunt/second-hunt-manifest.json").read_text(encoding="utf-8"))
     audit = manifest["integrationAudit"]
-    delta = json.loads((root / "docs/porting" / audit["sourceDelta"]).read_text())
+    delta = json.loads((root / "tools/porting/fixtures/second-hunt" / audit["sourceDelta"]).read_text(encoding="utf-8"))
     baseline = audit["targetBaseline"]
     for witness in audit["frozenSourceFiles"]:
         data = git(root, "show", baseline + ":" + witness["path"])
