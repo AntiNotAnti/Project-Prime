@@ -1,6 +1,8 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using System.Threading;
 using MphRead.Mods;
@@ -56,8 +58,74 @@ internal static class StartupGlAcceptance
             void Frame(){page.Refresh(width,height,true);host.Update();GL.BindFramebuffer(FramebufferTarget.Framebuffer,0);GL.Viewport(0,0,width,height);GL.Disable(EnableCap.ScissorTest);GL.ClearColor(.01f,.03f,.05f,1);GL.Clear(ClearBufferMask.ColorBufferBit|ClearBufferMask.DepthBufferBit|ClearBufferMask.StencilBufferBit);RmlUiOpenGlFrame.Draw(host,width,height);}
             void Settle(){var timer=Stopwatch.StartNew();do{Frame();Thread.Sleep(5);}while(timer.ElapsedMilliseconds<160);}
         }
+        HeaderBindingOwnership(host, Check);
         Check(GL.GetError()==ErrorCode.NoError,"startup inputs leave no GL error");
         File.WriteAllText(Path.Combine(output,"startup-summary.json"),JsonSerializer.Serialize(new{passed=true,checks,width,height,scope},new JsonSerializerOptions{WriteIndented=true}));
         void Check(bool value,string label){if(!value)throw new InvalidOperationException(label);checks++;Console.WriteLine("NATIVE STARTUP GL PASS "+label);}
+    }
+
+    private static void HeaderBindingOwnership(RmlUiHost host, Action<bool,string> check)
+    {
+        Type smoke = typeof(RmlUiHost).Assembly.GetType(
+            "MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke", throwOnError: true)!;
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.NonPublic;
+        FieldInfo hostField = smoke.GetField("_host", flags)!;
+        FieldInfo pagesField = smoke.GetField("_pages", flags)!;
+        FieldInfo headerField = smoke.GetField("_applicationHeader", flags)!;
+        FieldInfo launcherPagesField = smoke.GetField("_launcherPages", flags)!;
+        MethodInfo present = smoke.GetMethod("PresentApplicationHeader", flags)!;
+        object? oldHost = hostField.GetValue(null);
+        object? oldPages = pagesField.GetValue(null);
+        object? oldHeader = headerField.GetValue(null);
+        object? oldLauncherPages = launcherPagesField.GetValue(null);
+        try
+        {
+            hostField.SetValue(null, host);
+            launcherPagesField.SetValue(null, null);
+            headerField.SetValue(null, default(RmlUiDocumentToken));
+            using (var startupPages = new RmlUiPageManager(host))
+            using (var startup = new NativeStartupPage(host, startupPages, studio: false))
+            {
+                startup.Open();
+                pagesField.SetValue(null, startupPages);
+                host.Update();
+                check(!host.TryGetElementBounds(startup.Document, "topbar", out _, out _, out _, out _),
+                    "native startup fixture remains headerless before production presentation");
+                Present();
+                check(true, "production header presentation skips bindings for a headerless startup owner");
+            }
+
+            using (var headerPages = new RmlUiPageManager(host))
+            {
+                RmlUiDocumentToken headerPage = headerPages.OpenPage(
+                    new("application-header-check", "pages/home/home.rml"));
+                pagesField.SetValue(null, headerPages);
+                host.Update();
+                check(host.TryGetElementBounds(headerPage, "topbar", out _, out _, out _, out _),
+                    "application header fixture owns the authored topbar");
+                Present();
+                host.SetBool(headerPage, "visible:header_required_weapon", true);
+                host.Update();
+                check(host.TryGetElementBounds(headerPage, "header_required_weapon", out _, out _, out float width, out float height)
+                    && width > 0 && height > 0,
+                    "production header owner accepts and displays the required-weapon alert binding");
+                host.SetBool(headerPage, "visible:header_required_weapon", false);
+                host.Update();
+            }
+        }
+        finally
+        {
+            hostField.SetValue(null, oldHost);
+            pagesField.SetValue(null, oldPages);
+            headerField.SetValue(null, oldHeader);
+            launcherPagesField.SetValue(null, oldLauncherPages);
+        }
+
+        void Present()
+        {
+            try { present.Invoke(null, new object?[] { host }); }
+            catch (TargetInvocationException error) when (error.InnerException != null)
+            { ExceptionDispatchInfo.Capture(error.InnerException).Throw(); }
+        }
     }
 }

@@ -2756,6 +2756,13 @@ namespace MphRead.Mods
             {
                 return 1;
             }
+            if (!Launcher.Gui.Shell.ShotCompleted)
+            {
+                string? detail = Launcher.Gui.Shell.ShotFailure;
+                Console.WriteLine("[shellshot] the application closed before the capture sequence completed"
+                    + (String.IsNullOrWhiteSpace(detail) ? "" : ": " + detail));
+                return 1;
+            }
             // A step that could not press what it named is the check failing,
             // not a note in the log: what it proves is that a click reaches
             // the control it was aimed at, and a predicate matching nothing
@@ -2766,11 +2773,302 @@ namespace MphRead.Mods
                 Console.WriteLine($"[shellshot] {misses} step(s) found nothing to press");
                 return 1;
             }
+            IReadOnlyList<string> shots = Launcher.Gui.Shell.ShotFiles;
+            if (shots.Count == 0)
+            {
+                Console.WriteLine("[shellshot] the capture sequence completed without saving a screenshot");
+                return 1;
+            }
+            bool nativeManifestRequired = Launcher.Gui.Shell.ShotNativeManifestRequired;
+            int expectedPngWidth = 0, expectedPngHeight = 0;
+            string finalCaptureName = "";
+            if (nativeManifestRequired
+                && !ValidateNativeShellShotManifest(directory, shots,
+                    out expectedPngWidth, out expectedPngHeight, out finalCaptureName,
+                    out string manifestError))
+            {
+                Console.WriteLine("[shellshot] native scope manifest is missing or invalid: " + manifestError);
+                return 1;
+            }
+            foreach (string shot in shots)
+            {
+                if (!TryReadValidPngDimensions(shot, out int width, out int height)
+                    || (nativeManifestRequired && System.IO.Path.GetFileName(shot) == finalCaptureName
+                        && (width != expectedPngWidth || height != expectedPngHeight)))
+                {
+                    Console.WriteLine($"[shellshot] screenshot is missing, empty, or invalid: {shot}");
+                    return 1;
+                }
+            }
             return 0;
 #else
             Console.WriteLine("[shellshot] this build has no launcher");
             return 1;
 #endif
+        }
+
+        private static bool ValidateNativeShellShotManifest(string directory,
+            IReadOnlyList<string> shots, out int expectedPngWidth, out int expectedPngHeight,
+            out string finalCaptureName, out string error)
+        {
+            expectedPngWidth = expectedPngHeight = 0;
+            finalCaptureName = "";
+            error = "scope, captures, and resize witnesses did not match";
+            try
+            {
+                string path = System.IO.Path.Combine(directory, "shellshot.json");
+                var info = new System.IO.FileInfo(path);
+                if (!info.Exists || info.Length <= 0 || info.Length > 1024 * 1024
+                    || (System.IO.File.GetAttributes(path) & System.IO.FileAttributes.ReparsePoint) != 0)
+                    return false;
+                using var document = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllBytes(path));
+                System.Text.Json.JsonElement root = document.RootElement;
+                if (root.ValueKind != System.Text.Json.JsonValueKind.Object
+                    || !root.TryGetProperty("schema", out var schema) || schema.GetInt32() != 1
+                    || !root.TryGetProperty("kind", out var kind) || kind.GetString() != "native-shellshot"
+                    || !root.TryGetProperty("outcome", out var outcome) || outcome.GetString() != "passed"
+                    || !root.TryGetProperty("scope", out var scopeElement))
+                    return false;
+
+                string? scope = scopeElement.GetString();
+                bool assetlessSetup = scope == "assetless-setup";
+                if (!assetlessSetup && scope != "configured-navigation") return false;
+                string[] expectedClaims = assetlessSetup
+                    ? new[] { "startup", "required Game Files setup", "Escape did not bypass setup", "resized setup viewport" }
+                    : new[] { "Home", "News", "Settings", "Back navigation", "resized Home viewport" };
+                string[] actualCaptures;
+                if (!TryMatchJsonStringArray(root, "claims", expectedClaims)
+                    || !TryReadJsonStringArray(root, "captures", out actualCaptures))
+                    return false;
+
+                string[] shotNames = shots.Select(static shot =>
+                    System.IO.Path.GetFileName(shot) ?? "").ToArray();
+                string[] assetlessCaptures = { "shell-native-startup.png", "shell-native-assetless-setup.png",
+                    "shell-native-assetless-setup-resized.png" };
+                string[] configuredCaptures = { "shell-native-startup.png", "shell-native-home.png",
+                    "shell-native-news.png", "shell-native-home-return.png", "shell-native-settings.png",
+                    "shell-native-settings-return.png", "shell-native-resized.png" };
+                string[] configuredWithSetup = { "shell-native-startup.png", "shell-native-configured-game-files.png",
+                    "shell-native-home.png", "shell-native-news.png", "shell-native-home-return.png",
+                    "shell-native-settings.png", "shell-native-settings-return.png", "shell-native-resized.png" };
+                bool validCaptureSet = assetlessSetup
+                    ? actualCaptures.SequenceEqual(assetlessCaptures, StringComparer.Ordinal)
+                    : actualCaptures.SequenceEqual(configuredCaptures, StringComparer.Ordinal)
+                        || actualCaptures.SequenceEqual(configuredWithSetup, StringComparer.Ordinal);
+                if (!validCaptureSet || !shotNames.SequenceEqual(actualCaptures, StringComparer.Ordinal)) return false;
+                finalCaptureName = assetlessSetup ? "shell-native-assetless-setup-resized.png" : "shell-native-resized.png";
+                string captureDirectory = System.IO.Path.TrimEndingDirectorySeparator(
+                    System.IO.Path.GetFullPath(directory));
+                foreach (string shot in shots)
+                {
+                    string? shotDirectory = System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(shot));
+                    if (!String.Equals(System.IO.Path.TrimEndingDirectorySeparator(shotDirectory ?? ""),
+                        captureDirectory, StringComparison.OrdinalIgnoreCase)) return false;
+                }
+
+                if (!root.TryGetProperty("gameFilesReady", out var ready) || ready.GetBoolean() != !assetlessSetup
+                    || !root.TryGetProperty("gameFilesOwnsInput", out var ownsInput)
+                    || ownsInput.GetBoolean() != assetlessSetup
+                    || !root.TryGetProperty("setupEscapeBlocked", out var escapeBlocked)
+                    || escapeBlocked.GetBoolean() != assetlessSetup)
+                    return false;
+                if (!TryReadJsonSize(root, "originalClientSize", out int originalWidth, out int originalHeight)
+                    || !TryReadJsonSize(root, "requestedClientSize", out int requestedWidth, out int requestedHeight)
+                    || !TryReadJsonSize(root, "observedClientSize", out int observedWidth, out int observedHeight)
+                    || !TryReadJsonSize(root, "observedFramebufferSize", out expectedPngWidth, out expectedPngHeight)
+                    || originalWidth <= 0 || originalHeight <= 0
+                    || requestedWidth <= 0 || requestedHeight <= 0
+                    || requestedWidth == originalWidth && requestedHeight == originalHeight
+                    || observedWidth != requestedWidth || observedHeight != requestedHeight
+                    || expectedPngWidth <= 0 || expectedPngHeight <= 0)
+                    return false;
+
+                if (assetlessSetup)
+                {
+                    if (!root.TryGetProperty("gameFilesChooseButtonBounds", out var bounds)
+                        || bounds.ValueKind != System.Text.Json.JsonValueKind.Object
+                        || !bounds.TryGetProperty("present", out var present) || !present.GetBoolean()
+                        || !bounds.TryGetProperty("x", out var x) || !x.TryGetSingle(out float left)
+                        || !bounds.TryGetProperty("y", out var y) || !y.TryGetSingle(out float top)
+                        || !bounds.TryGetProperty("width", out var width) || !width.TryGetSingle(out float buttonWidth)
+                        || !bounds.TryGetProperty("height", out var height) || !height.TryGetSingle(out float buttonHeight)
+                        || !float.IsFinite(left) || !float.IsFinite(top)
+                        || !float.IsFinite(buttonWidth) || !float.IsFinite(buttonHeight)
+                        || left < 0 || top < 0 || buttonWidth <= 0 || buttonHeight <= 0
+                        || (double)left + buttonWidth > expectedPngWidth
+                        || (double)top + buttonHeight > expectedPngHeight)
+                        return false;
+                }
+                else if (!root.TryGetProperty("gameFilesChooseButtonBounds", out var bounds)
+                    || bounds.ValueKind != System.Text.Json.JsonValueKind.Object
+                    || !bounds.TryGetProperty("present", out var present) || present.GetBoolean())
+                {
+                    return false;
+                }
+
+                error = "";
+                return true;
+            }
+            catch (Exception exception) when (exception is System.IO.IOException
+                or UnauthorizedAccessException or ArgumentException or NotSupportedException
+                or System.Text.Json.JsonException or InvalidOperationException or FormatException
+                or OverflowException)
+            {
+                error = "could not parse the capture manifest";
+                return false;
+            }
+        }
+
+        private static bool TryReadJsonStringArray(System.Text.Json.JsonElement parent,
+            string name, out string[] actual)
+        {
+            actual = Array.Empty<string>();
+            if (!parent.TryGetProperty(name, out var element)
+                || element.ValueKind != System.Text.Json.JsonValueKind.Array) return false;
+            actual = element.EnumerateArray()
+                .Select(static value => value.ValueKind == System.Text.Json.JsonValueKind.String
+                    ? value.GetString() ?? "" : "\0")
+                .ToArray();
+            return true;
+        }
+
+        private static bool TryMatchJsonStringArray(System.Text.Json.JsonElement parent,
+            string name, string[] expected)
+        {
+            return TryReadJsonStringArray(parent, name, out string[] actual)
+                && actual.SequenceEqual(expected, StringComparer.Ordinal);
+        }
+
+        private static bool TryReadJsonSize(System.Text.Json.JsonElement parent, string name,
+            out int width, out int height)
+        {
+            width = height = 0;
+            return parent.TryGetProperty(name, out var value)
+                && value.ValueKind == System.Text.Json.JsonValueKind.Object
+                && value.TryGetProperty("width", out var widthElement) && widthElement.TryGetInt32(out width)
+                && value.TryGetProperty("height", out var heightElement) && heightElement.TryGetInt32(out height);
+        }
+
+        private const long MaximumShellShotPngBytes = 64L * 1024 * 1024;
+        private static readonly uint[] ShellShotPngCrcTable = CreateShellShotPngCrcTable();
+
+        private static bool TryReadValidPngDimensions(string path, out int width, out int height)
+        {
+            width = height = 0;
+            try
+            {
+                if ((System.IO.File.GetAttributes(path) & System.IO.FileAttributes.ReparsePoint) != 0)
+                    return false;
+                using var stream = System.IO.File.OpenRead(path);
+                if (stream.Length < 45 || stream.Length > MaximumShellShotPngBytes) return false;
+                if (!TryValidateShellShotPngChunks(stream, out width, out height)) return false;
+                // CRC and chunk checks do not prove that the compressed image
+                // data decodes. Decode only after strict byte and pixel bounds
+                // have limited the work and temporary image allocation.
+                stream.Position = 0;
+                using var decoded = ReFuel.Stb.StbImage.Load(stream, ReFuel.Stb.StbiImageFormat.Rgba);
+                return decoded.Width == width && decoded.Height == height;
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException
+                and not StackOverflowException)
+            {
+                return false;
+            }
+        }
+
+        private static bool TryValidateShellShotPngChunks(System.IO.Stream stream,
+            out int width, out int height)
+        {
+            width = height = 0;
+            try
+            {
+                Span<byte> signature = stackalloc byte[8];
+                stream.ReadExactly(signature);
+                if (!signature.SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })) return false;
+
+                Span<byte> chunkHeader = stackalloc byte[8];
+                Span<byte> expectedCrc = stackalloc byte[4];
+                Span<byte> buffer = stackalloc byte[8192];
+                Span<byte> ihdr = stackalloc byte[13];
+                bool hasData = false, hasDataBytes = false;
+                int chunks = 0;
+                while (stream.Position < stream.Length)
+                {
+                    if (++chunks > 65536 || stream.Length - stream.Position < 12) return false;
+                    stream.ReadExactly(chunkHeader);
+                    uint chunkLength = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(chunkHeader[..4]);
+                    ReadOnlySpan<byte> chunkType = chunkHeader[4..8];
+                    if ((long)chunkLength > stream.Length - stream.Position - 4) return false;
+                    if (chunks == 1)
+                    {
+                        if (!chunkType.SequenceEqual("IHDR"u8) || chunkLength != 13) return false;
+                    }
+                    else if (chunkType.SequenceEqual("IHDR"u8)) return false;
+
+                    uint crc = UpdateShellShotPngCrc(uint.MaxValue, chunkType);
+                    uint remaining = chunkLength;
+                    int ihdrOffset = 0;
+                    while (remaining > 0)
+                    {
+                        int count = (int)Math.Min((uint)buffer.Length, remaining);
+                        Span<byte> data = buffer[..count];
+                        stream.ReadExactly(data);
+                        crc = UpdateShellShotPngCrc(crc, data);
+                        if (chunks == 1)
+                        {
+                            data.CopyTo(ihdr[ihdrOffset..]);
+                            ihdrOffset += count;
+                        }
+                        remaining -= (uint)count;
+                    }
+                    stream.ReadExactly(expectedCrc);
+                    if (~crc != System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(expectedCrc)) return false;
+
+                    if (chunks == 1)
+                    {
+                        uint pngWidth = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(ihdr[..4]);
+                        uint pngHeight = System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(ihdr[4..8]);
+                        if (pngWidth == 0 || pngHeight == 0 || pngWidth > 8192 || pngHeight > 8192
+                            || (ulong)pngWidth * pngHeight > 16_777_216) return false;
+                        width = (int)pngWidth;
+                        height = (int)pngHeight;
+                    }
+                    if (chunkType.SequenceEqual("IDAT"u8))
+                    {
+                        hasData = true;
+                        hasDataBytes |= chunkLength > 0;
+                    }
+                    if (chunkType.SequenceEqual("IEND"u8))
+                        return chunkLength == 0 && hasData && hasDataBytes && stream.Position == stream.Length;
+                }
+            }
+            catch (Exception error) when (error is System.IO.IOException
+                or UnauthorizedAccessException or ArgumentException or NotSupportedException
+                or OverflowException)
+            {
+                return false;
+            }
+            return false;
+        }
+
+        private static uint[] CreateShellShotPngCrcTable()
+        {
+            var table = new uint[256];
+            for (int index = 0; index < table.Length; index++)
+            {
+                uint value = (uint)index;
+                for (int bit = 0; bit < 8; bit++)
+                    value = (value >> 1) ^ ((value & 1) != 0 ? 0xedb88320u : 0);
+                table[index] = value;
+            }
+            return table;
+        }
+
+        private static uint UpdateShellShotPngCrc(uint crc, ReadOnlySpan<byte> bytes)
+        {
+            foreach (byte value in bytes)
+                crc = ShellShotPngCrcTable[(crc ^ value) & 255] ^ (crc >> 8);
+            return crc;
         }
 
         /// <summary>

@@ -89,7 +89,7 @@ internal static partial class RmlUiOpenGlSmoke
             : _news != null ? RmlUiHeaderTab.Play
             : _launcherPages?.Page == RmlUiMenuPage.Theatre ? RmlUiHeaderTab.Theatre
             : RmlUiHeaderTab.Play;
-        RmlUiApplicationHeader.Apply(host, pages.Page, Shell.StudioWindow, active);
+        if (!RmlUiApplicationHeader.Apply(host, pages.Page, Shell.StudioWindow, active)) return;
         host.SetBool(pages.Page, "visible:header_required_weapon", !Shell.StudioWindow
             && _communityWeapons == null && _quickSettings == null && _fullSettings == null && _hunterChoice == null
             && !NetSession.RequiredWeaponPackagesReady && NetSession.TryRequiredWeaponPackage(out _, out _));
