@@ -999,17 +999,53 @@ namespace MphRead.Mods.Launcher.Gui
                 try
                 {
                     window.Show(); Drain(window);
-                    var startup = front.GetVisualDescendants().OfType<PrimeStartupScreen>().Single();
-                    Check(startup.IsFocused && !shell.IsVisible && !shell.Overlays.IsOpen,
-                        "startup owns focus and defers setup prompts");
+                    var startup = front.GetVisualDescendants().OfType<PrimeStartupScreen>().SingleOrDefault();
+                    bool nativeStartupPending = front.RmlUiStartupPending;
+                    if (nativeStartupPending)
+                    {
+                        Check(startup == null && front.RmlUiStartupOwnerCurrent
+                            && !shell.IsVisible && !shell.IsEnabled && !shell.Overlays.IsOpen,
+                            "native startup owner holds the retained shell behind its gate");
+                    }
+                    else
+                    {
+                        var legacyStartup = startup ?? throw new InvalidOperationException(
+                            "Legacy startup branch requires its Avalonia startup control.");
+                        Check(legacyStartup.IsFocused && !shell.IsVisible && !shell.Overlays.IsOpen,
+                            "startup owns focus and defers setup prompts");
+                    }
                     shell.Router.Navigate(PrimeRoute.Settings);
                     Check(shell.Router.Current == PrimeRoute.News, "startup blocks shell routes");
-                    FocusNavigator.Key(startup, Key.Escape); FocusNavigator.Key(startup, Key.E);
-                    Check(startup.IsVisible && !startup.Leaving, "startup consumes back and tab navigation");
-                    FocusNavigator.Key(startup, Key.Enter); Drain(window);
-                    Check(shell.IsVisible && shell.IsEnabled && ReferenceEquals(header, shell.Header)
-                        && !front.GetVisualDescendants().OfType<PrimeStartupScreen>().Any(),
-                        "Enter reveals the same mounted shell and removes startup");
+                    if (nativeStartupPending)
+                    {
+                        Check(!front.RmlUiNavigate(PrimeRoute.Settings) && shell.Router.Current == PrimeRoute.News,
+                            "native startup rejects shell navigation intents until completion");
+                        front.RmlUiCompleteStartup(); Drain(window);
+                        Check(!front.RmlUiStartupPending && !front.RmlUiStartupOwnerCurrent
+                            && shell.IsVisible && shell.IsEnabled && ReferenceEquals(header, shell.Header)
+                            && !front.GetVisualDescendants().OfType<PrimeStartupScreen>().Any()
+                            && !shell.Overlays.IsOpen,
+                            "native startup completion reveals the same retained shell owner");
+                        Check(front.RmlUiNavigate(PrimeRoute.Settings)
+                            && shell.Router.Current == PrimeRoute.Settings,
+                            "native startup completion enables shell navigation");
+                        shell.Router.Navigate(PrimeRoute.News); Drain(window);
+                        front.RmlUiCompleteStartup();
+                        Check(!front.RmlUiStartupPending && !front.RmlUiStartupOwnerCurrent
+                            && shell.IsVisible && shell.IsEnabled && shell.Router.Current == PrimeRoute.News
+                            && !shell.Overlays.IsOpen,
+                            "repeated native startup completion leaves the active owner unchanged");
+                    }
+                    else
+                    {
+                        var legacyStartup = startup!;
+                        FocusNavigator.Key(legacyStartup, Key.Escape); FocusNavigator.Key(legacyStartup, Key.E);
+                        Check(legacyStartup.IsVisible && !legacyStartup.Leaving, "startup consumes back and tab navigation");
+                        FocusNavigator.Key(legacyStartup, Key.Enter); Drain(window);
+                        Check(shell.IsVisible && shell.IsEnabled && ReferenceEquals(header, shell.Header)
+                            && !front.GetVisualDescendants().OfType<PrimeStartupScreen>().Any(),
+                            "Enter reveals the same mounted shell and removes startup");
+                    }
                     shell.Overlays.Clear();
                     shell.Router.Navigate(PrimeRoute.News);
                     FocusNavigator.Key(FocusNavigator.Ensure(shell)!, Key.Escape);
@@ -1022,8 +1058,9 @@ namespace MphRead.Mods.Launcher.Gui
                         "cancelling quit stays on the main screen");
                     var oldOffline = shell.Workspaces.Get(PrimeRoute.Offline);
                     var refreshedSettings = new MenuSettings { PointGoal = "25", TimeLimit = "10:00" };
-                    startup.Continue(); front.Reset(refreshedSettings); Drain(window);
-                    Check(shell.IsVisible && !front.GetVisualDescendants().OfType<PrimeStartupScreen>().Any(),
+                    startup?.Continue(); front.Reset(refreshedSettings); Drain(window);
+                    Check(shell.IsVisible && !front.RmlUiStartupPending && !front.RmlUiStartupOwnerCurrent
+                        && !front.GetVisualDescendants().OfType<PrimeStartupScreen>().Any(),
                         "repeat input and match return never reopen startup");
                     var newOffline = (OfflineWorkspace)shell.Workspaces.Get(PrimeRoute.Offline);
                     var settingsField = typeof(OfflineWorkspace).GetField("_settings",
