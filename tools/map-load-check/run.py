@@ -38,7 +38,9 @@ MAX_ASSET_BYTES = 4 * 1024 * 1024 * 1024
 MAX_CAMPAIGN_ASSET_FILES = 400_000
 MAX_CAMPAIGN_ASSET_BYTES = 8 * 1024 * 1024 * 1024
 MAX_MAP_FILES = 20_000
+MAX_MAP_PACKAGE_BYTES = 512 * 1024 * 1024
 MAX_MAP_BYTES = 8 * 1024 * 1024 * 1024
+MAX_MAP_CATALOG_ENTRIES = 50_000
 ASSET_PATH_KEYS = frozenset({
     "AMFE0", "AMFP0", "A76E0", "AMHE0", "AMHE1",
     "AMHJ0", "AMHJ1", "AMHP0", "AMHP1", "AMHK0",
@@ -69,36 +71,167 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def inventory_tree(root: Path) -> tuple[list[dict[str, Any]], str]:
-    """Hash every regular file below root without following symbolic links."""
+def inventory_package_catalog(root: Path, *, require_packages_only: bool = False) -> tuple[list[dict[str, Any]], str, int]:
+    """Hash only regular .ppmap files in a bounded, link-free source catalog."""
     if _is_link(root):
         raise CampaignError(f"maps directory cannot be a symbolic link or junction: {root}")
+    if not root.is_dir():
+        raise CampaignError(f"maps directory is not a directory: {root}")
+    if root == Path(root.anchor) or root.parent == root:
+        raise CampaignError(f"maps directory cannot be a disk root: {root}")
     entries: list[dict[str, Any]] = []
-    total_bytes = 0
+    visited_entries = 0
+    catalog_bytes = 0
+    package_bytes = 0
     for current, directories, files in os.walk(root, followlinks=False):
         current_path = Path(current)
         for name in list(directories):
             item = current_path / name
+            visited_entries += 1
+            if visited_entries > MAX_MAP_CATALOG_ENTRIES:
+                raise CampaignError(
+                    f"maps catalog exceeds the {MAX_MAP_CATALOG_ENTRIES}-entry scan limit: {root}"
+                )
             if _is_link(item):
                 raise CampaignError(f"maps input contains a symbolic link or junction: {item}")
         for name in files:
             item = current_path / name
+            visited_entries += 1
+            if visited_entries > MAX_MAP_CATALOG_ENTRIES:
+                raise CampaignError(
+                    f"maps catalog exceeds the {MAX_MAP_CATALOG_ENTRIES}-entry scan limit: {root}"
+                )
             if _is_link(item) or not item.is_file():
-                raise CampaignError(f"maps input contains a link or non-regular file: {item}")
+                raise CampaignError(f"maps input contains a symbolic link, junction, or non-regular file: {item}")
             size = item.stat().st_size
-            total_bytes += size
+            catalog_bytes += size
+            if catalog_bytes > MAX_MAP_BYTES:
+                raise CampaignError(f"maps catalog exceeds the {MAX_MAP_BYTES}-byte scan limit: {root}")
+            if item.suffix.casefold() != ".ppmap":
+                if require_packages_only:
+                    raise CampaignError(f"private package catalog contains a non-.ppmap file: {item}")
+                continue
+            if size > MAX_MAP_PACKAGE_BYTES:
+                raise CampaignError(
+                    f".ppmap package exceeds the {MAX_MAP_PACKAGE_BYTES}-byte per-package limit: {item}"
+                )
+            package_bytes += size
             if len(entries) >= MAX_MAP_FILES:
-                raise CampaignError(f"maps directory exceeds the {MAX_MAP_FILES}-file limit: {root}")
-            if total_bytes > MAX_MAP_BYTES:
-                raise CampaignError(f"maps directory exceeds the {MAX_MAP_BYTES}-byte limit: {root}")
+                raise CampaignError(f"maps catalog exceeds the {MAX_MAP_FILES}-package limit: {root}")
+            if package_bytes > MAX_MAP_BYTES:
+                raise CampaignError(f".ppmap packages exceed the {MAX_MAP_BYTES}-byte limit: {root}")
             entries.append({
                 "path": item.relative_to(root).as_posix(),
                 "sizeBytes": size,
                 "sha256": sha256_file(item),
             })
+    if not entries:
+        raise CampaignError(f"maps catalog contains no regular .ppmap packages: {root}")
     entries.sort(key=lambda entry: (entry["path"].casefold(), entry["path"]))
     payload = json.dumps(entries, sort_keys=True, separators=(",", ":")).encode("utf-8")
-    return entries, hashlib.sha256(payload).hexdigest()
+    return entries, hashlib.sha256(payload).hexdigest(), package_bytes
+
+
+def copy_package_catalog(
+    source_root: Path,
+    private_directory: Path,
+    *,
+    expected_manifest: Sequence[dict[str, Any]] | None = None,
+    expected_hash: str | None = None,
+    expected_bytes: int | None = None,
+) -> dict[str, Any]:
+    """Copy only standalone packages into a private catalog, without hard links."""
+    if _is_link(source_root) or _is_link(private_directory):
+        raise CampaignError("package catalog source and private destination cannot be symbolic links or junctions")
+    source_root = source_root.resolve(strict=True)
+    private_directory = private_directory.resolve(strict=False)
+    if _is_link(source_root) or not source_root.is_dir():
+        raise CampaignError(f"maps directory must be a regular directory: {source_root}")
+    if _inside(private_directory, source_root) or _inside(source_root, private_directory):
+        raise CampaignError(f"private package catalog overlaps its source: {source_root}")
+    if expected_manifest is None or expected_hash is None or expected_bytes is None:
+        manifest, source_hash, source_bytes = inventory_package_catalog(source_root)
+    else:
+        manifest, source_hash, source_bytes = list(expected_manifest), expected_hash, expected_bytes
+    if not manifest or len(manifest) > MAX_MAP_FILES or source_bytes < 0 or source_bytes > MAX_MAP_BYTES:
+        raise CampaignError("private package catalog snapshot exceeds its package count or byte budget")
+    if private_directory.exists():
+        raise CampaignError(f"private package catalog already exists: {private_directory}")
+    copied = False
+    try:
+        private_directory.mkdir(parents=True, exist_ok=False)
+        copied = True
+        copied_manifest: list[dict[str, Any]] = []
+        copied_bytes = 0
+        for entry in manifest:
+            relative = entry["path"].split("/")
+            if (not relative or any(part in ("", ".", "..") or ":" in part or "\\" in part
+                                    for part in relative)):
+                raise CampaignError(f"maps catalog contains an unsafe package path: {entry['path']!r}")
+            if Path(relative[-1]).suffix.casefold() != ".ppmap":
+                raise CampaignError(f"private package catalog accepts only .ppmap files: {entry['path']!r}")
+            if entry["sizeBytes"] < 0 or entry["sizeBytes"] > MAX_MAP_PACKAGE_BYTES:
+                raise CampaignError(f"package exceeds the per-package byte limit: {entry['path']!r}")
+            source = source_root.joinpath(*relative)
+            target = private_directory.joinpath(*relative)
+            if _is_link(source) or not source.is_file():
+                raise CampaignError(f"package source changed during snapshot: {source}")
+            resolved_source = source.resolve(strict=True)
+            resolved_target = target.resolve(strict=False)
+            if not _inside(resolved_source, source_root) or not _inside(resolved_target, private_directory):
+                raise CampaignError(f"package path escapes its catalog: {entry['path']!r}")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, target)
+            copied_size = target.stat().st_size
+            copied_hash = sha256_file(target)
+            if copied_size != entry["sizeBytes"] or copied_hash != entry["sha256"]:
+                raise CampaignError(f"private package copy verification failed: {entry['path']}")
+            copied_manifest.append({"path": entry["path"], "sizeBytes": copied_size, "sha256": copied_hash})
+            copied_bytes += copied_size
+        copied_manifest.sort(key=lambda entry: (entry["path"].casefold(), entry["path"]))
+        payload = json.dumps(copied_manifest, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        copied_hash = hashlib.sha256(payload).hexdigest()
+        if copied_hash != source_hash or copied_bytes != source_bytes or copied_manifest != manifest:
+            raise CampaignError("private package catalog verification failed")
+        return {
+            "sourcePackageCatalogSha256": source_hash,
+            "privateCopyPackageCatalogSha256": copied_hash,
+            "privateCopyDirectory": str(private_directory),
+            "files": len(manifest),
+            "sizeBytes": copied_bytes,
+            "removedAfterRun": False,
+        }
+    except BaseException:
+        if copied:
+            shutil.rmtree(private_directory, ignore_errors=True)
+        raise
+
+
+def verify_private_package_catalog(package_catalog: dict[str, Any]) -> str:
+    directory = Path(package_catalog["privateCopyDirectory"])
+    _, actual_hash, _ = inventory_package_catalog(directory, require_packages_only=True)
+    if actual_hash != package_catalog["privateCopyPackageCatalogSha256"]:
+        raise CampaignError("private .ppmap package catalog changed while the process was running")
+    return actual_hash
+
+
+def remove_private_package_catalog(package_catalog: dict[str, Any]) -> None:
+    directory = Path(package_catalog["privateCopyDirectory"])
+    exception_in_flight = sys.exc_info()[0] is not None
+    try:
+        shutil.rmtree(directory)
+    except FileNotFoundError:
+        pass
+    except OSError as exc:
+        package_catalog["cleanupError"] = str(exc)
+        package_catalog["removedAfterRun"] = False
+        if not exception_in_flight:
+            raise CampaignError(f"cannot remove private cold package catalog {directory}: {exc}") from exc
+    package_catalog["removedAfterRun"] = not directory.exists()
+    if not package_catalog["removedAfterRun"]:
+        package_catalog.setdefault("cleanupError", "private catalog remained after cleanup")
+        if not exception_in_flight:
+            raise CampaignError(f"private cold package catalog remains after cleanup: {directory}")
 
 
 def _is_link(path: Path) -> bool:
@@ -366,9 +499,30 @@ def make_profile(profile_root: Path, paths_source: Path,
     profile_root.mkdir(parents=True, exist_ok=False)
     export_root = profile_root / "Export"
     export_root.mkdir()
+    (profile_root / "Q3ImportCache").mkdir()
     effective_paths, digest = rewrite_paths(paths_source, export_root, asset_rewrites)
     (profile_root / "paths.txt").write_text(effective_paths, encoding="utf-8", newline="\n")
     return digest
+
+
+def profile_environment(dotnet_env: dict[str, str], profile: Path) -> dict[str, str]:
+    q3_cache = profile / "Q3ImportCache"
+    if not profile.is_dir() or not q3_cache.is_dir():
+        raise CampaignError(f"private profile or Q3 cache directory is missing: {profile}")
+    return dict(
+        dotnet_env,
+        PROJECT_PRIME_USER_DATA=str(profile),
+        PROJECT_PRIME_Q3_CACHE=str(q3_cache),
+    )
+
+
+def package_catalog_path_for(private_root: Path, cache_kind: str, room_slug: str,
+                            arm: str, trial_index: int | None = None) -> Path:
+    if cache_kind == "persistent-cache-warm":
+        return private_root / "warm-maps" / room_slug / arm
+    if cache_kind != "application-cold" or trial_index is None or trial_index < 1:
+        raise CampaignError("application-cold package catalog requires a positive trial index")
+    return private_root / "cold-maps" / room_slug / f"trial-{trial_index:03d}-{arm}"
 
 
 def build_command(dotnet: str, dll: Path, room: str, maps_dir: Path,
@@ -419,10 +573,10 @@ def _stop_owned_process(process: Any) -> tuple[int | None, bool]:
             terminated = True
         except OSError:
             pass
-        try:
-            return process.wait(timeout=5), terminated
-        except subprocess.TimeoutExpired:
-            return process.poll(), terminated
+        # The private map catalog must stay in place until our child exits.
+        # After a hard kill, wait without a timeout so cleanup cannot race a
+        # still-running process that has not released its package files.
+        return process.wait(), terminated
 
 
 def run_process(
@@ -444,6 +598,7 @@ def run_process(
         "projectPrimeUserData": env.get("PROJECT_PRIME_USER_DATA"),
         "environmentOverrides": {
             "PROJECT_PRIME_USER_DATA": env.get("PROJECT_PRIME_USER_DATA"),
+            "PROJECT_PRIME_Q3_CACHE": env.get("PROJECT_PRIME_Q3_CACHE"),
             "DOTNET_CLI_TELEMETRY_OPTOUT": env.get("DOTNET_CLI_TELEMETRY_OPTOUT"),
             "DOTNET_SKIP_FIRST_TIME_EXPERIENCE": env.get("DOTNET_SKIP_FIRST_TIME_EXPERIENCE"),
         },
@@ -549,6 +704,7 @@ def _validate_args(args: argparse.Namespace) -> dict[str, Any]:
         raise CampaignError(f"--maps-dir must be an existing directory: {maps_dir}")
     if maps_dir == Path(maps_dir.anchor) or maps_dir.parent == maps_dir:
         raise CampaignError("--maps-dir cannot be a disk root")
+    map_packages, map_packages_hash, map_package_bytes = inventory_package_catalog(maps_dir)
     asset_roots = configured_asset_roots(paths_file)
     unique_asset_sources = sorted(
         {root["source"] for root in asset_roots}, key=lambda path: os.path.normcase(str(path))
@@ -585,6 +741,9 @@ def _validate_args(args: argparse.Namespace) -> dict[str, Any]:
         "candidate": candidate,
         "gamePaths": paths_file,
         "mapsDir": maps_dir,
+        "mapPackages": map_packages,
+        "mapPackagesSha256": map_packages_hash,
+        "mapPackageBytes": map_package_bytes,
         "assetRoots": asset_roots,
         "assetSources": unique_asset_sources,
         "output": output,
@@ -668,7 +827,7 @@ def _final_input_hashes(config: dict[str, Any]) -> dict[str, Any]:
         "baselineDllSha256": sha256_file(config["baseline"]),
         "candidateDllSha256": sha256_file(config["candidate"]),
         "gamePathsSha256": sha256_file(config["gamePaths"]),
-        "mapsTreeSha256": inventory_tree(config["mapsDir"])[1],
+        "mapPackagesSha256": inventory_package_catalog(config["mapsDir"])[1],
         "nativeAssetRootsSha256": hashlib.sha256(payload).hexdigest(),
     }
 
@@ -697,6 +856,7 @@ def _record_run(
     dll: Path,
     room: str,
     profile: Path,
+    package_catalog: dict[str, Any],
     paths_hash: str,
     runtime_namespace: str,
     timeout_seconds: float,
@@ -709,7 +869,7 @@ def _record_run(
         result = run_process(
             command=command,
             cwd=dll.parent,
-            env=dict(dotnet_env, PROJECT_PRIME_USER_DATA=str(profile)),
+            env=profile_environment(dotnet_env, profile),
             timeout_seconds=timeout_seconds,
             stdout_path=run_dir / "stdout.log",
             stderr_path=run_dir / "stderr.log",
@@ -724,6 +884,10 @@ def _record_run(
             "status": "interrupted",
             "room": room,
             "dll": str(dll),
+            "mapDirectory": package_catalog["privateCopyDirectory"],
+            "mapPackageCatalogSha256": package_catalog["privateCopyPackageCatalogSha256"],
+            "mapPackageCount": package_catalog["files"],
+            "mapPackageBytes": package_catalog["sizeBytes"],
             "receipt": str(report.relative_to(output)),
             "pathsSha256": paths_hash,
             "profileLabel": profile.name,
@@ -737,6 +901,10 @@ def _record_run(
         "status": "failed",
         "room": room,
         "dll": str(dll),
+        "mapDirectory": package_catalog["privateCopyDirectory"],
+        "mapPackageCatalogSha256": package_catalog["privateCopyPackageCatalogSha256"],
+        "mapPackageCount": package_catalog["files"],
+        "mapPackageBytes": package_catalog["sizeBytes"],
         "receipt": str(report.relative_to(output)),
         "pathsSha256": paths_hash,
         "profileLabel": profile.name,
@@ -771,6 +939,15 @@ def _record_run(
         record["receiptValidationError"] = "private paths.txt changed during the process"
         record.pop("loadMilliseconds", None)
         receipt = None
+    try:
+        record["mapPackageCatalogSha256After"] = verify_private_package_catalog(package_catalog)
+        record["privateMapCatalogUnchanged"] = True
+    except CampaignError as exc:
+        record["privateMapCatalogUnchanged"] = False
+        record["status"] = "failed"
+        record["receiptValidationError"] = str(exc)
+        record.pop("loadMilliseconds", None)
+        receipt = None
     write_json(run_dir / "run.json", record)
     return record, receipt
 
@@ -783,12 +960,14 @@ def run_campaign(args: argparse.Namespace, popen_factory: Callable[..., Any] | N
     paths_file: Path = config["gamePaths"]
     maps_dir: Path = config["mapsDir"]
 
-    maps_manifest, maps_hash = inventory_tree(maps_dir)
+    maps_manifest = config["mapPackages"]
+    maps_hash = config["mapPackagesSha256"]
+    maps_bytes = config["mapPackageBytes"]
     input_hashes = {
         "baselineDllSha256": sha256_file(baseline),
         "candidateDllSha256": sha256_file(candidate),
         "gamePathsSha256": sha256_file(paths_file),
-        "mapsTreeSha256": maps_hash,
+        "mapPackagesSha256": maps_hash,
         "nativeAssetRootsSha256": _asset_provenance_hash(config["assetRoots"]),
     }
     write_json(output / "inputs.json", {
@@ -799,7 +978,9 @@ def run_campaign(args: argparse.Namespace, popen_factory: Callable[..., Any] | N
         "candidateDll": str(candidate),
         "gamePathsFile": str(paths_file),
         "mapsDirectory": str(maps_dir),
-        "mapsFiles": maps_manifest,
+        "mapPackages": maps_manifest,
+        "mapPackageBytes": maps_bytes,
+        "mapCatalogScope": "regular .ppmap packages only; loose JSON recipes and .pk3 files are excluded",
         "nativeAssetRoots": _asset_provenance(config["assetRoots"]),
     })
     campaign_id = uuid.uuid4()
@@ -816,6 +997,12 @@ def run_campaign(args: argparse.Namespace, popen_factory: Callable[..., Any] | N
             "dotnet": config["dotnet"],
             "gamePathsFile": str(paths_file),
             "mapsDirectory": str(maps_dir),
+            "mapCatalogScope": "regular .ppmap packages only; loose JSON recipes and .pk3 files are excluded",
+            "maxMapPackageCount": MAX_MAP_FILES,
+            "maxMapPackageBytesEach": MAX_MAP_PACKAGE_BYTES,
+            "maxMapPackageBytes": MAX_MAP_BYTES,
+            "maxMapCatalogScanEntries": MAX_MAP_CATALOG_ENTRIES,
+            "maxMapCatalogScanBytes": MAX_MAP_BYTES,
             "rooms": config["rooms"],
             "repeat": config["repeat"],
             "players": PLAYERS,
@@ -833,15 +1020,18 @@ def run_campaign(args: argparse.Namespace, popen_factory: Callable[..., Any] | N
             "processStartupIncluded": False,
             "percentileMethod": "nearest-rank: sorted[ceil(percentile * sampleCount / 100) - 1]",
             "order": "paired deterministic sequence; baseline-first on even trials and candidate-first on odd trials",
-            "applicationCold": "fresh private PROJECT_PRIME_USER_DATA directory and unique custom runtime namespace per arm/room/trial; each process reads a private copied native asset tree",
-            "persistentCacheWarm": "one preseed process per arm and room, excluded from samples; later samples use fresh processes and reuse that arm/room profile and custom runtime namespace on a private copied native asset tree",
+            "applicationCold": "fresh private PROJECT_PRIME_USER_DATA and PROJECT_PRIME_Q3_CACHE per sample; unique custom runtime namespace; fresh private .ppmap catalog copy per sample; native asset roots are copied once per campaign and reused",
+            "persistentCacheWarm": "one preseed process per arm and room, excluded from samples; later fresh processes reuse that arm/room profile, Q3 import cache, custom runtime namespace, and private .ppmap catalog",
+            "mapCatalogIsolation": "only regular .ppmap files are copied to private -mapdir snapshots; loose JSON recipes and .pk3 sources never reach the game process",
             "nativeAssetIsolation": "all configured non-empty native asset roots are copied once to a campaign-private temporary tree and paths.txt is rewritten to those copies; Export stays in the private user-data directory",
+            "q3ImportCacheIsolation": "PROJECT_PRIME_Q3_CACHE is explicitly set to a cache directory inside each private profile; ambient/global Q3 import caches are not used",
         },
         "runnerEnvironment": {
             "python": sys.version.split()[0],
             "platform": platform.platform(),
             "machine": platform.machine(),
         },
+        "privatePackageCatalogs": [],
         "provenanceUnchangedAfterCampaign": None,
     }
     summary: dict[str, Any] = {
@@ -888,7 +1078,9 @@ def run_campaign(args: argparse.Namespace, popen_factory: Callable[..., Any] | N
                     "candidateDll": str(candidate),
                     "gamePathsFile": str(paths_file),
                     "mapsDirectory": str(maps_dir),
-                    "mapsFiles": maps_manifest,
+                    "mapPackages": maps_manifest,
+                    "mapPackageBytes": maps_bytes,
+                    "mapCatalogScope": "regular .ppmap packages only; loose JSON recipes and .pk3 files are excluded",
                     "nativeAssetRoots": _asset_provenance(config["assetRoots"]),
                     "privateAssetCopies": private_copies,
                 })
@@ -896,22 +1088,37 @@ def run_campaign(args: argparse.Namespace, popen_factory: Callable[..., Any] | N
                 for room_index, room in enumerate(config["rooms"], start=1):
                     room_slug = f"room-{room_index:02d}-{_slug(room)}"
                     for cache_kind in CACHE_KINDS:
-                        warm_profiles: dict[str, tuple[Path, str, str]] = {}
+                        warm_profiles: dict[str, tuple[Path, str, str, dict[str, Any]]] = {}
                         if cache_kind == "persistent-cache-warm":
                             for arm in ARMS:
                                 profile = private_root / "warm" / room_slug / arm
                                 paths_hash = make_profile(profile, paths_file, native_asset_rewrites)
+                                package_catalog = copy_package_catalog(
+                                    maps_dir,
+                                    package_catalog_path_for(private_root, cache_kind, room_slug, arm),
+                                    expected_manifest=maps_manifest,
+                                    expected_hash=maps_hash,
+                                    expected_bytes=maps_bytes,
+                                )
+                                package_catalog.update({
+                                    "cacheKind": cache_kind,
+                                    "room": room,
+                                    "arm": arm,
+                                    "lifetime": "preseed-and-samples",
+                                })
+                                campaign["privatePackageCatalogs"].append(package_catalog)
                                 runtime_namespace = runtime_namespace_for(
                                     campaign_id, cache_kind, room, arm
                                 )
-                                warm_profiles[arm] = (profile, paths_hash, runtime_namespace)
+                                warm_profiles[arm] = (profile, paths_hash, runtime_namespace, package_catalog)
                                 run_number += 1
                                 run_id = f"preseed-{room_slug}-{arm}"
                                 run_dir = output / "runs" / cache_kind / room_slug / run_id
                                 dll = baseline if arm == "baseline" else candidate
                                 report = run_dir / "map-load-receipt.json"
                                 command = build_command(
-                                    config["dotnet"], dll, room, maps_dir, report, runtime_namespace
+                                    config["dotnet"], dll, room,
+                                    Path(package_catalog["privateCopyDirectory"]), report, runtime_namespace
                                 )
                                 record, _ = _record_run(
                                     output=output,
@@ -920,6 +1127,7 @@ def run_campaign(args: argparse.Namespace, popen_factory: Callable[..., Any] | N
                                     dll=dll,
                                     room=room,
                                     profile=profile,
+                                    package_catalog=package_catalog,
                                     paths_hash=paths_hash,
                                     runtime_namespace=runtime_namespace,
                                     timeout_seconds=config["timeoutSeconds"],
@@ -961,28 +1169,51 @@ def run_campaign(args: argparse.Namespace, popen_factory: Callable[..., Any] | N
                                 if cache_kind == "application-cold":
                                     profile = private_root / "cold" / room_slug / run_id
                                     paths_hash = make_profile(profile, paths_file, native_asset_rewrites)
+                                    package_catalog = copy_package_catalog(
+                                        maps_dir,
+                                        package_catalog_path_for(
+                                            private_root, cache_kind, room_slug, arm, trial_index + 1
+                                        ),
+                                        expected_manifest=maps_manifest,
+                                        expected_hash=maps_hash,
+                                        expected_bytes=maps_bytes,
+                                    )
+                                    package_catalog.update({
+                                        "cacheKind": cache_kind,
+                                        "room": room,
+                                        "arm": arm,
+                                        "trialIndex": trial_index + 1,
+                                        "lifetime": "single-sample",
+                                    })
+                                    campaign["privatePackageCatalogs"].append(package_catalog)
                                     runtime_namespace = runtime_namespace_for(
                                         campaign_id, cache_kind, room, arm, trial_index + 1
                                     )
                                 else:
-                                    profile, paths_hash, runtime_namespace = warm_profiles[arm]
+                                    profile, paths_hash, runtime_namespace, package_catalog = warm_profiles[arm]
                                 report = run_dir / "map-load-receipt.json"
-                                command = build_command(
-                                    config["dotnet"], dll, room, maps_dir, report, runtime_namespace
-                                )
-                                record, receipt = _record_run(
-                                    output=output,
-                                    run_dir=run_dir,
-                                    command=command,
-                                    dll=dll,
-                                    room=room,
-                                    profile=profile,
-                                    paths_hash=paths_hash,
-                                    runtime_namespace=runtime_namespace,
-                                    timeout_seconds=config["timeoutSeconds"],
-                                    dotnet_env=dotnet_env,
-                                    popen_factory=popen_factory,
-                                )
+                                try:
+                                    command = build_command(
+                                        config["dotnet"], dll, room,
+                                        Path(package_catalog["privateCopyDirectory"]), report, runtime_namespace
+                                    )
+                                    record, receipt = _record_run(
+                                        output=output,
+                                        run_dir=run_dir,
+                                        command=command,
+                                        dll=dll,
+                                        room=room,
+                                        profile=profile,
+                                        package_catalog=package_catalog,
+                                        paths_hash=paths_hash,
+                                        runtime_namespace=runtime_namespace,
+                                        timeout_seconds=config["timeoutSeconds"],
+                                        dotnet_env=dotnet_env,
+                                        popen_factory=popen_factory,
+                                    )
+                                finally:
+                                    if cache_kind == "application-cold":
+                                        remove_private_package_catalog(package_catalog)
                                 record.update({
                                     "cacheKind": cache_kind,
                                     "arm": arm,
@@ -1086,7 +1317,8 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--candidate", type=Path, required=True, help="candidate ProjectPrime.dll")
     parser.add_argument("--dotnet", help="optional absolute path to the .NET SDK dotnet executable")
     parser.add_argument("--game-paths", type=Path, required=True, help="operator-owned paths.txt referencing extracted game data")
-    parser.add_argument("--maps-dir", type=Path, required=True, help="map catalog directory passed to -mapdir")
+    parser.add_argument("--maps-dir", type=Path, required=True,
+                        help="bounded source catalog of .ppmap packages; private snapshots are passed to -mapdir")
     parser.add_argument("--rooms", action="append", required=True, help="room name; repeat this option for each room")
     parser.add_argument("--repeat", type=int, default=20, help="paired samples per room and cache kind (default: 20; max: 100)")
     parser.add_argument("--timeout-seconds", type=float, default=180,
