@@ -4,8 +4,10 @@ import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
-MANIFEST = ROOT / "docs" / "porting" / "second-hunt-manifest.json"
-DOC = ROOT / "docs" / "porting" / "second-hunt-content.md"
+# Keep this frozen metadata with the acceptance tests rather than the
+# independently pruned engineering documentation directory.
+MANIFEST = Path(__file__).with_name("fixtures") / "second-hunt-manifest.json"
+DOC = MANIFEST.with_name("second-hunt-content.md")
 
 class PortManifestContract(unittest.TestCase):
     @classmethod
