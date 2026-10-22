@@ -144,6 +144,7 @@ try
         CustomRooms.UserMapDirectory = Path.Combine(root, "user-maps");
         CustomRooms.Reload();
         MphRead.Paths.SetPath(MphRead.Paths.MphKey, Path.Combine(root, "runtime-files"));
+        SelectedRoomPreparationChecks.Run(Check);
         var runtimeDefinition = CustomRooms.Definitions.Single(d => d.Name == "RUNTIME LEASE CHECK");
         Check(CustomRooms.NeedsGenerating(runtimeDefinition), "runtime map starts without outputs");
         string generationLock = CustomRooms.OutputsFor(runtimeDefinition).Manifest + ".generation.lock";

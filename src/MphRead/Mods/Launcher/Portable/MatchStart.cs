@@ -120,7 +120,7 @@ namespace MphRead.Mods.Launcher
             // Explicit custom availability must be admitted before either
             // route can create or replace a scene.
             if ((plan.MatchRules.RiftlineM7Available || plan.OfflineCharacter != OfflineCharacterMode.Native)
-                && !OfflineMatchPreflight.TryAdmit(plan, out string customReason))
+                && !OfflineMatchPreflight.TryAdmit(plan, out string customReason, prepareRoom: true))
             { LastError = customReason; Console.WriteLine($"[launcher] {customReason}"); return false; }
             if (plan.Kind == LaunchKind.Adventure)
             {

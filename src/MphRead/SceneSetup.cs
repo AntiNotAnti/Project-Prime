@@ -392,6 +392,7 @@ namespace MphRead
                 int nodePlayerCount = vanillaDuelResources || Features.MaxRoomDetail ? 2 : playerCount;
                 nodeLayerMask = GetNodeLayer(mode, metadata.NodeLayer, nodePlayerCount);
             }
+            Mods.MapGen.CustomRooms.PrepareRoom(metadata.Name);
             CollisionInstance collision = Collision.GetCollision(metadata, nodeLayerMask);
             if (isRoomTransition)
             {

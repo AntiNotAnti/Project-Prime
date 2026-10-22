@@ -153,6 +153,10 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Custom map identity and installation
 
+- Runtime startup prepares only the selected custom room. `SceneSetup.SetUpRoom`
+  calls the shared `CustomRooms.PrepareRoom` boundary before collision loading,
+  including initial loads and transitions; direct map-material reports prepare
+  before reading a room model. Whole-catalog generation is an explicit tool action.
 - Protocol 25 binds custom rooms to MapId, ContentHash, and PackageHash. A matching room name or logical map ID alone never establishes readiness.
 - Custom match starts require every participant to report the exact package ready. Availability reports carry the authority, match, map generation, and monotonic sequence; stale reports cannot satisfy the barrier.
 - HTTP downloads and detached builds use private staging. Publication runs on the session owner after live scenes and prewarm workers release their room leases. Cancellation cannot publish partial packages.
