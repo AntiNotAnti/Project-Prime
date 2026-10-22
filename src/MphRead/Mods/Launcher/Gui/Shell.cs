@@ -321,11 +321,18 @@ namespace MphRead.Mods.Launcher.Gui
             if (files == null || !GameFiles.Ready) return Array.Empty<string>();
             // Registered public custom maps compile lazily at the launch boundary.
             // Listing them must not require generated entities or hash archives.
-            return CurrentRooms.Where(room => Metadata.IsBuiltInRoom(room)
+            // A same-session install publishes metadata without rebuilding the front.
+            var definitions = MapGen.CustomRooms.Definitions;
+            var metadata = Metadata.RoomMetadata;
+            var publicCustomRooms = definitions.Where(map => !map.RequiresPrivateSource
+                    && metadata.TryGetValue(map.Name, out RoomMetadata? room) && room.Multiplayer
+                    && !Metadata.IsBuiltInRoom(map.Name))
+                .Select(map => map.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            return CurrentRooms.Concat(publicCustomRooms).Distinct(StringComparer.OrdinalIgnoreCase)
+                .Where(room => Metadata.IsBuiltInRoom(room)
                 ? ThumbnailGenerator.HasInstalledEntityFile(room)
                 : _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase)
-                    || MapGen.CustomRooms.Definitions.Any(map => !map.RequiresPrivateSource
-                        && map.Name.Equals(room, StringComparison.OrdinalIgnoreCase))).ToArray();
+                    || publicCustomRooms.Contains(room)).ToArray();
         }
 
         internal static bool RmlUiShowLegacyLobby()

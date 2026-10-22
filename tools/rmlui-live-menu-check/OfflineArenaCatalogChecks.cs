@@ -158,14 +158,14 @@ internal static class OfflineArenaCatalogChecks
             {
                 Metadata.RegisterDownloadedMap(installed);
                 Metadata.RegisterDownloadedMap(privateMap);
-                front.RefreshDeferredRooms(ThumbnailGenerator.MultiplayerRooms().Append(unknown).ToArray());
             });
             check(installed.BundlePath == package && !ThumbnailGenerator.HasInstalledEntityFile(installed.Name),
                 "installed package fixture has no generated runtime entities");
-            check(front.RmlUiRoomKeys.Contains(installed.Name) && !services.BuiltInArenaKeys().Contains(installed.Name),
-                "custom package is registered in the current front catalog without becoming built-in");
+            check(Metadata.RoomMetadata.ContainsKey(installed.Name) && !front.RmlUiRoomKeys.Contains(installed.Name)
+                && !services.BuiltInArenaKeys().Contains(installed.Name),
+                "same-session package registration retains the stale front catalog without becoming built-in");
             check(services.OfflineArenaKeys().Contains(installed.Name),
-                "installed custom package appears in the offline catalog before runtime generation");
+                "newly installed custom package appears before front refresh or runtime generation");
             var draft = new RmlUiOfflineDraft(services.OfflineArenaKeys(), Hunter.Samus, 0, 2, 1);
             check(draft.OpenArena() && draft.SearchArena("Installed Custom Arena")
                 && draft.ArenaCount == 1 && draft.ArenaChoice(0) == installed.Name
@@ -173,6 +173,10 @@ internal static class OfflineArenaCatalogChecks
                 "offline picker finds the installed custom display name and selects its exact runtime key");
             check(!ThumbnailGenerator.HasInstalledEntityFile(installed.Name),
                 "enumerating and selecting custom maps does not compile runtime entities");
+            Dispatcher.UIThread.Invoke(() => front.RefreshDeferredRooms(
+                oldRooms.Concat(new[] { installed.Name, privateMap.Name, unknown }).ToArray()));
+            check(services.OfflineArenaKeys().Count(room => room == installed.Name) == 1,
+                "front catalog catchup does not duplicate a newly registered custom map");
             check(!services.OfflineArenaKeys().Contains(privateMap.Name) && !services.OfflineArenaKeys().Contains(unknown),
                 "unqualified private source and unknown room hints remain excluded");
             localField.SetValue(null, new[] { privateMap.Name });

@@ -51,7 +51,8 @@ for implementation contracts.
 ## Where things are
 
 The native offline picker includes registered public custom maps before their
-runtime files are generated. Private-source maps retain their explicit local
+runtime files are generated, including same-session installs while the front
+screen retains an older catalog. Private-source maps retain their explicit local
 qualification gate; built-in arenas still require installed entity data.
 `tools/rmlui-live-menu-check -- --arena-catalog-only` covers catalog refresh,
 installed package search/selection and these exclusions without game assets.
