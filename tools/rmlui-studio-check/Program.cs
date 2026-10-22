@@ -168,13 +168,21 @@ for (int i = 0; i < 200; i++)
         && intent.Kind == RmlUiIntentKind.StudioAction && intent.Argument == i
         && RmlUiIntentRegistry.ToLegacy(intent) == action, "typed Studio action round-trips stable index " + i);
 }
-Check(!RmlUiIntentRegistry.IsValid(RmlUiIntentKind.StudioAction, -1) && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.StudioAction, 224), "Studio action bounds exclude unassigned values");
+string[] weaponActions = { "weapon-new", "weapon-open", "weapon-apply", "weapon-license", "weapon-save", "weapon-export", "weapon-install", "weapon-play", "weapon-stop", "weapon-close", "weapon-info" };
+for (int index = 0; index < weaponActions.Length; index++)
+{
+    string action = "studio:" + weaponActions[index];
+    Check(RmlUiIntentRegistry.TryParseLegacy(action, new(1, 1), (ulong)index + 1, out var intent)
+        && intent.Kind == RmlUiIntentKind.StudioAction && intent.Argument == 224 + index
+        && RmlUiIntentRegistry.ToLegacy(intent) == action, "typed weapon action retains stable index: " + action);
+}
+Check(!RmlUiIntentRegistry.IsValid(RmlUiIntentKind.StudioAction, -1) && !RmlUiIntentRegistry.IsValid(RmlUiIntentKind.StudioAction, 235), "Studio action bounds exclude unassigned values");
 var entryDocument = System.Xml.Linq.XDocument.Load(Path.Combine(AppContext.BaseDirectory, "native-entry.rml"));
 var mapPlaceholder = entryDocument.Descendants("button").Single(button => (string?)button.Attribute("id") == "native_studio_map");
 Check((string?)mapPlaceholder.Attribute("data-action") == "studio:launch" && mapPlaceholder.Value == "OPEN MAP STUDIO",
     "Main chooser Map card requests the separate placeholder workspace");
 Check(entryDocument.Descendants("button").Where(button => button.Attribute("data-action") != null)
-    .Select(button => button.Attribute("data-action")!.Value).Order().SequenceEqual(new[] { "route:theatre", "studio:cancel", "studio:launch", "studio:pick-map" }),
+    .Select(button => button.Attribute("data-action")!.Value).Order().SequenceEqual(new[] { "route:theatre", "studio:cancel", "studio:launch", "studio:pick-map", "studio:weapon-new" }),
     "Chooser exposes bounded workspace launch requests, Studio Replay route and Back");
 Check(!entryDocument.Descendants().Any(element => ((string?)element.Attribute("id")) is "native_studio_map_workspace" or "native_studio_publish" or "native_studio_edit_current" or "native_studio_path"),
     "Map project import library editor and publish controls are absent from product hub");
