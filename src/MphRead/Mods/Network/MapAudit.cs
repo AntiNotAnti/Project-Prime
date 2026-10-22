@@ -304,9 +304,10 @@ namespace MphRead.Mods.Network
         private readonly bool _bots;
 
         private MapAudit(string room, int players, double seconds, GameMode mode, bool bots,
-            bool renderProbe, bool itemProbe)
+            bool renderProbe, bool itemProbe, MapLoadReceipt? loadReceipt)
             : base(GameSettings(), WindowSettings())
         {
+            _loadReceipt = loadReceipt;
             _renderProbe = renderProbe;
             _itemProbe = itemProbe;
             _bots = bots;
@@ -349,6 +350,8 @@ namespace MphRead.Mods.Network
             PlayerEntity.PlayerCount = players;
             PlayerEntity.MainPlayerIndex = 0;
             Scene.AddRoom(room, mode, playerCount: NetLaunch.RoomPlayerCount);
+            _loadReceipt?.SetLoadedScene(Scene.Room?.Meta.Name,
+                Scene.Room == null ? 0 : 1, Scene.Players.PlayerCount);
         }
 
 #if !ANDROID && !MPHREAD_SERVER
@@ -360,8 +363,21 @@ namespace MphRead.Mods.Network
 #if !ANDROID && !MPHREAD_SERVER
             _graphics = new Render.DesktopGraphicsSession(this);
 #endif
+            if (_loadReceipt != null)
+            {
+                try
+                {
+                    _loadReceipt.SetGraphicsContext(
+                        GL.GetString(StringName.Vendor),
+                        GL.GetString(StringName.Renderer),
+                        GL.GetString(StringName.Version),
+                        ClientSize.X, ClientSize.Y);
+                }
+                catch (InvalidOperationException) { }
+            }
             Scene.Size = ClientSize;
             Scene.OnLoad();
+            _loadReceipt?.SceneLoadCompleted();
             base.OnLoad();
             GL.Viewport(0, 0, ClientSize.X, ClientSize.Y);
             Scene.OnResize();
@@ -379,8 +395,10 @@ namespace MphRead.Mods.Network
             // One simulation step, then however many pictures of it were
             // asked for. _frame counts steps, not pictures, so -seconds still
             // means seconds of game and every existing probe keeps its timing.
+            _loadReceipt?.BeginSimulationStep();
             long simStarted = PerformanceMode ? Stopwatch.GetTimestamp() : 0;
             Scene.OnSimulationFrame();
+            _loadReceipt?.SimulationCompleted();
             if (PerformanceMode)
             {
                 _perfSimulationMs.Add(Stopwatch.GetElapsedTime(simStarted).TotalMilliseconds);
@@ -431,11 +449,7 @@ namespace MphRead.Mods.Network
                     // Every picture but the last is finished and thrown away:
                     // what is being measured is that making it changed nothing,
                     // and the last one is the one the samplers below read.
-#if !ANDROID && !MPHREAD_SERVER
-                    Render.DesktopGraphicsSession.Present(this);
-#else
-            SwapBuffers();
-#endif
+                    PresentLoadFrame();
                     Scene.AfterRenderFrame();
                 }
             }
@@ -452,21 +466,13 @@ namespace MphRead.Mods.Network
             {
                 if (!StepItemShots())
                 {
-#if !ANDROID && !MPHREAD_SERVER
-                    Render.DesktopGraphicsSession.Present(this);
-#else
-            SwapBuffers();
-#endif
+                    PresentLoadFrame();
                     Scene.AfterRenderFrame();
                     base.OnRenderFrame(args);
                     Close();
                     return;
                 }
-#if !ANDROID && !MPHREAD_SERVER
-                Render.DesktopGraphicsSession.Present(this);
-#else
-            SwapBuffers();
-#endif
+                PresentLoadFrame();
                 Scene.AfterRenderFrame();
                 base.OnRenderFrame(args);
                 return;
@@ -475,21 +481,13 @@ namespace MphRead.Mods.Network
             {
                 if (!StepSpawnRender())
                 {
-#if !ANDROID && !MPHREAD_SERVER
-                    Render.DesktopGraphicsSession.Present(this);
-#else
-            SwapBuffers();
-#endif
+                    PresentLoadFrame();
                     Scene.AfterRenderFrame();
                     base.OnRenderFrame(args);
                     Close();
                     return;
                 }
-#if !ANDROID && !MPHREAD_SERVER
-                Render.DesktopGraphicsSession.Present(this);
-#else
-            SwapBuffers();
-#endif
+                PresentLoadFrame();
                 Scene.AfterRenderFrame();
                 base.OnRenderFrame(args);
                 return;
@@ -498,11 +496,7 @@ namespace MphRead.Mods.Network
             StepScoreboard();
             Observe();
             if (!PerformanceMode) SampleRender();
-#if !ANDROID && !MPHREAD_SERVER
-            Render.DesktopGraphicsSession.Present(this);
-#else
-            SwapBuffers();
-#endif
+            PresentLoadFrame();
             Scene.AfterRenderFrame();
             base.OnRenderFrame(args);
             if (_frame >= _seconds * 60 && (_bots || (!StepProbe() && !StepAfflictionProbe())))
@@ -984,6 +978,13 @@ namespace MphRead.Mods.Network
                 {
                     _everFired[owner.SlotIndex] = true;
                 }
+            }
+            if (_loadReceipt != null)
+            {
+                bool allLive = _spawned == _players;
+                for (int slot = 0; allLive && slot < _players; slot++)
+                    allLive = PlayerEntity.Players[slot].Health > 0;
+                _loadReceipt.ObservePlayers(allLive);
             }
         }
 
@@ -1709,16 +1710,32 @@ namespace MphRead.Mods.Network
 
         public static int Run(string room, int players, double seconds, GameMode mode,
             bool bots = false, string? shotDirectory = null, bool renderProbe = false,
-            bool allNodes = false, bool itemProbe = false)
+            bool allNodes = false, bool itemProbe = false, string? loadReportPath = null)
         {
             MapAudit? window = null;
+            MapLoadReceipt? receipt = null;
             BombEntity.ModLockjawDrawRngChanges = 0;
             BombEntity.ModAuditLockjawDrawRng = DrawRate > 1
                 || (PerformanceMode && PerformanceHz > 60);
             try
             {
+                if (!String.IsNullOrWhiteSpace(loadReportPath))
+                {
+                    try
+                    {
+                        receipt = new MapLoadReceipt(loadReportPath, room,
+                            Math.Clamp(players, 1, PlayerEntity.SlotCapacity), mode.ToString());
+                    }
+                    catch (Exception ex) when (ex is ArgumentException or NotSupportedException
+                        or PathTooLongException or System.Security.SecurityException)
+                    {
+                        Console.Error.WriteLine("[mapload] invalid receipt path: " + ex.Message);
+                        return 2;
+                    }
+                }
                 window = new MapAudit(room, Math.Clamp(players, 1, PlayerEntity.SlotCapacity),
-                    seconds, mode, bots, renderProbe, itemProbe);
+                    seconds, mode, bots, renderProbe, itemProbe, receipt);
+                receipt?.ConstructorCompleted();
                 // Draw every node the model has, ignoring the portal-graph
                 // room-part culling. Answers one question and only one: is a
                 // frame with no room in it a culling decision or geometry that
@@ -1732,10 +1749,13 @@ namespace MphRead.Mods.Network
                     window._shotDirectory = shotDirectory;
                 }
                 window.Run();
-                return window.Report();
+                int result = window.Report();
+                receipt?.Complete(result);
+                return result;
             }
             catch (Exception ex)
             {
+                receipt?.RecordFailure(ex);
                 Console.WriteLine($"MAPCRASH {room} | {ex.GetType().Name}: {ex.Message}");
                 Console.WriteLine(ex.StackTrace);
                 return 1;
@@ -1743,7 +1763,13 @@ namespace MphRead.Mods.Network
             finally
             {
                 BombEntity.ModAuditLockjawDrawRng = false;
-                window?.Dispose();
+                try { window?.Dispose(); }
+                catch (Exception ex)
+                {
+                    receipt?.RecordFailure(ex);
+                    throw;
+                }
+                finally { receipt?.Write(); }
             }
         }
     }
