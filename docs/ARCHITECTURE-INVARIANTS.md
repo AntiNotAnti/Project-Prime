@@ -246,6 +246,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Map Studio ownership
 
+- The native offline arena catalog includes registered public custom maps without requiring generated runtime entities or hashing archives during UI reads. Built-in entities must remain installed, and private-source maps retain explicit local qualification. Runtime preparation and compatibility checks remain at launch.
 - Dirty state is a document state-ID comparison, not project serialization or history depth.
 - Common transforms and edits use bounded delta history; undo-to-save and branching preserve state identity.
 - Selection, entity edits and camera movement do not rebuild unrelated geometry.

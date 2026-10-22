@@ -318,10 +318,14 @@ namespace MphRead.Mods.Launcher.Gui
             // Missing built-in data must not remain selectable after a failed
             // load or game-file repair, especially on bot-match return.
             using var files = GameFiles.TryUseConfiguredFiles();
-            if (files == null) return Array.Empty<string>();
-            return CurrentRooms.Where(room =>
-                (Metadata.IsBuiltInRoom(room) || _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase))
-                && (!Metadata.IsBuiltInRoom(room) || ThumbnailGenerator.HasInstalledEntityFile(room))).ToArray();
+            if (files == null || !GameFiles.Ready) return Array.Empty<string>();
+            // Registered public custom maps compile lazily at the launch boundary.
+            // Listing them must not require generated entities or hash archives.
+            return CurrentRooms.Where(room => Metadata.IsBuiltInRoom(room)
+                ? ThumbnailGenerator.HasInstalledEntityFile(room)
+                : _offlineLocalSourceRooms.Contains(room, StringComparer.OrdinalIgnoreCase)
+                    || MapGen.CustomRooms.Definitions.Any(map => !map.RequiresPrivateSource
+                        && map.Name.Equals(room, StringComparison.OrdinalIgnoreCase))).ToArray();
         }
 
         internal static bool RmlUiShowLegacyLobby()

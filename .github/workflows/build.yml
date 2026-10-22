@@ -125,7 +125,9 @@ jobs:
         run: dotnet run --project tools/rmlui-game-files-check -c Release
 
       - name: RmlUi live Home, Play, lobby, and async ownership contracts
-        run: dotnet run --project tools/rmlui-live-menu-check -c Release
+        run: |
+          dotnet run --project tools/rmlui-live-menu-check -c Release
+          dotnet run --project tools/rmlui-live-menu-check -c Release -- --arena-catalog-only
 
       - name: validate RmlUi native build script and pinned manifest tooling
         run: |
