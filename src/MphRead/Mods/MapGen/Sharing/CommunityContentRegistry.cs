@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MphRead.Mods.CustomWeapons.Packages;
 
 namespace MphRead.Mods.MapGen;
 
@@ -12,10 +13,10 @@ internal sealed record CommunityContentStoredProject(
     string? Description, string[] Tags,
     string? CurrentHash, string LatestHash,
     DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
-    CommunityContentRevision[] Revisions, bool Archived = false);
+    CommunityContentRevision[] Revisions, bool Archived = false, bool ModerationHidden = false);
 
 internal sealed record CommunityContentStoredState(
-    int SchemaVersion, CommunityContentStoredProject[] Projects);
+    int SchemaVersion, CommunityContentStoredProject[] Projects, CommunityContentReport[]? Reports = null);
 
 /// <summary>
 /// Private, atomically persisted metadata for non-map Community content kinds.
@@ -30,6 +31,7 @@ public sealed class CommunityContentRegistry
     private const int MaximumRevisions = 16384;
     private const int MaximumTags = 16;
     private const int MaximumDependencies = 32;
+    private const int MaximumCatalogBytes = 32 * 1024 * 1024;
     // Distinct raw objects are a separate storage pool from historical
     // .ppmap packages. Cap both the service and a single creator so valid
     // credentials cannot exhaust origin disk by accumulating revisions.
@@ -41,6 +43,10 @@ public sealed class CommunityContentRegistry
     private readonly string _objects;
     private readonly string _index;
     private readonly object _gate = new();
+    private readonly List<CommunityContentReport> _reports = new();
+    private sealed record WeaponProof(long WriteTicks, long CreationTicks, FileAttributes Attributes,
+        WeaponPackageRevisionIdentity Identity);
+    private readonly Dictionary<(string Hash, Guid Id, string Name, long Bytes), WeaponProof> _weaponProofs = new();
     private readonly Dictionary<(string Kind, Guid Id), CommunityContentStoredProject> _projects
         = new();
 
@@ -61,7 +67,7 @@ public sealed class CommunityContentRegistry
         Directory.CreateDirectory(_objects);
 
         if (!File.Exists(_index)) return;
-        if (new FileInfo(_index).Length > 32L * 1024 * 1024)
+        if (new FileInfo(_index).Length > MaximumCatalogBytes)
             throw new InvalidDataException("V3 content catalog exceeds its metadata budget.");
         var saved = JsonSerializer.Deserialize<CommunityContentStoredState>(
             File.ReadAllBytes(_index), MapPackageReader.JsonOptions)
@@ -76,6 +82,20 @@ public sealed class CommunityContentRegistry
             if (!_projects.TryAdd((project.Kind, project.ContentId), project))
                 throw new InvalidDataException("Duplicate v3 content project identity.");
         }
+        if (saved.Reports is { } reports)
+        {
+            if (reports.Length > 4096) throw new InvalidDataException("Typed report budget exceeded.");
+            var ids = new HashSet<Guid>(); var keys = new HashSet<(string, string, Guid, string)>();
+            foreach (var report in reports)
+            {
+                ValidateReport(report);
+                if (!ids.Add(report.ReportId) || !keys.Add((report.ReporterId, report.Kind, report.ContentId, report.Hash))
+                    || !_projects.TryGetValue((report.Kind, report.ContentId), out var project)
+                    || !project.Revisions.Any(r => r.ContentHash == report.Hash))
+                    throw new InvalidDataException("Invalid persisted typed report identity.");
+                _reports.Add(report);
+            }
+        }
     }
 
     /// <summary>
@@ -89,6 +109,9 @@ public sealed class CommunityContentRegistry
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ValidateRegistration(metadata);
+        if (metadata.Kind == CommunityContentKinds.Weapon
+            && Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_COMMUNITY_PUBLISH") != "1")
+            throw new InvalidDataException("Community weapon publication is disabled.");
         if (string.IsNullOrWhiteSpace(stagedFile))
             throw new ArgumentException("A verified local asset path is required.", nameof(stagedFile));
         using (var source = new FileStream(stagedFile, FileMode.Open,
@@ -101,6 +124,8 @@ public sealed class CommunityContentRegistry
         string hash = MapBuildFingerprint.HashFile(stagedFile);
         if (!MapCommunityClient.ValidHash(hash))
             throw new InvalidDataException("V3 immutable file digest is invalid.");
+        if (metadata.Kind == CommunityContentKinds.Weapon)
+            ValidateWeaponBlob(stagedFile, metadata.ContentId, metadata.Name, hash, bytes);
 
         lock (_gate)
         {
@@ -110,9 +135,16 @@ public sealed class CommunityContentRegistry
                 throw new InvalidDataException("V3 catalog project budget exceeded.");
             if (current != null && current.OwnerId != metadata.OwnerId)
                 throw new InvalidDataException("Cannot change v3 content owner.");
-            if (current?.Revisions.Any(r => r.ContentHash == hash) == true)
+            if (current != null && metadata.Kind == CommunityContentKinds.Weapon
+                && !StringComparer.Ordinal.Equals(current.Name, metadata.Name))
+                throw new InvalidDataException("Weapon package names are immutable within a Community project.");
+            if (current?.Revisions.FirstOrDefault(r => r.ContentHash == hash) is { } existingRevision)
+            {
+                if (metadata.Kind == CommunityContentKinds.Weapon && existingRevision.Visibility != metadata.Visibility)
+                    throw new InvalidDataException("This exact weapon revision already exists with different visibility. Use the explicit weapon visibility action.");
                 return Project(current, owner: true)
                     ?? throw new InvalidDataException("Existing asset metadata is invalid.");
+            }
 
             int count = _projects.Values.Sum(p => p.Revisions.Length);
             if (count >= MaximumRevisions)
@@ -172,11 +204,6 @@ public sealed class CommunityContentRegistry
                 EnsureAcyclic(metadata.Kind, metadata.ContentId,
                     metadata.Dependencies ?? Array.Empty<CommunityContentDependency>());
 
-            // Immutable objects are persisted before the metadata pointer.
-            // If metadata persistence fails, an unreferenced blob is harmless,
-            // while no catalog revision ever points to an unwritten object.
-            PutVerifiedBlob(stagedFile, hash, bytes);
-
             DateTimeOffset now = DateTimeOffset.UtcNow;
             int revisionNumber = (current?.Revisions.LastOrDefault()?.RevisionNumber ?? 0) + 1;
             var revision = new CommunityContentRevision(
@@ -205,16 +232,19 @@ public sealed class CommunityContentRegistry
                     || current == null ? now : current.UpdatedAt,
                 Revisions: current == null
                     ? new[] { revision } : current.Revisions.Append(revision).ToArray(),
-                Archived: current?.Archived ?? false);
+                Archived: current?.Archived ?? false, ModerationHidden: current?.ModerationHidden ?? false);
 
             CommunityContentStoredProject[] updated = _projects.Values
                 .Where(p => !(p.Kind == metadata.Kind && p.ContentId == metadata.ContentId))
                 .Append(next)
                 .OrderBy(p => p.Kind, StringComparer.Ordinal)
                 .ThenBy(p => p.ContentId).ToArray();
-            AtomicFile.Write(_index, JsonSerializer.SerializeToUtf8Bytes(
-                new CommunityContentStoredState(Format, updated),
-                MapPackageReader.JsonOptions));
+            // Refuse the restart reader's byte limit before publishing another
+            // immutable object. Catalog-budget failures cannot accumulate orphan
+            // archives outside the quota snapshot of admitted revisions.
+            byte[] catalogBytes = SerializeCatalog(new(Format, updated, _reports.ToArray()));
+            PutVerifiedBlob(stagedFile, hash, bytes);
+            AtomicFile.Write(_index, catalogBytes);
             _projects[key] = next;
             return Project(next, owner: true)
                 ?? throw new InvalidDataException("New v3 content could not be projected.");
@@ -237,7 +267,7 @@ public sealed class CommunityContentRegistry
         if (normalized == CommunityContentKinds.Map) return null;
         lock (_gate)
             return _projects.TryGetValue((normalized, contentId), out var value)
-                ? Project(value, viewerId == value.OwnerId) : null;
+                ? Project(value, viewerId == value.OwnerId, allowUnlisted: normalized == CommunityContentKinds.Weapon) : null;
     }
 
     public CommunityContentRevision[] RevisionsVisible(
@@ -250,8 +280,8 @@ public sealed class CommunityContentRegistry
             if (!_projects.TryGetValue((normalized, contentId), out var value))
                 return Array.Empty<CommunityContentRevision>();
             bool owner = value.OwnerId == viewerId;
-            if (value.Archived && !owner) return Array.Empty<CommunityContentRevision>();
-            return VisibleRevisions(value, owner)
+            if ((value.Archived || value.ModerationHidden) && !owner) return Array.Empty<CommunityContentRevision>();
+            return VisibleRevisions(value, owner, allowUnlisted: normalized == CommunityContentKinds.Weapon).Select(revision => ProjectRevision(value, revision))
                 .OrderByDescending(r => r.RevisionNumber).ToArray();
         }
     }
@@ -284,6 +314,9 @@ public sealed class CommunityContentRegistry
         string revisionHash)
     {
         kind = CommunityContentKinds.Normalize(kind);
+        if (kind == CommunityContentKinds.Weapon
+            && Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_COMMUNITY_PUBLISH") != "1")
+            throw new InvalidDataException("Community weapon publication is disabled.");
         if (!MapCommunityClient.ValidHash(revisionHash)
             || kind == CommunityContentKinds.Map) return null;
         lock (_gate)
@@ -303,17 +336,60 @@ public sealed class CommunityContentRegistry
         }
     }
 
+    // Owner-only lifecycle: changes visibility, never immutable archive identity.
+    public CommunityContentProject? SetWeaponVisibility(Guid id, string owner, string hash, string visibility)
+    {
+        visibility = CommunityContentVisibility.Normalize(visibility);
+        if (!MapCommunityClient.ValidHash(hash) || string.IsNullOrWhiteSpace(owner))
+            throw new InvalidDataException("Invalid exact weapon visibility request.");
+        if (visibility != CommunityContentVisibility.Draft
+            && Environment.GetEnvironmentVariable("PROJECT_PRIME_WEAPON_COMMUNITY_PUBLISH") != "1")
+            throw new InvalidDataException("Community weapon publication is disabled.");
+        lock (_gate)
+        {
+            if (!_projects.TryGetValue((CommunityContentKinds.Weapon, id), out var project) || project.OwnerId != owner)
+                return null;
+            int at = Array.FindIndex(project.Revisions, r => r.ContentHash == hash);
+            if (at < 0) return null;
+            var selected = project.Revisions[at];
+            var path = BlobPath(hash) ?? throw new InvalidDataException("The exact weapon archive is unavailable.");
+            ValidateWeaponBlob(path, id, project.Name, hash, selected.Bytes);
+            if (selected.Visibility == visibility) return Project(project, owner: true);
+            var revisions = project.Revisions.ToArray();
+            revisions[at] = selected with { Visibility = visibility };
+            string? current = project.CurrentHash;
+            if (visibility == CommunityContentVisibility.Published) current = hash;
+            else if (current == hash) current = revisions.LastOrDefault(r => r.Visibility == CommunityContentVisibility.Published)?.ContentHash;
+            // Project presentation is not versioned. Reconstruct safe visible
+            // metadata rather than publishing fields inherited from a draft.
+            var visible = current != null ? revisions.First(r => r.ContentHash == current)
+                : revisions.LastOrDefault(r => r.Visibility == CommunityContentVisibility.Unlisted);
+            WeaponPackage? display = visible == null ? null : ValidateWeaponBlob(
+                BlobPath(visible.ContentHash) ?? throw new InvalidDataException("Visible weapon archive is unavailable."),
+                id, project.Name, visible.ContentHash, visible.Bytes);
+            var changed = project with
+            {
+                Revisions = revisions, CurrentHash = current, UpdatedAt = DateTimeOffset.UtcNow,
+                DisplayName = display?.Project.Name, Author = display?.Project.Author,
+                Description = null, Tags = Array.Empty<string>()
+            };
+            SaveReplacing(changed);
+            return Project(changed, owner: true);
+        }
+    }
+
     /// <summary>Authorize a raw immutable asset by exact revision hash. The
     /// requested hash is not itself proof of public visibility.</summary>
     public string? AuthorizedBlob(string hash, string? viewerId)
     {
         if (!MapCommunityClient.ValidHash(hash)) return null;
         long declared = -1;
+        CommunityContentStoredProject? weapon = null;
         lock (_gate)
         {
             foreach (var project in _projects.Values)
             {
-                if (project.Archived && project.OwnerId != viewerId) continue;
+                if ((project.Archived || project.ModerationHidden) && project.OwnerId != viewerId) continue;
                 bool owner = viewerId != null && project.OwnerId == viewerId;
                 foreach (var revision in project.Revisions)
                 {
@@ -323,9 +399,11 @@ public sealed class CommunityContentRegistry
                     // superseded by a newer published CurrentHash. Retain
                     // exact historical blob fetches until explicit lifecycle
                     // deletion, without exposing drafts or archived projects.
-                    if (!owner && revision.Visibility != CommunityContentVisibility.Published)
+                    if (!owner && revision.Visibility != CommunityContentVisibility.Published
+                        && !(project.Kind == CommunityContentKinds.Weapon && revision.Visibility == CommunityContentVisibility.Unlisted))
                         continue;
                     declared = revision.Bytes;
+                    if (project.Kind == CommunityContentKinds.Weapon) weapon = project;
                     break;
                 }
                 if (declared >= 0) break;
@@ -336,7 +414,121 @@ public sealed class CommunityContentRegistry
         if (!File.Exists(path) || new FileInfo(path).Length != declared
             || MapBuildFingerprint.HashFile(path) != hash)
             throw new InvalidDataException("Referenced v3 asset is missing or corrupted.");
+        if (weapon != null) ValidateWeaponBlob(path, weapon.ContentId, weapon.Name, hash, declared);
         return path;
+    }
+
+    public CommunityContentReport SubmitReport(string kind, Guid id, string hash, string reporter, string reason)
+    {
+        if (kind != CommunityContentKinds.Weapon || id == Guid.Empty || !MapCommunityClient.ValidHash(hash)
+            || !SafeText(reporter, 128) || !SafeText(reason, 512))
+            throw new InvalidDataException("Invalid typed weapon report.");
+        lock (_gate)
+        {
+            var existing = _reports.FirstOrDefault(r => r.ReporterId == reporter && r.Kind == kind && r.ContentId == id && r.Hash == hash);
+            if (existing != null) return CopyReport(existing);
+            if (!_projects.TryGetValue((kind, id), out var project)
+                || project.OwnerId != reporter && (project.Archived || project.ModerationHidden)
+                || !project.Revisions.Any(r => r.ContentHash == hash
+                    && (project.OwnerId == reporter || r.Visibility is CommunityContentVisibility.Published or CommunityContentVisibility.Unlisted)))
+                throw new InvalidDataException("The reported revision is unavailable.");
+            var now = DateTimeOffset.UtcNow;
+            if (_reports.Count >= 4096 || _reports.Count(r => r.ReporterId == reporter && r.CreatedAt >= now.AddDays(-1)) >= 20)
+                throw new InvalidDataException("Typed report rate or storage budget exceeded.");
+            var report = new CommunityContentReport(Guid.NewGuid(), kind, id, hash, reporter, reason, now);
+            var reports = _reports.Append(report).ToArray();
+            PersistReports(reports, null); _reports.Add(report); return CopyReport(report);
+        }
+    }
+
+    // Service-only seam: callers must authenticate and authorize moderator tickets.
+    internal CommunityContentReport ResolveReport(Guid reportId, string moderatorId, bool hide, string reason)
+    {
+        if (!SafeText(moderatorId, 128) || !SafeText(reason, 512)) throw new InvalidDataException("Invalid moderation decision.");
+        lock (_gate)
+        {
+            int at = _reports.FindIndex(r => r.ReportId == reportId);
+            if (at < 0) throw new InvalidDataException("Typed report not found.");
+            var original = _reports[at];
+            var project = _projects[(original.Kind, original.ContentId)];
+            var history = original.DecisionHistory ?? (original.ResolvedAt is { } previous
+                ? new[] { new CommunityContentModerationDecision(original.ModeratorId!, previous, original.Hide!.Value, original.DecisionReason!) }
+                : Array.Empty<CommunityContentModerationDecision>());
+            if (history.Length >= 32) throw new InvalidDataException("Moderation decision history budget exceeded.");
+            var now = DateTimeOffset.UtcNow;
+            var minimum = history.Length == 0 ? original.CreatedAt : history[^1].DecidedAt;
+            if (now < minimum) now = minimum;
+            var decision = original with { ModeratorId = moderatorId, ResolvedAt = now, Hide = hide, DecisionReason = reason,
+                DecisionHistory = history.Append(new CommunityContentModerationDecision(moderatorId, now, hide, reason)).ToArray() };
+            var changed = project with { ModerationHidden = hide };
+            var reports = _reports.ToArray(); reports[at] = decision;
+            PersistReports(reports, changed);
+            _reports[at] = decision; _projects[(changed.Kind, changed.ContentId)] = changed;
+            return CopyReport(decision);
+        }
+    }
+
+    internal CommunityContentReport[] ListReports()
+    { lock (_gate) return _reports.Select(CopyReport).ToArray(); }
+
+    private static CommunityContentReport CopyReport(CommunityContentReport report)
+        => report with { DecisionHistory = report.DecisionHistory?.ToArray() };
+
+    private void PersistReports(CommunityContentReport[] reports, CommunityContentStoredProject? replacement)
+    {
+        var projects = _projects.Values.Select(p => replacement != null && p.Kind == replacement.Kind && p.ContentId == replacement.ContentId ? replacement : p)
+            .OrderBy(p => p.Kind, StringComparer.Ordinal).ThenBy(p => p.ContentId).ToArray();
+        AtomicFile.Write(_index, SerializeCatalog(new(Format, projects, reports)));
+    }
+
+    private static byte[] SerializeCatalog(CommunityContentStoredState state)
+    {
+        using var output = new CatalogStream();
+        JsonSerializer.Serialize(output, state, MapPackageReader.JsonOptions);
+        return output.ToArray();
+    }
+
+    private sealed class CatalogStream : MemoryStream
+    {
+        private void Reserve(int count)
+        {
+            if (count < 0 || Length > MaximumCatalogBytes - count)
+                throw new InvalidDataException("V3 content catalog exceeds its metadata byte budget.");
+        }
+        public override void Write(byte[] buffer, int offset, int count)
+        { Reserve(count); base.Write(buffer, offset, count); }
+        public override void Write(ReadOnlySpan<byte> buffer)
+        { Reserve(buffer.Length); base.Write(buffer); }
+        public override void WriteByte(byte value)
+        { Reserve(1); base.WriteByte(value); }
+    }
+
+    private static void ValidateReport(CommunityContentReport report)
+    {
+        if (report == null || report.ReportId == Guid.Empty || report.Kind != CommunityContentKinds.Weapon
+            || report.ContentId == Guid.Empty || !MapCommunityClient.ValidHash(report.Hash)
+            || !SafeText(report.ReporterId, 128) || !SafeText(report.Reason, 512) || report.CreatedAt == default
+            || report.ResolvedAt == null && (report.ModeratorId != null || report.Hide != null || report.DecisionReason != null)
+            || report.ResolvedAt != null && (!SafeText(report.ModeratorId, 128) || !SafeText(report.DecisionReason, 512)
+                || report.Hide == null || report.ResolvedAt < report.CreatedAt))
+            throw new InvalidDataException("Invalid persisted typed moderation report.");
+        if (report.DecisionHistory is { } history)
+        {
+            if (history.Length is < 1 or > 32 || report.ResolvedAt == null)
+                throw new InvalidDataException("Invalid moderation history budget.");
+            DateTimeOffset previous = report.CreatedAt;
+            foreach (var decision in history)
+            {
+                if (decision == null || !SafeText(decision.ModeratorId, 128) || !SafeText(decision.Reason, 512)
+                    || decision.DecidedAt < previous)
+                    throw new InvalidDataException("Invalid immutable moderation history.");
+                previous = decision.DecidedAt;
+            }
+            var last = history[^1];
+            if (last.ModeratorId != report.ModeratorId || last.DecidedAt != report.ResolvedAt
+                || last.Hide != report.Hide || last.Reason != report.DecisionReason)
+                throw new InvalidDataException("Moderation history differs from its latest decision.");
+        }
     }
 
     private void SaveReplacing(CommunityContentStoredProject replacement)
@@ -346,9 +538,7 @@ public sealed class CommunityContentRegistry
             .Append(replacement)
             .OrderBy(p => p.Kind, StringComparer.Ordinal)
             .ThenBy(p => p.ContentId).ToArray();
-        AtomicFile.Write(_index, JsonSerializer.SerializeToUtf8Bytes(
-            new CommunityContentStoredState(Format, updated),
-            MapPackageReader.JsonOptions));
+        AtomicFile.Write(_index, SerializeCatalog(new(Format, updated, _reports.ToArray())));
         _projects[(replacement.Kind, replacement.ContentId)] = replacement;
     }
 
@@ -386,41 +576,49 @@ public sealed class CommunityContentRegistry
         }
     }
 
-    private CommunityContentProject? Project(CommunityContentStoredProject data, bool owner)
+    private CommunityContentProject? Project(CommunityContentStoredProject data, bool owner, bool allowUnlisted = false)
     {
-        if (data.Archived && !owner) return null;
-        CommunityContentRevision[] visible = VisibleRevisions(data, owner);
+        if ((data.Archived || data.ModerationHidden) && !owner) return null;
+        CommunityContentRevision[] visible = VisibleRevisions(data, owner, allowUnlisted)
+            .Select(revision => ProjectRevision(data, revision)).ToArray();
         if (visible.Length == 0) return null;
         CommunityContentRevision latest = visible[^1];
         CommunityContentRevision? current = data.CurrentHash != null
             ? visible.FirstOrDefault(r => r.ContentHash == data.CurrentHash)
             : null;
-        if (!owner && current == null) return null;
+        if (!owner && current == null && !allowUnlisted) return null;
         CommunityContentRevision selected = current ?? latest;
         // A missing referenced object is unavailable, not a downloadable
         // catalog entry. PR-09 will add exact verified download endpoints.
         if (BlobPath(selected.ContentHash) is not { } blob
             || new FileInfo(blob).Length != selected.Bytes) return null;
+        // Direct weapon links expose only visible immutable package metadata,
+        // never project-level presentation inherited from an earlier draft.
+        WeaponPackage? directWeapon = !owner && current == null && allowUnlisted && data.Kind == CommunityContentKinds.Weapon
+            ? ValidateWeaponBlob(BlobPath(latest.ContentHash) ?? throw new InvalidDataException("Visible weapon blob is unavailable."),
+                data.ContentId, data.Name, latest.ContentHash, latest.Bytes) : null;
         return new CommunityContentProject(
-            data.Kind, data.ContentId, data.Name, data.DisplayName, data.Author,
+            data.Kind, data.ContentId, data.Name, directWeapon != null ? directWeapon.Project.Name : data.DisplayName,
+            directWeapon != null ? directWeapon.Project.Author : data.Author,
             owner ? data.OwnerId : null,
-            data.Description, data.Tags.ToArray(),
+            directWeapon != null ? null : data.Description, directWeapon != null ? Array.Empty<string>() : data.Tags.ToArray(),
             current?.ContentHash,
             latest.ContentHash,
             visible.Length,
-            data.CreatedAt,
-            owner ? data.Revisions[^1].CreatedAt : data.UpdatedAt,
+            directWeapon != null ? visible[0].CreatedAt : data.CreatedAt,
+            directWeapon != null ? latest.CreatedAt : owner ? data.Revisions[^1].CreatedAt : data.UpdatedAt,
             current,
             latest,
-            CanManage: owner, Archived: data.Archived);
+            CanManage: owner, Archived: data.Archived, ModerationHidden: data.ModerationHidden);
     }
 
     private static CommunityContentRevision[] VisibleRevisions(
-        CommunityContentStoredProject data, bool owner)
+        CommunityContentStoredProject data, bool owner, bool allowUnlisted = false)
     {
         if (owner) return data.Revisions.ToArray();
         CommunityContentRevision[] published = data.Revisions
-            .Where(r => r.Visibility == CommunityContentVisibility.Published).ToArray();
+            .Where(r => r.Visibility == CommunityContentVisibility.Published
+                || allowUnlisted && data.Kind == CommunityContentKinds.Weapon && r.Visibility == CommunityContentVisibility.Unlisted).ToArray();
         // The true parent may be an unpublished draft. Public revision edges
         // must reference only hashes already visible to an anonymous reader,
         // while the full immutable parent lineage remains owner-visible.
@@ -455,7 +653,7 @@ public sealed class CommunityContentRegistry
         ValidateDependencies(m.Dependencies, m.Kind, m.ContentId);
     }
 
-    private static void ValidateProject(CommunityContentStoredProject p)
+    private void ValidateProject(CommunityContentStoredProject p)
     {
         if (p == null || p.Revisions == null || p.Revisions.Length == 0
             || p.Revisions.Length > MaximumRevisions
@@ -484,12 +682,65 @@ public sealed class CommunityContentRegistry
                 throw new InvalidDataException("Invalid stored v3 content revision.");
             _ = CommunityContentVisibility.Normalize(rev.Visibility);
             ValidateDependencies(rev.Dependencies, kind, p.ContentId);
+            if (kind == CommunityContentKinds.Weapon)
+                WeaponRevisionProof(p.ContentId, p.Name, rev);
         }
         if (p.Revisions[^1].ContentHash != p.LatestHash
             || p.CurrentHash != null && !p.Revisions.Any(r =>
                 r.ContentHash == p.CurrentHash
                 && r.Visibility == CommunityContentVisibility.Published))
             throw new InvalidDataException("V3 content pointers differ from immutable revisions.");
+    }
+
+    private CommunityContentRevision ProjectRevision(CommunityContentStoredProject project, CommunityContentRevision revision)
+    {
+        if (project.Kind != CommunityContentKinds.Weapon) return revision;
+        return revision with { WeaponPackage = WeaponRevisionProof(project.ContentId, project.Name, revision) };
+    }
+
+    // Called only for admitted catalog revisions (or fully validated persisted
+    // catalog entries). Upload staging paths never populate this bounded cache.
+    private WeaponPackageRevisionIdentity WeaponRevisionProof(Guid id, string name, CommunityContentRevision revision)
+    {
+        var key = (revision.ContentHash, id, name, revision.Bytes);
+        string path = Path.Combine(_objects, revision.ContentHash + ".blob");
+        var info = new FileInfo(path); info.Refresh();
+        if (!info.Exists || info.LinkTarget != null || (info.Attributes & FileAttributes.ReparsePoint) != 0
+            || info.Length != revision.Bytes || info.Length is <= 0 or > WeaponPackageLimits.MaximumArchiveBytes)
+        {
+            _weaponProofs.Remove(key);
+            throw new InvalidDataException("Registered weapon blob is missing, linked or has changed length.");
+        }
+        long write = info.LastWriteTimeUtc.Ticks, creation = info.CreationTimeUtc.Ticks;
+        var attributes = info.Attributes;
+        if (_weaponProofs.TryGetValue(key, out var proof) && proof.WriteTicks == write
+            && proof.CreationTicks == creation && proof.Attributes == attributes) return proof.Identity;
+        _weaponProofs.Remove(key);
+        var package = ValidateWeaponBlob(path, id, name, revision.ContentHash, revision.Bytes);
+        info.Refresh();
+        if (!info.Exists || info.LinkTarget != null || info.Length != revision.Bytes
+            || info.LastWriteTimeUtc.Ticks != write || info.CreationTimeUtc.Ticks != creation || info.Attributes != attributes)
+            throw new InvalidDataException("Registered weapon blob changed during metadata validation.");
+        if (_weaponProofs.Count >= MaximumRevisions) throw new InvalidDataException("Weapon revision proof budget exceeded.");
+        var identity = new WeaponPackageRevisionIdentity(package.PackageHash, package.ContentHash,
+            package.DependencyHash, package.Definition.Mechanics.DefinitionHash);
+        _weaponProofs.Add(key, new(write, creation, attributes, identity));
+        return identity;
+    }
+
+    private static WeaponPackage ValidateWeaponBlob(string path, Guid contentId, string name, string hash, long bytes)
+    {
+        if (new FileInfo(path).LinkTarget != null)
+            throw new InvalidDataException("Weapon package blobs cannot be links.");
+        using var input = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        if (input.Length is <= 0 or > WeaponPackageLimits.MaximumArchiveBytes || input.Length != bytes)
+            throw new InvalidDataException("Weapon package blob exceeds its exact byte budget.");
+        var archive = new byte[checked((int)input.Length)]; input.ReadExactly(archive);
+        var package = WeaponPackage.Parse(archive);
+        if (package.Project.ContentId != contentId || !StringComparer.Ordinal.Equals(package.Project.Name, name)
+            || !StringComparer.Ordinal.Equals(package.PackageHash, hash))
+            throw new InvalidDataException("Weapon package identity or name differs from its immutable Community revision.");
+        return package;
     }
 
     private static bool SafeText(string? text, int maximum, bool optional = false)
@@ -499,6 +750,7 @@ public sealed class CommunityContentRegistry
 
     private static bool SupportedMime(string kind, string mime) => kind switch
     {
+        CommunityContentKinds.Weapon => mime == CommunityAssetValidator.WeaponMimeType,
         CommunityContentKinds.Texture =>
             mime is "image/png" or "image/jpeg" or "image/ktx2" or "image/x-tga",
         CommunityContentKinds.Material =>
@@ -545,6 +797,8 @@ public sealed class CommunityContentRegistry
         string kind, Guid id)
     {
         if (items == null) return;
+        if (kind == CommunityContentKinds.Weapon && items.Length != 0)
+            throw new InvalidDataException("Weapon packages are self-contained and cannot declare external Community dependencies.");
         if (items.Length > MaximumDependencies) throw new InvalidDataException("Too many v3 dependencies.");
         foreach (CommunityContentDependency item in items)
         {
@@ -554,6 +808,8 @@ public sealed class CommunityContentRegistry
                 || (item.Kind == kind && item.ContentId == id))
                 throw new InvalidDataException("Invalid or self-referencing v3 content dependency.");
             _ = CommunityContentKinds.Normalize(item.Kind);
+            if (item.Kind == CommunityContentKinds.Weapon)
+                throw new InvalidDataException("Weapon packages cannot be optional visual dependencies.");
         }
         if (items.Select(x => (x.Kind, x.ContentId))
             .Distinct().Count() != items.Length)

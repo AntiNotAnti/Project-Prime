@@ -114,6 +114,7 @@ public static partial class NetSession
     private sealed class WeaponPackagePreparation(WeaponPackagePreparationKey key)
     {
         internal readonly WeaponPackagePreparationKey Key = key;
+        internal CustomWeaponPackageManifest? Manifest;
         internal readonly CancellationTokenSource Cancel = new();
         internal Task<WeaponMatchPackageBinding>? Work;
         internal WeaponMatchPackageBinding? Binding;
@@ -126,6 +127,17 @@ public static partial class NetSession
     // A retired synchronous parser cannot be interrupted midway. Keep its task
     // as a fence across Stop/reconnect so another parser cannot overlap it.
     private static Task<WeaponMatchPackageBinding>? _weaponPackageWorker;
+    internal static bool TryRequiredWeaponPackage(out Guid contentId,out string archive)
+    {
+        contentId=default;archive="";
+        if(_weaponPreparation is not {Manifest:{} manifest} state||!CurrentPackageKey(state.Key)||manifest.Digest!=state.Key.Manifest)return false;
+        contentId=manifest.Rows[0].Weapon.ContentId;archive=manifest.Rows[0].Archive.ToString();return true;
+    }
+    internal static void RetryRequiredWeaponPackage(string installedArchive)
+    {
+        if(_weaponPreparation is {Binding:null,Error:not null,Manifest:{} manifest} state&&CurrentPackageKey(state.Key)
+            &&manifest.Rows[0].Archive.ToString()==installedArchive)ResetWeaponPackagePreparation();
+    }
     public static string WeaponPackagePreparationMessage => _weaponPreparation?.Error
         ?? (ServerSession?.Match.PackagedWeaponAvailable == true && !RequiredWeaponPackagesReady
             ? "Waiting for the exact installed weapon package to be verified." : "");
@@ -191,7 +203,7 @@ public static partial class NetSession
             && manifest.Rows[0].Archive != WeaponDigest.FromHex(selected.ArchiveHash))
         {
             ResetWeaponPackagePreparation();
-            _weaponPreparation = new(key) { Error = "The server offered a different package than the explicit local selection." };
+            _weaponPreparation = new(key) { Manifest=manifest,Error = "The server offered a different package than the explicit local selection." };
             return;
         }
         // Starting advances match ID after the lobby barrier. Carry independent
@@ -204,9 +216,9 @@ public static partial class NetSession
             && previous.Key.Connection == key.Connection && previous.Key.Manifest == key.Manifest
             && NetLifecycleTracker.Newer(key.Match, previous.Key.Match)) carried = previous.Binding.Retain();
         ResetWeaponPackagePreparation();
-        if (carried != null) { _weaponPreparation = new(key) { Binding = carried }; return; }
+        if (carried != null) { _weaponPreparation = new(key) { Manifest=manifest,Binding = carried }; return; }
         if (_weaponPackageWorker is { IsCompleted: false }) return;
-        var state = new WeaponPackagePreparation(key); _weaponPreparation = state;
+        var state = new WeaponPackagePreparation(key) {Manifest=manifest}; _weaponPreparation = state;
         string storeDirectory = WeaponPackageStoreDirectory; // Freeze this connection's path before queueing work.
         state.Work = Task.Run(() => WeaponMatchPackageBinding.PrepareInstalled(
             new WeaponPackageStore(storeDirectory), manifest, state.Cancel.Token), state.Cancel.Token);

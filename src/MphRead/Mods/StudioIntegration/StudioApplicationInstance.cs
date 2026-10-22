@@ -28,7 +28,10 @@ public sealed class StudioApplicationInstance : IDisposable
             : Path.GetExtension(documentPath).Equals(".ppdemo", StringComparison.OrdinalIgnoreCase)
                 ? StudioOpenKind.Replay
                 : Path.GetExtension(documentPath).Equals(".ppclip", StringComparison.OrdinalIgnoreCase)
-                    ? StudioOpenKind.Clip : StudioOpenKind.Map;
+                    ? StudioOpenKind.Clip
+                    : Path.GetExtension(documentPath).Equals(".ppweaponproject", StringComparison.OrdinalIgnoreCase)
+                        || Path.GetExtension(documentPath).Equals(".ppweapon", StringComparison.OrdinalIgnoreCase)
+                            ? StudioOpenKind.Weapon : StudioOpenKind.Map;
         return new(Guid.NewGuid(), kind, documentPath, recover);
     }
 
@@ -54,6 +57,11 @@ public sealed class StudioApplicationInstance : IDisposable
                 case "--replay-library":
                     if (workspace) return new() { Error = "Specify one Studio workspace." };
                     workspace = true; kind = StudioOpenKind.ReplayLibrary; break;
+                case "--weapon":
+                    if (workspace) return new() { Error = "Specify one Studio workspace." };
+                    workspace = true; kind = StudioOpenKind.Weapon;
+                    if (i + 1 < args.Length && !args[i + 1].StartsWith("--", StringComparison.Ordinal)) path = args[++i];
+                    break;
                 case "--replay": case "--clip": case "--map":
                     if (workspace || i + 1 >= args.Length)
                         return new() { Error = "Specify one absolute Studio document path." };

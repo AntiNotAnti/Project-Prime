@@ -1577,9 +1577,21 @@ namespace MphRead.Entities
             // radar, chat, kill feed, map votes, or pause-era HUD fragments
             // obscure the authoritative final stats. The winner cinematic and
             // final replay run earlier, before this branch becomes active.
+            if (_scene.GameState.Multiplayer && _scene.GameState.MatchState == MatchState.GameOver)
+            {
+                // Cinematic-only frame: no gameplay radar, kill feed or default
+                // GAME OVER banner masking the winning Hunter's camera shot.
+                ModDrawFinalCinematicHud();
+                return;
+            }
             if (_scene.GameState.Multiplayer && _scene.GameState.MatchState == MatchState.Ending)
             {
-                ModDrawPostMatchReport();
+                // Strict six-second scoreboard even when a connected server
+                // has not finished the lobby/rotation handoff yet.
+                if (_scene.GameState.MatchTime >= 0)
+                    ModDrawPostMatchReport();
+                else
+                    ModDrawPostMatchHandoff();
                 return;
             }
             if (!_scene.DsTopPass) DrawRadar();

@@ -28,6 +28,8 @@ internal sealed class RmlUiMapPreviewCache : IDisposable
     private Stamp _observed;
     private long _nextPoll;
     private bool _disposed;
+    // Owner snapshots this after Dispose before cleaning its private directory.
+    internal Task RetirementCompletion => _work is { } work ? work : Task.CompletedTask;
 
     private readonly record struct Stamp(bool Exists, long Length, long Modified);
     private readonly record struct Result(string Source, Stamp Stamp, string Image);
