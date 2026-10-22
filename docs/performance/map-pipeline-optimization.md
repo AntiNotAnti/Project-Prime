@@ -221,16 +221,21 @@ needed to address them; this is not a clean dependency-audit claim.
 
 | Pull request | Scope | Status at report update |
 |---|---|---|
-| [Project Prime #1023](https://github.com/AntiNotAnti/Project-Prime/pull/1023) | Audit and reproducible transfer baseline | Open; refreshed onto current main; CI running |
-| [Project Prime #1024](https://github.com/AntiNotAnti/Project-Prime/pull/1024) | Streamed download verification | Open; stacked on #1023; CI running |
-| [Project Prime #1025](https://github.com/AntiNotAnti/Project-Prime/pull/1025) | Portable conversion reuse and persistent worker cache | Open; stacked on #1024; CI running |
-| [Project Prime #1026](https://github.com/AntiNotAnti/Project-Prime/pull/1026) | Retired prewarm cancellation | Open; stacked on #1025; CI running |
-| [Project Prime #1027](https://github.com/AntiNotAnti/Project-Prime/pull/1027) | Crash-safe conversion job promotion | Open; stacked on #1026; CI running |
-| [Project Prime #1028](https://github.com/AntiNotAnti/Project-Prime/pull/1028) | Prepare only the selected room at loading boundaries | Open; stacked on #1027; CI running |
-| [Project Prime #1029](https://github.com/AntiNotAnti/Project-Prime/pull/1029) | Source-limit transfer and near-limit package qualification | Open; stacked on #1028; CI running |
+| [Project Prime #1030](https://github.com/AntiNotAnti/Project-Prime/pull/1030) | Audit, reproducible transfer baseline and qualification repairs | Open; targets main; CI running |
+| [Project Prime #1031](https://github.com/AntiNotAnti/Project-Prime/pull/1031) | Streamed download verification | Open; stacked on #1030; CI running |
+| [Project Prime #1032](https://github.com/AntiNotAnti/Project-Prime/pull/1032) | Portable conversion reuse and persistent worker cache | Open; stacked on #1031; CI running |
+| [Project Prime #1033](https://github.com/AntiNotAnti/Project-Prime/pull/1033) | Retired prewarm cancellation | Open; stacked on #1032; CI running |
+| [Project Prime #1034](https://github.com/AntiNotAnti/Project-Prime/pull/1034) | Crash-safe conversion job promotion | Open; stacked on #1033; CI running |
+| [Project Prime #1035](https://github.com/AntiNotAnti/Project-Prime/pull/1035) | Prepare only the selected room at loading boundaries | Open; stacked on #1034; CI running |
+| [Project Prime #1029](https://github.com/AntiNotAnti/Project-Prime/pull/1029) | Source-limit transfer and near-limit package qualification | Open; stacked on #1035; CI running |
 | [Website #16](https://github.com/projectprimegg/projectprime-website/pull/16) | Mixed bulk uploads and interrupted-chunk recovery | Merged after CI and independent review; merge `ca5697f7` |
 
 The engine/service PRs remain unmerged at this update. Earlier CI cancellations are not passes.
+The original intermediate PRs #1024–#1028 were integrated into feature branches
+during a branch-integration mistake; that did not deliver them to main. The
+focused stack above was reconstructed without rewriting existing history, and
+its combined source tree was verified identical before updating delivery notes.
+The original baseline PR #1023 is superseded by #1030.
 The converter workflow now installs the exact SDK from `global.json`; installing
 the latest 10.0 SDK had failed the repository's strict SDK pin. Current-main
 replay test repairs are incorporated without duplicating them in this work.
