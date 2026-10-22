@@ -11,6 +11,7 @@ internal static partial class RmlUiOpenGlSmoke
     internal readonly record struct NativeShellShotView(
         string Route,
         string HoveredElement,
+        string FocusedElement,
         bool HasNewsLink,
         float NewsX,
         float NewsY,
@@ -101,7 +102,7 @@ internal static partial class RmlUiOpenGlSmoke
                 out gameFilesChooseWidth, out gameFilesChooseHeight);
         }
 
-        view = new(route, host.HoveredElement(), hasNews, newsX, newsY, newsWidth, newsHeight,
+        view = new(route, host.HoveredElement(), host.FocusedElement(), hasNews, newsX, newsY, newsWidth, newsHeight,
             hasSettings, settingsX, settingsY, settingsWidth, settingsHeight,
             gameFilesOwnsInput, gameFilesReady, gameFilesCanBack,
             hasGameFilesChooseButton, gameFilesChooseX, gameFilesChooseY,
