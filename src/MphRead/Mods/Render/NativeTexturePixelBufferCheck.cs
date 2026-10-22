@@ -28,6 +28,8 @@ internal static class NativeTexturePixelBufferCheck
             if (!pass) failures++;
         }
 
+        CheckCompactTextureData(Check);
+
         Recolor recolor = CreateFixture(Formats, 4);
         for (int textureId = 0; textureId < Formats.Length; textureId++)
         {
@@ -86,6 +88,16 @@ internal static class NativeTexturePixelBufferCheck
                 () => LegacyDecode(recolor, 1, 1)),
             "invalid indexed palette IDs retain the previous exception type and parameter");
 
+        var hugeTexels = new HugeTexelDataList();
+        Recolor invalidPaletteBeforePixels = CreateFixture(
+            new[] { TextureFormat.Palette8Bit }, 1, hugeTexels);
+        bool invalidPaletteMatches = SameException(
+            () => NativeTexturePixelBuffer.Decode(invalidPaletteBeforePixels, 0, 1),
+            () => LegacyDecode(invalidPaletteBeforePixels, 0, 1));
+        Check(invalidPaletteMatches && hugeTexels.CountReads == 0
+            && hugeTexels.IndexerReads == 0 && hugeTexels.EnumeratorReads == 0,
+            "invalid indexed palette rejects before pixel allocation or texel traversal");
+
         Recolor invalidIndex = CreateFixture(new[] { TextureFormat.Palette8Bit }, 1,
             new[] { new TextureData(4, 255) });
         Check(SameException(() => NativeTexturePixelBuffer.Decode(invalidIndex, 0, 0),
@@ -123,6 +135,274 @@ internal static class NativeTexturePixelBufferCheck
         Console.WriteLine($"[nativepixelbuffer-allocation-json] {{\"schema\":1,\"pixelsPerTexture\":4096,\"iterations\":8,\"legacyAllocatedBytes\":{legacyBytes},\"candidateAllocatedBytes\":{candidateBytes},\"scope\":\"synthetic CPU texture preparation only; excludes OpenGL, upscaling and gameplay\"}}");
 
         return failures;
+    }
+
+    private static void CheckCompactTextureData(Action<bool, string> check)
+    {
+        var cases = new (TextureFormat Format, int Width, int Height, uint Opaque, byte[] Payload)[]
+        {
+            (TextureFormat.DirectRgb, 4, 1, 1, new byte[] { 0x1F, 0x00, 0xE0, 0x83, 0x10, 0x42, 0xFF, 0xFF }),
+            (TextureFormat.Palette2Bit, 4, 1, 0, new byte[] { 0xE4 }),
+            (TextureFormat.Palette2Bit, 4, 1, 1, new byte[] { 0xE4 }),
+            (TextureFormat.Palette4Bit, 4, 1, 0, new byte[] { 0x10, 0x32 }),
+            (TextureFormat.Palette8Bit, 4, 1, 0, new byte[] { 0, 1, 255, 128 }),
+            (TextureFormat.PaletteA5I3, 4, 1, 0, new byte[] { 0x00, 0xF8, 0x7F, 0xFF }),
+            (TextureFormat.PaletteA3I5, 4, 1, 0, new byte[] { 0x00, 0xE0, 0xFF, 0x1F }),
+            ((TextureFormat)3, 3, 1, 0, new byte[] { 0x00, 0x7F, 0xFF })
+        };
+
+        foreach ((TextureFormat format, int width, int height, uint opaque, byte[] payload) in cases)
+        {
+            const int imageOffset = 2;
+            Texture texture = CreateRawTexture(format, width, height, imageOffset, opaque);
+            byte[] source = new byte[imageOffset + payload.Length];
+            source[0] = 0xA5;
+            source[1] = 0x5A;
+            payload.CopyTo(source, imageOffset);
+            List<TextureData> expected = LegacyDecodeTextureData(texture, source);
+            CompactTextureData actual = CompactTextureData.Decode(texture, source);
+            check(SameTextureData(actual, expected),
+                $"{format} compact storage preserves eager decoded texel values and order");
+            check(actual.SequenceEqual(expected),
+                $"{format} generic enumeration preserves texel values and order");
+            check(EnumeratesSame((System.Collections.IEnumerable)actual, expected),
+                $"{format} non-generic enumeration preserves texel values and order");
+            if (format != (TextureFormat)3)
+            {
+                MphRead.Utility.Repack.TextureInfo expectedRepack
+                    = MphRead.Utility.Repack.ConvertData(texture, expected);
+                MphRead.Utility.Repack.TextureInfo actualRepack
+                    = MphRead.Utility.Repack.ConvertData(texture, actual);
+                check(expectedRepack.Data.SequenceEqual(actualRepack.Data),
+                    $"{format} model repack bytes match the list-backed data");
+            }
+            source[imageOffset] ^= 0xFF;
+            check(SameTextureData(actual, expected),
+                $"{format} decoded texels own their data after the source buffer changes");
+        }
+
+        Texture nonDivisible = CreateRawTexture(TextureFormat.Palette2Bit, 3, 1, 0, 1);
+        byte[] nonDivisibleSource = { 0xE4 };
+        check(SameException(() => CompactTextureData.Decode(nonDivisible, nonDivisibleSource),
+                () => LegacyDecodeTextureData(nonDivisible, nonDivisibleSource)),
+            "packed palette dimensions retain the old non-divisible pixel-count exception");
+
+        Texture truncatedPalette = CreateRawTexture(TextureFormat.Palette2Bit, 8, 1, 1, 1);
+        byte[] shortPaletteSource = { 0xE4, 0x1B };
+        check(SameException(() => CompactTextureData.Decode(truncatedPalette, shortPaletteSource),
+                () => LegacyDecodeTextureData(truncatedPalette, shortPaletteSource)),
+            "truncated packed palette bytes retain the old eager indexer exception");
+
+        Texture truncatedDirect = CreateRawTexture(TextureFormat.DirectRgb, 2, 1, 1, 1);
+        byte[] shortDirectSource = { 0x00, 0x1F };
+        check(SameException(() => CompactTextureData.Decode(truncatedDirect, shortDirectSource),
+                () => LegacyDecodeTextureData(truncatedDirect, shortDirectSource)),
+            "truncated direct-color bytes retain the old eager span exception");
+
+        Texture hugeOffsetPalette = CreateRawTexture(TextureFormat.Palette8Bit, 2, 1, uint.MaxValue, 1);
+        Texture hugeOffsetDirect = CreateRawTexture(TextureFormat.DirectRgb, 2, 1, uint.MaxValue, 1);
+        byte[] offsetSource = { 0, 1, 2, 3 };
+        check(SameException(() => CompactTextureData.Decode(hugeOffsetPalette, offsetSource),
+                () => LegacyDecodeTextureData(hugeOffsetPalette, offsetSource))
+            && SameException(() => CompactTextureData.Decode(hugeOffsetDirect, offsetSource),
+                () => LegacyDecodeTextureData(hugeOffsetDirect, offsetSource)),
+            "large unsigned image offsets retain the old palette and direct-color exceptions");
+
+        Texture emptyTexture = CreateRawTexture(TextureFormat.DirectRgb, 0, 0, 0, 1);
+        Texture overflowedTexture = CreateRawTexture(TextureFormat.DirectRgb,
+            ushort.MaxValue, ushort.MaxValue, 0, 1);
+        Texture overflowedPackedTexture = CreateRawTexture(TextureFormat.Palette2Bit,
+            ushort.MaxValue, ushort.MaxValue, 0, 1);
+        byte[] emptySource = Array.Empty<byte>();
+        check(SameTextureData(CompactTextureData.Decode(emptyTexture, emptySource),
+                LegacyDecodeTextureData(emptyTexture, emptySource))
+            && SameTextureData(CompactTextureData.Decode(overflowedTexture, emptySource),
+                LegacyDecodeTextureData(overflowedTexture, emptySource))
+            && SameException(() => CompactTextureData.Decode(overflowedPackedTexture, emptySource),
+                () => LegacyDecodeTextureData(overflowedPackedTexture, emptySource)),
+            "zero and overflowed dimensions preserve prior count and divisibility behavior");
+
+        Texture rangeTexture = CreateRawTexture(TextureFormat.Palette8Bit, 2, 1, 0, 1);
+        var rangeSource = new byte[] { 0, 1 };
+        CompactTextureData rangeView = CompactTextureData.Decode(rangeTexture, rangeSource);
+        List<TextureData> rangeList = LegacyDecodeTextureData(rangeTexture, rangeSource);
+        check(SameException(() => _ = rangeView[-1], () => _ = rangeList[-1])
+            && SameException(() => _ = rangeView[rangeView.Count], () => _ = rangeList[rangeList.Count]),
+            "compact texture indexing retains List range exception types and parameter names");
+
+        const int allocationPixels = 16384;
+        Texture allocationTexture = CreateRawTexture(TextureFormat.Palette8Bit,
+            allocationPixels, 1, 0, 1);
+        var allocationSource = new byte[allocationPixels];
+        for (int i = 0; i < allocationSource.Length; i++)
+            allocationSource[i] = (byte)(i & 0xFF);
+        List<TextureData> retainedLegacy = LegacyDecodeTextureData(allocationTexture, allocationSource);
+        CompactTextureData retainedCompact = CompactTextureData.Decode(allocationTexture, allocationSource);
+        long legacyRetainedBufferBytes = (long)retainedLegacy.Capacity * Marshal.SizeOf<TextureData>();
+        long compactRetainedBufferBytes = retainedCompact.StorageByteCount;
+        _ = MeasureLegacyTextureDecode(allocationTexture, allocationSource, 3);
+        _ = MeasureCompactTextureDecode(allocationTexture, allocationSource, 3);
+        long legacyAllocatedBytes = MeasureLegacyTextureDecode(allocationTexture, allocationSource, 8);
+        long compactAllocatedBytes = MeasureCompactTextureDecode(allocationTexture, allocationSource, 8);
+        check(compactRetainedBufferBytes < legacyRetainedBufferBytes
+            && compactAllocatedBytes < legacyAllocatedBytes,
+            $"compact decoded storage retains and allocates fewer bytes ({compactRetainedBufferBytes} < {legacyRetainedBufferBytes}; {compactAllocatedBytes} < {legacyAllocatedBytes})");
+        Console.WriteLine($"[compacttexturedata-storage-json] {{\"schema\":1,\"pixelsPerTexture\":{allocationPixels},\"legacyRetainedBufferBytes\":{legacyRetainedBufferBytes},\"compactRetainedBufferBytes\":{compactRetainedBufferBytes},\"iterations\":8,\"legacyAllocatedBytes\":{legacyAllocatedBytes},\"compactAllocatedBytes\":{compactAllocatedBytes},\"scope\":\"synthetic eager texture decode and retained texel storage only\"}}");
+        GC.KeepAlive(retainedLegacy);
+        GC.KeepAlive(retainedCompact);
+    }
+
+    private static Texture CreateRawTexture(TextureFormat format, int width, int height,
+        uint imageOffset, uint opaque)
+    {
+        Texture texture = new(format, (ushort)width, (ushort)height);
+        byte[] bytes = new byte[Marshal.SizeOf<Texture>()];
+        MemoryMarshal.Write(bytes.AsSpan(), in texture);
+        int imageOffsetField = Marshal.OffsetOf<Texture>(nameof(Texture.ImageOffset)).ToInt32();
+        int opaqueField = Marshal.OffsetOf<Texture>(nameof(Texture.Opaque)).ToInt32();
+        MemoryMarshal.Write(bytes.AsSpan(imageOffsetField), in imageOffset);
+        MemoryMarshal.Write(bytes.AsSpan(opaqueField), in opaque);
+        return MemoryMarshal.Read<Texture>(bytes.AsSpan());
+    }
+
+    // Reference copy of Read.GetTextureData before compact storage. Keeping
+    // this parser independent lets the check compare every decoded Data/Alpha
+    // value rather than only comparing two views over the new representation.
+    private static List<TextureData> LegacyDecodeTextureData(Texture texture, ReadOnlySpan<byte> textureBytes)
+    {
+        var data = new List<TextureData>();
+        int pixelCount = texture.Width * texture.Height;
+        int entriesPerByte = 1;
+        if (texture.Format == TextureFormat.Palette2Bit) entriesPerByte = 4;
+        else if (texture.Format == TextureFormat.Palette4Bit) entriesPerByte = 2;
+        if (pixelCount % entriesPerByte != 0)
+            throw new ProgramException($"Pixel count {pixelCount} is not divisible by {entriesPerByte}.");
+        pixelCount /= entriesPerByte;
+        if (texture.Format == TextureFormat.DirectRgb)
+        {
+            for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++)
+            {
+                ushort color = Read.SpanReadUshort(textureBytes, (int)(texture.ImageOffset + pixelIndex * 2));
+                byte alpha = (color & 0x8000) == 0 ? (byte)0 : (byte)255;
+                data.Add(new TextureData(color, alpha));
+            }
+        }
+        else
+        {
+            for (int pixelIndex = 0; pixelIndex < pixelCount; pixelIndex++)
+            {
+                byte entry = textureBytes[(int)(texture.ImageOffset + pixelIndex)];
+                for (int entryIndex = 0; entryIndex < entriesPerByte; entryIndex++)
+                {
+                    uint index = (uint)(entry >> ((pixelIndex * entriesPerByte + entryIndex) % entriesPerByte
+                        * (8 / entriesPerByte)));
+                    byte alpha = 255;
+                    if (texture.Format == TextureFormat.Palette2Bit) index &= 0x3;
+                    else if (texture.Format == TextureFormat.Palette4Bit) index &= 0xF;
+                    else if (texture.Format == TextureFormat.PaletteA5I3)
+                    {
+                        index &= 0x7;
+                        alpha = (byte)MathF.Round((entry >> 3) / 31.0f * 255.0f);
+                    }
+                    else if (texture.Format == TextureFormat.PaletteA3I5)
+                    {
+                        index &= 0x1F;
+                        alpha = (byte)MathF.Round((entry >> 5) / 7.0f * 255.0f);
+                    }
+                    if ((texture.Format == TextureFormat.Palette2Bit
+                            || texture.Format == TextureFormat.Palette4Bit
+                            || texture.Format == TextureFormat.Palette8Bit)
+                        && texture.Opaque == 0 && index == 0)
+                    {
+                        alpha = 0;
+                    }
+                    data.Add(new TextureData(index, alpha));
+                }
+            }
+        }
+        return data;
+    }
+
+    private static bool SameTextureData(IReadOnlyList<TextureData> left, IReadOnlyList<TextureData> right)
+    {
+        if (left.Count != right.Count) return false;
+        for (int index = 0; index < left.Count; index++)
+        {
+            if (left[index].Data != right[index].Data || left[index].Alpha != right[index].Alpha)
+                return false;
+        }
+        return true;
+    }
+
+    private static bool EnumeratesSame(System.Collections.IEnumerable values,
+        IReadOnlyList<TextureData> expected)
+    {
+        int index = 0;
+        foreach (object? value in values)
+        {
+            if (index >= expected.Count || value is not TextureData texel
+                || texel.Data != expected[index].Data || texel.Alpha != expected[index].Alpha)
+            {
+                return false;
+            }
+            index++;
+        }
+        return index == expected.Count;
+    }
+
+    private static long MeasureLegacyTextureDecode(Texture texture, byte[] textureBytes, int iterations)
+    {
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        List<TextureData>? retained = null;
+        for (int iteration = 0; iteration < iterations; iteration++)
+            retained = LegacyDecodeTextureData(texture, textureBytes);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        GC.KeepAlive(retained);
+        return allocated;
+    }
+
+    private static long MeasureCompactTextureDecode(Texture texture, byte[] textureBytes, int iterations)
+    {
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        CompactTextureData? retained = null;
+        for (int iteration = 0; iteration < iterations; iteration++)
+            retained = CompactTextureData.Decode(texture, textureBytes);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        GC.KeepAlive(retained);
+        return allocated;
+    }
+
+    private sealed class HugeTexelDataList : IReadOnlyList<TextureData>
+    {
+        public int CountReads { get; private set; }
+        public int IndexerReads { get; private set; }
+        public int EnumeratorReads { get; private set; }
+
+        public int Count
+        {
+            get
+            {
+                CountReads++;
+                return int.MaxValue;
+            }
+        }
+
+        public TextureData this[int index]
+        {
+            get
+            {
+                IndexerReads++;
+                throw new InvalidOperationException("Synthetic texel list must not be indexed.");
+            }
+        }
+
+        public IEnumerator<TextureData> GetEnumerator()
+        {
+            EnumeratorReads++;
+            throw new InvalidOperationException("Synthetic texel list must not be enumerated.");
+        }
+
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
     private static Recolor CreateFixture(IReadOnlyList<TextureFormat> formats, int pixelCount,

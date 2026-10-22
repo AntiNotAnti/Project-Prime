@@ -18,9 +18,12 @@ internal static class NativeTexturePixelBuffer
         if (textureId < 0 || textureId >= recolor.TextureData.Count)
             throw new System.ArgumentException(nameof(textureId));
 
+        bool directRgb = recolor.Textures[textureId].Format == TextureFormat.DirectRgb;
+        if (!directRgb && (paletteId < 0 || paletteId >= recolor.PaletteData.Count))
+            throw new System.ArgumentException(nameof(paletteId));
+
         IReadOnlyList<TextureData> texels = recolor.TextureData[textureId];
         var pixels = new ColorRgba[texels.Count];
-        bool directRgb = recolor.Textures[textureId].Format == TextureFormat.DirectRgb;
         if (directRgb)
         {
             for (int i = 0; i < texels.Count; i++)
@@ -31,9 +34,6 @@ internal static class NativeTexturePixelBuffer
         }
         else
         {
-            if (paletteId < 0 || paletteId >= recolor.PaletteData.Count)
-                throw new System.ArgumentException(nameof(paletteId));
-
             IReadOnlyList<PaletteData> palette = recolor.PaletteData[paletteId];
             for (int i = 0; i < texels.Count; i++)
             {
