@@ -1,0 +1,161 @@
+{
+  "schema": 1,
+  "room": "MP3 PROVING GROUND",
+  "cap": -1,
+  "shadows": "High",
+  "textureQuality": "Automatic",
+  "lighting": true,
+  "resolutionScale": 100,
+  "vendor": "Apple",
+  "renderer": "Apple M4 Pro",
+  "glVersion": "2.1 Metal - 91.7",
+  "effectiveCap": -1,
+  "softwareFrequency": 0,
+  "vsync": "Off",
+  "assemblyMvid": "3bfa7736-08ad-4ddf-89e6-91d3bfacdd01",
+  "framebuffer": [
+    1920,
+    1080
+  ],
+  "renderSize": [
+    1920,
+    1080
+  ],
+  "initialWindow": {
+    "state": "Normal",
+    "visible": false,
+    "focused": false,
+    "framebuffer": [
+      1920,
+      1080
+    ],
+    "renderSize": [
+      1920,
+      1080
+    ]
+  },
+  "finalWindow": {
+    "state": "Normal",
+    "visible": true,
+    "focused": true,
+    "framebuffer": [
+      1920,
+      1080
+    ],
+    "renderSize": [
+      1920,
+      1080
+    ]
+  },
+  "captureKillFeedLifetimeStabilized": false,
+  "focusTransitions": 1,
+  "visibilityTransitions": 1,
+  "windowStateTransitions": 0,
+  "wallSeconds": 12.1741912,
+  "measurementSeconds": 8.020471,
+  "simulationFrames": 720,
+  "samples": 3393,
+  "meanCompletedFrameFps": 424.13794150894023,
+  "frameIntervalP50Ms": 2.0546,
+  "frameIntervalP95Ms": 4.0826,
+  "frameIntervalP99Ms": 4.8887,
+  "onePercentLowEstimateFps": 204.55335774336734,
+  "pointOnePercentLowEstimateFps": 168.0248676804167,
+  "allocatedBytes": 108394272,
+  "gcCollections": [
+    13,
+    1,
+    0
+  ],
+  "managedBytes": 222171968,
+  "workingSetBytes": 536494080,
+  "simulationHz": 59.95129257234968,
+  "droppedSimulationSteps": 0,
+  "stalls": 0,
+  "captures": [],
+  "outlineOcclusion": null,
+  "bombVisibility": null,
+  "impactPresentation": null,
+  "windowEvents": [
+    {
+      "wallSeconds": 0.1502297,
+      "state": "Normal",
+      "visible": true,
+      "focused": false,
+      "framebuffer": [
+        1920,
+        1080
+      ]
+    },
+    {
+      "wallSeconds": 0.1656165,
+      "state": "Normal",
+      "visible": true,
+      "focused": true,
+      "framebuffer": [
+        1920,
+        1080
+      ]
+    }
+  ],
+  "complete": true,
+  "cleanup": {
+    "detailedRetirement": {
+      "legacyListNamesBefore": 450,
+      "legacyListsRecognizedBefore": 450,
+      "legacyListsRecognizedAfter": 0,
+      "meshListFieldsAfter": 0,
+      "sceneModelLeasesAfter": 0,
+      "bufferNamesBefore": 266,
+      "buffersRecognizedBefore": 266,
+      "bufferNamesRecognizedAfter": 0,
+      "vertexArrayNamesBefore": 133,
+      "vertexArraysRecognizedBefore": 133,
+      "vertexArraysRecognizedAfter": 0,
+      "programNamesBefore": 8,
+      "programsRecognizedBefore": 8,
+      "programsRecognizedAfter": 0,
+      "deletionPendingProgramsAfter": 0,
+      "attachedShaderNamesBefore": 2,
+      "shadersRecognizedAfter": 0,
+      "deletionPendingShadersAfter": 0,
+      "textureNamesBefore": 750,
+      "texturesRecognizedAfter": 0,
+      "framebufferNamesBefore": 3,
+      "framebuffersRecognizedAfter": 0,
+      "renderbufferNamesBefore": 1,
+      "renderbuffersRecognizedAfter": 0,
+      "scope": "Retail model leases, current character/editor lists, retained/combined VBO/IBO/APPLE or core VAO names, scene texture/FBO/RBO/program fields and world variants, attached shaders. Owner/name retirement, not driver residency or a complete context object enumeration; disabled procedural/depth-specific owners retain separate existing counters."
+    },
+    "ownedTexturesBefore": 745,
+    "ownedTexturesAfter": 0,
+    "framebufferBefore": 1,
+    "framebufferAfter": 0,
+    "programCountBefore": 4,
+    "programOwnerFieldsReleased": true,
+    "ownedProgramsAfter": 0,
+    "recognizedProgramNamesAfter": 0,
+    "pendingDeletedProgramCountAfter": 0,
+    "currentProgramAfter": 0,
+    "depthSnapshotBytesBefore": 8294400,
+    "depthSnapshotBytesAfter": 0,
+    "proceduralBytesBefore": 0,
+    "proceduralBytesAfter": 0,
+    "shadowReleased": true,
+    "retainedListsBefore": 89,
+    "retainedListsAfter": 0,
+    "combinedBytesBefore": 788784,
+    "combinedBytesAfter": 0,
+    "retainedBytesBefore": 1206600,
+    "retainedBytesAfter": 0,
+    "shadowColorBytesBefore": 0,
+    "glyphCountBefore": 64,
+    "glyphBytesBefore": 16384,
+    "glyphCountAfter": 0,
+    "glyphBytesAfter": 0,
+    "spriteCountBefore": 30,
+    "spriteBytesBefore": 7680,
+    "spriteCountAfter": 0,
+    "spriteBytesAfter": 0
+  }
+}

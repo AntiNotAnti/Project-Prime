@@ -1,0 +1,54 @@
+[
+  {
+    "arm": 1,
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "25",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-glprofile",
+      "-glgpu",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-profile/palette-1.json"
+    ],
+    "startedUtc": "2026-10-13T19:01:15.078259+00:00",
+    "finishedUtc": "2026-10-13T19:01:41.715520+00:00",
+    "exitCode": 0
+  },
+  {
+    "arm": 0,
+    "command": [
+      "${WORKSPACE}/work/dotnet/dotnet",
+      "${WORKSPACE}/work/baseline-bin/native-render-check.dll",
+      "-room",
+      "MP3 PROVING GROUND",
+      "-players",
+      "8",
+      "-seconds",
+      "25",
+      "-hz",
+      "-1",
+      "-size",
+      "1920x1080",
+      "-shadows",
+      "High",
+      "-glprofile",
+      "-glgpu",
+      "-output",
+      "${WORKSPACE}/work/gl-evidence/gl02-profile/palette-0.json"
+    ],
+    "startedUtc": "2026-10-13T19:01:41.716126+00:00",
+    "finishedUtc": "2026-10-13T19:02:08.278256+00:00",
+    "exitCode": 0
+  }
+]

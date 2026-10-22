@@ -1,0 +1,77 @@
+{
+  "schema": 1,
+  "status": "VALID",
+  "acceptedSamplesPerArm": {
+    "0": 5,
+    "1": 5
+  },
+  "sampleArrays": {
+    "0": {
+      "frameIntervalP50Ms": [
+        2.3472,
+        2.2099,
+        2.0834,
+        2.0685,
+        2.2315
+      ],
+      "frameIntervalP95Ms": [
+        4.6999,
+        3.9547,
+        4.1257,
+        3.8712,
+        4.608
+      ],
+      "frameIntervalP99Ms": [
+        6.4452,
+        4.7091,
+        4.8943,
+        4.5741,
+        5.6347
+      ]
+    },
+    "1": {
+      "frameIntervalP50Ms": [
+        2.151,
+        2.2193,
+        2.0709,
+        2.1414,
+        2.0377
+      ],
+      "frameIntervalP95Ms": [
+        4.4427,
+        4.4895,
+        4.3042,
+        4.1729,
+        4.3387
+      ],
+      "frameIntervalP99Ms": [
+        5.6583,
+        6.0512,
+        5.1816,
+        5.3982,
+        5.4449
+      ]
+    }
+  },
+  "medianPerRun": {
+    "0": {
+      "frameIntervalP50Ms": 2.2099,
+      "frameIntervalP95Ms": 4.1257,
+      "frameIntervalP99Ms": 4.8943
+    },
+    "1": {
+      "frameIntervalP50Ms": 2.1414,
+      "frameIntervalP95Ms": 4.3387,
+      "frameIntervalP99Ms": 5.4449
+    }
+  },
+  "candidatePercentChange": {
+    "frameIntervalP50Ms": -3.0996877686773283,
+    "frameIntervalP95Ms": 5.162760258865173,
+    "frameIntervalP99Ms": 11.24982122060354
+  },
+  "performanceDisposition": "REJECTED",
+  "defaultPolicy": "PALETTE_PREP_OFF",
+  "gpuTiming": "UNVERIFIED",
+  "scope": "Receipt integrity and descriptive timing only; recorded parity requires original capture files for a new pixel comparison."
+}
