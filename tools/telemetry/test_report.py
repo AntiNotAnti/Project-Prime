@@ -9,9 +9,7 @@ from report import distribution, read_matches, render, summarize
 class ReportTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        fixture_path = Path(__file__).resolve().parent / 'fixtures/protocol19-2026-09-24.json'
-        performance = json.loads(fixture_path.read_text())['eightPlayerPerformance']
-        cls.fixture = performance['runs'][1]['fullMatchTelemetry']
+        cls.fixture = json.loads((Path(__file__).resolve().parent / 'fixtures/protocol19-2026-09-24.json').read_text())['eightPlayerPerformance']['runs'][1]['fullMatchTelemetry']
         # This small source-backed fixture supplies only selected fields; fill structurally required arrays.
         cls.fixture.update(network=[0]*8, combat=[0]*8, claims=[0]*16, lifecycle=[0]*256, lagComp=[])
 

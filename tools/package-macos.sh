@@ -17,10 +17,10 @@ contents="$app/Contents"
 mkdir -p "$contents/MacOS" "$contents/Resources"
 # Keep the apphost, .NET runtime metadata and native dependencies beside one
 # another: moving the DLLs or dylibs breaks .NET/native probing. Non-code asset
-# directories belong in Contents/Resources, however; macOS codesign treats
+# directories, including embedded artwork/license sidecars, belong in Contents/Resources; macOS codesign treats
 # everything nested under Contents/MacOS as executable code.
 ditto "$root" "$contents/MacOS"
-for resource_dir in maps fidelity-baselines rmlui licenses; do
+for resource_dir in Assets maps fidelity-baselines rmlui licenses; do
     if [[ -d "$contents/MacOS/$resource_dir" ]]; then
         mv "$contents/MacOS/$resource_dir" "$contents/Resources/$resource_dir"
     fi
