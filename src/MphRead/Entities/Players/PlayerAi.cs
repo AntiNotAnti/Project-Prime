@@ -623,17 +623,16 @@ namespace MphRead.Entities
                 // Easy
                 new(255 / 256f, 5, 0.970f, 12, 15, 0.15f, 1,
                     5, 0.25f, 2, 0.20f, 60, 15, 4.5f, 5, 10, 16, 90, 120, 0, 0),
-                // Normal
-                new(3956 / 4096f, 15, 0.985f, 8, 7, 0.50f, 1,
-                    2, 0.10f, 9, 0.35f, 15, 55, 3.5f, 15, 6, 20, 65, 90, 180, 120),
-                // Hard
-                new(3849 / 4096f, 20, 0.995f, 5, 3, 0.80f, 2,
-                    0.2f, 0.01f, 50, 0.50f, 5, 80, 2.75f, 20, 2, 24, 35, 55, 90, 90),
-                // Insane: smarter/faster decisions, but still human-readable aim.
-                // Tactical AI now supplies the largest difficulty jump, so this tier
-                // no longer needs 180-degree snaps, zero error, and zero shot delay.
-                new(0.90f, 35, 0.998f, 3.5f, 1, 0.95f, 3,
-                    0.08f, 0.005f, 100, 0.50f, 2, 92, 2.25f, 35, 1, 28, 20, 35, 45, 60)
+                // Normal: better lead with less distance-based spread.
+                new(3956 / 4096f, 15, 0.988f, 7, 5, 0.65f, 2,
+                    1.5f, 0.075f, 16, 0.35f, 13, 60, 3.5f, 15, 5, 20, 65, 90, 180, 120),
+                // Hard: frequent visible-target prediction and tighter aim.
+                new(3849 / 4096f, 20, 0.9965f, 4, 2, 0.93f, 3,
+                    0.11f, 0.005f, 88, 0.50f, 4, 85, 2.75f, 20, 2, 24, 35, 55, 90, 90),
+                // Insane: high accuracy, but still finite reaction, aim error,
+                // native input turn limits, and legal weapon damage.
+                new(0.90f, 35, 0.999f, 2.4f, 1, 1.0f, 4,
+                    0.035f, 0.002f, 160, 0.50f, 2, 96, 2.25f, 35, 1, 28, 20, 35, 45, 60)
             ];
 
             private BotDifficultyTuning Difficulty =>

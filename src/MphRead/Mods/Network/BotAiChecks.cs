@@ -123,6 +123,31 @@ public static class BotAiChecks
         }
         Check(hasOneWayDrop,"generated drop does not become an impossible reverse climb");
 
+        ushort[] routed = [2, 1, 1, 2, 1, 3];
+        Check(BotRoutePolicy.NextHopIndex(routed, 0, 0, 4) == 1
+            && BotRoutePolicy.NextHopIndex(routed, 0, 2, 4) == 2
+            && BotRoutePolicy.NextHopIndex(routed, 0, 3, 4) == 3,
+            "native directed route segments resolve the correct next hop");
+        Check(BotRoutePolicy.NextHopIndex([1, 9], 0, 0, 4) == -1
+            && BotRoutePolicy.NextHopIndex([0, 1], 0, 0, 4) == -1
+            && BotRoutePolicy.NextHopIndex([1], 0, 0, 4) == -1
+            && BotRoutePolicy.NextHopIndex(routed, 0, 4, 4) == -1,
+            "native routing rejects malformed or unavailable destinations");
+        Check(BotGoalPolicy.KeepCommittedGoal(true, true, false,
+                float.PositiveInfinity, 0.65f)
+            && BotGoalPolicy.KeepCommittedGoal(true, true, true, 18f, 0.65f),
+            "committed objective survives hidden or distant combat distraction");
+        Check(!BotGoalPolicy.KeepCommittedGoal(true, true, true, 4f, 0.65f)
+            && !BotGoalPolicy.KeepCommittedGoal(true, true, true, 18f, 0.20f)
+            && !BotGoalPolicy.KeepCommittedGoal(false, true, false,
+                float.PositiveInfinity, 1f)
+            && !BotGoalPolicy.KeepCommittedGoal(true, false, true, 18f, 1f),
+            "urgent combat, critically low health, and empty commitments interrupt goals");
+        Check(BotStrategicPolicy.NodeScore(BotSquadRole.Vanguard, 40f,
+                owned: false, contested: false, hostileOccupier: false,
+                teammateClaims: 0, nearbyTeammates: 0, hardpoint: false) > 0,
+            "far but reachable objectives retain a nonzero strategic score");
+
         // Bot motor: smooth acceleration, reversal braking, deterministic aim limits.
         float move = 0;
         for (int i = 0; i < 8; i++)

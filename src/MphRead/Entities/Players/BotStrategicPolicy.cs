@@ -65,7 +65,11 @@ internal static class BotStrategicPolicy
         if (role == BotSquadRole.Anchor && owned && !contested) score += 9f;
         score -= Math.Clamp(teammateClaims, 0, 7) * (hardpoint ? 5f : 19f);
         score -= Math.Clamp(nearbyTeammates, 0, 7) * (hardpoint ? 2f : 7f);
-        return score - distance * 2.6f;
+        // Keep nearby objectives preferable without ignoring all reachable
+        // distant nodes on larger arenas.
+        float travelPenalty = Math.Min(distance, 9f) * 2.6f
+            + Math.Max(0f, distance - 9f) * 0.35f;
+        return score - travelPenalty;
     }
 
     internal static bool PickupAllowedForMode(ItemType type, bool weaponLocked)

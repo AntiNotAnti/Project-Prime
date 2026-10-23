@@ -50,10 +50,12 @@ public partial class PlayerEntity
         /// </summary>
         private void ApplyStrategicMapControl()
         {
+            bool keepGoal = BotKeepStrategicGoal();
             if (!_scene.GameState.Multiplayer || _player.BotLevel < 2
                 || _player.Health <= 0 || !_player.ModInPlay
                 || _player.IsAltForm || _player.IsMorphing || _player.IsUnmorphing
-                || _tacticalTarget != null || _tacticalMovementActive
+                || (_tacticalTarget != null && !keepGoal)
+                || (_tacticalMovementActive && !keepGoal)
                 || _player.OctolithFlag != null
                 || _scene.GameState.IsTokenMode
                     && (uint)_player.SlotIndex < (uint)_scene.GameState.TokenCarried.Length
@@ -91,7 +93,10 @@ public partial class PlayerEntity
             if (_botStrategicCooldown > 0) return;
 
             _botStrategicCooldown = 24;
-            float bestScore = 18f; // Do not displace native navigation for trivial rewards.
+            bool nodeMode = _scene.GameState.Teams
+                && BotStrategicPolicy.IsNodeMode(_scene.GameState.Mode);
+            float minimumScore = nodeMode ? 0f : 18f;
+            float bestScore = minimumScore; // Real distant objectives stay eligible.
             Vector3 bestPosition = Vector3.Zero;
             NodeDefenseEntity? bestNode = null;
             ItemInstanceEntity? bestItem = null;
@@ -233,7 +238,7 @@ public partial class PlayerEntity
                 }
             }
 
-            if (bestScore <= 18f || !BotTryFollowStrategicGoal(bestPosition)) return;
+            if (bestScore <= minimumScore || !BotTryFollowStrategicGoal(bestPosition)) return;
 
             _botStrategicGoal = bestPosition;
             _botStrategicNode = bestNode;
@@ -254,33 +259,88 @@ public partial class PlayerEntity
                 && _botStrategicEscort.OctolithFlag != null;
         }
 
-        private bool BotCanReachStrategicGoal(Vector3 goal, float horizontalDistance)
+        private bool BotKeepStrategicGoal()
         {
+            bool committed = _botStrategicTicks > 0 && BotStrategicGoalValid();
+            if (!committed) return false;
+            PlayerEntity? enemy = _tacticalTarget;
+            bool visible = enemy != null && TacticalTargetValid(enemy) && TacticalCanSee(enemy);
+            float range = visible && enemy != null
+                ? (enemy.Position - _player.Position).Length : float.PositiveInfinity;
+            float health = _player.HealthMax > 0
+                ? _player.Health / (float)_player.HealthMax : 1f;
+            return BotGoalPolicy.KeepCommittedGoal(committed,
+                objectiveGoal: _botStrategicNode != null, visible, range, health);
+        }
+
+        private bool BotCanReachStrategicGoal(Vector3 goal, float horizontalDistance)
+            => BotTryResolveStrategicWaypoint(goal, horizontalDistance, out _);
+
+        /// <summary>
+        /// Follow safe floor segments using the room's existing directed route
+        /// table. Native AI retains aerial, alt-form and special transitions.
+        /// </summary>
+        private bool BotTryResolveStrategicWaypoint(Vector3 goal, float horizontalDistance,
+            out Vector3 waypoint)
+        {
+            waypoint = Vector3.Zero;
             if (!float.IsFinite(horizontalDistance) || horizontalDistance < 1.5f
-                || horizontalDistance > 9f
                 || !float.IsFinite(goal.X) || !float.IsFinite(goal.Y)
-                || !float.IsFinite(goal.Z)
-                || Math.Abs(goal.Y - _player.Position.Y) > 1.7f
-                || !TacticalFloorSafe(goal))
-            {
+                || !float.IsFinite(goal.Z))
                 return false;
+
+            if (horizontalDistance <= 9f
+                && MathF.Abs(goal.Y - _player.Position.Y) <= 1.7f
+                && TacticalFloorSafe(goal) && BotDirectRouteClear(goal))
+            {
+                waypoint = goal;
+                return true;
             }
 
+            if (_nodeList == null || _nodeList.Count < 2)
+                return false;
+            NodeData3 origin = FindClosestNonHazardNodeToPosition(_player.Position);
+            NodeData3 destination = FindClosestNonHazardNodeToPosition(goal);
+            if (!BotRoutePolicy.TryNextHop(_nodeList, origin, destination, out NodeData3? next)
+                || next == null || next.NodeType is not (NodeType.Navigation or NodeType.Vantage))
+                return false;
+            Vector3 candidate = next.Position;
+            float step = (candidate - _player.Position).WithY(0).Length;
+            if (step < 0.7f || step > 9f
+                || MathF.Abs(candidate.Y - _player.Position.Y) > 1.7f
+                || !TacticalFloorSafe(candidate) || !BotDirectRouteClear(candidate))
+                return false;
+            waypoint = candidate;
+            return true;
+        }
+
+        private bool BotDirectRouteClear(Vector3 goal)
+        {
             Vector3 from = _player.Position.AddY(.8f);
             Vector3 to = goal.AddY(.8f);
             CollisionResult wall = default;
-            return !CollisionDetection.CheckBetweenPoints(from, to, TestFlags.None,
-                    _scene, ref wall)
+            return !CollisionDetection.CheckBetweenPoints(from, to,
+                TestFlags.None, _scene, ref wall)
                 && TacticalCanMove(goal - _player.Position);
         }
 
         private bool BotTryFollowStrategicGoal(Vector3 goal)
         {
             float distance = (goal - _player.Position).WithY(0).Length;
-            if (!BotCanReachStrategicGoal(goal, distance))
+            if (!BotTryResolveStrategicWaypoint(goal, distance, out Vector3 waypoint))
                 return false;
-            if (!BotFollowCombatGoal(goal))
+            bool oldRight = _buttons.A.IsDown, oldLeft = _buttons.Y.IsDown;
+            bool oldForward = _buttons.X.IsDown, oldBack = _buttons.B.IsDown;
+            _buttons.A.IsDown = _buttons.Y.IsDown = false;
+            _buttons.X.IsDown = _buttons.B.IsDown = false;
+            if (!BotFollowCombatGoal(waypoint))
+            {
+                _buttons.A.IsDown = oldRight;
+                _buttons.Y.IsDown = oldLeft;
+                _buttons.X.IsDown = oldForward;
+                _buttons.B.IsDown = oldBack;
                 return false;
+            }
             _tacticalMovementActive = true;
             _tacticalSteeringActive = true;
             return true;
