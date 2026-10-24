@@ -123,6 +123,27 @@ public static class BotAiChecks
         }
         Check(hasOneWayDrop,"generated drop does not become an impossible reverse climb");
 
+        Check(BotStrategicPolicy.FocusPenalty(false, 3, 3)
+                > BotStrategicPolicy.FocusPenalty(true, 3, 3)
+            && BotStrategicPolicy.NodeAssignmentPenalty(2, false, false)
+                > BotStrategicPolicy.NodeAssignmentPenalty(2, false, true)
+            && BotStrategicPolicy.NodeAssignmentPenalty(1, false, false) == 0f,
+            "squad bots spread visible target focus and reserve scoring zones");
+        Check(BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, .2f,
+                currentlyCommitted: false, contested: false, recovery: true)
+                > BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, .2f,
+                    currentlyCommitted: false, contested: false, recovery: false),
+            "injured bots only get recovery bonus for actual health pickups");
+        Check(BotPositionUtility.FutureScore(12f, 12f, false, -1f)
+            > BotPositionUtility.FutureScore(29f, 12f, false, 1f)
+            && BotPositionUtility.FutureScore(12f, 12f, true, 1f)
+                < BotPositionUtility.FutureScore(12f, 12f, true, -1f),
+            "predictive positioning rewards future range and avoiding enemy aim");
+        Check(BotWeaponTactics.HitProbability(14f, .05f, .6f, false)
+                > BotWeaponTactics.HitProbability(14f, .25f, .6f, false)
+            && BotWeaponTactics.HitProbability(14f, .25f, .6f, true)
+                > BotWeaponTactics.HitProbability(14f, .25f, .6f, false),
+            "observed lateral speed and freeze affect anticipated weapon precision");
         Check(BotRoutePolicy.ShouldUseNativeJump(NodeType.Aerial, 2f, .9f, true)
             && !BotRoutePolicy.ShouldUseNativeJump(NodeType.Aerial, 2f, .9f, false)
             && !BotRoutePolicy.ShouldUseNativeJump(NodeType.AltForm, 2f, .9f, true)

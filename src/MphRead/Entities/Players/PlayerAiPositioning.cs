@@ -65,24 +65,31 @@ public partial class PlayerEntity
                     ? Math.Max(.35f, Fixed.ToFloat(target.Values.AltColYPos)) : 1f);
             }
 
+            // Only predict observed visible movement. Cap future travel so
+            // a single speed spike cannot produce an implausible flank goal.
+            Vector3 futureDisplacement = BotAimObservedVelocity(target).WithY(0) * 12f;
+            if (futureDisplacement.LengthSquared > 3.2f * 3.2f)
+                futureDisplacement = futureDisplacement.Normalized() * 3.2f;
+            Vector3 predictedEnemy = target.Position + futureDisplacement;
+
             float currentDistance = toEnemy.Length;
             float bestScore = float.NegativeInfinity;
             Vector3 bestGoal = Vector3.Zero;
-            const float Step = 2.4f;
+            int rings = _player.BotLevel >= 3 ? 2 : 1;
 
+            for (int ring = 0; ring < rings; ring++)
             foreach (Vector3 dir in candidates)
             {
-                if (!TacticalCanMove(dir))
-                {
+                float step = ring == 0 ? 2.4f : 3.2f;
+                Vector3 endpoint = _player.Position + dir * step;
+                // The original 1.5-unit local probe alone did not certify the
+                // second ring's entire corridor. Validate both heights and
+                // intermediate ground before selecting a longer commitment.
+                if (!BotCombatEndpointSafe(endpoint, dir, step))
                     continue;
-                }
-                Vector3 endpoint = _player.Position + dir * Step;
-                if (!TacticalFloorSafe(endpoint))
-                {
-                    continue;
-                }
 
                 float nextDistance = (target.Position - endpoint).WithY(0).Length;
+                float predictedDistance = (predictedEnemy - endpoint).WithY(0).Length;
                 Vector3 fromEnemy = (endpoint - target.Position).WithY(0);
                 float facingDot = fromEnemy.LengthSquared > 0.001f
                     ? Vector3.Dot(fromEnemy.Normalized(), enemyForward) : 1f;
@@ -113,6 +120,11 @@ public partial class PlayerEntity
                 float score = BotPositionUtility.Score(
                     currentDistance, nextDistance, preferredRange,
                     lowHealth, cover, facingDot, crowdPenalty, commitment);
+                score += BotPositionUtility.FutureScore(predictedDistance,
+                    preferredRange, lowHealth, facingDot);
+                // The longer orbit ring is useful only when its predicted
+                // engagement advantage offsets the extra exposure.
+                if (ring == 1) score -= 1.5f;
 
                 if (score > bestScore)
                 {
@@ -136,6 +148,23 @@ public partial class PlayerEntity
                 return false;
             }
             return true;
+        }
+
+        private bool BotCombatEndpointSafe(Vector3 endpoint, Vector3 direction,
+            float travelDistance)
+        {
+            if (!TacticalCanMove(direction) || !TacticalFloorSafe(endpoint)
+                || !TacticalFloorSafe(_player.Position + direction * (travelDistance * 0.5f)))
+                return false;
+            Vector3 startBody = _player.Position.AddY(.65f);
+            Vector3 startHead = _player.Position.AddY(1.35f);
+            CollisionResult wall = default;
+            if (CollisionDetection.CheckBetweenPoints(startBody, endpoint.AddY(.65f),
+                TestFlags.None, _scene, ref wall))
+                return false;
+            wall = default;
+            return !CollisionDetection.CheckBetweenPoints(startHead, endpoint.AddY(1.35f),
+                TestFlags.None, _scene, ref wall);
         }
 
         private bool BotFollowCombatGoal(Vector3 worldGoal)

@@ -53,6 +53,20 @@ internal static class BotStrategicPolicy
         };
     }
 
+    internal static float FocusPenalty(bool objectiveCarrier,
+        int alliesAlreadyEngaged, int botLevel)
+    {
+        if (alliesAlreadyEngaged <= 0 || botLevel < 2) return 0f;
+        float cost = objectiveCarrier ? 3f : 4f + botLevel * 2f;
+        return Math.Min(objectiveCarrier ? 10f : 26f, alliesAlreadyEngaged * cost);
+    }
+
+    internal static float NodeAssignmentPenalty(int claims, bool hardpoint, bool contested)
+    {
+        int desired = hardpoint ? (contested ? 3 : 2) : (contested ? 2 : 1);
+        return Math.Max(0, claims - desired + 1) * (hardpoint ? 14f : 24f);
+    }
+
     internal static float NodeScore(BotSquadRole role, float distance,
         bool owned, bool contested, bool hostileOccupier, int teammateClaims,
         int nearbyTeammates, bool hardpoint)
@@ -63,7 +77,8 @@ internal static class BotStrategicPolicy
         if (hostileOccupier) score += 19f;
         if (role == BotSquadRole.Flanker && owned && !contested) score -= 18f;
         if (role == BotSquadRole.Anchor && owned && !contested) score += 9f;
-        score -= Math.Clamp(teammateClaims, 0, 7) * (hardpoint ? 5f : 19f);
+        score -= Math.Clamp(teammateClaims, 0, 7) * (hardpoint ? 3f : 10f);
+        score -= NodeAssignmentPenalty(teammateClaims, hardpoint, contested);
         score -= Math.Clamp(nearbyTeammates, 0, 7) * (hardpoint ? 2f : 7f);
         // Keep nearby objectives preferable without ignoring all reachable
         // distant nodes on larger arenas.

@@ -584,15 +584,16 @@ public partial class PlayerEntity
                 int alliesOnTarget=0;
                 foreach(PlayerEntity ally in _scene.GetPlayerEntities())
                 {
-                    if(ally!=_player&&ally.IsBot&&ally.TeamIndex==_player.TeamIndex
-                        && ally.AiData._targetPlayer==candidate)alliesOnTarget++;
+                    if (ally != _player && ally.IsBot
+                        && ally.TeamIndex == _player.TeamIndex && ally.Health > 0
+                        && ally.ModInPlay && ally.AiData._tacticalTarget == candidate
+                        && ally.AiData._botReactionHadSight) alliesOnTarget++;
                 }
                 // Objective carriers deserve coordinated pressure, but once several allies
                 // are already committed, leave some bots free to deny routes or fight other
                 // threats instead of forming a single eight-bot conga line.
-                int focusStep=objective?2:3+Math.Clamp(_player.BotLevel,0,3);
-                int focusCap=objective?8:18;
-                score-=Math.Min(focusCap,alliesOnTarget*focusStep);
+                score -= BotStrategicPolicy.FocusPenalty(objective,
+                    alliesOnTarget, _player.BotLevel);
 
                 if (score > bestScore)
                 {
@@ -713,6 +714,19 @@ public partial class PlayerEntity
                 }
                 WeaponInfo weaponInfo = _scene.WeaponRules[(int)beam +
                     (Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0)];
+                if (visible && _player.BotLevel >= 2)
+                {
+                    Vector3 delta = (target.Position - _player.Position).WithY(0);
+                    Vector3 speed = BotAimObservedVelocity(target).WithY(0);
+                    Vector3 across = delta.LengthSquared > .001f
+                        ? new Vector3(delta.Z, 0, -delta.X).Normalized()
+                        : Vector3.UnitX;
+                    float lateralSpeed = MathF.Abs(Vector3.Dot(speed, across));
+                    score += BotWeaponTactics.EstimatedCombatValue(
+                        weaponInfo, beam, distance, lateralSpeed,
+                        target.ModFrozen, _player.BotLevel,
+                        _scene.GameState.Multiplayer && _scene.GameState.BalancedMode);
+                }
                 int cost = _player.ModAmmoCostForWeapon(beam, weaponInfo);
                 float remainingShots = cost <= 0 ? 1000f
                     : _player.ModAmmoForWeapon(beam, weaponInfo) / (float)cost;

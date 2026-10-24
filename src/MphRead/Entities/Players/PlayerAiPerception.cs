@@ -226,6 +226,15 @@ public partial class PlayerEntity
             {
                 return;
             }
+            if (_scene.GameState.Multiplayer && _player.BotLevel >= 2
+                && BotTryFollowStrategicGoal(lastKnown))
+            {
+                // Tactical contacts contain last-seen or coarse heard positions,
+                // never today's hidden opponent transform. Directed native
+                // routing lets a skilled bot investigate around actual cover.
+                BotRecordRouteProgress();
+                return;
+            }
             direction.Normalize();
             if (!TacticalCanMove(direction))
             {
