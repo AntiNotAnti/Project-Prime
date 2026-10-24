@@ -80,6 +80,10 @@ submission; it is not inferred from those earlier results.
   Party checks verify the exact UMF1 capability suffix and reject missing/wrong
   capabilities. All 41 replay/Momentum commands, 153 Party checks and 1,267 group
   checks passed locally.
+- Updated the source-linked Party owner fixture to use the actual public mode
+  policy/refusal codec and UMF1 admission. Its 85 checks cover hero-mode refusal
+  and ordinary queue admission; retry waits now observe owner-applied results
+  before advancing the existing clocks. Production queue behavior is unchanged.
 - Kept the GL comparator's strict hashes, dimensions, pixel floor and exact
   inventory checks, extending that inventory to all 42 retained captures. Its
   14 tests passed; Linux CI and Windows evidence each self-compare successfully.
@@ -96,6 +100,8 @@ submission; it is not inferred from those earlier results.
   movement. Package input hashes remain identical to the preserved local source.
 - Desktop Release, dedicated server Release and Android Debug APK builds passed
   again after the CI repairs (6, 1 and 27 existing warnings respectively).
+- Normal zero-step CTF first presentation and same-window rematch passed again
+  on Alinos Perch and expanded Fault Line with seven bots and linear color.
 
 Generated binaries, cloned owned game assets, profiles, captures and logs stay
 in ignored local artifact folders. No Internet multiplayer or Android physical

@@ -7,7 +7,8 @@ using System.Text.Json;
 namespace MphRead.Mods.Render { internal static class FrameTiming { internal const int SimulationHz=60; } }
 namespace MphRead.Mods.Network
 {
-internal static class NetConfig { internal const byte ProtocolVersion=57; }
+internal static class NetConfig { internal const byte ProtocolVersion=86; }
+internal static class UnifiedModeRules { internal const uint Capability=0x31464d55; }
 internal static class NetConnection { private static long next=100;internal static ulong NewId()=>(ulong)Interlocked.Increment(ref next); }
 internal enum SessionPhase:byte { Lobby,Starting,InMatch,PostMatch }
 internal enum ServerSessionPolicy:byte { Continuous,Lobby }
@@ -45,6 +46,7 @@ public sealed partial class DedicatedServer:IDisposable
  private readonly byte[] _scratch=new byte[1472];private NetTransport? _transport=new();private bool _controlPlaneOnlyForTests=false;
  private double _now;private ushort _matchId=1;private ulong _authorityEpoch=100;private SessionPhase _phase=SessionPhase.Lobby;
  private int _maxPlayers=8;private bool AllowJoinInProgress=false;private ServerSessionPolicy SessionPolicy=ServerSessionPolicy.Lobby;
+ internal MatchDefinition CurrentDefinition {get;set;}=new(){Mode=MphRead.GameMode.Battle};
  private int admissions;private readonly List<TaskCompletionSource<PartyReservationReceipt>> fillers=new();
  internal readonly IPEndPoint LeaderEndpoint=new(IPAddress.Loopback,27100),MemberEndpoint=new(IPAddress.Loopback,27101);
  internal PartyReservationRequestPacket Identity {get;private set;}
@@ -59,6 +61,9 @@ public sealed partial class DedicatedServer:IDisposable
    Guid.NewGuid().ToString("D"),1,_matchId,_authorityEpoch,ClosedBackend.Ticket);
   backend.Leader=Guid.NewGuid();backend.Members=Enumerable.Range(0,members).Select(_=>Guid.NewGuid()).ToArray();
  }
+ // Closed publication boundary: retain the actual refusal codec and mode policy.
+ private void SendRefusal(IPEndPoint endpoint,byte reason)
+ {var refusal=new RefusedPacket{Reason=reason,Players=(byte)_peers.Count,MaxPlayers=(byte)_maxPlayers};refusal.Write(_scratch);_transport?.Send(endpoint,PacketType.Refused,_scratch.AsSpan(0,RefusedPacket.Size));}
  private Peer? Find(IPEndPoint endpoint)=>_peers.FirstOrDefault(p=>p.EndPoint.Equals(endpoint));
  // Explicit facade for the ordinary admission boundary. The real queue policy,
  // claim scheduler and owner callback execute unmodified; gameplay construction
@@ -79,7 +84,7 @@ public sealed partial class DedicatedServer:IDisposable
  internal void Attach(int index=0)
  {
   var endpoint=index==0?MemberEndpoint:new IPEndPoint(IPAddress.Loopback,27101+index);uint client=(uint)(2+index);ulong nonce=(ulong)(50+index);
-  var hello=new QueueHelloPacket(57,client,nonce);var hb=new byte[hello.EncodedSize];hello.Write(hb);HandleQueueHello(Receive(endpoint,PacketType.QueueHello,hb,0),_now);
+  var hello=new QueueHelloPacket(NetConfig.ProtocolVersion,client,nonce);var hb=new byte[hello.EncodedSize];hello.Write(hb);HandleQueueHello(Receive(endpoint,PacketType.QueueHello,hb,0),_now);
   if(!_queuePeers.TryGetValue(endpoint,out var peer))throw new Exception("fixture queue bootstrap refused");
   var request=Identity with{Purpose=PartyReservationPurpose.MemberAttach,OperationNonce=(ulong)(90+index),ClientId=client,QueueNonce=nonce};
   var bytes=new byte[request.EncodedSize];request.Write(bytes);HandleQueuePeer(Receive(endpoint,PacketType.PartyReservationRequest,bytes,_transport!.QueueConnectionId(endpoint)),_now);
@@ -105,6 +110,10 @@ public sealed partial class DedicatedServer:IDisposable
    if(BeginPartyWork(_=>t.Task,3.5)==null)throw new Exception("fixture saturation failed");++added;}return added;
  }
  internal void ReleaseWorkers(){foreach(var f in fillers)f.TrySetResult(PartyReservationReceipt.Refused);fillers.Clear();}
+ internal bool CancellationRetryScheduled=>_partyGroups.TryGetValue(Identity.RequestId,out var group)
+  &&group.Cancelled&&!group.CancellationAcknowledged&&group.Cancellation==null&&group.CancelAfter>_now;
+ internal bool AcknowledgementRetryScheduled=>_partyGroups.TryGetValue(Identity.RequestId,out var group)
+  &&group.Members.Any(member=>member.Admitted&&!member.Acknowledged&&member.Acknowledge==null&&member.AcknowledgeAfter>_now);
  internal OwnerSnapshot Snapshot()
  {
   var g=_partyGroups.GetValueOrDefault(Identity.RequestId);var m=g?.Members.FirstOrDefault();
@@ -119,7 +128,7 @@ public sealed partial class DedicatedServer:IDisposable
   for(int i=0;i<count;i++){var ep=new IPEndPoint(IPAddress.Loopback,28000+i);_queuePeers.Add(ep,new(){Endpoint=ep,ClientId=(uint)(100+i),Nonce=(ulong)(100+i),PartyRequest="verified-fixture-proof",CreatedAt=_now,LastSeen=_now});}
  }
  internal bool BootstrapProbe()
- {var ep=new IPEndPoint(IPAddress.Loopback,29000);var p=new QueueHelloPacket(57,999,999);var b=new byte[p.EncodedSize];p.Write(b);HandleQueueHello(Receive(ep,PacketType.QueueHello,b,0),_now);return _queuePeers.ContainsKey(ep);}
+ {var ep=new IPEndPoint(IPAddress.Loopback,29000);var p=new QueueHelloPacket(NetConfig.ProtocolVersion,999,999);var b=new byte[p.EncodedSize];p.Write(b);HandleQueueHello(Receive(ep,PacketType.QueueHello,b,0),_now);return _queuePeers.ContainsKey(ep);}
  public void Dispose(){ReleaseWorkers();ShutdownPartyReservations();_socialMembership?.Dispose();}
 }
 internal sealed class ClosedBackend:HttpMessageHandler
