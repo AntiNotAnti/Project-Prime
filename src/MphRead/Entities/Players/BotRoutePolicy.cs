@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using MphRead.Formats;
 
@@ -9,6 +10,17 @@ namespace MphRead.Entities;
 /// </summary>
 internal static class BotRoutePolicy
 {
+    internal static bool ShouldUseNativeJump(NodeType nextType, float horizontal,
+        float rise, bool grounded)
+        => nextType == NodeType.Aerial && grounded
+            && float.IsFinite(horizontal) && float.IsFinite(rise)
+            && horizontal >= 0.7f && horizontal <= 3.5f
+            && rise > 0.35f && rise <= 1.2f;
+
+    internal static bool StalledAfterInterval(float travelled, int ticks)
+        => ticks >= 20 && float.IsFinite(travelled) && travelled < 0.25f;
+
+
     internal static int NextHopIndex(IReadOnlyList<ushort> values,
         int offset, int destinationId, int nodeCount)
     {

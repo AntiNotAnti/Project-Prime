@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MphRead.Formats;
 using OpenTK.Mathematics;
 
@@ -14,6 +15,13 @@ public partial class PlayerEntity
         private Vector3 _botStrategicGoal;
         private int _botStrategicTicks;
         private int _botStrategicCooldown;
+        private IReadOnlyList<NodeData3>? _botRouteCachedList;
+        private NodeData3? _botRouteCachedSource;
+        private Vector3 _botRouteSourcePosition;
+        private Vector3 _botRouteProgressPosition;
+        private int _botRouteProgressTicks;
+        private int _botRouteStallCount;
+        private int _botRouteBackoffTicks;
 
         private void ResetBotStrategy()
         {
@@ -23,6 +31,13 @@ public partial class PlayerEntity
             _botStrategicGoal = Vector3.Zero;
             _botStrategicTicks = 0;
             _botStrategicCooldown = 0;
+            _botRouteCachedList = null;
+            _botRouteCachedSource = null;
+            _botRouteSourcePosition = Vector3.Zero;
+            _botRouteProgressPosition = _player.Position;
+            _botRouteProgressTicks = 0;
+            _botRouteStallCount = 0;
+            _botRouteBackoffTicks = 0;
         }
 
         private BotSquadRole BotAssignedRole()
@@ -50,6 +65,7 @@ public partial class PlayerEntity
         /// </summary>
         private void ApplyStrategicMapControl()
         {
+            if (_botRouteBackoffTicks > 0) _botRouteBackoffTicks--;
             bool seekGoal = BotWantsStrategicControl();
             if (!_scene.GameState.Multiplayer || _player.BotLevel < 2
                 || _player.Health <= 0 || !_player.ModInPlay
@@ -84,6 +100,7 @@ public partial class PlayerEntity
                 && BotTryFollowStrategicGoal(_botStrategicGoal))
             {
                 _botStrategicTicks--;
+                BotRecordRouteProgress();
                 return;
             }
             _botStrategicNode = null;
@@ -254,7 +271,8 @@ public partial class PlayerEntity
             _botStrategicNode = bestNode;
             _botStrategicItem = bestItem;
             _botStrategicEscort = bestEscort;
-            _botStrategicTicks = _player.BotLevel == 3 ? 42 : 32;
+            _botStrategicTicks = _player.BotLevel == 3 ? 90 : 70;
+            BotRecordRouteProgress();
         }
 
         private bool BotStrategicGoalValid()
@@ -314,16 +332,18 @@ public partial class PlayerEntity
         }
 
         private bool BotCanReachStrategicGoal(Vector3 goal, float horizontalDistance)
-            => BotTryResolveStrategicWaypoint(goal, horizontalDistance, out _);
+            => BotTryResolveStrategicWaypoint(goal, horizontalDistance, out _, out _);
 
         /// <summary>
         /// Follow safe floor segments using the room's existing directed route
         /// table. Native AI retains aerial, alt-form and special transitions.
         /// </summary>
         private bool BotTryResolveStrategicWaypoint(Vector3 goal, float horizontalDistance,
-            out Vector3 waypoint)
+            out Vector3 waypoint, out bool jump)
         {
             waypoint = Vector3.Zero;
+            jump = false;
+            if (_botRouteBackoffTicks > 0) return false;
             if (!float.IsFinite(horizontalDistance) || horizontalDistance < 1.5f
                 || !float.IsFinite(goal.X) || !float.IsFinite(goal.Y)
                 || !float.IsFinite(goal.Z))
@@ -339,18 +359,35 @@ public partial class PlayerEntity
 
             if (_nodeList == null || _nodeList.Count < 2)
                 return false;
-            NodeData3 origin = FindClosestNonHazardNodeToPosition(_player.Position);
+            // Cache the nearby source anchor until movement or a native node
+            // set switch invalidates it. Destination routing stays up-to-date.
+            if (!ReferenceEquals(_botRouteCachedList, _nodeList)
+                || _botRouteCachedSource == null
+                || (_player.Position - _botRouteSourcePosition).LengthSquared > 4f)
+            {
+                _botRouteCachedList = _nodeList;
+                _botRouteCachedSource = FindClosestNonHazardNodeToPosition(_player.Position);
+                _botRouteSourcePosition = _player.Position;
+            }
+            NodeData3 origin = _botRouteCachedSource;
             NodeData3 destination = FindClosestNonHazardNodeToPosition(goal);
             if (!BotRoutePolicy.TryNextHop(_nodeList, origin, destination, out NodeData3? next)
-                || next == null || next.NodeType is not (NodeType.Navigation or NodeType.Vantage))
+                || next == null || next.NodeType is NodeType.Hazard or NodeType.AltForm)
                 return false;
             Vector3 candidate = next.Position;
             float step = (candidate - _player.Position).WithY(0).Length;
-            if (step < 0.7f || step > 9f
-                || MathF.Abs(candidate.Y - _player.Position.Y) > 1.7f
+            float rise = candidate.Y - _player.Position.Y;
+            bool needsJump = BotRoutePolicy.ShouldUseNativeJump(next.NodeType, step,
+                rise, _player.Flags1.TestFlag(PlayerFlags1.Grounded));
+            bool walkable = next.NodeType is NodeType.Navigation or NodeType.Vantage
+                or NodeType.Special;
+            if (!walkable && !needsJump) return false;
+            if (step < 0.7f || step > (needsJump ? 3.5f : 9f)
+                || MathF.Abs(rise) > (needsJump ? 1.2f : 1.7f)
                 || !TacticalFloorSafe(candidate) || !BotDirectRouteClear(candidate))
                 return false;
             waypoint = candidate;
+            jump = needsJump;
             return true;
         }
 
@@ -367,7 +404,8 @@ public partial class PlayerEntity
         private bool BotTryFollowStrategicGoal(Vector3 goal)
         {
             float distance = (goal - _player.Position).WithY(0).Length;
-            if (!BotTryResolveStrategicWaypoint(goal, distance, out Vector3 waypoint))
+            if (!BotTryResolveStrategicWaypoint(goal, distance,
+                out Vector3 waypoint, out bool jump))
                 return false;
             bool oldRight = _buttons.A.IsDown, oldLeft = _buttons.Y.IsDown;
             bool oldForward = _buttons.X.IsDown, oldBack = _buttons.B.IsDown;
@@ -381,9 +419,45 @@ public partial class PlayerEntity
                 _buttons.B.IsDown = oldBack;
                 return false;
             }
+            if (jump && _combatJumpCooldown == 0
+                && _buttons.L.FramesUp > 10
+                && _player.Flags1.TestFlag(PlayerFlags1.Grounded)
+                && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump))
+            {
+                // Native player motion, cooldowns and collision still resolve
+                // the actual jump. No AI-only movement acceleration.
+                _buttons.L.IsDown = true;
+                _combatJumpCooldown = 36;
+            }
             _tacticalMovementActive = true;
             _tacticalSteeringActive = true;
             return true;
+        }
+
+        private void BotRecordRouteProgress()
+        {
+            if (_botRouteProgressTicks <= 0)
+            {
+                _botRouteProgressPosition = _player.Position;
+                _botRouteProgressTicks = 30;
+                return;
+            }
+            if (--_botRouteProgressTicks > 0) return;
+            float travelled = (_player.Position - _botRouteProgressPosition)
+                .WithY(0).Length;
+            if (BotRoutePolicy.StalledAfterInterval(travelled, 30))
+                _botRouteStallCount++;
+            else
+                _botRouteStallCount = 0;
+            _botRouteProgressPosition = _player.Position;
+            _botRouteProgressTicks = 30;
+            if (_botRouteStallCount < 2) return;
+            // Yield a stuck path to the native route planner for 90 ticks,
+            // then try again from an updated nearest-node anchor.
+            _botRouteStallCount = 0;
+            _botRouteBackoffTicks = 90;
+            _botRouteCachedSource = null;
+            _botStrategicTicks = 0;
         }
     }
 }

@@ -123,6 +123,13 @@ public static class BotAiChecks
         }
         Check(hasOneWayDrop,"generated drop does not become an impossible reverse climb");
 
+        Check(BotRoutePolicy.ShouldUseNativeJump(NodeType.Aerial, 2f, .9f, true)
+            && !BotRoutePolicy.ShouldUseNativeJump(NodeType.Aerial, 2f, .9f, false)
+            && !BotRoutePolicy.ShouldUseNativeJump(NodeType.AltForm, 2f, .9f, true)
+            && !BotRoutePolicy.ShouldUseNativeJump(NodeType.Aerial, 4f, .9f, true)
+            && BotRoutePolicy.StalledAfterInterval(.1f, 30)
+            && !BotRoutePolicy.StalledAfterInterval(1.5f, 30),
+            "native jump eligibility and bounded stalled-route recovery");
         ushort[] routed = [2, 1, 1, 2, 1, 3];
         Check(BotRoutePolicy.NextHopIndex(routed, 0, 0, 4) == 1
             && BotRoutePolicy.NextHopIndex(routed, 0, 2, 4) == 2
