@@ -84,9 +84,9 @@ internal static partial class EditorGlAcceptance
         Check((wholePanelScroll?panel:surface).Inside(Bounds("studio_timeline"))&&surface.Height>8,"timeline has an actual bounded vertical scroll owner");
         Scroll(timelineScroll,-1000);Settle();var lowerAfter=Bounds("replay_timeline_exportrange");surface=Bounds("replay_timeline_surface");panel=Bounds("replay_timeline_panel");
         var visibleSurface=new TimelineBox(Math.Max(surface.X,panel.X),Math.Max(surface.Y,panel.Y),Math.Min(surface.X+surface.Width,panel.X+panel.Width)-Math.Max(surface.X,panel.X),Math.Min(surface.Y+surface.Height,panel.Y+panel.Height)-Math.Max(surface.Y,panel.Y));
-        File.WriteAllText(Path.Combine(output,"timeline-scrolled-bounds.json"),JsonSerializer.Serialize(new{ScrollOwner=timelineScroll,Surface=surface,Panel=panel,VisibleSurface=visibleSurface,LowerBefore=lowerBefore,LowerAfter=lowerAfter,Presented=presented},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
+        File.WriteAllText(Path.Combine(output,"timeline-scrolled-bounds.json"),JsonSerializer.Serialize(new{ScrollOwner=timelineScroll,Surface=surface,Panel=panel,VisibleSurface=visibleSurface,LowerBefore=lowerBefore,LowerAfter=lowerAfter,Presented=WorkspaceTicketEvidence(presented)},new JsonSerializerOptions{IncludeFields=true,WriteIndented=true}));
         Check(lowerAfter.Y<=lowerBefore.Y&&lowerAfter.Y+lowerAfter.Height<=visibleSurface.Y+visibleSurface.Height+2&&lowerAfter.Y>=visibleSurface.Y-2,"native timeline vertical scroll exposes the final export-range track without covering transport");
-        File.WriteAllText(Path.Combine(output,"timeline-ticket.json"),JsonSerializer.Serialize(new{Surface=surface,VisibleSurface=visibleSurface,Presented=presented},new JsonSerializerOptions{WriteIndented=true,IncludeFields=true}));
+        File.WriteAllText(Path.Combine(output,"timeline-ticket.json"),JsonSerializer.Serialize(new{Surface=surface,VisibleSurface=visibleSurface,Presented=WorkspaceTicketEvidence(presented)},new JsonSerializerOptions{WriteIndented=true,IncludeFields=true}));
         Check(presented!=null&&presented.Clip.Inside(visibleSurface)&&presented.Lanes.All(row=>row.Box.Inside(presented.Clip))&&presented.Lanes.Any(row=>row.Id.StartsWith("replay_timeline_exportrange_",StringComparison.Ordinal)),"actual presented timeline ticket authorizes only markers inside its visible scroll clip");
         if(lowerBefore.Y+lowerBefore.Height>visibleSurface.Y+visibleSurface.Height+2)
             Check(lowerAfter.Y<lowerBefore.Y&&Bounds("replay_timeline_camera").Y<cameraTrack.Y,"overflowing compact timeline actually scrolls its track stack");
@@ -206,6 +206,52 @@ internal static partial class EditorGlAcceptance
             FinalCompositeCapture.WriteEvidence(path,width,height,scope);captures.Add(new{Name=name,Path=path,Transport=Bounds("studio_transport"),Timeline=Bounds("studio_timeline"),Viewport=Bounds("replay_viewport"),Inspector=Bounds("studio_inspector")});
         }
     }
+    // Successful-picture tickets contain opaque owner contexts and optional
+    // default immutable arrays. Diagnostic JSON only needs immutable geometry.
+    private static object? WorkspaceTicketEvidence(TimelineRenderTicket? ticket) => ticket == null ? null : new
+    {
+        ticket.Paint, ticket.ViewRevision, ticket.Document, ticket.Metrics, ticket.Window,
+        ticket.CameraLane, ticket.Clip, ticket.SeekControl,
+        Keys = ticket.Keys.IsDefault ? Array.Empty<TimelineKeyBox>() : ticket.Keys.ToArray(),
+        Lanes = ticket.Lanes.IsDefault ? Array.Empty<TimelineLaneButton>() : ticket.Lanes.ToArray()
+    };
+
+    internal static int CheckWorkspaceEvidence()
+    {
+        var editor = new MemoryEditor();
+        var camera = new WorkspaceCamera(editor.Context);
+        var context = camera.CaptureTools();
+        var box = new TimelineBox(10, 20, 100, 25);
+        var ticket = new TimelineRenderTicket(3, 4, new(5, 6), new(640, 360, 640, 360, 1),
+            new(0, 600), box, ImmutableArray.Create(new TimelineKeyBox(10, box)), context)
+            { Clip = box, Lanes = ImmutableArray.Create(new TimelineLaneButton("fixture", box,
+                new(TimelineLane.ExportRange, 0, 30, 1, null, "fixture"))) };
+        int checks = 0;
+        void Check(bool condition, string label)
+        {
+            if (!condition) throw new InvalidOperationException(label);
+            checks++; Console.WriteLine("RML WORKSPACE EVIDENCE PASS " + label);
+        }
+        Check(context.SavedKeys.IsDefault, "actual workspace camera retains optional default saved-key metadata");
+        bool rejected = false;
+        try { JsonSerializer.Serialize(ticket, new JsonSerializerOptions { IncludeFields = true }); }
+        catch (InvalidOperationException) { rejected = true; }
+        Check(rejected, "raw owner ticket reproduces unsupported default-array diagnostic serialization");
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(WorkspaceTicketEvidence(ticket),
+            new JsonSerializerOptions { IncludeFields = true }));
+        var root = json.RootElement;
+        Check(root.GetProperty("Paint").GetInt64() == 3 && root.GetProperty("Document").GetProperty("DocumentId").GetUInt64() == 6,
+            "diagnostic projection retains successful-picture and document identity");
+        Check(root.GetProperty("Clip").GetProperty("Width").GetDouble() == 100
+            && root.GetProperty("Keys")[0].GetProperty("Frame").GetUInt32() == 10
+            && root.GetProperty("Lanes")[0].GetProperty("Id").GetString() == "fixture",
+            "diagnostic projection retains clip, key and lane geometry");
+        Check(!root.TryGetProperty("Context", out _) && context.SavedKeys.IsDefault,
+            "diagnostics exclude opaque owner context without modifying the actual review");
+        Check(JsonSerializer.Serialize(WorkspaceTicketEvidence(null)) == "null", "missing successful picture remains explicit null evidence");
+        return checks;
+    }
+
     private static T Read<T>(object owner,string field)=>(T)(owner.GetType().GetField(field,System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)?.GetValue(owner)??throw new InvalidOperationException("Fixture field missing: "+field));
     private sealed partial class MemoryEditor:ITheatreSpatialBackend,ITheatreStudioToolsBackend,ITheatreWorkspaceCombatBackend
     {

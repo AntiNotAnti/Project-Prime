@@ -107,6 +107,14 @@ submission; it is not inferred from those earlier results.
   including M7 availability, and the original plan remain unchanged. Production
   rematch behavior is unchanged. Both authored maps also passed 100 real localhost
   UDP lobby/readiness/load-barrier checks apiece with eight clients.
+- Encoder subprocess checks passed 33 assertions after replacing lexical cwd
+  comparisons with directory-identity checks, retaining exact output paths and
+  Windows long-path cleanup. macOS canonical spelling remains a CI concern.
+- Studio workspace evidence now projects successful-picture geometry without
+  serializing opaque camera owner contexts/default immutable arrays. Six CPU
+  checks and native OpenGL workspace runs at 640x360, 1280x720 and 1920x1080 passed,
+  with the existing scroll, clip, marker, GL-state and teardown checks unchanged.
+  CI retains the previously missing workspace evidence and synthetic profile logs.
 
 Generated binaries, cloned owned game assets, profiles, captures and logs stay
 in ignored local artifact folders. No Internet multiplayer or Android physical

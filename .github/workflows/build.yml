@@ -242,6 +242,7 @@ jobs:
           dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --hunter-presenter-contract \
             tools/rmlui-opengl-check/bin/Release/net10.0/rmlui
           dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --replay-files
+          dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --workspace-evidence
           mkdir -p "${RUNNER_TEMP}/rmlui-studio-owner"
           PROJECT_PRIME_USER_DATA="${RUNNER_TEMP}/rmlui-studio-owner" \
             dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --studio-owner
@@ -298,6 +299,9 @@ jobs:
             artifacts/rmlui-community-history-rml51
             artifacts/rmlui-community-publish-rml54
             artifacts/rmlui-studio-workspace
+            artifacts/rml98-persistent-workspace
+            tools/rmlui-opengl-check/bin/Release/net10.0/artifacts/rml98-persistent-workspace
+            ${{ runner.temp }}/rmlui-studio-workspace-*/logs
             ${{ runner.temp }}/rmlui-studio-editor-*/native-studio-editor
           if-no-files-found: ignore
           retention-days: 7

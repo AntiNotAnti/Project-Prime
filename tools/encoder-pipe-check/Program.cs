@@ -30,6 +30,23 @@ if(args.Length>0 && args[0]=="--child")
 }
 int pass=0,fail=0;
 void Check(bool value,string name){Console.WriteLine($"{(value?"PASS":"FAIL")} {name}");if(value)pass++;else fail++;}
+bool SameDirectory(string expected,string actual,bool diagnose=true)
+{
+ // getcwd can return a physical spelling (for example /private/var instead
+ // of /var). Prove directory identity without changing either output path.
+ bool same=false;
+ if(Path.IsPathFullyQualified(expected)&&Path.IsPathFullyQualified(actual)
+  &&Directory.Exists(expected)&&Directory.Exists(actual))
+ {
+  string marker=".cwd-identity-"+Guid.NewGuid().ToString("N"),token=Guid.NewGuid().ToString("N");
+  string owned=Path.Combine(expected,marker);
+  try{File.WriteAllText(owned,token);same=File.Exists(Path.Combine(actual,marker))&&File.ReadAllText(Path.Combine(actual,marker))==token;}
+  finally{File.Delete(owned);}
+ }
+ if(diagnose&&(!same||!string.Equals(expected,actual,StringComparison.Ordinal)))
+  Console.WriteLine($"CWD identity={same}; expected={expected}; actual={actual}");
+ return same;
+}
 bool Alive(int id){try{using var p=Process.GetProcessById(id);return !p.HasExited;}catch(ArgumentException){return false;}}
 async Task KillOwned(string pidFile)
 {
@@ -49,7 +66,7 @@ try
   Check(Path.IsPathFullyQualified(privatePath)&&privatePath.Length<240&&!privatePath.StartsWith(longOutput,StringComparison.Ordinal),"private process cwd is short and independent of a greater-than-MAX_PATH output");
   var start=new ProcessStartInfo(executable,Child("cwd",longOutput)){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=privatePath};
   using var process=Process.Start(start)!;await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
-  Check(process.ExitCode==0&&File.ReadAllText(Path.Combine(longOutput,"actual-cwd.txt"))==privatePath,"actual child starts in private short cwd and accesses the unchanged long output");
+  Check(process.ExitCode==0&&SameDirectory(privatePath,File.ReadAllText(Path.Combine(longOutput,"actual-cwd.txt"))),"actual child starts in private short cwd and accesses the unchanged long output");
  }
  Check(!Directory.Exists(privatePath),"owned process scope cleanup runs after child retirement");
  using(var job=new ReplayEncoderJob(executable,Child("cwd",longOutput),longOutput))
@@ -57,17 +74,21 @@ try
   var result=await job.Completion.WaitAsync(TimeSpan.FromSeconds(10));
   Check(!result.Cancelled&&result.ExitCode==0&&result.Error==null&&job.Frames==14,"actual encoder process accepts long output path and completes progress");
   string cwd=File.ReadAllText(Path.Combine(longOutput,"actual-cwd.txt"));
-  Check(OperatingSystem.IsWindows()?cwd.Length<240&&!Directory.Exists(cwd):cwd==longOutput,"long-path encoder working directory is safe and cleaned after completion");
+  Check(OperatingSystem.IsWindows()?cwd.Length<240&&!Directory.Exists(cwd):SameDirectory(longOutput,cwd),"long-path encoder working directory is safe and cleaned after completion");
   Check(File.Exists(Path.Combine(longOutput,"encode.txt"))&&File.Exists(Path.Combine(longOutput,"encode.log")),"long-output encoder keeps command and stderr receipts in reviewed output");
  }
  var siblings=Enumerable.Range(0,20).Select(_=>ReplayExportWorkDirectory.RetryOutput(longOutput,Guid.NewGuid())).ToArray();
  Check(siblings.Distinct().Count()==20&&siblings.All(path=>Path.GetDirectoryName(path)==longOutput)
   &&siblings.Select(path=>path.Length).Distinct().Count()==1,"twenty retry output attempts remain unique fixed-depth siblings");
  string normalCwd=Path.Combine(root,"normal-cwd");Directory.CreateDirectory(normalCwd);
+ Check(SameDirectory(normalCwd,Path.Combine(normalCwd,".")),"cwd identity accepts a real lexical alias");
+ Check(!SameDirectory(normalCwd,root,diagnose:false),"cwd identity rejects a distinct existing directory");
+ Check(!SameDirectory(normalCwd,"relative-cwd",diagnose:false),"cwd identity rejects relative paths");
+ Check(!SameDirectory(normalCwd,Path.Combine(root,"absent-cwd"),diagnose:false),"cwd identity rejects missing directories");
  using(var job=new ReplayEncoderJob(executable,Child("cwd",normalCwd),normalCwd))
  {
   var result=await job.Completion.WaitAsync(TimeSpan.FromSeconds(10));
-  Check(result.ExitCode==0&&File.ReadAllText(Path.Combine(normalCwd,"actual-cwd.txt"))==normalCwd,"ordinary short-directory encoder preserves its existing cwd contract");
+  Check(result.ExitCode==0&&SameDirectory(normalCwd,File.ReadAllText(Path.Combine(normalCwd,"actual-cwd.txt"))),"ordinary short-directory encoder preserves its existing cwd contract");
  }
  foreach(string mode in new[]{"success","failure","long"})
  {
