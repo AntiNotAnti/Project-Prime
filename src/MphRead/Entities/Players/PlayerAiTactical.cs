@@ -584,15 +584,16 @@ public partial class PlayerEntity
                 int alliesOnTarget=0;
                 foreach(PlayerEntity ally in _scene.GetPlayerEntities())
                 {
-                    if(ally!=_player&&ally.IsBot&&ally.TeamIndex==_player.TeamIndex
-                        && ally.AiData._targetPlayer==candidate)alliesOnTarget++;
+                    if (ally != _player && ally.IsBot
+                        && ally.TeamIndex == _player.TeamIndex && ally.Health > 0
+                        && ally.ModInPlay && ally.AiData._tacticalTarget == candidate
+                        && ally.AiData._botReactionHadSight) alliesOnTarget++;
                 }
                 // Objective carriers deserve coordinated pressure, but once several allies
                 // are already committed, leave some bots free to deny routes or fight other
                 // threats instead of forming a single eight-bot conga line.
-                int focusStep=objective?2:3+Math.Clamp(_player.BotLevel,0,3);
-                int focusCap=objective?8:18;
-                score-=Math.Min(focusCap,alliesOnTarget*focusStep);
+                score -= BotStrategicPolicy.FocusPenalty(objective,
+                    alliesOnTarget, _player.BotLevel);
 
                 if (score > bestScore)
                 {

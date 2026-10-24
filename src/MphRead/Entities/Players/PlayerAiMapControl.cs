@@ -96,6 +96,19 @@ public partial class PlayerEntity
                 _botStrategicCooldown--;
             }
 
+            if (_botStrategicEscort != null && _botStrategicTicks > 0
+                && BotStrategicGoalValid())
+            {
+                // Keep the escort goal attached to the living carrier, not
+                // the carrier's position when the assignment began.
+                Vector3 toCarrier = (_botStrategicEscort.Position - _player.Position).WithY(0);
+                float carrierDistance = toCarrier.Length;
+                if (carrierDistance > 5f)
+                    _botStrategicGoal = _player.Position
+                        + toCarrier.Normalized() * Math.Max(1.5f, carrierDistance - 4.5f);
+                else
+                    _botStrategicTicks = 0;
+            }
             if (_botStrategicTicks > 0 && BotStrategicGoalValid()
                 && BotTryFollowStrategicGoal(_botStrategicGoal))
             {
@@ -208,7 +221,7 @@ public partial class PlayerEntity
                     _player.ModAmmo.Missiles / 30f) - distance * 2f;
                 score = BotGoalPolicy.Utility(BotGoalKind.Pickup, score,
                     healthFraction, _botStrategicItem == item && _botStrategicTicks > 0,
-                    contested: false);
+                    contested: false, recovery: IsHealth(item));
 
                 if (score > bestScore)
                 {
@@ -232,7 +245,7 @@ public partial class PlayerEntity
                         || ally.Health == 0 || !ally.ModInPlay || ally.OctolithFlag == null)
                         continue;
                     float distance = (ally.Position - _player.Position).WithY(0).Length;
-                    if (distance < 6 || distance > 14) continue;
+                    if (distance < 6 || distance > 25) continue;
 
                     int otherEscorts = 0;
                     foreach (PlayerEntity teammate in _scene.GetPlayerEntities())
@@ -250,7 +263,8 @@ public partial class PlayerEntity
                         * Math.Max(0, distance - 4.5f);
                     if (otherEscorts > 0 || !BotCanReachStrategicGoal(escortGoal,
                         (escortGoal - _player.Position).WithY(0).Length)) continue;
-                    float score = 34f - distance + (BotAssignedRole() == BotSquadRole.Anchor ? 7f : 0f);
+                    float score = 38f - distance * 0.8f
+                        + (BotAssignedRole() == BotSquadRole.Anchor ? 7f : 0f);
                     score = BotGoalPolicy.Utility(BotGoalKind.Escort, score,
                         healthFraction, _botStrategicEscort == ally && _botStrategicTicks > 0,
                         contested: false);

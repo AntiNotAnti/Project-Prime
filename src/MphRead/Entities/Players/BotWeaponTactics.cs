@@ -27,7 +27,10 @@ internal static class BotWeaponTactics
     {
         if (weapon == null || difficulty < 2 || !float.IsFinite(distance))
             return 0;
-        float velocity = Math.Max(.1f, weapon.UnchargedSpeed / 4096f / 2f);
+        // Imperialist and continuous Shock Coil use near-instant beams
+        // rather than an ordinary slow ballistic travel prediction.
+        float velocity = beam is BeamType.Imperialist or BeamType.ShockCoil
+            ? 1000f : Math.Max(.1f, weapon.UnchargedSpeed / 4096f / 2f);
         float chance = HitProbability(distance, lateralSpeed, velocity, frozen);
         float nativeCooldown = Math.Max(1f, weapon.ShotCooldown * 2f);
         float nativeDamage = weapon.UnchargedDamage;

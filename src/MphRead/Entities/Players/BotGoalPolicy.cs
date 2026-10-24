@@ -20,7 +20,8 @@ internal static class BotGoalPolicy
     /// evaluated separately because they can preempt any selected plan.
     /// </summary>
     internal static float Utility(BotGoalKind kind, float baseScore,
-        float healthFraction, bool currentlyCommitted, bool contested)
+        float healthFraction, bool currentlyCommitted, bool contested,
+        bool recovery = false)
     {
         if (!float.IsFinite(baseScore) || !float.IsFinite(healthFraction))
             return float.NegativeInfinity;
@@ -29,7 +30,7 @@ internal static class BotGoalPolicy
         {
             BotGoalKind.Objective => contested ? 18f : 8f,
             BotGoalKind.Escort => 5f,
-            BotGoalKind.Pickup => healthFraction < 0.4f ? 12f : 0f,
+            BotGoalKind.Pickup => healthFraction < 0.4f && recovery ? 18f : 0f,
             _ => 0f
         };
         if (currentlyCommitted) bonus += 8f;
