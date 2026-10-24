@@ -11,7 +11,33 @@ import json
 from pathlib import Path
 import sys
 
+# Exact inventory emitted by the retained production linear-color and native suites.
 EXPECTED = (
+    "linear-vertex-working.rgba",
+    "linear-vertex-output.rgba",
+    "linear-legacy-control.rgba",
+    "linear-gltf-tint-working.rgba",
+    "linear-gltf-tint-output.rgba",
+    "linear-gltf-lit-tint-working.rgba",
+    "linear-gltf-native-fallback-tint.rgba",
+    "linear-half-white-blend.rgba",
+    "linear-srgb-texel-filter.rgba",
+    "linear-native-fog-ramp-0.25.rgba",
+    "linear-native-fog-ramp-0.50.rgba",
+    "linear-native-fog-ramp-0.75.rgba",
+    "linear-fog-zero-baseline.rgba",
+    "linear-fog-zero-density.rgba",
+    "linear-fog-full-density.rgba",
+    "native-fog-original-arithmetic-guard.rgba",
+    "alpha-opaque-zero-texture-factor.rgba",
+    "alpha-mask-below.rgba",
+    "alpha-mask-equal.rgba",
+    "alpha-blend-factor-actor.rgba",
+    "alpha-fallback-opaque.rgba",
+    "alpha-fallback-blend.rgba",
+    "alpha-original-guard.rgba",
+    "linear-normal-nonuniform.rgba",
+    "linear-normal-reflection.rgba",
     "material-camera-front.rgba",
     "material-camera-side.rgba",
     "material-legacy-side.rgba",
@@ -30,6 +56,7 @@ EXPECTED = (
     "stencil-mask.rgba",
     "combined-opaque.rgba",
 )
+
 MIN_CHECKED_PIXELS = 360
 
 

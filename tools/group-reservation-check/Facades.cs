@@ -3,7 +3,8 @@ using System.Collections.Generic;
 using System.Net;
 namespace MphRead.Mods.Network
 {
-internal static class NetConfig { public const int MaxPacketSize=1472, MaxPayloadSize=1448, ProtocolVersion=57; }
+internal static class NetConfig { public const int MaxPacketSize=1472, MaxPayloadSize=1448, ProtocolVersion=86; }
+internal static class UnifiedModeRules { internal const uint Capability=0x31464d55; }
 internal static class NetSession { public static uint ClientId=1234; }
 internal static class NetConnection { private static long _id; public static ulong NewId()=>(ulong)System.Threading.Interlocked.Increment(ref _id); }
 internal static class SequenceMath { public static bool Newer(uint a,uint b)=>unchecked((int)(a-b))>0; }

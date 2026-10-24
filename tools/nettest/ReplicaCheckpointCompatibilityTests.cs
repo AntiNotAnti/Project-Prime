@@ -186,7 +186,7 @@ internal static class ReplicaCheckpointCompatibilityTests
             "actual staged A2 v10/protocol53 layout restores populated claim/verdict/item tail without invented touch");
         var checkpoint = state.CaptureCheckpoint();
         check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 16 && checkpoint.Bytes[6] == 86 && checkpoint.Bytes[7] == 87,
-            "current v16/protocol85 explicitly declares native touch, pickup, grant, grapple and Parkour pose features");
+            "current v16/protocol86 explicitly declares native touch, pickup, grant, grapple and Parkour pose features");
         restored.RestoreCheckpoint(checkpoint);
         check(restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes),
             "v16 roundtrip preserves both nonzero touch and complete pickup state");

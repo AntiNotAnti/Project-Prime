@@ -137,6 +137,12 @@ jobs:
       - name: compile opt-in RmlUi OpenGL smoke bridge
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadRmlUiGlSmoke=true
 
+      - name: supplied CTZ and Payload authored package compatibility
+        run: >-
+          dotnet run --project tools/supplied-hero-map-check -c Release
+          -p:BuildProjectReferences=false -- --maps "$GITHUB_WORKSPACE/maps"
+          --output "$RUNNER_TEMP/supplied-hero-maps"
+
       - name: actual map-cache owner and maintenance isolation
         run: |
           set -euo pipefail

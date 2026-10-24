@@ -44,7 +44,7 @@ internal static class TraversalStanceNetworkTests
         {
             _checks = 0;
             Check(NetConfig.ProtocolVersion == 86 && (uint)IntentButtons.Crouch == 1u << 22
-                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol85 preserves distinct held and canonical stance bits");
+                && (uint)IntentButtons.CrouchedState == 1u << 23, "protocol86 preserves distinct held and canonical stance bits");
             foreach (IntentButtons bits in new[] { IntentButtons.None, IntentButtons.Crouch, IntentButtons.CrouchedState, StanceBits })
             {
                 var carrier = new IntentPacket { Buttons = IntentButtons.InPlayState | bits, Aim = Vector3.UnitZ };
@@ -91,9 +91,10 @@ internal static class TraversalStanceNetworkTests
         {
             byte[] currentPacket = Intent(intent, slotted), packet = Intent(intent, slotted, historical: true);
             int at = slotted ? 2 : 1;
-            Check(IntentPacket.Read(currentPacket.AsSpan(at)).Buttons == intent.Buttons
-                && ReplayIdentityCompatibility.Convert(currentPacket, 85).SequenceEqual(currentPacket),
-                "current85 intent preserves exact held and canonical stance bytes");
+            foreach (int protocol in new[] { 85, 86 })
+                Check(IntentPacket.Read(currentPacket.AsSpan(at)).Buttons == intent.Buttons
+                    && ReplayIdentityCompatibility.Convert(currentPacket, protocol).SequenceEqual(currentPacket),
+                    $"protocol{protocol} intent preserves exact held and canonical stance bytes");
             foreach (int protocol in new[] { 82, 83 })
             {
                 byte[] oldGrapple = currentPacket.AsSpan(0, currentPacket.Length - 1).ToArray();

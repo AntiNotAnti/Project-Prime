@@ -272,7 +272,7 @@ internal static class TurretFireOutcomeTests
         const int pickupTail = sizeof(uint) + 3 * sizeof(int) + grantTail;
         Check(BinaryPrimitives.ReadUInt16LittleEndian(checkpoint.Bytes[4..]) == 16
             && checkpoint.Bytes[6] == NetConfig.ProtocolVersion && checkpoint.Bytes[7] == 87,
-            "replica checkpoint v16/protocol85/features87 retains the outcome appendix before pickup data");
+            "replica checkpoint v16/protocol86/features87 retains the outcome appendix before pickup data");
         int outcomesAt = checkpoint.Bytes.Length - pickupTail - 2 * sizeof(int) - 2 * TurretFireOutcome.Size;
         int pendingAt = outcomesAt + sizeof(int) + TurretFireOutcome.Size;
         Check(outcomesAt >= 8

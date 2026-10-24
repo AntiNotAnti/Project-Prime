@@ -76,7 +76,7 @@ def main():
     desktop = (ROOT / 'src/MphRead/Shaders.cs').read_text(encoding='utf-8')
     es_path = RENDER / 'EsShaders.cs'
     es = es_path.read_text(encoding='utf-8')
-    helper = (RENDER / 'SceneColorPipeline.cs').read_text(encoding='utf-8')
+    helper = (RENDER / 'SceneColorShaderSource.cs').read_text(encoding='utf-8')
     refs = {}
     prefix = 'MphRead.Mods.Render.SceneColorShaderSource.'
     for name in ('Input', 'Normal'):

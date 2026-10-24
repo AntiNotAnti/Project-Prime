@@ -53,7 +53,7 @@ internal static class ParkourWallAnimationWireTests
         Check(NetConfig.ProtocolVersion == 86 && IntentPacket.TouchCanonicalSize == 1299
             && IntentPacket.Protocol82TouchSize == 1298 && PlayerState.Size == 192
             && PlayerState.Protocol80Size == 173 && PlayerGrappleState.Size == 19,
-            "protocol85 retains every published width and the173-byte mechanical extension offset");
+            "protocol86 retains every published width and the173-byte mechanical extension offset");
         Vector3[] cardinal = { Vector3.UnitX, -Vector3.UnitX, Vector3.UnitZ, -Vector3.UnitZ };
         for (int kind = 1; kind <= 3; kind++)
         for (int direction = 0; direction < 4; direction++)
@@ -259,7 +259,7 @@ internal static class ParkourWallAnimationWireTests
                 "old84 accepted wallNone preserves all16 mantle facts and unchanged snapshot bytes");
             byte[] current = new byte[2 + 1299]; current[0] = (byte)PacketType.SlotIntent; Intent(mantle, 12).Write(current.AsSpan(2));
             Check(ReplayIdentityCompatibility.NormalizeLegacyParkourPose(current, 85).SequenceEqual(current),
-                "current85 packed wall cue remains an exact recorded fact");
+                "current86 packed wall cue remains an exact recorded fact");
         }
     }
 
@@ -285,7 +285,7 @@ internal static class ParkourWallAnimationWireTests
                     && restored.CaptureCheckpoint().Bytes.SequenceEqual(bytes) && restored.TryGetPlayer(0, out var player)
                     && player.WallVisualCue == wall && player.MantleVisualPhase == mantle
                     && restored.TryGetIntent(0, out var intent) && intent.WallVisualCue == wall && intent.MantleVisualPhase == mantle,
-                    "current85 same16/17 native/custom checkpoint retains independent accepted/requested wall and mantle facts");
+                    "current86 same16/17 native/custom checkpoint retains independent accepted/requested wall and mantle facts");
                 int at = Protocol83CheckpointFixtures.FirstActorOffset(bytes), wallAt = at + 7 + 173, intentAt = at + 7 + 192 + 1 + 1298;
                 for (byte bad = 13; bad <= 15; bad++)
                 foreach (int offset in new[] { wallAt, intentAt })

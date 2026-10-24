@@ -129,7 +129,7 @@ internal static class PickupProtocolTests
         Check(NetConfig.ProtocolVersion == 86 && (byte)PacketType.PickupClaim == 73
             && (byte)PacketType.PickupVerdict == 74 && (byte)PacketType.PickupItem == 75
             && (byte)PacketType.PickupReady == 76,
-            "protocol 85 preserves pickup packet identities");
+            "protocol 86 preserves pickup packet identities");
         var ids = new HashSet<byte>();
         foreach (string name in Enum.GetNames<PacketType>())
         {

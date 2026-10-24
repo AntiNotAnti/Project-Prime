@@ -195,7 +195,7 @@ internal static class TimedShotReplayTests
         var baseline = ordinary.CaptureCheckpoint().Bytes.ToArray();
         Check(BinaryPrimitives.ReadUInt16LittleEndian(baseline.AsSpan(4)) == 16
             && baseline[6] == 86 && baseline[7] == 87,
-            "current normal checkpoint declares v16/protocol85 with exact untimed features87");
+            "current normal checkpoint declares v16/protocol86 with exact untimed features87");
         var producer = new ReplayReplicaState(); Match(producer);
         Check(producer.TimedShots.Begin(23, 7, 41, TimedGrantProofMode.Enforce), "checkpoint producer enables timed capture");
         var fact = Fact(granted: true);
@@ -203,7 +203,7 @@ internal static class TimedShotReplayTests
         var timed = producer.CaptureCheckpoint().Bytes.ToArray();
         Check(BinaryPrimitives.ReadUInt16LittleEndian(timed.AsSpan(4)) == 16
             && timed[6] == 86 && timed[7] == 95,
-            "current timed checkpoint declares v16/protocol85 with exact timed features95");
+            "current timed checkpoint declares v16/protocol86 with exact timed features95");
         var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(new(timed));
         Check(restored.CaptureCheckpoint().Bytes.SequenceEqual(timed)
             && restored.TimedShots.TryGet(fact.Key, fact.Fire.SourceFrame, 41, 100, out var found) && found == fact,

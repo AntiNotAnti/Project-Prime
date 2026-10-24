@@ -11,16 +11,18 @@ Excluded from this PR:
   competitive rules, including their input, UI, network and replay hooks.
 - Character model assets, import/material/source-GX pipeline changes and
   character-specific tooling. Existing main character behavior remains intact.
-- Map geometry/assets (including the local DUST2 collision package), model
+- Broader map geometry/assets (including the local DUST2 collision edits), model
   import/export, editor/modeling, universal/packed-scene and source-model
   runtime changes, plus their dedicated tools and fixtures.
 
 Minimal map metadata remains for CTZ/Payload rules and MP4 playback/package
-validation. These fields support retained gameplay/rendering; they add no
-map models or authored map assets. The existing main offline custom-map picker
+validation. These fields support retained gameplay/rendering. The existing main offline custom-map picker
 implementation is retained, including same-session install refresh behavior.
-CTZ/Payload authored map packages stay local with the excluded map work; these
-modes require a separately supplied compatible package. Built-in CTF maps remain
+The two explicitly requested authored runtime packages, `capture-the-zone.ppmap`
+and `payload-district.ppmap`, are included byte-for-byte from the preserved local
+integration. They carry their authored geometry/material inputs and objective
+metadata without new authoring/model pipelines or loose source folders. They
+need no extracted game assets to compile. Built-in CTF maps remain
 available and are exercised by the startup regression.
 
 Retained rendering includes linear-color output, texture decode/residency
@@ -63,10 +65,37 @@ submission; it is not inferred from those earlier results.
   assumptions about other-teammate occupancy and explicit recovery goals.
   Production bot policies remain identical to main. Two inherited corrupted
   Unicode lobby fixture strings were restored verbatim from main.
-- Exact scope checks confirm map/model/editor and character pipeline paths
+- Exact scope checks confirm broader map/model/editor and character pipeline paths
   match main, eight map runtime metadata files are explicitly allowlisted,
   retained HUD/renderer/camera files match the full local integration, and the
   original local checkout remains clean on its preserved integration commit.
+
+## PR #1051 CI and authored packages
+
+- Extracted the unchanged pure scene-color shader helper so the isolated Android
+  pacing project can compile it. Shader sync hashes remain identical; Android
+  pacing passed 70 assertions and renderer preparation passed 14,748 assertions.
+- Updated current live-protocol tests to 86 and future-version refusal to 87,
+  retaining historical 85 archive fixtures and explicit old-live-version refusal.
+  Party checks verify the exact UMF1 capability suffix and reject missing/wrong
+  capabilities. All 41 replay/Momentum commands, 153 Party checks and 1,267 group
+  checks passed locally.
+- Kept the GL comparator's strict hashes, dimensions, pixel floor and exact
+  inventory checks, extending that inventory to all 42 retained captures. Its
+  14 tests passed; Linux CI and Windows evidence each self-compare successfully.
+- Refreshed the controller fixture after installing its synthetic arena files;
+  launch remains disabled when compatible arena data is absent. Gamepad, pointer
+  and map-load-receipt checks passed with isolated profiles.
+- Both supplied authored bundles passed 31 strict reader, dependency, gameplay
+  schema, compiler and native packer assertions against an empty game-data root.
+  CI now runs this check. The asset guard adds exact exceptions for these two
+  packages and the four inherited user-supplied CTF banner/announcement resources;
+  it adds no wildcard exception for map content or extracted game assets.
+- Both authored maps passed native eight-player scene tests and real OpenGL
+  checks with copied owned assets, including CTZ HUD and Payload cargo/rider
+  movement. Package input hashes remain identical to the preserved local source.
+- Desktop Release, dedicated server Release and Android Debug APK builds passed
+  again after the CI repairs (6, 1 and 27 existing warnings respectively).
 
 Generated binaries, cloned owned game assets, profiles, captures and logs stay
 in ignored local artifact folders. No Internet multiplayer or Android physical

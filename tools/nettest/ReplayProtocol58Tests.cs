@@ -66,9 +66,9 @@ internal static class ReplayProtocol58Tests
         {
             byte[] current = Checkpoint(timed, thirdPerson: true, momentum: true);
             Check(current[6] == 86 && BinaryPrimitives.ReadUInt16LittleEndian(current.AsSpan(4)) == 16
-                && current[7] == (timed ? 95 : 87), "current writer identifies protocol85/v16 grapple layout");
+                && current[7] == (timed ? 95 : 87), "current writer identifies protocol86/v16 grapple layout");
             var currentRoundtrip = new ReplayReplicaState(); currentRoundtrip.RestoreCheckpoint(new(current));
-            Check(currentRoundtrip.CaptureCheckpoint().Bytes.SequenceEqual(current), "protocol85/v16 exact current checkpoint roundtrip");
+            Check(currentRoundtrip.CaptureCheckpoint().Bytes.SequenceEqual(current), "protocol86/v16 exact current checkpoint roundtrip");
             var destination = new ReplayReplicaState();
             foreach (byte protocol in new byte[] { 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81 })
             {

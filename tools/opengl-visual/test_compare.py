@@ -55,6 +55,33 @@ class PixelSuiteTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "SHA256 mismatch"):
             load(self.cand)
 
+    def test_linear_capture_checksum_is_checked(self):
+        filename = "linear-srgb-texel-filter.rgba"
+        pixels = bytearray((self.cand / filename).read_bytes())
+        pixels[0] ^= 1
+        (self.cand / filename).write_bytes(pixels)
+        with self.assertRaisesRegex(ValueError, "SHA256 mismatch"):
+            load(self.cand)
+
+    def test_scene_color_capture_cannot_be_dropped_from_manifest_and_disk(self):
+        filename = "linear-native-fog-ramp-0.50.rgba"
+        meta = json.loads((self.cand / "evidence.json").read_text())
+        del meta["captures"][filename]
+        (self.cand / "evidence.json").write_text(json.dumps(meta))
+        (self.cand / filename).unlink()
+        with self.assertRaisesRegex(ValueError, "required capture set differs"):
+            load(self.cand)
+
+    def test_linear_capture_pixel_difference_fails(self):
+        filename = "linear-vertex-output.rgba"
+        pixels = bytearray((self.cand / filename).read_bytes())
+        pixels[0] ^= 1
+        (self.cand / filename).write_bytes(pixels)
+        meta = json.loads((self.cand / "evidence.json").read_text())
+        meta["captures"][filename] = hashlib.sha256(pixels).hexdigest().upper()
+        (self.cand / "evidence.json").write_text(json.dumps(meta))
+        self.assertFalse(compare(self.ref, self.cand)["passed"])
+
     def test_missing_capture_fails_closed(self):
         (self.cand / "material-normal-zero.rgba").unlink()
         with self.assertRaisesRegex(ValueError, "capture files differ"):
