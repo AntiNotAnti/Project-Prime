@@ -1,6 +1,5 @@
 using System;
 using MphRead.Formats;
-using MphRead.Metadata;
 
 namespace MphRead.Entities;
 
