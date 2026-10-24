@@ -76,6 +76,7 @@ namespace MphRead
         public static int[] OctolithScores { get => Current.OctolithScores; }
         public static int[] OctolithDrops { get => Current.OctolithDrops; }
         public static int[] OctolithStops { get => Current.OctolithStops; }
+        public static float[] ObjectiveSeconds { get => Current.ObjectiveSeconds; }
         public static int[] NodesCaptured { get => Current.NodesCaptured; }
         public static int[] NodesLost { get => Current.NodesLost; }
         public static int[] KillsAsPrime { get => Current.KillsAsPrime; }
