@@ -294,7 +294,7 @@ public static class NetShotProof
     // coordinate. A client claim can be within ClaimRadius of the victim while
     // being arbitrarily far from the muzzle.
     internal static bool ProvesChargedJudicatorWave(int slot, in HitClaimPacket claim,
-        Vector3 victimPosition, bool shadowFreeze)
+        Vector3 historicalVictimPosition, Vector3 presentVictimPosition, bool shadowFreeze)
     {
         if (!Active || (uint)slot >= 8 || claim.Beam != (byte)BeamType.Judicator
             || (claim.Flags & HitClaimPacket.FlagDirect) == 0) return false;
@@ -314,8 +314,11 @@ public static class NetShotProof
         if (!Single.IsFinite(component.Reach)
             || MathF.Abs(component.Reach - nativeReach) > 1f / 4096f)
             return false;
-        return BeamProjectileEntity.ModJudicatorIceWaveWouldHit(
-            component.Origin, component.Direction, component.Reach, victimPosition, shadowFreeze);
+        return (shadowFreeze || NetUnlagged.ModIceWavePresentRangeWithin(
+                    component.Origin, presentVictimPosition, component.Reach))
+            && BeamProjectileEntity.ModJudicatorIceWaveWouldHit(
+                component.Origin, component.Direction, component.Reach,
+                historicalVictimPosition, shadowFreeze);
     }
 
     internal static bool TryBurnSource(int slot, in HitClaimPacket claim, out NetBurnSource source)
