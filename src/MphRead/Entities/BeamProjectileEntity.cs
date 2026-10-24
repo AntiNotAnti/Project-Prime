@@ -2678,8 +2678,11 @@ namespace MphRead.Entities
             float angleCos = MathF.Cos(MathHelper.DegreesToRadians(angle));
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
-                if (player == Owner || player.Health == 0)
+                if (player == Owner || player.Health == 0
+                    || !NetUnlagged.CollisionTargetAvailable(player))
                 {
+                    // An absent historical collision pose is not an invitation to
+                    // freeze a live body in a different timeline.
                     continue;
                 }
                 CheckIceWaveCollision(player, player.Position, angleCos, halfturret: false);
@@ -2706,7 +2709,12 @@ namespace MphRead.Entities
             // preference, and held by the server, because the machine
             // resolving the shot is the one that decides who it hit.
             if (ModIceWaveContains(Position, Direction, Up, MaxDistance, position, angleCos,
-                _scene.GameState.ShadowFreeze))
+                    _scene.GameState.ShadowFreeze)
+                // A rewind can place a hunter in range up to 750 ms before the
+                // authority's present. Do not freeze somebody already well
+                // outside the short wave's visible reach when the glitch is off.
+                && (_scene.GameState.ShadowFreeze
+                    || NetUnlagged.IceWavePresentRangeValid(player, Position, MaxDistance)))
             {
                 Vector3 dir = GetDamageDirection(Position, player.Position);
                 DamageFlags flags = DamageFlags.NoDmgInvuln;
@@ -2727,6 +2735,12 @@ namespace MphRead.Entities
         /// </summary>
         internal static bool ModShadowFreezeWouldHit(Vector3 origin, Vector3 direction,
             float maxDistance, Vector3 target)
+            => ModJudicatorIceWaveWouldHit(origin, direction, maxDistance, target, shadowFreeze: true);
+
+        // Shared by authority claim admission and regression tests. The native
+        // shot uses the same cone calculation below with the weapon's spread.
+        internal static bool ModJudicatorIceWaveWouldHit(Vector3 origin, Vector3 direction,
+            float maxDistance, Vector3 target, bool shadowFreeze)
         {
             if (!Single.IsFinite(origin.X) || !Single.IsFinite(origin.Y) || !Single.IsFinite(origin.Z)
                 || !Single.IsFinite(direction.X) || !Single.IsFinite(direction.Y)
@@ -2751,7 +2765,7 @@ namespace MphRead.Entities
             Vector3 up = Vector3.Cross(direction, right).Normalized();
             float angleCos = MathF.Cos(MathHelper.DegreesToRadians(60));
             return ModIceWaveContains(origin, direction, up, maxDistance, target,
-                angleCos, shadowFreeze: true);
+                angleCos, shadowFreeze);
         }
 
         private static bool ModIceWaveContains(Vector3 origin, Vector3 direction, Vector3 up,
