@@ -289,6 +289,38 @@ public static class NetShotProof
         return true;
     }
 
+    // Rescue of an instant freeze must be proven against the *authority's*
+    // emitted charged Judicator wave, never just the victim's claimed body
+    // coordinate. A client claim can be within ClaimRadius of the victim while
+    // being arbitrarily far from the muzzle.
+    internal static bool ProvesChargedJudicatorWave(int slot, in HitClaimPacket claim,
+        Vector3 historicalVictimPosition, Vector3 presentVictimPosition, bool shadowFreeze)
+    {
+        if (!Active || (uint)slot >= 8 || claim.Beam != (byte)BeamType.Judicator
+            || (claim.Flags & HitClaimPacket.FlagDirect) == 0) return false;
+        var key = Key(slot, claim);
+        int shotIndex = Find(key);
+        if (shotIndex < 0 || !_shots[slot, shotIndex].Fired
+            || !FindComponent(key, claim.ComponentId, out var component)) return false;
+        var fire = _shots[slot, shotIndex].Fire;
+        if (fire.Weapon != (byte)BeamType.Judicator || !fire.AffinityAtFire
+            || fire.Charge == 0 || component.Weapon != (byte)BeamType.Judicator)
+            return false;
+
+        // The unmodified charged affinity wave is 15360/4096 = 3.75 units.
+        // Do not confuse it with a regular projectile or Balanced Mode's 12-unit
+        // traveling freeze bolt, which needs an actual physical payment.
+        const float nativeReach = 15360f / 4096f;
+        if (!Single.IsFinite(component.Reach)
+            || MathF.Abs(component.Reach - nativeReach) > 1f / 4096f)
+            return false;
+        return (shadowFreeze || NetUnlagged.ModIceWavePresentRangeWithin(
+                    component.Origin, presentVictimPosition, component.Reach))
+            && BeamProjectileEntity.ModJudicatorIceWaveWouldHit(
+                component.Origin, component.Direction, component.Reach,
+                historicalVictimPosition, shadowFreeze);
+    }
+
     internal static bool TryBurnSource(int slot, in HitClaimPacket claim, out NetBurnSource source)
     {
         source = default;

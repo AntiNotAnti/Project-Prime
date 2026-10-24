@@ -1213,6 +1213,27 @@ namespace MphRead.Mods.Network
         internal static bool CollisionTargetAvailable(PlayerEntity target) => !_reconciled
             || target == _shooter || (uint)target.SlotIndex < Slots && _moved[target.SlotIndex];
 
+        // Standard Judicator's charged wave has a short native 3D reach.
+        // Historical collision is still used for hit registration, but a victim
+        // who is now far beyond that volume must not be frozen from the past.
+        // Half a world unit accommodates the victim's collision radius at the rim.
+        internal static bool ModIceWavePresentRangeWithin(Vector3 origin, Vector3 present, float reach)
+        {
+            if (!Single.IsFinite(reach) || reach <= 0
+                || !Single.IsFinite(origin.X) || !Single.IsFinite(origin.Y) || !Single.IsFinite(origin.Z)
+                || !Single.IsFinite(present.X) || !Single.IsFinite(present.Y) || !Single.IsFinite(present.Z))
+                return false;
+            float limit = reach + 0.5f;
+            return (present - origin).LengthSquared <= limit * limit;
+        }
+
+        internal static bool IceWavePresentRangeValid(PlayerEntity target, Vector3 origin, float reach)
+        {
+            if (!_reconciled || (uint)target.SlotIndex >= Slots || !_moved[target.SlotIndex])
+                return true;
+            return ModIceWavePresentRangeWithin(origin, _restore[target.SlotIndex].Position, reach);
+        }
+
         internal static bool HistoricalTargetAvailable(PlayerEntity target)
         {
             if (!_inProgress || _shooter == null) return true;

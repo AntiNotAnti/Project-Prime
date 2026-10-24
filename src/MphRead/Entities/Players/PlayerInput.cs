@@ -2189,6 +2189,8 @@ namespace MphRead.Entities
                         }
                         else if (Controls.AltAttack.IsPressed)
                         {
+                            // A new animation starts a new damage window for each target.
+                            Array.Clear(_spireSlamHitVictims);
                             Flags2 |= PlayerFlags2.AltAttack;
                             _altModel.SetAnimation((int)SpireAltAnim.Attack, AnimFlags.NoLoop);
                             _soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK);
