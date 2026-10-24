@@ -361,6 +361,14 @@ public static class NetAltHitCheck
             NetContactLagComp.ResolveFrame();
             Check(health - victim.Health == spire.Values.AltAttackDamage,
                 "authority resolver applies actual native Spire contact damage once");
+            Check(victim.Speed.Length <= PlayerEntity.SpireSlamNudge + 0.001f,
+                "Dialanche pushes the opponent only a small single-contact nudge");
+            int afterSlam = victim.Health;
+            Vector3 afterNudge = victim.Speed;
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)361);
+            NetContactLagComp.ResolveFrame();
+            Check(victim.Health == afterSlam && victim.Speed == afterNudge,
+                "later ticks of the same Dialanche slam cannot repeat damage or knockback");
             spire.Controls.ClearAll(); spire.ModForceForm(false);
             spire.ModPlaceAt(new Vector3(150, 5, 10));
 
