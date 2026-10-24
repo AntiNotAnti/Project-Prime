@@ -50,6 +50,10 @@ submission; it is not inferred from those earlier results.
   source-body color fallback and linear-color resumption.
 - HUD resources passed 43 assertions; the existing main offline custom-map
   catalog passed 20 assertions.
+- Material/texture tooling built and passed 62 CPU assertions plus real OpenGL
+  residency, mip, color/alpha, stable-binding and cleanup checks. Native renderer
+  qualification tooling built with model-specific fixtures removed; nine Python
+  capture-region/qualification checks passed.
 - Real FFmpeg lossless RGB/H.264, packaging, OpenGL playback/color, admission,
   retry, retirement and teardown passed 163 video assertions. The adapted
   harness adds no model authoring dependency or editor-rendering claim.

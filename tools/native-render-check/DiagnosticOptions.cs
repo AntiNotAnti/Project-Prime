@@ -27,7 +27,6 @@ sealed partial class CheckWindow
         }
         if(args.Contains("-texturequality")) _diagnosticTextureQuality=Enum.Parse<TextureAssetQuality>(Value("-texturequality"),true);
         if(args.Contains("-lighting")) _diagnosticLighting=bool.Parse(Value("-lighting"));
-        ConfigureMovementReplay(args);
         _diagnosticMapHd=args.Contains("-map-hd");
         _diagnosticAuthoredMaterials=args.Contains("-authoredmaterials");
         if(args.Contains("-shot-step"))
@@ -69,17 +68,15 @@ sealed partial class CheckWindow
         }
         return witnesses.ToArray();
     }
-    private long SourceMaterialDrawCount => MaterialField("_sourceMaterialDrawCalls") is long count ? count : 0;
     internal bool AuthoredMaterialsAccepted => !_diagnosticAuthoredMaterials ||
         (RenderOptions.TextureReplacements && RenderOptions.AdvancedMaterials
-        && (AuthoredWorldBindings().Length>0 || SourceMaterialDrawCount>0)
+        && AuthoredWorldBindings().Length>0
         && (!RenderOptions.LinearColor || MaterialField("_sceneEncodedReady") is true));
     private object AuthoredMaterialsResult() => new {
         requested=_diagnosticAuthoredMaterials,passed=AuthoredMaterialsAccepted,
         hdEnabled=RenderOptions.TextureReplacements,advancedEnabled=RenderOptions.AdvancedMaterials,
         linearEnabled=RenderOptions.LinearColor,modernBindingCount=ModernMaterialBindingCount,
         authoredWorldBindings=AuthoredWorldBindings(),
-        sourceDrawCount=SourceMaterialDrawCount,
         worldMaterialResidentBytes=MaterialField("_worldMaterialResidentBytes"),
         materialCompanionBindingCount=(MaterialField("_materialMaps") as System.Collections.IDictionary)?.Count ?? 0
     };

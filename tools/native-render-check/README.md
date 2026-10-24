@@ -2,10 +2,11 @@
 
 `-authoredmaterials` enables HD texture replacements and advanced material channels
 for this diagnostic process. Combine it with `-linearcolor` to exercise the linear
-world renderer. The result records actual modern texture bindings, source material
-draws and resident material bytes. This option fails acceptance if neither a modern
-binding nor a source draw was observed, or a requested linear scene did not produce
-its encoded output. It does not save graphics preferences.
+world renderer. The result records actual authored world-albedo bindings and
+resident material bytes using the existing map/material identity contract. This
+option fails acceptance if no matching world binding was observed, or a requested
+linear scene did not produce its encoded output. It does not save graphics
+preferences or include model-repair, collision-certification or geometry fixtures.
 
 Windows campaign tooling is `qualify_windows_renderer.ps1`; it requires a fresh
 output folder, preserves failed cases, exits nonzero when any gate fails, and

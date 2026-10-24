@@ -24,27 +24,28 @@ internal static unsafe class LinearMaterialGpuChecks
         GL.ActiveTexture(TextureUnit.Texture0);
         int previousBinding = GL.GetInteger(GetPName.TextureBinding2D);
         Scene? scene = null;
+        TextureAssetManager? preparedAssets = null;
         var manualOriginals = new List<int>();
         int normalTexture = 0;
         try
         {
             byte[] opaqueKtx = MakeSrgbMipKtx();
             var opaquePolicy = new TextureAlphaPolicy(TextureAlphaMode.Opaque);
-            Check(!originalScene.SceneColorRequested
-                && originalScene.GetCharacterModelTexture("linear-opaque-fixture", opaqueKtx,
-                    TextureAssetClass.Hunter, opaque: true, alphaPolicy: opaquePolicy,
-                    authoredAlphaFactor: 0.25f) == 0,
-                "Original refuses OPAQUE KTX2 before allocating a character texture");
+            Check(!originalScene.SceneColorRequested, "baseline Scene retains the native encoded-color request");
 
             RenderOptions.LinearColor = true;
             scene = Scene.CreateEditorRenderer(new Vector2i(32, 32));
             Check(scene.SceneColorRequested, "independent Scene freezes the enabled linear-color request");
-
-            int originalKtx = scene.GetCharacterModelTexture("linear-opaque-fixture", opaqueKtx,
-                TextureAssetClass.Hunter, opaque: true, alphaPolicy: opaquePolicy,
-                authoredAlphaFactor: 0.25f);
+            preparedAssets = new TextureAssetManager(
+                () => AllocateSceneTexture(scene), binding => ReleaseSceneTexture(scene, binding),
+                (binding, asset) => RegisterPrepared(scene, binding, asset), linearFiltering: true);
+            var opaqueSemantics = TextureAssetSemantics.ForChannel(TextureAssetChannel.Albedo,
+                alphaPolicy: opaquePolicy, wrap: TextureWrapPolicy.Clamp, alphaFactor: 0.25f);
+            int originalKtx = preparedAssets.Upload("linear-opaque-fixture",
+                () => new MemoryStream(opaqueKtx, writable: false), TextureAssetClass.World,
+                TextureAssetChannel.Albedo, repeat: false, out _, out _, opaqueSemantics);
             Check(originalKtx != 0 && GL.IsTexture(originalKtx),
-                "linear Scene accepts the same OPAQUE KTX2 payload refused by Original");
+                "generic texture manager admits the prepared OPAQUE KTX2 payload");
             var sceneTextures = Field<Dictionary<int, int>>(scene, "_sceneColorTextures");
             var sceneAlpha = Field<Dictionary<int, TextureAlphaPolicy>>(scene, "_sceneTextureAlpha");
             var sceneFactors = Field<Dictionary<int, float>>(scene, "_sceneTextureAlphaFactor");
@@ -63,20 +64,23 @@ internal static unsafe class LinearMaterialGpuChecks
                 && ReadLevel(ktxTwin, 0, 2, 2).SequenceEqual(expectedBase)
                 && ReadLevel(ktxTwin, 1, 1, 1).SequenceEqual(expectedMip),
                 "OPAQUE KTX keeps every authored RGBA mip byte, including source alpha");
-            int repeatedKtx = scene.GetCharacterModelTexture("linear-opaque-fixture", opaqueKtx,
-                TextureAssetClass.Hunter, opaque: true, alphaPolicy: opaquePolicy,
-                authoredAlphaFactor: 0.25f);
+            int repeatedKtx = preparedAssets.Upload("linear-opaque-fixture",
+                () => new MemoryStream(opaqueKtx, writable: false), TextureAssetClass.World,
+                TextureAssetChannel.Albedo, repeat: false, out _, out _, opaqueSemantics);
             Check(repeatedKtx == originalKtx && sceneTextures[repeatedKtx] == ktxTwin,
                 "repeated prepared request keeps its original and promoted GL bindings stable");
 
             byte[] transparentEdgePng = MakeTransparentEdgePng();
             var blendPolicy = new TextureAlphaPolicy(TextureAlphaMode.Blend);
-            int repeatedEdgeOriginal = scene.GetCharacterModelTexture("linear-wrap-edge", transparentEdgePng,
-                TextureAssetClass.Hunter, opaque: false, alphaPolicy: blendPolicy, authoredAlphaFactor: 1f,
-                wrapS: RepeatMode.Repeat, wrapT: RepeatMode.Clamp);
-            int clampedEdgeOriginal = scene.GetCharacterModelTexture("linear-wrap-edge", transparentEdgePng,
-                TextureAssetClass.Hunter, opaque: false, alphaPolicy: blendPolicy, authoredAlphaFactor: 1f,
-                wrapS: RepeatMode.Clamp, wrapT: RepeatMode.Clamp);
+            var repeatedSemantics = TextureAssetSemantics.ForChannel(TextureAssetChannel.Albedo,
+                alphaPolicy: blendPolicy, wrap: new TextureWrapPolicy(RepeatMode.Repeat, RepeatMode.Clamp));
+            var clampedSemantics = repeatedSemantics.WithWrap(TextureWrapPolicy.Clamp);
+            int repeatedEdgeOriginal = preparedAssets.Upload("linear-wrap-edge",
+                () => new MemoryStream(transparentEdgePng, writable: false), TextureAssetClass.World,
+                TextureAssetChannel.Albedo, repeat: false, out _, out _, repeatedSemantics);
+            int clampedEdgeOriginal = preparedAssets.Upload("linear-wrap-edge",
+                () => new MemoryStream(transparentEdgePng, writable: false), TextureAssetClass.World,
+                TextureAssetChannel.Albedo, repeat: false, out _, out _, clampedSemantics);
             int repeatedEdgeTwin = sceneTextures[repeatedEdgeOriginal];
             int clampedEdgeTwin = sceneTextures[clampedEdgeOriginal];
             byte[] repeatedEdgePixels = ReadLevel(repeatedEdgeTwin, 0, 5, 1);
@@ -84,11 +88,11 @@ internal static unsafe class LinearMaterialGpuChecks
             Check(repeatedEdgeOriginal != clampedEdgeOriginal && repeatedEdgeTwin != clampedEdgeTwin
                 && repeatedEdgePixels[0] > 200 && clampedEdgePixels[0] == 0
                 && repeatedEdgePixels[3] == 0 && clampedEdgePixels[3] == 0,
-                "character sampler wraps participate in prepared identity and transparent-edge dilation only");
+                "generic sampler wraps participate in prepared identity and transparent-edge dilation only");
             Check(TextureWrap(repeatedEdgeTwin, GetTextureParameter.TextureWrapS) == (int)TextureWrapMode.Repeat
                 && TextureWrap(clampedEdgeTwin, GetTextureParameter.TextureWrapS) == (int)TextureWrapMode.ClampToEdge
                 && TextureWrap(repeatedEdgeTwin, GetTextureParameter.TextureWrapT) == (int)TextureWrapMode.ClampToEdge,
-                "promoted character twins retain their actual per-axis sampler modes");
+                "promoted generic texture twins retain their actual per-axis sampler modes");
 
             // Native uploads may receive a pooled array larger than the image.
             // The scene callback must only copy width * height pixels.
@@ -180,7 +184,8 @@ internal static unsafe class LinearMaterialGpuChecks
 
             Check(GL.GetError() == ErrorCode.NoError, "linear material asset integration leaves GL error state clean");
 
-            scene.ClearCharacterModelTextures();
+            preparedAssets.Dispose();
+            preparedAssets = null;
             Check(!GL.IsTexture(originalKtx) && !GL.IsTexture(ktxTwin)
                 && !GL.IsTexture(repeatedEdgeOriginal) && !GL.IsTexture(repeatedEdgeTwin)
                 && !GL.IsTexture(clampedEdgeOriginal) && !GL.IsTexture(clampedEdgeTwin)
@@ -202,7 +207,7 @@ internal static unsafe class LinearMaterialGpuChecks
                 && sceneAlpha[authoredOriginal] == maskPolicy && Math.Abs(sceneFactors[authoredOriginal] - 0.61f) < 0.0001f
                 && sceneWraps[modernOriginal] == TextureWrapPolicy.Clamp
                 && sceneWraps[authoredOriginal] == TextureWrapPolicy.Clamp,
-                "character teardown retires its bindings and metadata while unrelated scene-color residents remain intact");
+                "texture manager teardown retires its bindings and metadata while unrelated scene-color residents remain intact");
             ReleaseSceneTexture(scene, nativeOriginal);
             Check(!GL.IsTexture(nativeOriginal) && !GL.IsTexture(nativeTwin)
                 && !sceneTextures.ContainsKey(nativeOriginal) && !sceneAlpha.ContainsKey(nativeOriginal)
@@ -218,20 +223,27 @@ internal static unsafe class LinearMaterialGpuChecks
             GL.DeleteTexture(normalTexture);
             normalTexture = 0;
             Check(GL.GetError() == ErrorCode.NoError, "linear material resident retirement leaves GL error state clean");
-            Console.WriteLine("LINEAR MATERIAL GPU PASS: Original KTX refusal, sRGB RGBA/mips, alpha metadata, pooled native upload, normal UNORM, stable promotion and twin retirement");
+            Console.WriteLine("LINEAR MATERIAL GPU PASS: generic prepared KTX residency, sRGB RGBA/mips, alpha metadata, pooled native upload, normal UNORM, stable promotion and twin retirement");
         }
         finally
         {
             if (normalTexture != 0 && GL.IsTexture(normalTexture)) GL.DeleteTexture(normalTexture);
             if (scene != null)
             {
-                scene.ClearCharacterModelTextures();
+                preparedAssets?.Dispose();
                 scene.UnloadGl();
             }
             GL.BindTexture(TextureTarget.Texture2D, previousBinding);
             GL.ActiveTexture((TextureUnit)previousActiveTexture);
             RenderOptions.LinearColor = previousLinearColor;
         }
+    }
+
+    private static int AllocateSceneTexture(Scene scene)
+    {
+        MethodInfo allocate = typeof(Scene).GetMethod("AllocateTexture", Hidden)
+            ?? throw new MissingMethodException(typeof(Scene).FullName, "AllocateTexture");
+        return (int)allocate.Invoke(scene, null)!;
     }
 
     private static void RegisterPrepared(Scene scene, int original, PreparedTextureAsset asset)
