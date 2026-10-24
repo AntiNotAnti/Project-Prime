@@ -2614,9 +2614,10 @@ namespace MphRead.Mods.Network
             if ((entry.Flags & HitClaimPacket.FlagFrozen) != 0 && victimSlot != shooterSlot)
             {
                 bool turret = (entry.Flags & HitClaimPacket.FlagHalfturret) != 0;
+                Vector3 atShot;
                 bool historical = turret
                     ? NetUnlagged.TryHistoricalHalfturretPosition(victimSlot, entry.AckFrame,
-                        entry.VictimGeneration, entry.VictimLifeId, out Vector3 atShot)
+                        entry.VictimGeneration, entry.VictimLifeId, out atShot)
                     : NetUnlagged.PositionAt(victimSlot, entry.AckFrame,
                         entry.VictimGeneration, entry.VictimLifeId, out atShot);
                 bool proved = entry.Beam == (byte)BeamType.Judicator
