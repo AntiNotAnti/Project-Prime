@@ -358,10 +358,11 @@ public static class NetAltHitCheck
             NetSession.RemoteIntentValid[spire.SlotIndex] = false;
             typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)360);
             health = victim.Health;
+            Vector3 speedBeforeSlam = victim.Speed;
             NetContactLagComp.ResolveFrame();
             Check(health - victim.Health == spire.Values.AltAttackDamage,
                 "authority resolver applies actual native Spire contact damage once");
-            Check(victim.Speed.Length <= PlayerEntity.SpireSlamNudge + 0.001f,
+            Check((victim.Speed - speedBeforeSlam).Length <= PlayerEntity.SpireSlamNudge + 0.001f,
                 "Dialanche pushes the opponent only a small single-contact nudge");
             int afterSlam = victim.Health;
             Vector3 afterNudge = victim.Speed;
