@@ -152,10 +152,10 @@ internal static class CombatArbitrationTests
     private static void RescueFirst()
     {
         NetShotProof.Mode = ShotProofMode.Shadow; Prepare(); var beam = Emit(BeamType.Judicator);
-        var claim = Claim(beam, damage: 12); claim.Flags |= HitClaimPacket.FlagFrozen;
+        var claim = Claim(beam, damage: 12);
         int before = _victim.Health; uint arrived = _frame;
-        Check(Receive(claim) == HitVerdictPacket.ResultApplied && _victim.Health == before - 12 && _victim.ModFrozen,
-            "rescue-first actual receive/tick pays damage and affliction");
+        Check(Receive(claim) == HitVerdictPacket.ResultApplied && _victim.Health == before - 12 && !_victim.ModFrozen,
+            "rescue-first ordinary Judicator receives damage without an unearned freeze");
         Check(_frame - arrived >= NetHitClaims.MinGraceFrames && _frame - arrived <= NetHitClaims.MaxGraceFrames,
             "rescue retains 24-72 frame arbitration grace");
         Unchanged(beam, true, "rescued exact direct suppresses late native damage/effects/impulse");
@@ -170,6 +170,21 @@ internal static class CombatArbitrationTests
         Unchanged(child!, true,
             "direct-hit rescued parent forbids a contradictory late ricochet child on the same victim");
     }
+    private static void UnprovedFreezeRefused()
+    {
+        // A non-affinity charged effect must never be rescued from a bare
+        // client claim. Its body coordinates can be perfectly plausible yet
+        // cannot prove that a native frozen wave intersected its target.
+        NetShotProof.Mode = ShotProofMode.Shadow; Prepare();
+        var beam = Emit(BeamType.Judicator);
+        var forged = Claim(beam, damage: 12);
+        forged.Flags |= HitClaimPacket.FlagFrozen;
+        int before = _victim.Health;
+        Check(Receive(forged) == HitVerdictPacket.ResultGeometry
+            && _victim.Health == before && !_victim.ModFrozen,
+            "unproved Judicator freeze claim cannot rescue out-of-range status");
+    }
+
     private static void RicochetAlternateDamage()
     {
         foreach (BeamType weapon in new[] { BeamType.Judicator, BeamType.Magmaul })
@@ -533,7 +548,7 @@ internal static class CombatArbitrationTests
                 { _direction = direction; break; }
             Check(_direction.LengthSquared == 1, "asset fixture provides clear production collision lane");
 
-            RescueFirst(); RicochetAlternateDamage(); RicochetParentChildCausality(); DerivedCatchUpPool(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); TerminalRefusalCacheChurn(); TerminalReceiptCapacity(); PosthumousFlight(); NativeSameFrameTrade();
+            RescueFirst(); UnprovedFreezeRefused(); RicochetAlternateDamage(); RicochetParentChildCausality(); DerivedCatchUpPool(); PendingSeenCollision(); PhysicalOnce(); ImperialistCorrectionOnce(); TerminalRetries(); TerminalRefusalCacheChurn(); TerminalReceiptCapacity(); PosthumousFlight(); NativeSameFrameTrade();
             long lifetimePayments = NetCombatPayments.LifetimePayments;
             long lifetimeSuppressed = NetCombatPayments.LifetimeSuppressed;
             Check(lifetimePayments > 0 && lifetimeSuppressed > 0, "process evidence captures actual payments and suppressed repeats");
