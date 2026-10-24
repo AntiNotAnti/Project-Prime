@@ -1204,6 +1204,27 @@ namespace MphRead.NetTest
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 return NetBotCheck.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS", args.Length > 3 ? int.Parse(args[3]) : 3);
             }
+            if (args.Length > 0 && args[0] == "--bot-skill-eval")
+            {
+                if (args.Length is not (7 or 8)
+                    || !int.TryParse(args[3], out int difficulty) || difficulty < 0 || difficulty > 3
+                    || !int.TryParse(args[4], out int bots) || bots < 2 || bots > 8
+                    || !int.TryParse(args[5], out int frames) || frames < 600 || frames > 18000
+                    || args.Length == 8 && !Enum.TryParse<GameMode>(args[7], true, out _))
+                {
+                    Console.Error.WriteLine("Usage: --bot-skill-eval <AMHE1 filesystem> <room> <difficulty 0..3> <bots 2..8> <frames 600..18000> <fresh result.json> [Battle|BattleTeams|NodesTeams|HardpointTeams|DefenderTeams]");
+                    return 1;
+                }
+                GameMode mode = args.Length == 8 ? Enum.Parse<GameMode>(args[7], true) : GameMode.Battle;
+                if (mode is not (GameMode.Battle or GameMode.BattleTeams
+                    or GameMode.NodesTeams or GameMode.HardpointTeams or GameMode.DefenderTeams))
+                {
+                    Console.Error.WriteLine("Unsupported bot benchmark mode: " + mode);
+                    return 1;
+                }
+                return BotSkillBenchmark.Run(args[1], args[2], difficulty,
+                    bots, frames, mode, args[6]);
+            }
             if (args.Length > 0 && args[0] == "--bot-ai") return BotAiChecks.Run();
             if (args.Length > 0 && args[0] == "--bots") return NetLobbyTest.RunBots();
             if (args.Length > 0 && args[0] == "--waitlist") return NetLobbyTest.RunWaitlist();
