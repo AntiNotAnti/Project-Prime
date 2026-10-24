@@ -133,6 +133,22 @@ public static class BotAiChecks
             && BotRoutePolicy.NextHopIndex([1], 0, 0, 4) == -1
             && BotRoutePolicy.NextHopIndex(routed, 0, 4, 4) == -1,
             "native routing rejects malformed or unavailable destinations");
+        Check(BotGoalPolicy.WantsObjective(true, false,
+                float.PositiveInfinity, 0.75f)
+            && BotGoalPolicy.WantsObjective(true, true, 23f, 0.75f)
+            && !BotGoalPolicy.WantsObjective(true, true, 4f, 0.75f)
+            && !BotGoalPolicy.WantsObjective(true, false, 19f, 0.19f)
+            && !BotGoalPolicy.WantsObjective(false, false, 19f, 1f),
+            "objective scoring competes with combat only when it should");
+        Check(BotGoalPolicy.Utility(BotGoalKind.Objective, 28f, 0.7f,
+                currentlyCommitted: true, contested: true)
+                > BotGoalPolicy.Utility(BotGoalKind.Objective, 28f, 0.7f,
+                    currentlyCommitted: false, contested: false)
+            && BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, 0.2f,
+                currentlyCommitted: false, contested: false)
+                > BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, 1f,
+                    currentlyCommitted: false, contested: false),
+            "utility planner prioritizes contested, committed and recovery goals");
         Check(BotGoalPolicy.KeepCommittedGoal(true, true, false,
                 float.PositiveInfinity, 0.65f)
             && BotGoalPolicy.KeepCommittedGoal(true, true, true, 18f, 0.65f),

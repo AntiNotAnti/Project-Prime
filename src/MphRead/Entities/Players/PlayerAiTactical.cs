@@ -215,7 +215,7 @@ public partial class PlayerEntity
                     Func21447E8();
                     // Do not abandon a committed objective or resource run
                     // to pursue a remembered opponent behind cover.
-                    if (!_tacticalMovementActive && !BotKeepStrategicGoal())
+                    if (!_tacticalMovementActive && !BotWantsStrategicControl())
                     {
                         BotInvestigatePosition(remembered);
                     }
@@ -319,7 +319,7 @@ public partial class PlayerEntity
 
             if (visible)
             {
-                if (!_tacticalMovementActive && !BotKeepStrategicGoal())
+                if (!_tacticalMovementActive && !BotWantsStrategicControl())
                 {
                     ApplyTacticalMovement(_tacticalTarget, tuning);
                 }

@@ -50,12 +50,12 @@ public partial class PlayerEntity
         /// </summary>
         private void ApplyStrategicMapControl()
         {
-            bool keepGoal = BotKeepStrategicGoal();
+            bool seekGoal = BotWantsStrategicControl();
             if (!_scene.GameState.Multiplayer || _player.BotLevel < 2
                 || _player.Health <= 0 || !_player.ModInPlay
                 || _player.IsAltForm || _player.IsMorphing || _player.IsUnmorphing
-                || (_tacticalTarget != null && !keepGoal)
-                || (_tacticalMovementActive && !keepGoal)
+                || (_tacticalTarget != null && !seekGoal)
+                || (_tacticalMovementActive && !seekGoal)
                 || _player.OctolithFlag != null
                 || _scene.GameState.IsTokenMode
                     && (uint)_player.SlotIndex < (uint)_scene.GameState.TokenCarried.Length
@@ -142,6 +142,10 @@ public partial class PlayerEntity
                             && node.OccupyingTeam != _player.TeamIndex,
                         teammateClaims: claims, nearbyTeammates: teammates,
                         hardpoint: _scene.GameState.IsHardpoint);
+                    score = BotGoalPolicy.Utility(BotGoalKind.Objective, score,
+                        _player.HealthMax > 0 ? _player.Health / (float)_player.HealthMax : 1f,
+                        _botStrategicNode == node && _botStrategicTicks > 0,
+                        node.Contested);
                     if (score > bestScore)
                     {
                         bestScore = score;
@@ -185,6 +189,9 @@ public partial class PlayerEntity
                 float score = BotStrategicPolicy.PickupScore(item.ItemType,
                     healthFraction, owned, _player.ModAmmo.Ua / 120f,
                     _player.ModAmmo.Missiles / 30f) - distance * 2f;
+                score = BotGoalPolicy.Utility(BotGoalKind.Pickup, score,
+                    healthFraction, _botStrategicItem == item && _botStrategicTicks > 0,
+                    contested: false);
 
                 if (score > bestScore)
                 {
@@ -227,6 +234,9 @@ public partial class PlayerEntity
                     if (otherEscorts > 0 || !BotCanReachStrategicGoal(escortGoal,
                         (escortGoal - _player.Position).WithY(0).Length)) continue;
                     float score = 34f - distance + (BotAssignedRole() == BotSquadRole.Anchor ? 7f : 0f);
+                    score = BotGoalPolicy.Utility(BotGoalKind.Escort, score,
+                        healthFraction, _botStrategicEscort == ally && _botStrategicTicks > 0,
+                        contested: false);
                     if (score > bestScore)
                     {
                         bestScore = score;
@@ -257,6 +267,36 @@ public partial class PlayerEntity
             return _botStrategicEscort != null && _botStrategicEscort.ModInPlay
                 && _botStrategicEscort.Health > 0
                 && _botStrategicEscort.OctolithFlag != null;
+        }
+
+        private bool BotWantsStrategicControl()
+        {
+            if (!_scene.GameState.Multiplayer || _player.BotLevel < 2
+                || _player.IsAltForm || _player.IsMorphing || _player.IsUnmorphing)
+                return false;
+            if (BotKeepStrategicGoal()) return true;
+            if (!_scene.GameState.Teams
+                || !BotStrategicPolicy.IsNodeMode(_scene.GameState.Mode))
+                return false;
+            bool objectiveAvailable = false;
+            foreach (NodeDefenseEntity node in _scene.GetNodeDefenseEntities())
+            {
+                if (_scene.GameState.IsHardpoint
+                    && node.Id != _scene.GameState.ActiveHardpointId) continue;
+                if (node.CurrentTeam == _player.TeamIndex && !node.Contested)
+                    continue;
+                objectiveAvailable = true;
+                break;
+            }
+            PlayerEntity? enemy = _tacticalTarget;
+            bool visible = enemy != null && TacticalTargetValid(enemy)
+                && TacticalCanSee(enemy);
+            float range = visible && enemy != null
+                ? (enemy.Position - _player.Position).Length : float.PositiveInfinity;
+            float health = _player.HealthMax > 0
+                ? _player.Health / (float)_player.HealthMax : 1f;
+            return BotGoalPolicy.WantsObjective(objectiveAvailable,
+                visible, range, health);
         }
 
         private bool BotKeepStrategicGoal()
