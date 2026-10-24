@@ -442,9 +442,9 @@ public sealed class RmlUiMenuController : IDisposable
                 return true;
             case RmlUiIntentKind.PlayPreviousMode:
             case RmlUiIntentKind.PlayNextMode:
-                int currentType = MatchTypeCatalog.BaseModeIndex(_createMode);
-                MatchTypeDefinition nextType = MatchTypeCatalog.GameTypes[
-                    (currentType + (kind == RmlUiIntentKind.PlayPreviousMode ? MatchTypeCatalog.GameTypes.Length-1 : 1)) % MatchTypeCatalog.GameTypes.Length];
+                int currentType = RmlUiModeCatalog.BaseModeIndex(_createMode);
+                MatchTypeDefinition nextType = RmlUiModeCatalog.GameTypes[
+                    (currentType + (kind == RmlUiIntentKind.PlayPreviousMode ? RmlUiModeCatalog.GameTypes.Length-1 : 1)) % RmlUiModeCatalog.GameTypes.Length];
                 _createFormat = MatchTypeCatalog.NormalizeFormat(nextType, _createFormat);
                 _createMode = nextType.Resolve(_createFormat);
                 Dirty();
@@ -2198,7 +2198,7 @@ public sealed class RmlUiMenuController : IDisposable
         Text("play_create_map", LauncherRoomDisplayName.Get(_createMap));
         Text("play_create_capacity", _createMaxPlayers + " PLAYER SLOTS // ADVANCED RULES AFTER CREATION");
         Text("play_create_source", _createCommunity != null ? "COMMUNITY // SELECTED INSTALLED REVISION" : "MPH // BUILT-IN ARENA");
-        Text("play_create_mode_name", MatchTypeCatalog.BaseLabel(_createMode));
+        Text("play_create_mode_name", RmlUiModeCatalog.BaseLabel(_createMode));
         Text("play_create_host", _createDedicated ? "LOCAL // DEDICATED" : "HOSTED // ONLINE");
         Flag("play_random_search", _randomSearch);
         Flag("play_actions_locked", _randomSearch || _joining || _creating);
@@ -2286,7 +2286,7 @@ public sealed class RmlUiMenuController : IDisposable
         if (_rules is { } rules)
         {
             Text("rules_map", LauncherRoomDisplayName.Get(rules.Draft.Match.RoomKey));
-            Text("rules_mode", MphRead.Mods.Network.MatchTypeCatalog.BaseLabel(rules.Draft.Match.Mode));
+            Text("rules_mode", RmlUiModeCatalog.BaseLabel(rules.Draft.Match.Mode));
             Text("rules_format", MphRead.Mods.Network.MatchTypeCatalog.MatchupLabel(
                 rules.Draft.Match.Mode, rules.Draft.Match.Format));
             Text("rules_goal_label", MphRead.Mods.Network.MatchGoalRules.UsesLives(rules.Draft.Match.Mode)

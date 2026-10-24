@@ -9,6 +9,7 @@
 <button id="ingame_fullscreen" data-action="ingame:fullscreen">TOGGLE FULLSCREEN</button>
 <button id="ingame_replay" data-action="ingame:replay">REPLAY CONTROLS</button>
 <button id="ingame_spectate" data-action="ingame:spectate">SPECTATE</button><button id="ingame_rejoin" data-action="ingame:rejoin">JOIN MATCH</button>
+<button id="ingame_hero" data-action="ingame:next-hero">NEXT HUNTER</button>
 <button id="ingame_record" data-action="ingame:recorder">RECORD REPLAY</button>
 <button id="ingame_bots" data-action="ingame:bots">MANAGE BOTS</button>
 <button id="ingame_return" data-action="ingame:return-lobby">RETURN TO LOBBY</button>

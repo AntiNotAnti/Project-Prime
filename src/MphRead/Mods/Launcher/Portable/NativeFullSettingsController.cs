@@ -29,6 +29,8 @@ internal sealed class NativeSettingRow
     internal string DisplayValue=>ChoiceLabels?.GetValueOrDefault(Value)??(Choices.Length==0?Value:Value.ToLowerInvariant() switch{"true" or "on"=>"On","false" or "off"=>"Off",_=>Regex.Replace(Value.Replace('_',' '),"(?<=[a-z])([A-Z])"," $1")});
     internal string Description="Changes save automatically.";
     internal string? HintOverride;
+    internal string? HelpText;
+    internal bool HasHelp=>!string.IsNullOrWhiteSpace(HelpText);
     internal PadAction? BindingAction;
     internal int BindingSlot;
     internal bool KeyboardBinding;
@@ -164,7 +166,8 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         var hud=(_hud??HudProfiles.CopyCurrent()).DeepClone();
         bool Flag(string label,bool fallback){var row=Rows.FirstOrDefault(r=>r.Category=="Display"&&r.Group=="HUD"&&r.Label==label);return row!=null&&bool.TryParse(row.Value,out bool b)?b:fallback;}
         bool pro=Flag("Pro Hud",hud.Mode!=HudMode.Classic);hud.Mode=pro?(hud.Mode==HudMode.Classic?HudMode.ProjectPrime:hud.Mode):HudMode.Classic;
-        hud.FixedWeapon=Flag("Pro Hud Fixed Weapon",hud.FixedWeapon);hud.Elements["combat.killFeed"].Enabled=Flag("Kill Feed Enabled",hud.Elements["combat.killFeed"].Enabled);
+        var weapon=Rows.FirstOrDefault(r=>r.Category=="Display"&&r.Group=="View"&&r.Label=="Weapon presentation");
+        hud.FixedWeapon=weapon!=null?weapon.Value=="static":hud.FixedWeapon;hud.Elements["combat.killFeed"].Enabled=Flag("Kill Feed Enabled",hud.Elements["combat.killFeed"].Enabled);
         hud.Elements["core.radar"].Enabled=Flag("Enabled",hud.Elements["core.radar"].Enabled);hud.RadarBackground=Flag("Show Background",hud.RadarBackground);hud.RadarOutlines=Flag("Show Outlines",hud.RadarOutlines);
         if(_hud==null)
         {
@@ -177,7 +180,8 @@ internal sealed partial class NativeFullSettingsController : IDisposable
     {
         HudRequested=false;if(value==null)return;_hud=value.DeepClone();MarkAutoApplyEdited();
         void Set(string label,string val){var row=Rows.FirstOrDefault(r=>r.Category=="Display"&&r.Group=="HUD"&&r.Label==label);if(row!=null)row.Value=row.Choices.FirstOrDefault(c=>c.Equals(val,StringComparison.OrdinalIgnoreCase))??val;}
-        Set("Pro Hud",(value.Mode!=HudMode.Classic).ToString());Set("Pro Hud Fixed Weapon",value.FixedWeapon.ToString());
+        Set("Pro Hud",(value.Mode!=HudMode.Classic).ToString());
+        var weapon=Rows.FirstOrDefault(r=>r.Category=="Display"&&r.Group=="View"&&r.Label=="Weapon presentation");if(weapon!=null)weapon.Value=value.FixedWeapon?"static":"dynamic";
         Set("Kill Feed Enabled",value.Elements["combat.killFeed"].Enabled.ToString());
         Set("Enabled",value.Elements["core.radar"].Enabled.ToString());Set("Show Background",value.RadarBackground.ToString());Set("Show Outlines",value.RadarOutlines.ToString());
     }
@@ -189,7 +193,18 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         Add(typeof(LauncherPrefs),null,"Display","Window","WindowMode");
         Menu("Display","View","FieldOfView",null,RenderOptions.MinFov,RenderOptions.MaxFov);
         Menu("Display","Frame pacing","FrameRateCap",new[]{"display","30","60","75","90","100","120","144","165","180","200","240","360","unlimited"});
-        Menu("Display","Frame pacing","ShowFps",OnOff);
+        Menu("Display","View","ShowFps",OnOff);
+        Rows.Add(new("Display","View","Weapon presentation",
+            ()=>Features.ProHudFixedWeapon?"static":"dynamic",
+            value=>Features.ProHudFixedWeapon=value=="static",
+            value=>value is "static" or "dynamic"?null:"Choose Static (Quake) or Dynamic (Metroid).",
+            new[]{"static","dynamic"})
+        {
+            ChoiceLabels=new(StringComparer.OrdinalIgnoreCase){{"static","Static (Quake)"},{"dynamic","Dynamic (Metroid)"}},
+            Description="Applies while Pro mode HUD is enabled. Static keeps camera response immediate and holds the first-person weapon and reticle to the view. Dynamic lets the aim and reticle drift within the view. In stylus mode the camera follows gradually while the pen touches the aiming area and holds its offset when the pen lifts; shots keep their current aim direction. HUD readouts stay fixed to the screen in either mode.",
+            HintOverride="For Pro mode HUD: Static responds immediately with the weapon and reticle held to the view. Dynamic uses DS-style free aim. Hold the pen in the aiming area for gradual camera follow; lifting the pen holds the offset. Shots follow your current aim and HUD readouts stay screen-locked."
+        });
+        Rows[^1].HelpText=Rows[^1].Description;
         Menu("Display","HUD","SmoothNativeHud",OnOff);
         Add(typeof(LauncherPrefs),null,"Display","Campaign map","DetailedCampaignMap");
         if (!OperatingSystem.IsAndroid())
@@ -199,7 +214,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         }
         AddPrimitive(typeof(DsLayout),"Display","HUD preferences",new[]{"Enabled","ScreenAspect","RadarSize","RadarX","RadarY"});
         AddPrimitive(typeof(StylusZone),"Display","HUD preferences",new[]{"SelectSize"});
-        Add(typeof(Features),null,"Display","HUD","ProHud","KillFeedEnabled","ProHudFixedWeapon");
+        Add(typeof(Features),null,"Display","HUD","ProHud","KillFeedEnabled");
         Add(typeof(Crosshair),null,"Display","HUD","Size","Style");
         Add(typeof(Radar),null,"Display","HUD","Enabled","ShowBackground","ShowOutlines");
         Add(typeof(RenderOptions),null,"Display","Accessibility","BrightSkins","BrightSkinStyle","PlayerOutline","PlayerOutlineWidth");
@@ -219,7 +234,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         Menu("Graphics","Textures","TextureAnisotropy",new[]{"1","2","4","8","16"});
         Menu("Graphics","Textures","TextureUpscale",new[]{"off","scale2x","scale4x"});
         Menu("Graphics","Textures","TextureQuality",new[]{"automatic","low","medium","high","ultra"});
-        foreach(string p in new[]{"Lighting","AdvancedMaterials","Fog"}) Menu("Graphics","Lighting and atmosphere",p,OnOff);
+        foreach(string p in new[]{"Lighting","AdvancedMaterials","LinearColor","Fog"}) Menu("Graphics","Lighting and atmosphere",p,OnOff);
         Menu("Graphics","Lighting and atmosphere","ShadowQuality",new[]{"off","low","high","ultra"});
         Menu("Graphics","Cosmetics","ShowCustomCosmetics",OnOff);
         Menu("Graphics","Cosmetics","CosmeticQuality",new[]{"off","low","medium","high"});
@@ -310,6 +325,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         AddPrimitive(typeof(StylusZone),"Controls","Stylus guide",new[]{"NativeUi","NativeUiOpacity","CursorOpacity","OutlineOpacity","ButtonOpacity","GuideColor"});
         AddPrimitive(typeof(TouchSettings),"Controls","Touch overlay",new[]{"Mode","StylusResponse","DirectWeaponSelection","ButtonsVisible","ButtonScale","StickScale","OverlayOpacity"});
         Add(typeof(Network.DemoClip),null,"Replays","Clips","Seconds","PostRollSeconds");
+        Add(typeof(LauncherPrefs),null,"Replays","Recording","HighFidelityReplayRecording");
         Add(typeof(LauncherPrefs),null,"Replays","Storage","ReplayStorageLimitGb","ReplayAutoPrune","ReplayDeleteClips");
         Add(typeof(LauncherPrefs),null,"Replays","Playback","SpectatorNameTags","KillCamEnabled","KillCamCamera","FinalKillCamEnabled");
         Add(typeof(InputSettings),null,"Replays","Playback keys",typeof(InputSettings).GetProperties().Where(p=>p.Name.StartsWith("Replay",StringComparison.Ordinal)).Select(p=>p.Name).ToArray());
@@ -323,8 +339,9 @@ internal sealed partial class NativeFullSettingsController : IDisposable
             "Mouse and keyboard"=>row.Label is "Mouse Movement Boost" or "Mouse Alt Form Movement" or "Classic Morph Ball Touch" or "Stylus Movement Boost" or "Scroll All Weapons",
             "Stylus guide"=>row.Label is not ("Enabled" or "Native Ui"),_=>false
         };
-        foreach (var row in Rows) row.HudOnly = row.Group is "HUD" or "HUD preferences" || row.Label is "Show Fps" or "Combat Notifications Visible" or "Spectator Name Tags"
+        foreach (var row in Rows) row.HudOnly = row.Group is "HUD" or "HUD preferences" || row.Label is "Combat Notifications Visible" or "Spectator Name Tags"
             || row.Group == "Stylus guide" && row.Label is "Native Ui" or "Native Ui Opacity" or "Cursor Opacity" or "Outline Opacity" or "Button Opacity" or "Guide Color";
+        ConfigureSettingHelp();
         UpdateLegacyHints(_savedBindings);
     }
     private static readonly string[] OnOff={"off","on"};
@@ -336,9 +353,46 @@ internal sealed partial class NativeFullSettingsController : IDisposable
         var p=typeof(MenuSettings).GetProperty(name)!;
         bool volume=name.EndsWith("Volume",StringComparison.Ordinal);if(volume){min=0;max=100;}
         string Read(){string text=(string)p.GetValue(_settings)!;return volume&&double.TryParse(text,NumberStyles.Float,CultureInfo.InvariantCulture,out double n)?(n*100).ToString("0.###",CultureInfo.InvariantCulture):text;}
-        Rows.Add(new(category,group,Words(name)+(volume?" (%)":""),Read,v=>p.SetValue(_settings,volume?(double.Parse(v,CultureInfo.InvariantCulture)/100).ToString(CultureInfo.InvariantCulture):v),
+        string label=name switch {"ShowFps"=>"Show FPS","LinearColor"=>"Linear world color (next scene)",_=>Words(name)};
+        Rows.Add(new(category,group,label+(volume?" (%)":""),Read,v=>p.SetValue(_settings,volume?(double.Parse(v,CultureInfo.InvariantCulture)/100).ToString(CultureInfo.InvariantCulture):v),
             v=>choices!=null ? choices.Contains(v,StringComparer.OrdinalIgnoreCase)?null:"Choose: "+string.Join(", ",choices)
                 : Number(v,min,max,name is "FieldOfView" or "ResolutionScale" or "CelBands" or "CelEdge"),choices){Description=choices!=null?"Choose a value":$"{min}–{max}",Minimum=choices==null?min:null,Maximum=choices==null?max:null,WholeNumber=name is "FieldOfView" or "ResolutionScale" or "CelBands" or "CelEdge"});
+    }
+
+    private void ConfigureSettingHelp()
+    {
+        foreach(var row in Rows)
+        {
+            if(row.HelpText!=null)continue;
+            if(row.ChoiceLabels is {Count:>0})row.HelpText=string.Join("\n",row.Choices.Select(choice=>row.ChoiceLabels.GetValueOrDefault(choice,choice)+" ("+choice+")"));
+            else if(row.HintOverride!=null)row.HelpText=row.HintOverride;
+            else if(row.HasSlider)row.HelpText="Adjust "+row.Label+" within the displayed range ("+row.Description+"). The value field accepts precise entries.";
+            else if(row.Choices.Length>2)row.HelpText="Available options: "+string.Join(", ",row.Choices.Select(Words))+".";
+        }
+        void Help(string label,string text)
+        {var row=Rows.FirstOrDefault(r=>r.Label.Equals(label,StringComparison.OrdinalIgnoreCase));if(row!=null)row.HelpText=text;}
+        Help("Field Of View","Sets the first-person view angle in degrees. Higher values show more of the room at the sides; lower values zoom in.");
+        Help("Frame Rate Cap","Limits how many frames the game renders each second. Display follows the monitor refresh rate; Unlimited removes the cap.");
+        Help("Smooth Native Hud","Uses filtered sampling for enlarged original DS reticle, meter, and weapon-menu artwork. Turn it off to keep the original hard pixel edges.");
+        Help("Detailed Campaign Map","Shows room collision detail for explored rooms on the campaign pause map. Reopen the map for changes to take effect.");
+        Help("Original Campaign Credits","Plays animated cartridge credits after the campaign. Uses the mission receipt when the original credits are unavailable.");
+        Help("Pro Hud","Switches between the original DS HUD and the Project Prime HUD layout. The HUD editor offers custom placement, colors, and element styling.");
+        Help("Graphics Preset","Original restores the original rendering options. Performance enables filtering and mipmaps; Enhanced adds advanced materials; Ultra raises resolution scale and anisotropic filtering; Extreme raises resolution scale further. Custom keeps individually chosen graphics options.");
+        Help("Linear world color (next scene)","Uses linear-light color processing for the world. This opt-in setting is off by default and takes effect when the next scene starts. The native HUD remains unchanged.");
+        Help("Texture Sampling","Auto uses filtered, mipmapped sampling for replacement textures. Legacy preserves nearest-neighbor sampling. Custom follows the filtering, mipmap, and anisotropy settings below.");
+        Help("Texture Filtering","Smooths textures when they are enlarged. In Custom sampling mode, turn this off for nearest-neighbor filtering or on to enable filtering and anisotropy.");
+        Help("Texture Mipmaps","Uses smaller precomputed texture levels at a distance to reduce shimmer. This applies when filtering is enabled in Custom sampling mode.");
+        Help("Texture Anisotropy","Improves detail on textures viewed at a shallow angle. This applies when filtering is enabled in Custom sampling mode; higher values use more GPU work.");
+        Help("Texture Upscale","Pre-scales supported textures before rendering. 2x and 4x use progressively more memory and processing; Off keeps the source resolution.");
+        Help("Texture Quality","Sets the maximum quality of installed replacement textures. Automatic chooses the available level; lower levels reduce memory use.");
+        Help("Shadow Quality","Controls the quality of local real-time shadows. Higher settings can use more rendering time; Off disables shadows.");
+        Help("Show Custom Cosmetics","Displays optional custom cosmetic effects. Cosmetic Quality controls their detail and effect count.");
+        Help("Cosmetic Quality","Controls detail and effect counts for custom cosmetics. Off disables their effects; Low, Medium, and High increase detail and particle counts.");
+        Help("Kill Feed Enabled","Shows confirmed match deaths with the attacker, weapon or cause, victim, headshots, and team kills.");
+        Help("Style","Chooses the crosshair shape. Size applies to both the original DS reticle and Project Prime crosshairs.");
+        Help("Bright Skins","Highlights hunters for local visibility. Team modes use team colors; free-for-all uses suit colors.");
+        Help("Player Outline","Adds a local outline around hunters. Custom team and player colors are edited in Outline Colors.");
+        Help("Reduce Motion","Reduces optional animated menu and cosmetic effects. Gameplay timing and camera response are unchanged.");
     }
     private void AddPrimitive(Type type,string category,string group,string[]? names=null) => Add(type,null,category,group,
         names ?? type.GetProperties(BindingFlags.Public|BindingFlags.Static).Where(p=>p.SetMethod?.IsPublic==true && (p.PropertyType.IsPrimitive||p.PropertyType.IsEnum||p.PropertyType==typeof(string))).Select(p=>p.Name).ToArray());
@@ -438,7 +492,7 @@ internal sealed partial class NativeFullSettingsController : IDisposable
                 void Set(string label,object val){var target=Rows.FirstOrDefault(r=>r.Category=="Graphics"&&r.Label==label);if(target!=null)target.Value=Convert.ToString(val,CultureInfo.InvariantCulture)!.ToLowerInvariant();}
                 Set("Resolution Scale",profile.ResolutionScale);Set("Advanced Materials",RenderOptions.OnOff(profile.AdvancedMaterials));Set("Shadow Quality",profile.Shadows);
                 Set("Lighting",RenderOptions.OnOff(profile.Lighting));Set("Fog",RenderOptions.OnOff(profile.Fog));Set("Texture Filtering",RenderOptions.OnOff(profile.TextureFiltering));Set("Texture Mipmaps",RenderOptions.OnOff(profile.TextureMipmaps));Set("Texture Upscale",profile.TextureUpscale);Set("Texture Anisotropy",profile.TextureAnisotropy);
-                if(preset==GraphicsPreset.Original){Set("Texture Replacements","off");Set("Character Model Replacements","off");}
+                if(preset==GraphicsPreset.Original){Set("Linear world color (next scene)","off");Set("Texture Replacements","off");Set("Character Model Replacements","off");}
             }
         }
         Status=Dirty?(AutoApply?"Saving settings…":"Changes staged // Apply Changes to save."):"Saved settings.";return true; }

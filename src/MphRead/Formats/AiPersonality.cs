@@ -67,8 +67,8 @@ namespace MphRead.Formats
             {
                 aiOffset = 45696;
             }
-            else if (mode == GameMode.Capture
-                || mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic)
+            else if ((mode is GameMode.Capture or GameMode.CaptureTheFlag)
+                || mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic || mode == GameMode.Oddball)
             {
                 aiOffset = 32968;
             }

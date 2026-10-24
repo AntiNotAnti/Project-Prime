@@ -20,6 +20,10 @@ internal static class ReplayUiCheck
         var watch = typeof(TheatreWorkspace).GetMethod("WatchAsync", flags)!;
         var button = (HubNavButton)typeof(TheatreWorkspace).GetField("_watch", flags)!.GetValue(theatre)!;
         var status = (TextBlock)typeof(TheatreWorkspace).GetField("_status", flags)!.GetValue(theatre)!;
+        string LaunchState() => $"enabled={button.IsEnabled}, label='{button.Label}', status='{status.Text ?? "<null>"}', "
+            + $"selected='{typeof(TheatreWorkspace).GetField("_selected", flags)!.GetValue(theatre) ?? "<null>"}', "
+            + $"selectionGeneration={typeof(TheatreWorkspace).GetField("_selectionGeneration", flags)!.GetValue(theatre)}, "
+            + $"launching={typeof(TheatreWorkspace).GetField("_launching", flags)!.GetValue(theatre)}";
         void Select(string path) => select.Invoke(theatre, new object[] { path });
         Task Watch() => (Task)watch.Invoke(theatre, null)!;
         void Pump(Task task)
@@ -37,7 +41,7 @@ internal static class ReplayUiCheck
         Select(missing);
         Pump(Watch());
         if (!button.IsEnabled || button.Label != "LAUNCH CINEMATIC EDITOR" || String.IsNullOrEmpty(status.Text))
-            throw new Exception("Failed replay launch did not restore controls and explain failure.");
+            throw new Exception("Failed replay launch did not restore controls and explain failure. " + LaunchState());
 
         // A minimal legacy header is sufficient for the launch metadata probe.
         System.IO.File.WriteAllBytes(missing, DemoFile.Magic.Concat(new byte[] { 1, NetConfig.ProtocolVersion }).ToArray());
@@ -49,7 +53,7 @@ internal static class ReplayUiCheck
             Pump(Watch());
             if (launches != 1 || !button.IsEnabled || button.Label != "LAUNCH CINEMATIC EDITOR"
                 || status.Text?.Contains("LAUNCH CHECK FAILURE") != true)
-                throw new Exception("Launch exception stranded the library.");
+                throw new Exception($"Launch exception stranded the library. launches={launches}, " + LaunchState());
         }
         finally { theatre.Launched -= launch; System.IO.File.Delete(missing); }
 
@@ -91,6 +95,12 @@ internal static class ReplayUiCheck
                 window.Show();
                 try
                 {
+                    // Initial text/layout notifications can enqueue an empty-library
+                    // search refresh. Finish them before injecting selections that
+                    // deliberately do not belong to the library's entry collection.
+                    window.UpdateLayout();
+                    Dispatcher.UIThread.RunJobs();
+                    theatre.SearchCheck("");
                     CheckLaunchLifecycle(theatre, window);
                     for (int attempt = 0; attempt < 2; attempt++)
                     {

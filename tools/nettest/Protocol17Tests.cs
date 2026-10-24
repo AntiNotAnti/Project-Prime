@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 85, "current protocol train is 85");
+            Check(NetConfig.ProtocolVersion == 86, "current protocol train is 86");
             var readinessRefusal=new RefusedPacket{Reason=RefusedPacket.ReasonCustomWeaponReadiness,Players=2,MaxPlayers=8};
             var refusalBytes=new byte[RefusedPacket.Size];readinessRefusal.Write(refusalBytes);
             var decodedRefusal=RefusedPacket.Read(refusalBytes);
@@ -72,14 +72,14 @@ internal static class Protocol17Tests
             Check(!a.Accepts(new IPEndPoint(IPAddress.Loopback, 4321), sent)
                 && !a.Accepts(endpoint, sent with { ConnectionId = 8 }), "endpoint and incarnation fence");
             Span<byte> bytes = stackalloc byte[NetHeader.Size]; sent.Write(bytes);
-            Check(bytes[3] == 85 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol85 envelope round trip");
-            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84 })
+            Check(bytes[3] == 86 && NetHeader.TryRead(bytes, out var decoded) && decoded == sent, "protocol86 envelope round trip");
+            foreach (byte oldProtocol in new byte[] { 60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85 })
             {
                 bytes[3] = oldProtocol;
                 Check(!NetHeader.TryRead(bytes,out _),"old live envelope rejected despite preserved native payload contract: "+oldProtocol);
             }
-            bytes[3] = 86;
-            Check(!NetHeader.TryRead(bytes,out _),"unreviewed future86 live envelope rejected");
+            bytes[3] = 87;
+            Check(!NetHeader.TryRead(bytes,out _),"unreviewed future87 live envelope rejected");
             Check(SplitSnapshotBudgets(), "eight-player canonical state and actual split live/bootstrap lanes remain bounded");
             using var server = new NetTransport(0);
             using var client = new NetTransport(0);

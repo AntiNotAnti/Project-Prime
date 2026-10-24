@@ -13,6 +13,12 @@ static void Check(bool condition, string name)
     Console.WriteLine("RMLUI GL PASS " + name);
 }
 
+if (args.Length == 1 && args[0] == "--workspace-evidence")
+{
+    Console.WriteLine($"PASS {EditorGlAcceptance.CheckWorkspaceEvidence()} headless workspace diagnostic checks; no native host or GL");
+    return 0;
+}
+
 if (args.Length == 2 && args[0] == "--lobby-geometry")
     return LobbyGeometryAcceptance.Run(args[1]);
 

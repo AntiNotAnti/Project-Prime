@@ -115,6 +115,7 @@ namespace MphRead.Mods
                 RenderOptions.Preset = preset;
             RenderOptions.AdvancedMaterials = RenderOptions.ParseOnOff(settings.AdvancedMaterials,
                 RenderOptions.AdvancedMaterials);
+            RenderOptions.LinearColor = RenderOptions.ParseOnOff(settings.LinearColor, false);
             if (Enum.TryParse(settings.ShadowQuality, true, out ShadowQuality shadows))
                 RenderOptions.Shadows = shadows;
             RenderOptions.RetireExperimentalPostEffects();
@@ -123,6 +124,8 @@ namespace MphRead.Mods
                 && Enum.IsDefined(cosmeticQuality) ? cosmeticQuality : Cosmetics.CosmeticEffectQuality.Medium;
             RenderOptions.TextureReplacements = RenderOptions.ParseOnOff(settings.TextureReplacements,
                 RenderOptions.TextureReplacements);
+            RenderOptions.VideoTextures = RenderOptions.ParseOnOff(settings.VideoTextures, true);
+            RenderOptions.VideoTextureMemoryMiB = RenderOptions.ParseInt(settings.VideoTextureMemoryMiB, 512);
             RenderOptions.CharacterModelReplacements = RenderOptions.ParseOnOff(
                 settings.CharacterModelReplacements, RenderOptions.CharacterModelReplacements);
             if (Enum.TryParse(settings.TextureUpscale, true, out TextureUpscaleMode textureUpscale))
@@ -181,6 +184,19 @@ namespace MphRead.Mods
                 return;
             }
 
+            if (HeroModes.CtfRules.Active(state.Mode))
+            {
+                state.PointGoal = HeroModes.CtfRules.CaptureLimit;
+                state.MatchTime = HeroModes.CtfRules.MatchSeconds;
+                new Network.MatchDefinition
+                {
+                    Mode = state.Mode, FriendlyFire = settings.FriendlyFire == "on",
+                    AffinityWeapons = settings.AffinityWeapons == "on",
+                    SpawnProtection = settings.SpawnProtection == "on"
+                }.NormalizeLegacy().ApplyModifiers(state);
+                state.RadarPlayers = settings.HunterRadar == "on";
+                return;
+            }
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
                 throw new ArgumentException("MovementModel must be Native, Momentum, Quake3, Traversal or Parkour.", nameof(settings));
             if (!Multiplayer.MatchModifierRules.Validate(new Network.MatchDefinition

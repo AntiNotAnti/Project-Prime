@@ -2,11 +2,14 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MphRead;
+using MphRead.Mods.Render;
 using MphRead.Mods.Render.Materials;
 
 if (args.Length == 3 && args[0] == "--compare") { PixelCheck.Compare(args[1], args[2]); return; }
 if (args.Length == 3 && args[0] == "--pixels") { PixelCheck.Run(args[1], args[2]); return; }
 MipResidencyChecks.Run();
+ColorTexturePolicyCheck.Run();
 
 string root = Path.Combine(Path.GetTempPath(), "prime-material-check-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
@@ -33,6 +36,12 @@ try
     var pack = MaterialPack.Load(root);
     Check(pack.TryResolve(key, out var material) && material.Albedo?.Width == 1 && material.Normal != null
         && material.SpecularRoughness != null && material.Emissive != null, "all channels decoded");
+    Check(material.AlphaPolicy.Mode == TextureAlphaMode.Legacy && material.AlphaPolicy.Cutoff == 0.5f
+        && material.AlphaFactor == 1f && material.WrapS == null && material.WrapT == null
+        && material.Albedo?.WrapPolicy == null
+        && material.Albedo?.Prepare(TextureAssetClass.World, TextureAssetChannel.Albedo, 1,
+            linearFiltering: true).Semantics.Wrap == null,
+        "format-1 manifests keep legacy alpha defaults and leave unspecified wrap unknown");
     var resolved = new MaterialResolver(root).Resolve("Samus", 3, 0, 0);
     static bool SameImage(MaterialImage? a, MaterialImage? b) => a == null ? b == null
         : b != null && a.Path == b.Path && a.Width == b.Width && a.Height == b.Height;
@@ -40,6 +49,29 @@ try
         && SameImage(resolved.Normal, material.Normal)
         && SameImage(resolved.SpecularRoughness, material.SpecularRoughness)
         && SameImage(resolved.Emissive, material.Emissive), "shared manifest resolution retains all channel paths and dimensions");
+    Manifest(new MaterialPackEntry { Key = key.Value, Albedo = "pixel.png", AlphaMode = TextureAlphaMode.Mask,
+        AlphaCutoff = 0.35f, AlphaFactor = 0.75f, AlbedoTransfer = TextureTransferFunction.Linear });
+    pack = MaterialPack.Load(root);
+    Check(pack.TryResolve(key, out material) && material.AlphaPolicy.Mode == TextureAlphaMode.Mask
+        && material.AlphaPolicy.Cutoff == 0.35f && material.AlphaFactor == 0.75f
+        && material.Albedo?.TransferOverride == TextureTransferFunction.Linear,
+        "format-1 manifest preserves authored alpha policy, factor, and transfer metadata");
+    Manifest(new MaterialPackEntry { Key = key.Value, Albedo = "pixel.png",
+        WrapS = RepeatMode.Mirror, WrapT = RepeatMode.Clamp });
+    pack = MaterialPack.Load(root);
+    Check(pack.TryResolve(key, out material) && material.WrapS == RepeatMode.Mirror
+        && material.WrapT == RepeatMode.Clamp
+        && material.Albedo is { } wrappedAlbedo
+        && wrappedAlbedo.WrapPolicy == new TextureWrapPolicy(RepeatMode.Mirror, RepeatMode.Clamp)
+        && wrappedAlbedo.Prepare(TextureAssetClass.World, TextureAssetChannel.Albedo, 1,
+            linearFiltering: true).Semantics.Wrap == wrappedAlbedo.WrapPolicy,
+        "format-1 manifest preserves paired per-axis wrap metadata through prepared-image identity");
+    Manifest(new MaterialPackEntry { Key = key.Value, Albedo = "pixel.png", WrapS = RepeatMode.Repeat });
+    Reject(() => MaterialPack.Load(root), "material wrap metadata requires both axes");
+    Manifest(new MaterialPackEntry { Key = key.Value, Normal = "pixel.png", NormalTransfer = TextureTransferFunction.Srgb });
+    Reject(() => MaterialPack.Load(root), "numeric channel rejects an sRGB transfer override");
+    Manifest(new MaterialPackEntry { Key = key.Value, AlphaFactor = 1.01f });
+    Reject(() => MaterialPack.Load(root), "alpha factor range is validated");
     Manifest(new MaterialPackEntry() { Key = key.Value, Normal = "missing.png" });
     pack = MaterialPack.Load(root);
     Check(pack.Issues.Count == 1 && !pack.Issues[0].Error && pack.TryResolve(key, out material) && material.Albedo == null, "optional maps fail soft");

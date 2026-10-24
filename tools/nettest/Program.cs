@@ -1177,6 +1177,8 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
             if (args.Length > 0 && args[0] == "--replay-fidelity-export") return ReplayFidelityExportTests.Run(args.Length > 1 ? args[1] : null);
             if (args.Length > 0 && args[0] == "--replay-owner-track") return ReplayOwnerTrackTests.Run();
+            if (args.Length > 0 && args[0] == "--replay-checkpoint-prefetch") return ReplayCheckpointPrefetchTests.Run();
+            if (args.Length > 0 && args[0] == "--replay-parity-report") return ReplayParityReportTests.Run();
             if (args.Length > 2 && args[0] == "--replay-owner-scene") return ReplayOwnerSceneTests.Run(args[1], args[2]);
             if (args.Length > 0 && args[0] == "--replay-director-shots") return ReplayDirectorShotTests.Run();
             if (args.Length > 0 && args[0] == "--replay-context-analysis") return ReplayContextAnalysisTests.Run();

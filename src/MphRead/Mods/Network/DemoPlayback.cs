@@ -87,7 +87,7 @@ public static partial class DemoPlayback
     }
     internal static int CheckpointCount => _player?.CheckpointCount ?? 0;
     internal static string SeekDiagnostics => _player == null ? "" :
-        $"{_player.CheckpointSource} restore {_player.SeekRestoreFrame} · {_player.SeekSimulationSteps} steps · {_player.SeekMilliseconds:0.0} ms · {_player.RejectedCheckpoints} rejected";
+        $"{_player.CheckpointSource} restore {_player.SeekRestoreFrame} · {_player.SeekSimulationSteps} steps · {_player.SeekMilliseconds:0.0} ms · update {_player.LastUpdateMilliseconds:0.0} ms · rebuild {_player.LastRebuildMilliseconds:0.0} ms · read {_player.LastCheckpointReadMilliseconds:0.0} ms · {_player.CoalescedSeeks} coalesced · {_player.RejectedCheckpoints} rejected";
     internal static void Update(Scene shell)
     {
         if (!IsActive) return;
@@ -170,7 +170,7 @@ public static partial class DemoPlayback
         before.PollReplayControls();
         bool silent = !_player.Ready || _player.Transport.IsPaused || _player.Transport.AtEnd;
         if (silent) { ReplayAudioOwner.Release(_audio); _audio = 0; }
-        _player.Update(maximumMilliseconds: IsCustomPlayback ? 5 : double.PositiveInfinity);
+        _player.Update(maximumMilliseconds: IsCustomPlayback ? 5 : PassiveReplayPlayer.InteractiveBudgetMilliseconds);
         Scene current = _player.Current.Scene;
         if (_player.Ready && !_presentationFailed && IsCustomPlayback && !silent && _audio == 0)
             _audio = ReplayAudioOwner.Acquire(current, _shell);

@@ -33,6 +33,23 @@ internal static class SettingsOrganizationAcceptance
             }
             capture?.Invoke("settings-"+name);
         }
+        void Activate(string id)
+        {
+            Check(host.FocusDocument(page.Document,id),"focus destination "+id);
+            host.Input.Key(2,true);host.Input.Key(2,false);host.Update();
+            Check(host.TryTakeIntent(out var intent)&&page.Handle(intent),"native destination action "+id);
+            page.Refresh();host.Update();
+        }
+        Check(!HasBounds("native_settings_hud"),"HUD Studio is absent from the Settings overview toolbar");
+        Activate("native_settings_overview_0");
+        Check(Get<bool>("_categoryLanding")&&HasBounds("native_settings_hud"),"Display exposes HUD Studio as a main destination");
+        Check(host.TryGetElementBounds(page.Document,"native_settings_hud",out _,out _,out float hudWidth,out float hudHeight)
+            &&hudWidth>=120&&hudHeight>=60,"HUD Studio has a prominent Display card hit area");
+        Capture("display-hud-studio");
+        Activate("native_settings_hud");
+        Check(page.TryTakeOpenHud(out var hudDraft)&&hudDraft.Elements.Count==15,"Display HUD Studio card hands off a complete HUD draft");
+        Check(page.Back()&&Get<bool>("_overview"),"Display returns to the Settings overview after the detached HUD request");
+        page.Refresh();host.Update();
         Check(Get<bool>("_overview")&&HasBounds("native_settings_overview_3"),"Settings opens a real native overview");
         Capture("overview");
         Send(RmlUiIntentKind.SettingsCategory,3);

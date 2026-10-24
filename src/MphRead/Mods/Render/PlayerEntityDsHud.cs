@@ -76,27 +76,25 @@ public partial class PlayerEntity
         var background=HudProfiles.Runtime.Decorations.Get("background");
         var weapon=HudProfiles.Runtime.Decorations.Get("weapons");
         if(_dsTint==StylusZone.GuideColor && _dsBgInk==background.Ink && _dsWeaponInk==weapon.Ink && _dsAdvances!=null)return;
-        using var font=typeof(PlayerEntity).Assembly.GetManifestResourceStream("MphRead.Assets.DsHud.font.bin")!;
-        using var reader=new BinaryReader(font);
-        _dsAdvances ??= new float[96];
-        for(int i=0;i<96;i++)_dsAdvances[i]=reader.ReadSingle();
-        byte[] alpha=reader.ReadBytes(768*384);
+        var font = HudAssetReader.DsFont;
+        _dsAdvances = font.Advances;
+        byte[] alpha = font.Alpha;
         ColorRgba[] ink={new((byte)(StylusZone.GuideRed*255),(byte)(StylusZone.GuideGreen*255),(byte)(StylusZone.GuideBlue*255),255), new(111,203,240,255),new(221,114,187,255),new(255,106,106,255)};
         var pixels=new ColorRgba[alpha.Length];
         for(int c=0;c<4;c++)
         {
             for(int i=0;i<pixels.Length;i++)pixels[i]=new(ink[c].Red,ink[c].Green,ink[c].Blue,alpha[i]);
-            if(_dsFonts[c]==0)_dsFonts[c]=_scene.BindGetTexture(pixels,768,384);
-            else _scene.BindTexture(pixels,768,384,_dsFonts[c]);
+            if(_dsFonts[c]==0)_dsFonts[c]=_scene.BindGetTexture(pixels,768,384,sceneColor:false);
+            else _scene.BindTexture(pixels,768,384,_dsFonts[c],sceneColor:false);
         }
-        using var bg=typeof(PlayerEntity).Assembly.GetManifestResourceStream("MphRead.Assets.DsHud.background.rgb")!;
-        byte[] rgb=new byte[768*576*3];bg.ReadExactly(rgb);pixels=new ColorRgba[768*576];
+        byte[] rgb = HudAssetReader.DsBackground;
+        pixels = new ColorRgba[768*576];
         for(int i=0;i<pixels.Length;i++)pixels[i]=new(
             (byte)Math.Clamp(rgb[i*3]*background.Ink.X/(162/255f),0,255),
             (byte)Math.Clamp(rgb[i*3+1]*background.Ink.Y/(211/255f),0,255),
             (byte)Math.Clamp(rgb[i*3+2]*background.Ink.Z/(240/255f),0,255),255);
-        if(_dsBackground==0)_dsBackground=_scene.BindGetTexture(pixels,768,576);
-        else _scene.BindTexture(pixels,768,576,_dsBackground);
+        if(_dsBackground==0)_dsBackground=_scene.BindGetTexture(pixels,768,576,sceneColor:false);
+        else _scene.BindTexture(pixels,768,576,_dsBackground,sceneColor:false);
         for(int frame=0;frame<9;frame++)
         {
             var icon=_weaponListIcons[frame];if(icon==null)continue;
@@ -114,8 +112,8 @@ public partial class PlayerEntity
                 for(int dy=-2;dy<=2&&!edge;dy++)for(int dx=-2;dx<=2;dx++)if(Ink(x+dx,y+dy)!=center){edge=true;break;}
                 texture[y*ow+x]=new((byte)(weapon.Ink.X*255),(byte)(weapon.Ink.Y*255),(byte)(weapon.Ink.Z*255),edge?(byte)255:center?(byte)41:(byte)0);
             }
-            if(_dsIcons[frame]==0)_dsIcons[frame]=_scene.BindGetTexture(texture,ow,oh);
-            else _scene.BindTexture(texture,ow,oh,_dsIcons[frame]);
+            if(_dsIcons[frame]==0)_dsIcons[frame]=_scene.BindGetTexture(texture,ow,oh,sceneColor:false);
+            else _scene.BindTexture(texture,ow,oh,_dsIcons[frame],sceneColor:false);
         }
         _dsTint=StylusZone.GuideColor;_dsBgInk=background.Ink;_dsWeaponInk=weapon.Ink;
     }

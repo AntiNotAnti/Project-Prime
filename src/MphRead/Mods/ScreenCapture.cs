@@ -72,6 +72,41 @@ namespace MphRead.Mods
 
         private static readonly System.Threading.SemaphoreSlim ThumbnailSlots = new(1);
         private static readonly object PngGate = new();
+
+        // Export readback stays on the GL owner. Black-frame validation, encoding
+        // and file creation run only after the detached buffer reaches its worker.
+        internal static Replay.ReplayExportPixels ReadExportFrame(Scene scene, bool composite, string path)
+        {
+            byte[]? pixels = composite ? scene.ReadWindowBuffer(out int width, out int height)
+                : scene.ReadSceneTarget(out width, out height);
+            if (pixels == null || width <= 0 || height <= 0)
+                throw new IOException("The renderer did not provide export pixels.");
+            return new(pixels, width, height, path);
+        }
+
+        internal static Action<Replay.ReplayExportPixels> ExportPngWriter()
+        {
+            var writer = PngWriter;
+            return frame =>
+            {
+                if (LitFraction(frame.Pixels) < MinLitFraction)
+                    throw new IOException($"{Path.GetFileName(frame.Path)} came out black "
+                        + $"({frame.Width}x{frame.Height}); export stopped.");
+                string? directory = Path.GetDirectoryName(frame.Path);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                lock (PngGate)
+                {
+                    if (writer != null) writer(frame.Pixels, frame.Width, frame.Height, frame.Path);
+                    else
+                    {
+                        using var stream = File.Create(frame.Path);
+                        StbImage.FlipVerticallyOnSave = true;
+                        global::MphRead.Mods.PngEncoder.Write<byte>(frame.Pixels,
+                            frame.Width, frame.Height, StbiImageFormat.Rgb, stream);
+                    }
+                }
+            };
+        }
         // Readback must run on the GL owner. The returned task owns only detached pixels.
         internal static System.Threading.Tasks.Task<bool>? QueueThumbnail(Scene scene, string path)
         {
@@ -109,14 +144,13 @@ namespace MphRead.Mods
             catch { ThumbnailSlots.Release(); throw; }
         }
 
-        internal static void QueueCosmeticThumbnail(int x, int y, int width, int height, string path)
+        internal static void QueueCosmeticThumbnail(Render.CaptureSource source, int x, int y, int width, int height, string path)
         {
-            if (File.Exists(path) || width <= 0 || height <= 0 || width > 2048 || height > 2048 || !ThumbnailSlots.Wait(0)) return;
+            if (File.Exists(path) || x < 0 || y < 0 || width <= 0 || height <= 0 || width > 2048 || height > 2048
+                || (long)x + width > source.Width || (long)y + height > source.Height || !ThumbnailSlots.Wait(0)) return;
             try
             {
-                byte[] pixels = new byte[width * height * 3];
-                GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
-                GL.ReadPixels(x, y, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, pixels);
+                byte[] pixels = Render.CaptureReadback.ReadRegion(source, x, y, width, height);
                 var writer = PngWriter;
                 _ = System.Threading.Tasks.Task.Run(() =>
                 {

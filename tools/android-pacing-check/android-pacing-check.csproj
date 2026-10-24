@@ -10,6 +10,7 @@
     <Compile Include="../../src/MphRead/Mods/Render/ShadowReceiverShader.cs" Link="ShadowReceiverShader.cs" />
     <Compile Include="../../src/MphRead/Shaders.cs" Link="Shaders.cs" />
     <Compile Include="../../src/MphRead/Mods/Render/EsShaders.cs" Link="EsShaders.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/SceneColorShaderSource.cs" Link="SceneColorShaderSource.cs" />
     <Compile Include="../../src/MphRead/Mods/Cosmetics/CosmeticShader.cs" Link="CosmeticShader.cs" />
     <Compile Include="../../src/MphRead.Android/AndroidFramePacer.cs" Link="AndroidFramePacer.cs" />
     <Compile Include="../../src/MphRead.Android/AndroidGcTelemetry.cs" Link="AndroidGcTelemetry.cs" />

@@ -1159,12 +1159,28 @@ namespace MphRead.Mods.Launcher.Gui
             return true;
         }
 
+        internal static bool SuspendSettingsPreview()
+        {
+            if (_menu == null) return false;
+            UiSurface.Current?.Hide();
+            PauseMenu.MarkClosed();
+            return true;
+        }
+        internal static void RestoreSettingsPreview()
+        {
+            if (_menu == null) return;
+            UiSurface.Current?.Show(_menu);
+            PauseMenu.MarkOpen();
+            _menu.Top?.Focus();
+        }
+
         /// <summary>Take it down and give the match its input back.</summary>
         internal static void CloseMenu()
         {
 #if MPHREAD_RMLUI_GL_SMOKE && MPHREAD_SHELL && !ANDROID && !MPHREAD_SERVER
             MphRead.Mods.Launcher.RmlUi.Render.RmlUiOpenGlSmoke.CloseGameplayPause();
 #endif
+            SettingsPreview.End();
             if (_menu == null)
             {
                 return;

@@ -3,5 +3,6 @@
   <ItemGroup>
     <Compile Include="$(EncoderJobSource)" Link="ReplayEncoderJob.cs" />
     <Compile Include="../../src/MphRead/Mods/Replay/ReplayEncoderProgress.cs" Link="ReplayEncoderProgress.cs" />
+    <Compile Include="../../src/MphRead/Mods/Replay/ReplayExportWorkDirectory.cs" />
   </ItemGroup>
 </Project>

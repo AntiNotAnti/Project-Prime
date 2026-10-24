@@ -110,3 +110,17 @@ src/MphRead/Assets/HudFonts/font[0-3][0-9].bin
 src/MphRead/Assets/HudFonts/font17.ttf
 # User-supplied authored dual-screen presentation artwork/font, from v20.
 src/MphRead/Assets/DsHud/font.bin
+
+# Exact user-supplied authored CTZ/Payload runtime bundles: recipe geometry,
+# supplied material images and custom FPTX fallbacks; no extracted cartridge
+# models/textures/audio or native game binaries. Authoring folders stay excluded.
+maps/capture-the-zone.ppmap
+maps/payload-district.ppmap
+
+# User-supplied CTF objective presentation retained by the custom integration:
+# the supplied Sanctuary banner atlas and three uploaded announcement clips.
+# Exact resources only; extracted game artwork/audio remains excluded.
+src/MphRead/Assets/Ctf/SanctuaryBanners.png
+src/MphRead/Assets/Sounds/Ctf/flag_dropped.wav
+src/MphRead/Assets/Sounds/Ctf/flag_reset.wav
+src/MphRead/Assets/Sounds/Ctf/flag_taken.wav

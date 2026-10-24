@@ -21,12 +21,25 @@ internal sealed class ReplayAuthorityCaptureScratch
         Nodes = new ReplayNodeState[ReplayAuthorityWorld.MaximumEntities],
         Pickups = new ReplayPickupState[ReplayAuthorityWorld.MaximumEntities],
         Drops = new ReplayDropState[ReplayAuthorityWorld.MaximumEntities],
-        Doors = new ReplayDoorState[ReplayAuthorityWorld.MaximumEntities]
+        Doors = new ReplayDoorState[ReplayAuthorityWorld.MaximumEntities],
+        Support = new HeroModes.CtzSupportState[8],
+        Combat = new HeroModes.CtzCombatRow[8]
     };
     internal ReplayAuthorityWorld Capture(Scene scene, ushort match, ulong epoch, uint tick, Func<ItemInstanceEntity, int> identify)
     {
         var world = _frames[_next]; _next ^= 1;
         world.MatchId = match; world.Epoch = epoch; world.Tick = tick;
+        world.Payload = HeroModes.HeroRules.IsPayload(scene.GameState.Mode) ? scene.Payload.Frame : null;
+        world.Zone = HeroModes.HeroRules.IsZone(scene.GameState.Mode) ? scene.CaptureZone.State : null;
+        world.Ball=scene.GameState.Mode==GameMode.Oddball ? scene.GameState.Oddball?.CaptureSnapshot()??[] : [];
+        if(world.Zone != null || world.Payload != null)
+        {
+            if(world.Support.Length!=8)world.Support=new HeroModes.CtzSupportState[8];
+            for(int slot=0;slot<8;slot++) world.Support[slot]=scene.Players.Items[slot].ModCaptureCtzSupport();
+
+        }
+        if(world.Zone==null && world.Payload==null) world.Support=[];
+        scene.GameState.CtzStats.Capture(world.Combat);
         ReplayAuthorityWorld.CaptureObjectiveStats(scene.GameState, world.ObjectiveStats);
         world.NextTokenId = scene.GameState.NextTokenId;
         ReplayAuthorityWorld.CaptureTokenStats(scene.GameState, world.TokenStats);

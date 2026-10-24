@@ -12,7 +12,7 @@
 // reused within this process. The consumer must reject a different version.
 constexpr uint32_t PP_RMLUI_PROTOCOL_VERSION = 1;
 // Action arguments are append-only; the packet layout and ABI version remain unchanged.
-constexpr uint32_t PP_RMLUI_REPLAY_ACTION_COUNT = 307;
+constexpr uint32_t PP_RMLUI_REPLAY_ACTION_COUNT = 317;
 constexpr uint32_t PP_RMLUI_STUDIO_ACTION_COUNT = 224;
 enum class PrimeIntentKind : uint32_t {
     Navigate = 1, Quit = 2, OpenStudio = 3, StageSelect = 4, StagePreview = 5,

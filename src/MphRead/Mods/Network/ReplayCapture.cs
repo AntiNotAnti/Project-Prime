@@ -94,7 +94,7 @@ namespace MphRead.Mods.Network
                 { _worldCaptureFailed = true; Console.WriteLine("[replay] Authority world capture unavailable: " + ex.Message); }
             }
             if (NetSession.IsAuthority) AuthorityRecordingOwner?.CaptureCustomReplayState(scene);
-            WorldCapture.SetEnabled(NeedsWorld);
+            WorldCapture.SetEnabled(NeedsWorld && !Mods.HeroModes.HeroRules.Active(scene.GameState.Mode));
             WorldCapture.Advance(NetSession.NetFrame, scene.Size);
             DemoRecorder.Tick();
             ServerReplayRecorder.Tick();

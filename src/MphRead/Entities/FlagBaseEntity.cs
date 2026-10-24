@@ -32,11 +32,12 @@ namespace MphRead.Entities
             {
                 SetUpModel("flagbase_cap");
             }
-            _capture = mode == GameMode.Capture;
+            _capture = mode == GameMode.Capture || mode == GameMode.CaptureTheFlag;
         }
 
         public override bool Process()
         {
+            if (_scene.GameState.Mode == GameMode.Oddball) return true;
             if (Mods.Network.NetObjectiveSync.IsClient(_scene)) return true;
             if (_scene.GameState.Mode == GameMode.Headhunter)
             {
@@ -60,7 +61,9 @@ namespace MphRead.Entities
                     {
                         if (player == _scene.Players.Main)
                         {
-                            _scene.Players.Main.QueueHudMessage(128, 50, 1 / 1000f, 0, 232); // your octolith is missing!
+                            if (_scene.GameState.Mode == GameMode.CaptureTheFlag)
+                                _scene.Players.Main.QueueHudMessage(128, 50, 1 / 1000f, 0, "YOUR FLAG MUST BE HOME");
+                            else _scene.Players.Main.QueueHudMessage(128, 50, 1 / 1000f, 0, 232); // your octolith is missing!
                         }
                         continue;
                     }
@@ -69,6 +72,8 @@ namespace MphRead.Entities
             }
             return true;
         }
+
+        internal bool CtfContains(Vector3 position) => _volume.TestPoint(position);
 
         private bool CheckOwnOctolith(PlayerEntity player)
         {

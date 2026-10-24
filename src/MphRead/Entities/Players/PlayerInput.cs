@@ -26,6 +26,7 @@ namespace MphRead.Entities
             // shot after a death, freeze, transformation or scripted lock.
             if (_health <= 0 || _frozenTimer > 0 || _field6D0 || IsAltForm || IsMorphing || IsUnmorphing)
                 _voltTapBuffer.Reset();
+            if (_scene.GameState.Mode == GameMode.Oddball && _scene.GameState.Oddball?.IsIntermission == true) return;
             var replication = _scene.Services.PlayerReplication;
             if (replication.Active && !IsBot)
             {
@@ -565,8 +566,33 @@ namespace MphRead.Entities
                     Fixed.ToFloat(3956) * _gunVec1 + Fixed.ToFloat(1060) * tangent,
                     _gunVec1);
             }
+            // Dynamic/Metroid keeps the native free-aim cone. Its local camera
+            // follows the pen separately, once after both aim axes have been
+            // consumed, so idle axes cannot pull the camera toward the shot.
+            // Remote players and fixed weapons retain their existing easing.
+            if (IsMainPlayer && !IsBot && !_scene.Services.IsReplica
+                && !IsAltForm && !EquipInfo.Zoomed && !Features.FixedWeapon)
+            {
+                return;
+            }
             Vector3 temp2 = _gunVec1 - _facingVector;
             _facingVector = NormalizeSpatialOr(_facingVector + temp2 * 0.1f, _gunVec1);
+        }
+
+        private void UpdateStylusAimFollow()
+        {
+            if (IsMainPlayer && !IsBot && !_scene.Services.IsReplica
+                && !IsAltForm && !EquipInfo.Zoomed && !Features.FixedWeapon
+                && !ModCustomScopeActive && !Flags1.TestFlag(PlayerFlags1.NoAimInput)
+                && Mods.Input.PointerDevice.AimContact
+                && _scene.CameraSequences.Current?.Flags.TestFlag(CamSeqFlags.BlockInput) != true
+                && !_scene.FrameAdvance && !_scene.FrameAdvanceLastFrame)
+            {
+                // Hold the shot direction steady while the camera catches up.
+                // Apply once per 60 Hz input step, never once per axis or render.
+                _facingVector = NormalizeSpatialOr(
+                    _facingVector + (_gunVec1 - _facingVector) * 0.1f, _gunVec1);
+            }
         }
 
         private float AimScopeBlend()
@@ -736,6 +762,7 @@ namespace MphRead.Entities
         {
             if (IsBot && _scene.MomentumOwnsPlayer(this))
                 ModUpdateTraversalStance(Controls.Crouch.IsDown && (IsBot || _scene.DeveloperMomentumInputAllowed));
+            bool flagInputConsumed = ModProcessCtfInteraction();
             if (IsMainPlayer && _scene.GameState.SinglePlayer && _scene.CameraSequences.Current != null)
             {
                 _timeIdle = 0;
@@ -808,6 +835,7 @@ namespace MphRead.Entities
                     UpdateHudShiftX(aimX);
                     UpdateAimY(aimY);
                     UpdateAimX(aimX);
+                    UpdateStylusAimFollow();
                     if (Flags1.TestFlag(PlayerFlags1.Grounded))
                     {
                         // sktodo: threshold values
@@ -1029,6 +1057,7 @@ namespace MphRead.Entities
             UpdateCamera();
             UpdateAimVecs();
             _scene.OfflineWeapons?.CompleteInput(this);
+            ModOddballInput();
             NetShotInputHistory.Capture(this, _frozenTimer == 0 && _health > 0 && !_field6D0
                 && !ScanVisor && !IsUnmorphing && !IsAltForm);
             if (_frozenTimer == 0 && _health > 0 && !_field6D0)
@@ -1057,8 +1086,8 @@ namespace MphRead.Entities
                         StopBeamChargeSfx(CurrentWeapon);
                     }
                 }
-                if (scanInput || IsUnmorphing) _voltTapBuffer.Reset();
-                if (!scanInput && !IsUnmorphing)
+                if (scanInput || IsUnmorphing || ModOddballBlocksCombat) _voltTapBuffer.Reset();
+                if (!scanInput && !IsUnmorphing && !ModOddballBlocksCombat)
                 {
                     ModSynchronizeCustomNativeSuppression();
                     // Native Volt accepts a real tap made during cooldown at the
@@ -1083,8 +1112,9 @@ namespace MphRead.Entities
                             Flags2 |= PlayerFlags2.Shooting;
                             Flags2 &= ~PlayerFlags2.NoShotsFired;
                         }
-                        if (!_availableCharges[CurrentWeapon] || !EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge))
+                        if (!_availableCharges[CurrentWeapon] || !EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || ModCtzChargeBlocked)
                         {
+                            if (ModCtzChargeBlocked && EquipInfo.ChargeLevel > 0) StopBeamChargeSfx(CurrentWeapon);
                             EquipInfo.ChargeLevel = 0;
                         }
                         else
@@ -1148,7 +1178,7 @@ namespace MphRead.Entities
                         }
                         if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
                         {
-                            if (Controls.Zoom.IsPressed)
+                            if (!flagInputConsumed && !ModCarryingCtfFlag && Controls.Zoom.IsPressed)
                             {
                                 UpdateZoom(!EquipInfo.Zoomed);
                             }
@@ -1245,8 +1275,8 @@ namespace MphRead.Entities
                     }
                     // the game doesn't require pressed here, but presumably the control scheme would have the pressed flag
                     // todo: use the ability flag for the morph touch button too, even though the game doesn't
-                    if (!Flags2.TestFlag(PlayerFlags2.BipedStuck) && _abilities.TestFlag(AbilityFlags.AltForm)
-                        && Controls.Morph.IsPressed || IsMainPlayer && _scene.CameraSequences.Current?.ForceAlt == true)
+                    if (!ModCarryingCtfFlag && ((!Flags2.TestFlag(PlayerFlags2.BipedStuck) && _abilities.TestFlag(AbilityFlags.AltForm)
+                        && Controls.Morph.IsPressed) || (IsMainPlayer && _scene.CameraSequences.Current?.ForceAlt == true)))
                     {
                         if (TrySwitchForms() && IsMainPlayer && IsMorphing)
                         {
@@ -1326,6 +1356,9 @@ namespace MphRead.Entities
         private bool TryFireWeapon(bool bufferedVoltPress = false)
         {
             if(ModCustomOwnsBipedControls)return false;
+            if (ModOddballBlocksCombat || ModCarryingCtfFlag) return false;
+
+            if (Mods.HeroModes.PayloadRuntime.Locked(this)) return false;
             if (!NetFireEvents.CanFire(this)) return false;
             bool exactReplayFire = _scene.Services.IsReplica && NetFireEvents.HasPending(this);
             if (_scene.AimTrainer is { } trainer)
@@ -1343,11 +1376,12 @@ namespace MphRead.Entities
                 return false;
             }
             bool pressed = Controls.Shoot.IsPressed || bufferedVoltPress;
-            bool balancedBurst = BalancedModeRules.IsBattlehammerBurst(
+            bool ctzBurst = Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) && CurrentWeapon == BeamType.Battlehammer;
+            bool balancedBurst = ctzBurst || BalancedModeRules.IsBattlehammerBurst(
                 _scene.GameState.Multiplayer, _scene.GameState.BalancedMode, CurrentWeapon);
-            int shotCooldownFrames = balancedBurst
+            int shotCooldownFrames = ctzBurst ? Mods.HeroModes.CtzRules.BurstPeriodTicks : balancedBurst
                 ? BalancedModeRules.BattlehammerBurstCooldownFrames : EquipWeapon.ShotCooldown * 2;
-            if (pressed || CurrentWeapon != BeamType.PowerBeam)
+            if (pressed || CurrentWeapon != BeamType.PowerBeam || Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
             {
                 _autofireCooldown = (ushort)(balancedBurst
                     ? shotCooldownFrames : EquipWeapon.AutofireCooldown * 2); // todo: FPS stuff
@@ -1407,11 +1441,10 @@ namespace MphRead.Entities
             if (!Features.FixedWeapon
                 && (!Features.ResponsiveAimCamera || dynamicProReticle))
             {
-                Matrix.ProjectPosition(_aimPosition, CameraInfo.ViewMatrix,
+                float reticleW = Matrix.ProjectPosition(_aimPosition, CameraInfo.ViewMatrix,
                     _scene.PerspectiveMatrix, out shotReticle);
-                shotReticle = new Vector2(MathF.Round(shotReticle.X, 5),
-                    MathF.Round(shotReticle.Y, 5));
-                shotReticleValid = float.IsFinite(shotReticle.X)
+                shotReticle = new Vector2(MathF.Round(shotReticle.X, 5), MathF.Round(shotReticle.Y, 5));
+                shotReticleValid = reticleW > 0 && float.IsFinite(shotReticle.X)
                     && float.IsFinite(shotReticle.Y)
                     && shotReticle.X is >= 0 and <= 1
                     && shotReticle.Y is >= 0 and <= 1;
@@ -2767,7 +2800,8 @@ namespace MphRead.Entities
                 else
                 {
                     bool strafing = Flags1.TestFlag(PlayerFlags1.Strafing);
-                    _hSpeedCap = Fixed.ToFloat(strafing ? Values.StrafeSpeedCap : Values.WalkSpeedCap); // todo: FPS stuff?
+                    _hSpeedCap = Fixed.ToFloat(strafing ? Values.StrafeSpeedCap : Values.WalkSpeedCap)
+                        * (ModCarryingCtfFlag ? Mods.HeroModes.CtfRules.CarrierSpeedMultiplier : 1f); // todo: FPS stuff?
                 }
                 if (IsPrimeHunter && !IsAltForm)
                 {
@@ -3177,6 +3211,8 @@ namespace MphRead.Entities
                 {
                     continue;
                 }
+                if (ReferenceEquals(player.OwningScene, Mods.Network.NetTestScript.OfflineInputScene))
+                    continue;
                 if (i != Mods.Network.NetHooks.LocalSlot
                     || Mods.SpectatorMode.IsSpectating) // todo: multiple input?
                 {

@@ -38,7 +38,7 @@ internal sealed class PreparedCustomReplayArchive : IDisposable
         try
         {
             reader = DemoReader.Open(fullPath, out var result) ?? throw new InvalidDataException("Cannot prepare custom archive: " + result);
-            if (reader.ProtocolVersion is not (83 or 84 or 85) || reader.Metadata is not { CustomWeapons: not null } metadata
+            if (reader.ProtocolVersion is not (83 or 84 or 85 or 86) || reader.Metadata is not { CustomWeapons: not null } metadata
                 || metadata.FormatVersion != 7 && (!allowPostWorld || metadata.FormatVersion != 8) || metadata.WorldCheckpoint.Length == 0)
                 throw new InvalidDataException("Custom preparation requires an exact admitted world12/13 baseline.");
             if (metadata.FormatVersion == 8 && metadata.Integrity == ReplayIntegrity.Truncated)

@@ -686,7 +686,8 @@ namespace MphRead.Mods.Network
             // before any life exists, so an initial spectator can reach world
             // bootstrap with LifeId 0 instead of spawning once just to disappear.
             _scratch[22] = SpectatorMode.PreferSpectator ? (byte)1 : (byte)0;
-            _transport.Send(_hostEndPoint, PacketType.Hello, _scratch.AsSpan(0, 23));
+            BinaryPrimitives.WriteUInt32LittleEndian(_scratch.AsSpan(23, 4), UnifiedModeRules.Capability);
+            _transport.Send(_hostEndPoint, PacketType.Hello, _scratch.AsSpan(0, 27));
         }
 
         internal static void AnnounceSpectatorRole()
@@ -1643,6 +1644,8 @@ namespace MphRead.Mods.Network
                 NetPlayerLifecycle.SetOccupant(slot, roster.Generations[i]);
                 SlotOccupied[slot] = true;
                 SlotIsBot[slot] = roster.IsBot(i);
+                if (ServerSession?.Match.Mode is GameMode.CaptureTheZone or GameMode.PushThePayload)
+                    SlotSpectating[slot] = (roster.Flags[i] & Mods.HeroModes.HeroRosterBridge.SpectatorFlag) != 0;
                 SlotBotLevel[slot] = roster.BotLevels?[i] ?? 0;
                 MatchContainsBots |= SlotIsBot[slot];
                 SlotTeamIndex[slot] = roster.Teams[i];

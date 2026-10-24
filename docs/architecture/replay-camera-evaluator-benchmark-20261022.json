@@ -1,0 +1,57 @@
+{
+  "date": "2026-10-22",
+  "baseline_revision": "984aa77dc70ffc274ae0629eb41b1d1d607a87f8",
+  "sdk": "10.0.401",
+  "platform": "Windows local shared build host",
+  "kind": "synthetic CPU evaluator batch benchmark",
+  "jit_policy": {
+    "DOTNET_TieredCompilation": "0"
+  },
+  "keys": 64,
+  "samples_per_track": 51200,
+  "batch_size": 128,
+  "batches": 400,
+  "warmup_samples": 100000,
+  "unit": "nanoseconds/sample derived from batch timing",
+  "runs": [
+    {
+      "track": "Spline",
+      "baseline": {
+        "p50": 435.15625,
+        "p95": 601.5625,
+        "p99": 5662.5
+      },
+      "current": {
+        "p50": 91.40625,
+        "p95": 99.21875,
+        "p99": 368.75
+      },
+      "allocation_bytes_baseline": 0,
+      "allocation_bytes_current": 0,
+      "checksum_baseline": 215790.27826213837,
+      "checksum_current": 215790.27826213837
+    },
+    {
+      "track": "Bezier",
+      "baseline": {
+        "p50": 1193.75,
+        "p95": 1256.25,
+        "p99": 3735.15625
+      },
+      "current": {
+        "p50": 99.21875,
+        "p95": 101.5625,
+        "p99": 133.59375
+      },
+      "allocation_bytes_baseline": 0,
+      "allocation_bytes_current": 0,
+      "checksum_baseline": 266069.0905032158,
+      "checksum_current": 266069.0905032158
+    }
+  ],
+  "limitations": [
+    "Concurrent build workload adds noise",
+    "Optimized steady-state JIT policy differs from default cold tiered startup",
+    "No GPU, real recording, or rendered editor latency evidence"
+  ]
+}

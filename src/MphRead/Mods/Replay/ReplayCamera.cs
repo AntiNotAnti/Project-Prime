@@ -205,6 +205,9 @@ namespace MphRead.Mods.Replay
         }
         internal static void ClearBookmarks()
         {
+#if !MPHREAD_SERVER
+            ClearMemoryPreview();MemoryDocumentDirty=false;
+#endif
             Track.Clear(); _trackPath = null; _bookmarkIndex = 0;
             EditStatus = "";
             _copiedKeyframe = null; ClearSelection(); _restoreKey = null; _updateSelected = false;
@@ -215,6 +218,9 @@ namespace MphRead.Mods.Replay
             string? playbackPath = DemoPlayback.PlaybackPath;
             string? path = DemoPlayback.LogicalPath;
             if (path == null || ReplayPathComparer.Comparer.Equals(path, _trackPath)) return;
+#if !MPHREAD_SERVER
+            ClearMemoryPreview();MemoryDocumentDirty=false;
+#endif
             _trackPath = path;
             ClearSelection();
             // New sidecars belong to the durable replay identity. Read an old
@@ -232,14 +238,22 @@ namespace MphRead.Mods.Replay
         private static bool EditTrack(Func<ReplayCameraTrack, bool> edit)
         {
             EnsureTrack();
+#if !MPHREAD_SERVER
+            if(MemoryDocumentDirty){EditStatus="Save or discard the advanced camera document before saving individual keys.";return false;}
+#endif
             return _trackPath != null && Track.EditAndSave(_trackPath, edit);
         }
         internal static void SaveKeyframe(Vector3 position, Vector3 facing, float fov)
         {
+#if !MPHREAD_SERVER
+            if(MemoryDocumentDirty){_updateSelected=false;BookmarkRequested=false;EditStatus="Save or discard the advanced camera document before adding a saved key.";return;}
+#endif
+            uint frame = _updateSelected ? EditFrame : ReplayController.CurrentFrame;
             bool saved = EditTrack(track => track.Put(new ReplayCameraKeyframe(
-                _updateSelected ? EditFrame : ReplayController.CurrentFrame, position, ReplayCameraTrack.FacingRotation(facing),
+                frame, position, ReplayCameraTrack.FacingRotation(facing),
                 fov, (sbyte)Math.Clamp(LookAtSlot, -1, 7),
-                MathHelper.DegreesToRadians(Math.Clamp(Roll, -360, 360)), TrackInterpolation, TrackEase)));
+                MathHelper.DegreesToRadians(Math.Clamp(Roll, -360, 360)), TrackInterpolation, TrackEase,
+                Curves: track.Keys.Where(key=>key.Frame==frame).Select(key=>key.Curves).FirstOrDefault())));
             if (saved)
             {
                 SetSingleSelection(_updateSelected ? EditFrame : ReplayController.CurrentFrame);
@@ -452,6 +466,10 @@ namespace MphRead
                     return;
                 }
             }
+#if !MPHREAD_SERVER
+            if (Mods.Replay.ReplayCamera.TryMemoryPreview(this, out var previewKey))
+            { SetFreeCamera(true); ApplyReplayKeyframe(previewKey); return; }
+#endif
             if (Mods.Replay.ReplayCamera.Profile == Mods.Replay.ReplayPresentationProfile.Presentation
                 && Mods.Replay.ReplayCamera.PlayTrack
                 && Mods.Replay.ReplayCamera.Track.Sample(
@@ -578,7 +596,8 @@ namespace MphRead
                 if (target.LoadFlags.TestFlag(LoadFlags.Active) && target.LoadFlags.TestFlag(LoadFlags.Spawned))
                 {
                     Vector3 direction = (Services.IsReplica ? target.ReplayDrawTransform.Row3.Xyz : target.Position) + Vector3.UnitY - _cameraPosition;
-                    if (direction.LengthSquared > 0.0001f) _cameraFacing = direction.Normalized();
+                    if (float.IsFinite(direction.LengthSquared) && direction.LengthSquared > 0.0001f)
+                        _cameraFacing = direction.Normalized();
                 }
             }
             Vector3 right = Vector3.Cross(_cameraFacing, _cameraUp);

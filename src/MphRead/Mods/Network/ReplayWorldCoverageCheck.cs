@@ -51,8 +51,9 @@ internal static class ReplayWorldCoverageCheck
         finally { if (output == null) Directory.Delete(directory, recursive: true); }
     }
 
-    internal static void Write(string path, string room, GameMode mode, Vector3 origin)
+    internal static void Write(string path, string room, GameMode mode, Vector3 origin, uint durationFrames = 1800)
     {
+        if (durationFrames is < 1 or > 216000) throw new ArgumentOutOfRangeException(nameof(durationFrames));
         const ushort matchId = 17;
         const ulong epoch = 19;
         var match = new MatchStatePacket
@@ -104,7 +105,7 @@ internal static class ReplayWorldCoverageCheck
             RoomKey = room, Mode = mode, MapHash = ReplayMapIdentity.Compute(room),
             Bootstrap = new ReplayBootstrap { Packets = new List<byte[]> { MatchPacket(), configuration, RosterPacket(), cosmetics } }
         });
-        for (uint frame = 0; frame <= 1800; frame++)
+        for (uint frame = 0; frame <= durationFrames; frame++)
         {
             if (frame % 60 == 0)
             {

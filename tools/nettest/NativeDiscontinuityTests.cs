@@ -90,7 +90,8 @@ internal static class NativeDiscontinuityTests
             // Volume contact runs JumpPadEntity.Process and ActivateJumpPad, not
             // a test-only velocity write. Native launch is continuous motion:
             // do NOT demand a snap merely because the audio/event sequence changes.
-            Vector3 padPos = player.Position;
+            // Place the actor inside the trigger, not exactly on a fixed-point rounded lower boundary.
+            Vector3 padPos = player.Position - Vector3.UnitY;
             var volume = new RawCollisionVolume(Vector3.UnitY.ToVector3Fx(), new Vector3Fx(0, 0, 0),
                 new Fixed(Fixed.ToInt(2)), new Fixed(Fixed.ToInt(3)));
             var padHeader = new EntityDataHeader((ushort)EntityType.JumpPad, 30001, padPos, Vector3.UnitY, Vector3.UnitZ);

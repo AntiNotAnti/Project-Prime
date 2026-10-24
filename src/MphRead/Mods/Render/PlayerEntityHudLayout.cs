@@ -22,7 +22,7 @@ public partial class PlayerEntity
             HudVisibility.Spectator => Mods.SpectatorMode.IsSpectating,
             HudVisibility.Damaged => ModHudHealthVisible && ProHealthFraction() < 1,
             HudVisibility.AmmoNotFull => ModAmmoNotFullForHud(),
-            HudVisibility.Objective => _scene.GameState.Mode is GameMode.Bounty or GameMode.BountyTeams or GameMode.Capture or GameMode.Defender or GameMode.DefenderTeams or GameMode.Nodes or GameMode.NodesTeams,
+            HudVisibility.Objective => _scene.GameState.Mode is GameMode.PushThePayload or GameMode.CaptureTheZone or GameMode.CaptureTheFlag or GameMode.Oddball or GameMode.Bounty or GameMode.BountyTeams or GameMode.Capture or GameMode.Defender or GameMode.DefenderTeams or GameMode.Nodes or GameMode.NodesTeams,
             _ => true
         };
     }

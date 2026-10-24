@@ -151,6 +151,7 @@ namespace MphRead.Entities
             if (networkPresented)
                 drawPosition = Mods.Network.NetPlayerBridge.InFormFor(this, presentedPosition, presentedAlt);
             ModDrawGrapple(drawPosition);
+            ModDrawCtzHealingAura(drawPosition);
             bool drawAltForm = IsAltForm;
             bool drawAlive = _health > 0;
             // This is the newly enabled consumer. Preserve preexisting live
@@ -573,9 +574,21 @@ namespace MphRead.Entities
                         // before entity drawing. Consume that exact pose here so a
                         // 90/120/240/540 Hz late-latched camera can never leave the
                         // arm cannon sitting at the previous 60 Hz orientation.
+                        if (ModCarryingCtfFlag)
+                        {
+                            ModDrawFirstPersonFlag();
+                        }
+                        else
+                        {
                         Matrix4 transform = ModGetFirstPersonGunTransform(out Matrix4 renderTransform)
                             ? renderTransform
                             : GetTransformMatrix(_aimVec, _upVector, _gunDrawPos);
+                        if (ModOddballCarrying)
+                        {
+                            ModDrawOddballViewModel(transform);
+                        }
+                        else
+                        {
                         using var ownerGunDraw = ModBeginOwnerGunDraw(transform);
                         UpdateTransforms(_gunModel, transform, Recolor);
                         bool gunSample = ModTryOwnerGunSample(out var gunPresentation)
@@ -606,7 +619,8 @@ namespace MphRead.Entities
                             UpdateTransforms(_gunSmokeModel, transform, recolor: 0);
                             GetDrawItems(_gunSmokeModel, _gunSmokeModel.Model.Nodes[0], _smokeAlpha, recolor: 0);
                         }
-                        if (ModGetFirstPersonEffectTransform(out Matrix4 effectTransform))
+                        }
+                        if (!ModOddballCarrying && ModGetFirstPersonEffectTransform(out Matrix4 effectTransform))
                         {
                             // These EffectEntry transforms remain simulation-owned.
                             // Only their particle draw reads this one-picture override,
@@ -621,6 +635,7 @@ namespace MphRead.Entities
                                 _scene.SetPresentationEffectTransform(_muzzleEffect, effectTransform);
                             }
                         }
+                    }
                     }
                     finally
                     {

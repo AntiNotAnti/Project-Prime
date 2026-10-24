@@ -531,6 +531,7 @@ namespace MphRead.Mods
             // Its missing opt-in must stay hidden even when reloading after a live edit.
             // An explicit touch_grapple=true below still restores the user's choice.
             Input.TouchSettings.SetEnabled(Input.TouchControl.Grapple, false);
+            HorizontalSensitivity = VerticalSensitivity = 1;
             if (!File.Exists(Path))
             {
                 return;
@@ -564,6 +565,12 @@ namespace MphRead.Mods
                         {
                             MouseSensitivity = Math.Clamp(parsed, 0.01f, 10f);
                         }
+                        continue;
+                    }
+                    if(key is "horizontal_sensitivity" or "vertical_sensitivity")
+                    {
+                        if(Single.TryParse(value,NumberStyles.Float,CultureInfo.InvariantCulture,out float axis))
+                        { if(key=="horizontal_sensitivity")HorizontalSensitivity=axis;else VerticalSensitivity=axis; }
                         continue;
                     }
                     if (key == "imperialist_zoom_sensitivity")

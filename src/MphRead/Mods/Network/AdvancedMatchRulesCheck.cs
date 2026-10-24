@@ -792,7 +792,7 @@ namespace MphRead.Mods.Network
             foreach (var mode in Launcher.OfflineLaunch.Modes.Select(m => m.Mode))
             {
                 var match = new MatchDefinition { RoomKey = Rooms()[0], Mode = mode, InstaGib = true };
-                Check(LobbyRules.ValidateDefinition(match, out _) == (mode is GameMode.GunGame or GameMode.OneInTheChamber ? LobbyResultCode.InvalidConfiguration : LobbyResultCode.Ok), $"{mode} validates Insta-Gib compatibility");
+                Check(LobbyRules.ValidateDefinition(match, out _) == (mode is GameMode.GunGame or GameMode.OneInTheChamber or GameMode.CaptureTheFlag or GameMode.CaptureTheZone or GameMode.PushThePayload ? LobbyResultCode.InvalidConfiguration : LobbyResultCode.Ok), $"{mode} validates Insta-Gib compatibility");
                 Check(LobbyRules.ValidateDefinition(match with { NoImperialist = true }, out _) == LobbyResultCode.InvalidConfiguration, $"{mode} rejects conflicting weapons");
             }
             foreach (Hunter hunter in Enum.GetValues<Hunter>())

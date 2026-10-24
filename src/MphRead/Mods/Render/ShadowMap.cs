@@ -139,7 +139,7 @@ namespace MphRead
                 {
                     Mods.Render.RetainedDrawPacket packet = shadowPackets[i];
                     RenderItem item = packet.Item;
-                    if (item.ViewModel || item.Alpha < .999f || item.Type != RenderItemType.Mesh || item.SourceGx != null
+                    if (!SceneAlphaCastsShadow(item) || item.ViewModel || item.Alpha < .999f || item.Type != RenderItemType.Mesh || item.SourceGx != null
                         || item.RenderMode == RenderMode.Decal
                         || (separateRoomCasters && item.RetainedRoomOwned))
                     {
@@ -152,6 +152,7 @@ namespace MphRead
                 Matrix4 dynamicLight = _shadowView * _shadowProjection;
                 foreach (RenderItem caster in _detachedShadowItems)
                 {
+                    if (!SceneAlphaCastsShadow(caster)) continue;
                     if (!Mods.Render.DetachedShadowBounds.Overlaps(caster,dynamicLight)) continue;
                     _detachedShadowDraws++;
                     RenderItem(caster);
@@ -161,6 +162,7 @@ namespace MphRead
                 {
                     foreach (RenderItem roomCaster in _lightSpaceRoomShadowCasters)
                     {
+                        if (!SceneAlphaCastsShadow(roomCaster)) continue;
                         _lightSpaceRoomShadowDraws++;
                         if (_shadowPreparationEnabled)
                         {

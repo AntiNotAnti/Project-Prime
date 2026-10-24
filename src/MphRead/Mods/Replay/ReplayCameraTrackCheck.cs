@@ -62,7 +62,7 @@ namespace MphRead.Mods.Replay
                     &&(changedPoints[64]-firstPoints[64]).Length>.01f,"invalidate edited curve");
                 testPath.Clear();
                 Require(cache.Positions(testPath).Count==0&&cache.Builds==3,"clear cached path");
-                Require(bezier.Save(replay)&&File.ReadAllBytes(replay+".camera")[4]==4,"authored handles select identity-bound camera v4");
+                Require(bezier.Save(replay)&&File.ReadAllBytes(replay+".camera")[4]==6,"authored handles select identity-bound camera v6");
                 var bezierLoaded=new ReplayCameraTrack();
                 Require(bezierLoaded.Load(replay)&&bezierLoaded.Keys.SequenceEqual(bezier.Keys),"v4 handles round-trip through the existing camera owner");
                 Require(!bezier.Put(bezierStart with{IncomingTangent=new Vector3(float.NaN,0,0)}),"nonfinite Bezier handles are rejected");
@@ -105,8 +105,8 @@ namespace MphRead.Mods.Replay
                     "bulk removal is all-or-nothing when a selected frame is missing");
                 loaded.Clear();
                 for (uint i = 0; i < ReplayCameraTrack.MaxKeys; i++) Require(loaded.Put(start with { Frame = i }), "capacity insert");
-                Require(!loaded.Put(start with { Frame = 100 }) && loaded.Put(start), "capacity and replacement");
-                Require(loaded.Remove(10) && !loaded.Remove(100), "remove");
+                Require(!loaded.Put(start with { Frame = ReplayCameraTrack.MaxKeys + 100u }) && loaded.Put(start), "capacity and replacement");
+                Require(loaded.Remove(10) && !loaded.Remove(ReplayCameraTrack.MaxKeys + 100u), "remove");
                 byte[] damaged = (byte[])good.Clone(); damaged[25] ^= 1;
                 File.WriteAllBytes(replay + ".camera", damaged);
                 Require(!loaded.Load(replay) && loaded.Keys.Count == 0, "checksum rejects entire track");

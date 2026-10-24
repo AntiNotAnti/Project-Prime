@@ -8,7 +8,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using MphRead.Hud;
-using MphRead.Mods.Chat;
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Render;
 using MphRead.Mods.Render.Hud;
@@ -17,7 +16,7 @@ namespace MphRead.Mods.Launcher.RmlUi.Pages.Hud;
 
 public readonly record struct HudPreviewResult(string Path, string Warning);
 
-/// <summary>Native texture preview using the same crosshair, meter and radar geometry as the game.</summary>
+/// <summary>Native texture preview using the same crosshair, meter, radar and registered HUD font assets as the game.</summary>
 public sealed class HudPreviewBitmap
 {
     private readonly object _gate = new();
@@ -43,7 +42,8 @@ public sealed class HudPreviewBitmap
     {
         cancellation.ThrowIfCancellationRequested();
         var p=HudProfileStore.Parse(state.ProfileJson);
-        string signature=state.ProfileJson+$"|{_root}|{state.CanvasWidth}|{state.CanvasHeight}|{state.PreviewWidth}|{state.PreviewHeight}|{state.PreviewHunter}|{state.Scenario}|{state.CrosshairTarget}|{state.GridSize}";
+        p.Typography.ResolveForRuntime();
+        string signature=state.ProfileJson+$"|{_root}|{state.CanvasWidth}|{state.CanvasHeight}|{state.PreviewWidth}|{state.PreviewHeight}|{state.PreviewHunter}|{state.Scenario}|{state.CrosshairTarget}|{state.GridSize}|{state.Selected}|{state.InspectorSection}|{state.Property?.Path}|font-preview-v2";
         string name=Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(signature)));
         string path=Path.Combine(_directory,name+".tga");
         float down=Math.Min(1,1024f/Math.Max(state.CanvasWidth,state.CanvasHeight));
@@ -88,25 +88,8 @@ public sealed class HudPreviewBitmap
             else if(element.Index==HudProfileDefaults.MovementTelemetryIndex)
             {
                 float unit=5.625f*transform.UnitScale*p.GlobalScale*p.Elements[element.Id].Scale;
-                float aspect=state.PreviewWidth/state.PreviewHeight*.75f;
                 Vector3 tint=HudColor.Parse(element.Color);
                 canvas.Rect(element.Bounds,new(.02f*tint.X,.07f*tint.Y,.11f*tint.Z,.65f*alpha));
-                void Text(float y,string text)
-                {
-                    float x=element.Bounds.X+4*unit*aspect;
-                    float pixel=.45f*unit*p.TextScale;
-                    foreach(char ch in text)
-                    {
-                        int glyph=ChatFont.Index(ch);if(glyph<0)continue;
-                        for(int row=0;row<ChatFont.Cell;row++)for(int column=0;column<ChatFont.Cell;column++)
-                            if(ChatFont.Pixels[glyph*64+row*8+column]!=0)
-                                canvas.Rect(new(x+column*pixel,y+row*pixel,pixel,pixel),new(220/255f*tint.X,243/255f*tint.Y,tint.Z,alpha));
-                        x+=ChatFont.Widths[glyph]*pixel*aspect;
-                    }
-                }
-                Text(element.Bounds.Y+2*unit,"HORIZ 320.0 U/S");
-                Text(element.Bounds.Y+9*unit,"TOTAL 330.0 U/S | AIR");
-                Text(element.Bounds.Y+16*unit,"AIR EFF 85%");
             }
             else if(element.Index==4)DrawRadar(canvas,p,element,transform.UnitScale,alpha);
             else if(element.Index is 1 or 2 or 12 or 13)
@@ -122,25 +105,186 @@ public sealed class HudPreviewBitmap
                 }
                 else
                 {
-                    if(gaugeOnly&&!p.IndependentGauges)continue;
-                    var style=new HudMeterRuntime(health?p.Health:p.Ammo);float fraction=health?preview.Health/99f:preview.Ammo/80f;
-                    float unit=5.625f*transform.UnitScale*p.GlobalScale*p.Elements[element.Id].Scale;
-                    if(!gaugeOnly&&style.Background)canvas.Rect(element.Bounds,new(0,0,0,.5f*alpha));
-                    if(!style.Gauge||!gaugeOnly&&p.IndependentGauges)continue;
-                    int count=HudPrimitives.Meter(rectangles,gaugeOnly?0:2,gaugeOnly?0:16,(health?40:54)*style.GaugeScale,style.GaugeThickness,fraction,new(style.ColorFor(fraction),1),style.Vertical);
-                    foreach(var rect in rectangles[..count])canvas.Rect(new(element.Bounds.X+rect.X*unit,element.Bounds.Y+rect.Y*unit,rect.Width*unit,rect.Height*unit),rect.Color with { W=rect.Color.W*alpha });
+                    if(!gaugeOnly||p.IndependentGauges)
+                    {
+                        var style=new HudMeterRuntime(health?p.Health:p.Ammo);float fraction=health?preview.Health/99f:preview.Ammo/80f;
+                        float unit=5.625f*transform.UnitScale*p.GlobalScale*p.Elements[element.Id].Scale;
+                        if(!gaugeOnly&&style.Background)canvas.Rect(element.Bounds,new(0,0,0,.5f*alpha));
+                        if(style.Gauge&&(gaugeOnly||!p.IndependentGauges))
+                        {
+                            int count=HudPrimitives.Meter(rectangles,gaugeOnly?0:2,gaugeOnly?0:16,(health?40:54)*style.GaugeScale,style.GaugeThickness,fraction,new(style.ColorFor(fraction),1),style.Vertical);
+                            foreach(var rect in rectangles[..count])canvas.Rect(new(element.Bounds.X+rect.X*unit,element.Bounds.Y+rect.Y*unit,rect.Width*unit,rect.Height*unit),rect.Color with { W=rect.Color.W*alpha });
+                        }
+                    }
                 }
             }
             else
             {
                 canvas.Rect(element.Bounds,new(.2f,.267f,.333f,.31f*alpha));canvas.Border(element.Bounds,1,new(.44f,.5f,.565f,alpha));
             }
+            DrawTypography(canvas,p,state,element,cancellation);
         }
+        DrawReadableFontSample(canvas,p,state,cancellation);
         cancellation.ThrowIfCancellationRequested();
         Directory.CreateDirectory(_directory);string temporary=path+"."+Guid.NewGuid().ToString("N")+".tmp";
         try { File.WriteAllBytes(temporary,canvas.Tga());cancellation.ThrowIfCancellationRequested();File.Move(temporary,path,true); }
         finally { if(File.Exists(temporary))File.Delete(temporary); }
         return new(path,warning);
+    }
+    private readonly record struct TypographyPreviewLine(string StyleId,string Text,float Size);
+    private static void DrawTypography(Pixels canvas,HudProfile profile,HudEditorSnapshot state,HudEditorElement element,CancellationToken cancellation)
+    {
+        TypographyPreviewLine[] lines=element.Index switch
+        {
+            1=>new[]{new TypographyPreviewLine("core.health","99",21)},
+            2=>new[]{new TypographyPreviewLine("core.ammo","123 / 80",37.5f)},
+            3=>new[]{new TypographyPreviewLine("core.weapons","POWER BEAM  VOLT DRIVER",15)},
+            5=>new[]{new TypographyPreviewLine("match.score","PLAYER 1    03",23.75f)},
+            6=>new[]{new TypographyPreviewLine("match.timer","09:42",18)},
+            7=>new[]{new TypographyPreviewLine("combat.killFeed","HUNTER 1  VS  HUNTER 2",15)},
+            8=>new[]{new TypographyPreviewLine("combat.notifications","DOUBLE KILL  +1",18),new TypographyPreviewLine("combat.kill","KILL CONFIRMED",15),new TypographyPreviewLine("combat.assist","ASSIST  +1",15)},
+            9=>new[]{new TypographyPreviewLine("combat.opponent","OPPONENT  87",15)},
+            10=>new[]{new TypographyPreviewLine("match.objective","OCTOLITH  ACTIVE",15)},
+            11=>new[]{new TypographyPreviewLine("system.diagnostics","FPS 60   24 MS",15)},
+            HudProfileDefaults.MovementTelemetryIndex=>new[]{new TypographyPreviewLine("all.other","HORIZ 320.0 U/S",12),new TypographyPreviewLine("all.other","TOTAL 330.0 U/S",12),new TypographyPreviewLine("all.other","AIR EFF 85%",12)},
+            15=>new[]{new TypographyPreviewLine("all.other","ROUNDS 1 - 0",15)},
+            16=>new[]{new TypographyPreviewLine("all.other","RESPAWN IN 10",15)},
+            17=>new[]{new TypographyPreviewLine("all.other","FREEZE READY",15)},
+            18=>new[]{new TypographyPreviewLine("all.other","RETURNING FLAG",15)},
+            19=>new[]{new TypographyPreviewLine("all.other","FLAG CAPTURED",15)},
+            20=>new[]{new TypographyPreviewLine("all.other","RED FLAG / BLUE FLAG",15)},
+            21=>new[]{new TypographyPreviewLine("all.other","CTF SCOREBOARD",15)},
+            22=>new[]{new TypographyPreviewLine("all.other","BALL HELD / 12 POINTS",15)},
+            23=>new[]{new TypographyPreviewLine("all.other","PICK UP BALL",15)},
+            24=>new[]{new TypographyPreviewLine("all.other","BALL DROPPED",15)},
+            25=>new[]{new TypographyPreviewLine("all.other","ODDBALL SCOREBOARD",15)},
+            _=>Array.Empty<TypographyPreviewLine>()
+        };
+        bool selectedSample=state.Selected==element.Index&&state.InspectorSection==3;
+        string? requestedSampleStyle=TypographyStyleFromPath(state.Property?.Path);
+        bool sharedSample=element.Index==HudProfileDefaults.MovementTelemetryIndex&&state.InspectorSection==2
+            &&(IsSharedTypographyFontPath(state.Property?.Path)||IsNonElementTypographyPath(state.Property?.Path));
+        if(sharedSample)
+        {
+            string styleId=requestedSampleStyle??(state.Property?.Path is "/typography/interfaceFont" or "/typography/useInterfaceFont" ? "ui.body":"all.other");
+            lines=new[]{new TypographyPreviewLine(styleId,"Aa Bb 012345",12)};
+        }
+        else if(selectedSample&&element.Index==HudProfileDefaults.MovementTelemetryIndex&&requestedSampleStyle is {} requested
+            &&lines.All(line=>line.StyleId!=requested))
+            lines=new[]{new TypographyPreviewLine(requested,"Aa Bb 012345",12)};
+        if(lines.Length==0)return;
+        string? selectedStyle=requestedSampleStyle??SelectedTypographyStyle(state,lines);
+        bool sampleMode=selectedSample||sharedSample;
+        if(!element.Enabled&&!sampleMode)return;
+        if(!sampleMode&&element.Index==1&&!(profile.Health.Number||profile.Health.Native||profile.Mode==HudMode.Classic))return;
+        if(!sampleMode&&element.Index==2&&!(profile.Ammo.Number||profile.Ammo.Native||profile.Mode==HudMode.Classic))return;
+        if(!sampleMode&&element.Index==3&&(profile.Inventory.Native||profile.Mode==HudMode.Classic))return;
+        float unit=new HudTransform(state.Surface.Width,state.Surface.Height,profile.SafeArea).UnitScale
+            *profile.GlobalScale*profile.Elements[element.Id].Scale;
+        float rowHeight=element.Bounds.Height/lines.Length;
+        float aspectCorrection=state.Surface.Height*256f/(state.Surface.Width*192f);
+        for(int i=0;i<lines.Length;i++)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            TypographyPreviewLine line=lines[i];string text=line.Text;
+            bool sample=sampleMode&&line.StyleId==selectedStyle;
+            if(sample)text="Aa Bb 012345";
+            var style=EffectivePreviewStyle(profile.Typography.Get(line.StyleId));
+            DrawFontText(canvas,profile,style,text,line.Size,element.Bounds.X+3*unit,
+                element.Bounds.Y+i*rowHeight,element.Bounds.Width-6*unit,rowHeight,element.Opacity,unit,aspectCorrection,cancellation);
+        }
+    }
+    // A thumbnail preserves in-game scale; this separate specimen makes the
+    // selected face readable even when its actual HUD element is very small.
+    private static void DrawReadableFontSample(Pixels canvas,HudProfile profile,HudEditorSnapshot state,CancellationToken cancellation)
+    {
+        string? path=state.Property?.Path;
+        string? id=TypographyStyleFromPath(path);
+        if(id==null&&IsSharedTypographyFontPath(path))
+            id=path is "/typography/interfaceFont" or "/typography/useInterfaceFont"?"ui.body":"all.other";
+        if(id==null||state.Surface.Width<160||state.Surface.Height<80)return;
+        float width=Math.Min(state.Surface.Width-24,440),height=52;
+        float x=state.Surface.X+(state.Surface.Width-width)/2,y=state.Surface.Y+(state.Surface.Height-height)/2;
+        var box=new HudEditorRect(x,y,width,height);
+        canvas.Rect(box,new(.015f,.04f,.07f,.98f));canvas.Border(box,1,new(.44f,.78f,.9f,1));
+        DrawFontText(canvas,profile,EffectivePreviewStyle(profile.Typography.Get(id)),"Aa Bb 012345",22,x+8,y+4,width-16,height-8,1,1,1,cancellation);
+    }
+    private static string? SelectedTypographyStyle(HudEditorSnapshot state,TypographyPreviewLine[] lines)
+    {
+        if(state.Property?.Path is not {} path||!path.StartsWith("/typography/styles/",StringComparison.Ordinal))return lines[0].StyleId;
+        string rest=path["/typography/styles/".Length..];int slash=rest.IndexOf('/');
+        if(slash<0)return lines[0].StyleId;
+        string selected=rest[..slash];
+        return lines.Any(line=>line.StyleId==selected)?selected:lines[0].StyleId;
+    }
+    private static HudTextStyle EffectivePreviewStyle(HudTextStyle saved)
+    {
+        if(saved.Enabled&&!saved.FontOnlyOverride)return saved;
+        var effective=new HudTextStyle();
+        if(saved.FontOnlyOverride)effective.Font=saved.Font;
+        effective.Validate();
+        return effective;
+    }
+    private static bool IsSharedTypographyFontPath(string? path)
+        =>path is "/typography/globalFont" or "/typography/useGlobalFont" or "/typography/gameFont" or "/typography/useGameFont"
+            or "/typography/interfaceFont" or "/typography/useInterfaceFont";
+    private static bool IsNonElementTypographyPath(string? path)
+    {
+        const string prefix="/typography/styles/";
+        if(path?.StartsWith(prefix,StringComparison.Ordinal)!=true)return false;
+        string rest=path[prefix.Length..];int slash=rest.IndexOf('/');
+        if(slash<0)return false;
+        return rest[..slash] is "touch.labels" or "ui.body" or "ui.headings" or "ui.data" or "game.replay" or "match.gameOver";
+    }
+    private static string? TypographyStyleFromPath(string? path)
+    {
+        const string prefix="/typography/styles/";
+        if(path?.StartsWith(prefix,StringComparison.Ordinal)!=true)return null;
+        string rest=path[prefix.Length..];int slash=rest.IndexOf('/');
+        return slash<0?null:rest[..slash];
+    }
+    private static void DrawFontText(Pixels canvas,HudProfile profile,HudTextStyle style,string text,float baseSize,float x,float y,
+        float availableWidth,float availableHeight,float alpha,float unit,float aspectCorrection,CancellationToken cancellation)
+    {
+        var atlas=HudFonts.Get(style.Font);
+        float verticalScale=baseSize/48f*style.Size*profile.TextScale*unit;
+        float horizontalScale=verticalScale*aspectCorrection;
+        float width=0;
+        foreach(char raw in text)
+        {
+            int glyph=raw is >= ' ' and <= '\x7f'?raw-32:'?'-32;
+            width+=atlas.Advances[glyph]*horizontalScale;
+        }
+        float fit=style.FitToScreen?Math.Min(1,Math.Min(availableWidth/Math.Max(width,.01f),availableHeight/Math.Max(HudFonts.CellSize*verticalScale,.01f))):1;
+        if(!float.IsFinite(fit)||fit<=0)return;
+        verticalScale*=fit;horizontalScale*=fit;width*=fit;
+        float drawX=x+Math.Max(0,(availableWidth-width)/2);
+        float cellY=y+(availableHeight-HudFonts.CellSize*verticalScale)/2;
+        Vector3 baseColor=style.MatchPalette?HudColor.Parse(profile.AccentColor):style.Ink;
+        var ink=new Vector4(baseColor,Math.Clamp(alpha*style.Opacity,0,1));
+        var outlineRgb=style.OutlineInk;
+        var outline=new Vector4(outlineRgb,ink.W);
+        float outlineX=style.Outline*unit*aspectCorrection,outlineY=style.Outline*unit;
+        foreach(char raw in text)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            int glyph=raw is >= ' ' and <= '\x7f'?raw-32:'?'-32;
+            int atlasX=(glyph%16)*HudFonts.CellSize,atlasY=(glyph/16)*HudFonts.CellSize;
+            float left=drawX-HudFonts.PaddingX*horizontalScale;
+            float top=cellY;
+            if(style.Outline>0&&outline.W>0)
+            {
+                for(int direction=0;direction<8;direction++)
+                {
+                    float angle=direction*MathF.PI/4,ox=MathF.Cos(angle)*outlineX,oy=MathF.Sin(angle)*outlineY;
+                    canvas.AlphaImage(atlas.Alpha,HudFonts.AtlasWidth,atlasX,atlasY,HudFonts.CellSize,
+                        left+ox,top+oy,HudFonts.CellSize*horizontalScale,HudFonts.CellSize*verticalScale,outline);
+                }
+            }
+            canvas.AlphaImage(atlas.Alpha,HudFonts.AtlasWidth,atlasX,atlasY,HudFonts.CellSize,
+                left,top,HudFonts.CellSize*horizontalScale,HudFonts.CellSize*verticalScale,ink);
+            drawX+=atlas.Advances[glyph]*horizontalScale;
+        }
     }
     private void Sprite(Pixels canvas,string path,int frame,Vector2 origin,float ux,float uy,float alpha,bool center,ref string warning)
     {
@@ -221,6 +365,25 @@ public sealed class HudPreviewBitmap
             int left=Math.Clamp((int)MathF.Floor(x*_scale),0,_width),right=Math.Clamp((int)MathF.Ceiling((x+w)*_scale),0,_width),top=Math.Clamp((int)MathF.Floor(y*_scale),0,_height),bottom=Math.Clamp((int)MathF.Ceiling((y+h)*_scale),0,_height);
             for(int row=top;row<bottom;row++) { _cancellation.ThrowIfCancellationRequested();for(int column=left;column<right;column++)pixel(column,row,new((column+.5f)/_scale,(row+.5f)/_scale)); }
         }
+        public void AlphaImage(byte[] source,int sourceStride,int sourceX,int sourceY,int sourceSize,
+            float x,float y,float width,float height,Vector4 tint)
+        {
+            if(width<=0||height<=0||tint.W<=0)return;
+            int left=Math.Clamp((int)MathF.Floor(x*_scale),0,_width),right=Math.Clamp((int)MathF.Ceiling((x+width)*_scale),0,_width);
+            int top=Math.Clamp((int)MathF.Floor(y*_scale),0,_height),bottom=Math.Clamp((int)MathF.Ceiling((y+height)*_scale),0,_height);
+            for(int row=top;row<bottom;row++)
+            {
+                _cancellation.ThrowIfCancellationRequested();
+                float v=((row+.5f)/_scale-y)/height;if(v<0||v>=1)continue;
+                int sampleY=(sourceY+Math.Min(sourceSize-1,(int)(v*sourceSize)))*sourceStride;
+                for(int column=left;column<right;column++)
+                {
+                    float u=((column+.5f)/_scale-x)/width;if(u<0||u>=1)continue;
+                    byte coverage=source[sampleY+sourceX+Math.Min(sourceSize-1,(int)(u*sourceSize))];
+                    if(coverage!=0)Blend(column,row,tint with { W=tint.W*coverage/255f });
+                }
+            }
+        }
         public void Rect(HudEditorRect rect,Vector4 color)=>Area(rect.X,rect.Y,rect.Width,rect.Height,(x,y,_)=>Blend(x,y,color));
         public void Border(HudEditorRect rect,float thickness,Vector4 color)
         { Rect(new(rect.X,rect.Y,rect.Width,thickness),color);Rect(new(rect.X,rect.Bottom-thickness,rect.Width,thickness),color);Rect(new(rect.X,rect.Y,thickness,rect.Height),color);Rect(new(rect.Right-thickness,rect.Y,thickness,rect.Height),color); }
@@ -232,6 +395,21 @@ public sealed class HudPreviewBitmap
         { static float Cross(Vector2 u,Vector2 v)=>u.X*v.Y-u.Y*v.X;float orientation=Cross(b-a,c-a);if(Math.Abs(orientation)<.00001f)return;float x=Math.Min(a.X,Math.Min(b.X,c.X)),y=Math.Min(a.Y,Math.Min(b.Y,c.Y));Area(x,y,Math.Max(a.X,Math.Max(b.X,c.X))-x,Math.Max(a.Y,Math.Max(b.Y,c.Y))-y,(px,py,p)=> {float aa=Cross(b-a,p-a),bb=Cross(c-b,p-b),cc=Cross(a-c,p-c);if(orientation>0?aa>=0&&bb>=0&&cc>=0:aa<=0&&bb<=0&&cc<=0)Blend(px,py,color);}); }
         public byte[] Tga()
         { byte[] output=new byte[18+_rgb.Length];output[2]=2;output[12]=(byte)_width;output[13]=(byte)(_width>>8);output[14]=(byte)_height;output[15]=(byte)(_height>>8);output[16]=24;output[17]=0x20;for(int i=0;i<_rgb.Length;i+=3) { output[18+i]=_rgb[i+2];output[19+i]=_rgb[i+1];output[20+i]=_rgb[i]; }return output; }
+    }
+    private static bool VerifyAlphaImageNonFirstRowSamplingForCpuCheck()
+    {
+        const int stride=8;
+        byte[] atlas=new byte[stride*8];
+        atlas[3*stride+3]=255;
+        var pixels=new Pixels(4,4,1,new(0,0,4,4),CancellationToken.None);
+        pixels.AlphaImage(atlas,stride,2,2,2,0,0,4,4,Vector4.One);
+        byte[] tga=pixels.Tga();
+        for(int y=2;y<4;y++)for(int x=2;x<4;x++)
+        {
+            int at=18+(y*4+x)*3;
+            if(tga[at]!=255||tga[at+1]!=255||tga[at+2]!=255)return false;
+        }
+        return true;
     }
 }
 #endif

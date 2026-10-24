@@ -14,7 +14,8 @@ namespace MphRead.Mods.Render
 #endif
         }
         internal static PreparedTextureAsset Decode(Stream source, string key,
-            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
+            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension,
+            TextureAssetSemantics? semantics = null, bool linearFiltering = false)
         {
             Stream readable = Seekable(source, out MemoryStream? owned);
             try
@@ -24,8 +25,11 @@ namespace MphRead.Mods.Render
                 {
                     try
                     {
-                        return Ktx2TextureAsset.Decode(readable, key, assetClass, channel,
-                            maximumDimension);
+                        PreparedTextureAsset ktx = Ktx2TextureAsset.Decode(readable, key, assetClass, channel,
+                            maximumDimension, semantics, linearFiltering);
+                        return linearFiltering
+                            ? ColorTexturePolicy.PrepareForLinearFiltering(ktx, ktx.Semantics.Alpha, ktx.Semantics.Wrap)
+                            : ktx;
                     }
                     catch (Exception ex) when (ex is DllNotFoundException
                         or EntryPointNotFoundException or BadImageFormatException)
@@ -35,8 +39,12 @@ namespace MphRead.Mods.Render
                     }
                 }
 #endif
-                return ModernTextureAsset.Decode(readable, key, assetClass, channel,
-                    maximumDimension);
+                ModernTextureAsset decoded = ModernTextureAsset.Decode(readable, key, assetClass, channel,
+                    maximumDimension, semantics, linearFiltering);
+                return linearFiltering
+                    ? ColorTexturePolicy.PrepareForLinearFiltering(decoded, decoded.Semantics.Alpha,
+                        decoded.Semantics.Wrap)
+                    : decoded;
             }
             finally
             {
@@ -46,7 +54,8 @@ namespace MphRead.Mods.Render
 
         internal static ModernTextureAsset DecodeRgba(Stream source, string key,
             TextureAssetClass assetClass, TextureAssetChannel channel,
-            int maximumDimension = ModernTextureAsset.MaximumDimension)
+            int maximumDimension = ModernTextureAsset.MaximumDimension,
+            TextureAssetSemantics? semantics = null)
         {
             Stream readable = Seekable(source, out MemoryStream? owned);
             try
@@ -57,7 +66,7 @@ namespace MphRead.Mods.Render
                     try
                     {
                         return Ktx2TextureAsset.DecodeRgba(readable, key, assetClass,
-                            channel, maximumDimension);
+                            channel, maximumDimension, requestedSemantics: semantics);
                     }
                     catch (Exception ex) when (ex is DllNotFoundException
                         or EntryPointNotFoundException or BadImageFormatException)
@@ -68,7 +77,7 @@ namespace MphRead.Mods.Render
                 }
 #endif
                 return ModernTextureAsset.Decode(readable, key, assetClass, channel,
-                    maximumDimension);
+                    maximumDimension, semantics);
             }
             finally
             {

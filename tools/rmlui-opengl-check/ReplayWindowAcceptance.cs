@@ -146,6 +146,12 @@ internal sealed partial class ReplayWindowAcceptance
                 + " explicitOverride=" + (Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_GL_SMOKE") ?? "unset"));
             Environment.SetEnvironmentVariable("PROJECT_PRIME_GL_PROFILE","1");
             ConsoleSetup.Run();GameFiles.Root=user;LauncherPrefs.Directory=user;GraphicsBackendPolicy.Configure("opengl");
+            if (Environment.GetEnvironmentVariable("PROJECT_PRIME_RMLUI_REPLAY_DIAGNOSTICS") == "1")
+            {
+                // Include the renderer's inner allocation/refusal reason in this
+                // isolated qualification profile, without changing client logging.
+                DebugLog.Force(); DebugLog.Attach();
+            }
             WindowMode.ForceStartup(WindowStartMode.Windowed);
             if(!GameFiles.Ready)throw new InvalidOperationException("Isolated setup: "+GameFiles.Problem());
             Paths.SetPath("Export",Path.Combine(user,"exports"));
@@ -194,7 +200,8 @@ internal sealed partial class ReplayWindowAcceptance
         // Independent expected SHA is required BEFORE GuiLauncher creates a window.
         _expectedNative=LoadedNativeModuleCheck.CaptureExpectedPackage(
             Path.GetDirectoryName(typeof(RmlUiHost).Assembly.Location)!);
-        using var reader=DemoReader.Open(replay,out _ ,metadataOnly:true);
+        using var reader=DemoReader.Open(replay,out _);
+        _rml97HasRecordedCue=reader!.Metadata!.Events.Any(e=>e.Frame<30);
         var file=new FileInfo(replay);
         _entry=new(replay,"Owned synthetic replay qualification","Isolated archive copy",reader!.Metadata!.RoomKey,
             reader.Metadata.RecordedAtUtc.Ticks,file.Length,file.LastWriteTimeUtc.Ticks,false,false,false,true);
@@ -224,6 +231,7 @@ internal sealed partial class ReplayWindowAcceptance
         {
             if(++_observedFrames>30000||_elapsed.Elapsed.TotalSeconds>180)throw new TimeoutException("Real-window qualification exceeded its total bound.");
             if(_window==null||!ReferenceEquals(_window,Shell.Window))throw new InvalidOperationException("Shell window owner changed.");
+            if (_libraryDiagnostics && _observedFrames == 1) EnableReplayGlDiagnostics();
             _observedClient=_window.ClientSize;_observedFramebuffer=_window.FramebufferSize;
             if (_reopenOnly && _libraryDiagnostics)
             {
@@ -247,6 +255,10 @@ internal sealed partial class ReplayWindowAcceptance
             }
             if(_steps.Count==0){_completed=true;_closing=true;Shell.RequestQuit();return;}
             var step=_steps.Peek();
+            if (_libraryDiagnostics && _stepStarted == 0
+                && (step.Name == "RPS03 inject third-tile draw failure in real Studio window"
+                    || step.Name == "RPS03 stress restore initial replay frame"))
+                EnableReplayGlDiagnostics();
             if(_stepStarted==0)_stepStarted=_elapsed.ElapsedMilliseconds;
             if(_elapsed.ElapsedMilliseconds-_stepStarted>step.Timeout)throw new TimeoutException("Timed out: "+step.Name+"; "+Facts());
             if(step.Poll())
@@ -260,6 +272,20 @@ internal sealed partial class ReplayWindowAcceptance
             try{Capture("first-failure");}catch(Exception captureError){_captureFailure=captureError.Message;}
             Fail(error);_closing=true;Shell.RequestQuit();
         }
+    }
+    private static void EnableReplayGlDiagnostics()
+        => ScreenCapture.EnableDebugOutput(message =>
+            Console.WriteLine("RMLUI GL DIAGNOSTIC " + message + Environment.NewLine + Environment.StackTrace));
+    private static void RequireReplayGlClean(string stage)
+    {
+        var errors = new List<OpenTK.Graphics.OpenGL.ErrorCode>();
+        for (int i = 0; i < 32; i++)
+        {
+            var error = GL.GetError();
+            if (error == OpenTK.Graphics.OpenGL.ErrorCode.NoError) break;
+            errors.Add(error);
+        }
+        Require(errors.Count == 0, "actual replay GL errors after " + stage + ": " + string.Join(", ", errors));
     }
     private void Fail(Exception error){_failure??=error;Console.Error.WriteLine("RMLUI REAL REPLAY FAIL "+error);}
     private int Finish()
@@ -337,58 +363,73 @@ internal sealed partial class ReplayWindowAcceptance
             }
             PlanLibraryReopen(); return;
         }
-        NativeHunterPagePresenter? headerHunter = null;
-        CosmeticLoadout? headerLoadout = null;
-        Wait("actual Shell Home owns native header before replay launch",()=>
-            ReadStatic<RmlUiLauncherPages>("_launcherPages") is { Suspended:false,Page:RmlUiMenuPage.Home }
-            && ReadStatic<NativeHunterPagePresenter>("_hunterChoice")==null
-            && ReadStatic<NativeLicenseOverviewPage>("_license")==null
-            && ReadStatic<NativeStudioEntryPage>("_studio")==null && !_window!.HasScene);
-        Do("Home header HUNTERS uses its actual native action",()=>Activate("nav_hunters"));
-        Wait("actual native Hunter picker owns header navigation",()=>
+        if(_studioRole)
         {
-            headerHunter=ReadStatic<NativeHunterPagePresenter>("_hunterChoice");
-            if(headerHunter==null||Host!.CurrentInputDocument!=headerHunter.PreviewDocument)return false;
-            Require(!DemoPlayback.IsActive&&!_window!.HasScene,"header Hunters opens without a player or scene");
-            headerLoadout=headerHunter.PreviewSelection.Cosmetics;Capture("header-hunters-picker");return true;
-        });
-        Do("stage one cosmetic choice without equipping",()=>Activate("hunter_skin"));
-        Wait("actual picker owns an unsaved cosmetic draft",()=>headerHunter!=null&&!headerHunter.CanNavigateAway);
-        Do("dirty picker header STUDIO goes through the actual route guard",()=>Activate("nav_studio"));
-        WaitFrames(3,"dirty picker refuses Studio without dropping or saving its draft",()=>
+            Wait("actual Studio role hub owns native foreground before replay launch",()=>
+            {
+                var studio=ReadStatic<NativeStudioEntryPage>("_studio");
+                if(studio==null||Host!.CurrentInputDocument!=studio.Document)return false;
+                Require(!DemoPlayback.IsActive&&!_window!.HasScene
+                    &&ReadStatic<NativeStudioEditorPage>("_studioEditor")==null,
+                    "Studio hub holds the sole Shell window before acquiring a replay or editor");
+                Capture("studio-role-startup-hub");return true;
+            });
+        }
+        else
         {
-            Require(ReferenceEquals(ReadStatic<NativeHunterPagePresenter>("_hunterChoice"),headerHunter)
-                && headerHunter is { CanNavigateAway:false }
+            NativeHunterPagePresenter? headerHunter = null;
+            CosmeticLoadout? headerLoadout = null;
+            Wait("actual Shell Home owns native header before replay launch",()=>
+                ReadStatic<RmlUiLauncherPages>("_launcherPages") is { Suspended:false,Page:RmlUiMenuPage.Home }
+                && ReadStatic<NativeHunterPagePresenter>("_hunterChoice")==null
+                && ReadStatic<NativeLicenseOverviewPage>("_license")==null
+                && ReadStatic<NativeStudioEntryPage>("_studio")==null && !_window!.HasScene);
+            Do("Home header HUNTERS uses its actual native action",()=>Activate("nav_hunters"));
+            Wait("actual native Hunter picker owns header navigation",()=>
+            {
+                headerHunter=ReadStatic<NativeHunterPagePresenter>("_hunterChoice");
+                if(headerHunter==null||Host!.CurrentInputDocument!=headerHunter.PreviewDocument)return false;
+                Require(!DemoPlayback.IsActive&&!_window!.HasScene,"header Hunters opens without a player or scene");
+                headerLoadout=headerHunter.PreviewSelection.Cosmetics;Capture("header-hunters-picker");return true;
+            });
+            Do("stage one cosmetic choice without equipping",()=>Activate("hunter_skin"));
+            Wait("actual picker owns an unsaved cosmetic draft",()=>headerHunter!=null&&!headerHunter.CanNavigateAway);
+            Do("dirty picker header STUDIO goes through the actual route guard",()=>Activate("nav_studio"));
+            WaitFrames(3,"dirty picker refuses Studio without dropping or saving its draft",()=>
+            {
+                Require(ReferenceEquals(ReadStatic<NativeHunterPagePresenter>("_hunterChoice"),headerHunter)
+                    && headerHunter is { CanNavigateAway:false }
+                    && ReadStatic<NativeStudioEntryPage>("_studio")==null
+                    && Host!.CurrentInputDocument==headerHunter.PreviewDocument,
+                    "unsaved cosmetic owner and native foreground remain intact after Studio request");
+                Capture("header-studio-dirty-refused");
+            });
+            Do("discard cosmetic draft through the actual local picker action",()=>Activate("hunter_cosmetics_reset"));
+            Wait("discard restores the exact initial cosmetic loadout without Equip",()=>
+                headerHunter is { CanNavigateAway:true } && headerHunter.PreviewSelection.Cosmetics==headerLoadout);
+            Do("open full Hunter License through the actual picker action",()=>Activate("hunter_full"));
+            Wait("actual Hunter License replaces the clean picker",()=>
+                ReadStatic<NativeLicenseOverviewPage>("_license")!=null
+                && ReadStatic<NativeHunterPagePresenter>("_hunterChoice")==null
+                && Host!.TryGetElementBounds(Host.CurrentInputDocument,"native_license_tab_overview",out _,out _,out float w,out float h)
+                && w>0&&h>0);
+            Do("Hunter License header STUDIO uses its foreground native action",()=>Activate("nav_studio"));
+            Wait("actual Studio entry replaces native License from its header",()=>
+            {
+                var studio=ReadStatic<NativeStudioEntryPage>("_studio");
+                if(studio==null||Host!.CurrentInputDocument!=studio.Document
+                    ||ReadStatic<NativeLicenseOverviewPage>("_license")!=null)return false;
+                Require(!DemoPlayback.IsActive&&!_window!.HasScene,"header Studio retains the sole Shell window before playback");
+                Capture("header-studio-entry");return true;
+            });
+            Do("Studio header PLAY returns using the actual native route",()=>Activate("nav_play"));
+            Wait("actual Home resumes after native header journey",()=>
+                ReadStatic<RmlUiLauncherPages>("_launcherPages") is { Suspended:false,Page:RmlUiMenuPage.Home }
                 && ReadStatic<NativeStudioEntryPage>("_studio")==null
-                && Host!.CurrentInputDocument==headerHunter.PreviewDocument,
-                "unsaved cosmetic owner and native foreground remain intact after Studio request");
-            Capture("header-studio-dirty-refused");
-        });
-        Do("discard cosmetic draft through the actual local picker action",()=>Activate("hunter_cosmetics_reset"));
-        Wait("discard restores the exact initial cosmetic loadout without Equip",()=>
-            headerHunter is { CanNavigateAway:true } && headerHunter.PreviewSelection.Cosmetics==headerLoadout);
-        Do("open full Hunter License through the actual picker action",()=>Activate("hunter_full"));
-        Wait("actual Hunter License replaces the clean picker",()=>
-            ReadStatic<NativeLicenseOverviewPage>("_license")!=null
-            && ReadStatic<NativeHunterPagePresenter>("_hunterChoice")==null
-            && Host!.TryGetElementBounds(Host.CurrentInputDocument,"native_license_tab_overview",out _,out _,out float w,out float h)
-            && w>0&&h>0);
-        Do("Hunter License header STUDIO uses its foreground native action",()=>Activate("nav_studio"));
-        Wait("actual Studio entry replaces native License from its header",()=>
-        {
-            var studio=ReadStatic<NativeStudioEntryPage>("_studio");
-            if(studio==null||Host!.CurrentInputDocument!=studio.Document
-                ||ReadStatic<NativeLicenseOverviewPage>("_license")!=null)return false;
-            Require(!DemoPlayback.IsActive&&!_window!.HasScene,"header Studio retains the sole Shell window before playback");
-            Capture("header-studio-entry");return true;
-        });
-        Do("Studio header PLAY returns using the actual native route",()=>Activate("nav_play"));
-        Wait("actual Home resumes after native header journey",()=>
-            ReadStatic<RmlUiLauncherPages>("_launcherPages") is { Suspended:false,Page:RmlUiMenuPage.Home }
-            && ReadStatic<NativeStudioEntryPage>("_studio")==null
-            && ReadStatic<NativeLicenseOverviewPage>("_license")==null
-            && ReadStatic<NativeHunterPagePresenter>("_hunterChoice")==null && !_window!.HasScene);
-        Wait("production launcher and exact isolated file launch",()=>Host is{Active:true}&&_window!.IsFocused&&Shell.RmlUiLaunchReplay(_entry));
+                && ReadStatic<NativeLicenseOverviewPage>("_license")==null
+                && ReadStatic<NativeHunterPagePresenter>("_hunterChoice")==null && !_window!.HasScene);
+        }
+        Wait(_studioRole?"production Studio hub and exact isolated file launch":"production launcher and exact isolated file launch",()=>Host is{Active:true}&&_window!.IsFocused&&Shell.RmlUiLaunchReplay(_entry));
         Wait("production replay opens native playback on the same Shell window",()=>DemoPlayback.IsActive&&Page is{IsOpen:true}&&_lastWorldFrame==_observedFrames);
         Do("pause existing replay through native keyboard action",()=>{if(!ReplayController.IsPaused)Activate("replay_pause");});
         Wait("paused successful world picture",()=>ReplayController.IsPaused&&!ReplayController.IsSeeking&&_lastWorldFrame==_observedFrames);

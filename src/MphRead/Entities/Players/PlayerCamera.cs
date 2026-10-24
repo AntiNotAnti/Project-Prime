@@ -972,6 +972,7 @@ namespace MphRead.Entities
             Field4C = -1;
             Field50 = -1;
             Field54 = 0;
+            RebuildView();
             ModResetDrawState();
         }
 
@@ -1288,7 +1289,19 @@ namespace MphRead.Entities
             }
             _shake = !_shake;
 
-            toTarget = Target - Position;
+            RebuildView();
+        }
+
+        // Initialization can draw before the first simulation step. Building
+        // that pose must not consume shake RNG or advance its alternating tick.
+        internal void RebuildView()
+        {
+            Vector3 previousFacing = Facing;
+            if (!IsFinite(Position))
+            {
+                Position = IsFinite(PrevPosition) ? PrevPosition : Vector3.Zero;
+            }
+            Vector3 toTarget = Target - Position;
             if (!IsFinite(toTarget) || toTarget.LengthSquared < 0.000001f)
             {
                 Vector3 fallback = IsFinite(previousFacing) && previousFacing.LengthSquared > 0.000001f

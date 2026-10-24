@@ -14,7 +14,7 @@ namespace MphRead.Mods.Launcher
             if (played.Kind != LaunchKind.Offline || played.IsPlaytest) return false;
             string room = String.IsNullOrWhiteSpace(selected) ? played.RoomKey : selected;
             if (String.IsNullOrWhiteSpace(room) || MapPick.IsReturnToLobby(room)) return false;
-            next = played with { RoomKey = room };
+            next = played with { RoomKey = room, MatchRules = played.MatchRules with { RoomKey = room } };
             return true;
         }
     }

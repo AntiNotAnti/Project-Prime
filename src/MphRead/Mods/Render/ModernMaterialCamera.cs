@@ -13,7 +13,9 @@ public partial class Scene
 
     private void SetMaterialCamera(ref Matrix4 view)
     {
-        if (!ModernMaterialCorrectionsEnabled || _shaderLocations.MaterialCameraPosition < 0) return;
+        if ((!ModernMaterialCorrectionsEnabled && !SceneColorRequested) || _shaderLocations.MaterialCameraPosition < 0) return;
+        // Camera preparation precedes BeginWorldPass and runs between encoded
+        // frames too. Gate on the frozen scene request, never pass admission.
         // Use the actual uploaded view, including preview, replay and temporary
         // viewmodel/pause-map views, rather than assuming the gameplay eye.
         Vector3 camera = Matrix4.Invert(view).Row3.Xyz;

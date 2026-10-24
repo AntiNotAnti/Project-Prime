@@ -1,8 +1,8 @@
 using MphRead.Mods.Replay;
 using OpenTK.Mathematics;
 namespace MphRead {
-public partial class Scene {public long LifetimeGeneration=1;public Players Players=new();internal void UseNativeReplayFreeCamera(ReplayCameraKeyframe pose){} }
-public sealed class Players {public int MainPlayerIndex=0;}
+public partial class Scene {public long LifetimeGeneration=1;public Players Players=new();internal void RestoreNativeReplayMemoryCamera(ReplayCameraKeyframe key){} internal void UseNativeReplayFreeCamera(ReplayCameraKeyframe pose){} }
+public sealed class Players {public int MainPlayerIndex=0;public MphRead.Entities.PlayerEntity[] Items=new[]{new MphRead.Entities.PlayerEntity{SlotIndex=1},new MphRead.Entities.PlayerEntity{SlotIndex=3}};}
 }
 namespace MphRead.Mods.Network {
 internal sealed class ReplayTransport {public long SeekGeneration;public uint CurrentFrame=50,DurationFrames=600;public bool IsSeeking,IsPaused=true;public void Seek(uint frame){CurrentFrame=frame;SeekGeneration++;IsSeeking=true;}}
@@ -44,4 +44,10 @@ internal static partial class RmlUiOpenGlSmoke {
 private static bool GameplayLeaseCurrent=true;private static Scene _gameplayScene=new();
 internal static MphRead.Mods.Launcher.Core.ITheatreCameraToolsBackend Fixture()=>new CurrentReplayCamera();
 }
+}
+
+namespace MphRead.Entities {
+ [System.Flags]public enum LoadFlags{Active=1,Spawned=2}
+ public sealed class PlayerEntity{public int SlotIndex;public LoadFlags LoadFlags=LoadFlags.Active|LoadFlags.Spawned;}
+ internal static class LoadFlagsFixtureExtensions{internal static bool TestFlag(this LoadFlags value,LoadFlags flag)=>(value&flag)==flag;}
 }

@@ -8,10 +8,10 @@ string root = Path.Combine(Environment.CurrentDirectory, ".settings-check-" + Gu
 Directory.CreateDirectory(root);
 string originalPreferencesDirectory = MphRead.Mods.Launcher.LauncherPrefs.Directory;
 MphRead.Mods.Launcher.LauncherPrefs.Directory = root;
-int passed = 0;
+int passed = 0, skipped = 0;
 try
 {
-    void Test(string name, Action action) { action(); Console.WriteLine("PASS " + name); passed++; }
+    void Test(string name, Action action) { int before = skipped; action(); if (skipped == before) { Console.WriteLine("PASS " + name); passed++; } }
     void Require(bool condition) { if (!condition) throw new Exception("Assertion failed."); }
     void Reject(Action action)
     {
@@ -85,7 +85,10 @@ try
     Test("symlink destination", () =>
     {
         string outside = Path.Combine(root, "outside.txt"), link = Path.Combine(root, "launcher.txt");
-        File.WriteAllText(outside, "untouched"); File.Delete(link); File.CreateSymbolicLink(link, outside);
+        File.WriteAllText(outside, "untouched"); File.Delete(link);
+        try { File.CreateSymbolicLink(link, outside); }
+        catch (IOException ex) when (OperatingSystem.IsWindows() && (ex.HResult & 0xffff) == 1314)
+        { skipped++; Console.WriteLine("SKIP symlink destination: Windows account lacks symbolic-link creation privilege."); return; }
         Reject(() => Import(Good())); Require(File.ReadAllText(outside) == "untouched"); File.Delete(link);
     });
     Test("invalid controller profiles", () => Reject(() => SettingsArchiveValidator.Validate(SettingsArchiveRegistry.Resolve("controller-profiles.json"), Bytes("{\"Profiles\":[null],\"Assignments\":{}}"))));
@@ -188,6 +191,6 @@ try
             finally { SettingsArchivePlatform.RestartApplication = null; }
         });
     });
-    Console.WriteLine($"{passed} settings archive checks passed.");
+    Console.WriteLine($"{passed} settings archive checks passed; {skipped} environment-dependent checks skipped.");
 }
 finally { MphRead.Mods.Launcher.LauncherPrefs.Directory = originalPreferencesDirectory; Directory.Delete(root, true); }

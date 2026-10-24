@@ -19,6 +19,7 @@ namespace MphRead.Mods.Replay
         internal static void ReloadReviewedTrack(string logicalPath)
         {
             EnsureTrack();
+            if(MemoryDocumentDirty)return; // The source-bound editor owns this in-memory document until Save or Discard.
             var loaded = new ReplayCameraTrack();
             if (!loaded.Load(logicalPath)) throw new InvalidDataException(loaded.LastError);
             if (!ReplayPathComparer.Comparer.Equals(_trackPath, logicalPath))
@@ -35,6 +36,7 @@ namespace MphRead.Mods.Replay
             EnsureTrack();
             if (!ReplayPathComparer.Comparer.Equals(_trackPath, logicalPath))
                 throw new InvalidOperationException("The replay camera owner changed.");
+            if(MemoryDocumentDirty)throw new InvalidOperationException("Save or discard the advanced camera document before editing individual saved keys.");
             if (!Track.EditAndSave(logicalPath, track => remove ? track.Remove(key.Frame) : track.Put(key)))
                 throw new IOException(Track.LastError ?? "The selected camera keyframe could not be saved.");
             if (remove)
@@ -52,6 +54,14 @@ namespace MphRead
 {
     public partial class Scene
     {
+        internal void RestoreNativeReplayMemoryCamera(Mods.Replay.ReplayCameraKeyframe key)
+        {
+            _cameraPosition=key.Position;
+            _cameraFacing=Vector3.Transform(-Vector3.UnitZ,key.Rotation).Normalized();
+            _cameraUp=Vector3.Transform(Vector3.Transform(Vector3.UnitY,key.Rotation),Quaternion.FromAxisAngle(_cameraFacing,key.Roll)).Normalized();
+            _cameraRight=Vector3.Cross(_cameraFacing,_cameraUp).Normalized();_cameraFov=key.Fov;
+            Mods.Replay.ReplayCamera.Changed=true;
+        }
         internal void UseNativeReplayFreeCamera(Mods.Replay.ReplayCameraKeyframe reviewed)
         {
             if (!ReferenceEquals(DemoPlayback.PresentationScene, this))

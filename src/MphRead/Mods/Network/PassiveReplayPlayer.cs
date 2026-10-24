@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using MphRead.Mods.Replay;
 using OpenTK.Mathematics;
 
@@ -18,13 +19,30 @@ internal sealed record ReplayPlayerOptions(bool EnableSeeking = true, bool Enabl
 internal sealed partial class PassiveReplayPlayer : IDisposable
 {
     internal const int MaximumStepsPerUpdate = 120;
+    internal const double InteractiveBudgetMilliseconds = 3;
     private const int MaximumCheckpoints = 128;
     private const long MaximumCheckpointBytes = 64L * 1024 * 1024;
     private readonly SortedDictionary<uint, ReplayWorldCheckpoint>? _checkpoints;
     private readonly ReplayPlayerOptions _options;
     private readonly Func<PassiveReplayScene> _open;
+    private readonly ReplayOwnerPresentationSource? _ownerPresentationSource;
     private readonly uint _firstFrame;
     private readonly Stopwatch _seekTime = new();
+    private uint? _observedSeekTarget;
+    private long _observedSeekGeneration;
+    private readonly Dictionary<uint, long> _checkpointUse = new();
+    private long _checkpointClock;
+    private Task<byte[]>? _checkpointRead;
+    private ReplayCheckpointIndex _checkpointReadIndex;
+    private byte[]? _prefetchedCheckpoint;
+    private double _checkpointReadMilliseconds;
+    internal ReplayTimingWindow UpdateTimings { get; } = new();
+    internal ReplayTimingWindow SeekTimings { get; } = new();
+    internal double LastUpdateMilliseconds { get; private set; }
+    internal double LastRebuildMilliseconds { get; private set; }
+    internal double LastCheckpointReadMilliseconds { get; private set; }
+    internal double LastCheckpointCaptureMilliseconds { get; private set; }
+    internal long CoalescedSeeks { get; private set; }
     private bool _disposed;
     private readonly HashSet<long>? _rejectedDurable;
     internal string CheckpointSource { get; private set; } = "initial world";
@@ -48,7 +66,10 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
         _options = options ?? new();
         if (_options.EnableMemoryCheckpoints) _checkpoints = new();
         if (_options.EnableDurableCheckpoints) _rejectedDurable = new();
-        _open = () => new(path, size); Current = _open(); Transport.SeekingEnabled = _options.EnableSeeking;
+        _ownerPresentationSource = Headless.Active ? null : new(path);
+        _open = () => new(path, size, _ownerPresentationSource);
+        try { Current = _open(); } catch { _ownerPresentationSource?.Dispose(); throw; }
+        Transport.SeekingEnabled = _options.EnableSeeking;
         // Nested ranges retain original source clocks. A durable baseline before
         // their visible start can skip most of the hidden lead-in immediately.
         if (Current.Session.IsWarming && DurableBefore(0) is { } baseline)
@@ -64,13 +85,41 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (!_options.EnableSeeking) throw new InvalidOperationException("Linear replay playback does not support seeking.");
         frame = Math.Clamp(frame, _firstFrame, Current.Session.LastFrame);
-        _seekTime.Restart(); SeekSimulationSteps = 0; SeekRestoreFrame = Current.Session.CurrentFrame;
+        if (Transport.SeekTarget == frame && Transport.ResumeAfterSeek == resume) return;
         Transport.Seek(frame, resume);
     }
 
-    /// <summary>One host update. Seeking never exceeds 120 fixed steps, and leaves
-    /// the target pending for the next update. No intermediate frame is presented.</summary>
-    public int Update(int maximumSteps = MaximumStepsPerUpdate, double maximumMilliseconds = double.PositiveInfinity)
+    /// <summary>Yields between fixed steps after the interactive time budget.
+    /// A single simulation step or validated scene restore is indivisible;
+    /// timings expose those overruns. Offline tools can opt into an infinite budget.</summary>
+    public int Update(int maximumSteps = MaximumStepsPerUpdate, double maximumMilliseconds = InteractiveBudgetMilliseconds)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (double.IsNaN(maximumMilliseconds) || maximumMilliseconds < 0)
+            throw new ArgumentOutOfRangeException(nameof(maximumMilliseconds));
+        long began = Stopwatch.GetTimestamp();
+        uint? target = Transport.SeekTarget;
+        if (target.HasValue && (_observedSeekTarget != target || _observedSeekGeneration != Transport.SeekGeneration))
+        {
+            if (_seekTime.IsRunning) CoalescedSeeks++;
+            _seekTime.Restart(); SeekSimulationSteps = 0; SeekRestoreFrame = Current.Session.CurrentFrame;
+            _observedSeekTarget = target; _observedSeekGeneration = Transport.SeekGeneration;
+        }
+        LastRebuildMilliseconds = LastCheckpointReadMilliseconds = LastCheckpointCaptureMilliseconds = 0;
+        try { return UpdateCore(maximumSteps, maximumMilliseconds); }
+        finally
+        {
+            LastUpdateMilliseconds = Stopwatch.GetElapsedTime(began).TotalMilliseconds;
+            UpdateTimings.Add(LastUpdateMilliseconds);
+            if (!Transport.IsSeeking && !Current.Session.IsWarming && _seekTime.IsRunning)
+            {
+                _seekTime.Stop(); SeekMilliseconds = _seekTime.Elapsed.TotalMilliseconds;
+                SeekTimings.Add(SeekMilliseconds); _observedSeekTarget = null;
+            }
+        }
+    }
+
+    private int UpdateCore(int maximumSteps, double maximumMilliseconds)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         maximumSteps = Math.Clamp(maximumSteps, 1, MaximumStepsPerUpdate);
@@ -79,6 +128,18 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
         bool BudgetAvailable() => Stopwatch.GetElapsedTime(updateStart).TotalMilliseconds < maximumMilliseconds;
         uint? target = Transport.SeekTarget;
         bool resume = Transport.ResumeAfterSeek;
+        // Leave rebuild requests untouched until their immutable disk read is
+        // ready. New requests replace the target; at most one worker is admitted.
+        if (target is uint requested && DurableBefore(requested) is { } candidate)
+        {
+            var memory = _checkpoints?.LastOrDefault(p => p.Key <= requested) ?? default;
+            uint diskFrame = Current.Session.CheckpointVisibleFrame(candidate);
+            bool useful = memory.Value == null || memory.Key < diskFrame;
+            if (useful && (Transport.RequiresRebuild || diskFrame > Current.Session.CurrentFrame + MaximumStepsPerUpdate))
+            {
+                if (!PrepareCheckpoint(candidate)) return 0;
+            }
+        }
         bool rebuild = Transport.TakeRebuild(out uint rebuildTarget, out bool rebuildResume);
         if (rebuild) { target = rebuildTarget; resume = rebuildResume; }
         if (target.HasValue)
@@ -90,6 +151,8 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
             uint bestFrame = durable is { } chosen ? Current.Session.CheckpointVisibleFrame(chosen) : checkpoint.Key;
             if (rebuild || bestFrame > Current.Session.CurrentFrame + MaximumStepsPerUpdate)
                 Rebuild(target.Value, resume, durable.HasValue ? null : checkpoint.Value, durable);
+            if (checkpoint.Value != null && durable == null && _checkpoints!.ContainsKey(checkpoint.Key))
+                _checkpointUse[checkpoint.Key] = ++_checkpointClock;
         }
         if (Current.Session.IsWarming)
         {
@@ -112,15 +175,15 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
             Stepped?.Invoke(Current.Scene);
             uint frame = Current.Session.CurrentFrame;
             if (seeking) SeekSimulationSteps++;
-            if (_checkpoints != null && double.IsPositiveInfinity(maximumMilliseconds) && frame % 300 == 0 && !_checkpoints.ContainsKey(frame))
+            if (_checkpoints != null && !seeking && BudgetAvailable() && frame % 300 == 0 && !_checkpoints.ContainsKey(frame))
             {
+                long captureStart = Stopwatch.GetTimestamp();
                 try { Remember(ReplayWorldCheckpoint.Capture(Current)); }
                 catch (Exception ex) when (ex is InvalidDataException or InvalidOperationException)
                 { LastCheckpointError = ex.Message; }
+                finally { LastCheckpointCaptureMilliseconds = Stopwatch.GetElapsedTime(captureStart).TotalMilliseconds; }
             }
         }
-        if (!Transport.IsSeeking && _seekTime.IsRunning)
-        { _seekTime.Stop(); SeekMilliseconds = _seekTime.Elapsed.TotalMilliseconds; }
         return steps;
     }
     private ReplayCheckpointIndex? DurableBefore(uint target)
@@ -130,8 +193,38 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
             if (Current.Session.CheckpointVisibleFrame(index) <= target && !_rejectedDurable.Contains(index.Offset)) return index;
         return null;
     }
+    private bool PrepareCheckpoint(ReplayCheckpointIndex index)
+    {
+        if (_checkpointRead != null && _checkpointReadIndex != index)
+        {
+            if (!_checkpointRead.IsCompleted) return false;
+            _ = _checkpointRead.Exception; _checkpointRead = null; _prefetchedCheckpoint = null;
+        }
+        if (_checkpointRead == null)
+        {
+            _checkpointReadIndex = index;
+            Func<byte[]> read = Current.Session.PrepareCheckpointRead(index);
+            _checkpointRead = Task.Run(() =>
+            {
+                long began = Stopwatch.GetTimestamp();
+                try { return read(); }
+                finally { _checkpointReadMilliseconds = Stopwatch.GetElapsedTime(began).TotalMilliseconds; }
+            });
+            return false;
+        }
+        if (!_checkpointRead.IsCompleted) return false;
+        try { _prefetchedCheckpoint = _checkpointRead.GetAwaiter().GetResult(); }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ObjectDisposedException or ArgumentException)
+        {
+            RejectedCheckpoints++; LastCheckpointError = ex.Message; _rejectedDurable!.Add(index.Offset);
+            _checkpointRead = null; _prefetchedCheckpoint = null;
+            return false; // Earlier durable fallbacks must be prefetched on the next update too.
+        }
+        return true;
+    }
     private void Rebuild(uint target, bool resume, ReplayWorldCheckpoint? checkpoint, ReplayCheckpointIndex? durable = null)
     {
+        long rebuildStart = Stopwatch.GetTimestamp();
         PassiveReplayScene? replacement = null;
         ReplayWorldCheckpoint? loaded = null;
         string? fallbackWarning = null;
@@ -139,12 +232,20 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
         {
             if (durable is { } disk)
             {
-                try { checkpoint = loaded = Current.Session.LoadCheckpoint(disk, requireIndexedFirePresentation: Current.Scene.ReplayPoses?.IndexedFirePresentation != false); }
+                long readStart = Stopwatch.GetTimestamp();
+                try { checkpoint = loaded = Current.Session.LoadCheckpoint(disk, requireIndexedFirePresentation: Current.Scene.ReplayPoses?.IndexedFirePresentation != false,
+                    prefetched: _checkpointReadIndex == disk ? _prefetchedCheckpoint : null); }
                 catch (Exception ex) when (ex is InvalidDataException or IOException or InvalidOperationException or ArgumentException)
                 {
                     RejectedCheckpoints++; LastCheckpointError = ex.Message; _rejectedDurable!.Add(disk.Offset);
                     fallbackWarning = "Durable checkpoint fallback: " + ex.Message;
                     durable = null; checkpoint = null;
+                }
+                finally
+                {
+                    LastCheckpointReadMilliseconds = Stopwatch.GetElapsedTime(readStart).TotalMilliseconds
+                        + (_prefetchedCheckpoint != null ? _checkpointReadMilliseconds : 0);
+                    _checkpointRead = null; _prefetchedCheckpoint = null;
                 }
             }
             replacement = _open();
@@ -157,18 +258,19 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
                 {
                     RejectedCheckpoints++; LastCheckpointError = ex.Message;
                     if (durable is { } rejected) _rejectedDurable!.Add(rejected.Offset);
-                    else { CheckpointBytes -= checkpoint.Bytes.Length + 128; _checkpoints!.Remove(checkpoint.Frame); checkpoint.Dispose(); }
+                    else { CheckpointBytes -= checkpoint.Bytes.Length + 128; _checkpoints!.Remove(checkpoint.Frame); _checkpointUse.Remove(checkpoint.Frame); checkpoint.Dispose(); }
                     replacement.Dispose(); replacement = _open(); CheckpointSource = "initial world";
                 }
             }
             replacement.Session.Transport.CopyPreferences(Transport);
             replacement.Session.Transport.ContinueSeek(target, resume);
+            _observedSeekGeneration = replacement.Session.Transport.SeekGeneration;
             SeekRestoreFrame = replacement.Session.CurrentFrame;
             var previous = Current; Current = replacement; replacement = null;
             try { Replaced?.Invoke(previous.Scene, Current); }
             finally { previous.Dispose(); }
         }
-        finally { replacement?.Dispose(); loaded?.Dispose(); }
+        finally { replacement?.Dispose(); loaded?.Dispose(); LastRebuildMilliseconds = Stopwatch.GetElapsedTime(rebuildStart).TotalMilliseconds; }
     }
     private void Remember(ReplayWorldCheckpoint checkpoint)
     {
@@ -177,9 +279,11 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
         if (cost > MaximumCheckpointBytes) { checkpoint.Dispose(); return; }
         while (_checkpoints.Count >= MaximumCheckpoints || CheckpointBytes + cost > MaximumCheckpointBytes)
         {
-            var first = _checkpoints.First(); _checkpoints.Remove(first.Key); CheckpointBytes -= first.Value.Bytes.Length + 128; first.Value.Dispose();
+            uint oldest = _checkpointUse.MinBy(pair => pair.Value).Key;
+            var evicted = _checkpoints[oldest]; _checkpoints.Remove(oldest); _checkpointUse.Remove(oldest);
+            CheckpointBytes -= evicted.Bytes.Length + 128; evicted.Dispose();
         }
-        _checkpoints.Add(checkpoint.Frame, checkpoint); CheckpointBytes += cost;
+        _checkpoints.Add(checkpoint.Frame, checkpoint); _checkpointUse[checkpoint.Frame] = ++_checkpointClock; CheckpointBytes += cost;
     }
     public void Dispose()
     {
@@ -188,9 +292,12 @@ internal sealed partial class PassiveReplayPlayer : IDisposable
         try { Current.Dispose(); }
         finally
         {
+            _ownerPresentationSource?.Dispose();
             RetireCustomPreparation();
             if (_checkpoints != null) foreach (var checkpoint in _checkpoints.Values) checkpoint.Dispose();
-            _checkpoints?.Clear(); CheckpointBytes = 0;
+            _checkpoints?.Clear(); _checkpointUse.Clear(); CheckpointBytes = 0;
+            if (_checkpointRead is { } read) _ = read.ContinueWith(task => { _ = task.Exception; }, TaskScheduler.Default);
+            _checkpointRead = null; _prefetchedCheckpoint = null;
         }
     }
 }

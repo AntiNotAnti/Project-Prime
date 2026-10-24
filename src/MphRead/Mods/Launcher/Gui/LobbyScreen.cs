@@ -20,6 +20,11 @@ namespace MphRead.Mods.Launcher.Gui
 {
     internal sealed class LobbyScreen : UserControl
     {
+        private ProjectPrime.CaptureZone.Ui.CaptureZoneLobbyView? _heroSelection;
+        private Control? _ordinaryRoster;
+        private Control? _ordinaryLoadout;
+        private Grid? _nativeBodyGrid;
+
         private static readonly MatchTypeDefinition[] _gameTypes = MatchTypeCatalog.GameTypes;
         private static readonly MatchupDefinition[] _matchups = MatchTypeCatalog.Matchups;
 
@@ -40,7 +45,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _startCountdown;
         private readonly TextBlock _startDetail;
         private readonly ScrollViewer _chatHistory;
-        private readonly ChoiceRow _hunter, _suit, _team, _mode, _format;
+        private readonly ChoiceRow _hunter, _suit, _team, _mode, _heroObjective, _format;
         private readonly ChoiceRow _target, _handicap, _movement;
         private bool _movementHasUnsupportedChoice;
         private readonly PickRow _map, _customTeams;
@@ -124,6 +129,10 @@ namespace MphRead.Mods.Launcher.Gui
             _map = new PickRow("Map");
             _map.Clicked += (_, _) => OpenMapPicker();
             _mode = new ChoiceRow("Game type", _gameTypes.Select(m => m.Label).ToArray());
+            _heroObjective = new ChoiceRow("Objective", Mods.HeroModes.HeroModeMenu.Labels, LauncherPrefs.LastHeroObjective);
+            ControllerNav.Identify(_heroObjective, "lobby.hero-objective");
+            _mode.StackLabel=true; _heroObjective.StackLabel=true;
+            _heroObjective.Changed += (_, _) => { if (!_syncing) LauncherPrefs.LastHeroObjective = _heroObjective.Index; MatchChoiceChanged(resetGoal: true); };
             _format = new ChoiceRow("Matchup", _matchups.Select(m => m.Label).ToArray());
             _movement = new ChoiceRow("Movement", new[] { "Classic", "Momentum", "Quake III", "Traversal", "Parkour" });
             ToolTip.SetTip(_movement, "Classic uses original movement. Momentum adds air-strafing and bunny-hop momentum. Quake III adds strafe-jump speed building; Traversal adds stronger air control, ramp jumps and Magmaul jumps. Parkour is an optional advanced movement model with airborne tuck; alt-form abilities stay native.");
@@ -429,7 +438,7 @@ namespace MphRead.Mods.Launcher.Gui
                 new PrimePanel(advancedRules, raised: true) { Padding = new Thickness(12) });
             var parameters = PrimeChrome.Stack(
                 PrimeChrome.Eyebrow("NEXT MATCH // CONFIGURATION"),
-                _mode, _format, limits, _layoutSummary,
+                _mode, _heroObjective, _format, limits, _layoutSummary,
                 new PrimeButton("ADVANCED RULES", () => ShowSheet("LOBBY RULES", advanced)));
             _ownerControls.Children.Add(parameters);
             foreach (var element in new Control[] { _players, _hunter, _suit, _team, arena, _ownerControls, administration, chatBody })
@@ -448,6 +457,10 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeChrome.Title("OPERATIVE LOADOUT"),
                 _hunter, _suit, _team));
             Grid.SetRow(loadout, 1); nativeLeft.Children.Add(loadout);
+            _ordinaryRoster = nativeLeft.Children[0]; _ordinaryLoadout = loadout;
+            _heroSelection = Mods.HeroModes.HeroSelectionFactory.Create();
+            _heroSelection.IsVisible = false;
+            Grid.SetRowSpan(_heroSelection, 2); nativeLeft.Children.Add(_heroSelection);
 
             var nativeMiddle = new Grid { RowDefinitions = new("Auto,*"), RowSpacing = 12 };
             nativeMiddle.Children.Add(arena);
@@ -466,6 +479,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PrimeChrome.Columns("*,*,*", new PrimeButton("INVITE", Invite), _mainMenu, _leave));
             Grid.SetRow(sessionActions, 3); comms.Children.Add(sessionActions);
             var nativeBody = PrimeChrome.Columns("1.04*,1.05*,1*", nativeLeft, nativeMiddle, new PrimePanel(comms));
+            _nativeBodyGrid = nativeBody;
             Grid.SetRow(nativeBody, 1); frame.Children.Add(nativeBody);
             _mainPage = frame;
             _root.Children.Add(_mainPage);
@@ -724,6 +738,16 @@ namespace MphRead.Mods.Launcher.Gui
             _suit.Index = NetSession.LocalColor;
             RosterPacket roster = NetSession.LobbyRoster();
             _rosterCount = roster.Count;
+            bool heroMode = Mods.HeroModes.HeroRules.Active(session.Match.Mode);
+            if (_heroSelection != null)
+            {
+                bool layoutChanged = _heroSelection.IsVisible != heroMode;
+                _heroSelection.IsVisible = heroMode;
+                if (_ordinaryRoster != null) _ordinaryRoster.IsVisible = !heroMode;
+                if (_ordinaryLoadout != null) _ordinaryLoadout.IsVisible = !heroMode;
+                if (layoutChanged && _nativeBodyGrid != null) _nativeBodyGrid.ColumnDefinitions = new ColumnDefinitions(heroMode ? "2.1*,1*,.95*" : "1.04*,1.05*,1*");
+                if (heroMode && (_shownRosterRevision != roster.Revision || _shownRevision != session.Revision)) _heroSelection.Refresh();
+            }
 
             if (_shownRevision != session.Revision
                 || _shownRosterRevision != roster.Revision
@@ -798,6 +822,8 @@ namespace MphRead.Mods.Launcher.Gui
                 _map.Set(RoomName(_draftRoom));
                 SetPreview(_draftRoom);
                 _mode.Index = BaseModeIndex(session.Match.Mode);
+                _heroObjective.Index = Mods.HeroModes.HeroModeMenu.Index(session.Match.Mode);
+                _heroObjective.IsVisible = Mods.HeroModes.HeroRules.Active(session.Match.Mode);
                 _format.Index = MatchupIndex(session.Match);
                 if (!_draftDirty)
                 {
@@ -1158,6 +1184,7 @@ namespace MphRead.Mods.Launcher.Gui
             MatchFormat format = MatchTypeCatalog.NormalizeFormat(type, SelectedFormat());
             int target = MatchupIndex(format);
             if (target != _format.Index) _format.Index = target;
+            _heroObjective.IsVisible = Mods.HeroModes.HeroModeMenu.IsFamily(type);
             _format.IsEnabled = !type.TeamOnly && !type.FfaOnly;
             MatchDefinition draft = DraftMatch();
             _goal.Label = GoalLabel(draft.Mode);
@@ -1182,7 +1209,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             MatchFormat format = SelectedFormat();
             var type = _gameTypes[Math.Clamp(_mode.Index, 0, _gameTypes.Length - 1)];
-            GameMode mode = type.Resolve(format);
+            GameMode mode = Mods.HeroModes.HeroModeMenu.Resolve(type, format, _heroObjective.Index);
             return new MatchDefinition
             {
                 RoomKey = _draftRoom,
@@ -1302,6 +1329,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if (!CustomWeapons.CustomWeaponMatchPolicy.TryAdmit(match.Mode, match.Rules, online: true, bots: bots, out reason))
                     return false;
             }
+            if (Mods.HeroModes.HeroRules.Active(match.Mode)) match = match.NormalizeLegacy();
             return MatchModifierRules.Validate(match, out reason);
         }
 

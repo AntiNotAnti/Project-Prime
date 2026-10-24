@@ -128,18 +128,31 @@ internal static class NativeSettingsAcceptance
                 "keyboard bindings retain existing unbound support");
 
             var hudOptions = controller.CopyHudOptions();
+            var fpsRow=Row(controller,"Display","Show FPS");
+            var weaponPresentation=Row(controller,"Display","Weapon presentation");
             Check(controller.Rows.Where(row=>row.Group is "HUD" or "HUD preferences").All(row=>row.HudOnly)
-                && hudOptions.Any(option=>option.Label=="Show Fps") && hudOptions.Any(option=>option.Label=="Stacked dual-screen layout"),
-                "HUD preferences belong to HUD Studio and retain searchable detached options");
-            Check(hudOptions.Any(option=>option.Label=="Screen proportions (4:3 / 5:3)"&&option.Section==1&&option.Choices.SequenceEqual(new[]{"4:3","5:3"}))
-                &&hudOptions.Any(option=>option.Label=="Stylus input mode"&&option.Section==1&&option.Group=="Stacked dual screens")
-                &&hudOptions.Any(option=>option.Label=="Stacked dual-screen layout"&&option.Section==1&&option.Hint.Contains("Stylus input mode",StringComparison.Ordinal)),
-                "stacked screens, exact4:3/5:3choices and required input master are discoverable together in Layout");
+                && !fpsRow.HudOnly && !weaponPresentation.HudOnly
+                && fpsRow.Group=="View" && weaponPresentation.Group=="View"
+                && !hudOptions.Any(option=>option.Label is "Show FPS" or "Show Fps" or "Weapon presentation")
+                && !controller.Rows.Any(row=>row.Label=="Pro Hud Fixed Weapon")
+                && hudOptions.Any(option=>option.Label=="Stacked dual-screen layout"),
+                "FPS and weapon presentation stay in Display while layout options remain in HUD Studio");
+            Check(weaponPresentation.Choices.SequenceEqual(new[]{"static","dynamic"})
+                && weaponPresentation.DisplayValue=="Static (Quake)"
+                && controller.Rows.Count(row=>row.Label=="Weapon presentation")==1,
+                "one canonical weapon setting exposes Static (Quake) and Dynamic (Metroid)");
+            Check(controller.Stage(weaponPresentation,"dynamic")&&!controller.CopyHud().FixedWeapon,
+                "Dynamic presentation maps to the existing HUD profile fixed-weapon preference");
+            controller.Discard();
+            Check(hudOptions.Any(option=>option.Label=="Screen proportions (4:3 / 5:3)"&&option.Section==2&&option.Choices.SequenceEqual(new[]{"4:3","5:3"}))
+                &&hudOptions.Any(option=>option.Label=="Stylus input mode"&&option.Section==2&&option.Group=="Stacked dual screens")
+                &&hudOptions.Any(option=>option.Label=="Stacked dual-screen layout"&&option.Section==2&&option.Hint.Contains("Stylus input mode",StringComparison.Ordinal)),
+                "stacked screens, exact4:3/5:3choices and required input master are discoverable together in HUD-wide");
             using(var editor = new HudEditorController(controller.CopyHud(),options:hudOptions))
             {
                 editor.Dispatch(HudEditorAction.SectionGlobal);
-                editor.Dispatch(HudEditorAction.SearchProperties,"Show Fps");editor.SelectProperty(0);editor.Dispatch(HudEditorAction.PropertyChoiceNext);
-                Check(controller.CopyHudOptions().Single(option=>option.Label=="Show Fps").Value==hudOptions.Single(option=>option.Label=="Show Fps").Value,
+                editor.Dispatch(HudEditorAction.SearchProperties,"Stacked dual-screen layout");editor.SelectProperty(0);editor.Dispatch(HudEditorAction.PropertyChoiceNext);
+                Check(controller.CopyHudOptions().Single(option=>option.Label=="Stacked dual-screen layout").Value==hudOptions.Single(option=>option.Label=="Stacked dual-screen layout").Value,
                     "HUD option edits leave outer settings unchanged before Use");
                 controller.AcceptHudOptions(editor.CopyOptions());
                 Check(controller.Dirty&&controller.Rows.Select(row=>row.Read()).SequenceEqual(originalRows),"HUD Use stages preferences while runtime waits for Apply");
@@ -147,10 +160,12 @@ internal static class NativeSettingsAcceptance
             }
             string runtimeHud = HudProfileStore.Serialize(HudProfiles.CopyCurrent());
             HudProfile proposed = controller.CopyHud(); proposed.SafeArea = .13f;
+            proposed.FixedWeapon=false;
             proposed.Elements["core.health"].OffsetX = 37;
             controller.SetHud(proposed); proposed.SafeArea = .2f;
             HudProfile copy = controller.CopyHud();
-            Check(Math.Abs(copy.SafeArea - .13f) < .0001f && copy.Elements["core.health"].OffsetX == 37,
+            Check(Math.Abs(copy.SafeArea - .13f) < .0001f && copy.Elements["core.health"].OffsetX == 37
+                && !copy.FixedWeapon && weaponPresentation.Value=="dynamic",
                 "HUD handoff clones the editor result into the settings draft");
             copy.Elements["core.health"].OffsetX = 99;
             Check(controller.CopyHud().Elements["core.health"].OffsetX == 37

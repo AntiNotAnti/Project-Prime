@@ -6,7 +6,7 @@ public static class HudProfileDefaults
     public const string MovementTelemetryId = "movement.telemetry";
     public const int MovementTelemetryIndex = 14;
     public const float MovementTelemetryHeight = 24;
-    public static readonly string[] ElementIds = { "core.crosshair", "core.health", "core.ammo", "core.weapons", "core.radar", "match.score", "match.timer", "combat.killFeed", "combat.notifications", "combat.opponent", "match.objective", "system.diagnostics", "core.healthGauge", "core.ammoGauge", MovementTelemetryId };
+    public static readonly string[] ElementIds = { "core.crosshair", "core.health", "core.ammo", "core.weapons", "core.radar", "match.score", "match.timer", "combat.killFeed", "combat.notifications", "combat.opponent", "match.objective", "system.diagnostics", "core.healthGauge", "core.ammoGauge", MovementTelemetryId, "match.rounds", "match.respawn", "combat.abilityCooldown", "match.flagAction", "match.ctfEvents", "match.ctfFlags", "match.ctfScoreboard", "match.oddballStatus", "match.oddballAction", "match.oddballEvents", "match.oddballScoreboard" };
     public static readonly string[] Presets = { "Classic", "Halo", "Approved 4:3", "Project Prime", "Competitive", "Minimal", "Duel", "Accessibility", "Broadcast" };
     public static Dictionary<string, HudElementLayout> Elements() => new()
     {
@@ -25,7 +25,18 @@ public static class HudProfileDefaults
         ["core.healthGauge"] = new() { Anchor=HudAnchor.BottomLeft,OffsetX=22.5f,OffsetY=-33.75f },
         ["core.ammoGauge"] = new() { Anchor=HudAnchor.BottomRight,OffsetX=-326.25f,OffsetY=-33.75f },
         // Logical rectangle: (78,166)–(178,190) on the 256x192 HUD; anchor and saved offsets are unchanged.
-        [MovementTelemetryId] = new() { Anchor=HudAnchor.BottomCenter,OffsetX=0,OffsetY=-146.25f,Contexts=HudContext.Playing }
+        [MovementTelemetryId] = new() { Anchor=HudAnchor.BottomCenter,OffsetX=0,OffsetY=-146.25f,Contexts=HudContext.Playing },
+        ["match.rounds"] = new() { Anchor=HudAnchor.TopCenter,OffsetY=157.5f },
+        ["match.respawn"] = new() { Anchor=HudAnchor.BottomCenter,OffsetY=-236.25f },
+        ["combat.abilityCooldown"] = new() { Anchor=HudAnchor.TopCenter,OffsetY=285f },
+        ["match.flagAction"] = new() { Anchor=HudAnchor.BottomCenter,OffsetY=-90,Visibility=HudVisibility.Objective },
+        ["match.ctfEvents"] = new() { Anchor=HudAnchor.TopCenter,OffsetY=292.5f,Visibility=HudVisibility.Objective },
+        ["match.ctfFlags"] = new() { Anchor=HudAnchor.TopLeft,OffsetX=22.5f,OffsetY=135f,Visibility=HudVisibility.Objective },
+        ["match.ctfScoreboard"] = new() { Anchor=HudAnchor.TopLeft },
+        ["match.oddballStatus"] = new() { Anchor=HudAnchor.TopLeft,OffsetX=22.5f,OffsetY=135f,Visibility=HudVisibility.Objective },
+        ["match.oddballAction"] = new() { Anchor=HudAnchor.BottomCenter,OffsetY=-90,Visibility=HudVisibility.Objective },
+        ["match.oddballEvents"] = new() { Anchor=HudAnchor.TopCenter,OffsetY=292.5f,Visibility=HudVisibility.Objective },
+        ["match.oddballScoreboard"] = new() { Anchor=HudAnchor.TopLeft }
     };
     public static HudProfile Create(string name)
     {

@@ -52,7 +52,7 @@ public sealed class InGamePagePresenter : IDisposable
             _journal.Open();
             return true;
         }
-        if (action > InGameAction.Journal) return false;
+        if (action > InGameAction.Journal && action != InGameAction.NextHero) return false;
         bool confirmation = (action is InGameAction.Confirm or InGameAction.Cancel) && _confirm != default;
         if (intent.Document != (confirmation ? _confirm : _page)) return false;
         InGameResult result = _controller.Dispatch(_controller.Intent(action));
@@ -114,6 +114,8 @@ public sealed class InGamePagePresenter : IDisposable
         Enabled("ingame_spectate", !state.Facts.Replay && state.Facts.CanSpectate && !state.Facts.Spectating);
         Enabled("ingame_rejoin", !state.Facts.Replay && state.Facts.Spectating);
         Enabled("ingame_record", state.Facts.Live);
+        Bool("visible:ingame_hero", state.Facts.HeroSelection);
+        Text("ingame_hero", "NEXT HUNTER // " + state.Facts.SelectedHero);
         Enabled("ingame_propose", state.Facts.Live && state.Facts.VoteUnavailable.Length == 0);
         Enabled("ingame_vote_yes", state.Facts.VoteActive && !state.Facts.VoteAnswered);
         Enabled("ingame_vote_no", state.Facts.VoteActive && !state.Facts.VoteAnswered);

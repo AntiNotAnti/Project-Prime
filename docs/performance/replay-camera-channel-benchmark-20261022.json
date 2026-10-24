@@ -1,0 +1,24 @@
+{
+  "date": "2026-10-22",
+  "sdk": "10.0.401",
+  "kind": "synthetic CPU advanced quaternion/scalar channel evaluator",
+  "jit_policy": {
+    "DOTNET_TieredCompilation": "0"
+  },
+  "keys": 1024,
+  "samples": 51200,
+  "batch_size": 128,
+  "batches": 400,
+  "unit": "nanoseconds/sample derived from batch timing",
+  "p50": 294.53125,
+  "p95": 306.25,
+  "p99": 389.84375,
+  "allocation_bytes": 0,
+  "checksum": 82237.9070109129,
+  "math_checks": 78272,
+  "limitations": [
+    "Shared Windows host, concurrent builds may affect timings",
+    "Not default tiered cold-start timing",
+    "No rendered latency or GPU/device pacing claim"
+  ]
+}

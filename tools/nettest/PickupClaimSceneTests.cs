@@ -102,6 +102,7 @@ internal static class PickupClaimSceneTests
             NetPowerUpLedger.BeginRoom();
             Advance(10); owner.ModForceForm(false); owner.Health = 199;
             foreach (string timer in Timers) Field(owner, timer, 0);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(owner, owner.Flags2 & ~PlayerFlags2.Cloaking); // Reset flag and timer together.
             var item = Spawn(owner, Types[type]);
             uint proof = NetSession.NetFrame;
             NetPowerUpLedger.ObserveContact(owner);
@@ -147,6 +148,7 @@ internal static class PickupClaimSceneTests
     {
         NetPowerUpLedger.BeginRoom(); Advance(10); owner.ModForceForm(false); owner.Health = 199;
         foreach (string timer in Timers) Field(owner, timer, 0);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(owner, owner.Flags2 & ~PlayerFlags2.Cloaking); // Reset flag and timer together.
         var scene = owner.OwningScene;
         var cameraField = typeof(Scene).GetField("_cameraMode", Hidden)!;
         object previousMode = cameraField.GetValue(scene)!;
@@ -190,6 +192,7 @@ internal static class PickupClaimSceneTests
     {
         NetPowerUpLedger.BeginRoom(); Advance(10); owner.ModForceForm(false); owner.Health = 199;
         foreach (string timer in Timers) Field(owner, timer, 0);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(owner, owner.Flags2 & ~PlayerFlags2.Cloaking); // Reset flag and timer together.
         Vector3 contactPosition = owner.Position;
         var item = Spawn(owner, ItemType.DoubleDamage);
         uint offered = NetSession.NetFrame;
@@ -227,6 +230,7 @@ internal static class PickupClaimSceneTests
             {
                 NetPowerUpLedger.BeginRoom(); Advance(10); owner.ModForceForm(false); owner.Health = 199;
                 foreach (string timer in Timers) Field(owner, timer, 0);
+            typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags2))!.SetValue(owner, owner.Flags2 & ~PlayerFlags2.Cloaking); // Reset flag and timer together.
                 Vector3 contactPosition = owner.Position;
                 var item = Spawn(owner, ItemType.DoubleDamage);
                 uint offered = NetSession.NetFrame;
@@ -397,6 +401,7 @@ internal static class PickupClaimSceneTests
             var scene = owner.OwningScene; scene.GameState.BalancedMode = false; scene.GameState.EnhancedHunters = false;
             scene.GameState.PrimeHunter = owner.SlotIndex;
             Check(owner.ModIsInPlay && NetSession.IsAuthority, "prime-hunter local fixture retains admitted native identity");
+            Read.LoadEffect(181, persistent: true); // The headless room does not preload Deathalt presentation assets.
             TimedTypes(owner); QueuedNativePhase(owner); CurrentCameraBlock(owner); QueuedFollowingNativeContact(owner); RepeatedSourceNativeReservation(owner); NativeWinAndRace(owner, other); AuthoredRespawn(owner); UnavailableAndIsolation(owner);
             Check(sim.StepFailures == 0, "native fixture warmup has no simulation failures");
             Console.WriteLine($"PASS: pickup claim scene {_checks} native adapter assertions"); return 0;

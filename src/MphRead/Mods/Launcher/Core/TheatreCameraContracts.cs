@@ -6,8 +6,12 @@ namespace MphRead.Mods.Launcher.Core;
 
 public sealed record TheatreCameraVector(float X,float Y,float Z);
 public sealed record TheatreCameraHandles(TheatreCameraVector? Incoming,TheatreCameraVector? Outgoing,float FovIn,float FovOut,float RollIn,float RollOut);
+public sealed record TheatreCameraChannelCurves(int Orientation,int OrientationEase,int Fov,int FovEase,int Roll,int RollEase);
 public sealed record TheatreCameraPose(float X, float Y, float Z, float Qx, float Qy, float Qz, float Qw,
-    float Fov, float Roll, int LookAt, int Interpolation, int Ease,TheatreCameraHandles? Handles=null);
+    float Fov, float Roll, int LookAt, int Interpolation, int Ease,TheatreCameraHandles? Handles=null)
+{
+    public TheatreCameraChannelCurves? Channels { get; init; }
+}
 public sealed record TheatreCameraKey(uint Frame, TheatreCameraPose Pose);
 public sealed record TheatreCameraContext(long SceneGeneration, object Transport, object PresentationScene,
     long SeekGeneration, string LogicalPath, string PlaybackPath, string RecordingRevision, string CameraRevision,

@@ -24,6 +24,7 @@ public sealed partial class TheatrePlaybackPagePresenter
             {
                 if(_cameraTools==null||kind=="slot")throw new InvalidOperationException("Select reviewed saved camera keys first.");
                 var change=kind=="interpolation"?TheatreCameraToolsChange.Interpolation:kind=="ease"?TheatreCameraToolsChange.Ease:TheatreCameraToolsChange.LookAt;
+                if(_cameraTools.MemoryEditing){_cameraTools.Apply(change,value);PresentCameraTools();return true;}
                 if(_cameraTools.StageChoice(change,value))_cameraToolsConfirmation=_pages.OpenModal(new("replay-camera-tools-confirm","pages/theatre/camera-tools-confirm.rml","replay_camera_tools_confirm_cancel"));
             }
             else

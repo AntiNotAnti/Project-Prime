@@ -1,5 +1,6 @@
 #if !ANDROID && !MPHREAD_SERVER
 using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Linq;
 using MphRead.Mods.Network;
@@ -25,6 +26,11 @@ public partial class Scene
     }
 
     private static readonly ConditionalWeakTable<Scene, MultiViewPass> MultiViewPasses = new();
+    private static readonly bool ReplayPrimaryReuseEnabled =
+        Environment.GetEnvironmentVariable("PRIME_REPLAY_PRIMARY_REUSE") != "0";
+    internal readonly record struct ReplayFourViewDiagnostics(bool PrimaryReused, int AuxiliaryRenderCalls,
+        bool AuxiliaryCacheReused, double CpuMilliseconds);
+    internal ReplayFourViewDiagnostics LastReplayFourViews { get; private set; }
     internal bool NativeReplayMultiViewActive => MultiViewPasses.TryGetValue(this, out _);
     private bool NativeReplayMultiViewPreserveCanvas =>
         MultiViewPasses.TryGetValue(this, out var pass) && pass.Index > 0;
@@ -51,6 +57,7 @@ public partial class Scene
         private readonly int _draw, _read, _program, _activeTexture, _clientTexture;
         private readonly int[] _viewport = new int[4];
         private bool _pushed, _registered, _disposed;
+        internal bool RestoreDrawItems = true;
 
         internal ReplayAuxiliaryRenderScope(Scene scene, MultiViewPass pass)
         {
@@ -134,7 +141,7 @@ public partial class Scene
                 // Other tiles replace pooled draw items. Rebuild the original
                 // picture's retained items without overwriting the composed tiles.
                 Pass.Index = 0;
-                if (_registered) _scene.OnDrawFrame();
+                if (_registered && RestoreDrawItems) _scene.OnDrawFrame();
             }
             finally
             {
@@ -142,7 +149,15 @@ public partial class Scene
                 finally
                 {
                     if (_registered) MultiViewPasses.Remove(_scene);
-                    try { if (_pushed) GL.PopAttrib(); }
+                    try
+                    {
+                        // Draw/read buffer selectors are attribute state, but
+                        // their framebuffer bindings are not. Restore the owning
+                        // targets before PopAttrib reapplies those selectors.
+                        GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _draw);
+                        GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _read);
+                        if (_pushed) GL.PopAttrib();
+                    }
                     finally
                     {
                         GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, _draw);
@@ -196,7 +211,7 @@ public partial class Scene
     // A false return means no four-view was rendered (seeking/export/unavailable).
     // Render failures throw to the native Studio boundary, which disables the
     // optional preview without tearing down the replay presentation owner.
-    internal bool DrawNativeReplayFourViews(Vector4i bounds, Vector2i framebuffer)
+    internal bool DrawNativeReplayFourViews(Vector4i bounds, Vector2i framebuffer, bool interacting = false)
     {
         if (!DemoPlayback.Owns(this) || !ReferenceEquals(DemoPlayback.PresentationScene, this)
             || ReplayController.IsSeeking || ReplayVideoExporter.Active || NativeReplayMultiViewActive
@@ -212,11 +227,25 @@ public partial class Scene
         var target = Players.Main.Position + Vector3.UnitY;
         var actorFacing = Players.Main.FacingVector;
         var pass = new MultiViewPass { Subject = NativeReplayTargetPovSlot(subject) };
+        long started = Stopwatch.GetTimestamp();
+        int rendered = 0;
+        bool primaryReused = false, cacheReused = false;
         using (var scope = new ReplayAuxiliaryRenderScope(this, pass))
         {
             ReplayPreviewSize = framebuffer;
             int leftWidth = bounds.Z / 2, topHeight = bounds.W / 2;
-            for (int index = 0; index < 4; index++)
+            // The complete primary render uses the same camera, projection,
+            // source time and composite target. Halving both dimensions retains
+            // that picture's aspect. If its lease cannot be proved, render all
+            // four cameras through the existing safe auxiliary path.
+            if (ReplayPrimaryReuseEnabled && ReplayPreviewBounds == bounds
+                && (long)leftWidth * Size.Y == (long)topHeight * Size.X)
+                primaryReused = BlitNativeReplayPrimaryTile(
+                    new(bounds.X, bounds.Y, leftWidth, topHeight), framebuffer);
+            cacheReused = primaryReused && TryPreviewReplayAuxiliaryCache(bounds, framebuffer,
+                subject, pass.Subject, interacting, started);
+            if (cacheReused) scope.RestoreDrawItems = false;
+            for (int index = primaryReused ? 1 : 0; index < (cacheReused ? 0 : 4); index++)
             {
                 scope.RestoreCamera();
                 pass.Index = index;
@@ -243,6 +272,7 @@ public partial class Scene
                     if (NativeReplayMultiViewFailureForTests?.Invoke(index) is { } injectedFailure)
                         throw injectedFailure;
 #endif
+                    rendered++;
                     if (!OnRenderFrame())
                         throw new InvalidOperationException("The scene renderer did not complete the tile.");
                 }
@@ -252,7 +282,11 @@ public partial class Scene
                         $"Replay auxiliary camera {index + 1}/4 failed at recording frame {ReplayController.CurrentFrame}.", error);
                 }
             }
+            if (!cacheReused && interacting && ReplayPrimaryReuseEnabled)
+                StoreReplayAuxiliaryCache(bounds, framebuffer, subject, pass.Subject, started);
         }
+        LastReplayFourViews = new(primaryReused, rendered, cacheReused,
+            Stopwatch.GetElapsedTime(started).TotalMilliseconds);
         return true;
     }
 }

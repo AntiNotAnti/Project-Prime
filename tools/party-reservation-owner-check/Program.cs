@@ -17,6 +17,27 @@ void Activated(DedicatedServer server,ClosedBackend backend)
 void Attached(DedicatedServer server,ClosedBackend backend)
 {Activated(server,backend);server.Attach();Until(()=>server.Publications().Any(s=>s.State==PartyReservationWireState.Reserved&&s.SelfSlot<8),"verified member attaches to exact group",()=>server.Tick(.001));}
 
+// The production queue handler consults the actual compiled public mode policy.
+// Check refusal before bootstrap ownership without opening sockets or gameplay.
+foreach(var mode in new[]{MphRead.GameMode.CaptureTheZone,MphRead.GameMode.PushThePayload})
+using(var backend=new ClosedBackend())using(var server=new DedicatedServer(backend))
+{
+ server.CurrentDefinition=new(){Mode=mode};
+ Check(!server.BootstrapProbe(),"hero queue mode refuses bootstrap before peer creation: "+mode);
+ var sent=server.Wire.Sent.Single(p=>p.Type==PacketType.Refused);
+ var refusal=RefusedPacket.Read(sent.Payload);
+ Check(sent.Payload.Length==RefusedPacket.Size&&refusal.Reason==RefusedPacket.ReasonCtfRuleset
+   &&refusal.Players==1&&refusal.MaxPlayers==8,"hero queue uses actual bounded ruleset refusal: "+mode);
+ Check(!server.ProbePresent,"hero refusal leaves no queue owner: "+mode);
+}
+foreach(var mode in new[]{MphRead.GameMode.Battle,MphRead.GameMode.Capture,MphRead.GameMode.CaptureTheFlag,MphRead.GameMode.Oddball})
+using(var backend=new ClosedBackend())using(var server=new DedicatedServer(backend))
+{
+ server.CurrentDefinition=new(){Mode=mode};
+ Check(server.BootstrapProbe()&&!server.Wire.Sent.Any(p=>p.Type==PacketType.Refused),
+   "ordinary queue mode reaches bounded bootstrap: "+mode);
+}
+
 using(var backend=new ClosedBackend())using(var server=new DedicatedServer(backend))
 {
  Leader(server,backend);var before=server.Snapshot();
@@ -36,7 +57,7 @@ using(var backend=new ClosedBackend{FailCancel=1})using(var server=new Dedicated
  Check(backend.Count("cancel")==0,"cancel cannot dispatch while all8 workers busy");
  server.ReleaseWorkers();Until(()=>backend.Count("cancel")>=1,"cleanup retries when worker capacity becomes available",()=>server.Tick(.001));
  Check(backend.Last("cancel").GetProperty("reservation_id").GetString()==reservation,"cancel uses real reservation ID before activation reply");
- Until(()=>server.Snapshot().Running<=1,"first refused cancel result returns to owner",()=>server.Tick(.001));
+ Until(()=>server.CancellationRetryScheduled,"first refused cancel result returns to owner",()=>server.Tick(.001));
  server.Tick(.6);Until(()=>backend.Count("cancel")>=2,"failed cleanup result is retried",()=>server.Tick(.001));
  Until(()=>!server.Snapshot().Exists,"acknowledged cancellation retires cleanup owner",()=>server.Tick(.001));
  Check(backend.BackendCancelled&&backend.RejectedReservationIds==0,"committed remote reservation receives matching cancellation tombstone");
@@ -85,7 +106,7 @@ using(var backend=new ClosedBackend{FailAck=1})using(var server=new DedicatedSer
  server.Tick();Check(server.Snapshot() is {Admitted:true,Acknowledged:false,Admissions:1,PeerCount:2,Exists:true},"actual peer retained while initial acknowledgement cannot start");
  Check(backend.Count("admitted")==0,"busy acknowledgement is not silently invented");
  server.ReleaseWorkers();Until(()=>backend.Count("admitted")==1,"actual-peer acknowledgement retries after saturation",()=>server.Tick(.001));
- Until(()=>server.Snapshot().Running==0,"failed first ack result reaches owner",()=>server.Tick(.001));server.Tick(.3);
+ Until(()=>server.AcknowledgementRetryScheduled,"failed first ack result reaches owner",()=>server.Tick(.001));server.Tick(.3);
  Until(()=>backend.Count("admitted")>=2,"lost/refused acknowledgement retries without admission callback",()=>server.Tick(.001));
  Until(()=>!server.Snapshot().Exists,"all-admitted group finalizes after acknowledged peer",()=>server.Tick(.001));
  Check(server.Snapshot().Admissions==1&&server.Snapshot().PeerCount==2&&backend.Count("cancel")==0,"ack retry creates no second peer/session and does not cancel admitted group");

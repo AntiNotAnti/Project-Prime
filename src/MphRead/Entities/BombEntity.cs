@@ -135,6 +135,10 @@ namespace MphRead.Entities
                 Effect?.Transform(Position, Transform);
                 return base.Process();
             }
+            // An offline respawn can invalidate native Lockjaw links before the next
+            // entity pass. Retire that old-life bomb instead of targeting through null
+            // or reused links. Network replicas use their own canonical link lifecycle.
+            if (BombType == BombType.Lockjaw && !HasNativeLockjawLinks()) return false;
             if (!NetBombs.CanSimulate(this)) return false;
             EntityBase? hitEntity = null;
             bool ownerJump = false;
@@ -588,6 +592,20 @@ namespace MphRead.Entities
             }
         }
 
+        private bool HasNativeLockjawLinks()
+        {
+            if (Owner == null || BombIndex < 0 || BombIndex >= Owner.SyluxBombs.Length
+                || BombIndex >= Owner.SyluxBombCount || Owner.SyluxBombs[BombIndex] != this
+                || Owner.SyluxBombCount > Owner.SyluxBombs.Length) return false;
+            for (int i = 0; i < Owner.SyluxBombCount; i++)
+            {
+                var linked = Owner.SyluxBombs[i];
+                if (linked == null || linked.Owner != Owner || linked.BombType != BombType.Lockjaw
+                    || linked.BombIndex != i) return false;
+            }
+            return true;
+        }
+
         public override void GetDrawInfo()
         {
             uint rngBefore = ModAuditLockjawDrawRng && BombType == BombType.Lockjaw
@@ -596,7 +614,7 @@ namespace MphRead.Entities
             {
                 ModDrawReplicaLinks();
             }
-            else if (BombType == BombType.Lockjaw)
+            else if (BombType == BombType.Lockjaw && HasNativeLockjawLinks() && _trailModel != null)
             {
                 if (BombIndex == 1)
                 {

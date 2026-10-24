@@ -11,11 +11,28 @@ internal static class CaptureReadback
 {
     internal static byte[] Read(CaptureSource source)
     {
-        int width = source.Width, height = source.Height;
+        return ReadRegion(source, 0, 0, source.Width, source.Height);
+    }
+
+    internal static byte[] ReadRegion(CaptureSource source, int x, int y, int width, int height)
+    {
+        byte[] rgba = ReadRgbaRegion(source, x, y, width, height);
+        byte[] rgb = new byte[checked(width * height * 3)];
+        for (int src = 0, dst = 0; src < rgba.Length; src += 4, dst += 3)
+        {
+            rgb[dst] = rgba[src]; rgb[dst + 1] = rgba[src + 1]; rgb[dst + 2] = rgba[src + 2];
+        }
+        return rgb;
+    }
+
+    internal static byte[] ReadRgbaRegion(CaptureSource source, int x, int y, int width, int height)
+    {
         // Include both temporary RGBA and delivered RGB in the CPU budget.
-        if (width <= 0 || height <= 0 || width > 8192 || height > 8192
+        if (source.Width <= 0 || source.Height <= 0 || x < 0 || y < 0
+            || width <= 0 || height <= 0 || width > 8192 || height > 8192
+            || (long)x + width > source.Width || (long)y + height > source.Height
             || (long)width * height * 7 > 64 * 1024 * 1024)
-            throw new ArgumentOutOfRangeException(nameof(source), "Readback exceeds its 64 MiB working budget.");
+            throw new ArgumentOutOfRangeException(nameof(source), "Readback region is outside its source or 64 MiB working budget.");
         int framebuffer = GL.GetInteger(GetPName.ReadFramebufferBinding);
         int readBuffer = GL.GetInteger(GetPName.ReadBuffer);
         int alignment = GL.GetInteger(GetPName.PackAlignment);
@@ -35,15 +52,10 @@ internal static class CaptureReadback
             GL.PixelStore(PixelStoreParameter.PackSkipRows, 0);
             GL.PixelStore(PixelStoreParameter.PackSkipPixels, 0);
             byte[] rgba = new byte[checked(width * height * 4)];
-            GL.ReadPixels(0, 0, width, height, PixelFormat.Rgba, PixelType.UnsignedByte, rgba);
+            GL.ReadPixels(x, y, width, height, PixelFormat.Rgba, PixelType.UnsignedByte, rgba);
             if (GL.GetError() != ErrorCode.NoError)
                 throw new InvalidOperationException("Framebuffer readback failed.");
-            byte[] rgb = new byte[checked(width * height * 3)];
-            for (int src = 0, dst = 0; src < rgba.Length; src += 4, dst += 3)
-            {
-                rgb[dst] = rgba[src]; rgb[dst + 1] = rgba[src + 1]; rgb[dst + 2] = rgba[src + 2];
-            }
-            return rgb;
+            return rgba;
         }
         finally
         {

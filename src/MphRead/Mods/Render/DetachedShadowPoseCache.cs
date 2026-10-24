@@ -19,6 +19,7 @@ internal sealed class DetachedShadowPoseCache
         internal Pose(Model source)
         {
             Source = source; Instance = new(source.CreateSceneCopy());
+            ParkourPoseOverlay.Prewarm(Instance.Model);
             HeadHitPoseOverlay.Prewarm(Instance.Model);
             BoundsKnown = DetachedShadowBounds.Read(source, out Min, out Max);
         }

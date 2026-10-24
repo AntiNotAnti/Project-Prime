@@ -39,9 +39,11 @@ namespace MphRead
 
         private void BeginWorldPass()
         {
+            BeginSceneColorFrame();
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
             GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
             GL.UseProgram(_shaderProgramId);
+            SetSceneLinearColorUniform(SceneLinearColorActive);
             // A secondary pass can finish on a skinned remote player. Start every
             // world pass from a hard neutral cosmetic state so room geometry can
             // never inherit that player's shader surface.
@@ -53,7 +55,9 @@ namespace MphRead
             GL.ColorMask(true, true, true, true);
             GL.StencilMask(0xFF);
             GL.ClearStencil(0);
-            GL.ClearColor(_clearColor);
+            GL.ClearColor(SceneLinearColorActive
+                ? new Color4(DecodeColor(_clearColor.R), DecodeColor(_clearColor.G), DecodeColor(_clearColor.B), _clearColor.A)
+                : _clearColor);
             GL.Disable(EnableCap.ScissorTest);
             GL.Disable(EnableCap.StencilTest);
             GL.Disable(EnableCap.AlphaTest);
@@ -83,6 +87,7 @@ namespace MphRead
             Matrix4 identity = Matrix4.Identity;
             GL.UniformMatrix4(_shaderLocations.TextureMatrix, false, ref identity);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, false, ref _viewMatrix);
+            SetMaterialCamera(ref _viewMatrix);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, false, ref _perspectiveMatrix);
             // Per-material matrices/lighting are set by RenderItem. Frame uniforms
             // (including fade progression) remain in UpdateUniforms, once per draw.
@@ -221,6 +226,7 @@ namespace MphRead
             GL.Disable(EnableCap.StencilTest);
             GL.Disable(EnableCap.AlphaTest);
             PreviewReplayOutput();
+            EndSceneColorFrame();
             CheckGlError("EndHudPass");
         }
 

@@ -527,7 +527,8 @@ namespace MphRead.Mods.Network
                 roster.LobbyReady[at] = SlotLobbyReady[slot]; roster.Names[at] = GameState.Nicknames[slot];
                 roster.Hunters[at] = (byte)SlotHunter[slot]; roster.Colors[at] = (byte)PlayerColors.Choice[slot];
                 roster.Pings[at] = (ushort)SlotPing[slot];
-                roster.Flags[at] = SlotIsBot[slot] ? (byte)1 : (byte)0;
+                roster.Flags[at] = SlotIsBot[slot] ? (byte)1
+                    : (ServerSession?.Match.Mode is GameMode.CaptureTheZone or GameMode.PushThePayload) && SlotSpectating[slot] ? (byte)2 : (byte)0;
                 roster.BotLevels[at] = SlotBotLevel[slot];
                 roster.DamageReductions[at] = SlotDamageReduction[slot];
             }

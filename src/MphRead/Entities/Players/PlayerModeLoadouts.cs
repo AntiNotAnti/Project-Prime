@@ -28,6 +28,8 @@ public partial class PlayerEntity
     internal void ApplySpawnLoadoutModifiers()
     {
         Array.Clear(_chamberShots); _chamberShotCursor = 0; _lastChamberLocalShotFrame = 0;
+        if (ModApplyHeroLoadout()) return;
+        ModPrepareCtfSpawn(); // Reset contextual input only; native MPH loadout logic continues below.
         var state = _scene.GameState;
         var host = _scene.Services.PlayerReplication;
         if (!host.Active) state.SpawnOrdinals[SlotIndex]++;

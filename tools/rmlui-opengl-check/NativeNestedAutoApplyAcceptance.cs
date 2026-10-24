@@ -28,6 +28,9 @@ internal static class NativeNestedAutoApplyAcceptance
         {
             var owner=(HudEditorController)typeof(NativeHudEditorPage).GetField("_controller",fields)!.GetValue(page)!;
             int row=owner.Snapshot().Properties.Select((property,index)=>(property,index)).Single(item=>item.property.Path==path).index;
+            var presenter=(HudEditorPagePresenter)typeof(NativeHudEditorPage).GetField("_presenter",fields)!.GetValue(page)!;
+            if(owner.Snapshot().Properties[row].Range!=null&&(int)typeof(HudEditorPagePresenter).GetField("_exactRow",fields)!.GetValue(presenter)! !=row)
+                presenter.HandleIntent(new(RmlUiIntentKind.HudProperty,80+row,page.Document,sequence++));
             return "hud_property"+row+"_input";
         }
         var saved = new List<HudProfile>();

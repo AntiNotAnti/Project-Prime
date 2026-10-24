@@ -30,6 +30,8 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
     // Overview -> category tabs -> section. Returning never recreates the
     // controller, so input capture and persisted settings keep their owner.
     private bool _overview = true, _categoryLanding;
+    private RmlUiDocumentToken _helpDocument;
+    private bool HelpOpen=>_helpDocument!=default&&_host.IsAlive(_helpDocument);
     private string? _pendingFocus;
     private bool _advanced;
     private bool _disposed,_fieldsDirty=true,_wasCapturing;
@@ -42,7 +44,7 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
     private NativeSettingRow[] _visible=Array.Empty<NativeSettingRow>();
     public RmlUiDocumentToken Document=>_document;
     public bool Closed=>_disposed||_controller.Closed;
-    internal bool ControllerBindingCaptureActive=>OwnsForeground&&_controller.ControllerCapturing;
+    internal bool ControllerBindingCaptureActive=>OwnsForeground&&!HelpOpen&&_controller.ControllerCapturing;
     internal bool ConfirmingVideo => _controller.ConfirmingVideo;
     public bool CanNavigateAway=>!_controller.Dirty&&!_controller.ConfirmingVideo&&!_controller.Busy&&!_controller.Capturing&&_controller.Confirmation.Length==0;
     internal bool HasLivePage=>!_disposed&&_document!=default&&_host.IsAlive(_document)&&(_asModal?!_pages.Lifetime(_document).IsCancellationRequested:_pages.Page==_document);
@@ -60,13 +62,15 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
     {
         _host.VerifyOwnerThread();
         if(_asModal&&HasLivePage&&!OwnsForeground)throw new InvalidOperationException("Covered Settings modal cannot suspend.");
+        if(HelpOpen&&_pages.Top==_helpDocument)CloseSettingHelp();
         if(OwnsForeground){Capture();if(!(_asModal?_pages.CloseModal():_pages.ClosePage()))throw new InvalidOperationException("Settings view could not suspend.");}
         _document=default;_fieldsDirty=true;
     }
     public void ResumeView()=>Open();
     public bool PrepareNavigation()
     {
-        _host.VerifyOwnerThread();if(_visual?.Closed==false)return false;if(!HasLivePage)return true;
+        _host.VerifyOwnerThread();if(HelpOpen){if(_pages.Top==_helpDocument)CloseSettingHelp();return false;}
+        if(_visual?.Closed==false)return false;if(!HasLivePage)return true;
         if(OwnsForeground&&!Capture())return false;
         if(!_controller.FlushAutoApply())return false;
         if(CanNavigateAway)return true;
@@ -75,7 +79,7 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
     public bool TryTakeOpenHud(out HudProfile profile)
     {
         _host.VerifyOwnerThread();profile=null!;
-        if(!_controller.HudRequested||!OwnsForeground)return false;
+        if(HelpOpen||!_controller.HudRequested||!OwnsForeground)return false;
         profile=_controller.CopyHud();_controller.SetHud(null);return true;
     }
     internal HudEditorOption[] CopyHudOptions() => _controller.CopyHudOptions();
@@ -92,6 +96,7 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
     internal Action ApplyHudPreview(HudProfile profile,HudEditorOption[] options) => _controller.ApplyHudPreview(profile,options);
     internal bool SetPreviewVisible(bool visible)
     {
+        if(HelpOpen)return false;
         if(!visible)_previewFocus=_host.FocusedElement();
         bool shown=_host.ShowDocument(_document,visible);
         if(shown&&visible)
@@ -102,13 +107,13 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
         }
         return shown;
     }
-    internal bool TryTakePreview() { if(!_previewRequested||!OwnsForeground)return false;_previewRequested=false;return true; }
+    internal bool TryTakePreview() { if(HelpOpen||!_previewRequested||!OwnsForeground)return false;_previewRequested=false;return true; }
     public void AcceptHud(HudProfile profile){_host.VerifyOwnerThread();_controller.SetHud(profile);_fieldsDirty=true;Refresh();}
     internal bool TryTakeCharacterSourcePreview(out string id)
-    { _host.VerifyOwnerThread(); id = ""; return OwnsForeground && _allowGameFiles && _controller.TakeCharacterSourcePreview(out id); }
-    internal bool TryTakeArenaImport()=>OwnsForeground&&_controller.TakeArenaImport();
+    { _host.VerifyOwnerThread(); id = ""; return !HelpOpen&&OwnsForeground && _allowGameFiles && _controller.TakeCharacterSourcePreview(out id); }
+    internal bool TryTakeArenaImport()=>!HelpOpen&&OwnsForeground&&_controller.TakeArenaImport();
     internal void BeginArenaImport(string? path){_host.VerifyOwnerThread();_controller.BeginArenaImport(path);Refresh();}
-    public bool TryTakeGameFiles(){_host.VerifyOwnerThread();if(!_controller.GameFilesRequested||!OwnsForeground)return false;_controller.AcknowledgeGameFiles();return true;}
+    public bool TryTakeGameFiles(){_host.VerifyOwnerThread();if(HelpOpen||!_controller.GameFilesRequested||!OwnsForeground)return false;_controller.AcknowledgeGameFiles();return true;}
     public bool Handle(in RmlUiIntent intent)
     {
         _host.VerifyOwnerThread();
@@ -118,8 +123,14 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
             or RmlUiIntentKind.SettingsResetCategory or RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo
             ||intent.Kind==RmlUiIntentKind.SettingsPreviousChoice&&intent.Argument>=0&&intent.Argument<_visible.Length
             ||intent.Kind==RmlUiIntentKind.SettingsCategory&&intent.Argument<NativeFullSettingsController.Categories.Length
-            ||intent.Kind==RmlUiIntentKind.SettingsAction&&(intent.Argument is >=1 and <=14 or >=16 and <=24 or >=26 and <=31 or >=32 and <212 or >=212 and <=219 or >=220 and <=222 or >=232 and <240 or >=240 and <=246);
+            ||intent.Kind==RmlUiIntentKind.SettingsAction&&(intent.Argument is >=1 and <=14 or >=16 and <=24 or >=26 and <=31 or >=32 and <212 or >=212 and <=219 or >=220 and <=222 or >=232 and <240 or >=240 and <=247 or >=700 and <=795);
         if(!known||!_pages.Accept(intent))return false;
+        if(HelpOpen)
+        {
+            if(intent.Kind==RmlUiIntentKind.SettingsClose||intent.Kind==RmlUiIntentKind.SettingsAction&&intent.Argument==247)
+            {CloseSettingHelp();Refresh();}
+            return true;
+        }
         if(_controller.ConfirmingVideo&&intent.Kind is not (RmlUiIntentKind.SettingsKeepVideo or RmlUiIntentKind.SettingsRevertVideo or RmlUiIntentKind.SettingsClose))return true;
         if(_controller.Busy)
         {
@@ -150,7 +161,9 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
             case RmlUiIntentKind.SettingsKeepVideo:_controller.KeepVideo();break;
             case RmlUiIntentKind.SettingsRevertVideo:_controller.RevertVideo();break;
             case RmlUiIntentKind.SettingsAction:
-                if(intent.Argument is >=220 and <=222)OpenVisual((int)intent.Argument-220);
+                if(intent.Argument is >=700 and <=795)OpenSettingHelp((int)intent.Argument-700);
+                else if(intent.Argument==247)CloseSettingHelp();
+                else if(intent.Argument is >=220 and <=222)OpenVisual((int)intent.Argument-220);
                 else if(intent.Argument==3){if(_controller.FlushAutoApply())_controller.RequestHud();}
                 else if(intent.Argument==246&&_canPreview){_previewRequested=true;return true;}
                 else if(intent.Argument==4&&_allowGameFiles)_controller.RequestGameFiles();
@@ -217,15 +230,16 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
     internal void AcknowledgeUsableFrame(){if(OwnsForeground&&_host.TryGetElementBounds(ForegroundDocument,"native_settings_keep_video",out _,out _,out float w,out float h)&&w>0&&h>0)_controller.AcknowledgeVideoFrame();}
     internal void CancelInputCapture(bool revertDisplayTrial=true){_host.VerifyOwnerThread();if(revertDisplayTrial)_controller.RevertVideo();if(_controller.SuspendInput("Input focus changed. Capture cancelled; existing draft kept."))_fieldsDirty=true;Refresh();}
     public bool KeyDown(Keys key,RmlUiInputModifiers modifiers)
-    { if(key==Keys.Escape&&(_visual?.OwnsForeground==true||OwnsForeground))return Back();if(!OwnsForeground)return false;bool result=_controller.KeyDown(key);if(result){_fieldsDirty=true;Refresh();}return result; }
+    { if(HelpOpen){if(key==Keys.Escape){CloseSettingHelp();Refresh();return true;}return false;}if(key==Keys.Escape&&(_visual?.OwnsForeground==true||OwnsForeground))return Back();if(!OwnsForeground)return false;bool result=_controller.KeyDown(key);if(result){_fieldsDirty=true;Refresh();}return result; }
     public bool MouseDown(MouseButton button)
     {
+        if(HelpOpen)return false;
         if(!OwnsForeground)return false;
         if(button==MouseButton.Left && _host.HoveredElement() is "native_settings_capture_cancel" or "native_settings_capture_modifier")return false;
         bool result=_controller.MouseDown(button);if(result){_fieldsDirty=true;Refresh();}return result;
     }
     public bool ScrollBinding(bool up)
-    {if(!OwnsForeground)return false;bool result=_controller.ScrollBinding(up);if(result){_fieldsDirty=true;Refresh();}return result;}
+    {if(HelpOpen)return false;if(!OwnsForeground)return false;bool result=_controller.ScrollBinding(up);if(result){_fieldsDirty=true;Refresh();}return result;}
     private NativeSettingRow[] CategoryRows()
     {
         if(_overview||_categoryLanding)return Array.Empty<NativeSettingRow>();
@@ -248,7 +262,7 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
     }
     public bool Back()
     {
-        _host.VerifyOwnerThread();if(_visual?.Closed==false){bool handled=_visual.Back();Refresh();return handled;}if(!OwnsForeground)return false;
+        _host.VerifyOwnerThread();if(HelpOpen){if(_pages.Top!=_helpDocument)return false;CloseSettingHelp();Refresh();return true;}if(_visual?.Closed==false){bool handled=_visual.Back();Refresh();return handled;}if(!OwnsForeground)return false;
         if(_controller.Capturing||_controller.Confirmation.Length>0||_controller.ConfirmingVideo||_controller.Busy)
         { _controller.Back();_fieldsDirty=true;Refresh();return true; }
         if(_controller.SuspendInput("Calibration cancelled."))
@@ -263,16 +277,30 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
         else _controller.Back();
         _fieldsDirty=true;Refresh();return true;
     }
+    private void OpenSettingHelp(int rowIndex)
+    {
+        if((uint)rowIndex>=(uint)_visible.Length||!_visible[rowIndex].HasHelp||HelpOpen)return;
+        var row=_visible[rowIndex];
+        _helpDocument=_pages.OpenModal(new("native-settings-help","pages/settings/native-help.rml","native_settings_help_close"));
+        _host.SetText(_helpDocument,"native_settings_help_title",row.Label);
+        _host.SetText(_helpDocument,"native_settings_help_body",row.HelpText??row.Hint);
+    }
+    private void CloseSettingHelp()
+    {
+        if(!HelpOpen){_helpDocument=default;return;}
+        if(_pages.Top!=_helpDocument||!_pages.CloseModal())throw new InvalidOperationException("Setting help modal is covered or could not close.");
+        _helpDocument=default;
+    }
     public void Refresh()
     {
         _host.VerifyOwnerThread();if(!HasLivePage)return;
         if(_visual!=null){_visual.Present();if(_visual.Closed){_visual.Dispose();_visual=null;_fieldsDirty=true;}}
-        bool foreground=OwnsForeground;
+        bool foreground=OwnsForeground,settingsForeground=foreground&&!HelpOpen;
         if(!foreground&&_controller.SuspendInput("Settings was covered. Capture cancelled; existing draft kept."))_fieldsDirty=true;
         bool validFields=true;
-        if(foreground&&!_fieldsDirty&&!_controller.Capturing&&_controller.Confirmation.Length==0&&!_controller.ConfirmingVideo)validFields=Capture();
-        _controller.Tick(inputActive:foreground&&validFields);if(_wasCapturing!=_controller.Capturing){_wasCapturing=_controller.Capturing;_fieldsDirty=true;}
-        if(_pendingFocus!=null&&!_fieldsDirty&&foreground&&_pages.Top==_document&&_host.FocusDocument(_document,_pendingFocus))_pendingFocus=null;
+        if(settingsForeground&&!_fieldsDirty&&!_controller.Capturing&&_controller.Confirmation.Length==0&&!_controller.ConfirmingVideo)validFields=Capture();
+        _controller.Tick(inputActive:settingsForeground&&validFields);if(_wasCapturing!=_controller.Capturing){_wasCapturing=_controller.Capturing;_fieldsDirty=true;}
+        if(_pendingFocus!=null&&!_fieldsDirty&&settingsForeground&&_pages.Top==_document&&_host.FocusDocument(_document,_pendingFocus))_pendingFocus=null;
         var rows=CategoryRows();
         RequireRowCapacity(rows.Length);
         var fields=new Dictionary<string,RmlUiBindingValue>();
@@ -305,7 +333,7 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
         Bool("visible:native_settings_touch_visual",section&&_controller.Category==3&&_subpages[3]==6);
         Bool("visible:native_settings_stylus_visual",section&&_controller.Category==3&&_subpages[3]==7);
         Bool("visible:native_settings_outline_visual",section&&_controller.Category==0&&_subpages[0]==1);
-        Bool("visible:native_settings_hud",_overview||_controller.Category==0&&_categoryLanding);
+        Bool("visible:native_settings_hud",!_overview&&_controller.Category==0&&_categoryLanding);
         Bool("visible:native_settings_reset_replay",section&&_controller.Category==4&&_subpages[4]>=2);
         Bool("visible:native_settings_system",section&&_controller.Category==6);
         bool controllerProfiles=section&&_controller.Category==3&&_subpages[3]==5;
@@ -352,6 +380,7 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
                 bool visible=i<_visible.Length;Bool("visible:native_settings_row_"+i,visible);
                 if(!visible)continue;
                 var row=_visible[i];Text("native_settings_label_"+i,row.Label);Text("native_settings_group_"+i,NativeSettingsCatalog.Group(row));
+                Bool("visible:native_settings_info_"+i,row.HasHelp);
                 Bool("visible:native_settings_previous_"+i,row.Choices.Length>1&&!row.IsBinding);
                 Text("native_settings_hint_"+i,row.Hint);Bool("visible:native_settings_cycle_"+i,row.Choices.Length>0||row.IsBinding);
                 Bool("visible:native_settings_value_"+i,row.Choices.Length==0&&!row.IsBinding);
@@ -387,6 +416,7 @@ internal sealed partial class NativeFullSettingsPage : IDisposable
     public void Dispose()
     {
         _host.VerifyOwnerThread();if(_disposed)return;
+        CloseSettingHelp();
         ClosePopup();
         _visual?.Dispose();_visual=null;
         if(_asModal&&HasLivePage)

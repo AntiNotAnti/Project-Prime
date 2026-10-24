@@ -104,7 +104,7 @@ public static partial class NetLobbyTest
         int before=_checks;string root=Path.Combine(Path.GetTempPath(),"prime-package-udp-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
         try
         {
-            Check(NetConfig.ProtocolVersion==85&&(byte)PacketType.WeaponPackageOffer==99&&(byte)PacketType.WeaponPackageReady==100&&(byte)PacketType.WeaponPackageConfirmed==101,"protocol85 preserves exact package packet IDs99/100/101");
+            Check(NetConfig.ProtocolVersion==86&&(byte)PacketType.WeaponPackageOffer==99&&(byte)PacketType.WeaponPackageReady==100&&(byte)PacketType.WeaponPackageConfirmed==101,"protocol85 preserves exact package packet IDs99/100/101");
             var archive=WeaponPackageReference.BuildRiftlineM7();var package=WeaponPackage.Parse(archive);var serverStore=new WeaponPackageStore(Path.Combine(root,"server"));serverStore.Install(archive);
             WeaponPackageStore ClientStore(string name){var store=new WeaponPackageStore(Path.Combine(root,name));store.Install(archive);return store;}
             using(var rig=new Rig(weaponStore:Path.Combine(root,"server"),weaponArchive:package.PackageHash))

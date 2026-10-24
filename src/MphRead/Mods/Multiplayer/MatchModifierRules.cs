@@ -9,6 +9,13 @@ public static class MatchModifierRules
 
     public static bool Validate(MatchDefinition match, out string reason, bool allowRetiredEnhanced = false)
     {
+        if (HeroModes.HeroRules.Active(match.Mode) && (match.InstaGib || match.NoImperialist || match.LowTier
+            || match.Fiesta || match.OneInTheChamber || match.EnhancedHunters || match.BalancedMode
+            || match.OctolithAutoReset || match.VanillaDuelResources))
+        { reason = "CTZ uses its shared hero loadouts; conflicting weapon, hunter and Octolith modifiers are not allowed."; return false; }
+        if (match.Mode is GameMode.CaptureTheFlag
+            && (match.InstaGib || match.Fiesta || match.OneInTheChamber || match.EnhancedHunters || match.BalancedMode))
+        { reason = "This objective mode uses its authored weapon and ammunition rules."; return false; }
         match = match.NormalizeLegacy();
         reason = "";
         if (!MovementModelRules.IsDefined(match.MovementModel))

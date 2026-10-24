@@ -44,7 +44,10 @@ public sealed class HudEditorController : IDisposable
     private string _propertySearch = "";
     private HudEditorSnapshot? _snapshot;
     private static readonly Vector2[] Sizes = { new(60), new(248,112), new(326,112), new(248,620), Vector2.Zero,
-        new(180,120), new(200,60), new(520,160), new(340,80), new(520,200), new(300,100), new(120,40), new(225,17), new(304,17), new(750,HudProfileDefaults.MovementTelemetryHeight*5.625f) };
+        new(180,120), new(200,60), new(520,160), new(340,80), new(520,200), new(300,100), new(120,40), new(225,17), new(304,17), new(750,HudProfileDefaults.MovementTelemetryHeight*5.625f), new(400,60), new(400,60), new(400,60), new(520,60), new(520,80), new(520,120), new(1000,600), new(520,120), new(520,60), new(520,80), new(1000,600) };
+    private static readonly string[] CrosshairFirstPagePaths = { "/crosshair/enabled", "/crosshair/native", "/crosshair/color", "/crosshair/scale",
+        "/crosshair/gap", "/crosshair/thickness", "/crosshair/lengthX", "/crosshair/lengthY" };
+    private static readonly string[] HudWideFirstPagePaths = { "/globalScale", "/globalOpacity", "/textScale", "/iconScale", "/accentColor", "/safeArea" };
 
     public HudEditorController(HudProfile original, IHudEditorBackend? backend = null, HudEditorOption[]? options = null)
     {
@@ -82,7 +85,7 @@ public sealed class HudEditorController : IDisposable
                 && (element.Visibility switch { HudVisibility.Spectator => preview.Spectator, HudVisibility.Damaged => preview.Health < 99,
                     HudVisibility.AmmoNotFull => preview.Ammo < 80, HudVisibility.Objective => preview.Objective, HudVisibility.Combat => preview.Combat, _ => true });
             return new HudEditorElement(i, id, Bounds(i), element.Enabled, element.Locked, _selected == i || _selection.Contains(i),
-                visible ? element.Opacity*profile.GlobalOpacity : .18f, element.Color);
+                HudPreviewState.ElementVisible(id,(HudPreviewScenario)_scenario) || i==_selected ? visible ? element.Opacity*profile.GlobalOpacity : .18f : 0, element.Color);
         }).ToImmutableArray();
         var e = profile.Elements[HudProfileDefaults.ElementIds[_selected]];
         var (previewWidth, previewHeight) = Aspect;
@@ -167,7 +170,7 @@ public sealed class HudEditorController : IDisposable
                 case HudEditorAction.PreviousHunter:
                 case HudEditorAction.NextHunter: _hunter = Cycle(_hunter, 8, action == HudEditorAction.PreviousHunter); break;
                 case HudEditorAction.PreviousScenario:
-                case HudEditorAction.NextScenario: _scenario = Cycle(_scenario, 7, action == HudEditorAction.PreviousScenario); break;
+                case HudEditorAction.NextScenario: _scenario = Cycle(_scenario, Enum.GetValues<HudPreviewScenario>().Length, action == HudEditorAction.PreviousScenario); break;
                 case HudEditorAction.PreviousGrid:
                 case HudEditorAction.NextGrid: _grid = Cycle(_grid, 6, action == HudEditorAction.PreviousGrid); break;
                 case HudEditorAction.ToggleGuides: _snapGuides = !_snapGuides; break;
@@ -289,6 +292,25 @@ public sealed class HudEditorController : IDisposable
             replacement = JsonValue.Create(contexts.ToString())!;
         }
         Put(data, row.Path, replacement);
+        // Choosing a face is an affirmative typography edit. Keep the change in
+        // this one JSON transaction so it remains one undo step and does not
+        // rewrite any of the style's other saved presentation values.
+        if (row.Path is "/typography/globalFont" or "/typography/gameFont" or "/typography/interfaceFont")
+        {
+            string enablePath = row.Path switch
+            {
+                "/typography/globalFont" => "/typography/useGlobalFont",
+                "/typography/gameFont" => "/typography/useGameFont",
+                _ => "/typography/useInterfaceFont"
+            };
+            Put(data, enablePath, JsonValue.Create(true)!);
+            if(enablePath!="/typography/useGlobalFont")Put(data,"/typography/useGlobalFont",JsonValue.Create(false)!);
+        }
+        else if (IsTypographyStyleFontPath(row.Path))
+        {
+            string stylePath = row.Path[..^"/font".Length];
+            Put(data, stylePath + "/enabled", JsonValue.Create(true)!);
+        }
         var profile = HudProfileStore.Parse(data.ToJsonString());
         if (!JsonNode.DeepEquals(At(data,row.Path), At(JsonNode.Parse(HudProfileStore.Serialize(profile))!,row.Path)))
             throw new FormatException("The value is outside its allowed range or format.");
@@ -336,7 +358,8 @@ public sealed class HudEditorController : IDisposable
             var profile = HudProfileStore.Parse(data.ToJsonString()); profile.Mode=HudMode.Custom; _history.Replace(profile);
         }
     }
-    private IEnumerable<HudEditorProperty> Properties()
+    private IEnumerable<HudEditorProperty> Properties() => EnumerateProperties().OrderBy(PropertyPresentationPriority);
+    private IEnumerable<HudEditorProperty> EnumerateProperties()
     {
         var profile = _history.Draft;
         JsonNode data = JsonNode.Parse(HudProfileStore.Serialize(profile))!;
@@ -346,15 +369,18 @@ public sealed class HudEditorController : IDisposable
         string section = _selected switch { 0 => "/crosshair/", 1 or 12 => "/health/", 2 or 13 => "/ammo/", 3 => "/inventory/", 4 => "/radar/", 7 => "/killFeed/", 8 => "/notifications/", _ => "!" };
         // The dependent master, proportions and stylus switch must stay together
         // before the per-element geometry can push them onto separate pages.
-        foreach(var option in _options.Where(option=>option.Section==_inspectorSection&&option.Group=="Stacked dual screens"))
+        foreach(var option in _options.Where(option=>option.Section==_inspectorSection&&option.Group=="Stacked dual screens"&&(option.Element<0||option.Element==_selected)))
         {
             if(_propertySearch.Length!=0&&!option.Label.Contains(_propertySearch,StringComparison.OrdinalIgnoreCase)
                 &&!option.Group.Contains(_propertySearch,StringComparison.OrdinalIgnoreCase))continue;
-            yield return new("/options/"+option.Id,option.Label,option.Value,option.Hint,option.Choices);
+            yield return new HudEditorProperty("/options/"+option.Id,option.Label,option.Value,OptionKind(option),option.Choices)
+                { Range=option.Range, Help=option.Hint };
         }
+        var typographyIds=TypographyIdsForElement(_selected);
+        var decorationIds=DecorationIdsForElement(_selected);
         foreach (var leaf in Leaves(data,""))
         {
-            if (leaf.Path is "/schemaVersion" or "/basePreset" or "/name" or "/typography/paletteDefaultsVersion" || leaf.Path.Contains("overrideProperties",StringComparison.Ordinal)
+            if (leaf.Path is "/schemaVersion" or "/basePreset" or "/name" or "/mode" or "/typography/paletteDefaultsVersion" || leaf.Path.Contains("overrideProperties",StringComparison.Ordinal)
                 || leaf.Path.StartsWith("/weaponCrosshairs/",StringComparison.Ordinal) || leaf.Path.StartsWith("/zoomCrosshair/",StringComparison.Ordinal)) continue;
             bool global = leaf.Path.LastIndexOf('/') == 0;
             bool element = leaf.Path.StartsWith("/elements/"+id+"/",StringComparison.Ordinal);
@@ -363,14 +389,19 @@ public sealed class HudEditorController : IDisposable
                 || (_selected == 4 && leaf.Path is "/radarBackground" or "/radarOutlines")
                 || (_selected is 1 or 12 && leaf.Path == "/haloLowHealthSound")
                 || leaf.Path.StartsWith(section,StringComparison.Ordinal) || (_selected == 0 && leaf.Path.StartsWith("/hitMarker/",StringComparison.Ordinal));
-            bool typography = leaf.Path.StartsWith("/typography/",StringComparison.Ordinal) || leaf.Path == "/textScale";
-            bool decoration = leaf.Path.StartsWith("/decorations/",StringComparison.Ordinal);
+            if(appearance&&!AppearancePropertyVisible(profile,leaf.Path))continue;
+            bool typography = IsSelectedTypographyPath(profile,leaf.Path,typographyIds);
+            bool globalTypography = IsHudWideTypographyPath(profile,leaf.Path);
+            bool decoration = IsSelectedDecorationPath(profile,leaf.Path,decorationIds);
+            bool globalDecoration = IsHudWideDecorationPath(profile,leaf.Path);
             bool visible = _inspectorSection switch
             {
-                0 => appearance || elementStyle || leaf.Path == "/smoothArtwork",
-                1 => element && !elementStyle || leaf.Path == "/independentGauges",
-                2 => global && leaf.Path is not ("/smoothArtwork" or "/textScale" or "/independentGauges" or "/weaponCrosshairTheme"
-                    or "/nativeReticleOpacity" or "/radarBackground" or "/radarOutlines" or "/haloLowHealthSound"),
+                0 => appearance || elementStyle,
+                1 => (_selected is not (12 or 13) || profile.IndependentGauges || leaf.Path == "/independentGauges")
+                    && (element && !elementStyle || leaf.Path=="/independentGauges"&&(_selected is 1 or 2 or 12 or 13)),
+                2 => global && leaf.Path is not ("/textScale" or "/independentGauges" or "/weaponCrosshairTheme"
+                    or "/nativeReticleOpacity" or "/radarBackground" or "/radarOutlines" or "/haloLowHealthSound")
+                    || _inspectorSection == 2 && (leaf.Path == "/textScale" || globalTypography || globalDecoration),
                 3 => typography, 4 => decoration, _ => false
             };
             if (!visible || _propertySearch.Length != 0 && !leaf.Path.Contains(_propertySearch,StringComparison.OrdinalIgnoreCase)
@@ -379,16 +410,273 @@ public sealed class HudEditorController : IDisposable
             string text = leaf.Value.GetValueKind() == JsonValueKind.String ? leaf.Value.GetValue<string>() : leaf.Value.ToJsonString();
             string[] choices = leaf.Value.GetValueKind() is JsonValueKind.True or JsonValueKind.False ? new[]{"false", "true"} : Choices(leaf.Path);
             if (IsTypographyFontPath(leaf.Path)) text = FontName(text);
-            string kind = choices.Length > 0 ? "Choice" : leaf.Value.GetValueKind() switch { JsonValueKind.True or JsonValueKind.False => "Boolean", JsonValueKind.Number => "Number", _ => "Text" };
-            yield return new(leaf.Path, PropertyLabel(leaf.Path), text, kind, choices.ToImmutableArray());
+            string kind = choices.Length > 0 ? "Choice" : leaf.Value.GetValueKind() switch
+            { JsonValueKind.True or JsonValueKind.False => "Boolean", JsonValueKind.Number => "Number", _ => IsColorValue(text) ? "Color" : "Text" };
+            yield return new HudEditorProperty(leaf.Path, PropertyLabel(leaf.Path), text, kind, choices.ToImmutableArray())
+                { Range=leaf.Value.GetValueKind()==JsonValueKind.Number ? PropertyRange(profile,leaf.Path) : null, Help=PropertyHelp(leaf.Path) };
         }
         foreach (var option in _options)
         {
-            if(option.Group=="Stacked dual screens")continue;
+            if(option.Group=="Stacked dual screens"||option.Element>=0&&option.Element!=_selected)continue;
             if (_inspectorSection != option.Section || _propertySearch.Length != 0 && !option.Label.Contains(_propertySearch, StringComparison.OrdinalIgnoreCase)
                 && !option.Group.Contains(_propertySearch,StringComparison.OrdinalIgnoreCase)) continue;
-            yield return new("/options/"+option.Id, option.Group.Length==0?option.Label:option.Group+" · "+option.Label, option.Value, option.Hint, option.Choices);
+            yield return new HudEditorProperty("/options/"+option.Id, option.Group.Length==0?option.Label:option.Group+" · "+option.Label,
+                option.Value,OptionKind(option),option.Choices) { Range=option.Range, Help=option.Hint };
         }
+    }
+    private int PropertyPresentationPriority(HudEditorProperty property)
+    {
+        string path = property.Path;
+        switch (_inspectorSection)
+        {
+            case 0:
+                if (_selected == 0)
+                {
+                    int first = Array.IndexOf(CrosshairFirstPagePaths, path);
+                    if (first >= 0) return first;
+                    if (path == "/crosshair/nativeThickness") return 8;
+                    if (path == "/crosshair/nativeOriginalColors") return 9;
+                    if (path == "/crosshair/nativeAnimations") return 10;
+                    if (path == "/nativeReticleOpacity") return 11;
+                    if (path.StartsWith("/crosshair/", StringComparison.Ordinal)) return path.IndexOf('/', 11) >= 0 ? 200 : 100;
+                    if (path.StartsWith("/hitMarker/", StringComparison.Ordinal)) return 300;
+                    if (path == "/weaponCrosshairTheme") return 290;
+                }
+                if (_selected == 4 && path.StartsWith("/radar/", StringComparison.Ordinal)) return 100 + RadarPresentationPriority(path);
+                if (_selected == 4 && path is ("/radarBackground" or "/radarOutlines")) return 180;
+                if (path == "/haloLowHealthSound") return 700;
+                if (path.StartsWith("/elements/", StringComparison.Ordinal)) return 800;
+                return 100;
+            case 1:
+                if (path == "/independentGauges") return 0;
+                if (path.StartsWith("/elements/", StringComparison.Ordinal))
+                {
+                    string field = path[(path.LastIndexOf('/') + 1)..];
+                    return 100 + (field switch { "enabled" => 0, "anchor" => 1, "offsetX" => 2, "offsetY" => 3,
+                        "scale" => 4, "visibility" => 5, "layer" => 6, "contexts" => 7, "locked" => 8, _ => 9 });
+                }
+                if (path.StartsWith("/options/", StringComparison.Ordinal)) return 500;
+                return 1000;
+            case 2:
+                if (IsStackedScreenOption(path)) return 0;
+                int shared = Array.IndexOf(HudWideFirstPagePaths, path);
+                if (shared >= 0) return 100 + shared;
+                if (path.StartsWith("/typography/", StringComparison.Ordinal)) return 1000 + TypographyPresentationPriority(path);
+                if (path.StartsWith("/decorations/", StringComparison.Ordinal)) return 3000 + DecorationPresentationPriority(path);
+                if (path.StartsWith("/options/", StringComparison.Ordinal)) return IsTouchOption(path) ? 4000 : 300;
+                return 200;
+            case 3:
+                return TypographyPresentationPriority(path);
+            case 4:
+                return DecorationPresentationPriority(path);
+            default:
+                return 10000;
+        }
+    }
+    private bool IsStackedScreenOption(string path)
+        => _options.Any(option => option.Section == _inspectorSection && option.Group == "Stacked dual screens"
+            && (option.Element < 0 || option.Element == _selected) && path == "/options/" + option.Id);
+    private bool IsTouchOption(string path)
+        => _options.Any(option => option.Section == _inspectorSection && path == "/options/" + option.Id
+            && option.Group.StartsWith("Touchscreen", StringComparison.Ordinal));
+    private static int RadarPresentationPriority(string path)
+    {
+        string field = path[(path.LastIndexOf('/') + 1)..];
+        return field switch
+        {
+            "style" => 0, "orientation" => 1, "rangeScale" => 2, "radiusScale" => 3, "rangeRings" => 4,
+            "hunters" => 5, "weapons" => 6, "powerups" => 7, "cardinals" => 8, "objectives" => 9, "hunterFacing" => 10,
+            "outOfRange" => 11, "backgroundOpacity" => 12, "outlineThickness" => 13, "blipScale" => 14, "blipOpacity" => 15,
+            "elevation" => 100, "elevationThreshold" => 101, "sweepSpeed" => 102, "sweepOpacity" => 103, "trailSamples" => 104,
+            _ => 50
+        };
+    }
+    private static int TypographyPresentationPriority(string path)
+    {
+        if (path == "/typography/linkKillAssist") return Array.IndexOf(HudTypography.Ids, "combat.kill") * 20 + 19;
+        const string prefix = "/typography/styles/";
+        if (!path.StartsWith(prefix, StringComparison.Ordinal)) return path switch
+        {
+            "/typography/useGlobalFont" => 0, "/typography/globalFont" => 1, "/typography/useGameFont" => 2,
+            "/typography/gameFont" => 3, "/typography/useInterfaceFont" => 4, "/typography/interfaceFont" => 5, _ => 10000
+        };
+        string rest = path[prefix.Length..]; int slash = rest.IndexOf('/');
+        if (slash < 0) return 10000;
+        int style = Array.IndexOf(HudTypography.Ids, rest[..slash]);
+        if (style < 0) return 10000;
+        string field = rest[(slash + 1)..];
+        return style * 20 + (field switch { "enabled" => 0, "font" => 1, "size" => 2, "fitToScreen" => 3,
+            "opacity" => 4, "color" => 5, "matchPalette" => 6, "preserveSemanticColors" => 7,
+            "outline" => 8, "outlineColor" => 9, _ => 15 });
+    }
+    private static int DecorationPresentationPriority(string path)
+    {
+        const string prefix = "/decorations/styles/";
+        if (!path.StartsWith(prefix, StringComparison.Ordinal)) return 10000;
+        string rest = path[prefix.Length..]; int slash = rest.IndexOf('/');
+        if (slash < 0) return 10000;
+        int style = Array.IndexOf(HudDecorations.Ids, rest[..slash]);
+        if (style < 0) return 10000;
+        string field = rest[(slash + 1)..];
+        return style * 10 + (field switch { "matchPalette" => 0, "color" => 1, "opacity" => 2, "lineScale" => 3, _ => 8 });
+    }
+    private static string OptionKind(HudEditorOption option)
+        => option.Range!=null ? "Number" : option.Choices.IsEmpty ? IsColorValue(option.Value) ? "Color" : "Text" : "Choice";
+    private static bool IsColorValue(string value)
+        => value.Length==7&&value[0]=='#'&&uint.TryParse(value.AsSpan(1),NumberStyles.HexNumber,CultureInfo.InvariantCulture,out _);
+    private static string PropertyHelp(string path) => path switch
+    {
+        "/crosshair/motion" => "Static pins the reticle to screen center. Dynamic projects the aim point when fixed-weapon presentation is enabled.",
+        "/typography/globalFont" => "Choosing a face also turns on the shared font override.",
+        "/typography/gameFont" => "Choosing a face turns on the gameplay font override and disables the shared override.",
+        "/typography/interfaceFont" => "Choosing a face turns on the interface font override and disables the shared override.",
+        _ when path.StartsWith("/typography/styles/touch.labels/",StringComparison.Ordinal) => "Shared touchscreen control and boost labels.",
+        _ when path.StartsWith("/typography/styles/ui.",StringComparison.Ordinal) => "Shared interface text used by menus and settings.",
+        _ when path.StartsWith("/typography/styles/game.replay/",StringComparison.Ordinal) => "Shared replay and killcam lettering.",
+        _ when path.StartsWith("/typography/styles/match.gameOver/",StringComparison.Ordinal) => "Shared match-end lettering and results.",
+        _ when IsTypographyStyleFontPath(path) => "Choosing a face also enables this element's text style.",
+        _ => ""
+    };
+    private static string[] TypographyIdsForElement(int index)
+    {
+        if(index==8)return new[]{"combat.notifications","combat.kill","combat.assist"};
+        if(index>=HudProfileDefaults.MovementTelemetryIndex)return new[]{"all.other"};
+        if((uint)index>=HudProfileDefaults.ElementIds.Length)return Array.Empty<string>();
+        string id=HudProfileDefaults.ElementIds[index];
+        return Array.IndexOf(HudTypography.Ids,id)>=0?new[]{id}:Array.Empty<string>();
+    }
+    private static string[] DecorationIdsForElement(int index) => index switch
+    {
+        1 or 12 => new[]{"health"}, 2 or 3 or 13 => new[]{"weapons"}, 4 => new[]{"radar"}, 5 => new[]{"points"}, _ => Array.Empty<string>()
+    };
+    private static bool IsSelectedTypographyPath(HudProfile profile,string path,string[] styleIds)
+    {
+        if(path=="/typography/linkKillAssist")return styleIds.Contains("combat.kill",StringComparer.Ordinal);
+        const string prefix="/typography/styles/";
+        if(!path.StartsWith(prefix,StringComparison.Ordinal))return false;
+        string rest=path[prefix.Length..];int slash=rest.IndexOf('/');
+        if(slash<0)return false;
+        string id=rest[..slash];
+        if(!styleIds.Contains(id,StringComparer.Ordinal))return false;
+        string field=rest[(slash+1)..];var style=profile.Typography.Get(id);
+        if((field=="color"&&style.MatchPalette)||(field=="outlineColor"&&style.Outline<=0))return false;
+        return !(field=="font"&&profile.Typography.SharedFontFor(id)!=null);
+    }
+    private static bool IsHudWideTypographyPath(HudProfile profile,string path)
+    {
+        if(path is "/typography/useGlobalFont" or "/typography/globalFont")return true;
+        if(path is "/typography/useGameFont" or "/typography/gameFont")return !profile.Typography.UseGlobalFont;
+        if(path is "/typography/useInterfaceFont" or "/typography/interfaceFont")return !profile.Typography.UseGlobalFont;
+        const string prefix="/typography/styles/";
+        if(!path.StartsWith(prefix,StringComparison.Ordinal))return false;
+        string rest=path[prefix.Length..];int slash=rest.IndexOf('/');
+        if(slash<0)return false;
+        string id=rest[..slash];
+        if(id is not ("touch.labels" or "ui.body" or "ui.headings" or "ui.data" or "game.replay" or "match.gameOver"))return false;
+        string field=rest[(slash+1)..];var style=profile.Typography.Get(id);
+        if((field=="color"&&style.MatchPalette)||(field=="outlineColor"&&style.Outline<=0))return false;
+        return !(field=="font"&&profile.Typography.SharedFontFor(id)!=null);
+    }
+    private static bool IsSelectedDecorationPath(HudProfile profile,string path,string[] styleIds)
+    {
+        const string prefix="/decorations/styles/";
+        if(!path.StartsWith(prefix,StringComparison.Ordinal))return false;
+        string rest=path[prefix.Length..];int slash=rest.IndexOf('/');
+        if(slash<=0||!styleIds.Contains(rest[..slash],StringComparer.Ordinal))return false;
+        var style=profile.Decorations.Get(rest[..slash]);string field=rest[(slash+1)..];
+        if(field=="color"&&style.MatchPalette)return false;
+        return field!="lineScale"||rest[..slash] is "borders" or "radar" or "controls";
+    }
+    private static bool IsHudWideDecorationPath(HudProfile profile,string path)
+    {
+        const string prefix="/decorations/styles/";
+        if(!path.StartsWith(prefix,StringComparison.Ordinal))return false;
+        string rest=path[prefix.Length..];int slash=rest.IndexOf('/');
+        if(slash<0)return false;
+        if(rest[..slash] is not ("borders" or "background" or "controls" or "boost"))return false;
+        var style=profile.Decorations.Get(rest[..slash]);string field=rest[(slash+1)..];
+        if(field=="color"&&style.MatchPalette)return false;
+        return field!="lineScale"||rest[..slash] is "borders" or "controls";
+    }
+    private bool AppearancePropertyVisible(HudProfile profile,string path)
+    {
+        CrosshairProfile displayedCrosshair=DisplayedCrosshair(profile);
+        if(path=="/nativeReticleOpacity")return displayedCrosshair.Native||profile.Mode==HudMode.Classic;
+        if(path.StartsWith("/health/",StringComparison.Ordinal)||path.StartsWith("/ammo/",StringComparison.Ordinal))
+        {
+            bool health=path.StartsWith("/health/",StringComparison.Ordinal);
+            bool gaugeOnly=_selected is 12 or 13;
+            // A gauge element edits only the gauge it draws; the parent readout
+            // owns the number, icon and native artwork choices.
+            var meter=health?profile.Health:profile.Ammo;
+            string field=path[(path.LastIndexOf('/')+1)..];
+            if(gaugeOnly && field is ("native" or "number" or "numberScale" or "background" or "icon"))return false;
+            if(!gaugeOnly&&meter.Native&&field!="native")return false;
+            if(field=="numberScale"&&!meter.Number)return false;
+            if(field is ("gaugeScale" or "gaugeThickness" or "vertical") && !meter.Gauge)return false;
+            if(field is ("warning" or "danger" or "fullColor" or "warningColor" or "dangerColor") && !meter.Gauge)return false;
+            return true;
+        }
+        if(_selected==0&&path.StartsWith("/crosshair/",StringComparison.Ordinal))
+        {
+            string field=path[(path.LastIndexOf('/')+1)..];
+            if(field is "nativeThickness" or "nativeOriginalColors" or "nativeAnimations")return displayedCrosshair.Native;
+            if(path.Contains("Style/",StringComparison.OrdinalIgnoreCase))
+            {
+                string[] fields=path[11..].Split('/');
+                var part=(CrosshairPartStyle)typeof(CrosshairProfile).GetProperty(Pascal(fields[0]))!.GetValue(displayedCrosshair)!;
+                if(fields[^1]=="color"&&!part.CustomColor)return false;
+                if(fields[^1]=="outlineColor"&&!part.CustomOutlineColor)return false;
+                if(displayedCrosshair.Native)return false;
+            }
+            if(displayedCrosshair.Native&&field is ("widthScale" or "heightScale" or "rotation" or "dotStyle" or "innerStyle" or "outerStyle" or "ringStyle" or "bracketStyle"
+                or "dot" or "dotShape" or "dotSize" or "inner" or "lengthX" or "lengthY" or "thickness" or "gap" or "tStyle" or "outer" or "outerLength" or "outerGap"
+                or "ring" or "radius" or "ringThickness" or "segments" or "brackets" or "bracketCorner" or "bracketLength" or "bracketThickness"))return false;
+        }
+        return true;
+    }
+    private static HudEditorNumericRange? PropertyRange(HudProfile profile,string path)
+    {
+        static HudEditorNumericRange R(float min,float max,float step)=>new(min,max,step);
+        if(path.StartsWith("/crosshair/",StringComparison.Ordinal))
+        {
+            string[] fields=path[11..].Split('/');
+            if(fields.Length==1&&CrosshairProperties.All.FirstOrDefault(d=>d.Id==Pascal(fields[0])) is {} descriptor)
+            {
+                float max=descriptor.Max;
+                if(descriptor.Id is "ShotScale" or "ChargeScale" or "ZoomScale" or "NativeThickness")max=Math.Min(max,4);
+                return R(descriptor.Min,max,descriptor.Type==typeof(int)?1:descriptor.Step);
+            }
+            if(fields.Length==2)
+            {
+                var property=typeof(CrosshairPartStyle).GetProperty(Pascal(fields[1]));
+                if(property?.PropertyType==typeof(float))return fields[1]=="outline"?R(-1,20,.1f):fields[1]=="opacity"?R(0,1,.01f):null;
+            }
+            return null;
+        }
+        string field=path[(path.LastIndexOf('/')+1)..];
+        if(path.StartsWith("/elements/",StringComparison.Ordinal))return field switch
+        {"offsetX"=>R(-3840,3840,1),"offsetY"=>R(-2160,2160,1),"scale"=>R(.1f,8,.1f),"opacity"=>R(0,1,.01f),"layer"=>R(0,3,1),_=>null};
+        if(path is "/globalScale")return R(.1f,8,.1f);if(path is "/globalOpacity" or "/nativeReticleOpacity")return R(0,1,.01f);
+        if(path is "/textScale" or "/iconScale")return R(.5f,3,.05f);if(path=="/safeArea")return R(0,.2f,.01f);
+        if(path.StartsWith("/health/",StringComparison.Ordinal)||path.StartsWith("/ammo/",StringComparison.Ordinal))
+        {
+            if(field=="danger")
+            {
+                float maximum=path.StartsWith("/health/",StringComparison.Ordinal)?profile.Health.Warning:profile.Ammo.Warning;
+                return maximum>0?R(0,maximum,.01f):null;
+            }
+            return field switch {"numberScale" or "gaugeScale"=>R(.1f,8,.1f),"gaugeThickness"=>R(.1f,20,.1f),"warning"=>R(0,1,.01f),_=>null};
+        }
+        if(path.StartsWith("/radar/",StringComparison.Ordinal))return field switch
+        {"radiusScale"=>R(.1f,4,.1f),"backgroundOpacity" or "blipOpacity" or "sweepOpacity"=>R(0,1,.01f),"outlineThickness"=>R(.1f,8,.1f),"blipScale"=>R(.1f,8,.1f),"elevationThreshold"=>R(.1f,20,.1f),"trailSamples"=>R(0,4,1),"rangeScale"=>R(.5f,1,.01f),"sweepSpeed"=>R(.1f,2,.05f),_=>null};
+        if(path.StartsWith("/killFeed/",StringComparison.Ordinal))return field switch {"rows"=>R(1,10,1),"lifetime"=>R(1,10,.1f),"spacing"=>R(8,32,.1f),_=>null};
+        if(path.StartsWith("/inventory/",StringComparison.Ordinal))return field switch {"iconScale"=>R(.1f,4,.1f),"spacing"=>R(0,16,.1f),"unownedOpacity"=>R(0,1,.01f),_=>null};
+        if(path.StartsWith("/hitMarker/",StringComparison.Ordinal))return field switch {"scale"=>R(.1f,8,.1f),"opacity"=>R(0,1,.01f),"gap"=>R(0,100,.1f),"length"=>R(.1f,100,.1f),"thickness"=>R(.1f,20,.1f),_=>null};
+        if(path.StartsWith("/notifications/",StringComparison.Ordinal))return field switch {"spacing"=>R(0,32,.1f),"maxVisible"=>R(1,5,1),_=>null};
+        if(path.StartsWith("/typography/styles/",StringComparison.Ordinal))return field switch {"size"=>R(.05f,6,.05f),"opacity"=>R(0,1,.01f),"outline"=>R(0,5,.1f),_=>null};
+        if(path.StartsWith("/decorations/styles/",StringComparison.Ordinal))return field switch {"opacity"=>R(0,1,.01f),"lineScale"=>R(.1f,5,.1f),_=>null};
+        return null;
     }
     private static string PropertyLabel(string path)
     {
@@ -453,6 +741,12 @@ public sealed class HudEditorController : IDisposable
         return path.StartsWith(stylesPrefix,StringComparison.Ordinal) && path.EndsWith("/font",StringComparison.Ordinal)
             && Array.IndexOf(HudTypography.Ids,path[stylesPrefix.Length..^5])>=0;
     }
+    private static bool IsTypographyStyleFontPath(string path)
+    {
+        const string stylesPrefix="/typography/styles/";
+        return path.StartsWith(stylesPrefix,StringComparison.Ordinal) && path.EndsWith("/font",StringComparison.Ordinal)
+            && Array.IndexOf(HudTypography.Ids,path[stylesPrefix.Length..^5])>=0;
+    }
     private static string FontName(string id)
         => HudFonts.All.FirstOrDefault(font=>font.Id==id)?.Name ?? id;
     private static string FontId(string nameOrId)
@@ -486,7 +780,7 @@ public sealed class HudEditorController : IDisposable
         if(index==HudProfileDefaults.MovementTelemetryIndex) size.X*=Aspect.Width/Aspect.Height*.5625f;
         if(index==4) { size=Vector2.Max(size,new(16));point-=size/2; }
         if(index==11) point.X-=size.X;
-        if(index is 6 or 8 || index==HudProfileDefaults.MovementTelemetryIndex) point.X-=size.X/2;
+        if(index is 6 or 8 || index==HudProfileDefaults.MovementTelemetryIndex || index is 15 or 16 or 17 or 18 or 19 or 23 or 24) point.X-=size.X/2;
         if(index==0) point=new Vector2(surface.Width/2,surface.Height/2)-size/2;
         return new(surface.X+point.X,surface.Y+point.Y,Math.Max(16,size.X),Math.Max(16,size.Y));
     }
@@ -509,6 +803,7 @@ public sealed class HudEditorController : IDisposable
         for(int step=0;step<HudProfileDefaults.ElementIds.Length;step++)
         {
             int index=alt ? (_selected-1-step+HudProfileDefaults.ElementIds.Length*2)%HudProfileDefaults.ElementIds.Length : HudProfileDefaults.ElementIds.Length-1-step;
+            if(index!=_selected&&!HudPreviewState.ElementVisible(HudProfileDefaults.ElementIds[index],(HudPreviewScenario)_scenario)) continue;
             if(!Bounds(index).Contains(point,8)) continue;
             if(shift) { if(!_selection.Add(index)) _selection.Remove(index); } else if(!_selection.Contains(index)) { _selection.Clear();_selection.Add(index); }
             _selected=index;_propertyPage=_propertyIndex=0;Touch();
@@ -548,7 +843,7 @@ public sealed class HudEditorController : IDisposable
             foreach(float target in new[]{rect.Y,rect.Center.Y,rect.Bottom}) foreach(float from in new[]{moving.Y,moving.Center.Y,moving.Bottom}) if(Math.Abs(target-from)<Math.Abs(dy)) { dy=target-from;_guideY=target; }
         }
         Target(surface);Target(new(surface.X+surface.Width*margin,surface.Y+surface.Height*margin,surface.Width*(1-2*margin),surface.Height*(1-2*margin)));
-        for(int i=1;i<HudProfileDefaults.ElementIds.Length;i++) if(i!=_selected&&!_selection.Contains(i)&&_history.Draft.Elements[HudProfileDefaults.ElementIds[i]].Enabled)Target(Bounds(i));
+        for(int i=1;i<HudProfileDefaults.ElementIds.Length;i++) if(i!=_selected&&HudPreviewState.ElementVisible(HudProfileDefaults.ElementIds[i],(HudPreviewScenario)_scenario)&&!_selection.Contains(i)&&_history.Draft.Elements[HudProfileDefaults.ElementIds[i]].Enabled)Target(Bounds(i));
         var element=_history.Draft.Elements[HudProfileDefaults.ElementIds[_selected]];if(_guideX!=null)element.OffsetX+=dx/Transform.UnitScale;if(_guideY!=null)element.OffsetY+=dy/Transform.UnitScale;
     }
     private bool _axisGesture;

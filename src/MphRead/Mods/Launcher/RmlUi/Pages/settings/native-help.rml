@@ -1,0 +1,13 @@
+<rml>
+<head><title>Setting help</title><link type="text/template" href="../../components/dialog.rml"/><link type="text/rcss" href="native-help.rcss"/></head>
+<body template="prime-dialog">
+    <div class="prime_dialog native_settings_help" role="dialog" aria-modal="true" aria-labelledby="native_settings_help_title">
+        <div class="native_settings_help_heading">
+            <div><div class="eyebrow">SETTING HELP</div><h2 id="native_settings_help_title"/></div>
+            <button id="native_settings_help_close" data-action="settings:action:247">CLOSE</button>
+        </div>
+        <div class="native_settings_help_scroll"><p id="native_settings_help_body"/></div>
+        <p class="native_settings_help_escape">Press Escape to return to Settings.</p>
+    </div>
+</body>
+</rml>

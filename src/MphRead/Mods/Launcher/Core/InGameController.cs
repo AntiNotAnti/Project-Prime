@@ -12,7 +12,7 @@ public enum InGameAction
     Resume, Fullscreen, Settings, Replay, Vote, Spectate, Rejoin, Recorder,
     ReturnLobby, Leave, Quit, Confirm, Cancel, MapNext, VoteSubmit, VoteYes, VoteNo,
     Bots, BotSelect, BotHunter, BotSuit, BotSkill, BotTeam, BotHandicap, BotRemove, BotAdd, BotApply,
-    Journal, JournalMap, JournalScans, JournalCategory, JournalPrevious, JournalNext, JournalBack
+    Journal, JournalMap, JournalScans, JournalCategory, JournalPrevious, JournalNext, JournalBack, NextHero
 }
 
 public enum InGamePage { Pause, MapVote, Confirmation, Bots }
@@ -30,6 +30,8 @@ public sealed record InGameFacts(bool Live, bool Replay, bool Spectating, bool C
     public bool CanManageBots { get; init; }
     public bool CanAddBot { get; init; }
     public string CommandStatus { get; init; } = "";
+    public bool HeroSelection { get; init; }
+    public Hunter SelectedHero { get; init; }
 }
 public sealed record InGameSnapshot(Guid Lifetime, long Revision, InGamePage Page,
     InGameFacts Facts, ImmutableArray<string> Maps, int MapIndex, InGameAction? Confirmation,
@@ -75,6 +77,8 @@ public sealed class InGameController : IDisposable
                 CanAddBot = controls && roster.Count < (NetSession.ServerSession?.MaxPlayers ?? 8),
                 Teams = Enumerable.Range(0, layout.TeamCount).Select(team => new InGameTeam((sbyte)team,
                     Enumerable.Range(0, roster.Count).Count(i => roster.Teams[i] == team), layout.Capacity(team))).ToImmutableArray(),
+                HeroSelection = HeroModes.HeroSelectionPolicy.CanChangeDuringRespawn,
+                SelectedHero = NetSession.LocalHunter,
                 CommandStatus = NetSession.LobbyMessage
             };
         }
@@ -83,6 +87,7 @@ public sealed class InGameController : IDisposable
         {
             switch (action)
             {
+                case InGameAction.NextHero: return HeroModes.HeroSelectionPolicy.RequestNext();
                 case InGameAction.Fullscreen: PauseMenu.RequestFullscreenToggle(); break;
                 case InGameAction.Spectate: SpectatorMode.Start(); break;
                 case InGameAction.Rejoin: SpectatorMode.Rejoin(); break;
@@ -164,6 +169,7 @@ public sealed class InGameController : IDisposable
             if (action is InGameAction.Spectate && (facts.Replay || facts.Spectating || !facts.CanSpectate))
                 return Reject("Spectating is unavailable in this match.");
             if (action is InGameAction.Rejoin && (facts.Replay || !facts.Spectating)) return Reject("You are not a match spectator.");
+            if (action == InGameAction.NextHero && !facts.HeroSelection) return Reject("Change hunters during your respawn countdown.");
             if (action is InGameAction.Recorder && !facts.Live) return Reject("Recording requires a live network match.");
             if (action is InGameAction.Replay && !facts.Replay) return Reject("No replay is playing.");
             if (action is InGameAction.Vote or InGameAction.VoteSubmit && (!facts.Live || facts.VoteUnavailable.Length > 0))

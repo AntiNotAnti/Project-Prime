@@ -240,6 +240,8 @@ namespace MphRead.Mods.Network
             {
                 case LobbyCommandType.AddBot:
                 case LobbyCommandType.UpdateBot:
+                    if (Mods.HeroModes.HeroRules.Active(CurrentDefinition.Mode))
+                    { reason = "CTZ uses human teams; bot flag interaction is not supported."; return LobbyResultCode.InvalidConfiguration; }
                     var botResult = ConfigureBot(command, command.Type == LobbyCommandType.UpdateBot, out reason);
                     if (botResult != LobbyResultCode.Ok) return botResult;
                     break;
@@ -269,10 +271,14 @@ namespace MphRead.Mods.Network
                     { reason = "Choose a team for the current format."; return LobbyResultCode.InvalidTeam; }
                     if (TeamOccupants(requestedTeam, target.SlotIndex) >= LobbyRules.TeamCapacity(_lobbyMatch, requestedTeam))
                     { reason = "That team is full."; return LobbyResultCode.TeamFull; }
+                    if (!CtzTeamAllowed(target,requestedTeam,out reason)) return LobbyResultCode.InvalidTeam;
+                    if (!CtfTeamAllowed(target, requestedTeam, out reason)) return LobbyResultCode.InvalidTeam;
                     target.TeamIndex = requestedTeam;
                     target.LobbyReady = false;
                     break;
                 case LobbyCommandType.SetHandicap:
+                    if (Mods.HeroModes.HeroRules.Active(CurrentDefinition.Mode))
+                    { reason = "CTZ durability comes from the shared hero definitions, not slot handicaps."; return LobbyResultCode.InvalidConfiguration; }
                     if (!PlayerHandicap.IsValid(command.DamageReduction))
                     { reason = "Choose a damage reduction from 0% to 50% in 10% steps."; return LobbyResultCode.InvalidConfiguration; }
                     var handicapBot = FindBot(command.TargetSlot);
@@ -288,7 +294,12 @@ namespace MphRead.Mods.Network
                     handicapTarget.LobbyReady = false;
                     break;
                 case LobbyCommandType.UpdateMatch:
-                    var proposed = command.Configuration.Match;
+                    if (!MatchModifierRules.Validate(command.Configuration.Match, out reason)) return LobbyResultCode.InvalidConfiguration;
+                    var proposed = command.Configuration.Match.NormalizeLegacy();
+                    if (UnifiedModeRules.Custom(proposed.Mode) && !CtfPeersCompatible())
+                    { reason = "This mode requires the matching custom-mode ruleset for every participant."; return LobbyResultCode.InvalidConfiguration; }
+                    if (Mods.HeroModes.CtfRules.Active(proposed.Mode) && (!CtfPeersCompatible() || _bots.Count > 0))
+                    { reason = "CTF requires matching CTF clients and no bots. Remove incompatible participants first."; return LobbyResultCode.InvalidConfiguration; }
                     if (proposed.PackagedWeaponAvailable != (_weaponPackages != null))
                     { reason = "The operator's exact package selection cannot be changed by a lobby command."; return LobbyResultCode.InvalidConfiguration; }
                     var valid = LobbyRules.ValidateDefinition(proposed, out reason);
@@ -323,9 +334,13 @@ namespace MphRead.Mods.Network
                     foreach (var participant in _peers) participant.Hunter = (byte)HunterRules.Sanitize((Hunter)participant.Hunter, _lobbyMatch.LowTier);
                     foreach (var bot in _bots) bot.Hunter = (byte)HunterRules.Sanitize((Hunter)bot.Hunter, _lobbyMatch.LowTier);
                     if (topologyChanged) NormalizeTeams();
+                    NormalizeCtzRoster();
+                    NormalizeCtfRoster();
                     InvalidateLobbyReady();
                     break;
                 case LobbyCommandType.StartMatch:
+                    if (Mods.HeroModes.CtfRules.Active(CurrentDefinition.Mode) && !CtfPeersCompatible())
+                    { reason = "A participant does not support this CTF ruleset."; return LobbyResultCode.InvalidConfiguration; }
                     var start = LobbyRules.Validate(_lobbyMatch, BuildRoster(), RequireReady, out reason);
                     if (start != LobbyResultCode.Ok) return start;
                     if (!BeginLobbyMatch(_lobbyMatch, now, out reason))
@@ -593,6 +608,8 @@ namespace MphRead.Mods.Network
                 || _phase is not (SessionPhase.Starting or SessionPhase.InMatch)) return;
             if (!PackagePeerReady(peer)) return;
             if (CurrentDefinition.MapIdentity.IsCustom && (peer.PreparedMap != CurrentDefinition.MapIdentity || peer.MapAvailability != MapAvailabilityState.Ready)) return;
+            if (Mods.HeroModes.HeroRules.Active(CurrentDefinition.Mode) && peer.Spectating != spectating)
+            { Tell(peer, "CTZ role changes are only accepted in the lobby."); return; }
             CareerSetSpectating(peer, spectating);
             if (Simulating) NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
             peer.LastSeen = now; peer.SceneLoaded = true;

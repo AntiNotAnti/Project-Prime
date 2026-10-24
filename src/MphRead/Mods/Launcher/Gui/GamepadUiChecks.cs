@@ -164,7 +164,15 @@ namespace MphRead.Mods.Launcher.Gui
                 && offlineHeadings.Contains("TRAINING & ADVENTURE"),
                 "Offline exposes shared Match Arena Deployment setup hierarchy");
             WithOfflineEntityFixture(() =>
-                Click(window, ControllerNav.Find(offlineView, "offline.start")!));
+            {
+                // Refresh the real arena capability gate after installing the
+                // fixture: construction correctly disables launch without it.
+                offlineView.Refresh();
+                var offlineStart = ControllerNav.Find(offlineView, "offline.start")!;
+                GamepadChecks.Check(offlineStart.IsEnabled,
+                    "Offline enables launch after compatible arena files become available");
+                Click(window, offlineStart);
+            });
             GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.Offline, RoomKey: "MP3 PROVING GROUND" },
                 "Offline launches its selected local arena");
 

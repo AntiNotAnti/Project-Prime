@@ -47,6 +47,7 @@ namespace MphRead.Mods.Network
             GameState.ShotsHit[slot] = 0;
             GameState.MatchDamageDealt[slot] = 0;
             GameState.MatchDamageTaken[slot] = 0;
+            GameState.Current.CtzStats.ForgetSlot(slot);
             GameState.LongestKillStreak[slot] = 0;
             MatchReportStats.ForgetSlot(slot);
             GameState.BeamDamageDealt[slot] = 0;

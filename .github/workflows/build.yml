@@ -137,6 +137,12 @@ jobs:
       - name: compile opt-in RmlUi OpenGL smoke bridge
         run: dotnet build src/MphRead/MphRead.csproj -c Release -p:MphReadRmlUiGlSmoke=true
 
+      - name: supplied CTZ and Payload authored package compatibility
+        run: >-
+          dotnet run --project tools/supplied-hero-map-check -c Release
+          -p:BuildProjectReferences=false -- --maps "$GITHUB_WORKSPACE/maps"
+          --output "$RUNNER_TEMP/supplied-hero-maps"
+
       - name: actual map-cache owner and maintenance isolation
         run: |
           set -euo pipefail
@@ -236,6 +242,7 @@ jobs:
           dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --hunter-presenter-contract \
             tools/rmlui-opengl-check/bin/Release/net10.0/rmlui
           dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --replay-files
+          dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --workspace-evidence
           mkdir -p "${RUNNER_TEMP}/rmlui-studio-owner"
           PROJECT_PRIME_USER_DATA="${RUNNER_TEMP}/rmlui-studio-owner" \
             dotnet tools/rmlui-opengl-check/bin/Release/net10.0/rmlui-opengl-check.dll --studio-owner
@@ -292,6 +299,9 @@ jobs:
             artifacts/rmlui-community-history-rml51
             artifacts/rmlui-community-publish-rml54
             artifacts/rmlui-studio-workspace
+            artifacts/rml98-persistent-workspace
+            tools/rmlui-opengl-check/bin/Release/net10.0/artifacts/rml98-persistent-workspace
+            ${{ runner.temp }}/rmlui-studio-workspace-*/logs
             ${{ runner.temp }}/rmlui-studio-editor-*/native-studio-editor
           if-no-files-found: ignore
           retention-days: 7

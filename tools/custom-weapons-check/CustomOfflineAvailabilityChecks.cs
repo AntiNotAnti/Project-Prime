@@ -19,10 +19,13 @@ internal static class CustomOfflineAvailabilityChecks
         var plan=OfflineLaunch.Preview(settings,"MP3 PROVING GROUND",GameMode.Battle,Hunter.Samus,2,3,1);
         check(plan.MatchRules.RiftlineM7Available&&plan.Mode==GameMode.Battle&&plan.Bots==3
             &&settings.RoomKey=="original","offline Preview freezes M7 Battle rules and allows native bot targets without mutating preferences");
+        var frozenRules=plan.MatchRules;
         settings.RiftlineM7Available=false;
         check(plan.MatchRules.RiftlineM7Available&&OfflineRematch.TryPlan(plan,"MP1 SANCTORUS",out var next)
-            &&next.MatchRules==plan.MatchRules&&next.Bots==3&&next.RoomKey=="MP1 SANCTORUS",
-            "settings edits cannot alter frozen availability and real rematch projection preserves it");
+            &&next.MatchRules==(frozenRules with{RoomKey="MP1 SANCTORUS"})
+            &&next.MatchRules.RiftlineM7Available&&next.Bots==3&&next.RoomKey=="MP1 SANCTORUS"
+            &&plan.MatchRules==frozenRules&&plan.RoomKey=="MP3 PROVING GROUND",
+            "settings edits and rematch room synchronization preserve every frozen availability rule and original plan");
         check(!OfflineLaunch.Preview(native,"MP3 PROVING GROUND",GameMode.Battle,Hunter.Samus,0,0,0)
             .MatchRules.RiftlineM7Available,"native Preview keeps custom availability off");
         foreach(var kind in new[]{LaunchKind.Adventure,LaunchKind.Demo,LaunchKind.AimTrainer,LaunchKind.None})

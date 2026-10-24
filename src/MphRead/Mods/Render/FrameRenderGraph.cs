@@ -170,6 +170,20 @@ namespace MphRead
                 case Mods.Render.FrameRenderPassKind.SceneOverlays:
                     // Spatial filtering ends before model HUD/preview overlays.
                     ApplySpatialAntialiasing();
+                    if (SceneLinearColorActive) ApplyGraphicsPostProcess();
+                    if (!EncodeSceneColorBeforeOverlays())
+                    {
+                        // Reuse the prepared pose/items. Do not repeat simulation,
+                        // asset updates, fade advancement or shadow preparation.
+                        BeginWorldPass();
+                        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
+                        UploadWorldFrameUniforms(); SetPauseMenuUniforms();
+                        BeginShadowReceivers();
+                        try { ExecuteWorldRenderGraph(); }
+                        finally { EndShadowReceivers(); }
+                        DrawWorldOutlines(); ApplySpatialAntialiasing();
+                    }
+                    GL.Uniform1(_shaderLocations.AuthoredAlphaEnabled, 0);
                     if (!Services.IsReplica)
                         ModDrawPreview();
                     if (drawGameHud
@@ -189,7 +203,7 @@ namespace MphRead
                     break;
 
                 case Mods.Render.FrameRenderPassKind.PostProcess:
-                    ApplyGraphicsPostProcess();
+                    if (!_sceneEncodedReady) ApplyGraphicsPostProcess();
                     break;
 
                 case Mods.Render.FrameRenderPassKind.Composite:

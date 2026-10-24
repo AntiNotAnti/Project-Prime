@@ -27,14 +27,14 @@ internal static class Protocol83CheckpointFixtures
     internal static byte[] ToProtocol83(ReadOnlySpan<byte> current)
     {
         if (current.Length < 8 || BinaryPrimitives.ReadUInt32LittleEndian(current) != 0x43525050
-            || current[6] is not (84 or 85) || PlayerState.Size != 192 || IntentPacket.TouchCanonicalSize != 1299
+            || current[6] is not (84 or 85 or 86) || PlayerState.Size != 192 || IntentPacket.TouchCanonicalSize != 1299
             || PublishedAuxiliaryOffset != 54 + DamageEvent.Size * PlayerState.DamageHistory)
-            throw new InvalidOperationException("Unexpected protocol84/85 checkpoint fixture widths/header.");
+            throw new InvalidOperationException("Unexpected protocol84/85/86 checkpoint fixture widths/header.");
         ushort version = BinaryPrimitives.ReadUInt16LittleEndian(current[4..]);
         bool custom = version == 17;
         byte expectedFeatures = (byte)(custom ? 119 : 87);
         if ((!custom && version != 16) || (current[7] & ~8) != expectedFeatures)
-            throw new InvalidOperationException("Unexpected protocol84/85 checkpoint fixture feature contract.");
+            throw new InvalidOperationException("Unexpected protocol84/85/86 checkpoint fixture feature contract.");
 
         // Independently verify that the public writer still places its phase in
         // the frozen auxiliary byte, rather than trusting the offset expression.

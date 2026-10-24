@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.Json;
 using MphRead.Entities;
+using MphRead.Formats;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
@@ -216,6 +217,13 @@ namespace MphRead.Mods.Network
         private Affliction _afflictShotAfflictions;
         private int _afflictMaxCharge;
         private int _afflictSetUpWait;
+        private static MapAudit? _afflictionDiagnostic;
+        private int _afflictDiagnosticImpacts;
+        private int _afflictDiagnosticHealthChanges;
+        private bool _afflictPreparing;
+        private int _afflictPreparationFrames;
+        private int _afflictAimFrames;
+        private Vector3 _afflictChargeAway;
         // Long enough for a projectile to cross three units and for the state
         // it inflicts to be visible for a frame.
         private const int _afflictFrameLimit = 320;
@@ -229,7 +237,11 @@ namespace MphRead.Mods.Network
         private int _lockjawTrailMismatches;
         private int _lockjawDrawRngChanges;
 
-        private static GameWindowSettings GameSettings() => new() { UpdateFrequency = 60 };
+        // A bounded diagnostic cadence keeps hidden import acceptance runs cheap.
+        // Simulation still advances its normal fixed step, so this only slows wall-clock playback.
+        private static GameWindowSettings GameSettings() => new() {
+            UpdateFrequency = int.TryParse(Environment.GetEnvironmentVariable("PROJECT_PRIME_AUDIT_FPS"), out int hz)
+                ? Math.Clamp(hz, 1, 60) : 60 };
 
         private static NativeWindowSettings WindowSettings()
         {
@@ -327,6 +339,7 @@ namespace MphRead.Mods.Network
             Mods.WorldEvents.Watching = true;
             Mods.WorldEvents.Reset();
             Scene = new Scene(Size, KeyboardState, MouseState, _ => { }, Close);
+            NetTestScript.OfflineInputScene = Scene;
             // A different hunter per slot, cycling, so one run exercises
             // several alt forms, several affinity weapons and several
             // collision volumes rather than eight copies of Samus.
@@ -335,7 +348,8 @@ namespace MphRead.Mods.Network
                 Hunter hunter = i == 0 && MainHunter.HasValue
                     ? MainHunter.Value
                     : (Hunter)(i % 7);
-                Scene.AddPlayer(hunter, recolor: 0, team: -1);
+                Scene.AddPlayer(hunter, recolor: 0,
+                    team: mode is GameMode.Capture or GameMode.CaptureTheFlag ? i % 2 : -1);
             }
             for (int i = 0; i < PlayerEntity.Players.Count; i++)
             {
@@ -360,6 +374,7 @@ namespace MphRead.Mods.Network
 
         protected override void OnLoad()
         {
+            if (Diagnostic) _afflictionDiagnostic = this;
 #if !ANDROID && !MPHREAD_SERVER
             _graphics = new Render.DesktopGraphicsSession(this);
 #endif
@@ -715,6 +730,39 @@ namespace MphRead.Mods.Network
                 return true;
             }
             _afflictWait = 0;
+            if (_afflictPreparing)
+            {
+                // A native trigger press first emits an uncharged shot. Charge
+                // away from the fresh victim so that shot cannot consume its
+                // health or launch it off the supported encounter floor.
+                _afflictPreparationFrames++;
+                NetTestScript.Rest(victim, wantBiped: true);
+                shooter.ModArmAffinityWeapon();
+                bool ready = shooter.ModChargeReady && _afflictPreparationFrames >= 30
+                    && !victim.ModZoneSpawnProtected && !shooter.IsMorphing && !shooter.IsUnmorphing
+                    && !victim.IsMorphing && !victim.IsUnmorphing
+                    && MathF.Abs(shooter.Position.Y-victim.Position.Y) < .2f
+                    && shooter.Speed.LengthSquared < .001f && victim.Speed.LengthSquared < .001f;
+                shooter.ModSetAim(ready ? (victim.Position-shooter.Position).Normalized() : _afflictChargeAway);
+                NetTestScript.HoldFire(shooter, true);
+                _afflictAimFrames = ready ? _afflictAimFrames+1 : 0;
+                if (_afflictAimFrames >= 3)
+                {
+                    ClearAfflictionProjectiles();
+                    _afflictPreparing = false;
+                    _afflictFrames = 0;
+                    _afflictVictimHealth = victim.Health;
+                    if (Diagnostic) Console.WriteLine($"PROBE_READY {_afflictions[_afflictIndex].Name}: victim=({AfflictionPlayerState(victim)}) shooter=({AfflictionPlayerState(shooter)})");
+                }
+                else if (_afflictPreparationFrames >= 480)
+                {
+                    if (Diagnostic) Console.WriteLine($"PROBE_PREPARATION_FAILED {_afflictions[_afflictIndex].Name}: victim=({AfflictionPlayerState(victim)}) shooter=({AfflictionPlayerState(shooter)})");
+                    NetTestScript.Rest(shooter, wantBiped: true);
+                    _afflictIndex++;
+                    _afflictShooter = _afflictVictim = -1;
+                }
+                return true;
+            }
             if (shooter.IsAltForm || shooter.IsMorphing || shooter.IsUnmorphing)
             {
                 // A morph ball cannot fire a beam. Ask it to come out and
@@ -757,6 +805,9 @@ namespace MphRead.Mods.Network
             if (victim.Health < _afflictVictimHealth)
             {
                 _afflictHit[_afflictIndex] = true;
+                if (Diagnostic && _afflictDiagnosticHealthChanges++ < 8)
+                    Console.WriteLine($"PROBE_HEALTH {_afflictions[_afflictIndex].Name}: "
+                        + $"frame={_afflictFrames} previousMinHp={_afflictVictimHealth} {AfflictionPlayerState(victim)}");
             }
             _afflictVictimHealth = Math.Min(_afflictVictimHealth, victim.Health);
             _afflictMaxCharge = Math.Max(_afflictMaxCharge, shooter.ModChargeLevel);
@@ -773,7 +824,9 @@ namespace MphRead.Mods.Network
                     Console.WriteLine($"PROBE {_afflictions[_afflictIndex].Name}: "
                         + $"shooter slot {_afflictShooter} {shooter.Hunter} "
                         + $"{shooter.ModWeaponState}, maxcharge={_afflictMaxCharge}, shots carried "
-                        + $"{_afflictShotAfflictions}, landed={landed}");
+                        + $"{_afflictShotAfflictions}, landed={landed}; victim {AfflictionPlayerState(victim)}; "
+                        + $"shooterPosition={shooter.Position} distance={(shooter.Position-victim.Position).Length:0.000} "
+                        + $"nativeImpacts={_afflictDiagnosticImpacts}");
                 }
                 _afflictLanded[_afflictIndex] = landed;
                 _afflictIndex++;
@@ -789,6 +842,88 @@ namespace MphRead.Mods.Network
         {
             return player.LoadFlags.TestFlag(LoadFlags.Active)
                 && player.LoadFlags.TestFlag(LoadFlags.Spawned) && player.Health > 0;
+        }
+
+        private void ClearAfflictionProjectiles()
+        {
+            var beams=new List<BeamProjectileEntity>();
+            foreach (var entity in Scene.Entities)
+                if (entity is BeamProjectileEntity { Owner:PlayerEntity } beam) beams.Add(beam);
+            foreach (var beam in beams)
+            {
+                beam.Destroy();
+                Scene.RemoveEntity(beam);
+            }
+        }
+
+        private bool TryAfflictionPositions(out Vector3 victim, out Vector3 shooter)
+        {
+            // Reuse the native hit rig's supported-floor/clearance census on
+            // Proving Ground. Other rooms search bounded patches at their spawns.
+            if (HitRig.TryFindKandenEncounterGeometry(Scene, out var fixture))
+            {
+                victim=fixture.Center-Vector3.UnitX*1.1f;
+                shooter=fixture.Center+Vector3.UnitX*1.1f;
+                return true;
+            }
+            bool Floor(Vector3 at,out float height)
+            {
+                CollisionResult hit=default;
+                bool found=CollisionDetection.CheckBetweenPoints(at.AddY(2),at.AddY(-6),TestFlags.Players,Scene,ref hit);
+                height=hit.Position.Y;
+                return found && hit.Plane.Y>.9f;
+            }
+            bool Clear(Vector3 from,Vector3 to)
+            {
+                CollisionResult hit=default;
+                return !CollisionDetection.CheckBetweenPoints(from,to,TestFlags.Players,Scene,ref hit);
+            }
+            bool Supported(Vector3 at,float floor)
+            {
+                if(!Clear(at.WithY(floor+.1f),at.WithY(floor+2.5f)))return false;
+                foreach(var offset in new[]{new Vector3(-.6f,0,0),new Vector3(.6f,0,0),new Vector3(0,0,-.6f),new Vector3(0,0,.6f)})
+                    if(!Floor(at+offset,out float other)||MathF.Abs(other-floor)>.1f)return false;
+                return true;
+            }
+            int spawns=0;
+            foreach(var entity in Scene.Entities)
+            {
+                if(entity is not PlayerSpawnEntity spawn)continue;
+                if(++spawns>32)break;
+                for(int direction=0;direction<8;direction++)
+                {
+                    float angle=direction*MathF.PI/4;
+                    Vector3 a=spawn.Position,b=a+new Vector3(MathF.Cos(angle)*2.2f,0,MathF.Sin(angle)*2.2f);
+                    if(!Floor(a,out float floor)||!Floor(b,out float other)||MathF.Abs(other-floor)>.1f
+                        ||!Supported(a,floor)||!Supported(b,floor)||!Clear(a.WithY(floor+1),b.WithY(floor+1)))continue;
+                    victim=a.WithY(floor+.5f);shooter=b.WithY(floor+.5f);return true;
+                }
+            }
+            victim=shooter=default;return false;
+        }
+
+        private static string AfflictionPlayerState(PlayerEntity player)
+            => $"slot={player.SlotIndex} hunter={player.Hunter} hp={player.Health} "
+                + $"frozen={player.ModFrozen} burning={player.ModBurning} disrupted={player.ModDisrupted} "
+                + $"spawnProtected={player.ModZoneSpawnProtected} disruptImmunity={player.ModBalancedDisruptImmunityTimer} "
+                + $"alt={player.IsAltForm} morphing={player.IsMorphing || player.IsUnmorphing} position={player.Position}";
+
+        // Diagnostic-only observation at the actual native damage call. It does
+        // not infer a direct hit from a later health drop or a live projectile.
+        internal static void NoteAfflictionImpact(PlayerEntity victim, BeamProjectileEntity beam,
+            int healthBefore, FastNativeDamageGates gatesBefore, DamageFlags flags)
+        {
+            if (!Diagnostic || _afflictionDiagnostic is not { } audit
+                || audit._afflictIndex < 0 || audit._afflictIndex >= _afflictions.Length
+                || victim.OwningScene != audit.Scene || victim.SlotIndex != audit._afflictVictim
+                || beam.Owner is not PlayerEntity shooter || shooter.SlotIndex != audit._afflictShooter)
+                return;
+            if (audit._afflictDiagnosticImpacts++ >= 12) return;
+            Console.WriteLine($"PROBE_IMPACT {_afflictions[audit._afflictIndex].Name}: "
+                + $"frame={audit._afflictFrames} shot={beam.ModShotId} weapon={beam.Beam} "
+                + $"direct={beam.EnhancedDirectHit} charged={beam.Flags.TestFlag(BeamFlags.Charged)} "
+                + $"afflictions={beam.Afflictions} damageFlags={flags} hpBefore={healthBefore} "
+                + $"victimAfter=({AfflictionPlayerState(victim)}) gatesBefore=({gatesBefore})");
         }
 
         /// <summary>Find a shooter of this hunter and somebody to shoot, and place them.</summary>
@@ -818,22 +953,31 @@ namespace MphRead.Mods.Network
             }
             PlayerEntity shooterPlayer = PlayerEntity.Players[shooter];
             PlayerEntity victimPlayer = PlayerEntity.Players[victim];
-            // In front of the victim rather than at an arbitrary bearing: the
-            // floor it is standing on is the floor the shooter needs too.
-            Vector3 facing = victimPlayer.FacingVector;
-            facing = new Vector3(facing.X, 0, facing.Z);
-            if (facing.LengthSquared < 0.001f)
+            if (!TryAfflictionPositions(out Vector3 victimPosition,out Vector3 shooterPosition))
             {
-                facing = Vector3.UnitZ;
+                // A present hunter with no supported encounter is a failed
+                // fixture, not an absent/not-applicable affliction.
+                _afflictTried[_afflictIndex]=true;
+                return false;
             }
-            facing = facing.Normalized();
-            // Close: the probe is asking whether the state can be inflicted at
-            // all, not whether the hunter can aim.
-            Vector3 spot = victimPlayer.Position + facing * 2.2f;
-            shooterPlayer.Teleport(spot, -facing, Scene.GetNodeRefByPosition(spot));
+            ClearAfflictionProjectiles();
+            Vector3 facing=(shooterPosition-victimPosition).Normalized();
+            victimPlayer.Spawn(victimPosition,-facing,Vector3.UnitY,Scene.GetNodeRefByPosition(victimPosition),false);
+            shooterPlayer.Spawn(shooterPosition,facing,Vector3.UnitY,Scene.GetNodeRefByPosition(shooterPosition),false);
+            NetTestScript.Rest(victimPlayer,wantBiped:true);
+            NetTestScript.Rest(shooterPlayer,wantBiped:true);
             shooterPlayer.ModArmAffinityWeapon();
             _afflictShooter = shooter;
             _afflictVictim = victim;
+            _afflictDiagnosticImpacts = 0;
+            _afflictDiagnosticHealthChanges = 0;
+            _afflictPreparing=true;
+            _afflictPreparationFrames=_afflictAimFrames=0;
+            _afflictChargeAway=facing;
+            if (Diagnostic)
+                Console.WriteLine($"PROBE_SETUP {_afflictions[_afflictIndex].Name}: "
+                    + $"balanced={Scene.GameState.BalancedMode} victim=({AfflictionPlayerState(victimPlayer)}) "
+                    + $"shooter=({AfflictionPlayerState(shooterPlayer)})");
             return true;
         }
 
@@ -1412,6 +1556,9 @@ namespace MphRead.Mods.Network
             }
             var line = new StringBuilder();
             line.Append($"MAPTEST {_room} | players {_players} | frames {_frame}");
+            if (NetTestScript.GroundedExploration)
+                line.Append($" | tour grounded-exploration | guarded directions {NetTestScript.ExplorationBlockedMoves}");
+
             line.Append($" | spawned {spawnedEver}/{_players}");
             int moved = 0;
             float furthest = 0;
@@ -1532,6 +1679,9 @@ namespace MphRead.Mods.Network
             }
 
             var problems = new List<string>();
+            for (int i=0;i<_afflictions.Length;i++)
+                if (_afflictTried[i] && !_afflictLanded[i])
+                    problems.Add($"attempted {_afflictions[i].Name} affliction probe did not land its native charged effect");
             // One silent pad can be a pad somebody has to jump onto from
             // above; every pad in the room silent is the trigger path broken.
             if (_padsProbed > 0 && _padsFired == 0)
@@ -1608,6 +1758,28 @@ namespace MphRead.Mods.Network
             {
                 problems.Add($"drawing advanced the simulation on {_drawAdvancedTheGame} "
                     + "frame(s): a draw pass is writing back to the world");
+            }
+            if (_bots && Scene.GameState.Mode is GameMode.Capture or GameMode.CaptureTheFlag)
+            {
+                // A clean run with disabled AI cannot verify capture bot startup.
+                // Inspect the actual bindings without changing the bot's state.
+                const System.Reflection.BindingFlags hidden = System.Reflection.BindingFlags.Instance
+                    | System.Reflection.BindingFlags.NonPublic;
+                Type aiType = typeof(PlayerEntity.PlayerAiData);
+                string[] bindings = { "_octolithFlagCC", "_octolithFlagD4", "_octolithFlagDC",
+                    "_flagBaseD0", "_flagBaseD8", "_flagBaseE0" };
+                int bots = 0, ready = 0;
+                foreach (PlayerEntity player in Scene.Players.Items.Take(_players).Where(player => player.IsBot))
+                {
+                    bots++;
+                    if (player.TeamIndex is 0 or 1
+                        && aiType.GetField("_forceDisable", hidden)?.GetValue(player.AiData) is false
+                        && aiType.GetField("_nodeData", hidden)?.GetValue(player.AiData) != null
+                        && bindings.All(name => aiType.GetField(name, hidden)?.GetValue(player.AiData) != null))
+                        ready++;
+                }
+                Console.WriteLine($"MAPBOTS {_room} | capture objective bindings ready {ready}/{bots}");
+                if (ready != bots) problems.Add($"only {ready} of {bots} capture bots have enabled objective bindings");
             }
             foreach (string problem in problems)
             {
@@ -1762,7 +1934,9 @@ namespace MphRead.Mods.Network
             }
             finally
             {
+                if (_afflictionDiagnostic == window) _afflictionDiagnostic = null;
                 BombEntity.ModAuditLockjawDrawRng = false;
+                NetTestScript.OfflineInputScene = null;
                 try { window?.Dispose(); }
                 catch (Exception ex)
                 {

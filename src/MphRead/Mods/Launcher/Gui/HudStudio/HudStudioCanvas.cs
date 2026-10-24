@@ -47,6 +47,7 @@ internal sealed class HudStudioCanvas : Control
     public HudPreviewScenario Scenario { get; set; }
     private HudPreviewState Preview => HudPreviewState.For(Scenario);
     public event Action? Changed;
+    internal bool ElementInPreview(int index) => index==Selected || HudPreviewState.ElementVisible(HudProfileDefaults.ElementIds[index],Scenario) && (Scenario != HudPreviewScenario.CaptureZone || index != 5);
     private Point _start;
     private Vector2 _offset;
     private string? _before;
@@ -60,8 +61,8 @@ internal sealed class HudStudioCanvas : Control
         foreach (var point in _touches.Values) { if (!found) { first = point; found = true; } else return Math.Sqrt(Math.Pow(point.X - first.X, 2) + Math.Pow(point.Y - first.Y, 2)); }
         return 0;
     }
-    private static readonly string[] Labels = { "+", "74", "39 / 80", "POWER BEAM\nVOLT DRIVER\nMISSILE\nIMPERIALIST", "RADAR", "SCORE 5 / 7", "03:42", "Hunter  >  Rival\nRival  >  Player", "DOUBLE KILL", "RIVAL / HEALTH", "OBJECTIVE", "144 FPS", "HEALTH GAUGE", "AMMO GAUGE", "HORIZ 320.0 U/S\nTOTAL 330.0 U/S | AIR\nAIR EFF 85%" };
-    private static readonly Vector2[] Sizes = { new(60,60),new(248,112),new(326,112),new(248,620),Vector2.Zero,new(180,120),new(200,60),new(520,160),new(340,80),new(520,200),new(300,100),new(120,40),new(225,17),new(304,17),new(750,HudProfileDefaults.MovementTelemetryHeight*5.625f) };
+    private static readonly string[] Labels = { "+", "74", "39 / 80", "POWER BEAM\nVOLT DRIVER\nMISSILE\nIMPERIALIST", "RADAR", "SCORE 5 / 7", "03:42", "Hunter  >  Rival\nRival  >  Player", "DOUBLE KILL", "RIVAL / HEALTH", "OBJECTIVE", "144 FPS", "HEALTH GAUGE", "AMMO GAUGE", "HORIZ 320.0 U/S\nTOTAL 330.0 U/S | AIR\nAIR EFF 85%", "ROUNDS 1 - 0", "RESPAWN IN 10", "FREEZE READY", "RETURNING FLAG", "FLAG CAPTURED", "RED FLAG / BLUE FLAG", "CTF SCOREBOARD", "BALL HELD / 12 POINTS", "PICK UP BALL", "BALL DROPPED", "ODDBALL SCOREBOARD" };
+    private static readonly Vector2[] Sizes = { new(60,60),new(248,112),new(326,112),new(248,620),Vector2.Zero,new(180,120),new(200,60),new(520,160),new(340,80),new(520,200),new(300,100),new(120,40),new(225,17),new(304,17),new(750,HudProfileDefaults.MovementTelemetryHeight*5.625f),new(400,60),new(400,60),new(400,60),new(520,60),new(520,80),new(520,120),new(1000,600),new(520,120),new(520,60),new(520,80),new(1000,600) };
     public HudStudioCanvas(HudStudioHistory history)
     {
         History = history; Focusable = true; MinHeight = 260;
@@ -96,7 +97,15 @@ internal sealed class HudStudioCanvas : Control
         if(index==HudProfileDefaults.MovementTelemetryIndex) size.X*=PreviewWidth/PreviewHeight*.5625f;
         if (index == 4) { size=Vector2.Max(size,new Vector2(16)); point -= size / 2; }
         if (index == 11) point.X -= size.X;
-        if (index is 6 or 8 || index==HudProfileDefaults.MovementTelemetryIndex) point.X -= size.X / 2;
+        if (index is 6 or 8 || index==HudProfileDefaults.MovementTelemetryIndex || index is 15 or 16 or 17 or 18 or 19 or 23 or 24) point.X -= size.X / 2;
+        if (index == 10 && Scenario == HudPreviewScenario.CaptureZone)
+        {
+            // Existing objective layout is a legacy-group origin. Keep saved offsets unchanged,
+            // but show and hit-test CTZ's actual centered text instead of an unrelated corner box.
+            float nativeScale=e.Scale*p.GlobalScale*t.UnitScale/((float)Surface.Height/1080f);
+            point += new Vector2((float)Surface.Width*.5f,(float)Surface.Height*39/192f)*nativeScale;
+            point.X-=size.X/2;
+        }
         if (index == 0) point = new Vector2((float)Surface.Width / 2, (float)Surface.Height / 2) - size / 2;
         return new Rect(Surface.X + point.X, Surface.Y + point.Y, Math.Max(16, size.X), Math.Max(16, size.Y));
     }
@@ -120,7 +129,7 @@ internal sealed class HudStudioCanvas : Control
             }
             for (int i = 0; i < Labels.Length; i++)
             {
-                if(RadarOnly && i!=4) continue;
+                if((RadarOnly && i!=4) || !ElementInPreview(i)) continue;
                 var element = History.Draft.Elements[HudProfileDefaults.ElementIds[i]];
                 Rect rect = ElementBounds(i);
                 var preview = Preview;
@@ -164,7 +173,12 @@ internal sealed class HudStudioCanvas : Control
                     else
                     {
                         context.DrawRectangle(new SolidColorBrush(Color.Parse("#50334455")), new Pen(Brushes.SlateGray, 1), rect);
-                        string label = i == 8 && Scenario == HudPreviewScenario.Objective ? "OCTOLITH CAPTURED" : Labels[i];
+                        string label = Scenario == HudPreviewScenario.CaptureZone ? i switch
+                        {
+                            3 => "JUDICATOR / INFINITE", 5 => "SCOREBOARD ONLY", 6 => "ROUND TIME\n03:42",
+                            9 => "ALLY / HEALTH", 10 => "CONTESTED", 15 => "ROUNDS 1 - 0", 16 => "RESPAWN IN 5",
+                            17 => "FREEZE READY IN 30s", _ => Labels[i]
+                        } : i == 8 && Scenario == HudPreviewScenario.Objective ? "OCTOLITH CAPTURED" : Labels[i];
                         var text = new FormattedText(label, System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight, PreviewTypeface(HudProfileDefaults.ElementIds[i]), Math.Max(8, 30 * Transform.UnitScale * element.Scale * History.Draft.GlobalScale), Brushes.White);
                         context.DrawText(text, rect.TopLeft + new Vector(4, 4));
                     }
@@ -390,12 +404,12 @@ internal sealed class HudStudioCanvas : Control
         for (int step = 0; step < Labels.Length; step++)
         {
             int i = cycle ? (Selected - 1 - step + Labels.Length * 2) % Labels.Length : Labels.Length - 1 - step;
-            if (ElementBounds(i).Inflate(8).Contains(point))
+            if (ElementInPreview(i) && ElementBounds(i).Inflate(8).Contains(point))
             {
                 if(e.KeyModifiers.HasFlag(KeyModifiers.Shift)) { if(!Selection.Add(i)) Selection.Remove(i); }
                 else if(!Selection.Contains(i)) { Selection.Clear(); Selection.Add(i); }
                 Selected = i; Changed?.Invoke(); InvalidateVisual();
-                if(RadarOnly && i!=4) continue;
+                if((RadarOnly && i!=4) || !ElementInPreview(i)) continue;
                 var element = History.Draft.Elements[HudProfileDefaults.ElementIds[i]];
                 if (i == 0 || element.Locked) break;
                 _before = History.Capture(); _start = point; _offset = new(element.OffsetX, element.OffsetY);
@@ -452,7 +466,7 @@ internal sealed class HudStudioCanvas : Control
         }
         Target(surface); Target(safe);
         for (int i=1; i<Labels.Length; i++)
-            if (i != Selected && !Selection.Contains(i) && History.Draft.Elements[HudProfileDefaults.ElementIds[i]].Enabled) Target(ElementBounds(i));
+            if (i != Selected && ElementInPreview(i) && !Selection.Contains(i) && History.Draft.Elements[HudProfileDefaults.ElementIds[i]].Enabled) Target(ElementBounds(i));
         var element = History.Draft.Elements[HudProfileDefaults.ElementIds[Selected]];
         if (_guideX != null) element.OffsetX += (float)dx / Transform.UnitScale;
         if (_guideY != null) element.OffsetY += (float)dy / Transform.UnitScale;

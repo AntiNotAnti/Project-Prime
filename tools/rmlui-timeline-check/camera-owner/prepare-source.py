@@ -31,3 +31,11 @@ clip = studio[studio.index("    internal sealed record ReplayVirtualClipDocument
     "using System; using System.Collections.Generic; namespace MphRead.Mods.Replay {\n"
     + reels + annotations + clip + "\n}"
 )
+
+legacy = (sources / "Replay/ReplayCamera.cs").read_text()
+start = legacy.index("        private static bool EditTrack")
+end = legacy.index("        internal static void SaveKeyframe", start)
+(out / "NativeLegacyGuard.cs").write_text(
+    "using System; namespace MphRead.Mods.Replay { public static partial class ReplayCamera {\n"
+    + legacy[start:end] + "\n internal static bool FixtureLegacySave()=>EditTrack(track=>track.Remove(10));\n} }"
+)

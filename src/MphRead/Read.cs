@@ -117,6 +117,11 @@ namespace MphRead
             return ReadModel(meta.Name, meta.ModelPath, meta.AnimationPath, meta.AnimationShare, meta.Recolors, meta.FirstHunt);
         }
 
+        internal static ModelInstance GetGeneratedModelInstance(ModelMetadata meta)
+        {
+            return new ModelInstance(ReadModel(meta.Name,meta.ModelPath,meta.AnimationPath,meta.AnimationShare,meta.Recolors,meta.FirstHunt));
+        }
+
         public static ModelInstance GetRoomModelInstance(string name)
         {
             ModelInstance? inst = GetRoomModelInstanceOrNull(name);
@@ -171,6 +176,20 @@ namespace MphRead
             model.MaterialAssetScope = Mods.Render.Materials.MaterialAssetKey.RoomScope(meta);
             model.SourceBankMaterials = meta.SourceBankMaterials;
             model.AuthoredMaterialScopes = Mods.Render.Materials.MaterialAssetKey.AuthoredScopes(meta.MaterialMapId, meta.AuthoredMaterials, model.Materials);
+            if (meta.MaterialMapId != Guid.Empty)
+            {
+                var recipe = Mods.MapGen.CustomRooms.Definitions.FirstOrDefault(d => d.MapId == meta.MaterialMapId);
+                if (recipe != null)
+                    foreach (var authored in recipe.Materials.Where(m => m.VideoTexture != null))
+                    {
+                        string scope = $"map/{recipe.MapId:N}/material/{authored.Id:N}";
+                        var matches = model.AuthoredMaterialScopes.Where(p => p.Value == scope).ToArray();
+                        if (matches.Length == 0 || model.Materials[matches[0].Key].TextureId < 0)
+                            Mods.Render.MapVideoDiagnostics.Report(Guid.Empty, -recipe.Materials.IndexOf(authored)-1,
+                                Mods.Render.Materials.MaterialAssetKey.Authored(recipe.MapId, authored.Id), authored.VideoTexture!,
+                                "failed", "native-authored-material-identity", "The compiled room model has no textured binding for this video material. Rebuild the map's runtime cache; verify the compiled model belongs to this package.");
+                    }
+            }
             return model;
         }
 

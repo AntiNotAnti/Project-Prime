@@ -43,6 +43,8 @@ namespace MphRead.Mods.Network
             public double JoinedAt, LoadStartedAt, FirstBootstrapAt;
             public bool LateJoin, Rejoining, AdmissionReady;
             public bool Spectating;
+            public uint CtfCapability;
+            public uint CtzCapability;
             public uint LastIntentFrame;
             public bool HasIntentFrame;
             public string Name = "";
@@ -2291,6 +2293,9 @@ namespace MphRead.Mods.Network
                 SendRefusal(packet.Sender, RefusedPacket.ReasonProtocol);
                 return;
             }
+            uint ctfCapability = packet.Payload.Length >= 27 ? BinaryPrimitives.ReadUInt32LittleEndian(packet.Payload.Slice(23, 4)) : 0;
+            if (UnifiedModeRules.Custom(CurrentDefinition.Mode) && ctfCapability != UnifiedModeRules.Capability)
+            { SendRefusal(packet.Sender, RefusedPacket.ReasonCtfRuleset); return; }
             uint clientId = packet.Payload.Length >= 6
                 ? BinaryPrimitives.ReadUInt32LittleEndian(packet.Payload.Slice(2, 4))
                 : 0;
@@ -2373,7 +2378,7 @@ namespace MphRead.Mods.Network
                 _slotGenerations[slot] = NetLifecycleTracker.Next(_slotGenerations[slot]);
                 bool rejoining = clientId != 0 && Array.IndexOf(_studyAdmissions, clientId) >= 0;
                 _studyAdmissions[_studyAdmissionHead++ % _studyAdmissions.Length] = clientId;
-                peer = new Peer { Hunter = (byte)Multiplayer.HunterRules.Sanitize(Hunter.Samus, CurrentDefinition.LowTier), EndPoint = packet.Sender, SlotIndex = slot, ClientId = clientId, TeamIndex = team,
+                peer = new Peer { Hunter = Mods.HeroModes.HeroRules.Active(CurrentDefinition.Mode) ? CtzFreeHunter(team) : Mods.HeroModes.CtfRules.Active(CurrentDefinition.Mode) ? CtfFreeHunter(team) : (byte)Multiplayer.HunterRules.Sanitize(Hunter.Samus, CurrentDefinition.LowTier), EndPoint = packet.Sender, SlotIndex = slot, ClientId = clientId, TeamIndex = team,
                     JoinedAt = now, LoadStartedAt = now, FirstBootstrapAt = -1, LateJoin = _phase == SessionPhase.InMatch, Rejoining = rejoining,
                     Spectating = spectating };
                 _peers.Add(peer);
@@ -2384,7 +2389,15 @@ namespace MphRead.Mods.Network
                 // baseline. The combined replay snapshot is not a live datagram.
 
             }
+            if (Mods.HeroModes.HeroRules.Active(CurrentDefinition.Mode) && peer.Spectating != spectating)
+            {
+                if (_phase != SessionPhase.Lobby) { Tell(peer, "CTZ role changes are only accepted in the lobby."); spectating = peer.Spectating; }
+                else if (!spectating && _peers.Any(p => p != peer && !p.Spectating && p.TeamIndex == peer.TeamIndex && p.Hunter == peer.Hunter))
+                    peer.Hunter = CtzFreeHunter(peer.TeamIndex, peer);
+            }
             peer.ClientId = clientId;
+            peer.CtfCapability = ctfCapability == UnifiedModeRules.Capability ? Mods.HeroModes.CtfRules.Capability : 0;
+            peer.CtzCapability = ctfCapability == UnifiedModeRules.Capability ? Mods.HeroModes.CtzRules.Capability : 0;
             CareerSetSpectating(peer, spectating);
             if (Simulating)
                 NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
@@ -2457,6 +2470,9 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            if(peer.Hunter!=hunter && !CtzSelectAllowed(peer,hunter,out string heroReason)){Tell(peer,heroReason);BroadcastRoster();return;}
+            if (peer.Hunter != hunter && !CtfSelectAllowed(peer, hunter, out string ctfReason))
+            { Tell(peer, ctfReason); BroadcastRoster(); return; }
             bool firstName = peer.Name.Length == 0;
             int previousHunter = peer.Hunter;
             if (peer.Hunter != hunter || peer.Color != color) peer.LobbyReady = false;
@@ -2541,6 +2557,7 @@ namespace MphRead.Mods.Network
                 roster.LobbyReady[roster.Count] = _peers[i].LobbyReady;
                 roster.Hunters[roster.Count] = _peers[i].Hunter;
                 roster.Colors[roster.Count] = _peers[i].Color;
+                if (Mods.HeroModes.HeroRules.Active(CurrentDefinition.Mode) && _peers[i].Spectating) roster.Flags[roster.Count] |= Mods.HeroModes.HeroRosterBridge.SpectatorFlag;
                 roster.DamageReductions[roster.Count] = _peers[i].DamageReduction;
                 roster.Pings[roster.Count] = (ushort)Math.Clamp(_peers[i].Ping, 0, 9999);
                 roster.Names[roster.Count] = _peers[i].Name.Length > 0

@@ -63,6 +63,8 @@ internal static class DemoRecorder
     public static bool Start()
     {
         if (!ReplayCapture.CanStartClientRecording(out var error)) { _lastError = error; return false; }
+        if (NetSession.ServerMatch is { } match && Mods.HeroModes.HeroRules.Active((GameMode)match.Mode))
+        { _lastError="Capture the Zone replay recording is not supported in this development build."; return false; }
         if (IsRecording || !NetSession.Active || DemoPlayback.IsActive || NetSession.ServerMatch == null) return false;
         string room = NetSession.ServerMatch.Value.RoomKey;
         foreach (char c in Path.GetInvalidFileNameChars()) room = room.Replace(c, '_');

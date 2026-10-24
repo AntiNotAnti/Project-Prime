@@ -8,9 +8,10 @@ public partial class Scene
 {
     // Separate experimental control: the retired AA preset remains inert.
     private static readonly bool SpatialAntialiasingRequested =
-        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_SPATIAL_AA") == "1";
+        Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_SPATIAL_AA") == "1"
+        && !Mods.Render.OpenGlOptimizationPolicy.ForceLegacy;
     private int _spatialAaProgram, _spatialAaTexture, _spatialAaFramebuffer;
-    private int _spatialAaSampler, _spatialAaTexel;
+    private int _spatialAaSampler, _spatialAaTexel, _spatialAaLinearColor;
     private Vector2i _spatialAaSize, _spatialAaRefusedSize;
     private bool _spatialAaRefused;
     private int[]? _spatialAaViewport, _spatialAaColorMask;
@@ -59,11 +60,12 @@ public partial class Scene
             GL.UseProgram(_spatialAaProgram);
             GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
             GL.Uniform1(_spatialAaSampler, 0);
+            GL.Uniform1(_spatialAaLinearColor, SceneLinearColorActive ? 1 : 0);
             GL.Uniform2(_spatialAaTexel, 1f / size.X, 1f / size.Y);
             DrawGraphicsFullscreenQuad();
             if (GL.GetError() != ErrorCode.NoError)
                 throw new InvalidOperationException("Spatial AA draw failed; original color retained.");
-            // Exact-size copy, native encoded domain throughout. Never sample
+            // Exact-size copy, preserving the selected scene domain. Never sample
             // a texture while it is attached to the current drawing target.
             GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
             GL.CopyTexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 0, 0, size.X, size.Y);
@@ -139,6 +141,7 @@ public partial class Scene
             {
                 _spatialAaProgram = program; program = 0;
                 _spatialAaSampler = GL.GetUniformLocation(_spatialAaProgram, "tex");
+                _spatialAaLinearColor = GL.GetUniformLocation(_spatialAaProgram, "scene_linear_color");
                 _spatialAaTexel = GL.GetUniformLocation(_spatialAaProgram, "texel");
             }
             _spatialAaRefused = false;
@@ -175,12 +178,16 @@ namespace MphRead.Mods.Render
         internal static string VertexSource => "#version 120\nvarying vec2 uv;\nvoid main(){gl_Position=vec4(gl_Vertex.xy,0.0,1.0);uv=gl_MultiTexCoord0.xy;}";
         internal static string FragmentSource => "#version 120\nvarying vec2 uv;\n#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n" + Body;
 #endif
-        // Deliberately operates in existing native-encoded RGB. It is neither
-        // HDR nor linear-light AA. Five texel-center taps need no sampler edits.
+        // Native uses encoded RGB. R22 compares perceptual edge luma and
+        // blends linear samples. Five texel-center taps need no sampler edits.
         private const string Body = @"
 uniform sampler2D tex;
 uniform vec2 texel;
-float luma(vec3 c){return dot(c,vec3(0.299,0.587,0.114));}
+uniform bool scene_linear_color;
+float luma(vec3 c){
+ if(scene_linear_color){c=clamp(c,0.0,1.0);c=mix(c*12.92,1.055*pow(c,vec3(1.0/2.4))-vec3(0.055),step(vec3(0.0031308),c));}
+ return dot(c,vec3(0.299,0.587,0.114));
+}
 void main(){
  vec2 p=clamp(uv,texel*0.5,vec2(1.0)-texel*0.5);
  vec4 c=SAMPLE(tex,p);

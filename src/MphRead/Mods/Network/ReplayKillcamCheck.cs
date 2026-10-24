@@ -82,6 +82,18 @@ internal static class ReplayKillcamCheck
                 throw new InvalidDataException("Use the eight-actor world-coverage fixture for killcam lifecycle checks.");
             int checks = 0;
             void Require(bool value, string message) { if (!value) throw new InvalidDataException(message); checks++; }
+            void WaitVisible(KillcamController target, KillcamContext current)
+            {
+                // Startup warming yields to the same soft engine-thread budget
+                // as playback. A fixed number of updates depends on host load.
+                var deadline = System.Diagnostics.Stopwatch.StartNew();
+                while (!target.Visible && deadline.Elapsed < TimeSpan.FromSeconds(10))
+                {
+                    target.Update(live, current);
+                    if (!target.Active) break;
+                }
+                Require(target.Visible, $"Killcam did not become visible: state={target.State}, reason={target.EndReason}, frame={target.Frame}, error={target.LastError}.");
+            }
             if (fixtureAttackerAtDeath is not { LifeId: > 0 } fixtureAttacker)
                 throw new InvalidDataException("Killcam fixture has no attacker life at its declared death frame.");
             var identity = new ReplayKillIdentity(match.MatchId, match.AuthorityEpoch, death, 2,
@@ -111,7 +123,7 @@ internal static class ReplayKillcamCheck
                     Require(!delayed.Active, "Killcam started before the full post-roll arrived.");
                 }
                 delayedTimeline.Frontier = death + KillcamController.PostRollFrames;
-                for (int i = 0; i < 8 && !delayed.Visible; i++) delayed.Update(live, context);
+                WaitVisible(delayed, context);
                 Require(delayed.Visible && delayed.Frame == death - KillcamController.PreRollFrames,
                     "Delayed kill notification shifted the replay away from the actual kill.");
                 bool rejectedSeek = false;
@@ -122,7 +134,7 @@ internal static class ReplayKillcamCheck
             void Begin()
             {
                 controller.NoteKill(marker, death, context);
-                for (int warm = 0; warm < 8 && !controller.Visible; warm++) controller.Update(live, context);
+                WaitVisible(controller, context);
                 Require(controller.Visible && controller.Kind == KillCamKind.Personal, "Personal killcam did not become visible.");
             }
             var shortContext = context with { Frame = 120 };
@@ -131,7 +143,7 @@ internal static class ReplayKillcamCheck
             Require(firstRetainedFrame < shortContext.Frame,
                 "Short-history fixture needs retained history before frame 120.");
             controller.NoteKill(marker with { Kill = identity with { ServerTick = 120 } }, 120, shortContext);
-            for (int i = 0; i < 8 && !controller.Visible; i++) controller.Update(live, shortContext);
+            WaitVisible(controller, shortContext);
             // Actual accepted snapshots may establish the first retained frame
             // after recording zero. Initial Update may advance once on reveal.
             Require(controller.Visible && controller.Frame >= firstRetainedFrame
@@ -249,7 +261,7 @@ internal static class ReplayKillcamCheck
                 "Final impact effects must fade and respect reduced motion.");
             controller.NoteKill(marker, death, context);
             Require(controller.BeginFinal(live, context, death, timedEnd: false, causalEnd: true), "Eligible final did not start.");
-            for (int i = 0; i < 8 && !controller.Visible; i++) controller.Update(live, context);
+            WaitVisible(controller, context);
             Require(controller.Visible && controller.Kind == KillCamKind.Final, "Final did not become visible.");
             recorder.Reset(); // the final clip was frozen before room/lobby handoff
             Require(controller.Frame == death - FinalKillPresentation.PreRollFrames

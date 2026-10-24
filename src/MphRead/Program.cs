@@ -44,6 +44,17 @@ namespace MphRead
         private static void Run(string[] args)
         {
             ConsoleSetup.Run();
+            if (args.Length == 2 && args[0].Equals("-migratefrom", StringComparison.OrdinalIgnoreCase))
+            {
+                try { Mods.Settings.ClientMigration.Run(args[1], Mods.Platform.AppPaths.UserDataDirectory); }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException or ArgumentException)
+                {
+                    File.WriteAllText(Path.Combine(Mods.Platform.AppPaths.UserDataDirectory, "migration-status.txt"), "FAILED: " + ex.Message);
+                    Environment.ExitCode = 1;
+                }
+                return;
+            }
+
             // A console only if this run is going to use one: the Windows
             // build is a GUI binary, so double-clicking it opens the launcher
             // with no terminal behind it.

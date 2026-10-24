@@ -83,6 +83,8 @@ namespace MphRead.Entities
         public float Damage { get; set; }
         public float HeadshotDamage { get; set; }
         public float SplashDamage { get; set; }
+        internal ushort ModCtzHealedSlots;
+        internal ushort ModCtzDirectHealedSlots;
         public float SplashRadius { get; set; }
         public float MaxDistance { get; set; }
         public Affliction Afflictions { get; set; }
@@ -131,6 +133,9 @@ namespace MphRead.Entities
             using var pirateContact = Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition)
                 ? _scene.PirateBlaster?.EnterContact(this, player) : null;
             int before = player.Health;
+#if !MPHREAD_SERVER && !ANDROID
+            var auditGates = MapAudit.Diagnostic ? player.ModCaptureFastDamageGates((uint)_scene.FrameCount) : default;
+#endif
             int turretBefore = flags.TestFlag(DamageFlags.Halfturret) ? player.Halfturret?.Health ?? 0 : 0;
             try
             {
@@ -139,6 +144,9 @@ namespace MphRead.Entities
                 else
                 {
                     player.TakeDamage(damage, flags, direction, this);
+#if !MPHREAD_SERVER && !ANDROID
+                    if (MapAudit.Diagnostic) MapAudit.NoteAfflictionImpact(player, this, before, auditGates, flags);
+#endif
                     NetCombatFastPath.NativeAfter(player, this, before);
                 }
                 if (Mods.CustomWeapons.PirateBlasterDefinition.Is(ModCustomDefinition))
@@ -311,6 +319,11 @@ namespace MphRead.Entities
             // Delayed bullets must neither collide nor age their flight time.
             if (Age < 0)
             {
+                if (Lifespan <= 0 || Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)
+                    && Owner is PlayerEntity hero && (hero.Health == 0 || hero.ModCarryingCtfFlag
+                        || hero.IsAltForm || hero.IsMorphing || hero.IsUnmorphing
+                        || !hero.ModIsInPlay || ModLaunchLife != 0 && ModLaunchLife != NetPlayerLifecycle.Get(hero.SlotIndex)))
+                { Lifespan = 0; return false; }
                 Age = MathF.Min(0f, Age + _scene.FrameTime);
                 if (Age < 0) return true;
                 ModStartBeamVisual();
@@ -538,6 +551,16 @@ namespace MphRead.Entities
             EntityBase? colWith = null;
             bool noColEff = false;
             float minDist = 2f;
+            if (Mods.HeroModes.CtzSpawnRooms.BlocksSegment(_scene,
+                Mods.HeroModes.CtzSpawnRooms.Owner(this)?.TeamIndex ?? -1,
+                BackPosition, Position, out float barrierDistance, out Vector3 barrierNormal, CylinderRadius))
+            {
+                minDist = barrierDistance;
+                anyRes.Position = Vector3.Lerp(BackPosition, Position, barrierDistance);
+                anyRes.Distance = barrierDistance;
+                anyRes.Plane = new Vector4(barrierNormal, Vector3.Dot(barrierNormal, anyRes.Position));
+                anyRes.Flags = CollisionFlags.None;
+            }
             if (MaxDistance > 0)
             {
                 Vector3 frontTravel = Position - SpawnPosition;
@@ -551,7 +574,7 @@ namespace MphRead.Entities
                     {
                         pct = (MaxDistance - dot) / (dist - dot);
                     }
-                    if (pct < 2)
+                    if (pct < minDist)
                     {
                         minDist = pct;
                         anyRes.Position = new Vector3(
@@ -790,10 +813,10 @@ namespace MphRead.Entities
                                 }
                             }
                             damage = ModBalancedRangeDamage(damage, anyRes.Position);
-                            wholeDamage = (uint)Math.Clamp(damage, 0, Int32.MaxValue);
+                            wholeDamage = player.ModCtzWholeDamage(this, damage);
                             NetContinuousTargetDiagnostics.CollisionResult(this, player, true, wholeDamage);
                             int targetHealthBefore = player.Health;
-                            if (wholeDamage != 0)
+                            if (!Mods.HeroModes.CtzHealing.TryAllyImpact(this, player, isHeadshot, splash: false) && wholeDamage != 0)
                             {
                                 EnhancedDirectHit = true;
                                 try { TakePlayerDamageAt(player, wholeDamage, damageFlags, damageDir, anyRes.Position); }
@@ -1257,6 +1280,9 @@ namespace MphRead.Entities
                                 // victim position. Several victims may share this one
                                 // splash fact origin without dragging the projectile
                                 // toward each body independently.
+                                if (Mods.HeroModes.CtzSpawnRooms.BlocksSegment(_scene, Mods.HeroModes.CtzSpawnRooms.Owner(this)?.TeamIndex ?? -1,
+                                    splashOrigin, player.Position, out _, out _)) continue;
+                                if (Mods.HeroModes.CtzHealing.TryAllyImpact(this, player, headshot: false, splash: true)) continue;
                                 TakePlayerDamageAt(player, damage, DamageFlags.NoDmgInvuln, damageDir, splashOrigin);
                                 if (Owner != null)
                                 {
@@ -1705,6 +1731,11 @@ namespace MphRead.Entities
                 if (!free) return BeamResultFlags.NoSpawn;
             }
             else if (equip.Weapon.Beam == BeamType.None) return BeamResultFlags.NoSpawn;
+            // This gate protects all direct emitters, not just the local Shoot input.
+            // Existing ricochets are children of already-launched projectiles and remain legal.
+            if (parent == null && Mods.HeroModes.HeroRules.Active(scene.GameState.Mode)
+                && owner is PlayerEntity hero && hero.ModCarryingCtfFlag)
+                return BeamResultFlags.NoSpawn;
             bool finitePosition = Single.IsFinite(position.X) && Single.IsFinite(position.Y)
                 && Single.IsFinite(position.Z);
             bool finiteDirection = Single.IsFinite(direction.X) && Single.IsFinite(direction.Y)
@@ -1739,10 +1770,13 @@ namespace MphRead.Entities
                 if (authoredCoil.ContinuousDouble) spawnFlags |= BeamSpawnFlags.DoubleDamage;
                 else if (authoredCoil.ContinuousPrime) spawnFlags |= BeamSpawnFlags.PrimeHunter;
             }
-            bool battlehammerBurst = parent == null && owner is PlayerEntity
+            bool ctzBurst = parent == null && owner is PlayerEntity
+                && Mods.HeroModes.HeroRules.Active(scene.GameState.Mode) && weapon.Beam == BeamType.Battlehammer;
+            bool balancedBattlehammerBurst = parent == null && owner is PlayerEntity
                 && BalancedModeRules.IsBattlehammerBurst(
                     scene.GameState.Multiplayer, scene.GameState.BalancedMode, weapon.Beam);
-            bool weavelBattlehammer = battlehammerBurst && owner is PlayerEntity bhPlayer
+            bool battlehammerBurst = ctzBurst || balancedBattlehammerBurst;
+            bool weavelBattlehammer = balancedBattlehammerBurst && owner is PlayerEntity bhPlayer
                 && BalancedModeRules.IsWeavelBattlehammer(bhPlayer.Hunter, weapon.Beam);
             bool charged = false;
             float chargePct = 0;
@@ -1764,6 +1798,11 @@ namespace MphRead.Entities
                     chargePct = 1;
                 }
             }
+            bool ctzFreeze = parent == null && Mods.HeroModes.HeroRules.Active(scene.GameState.Mode)
+                && owner is PlayerEntity { Hunter: Hunter.Noxus } && weapon.Beam == BeamType.Judicator && charged;
+            bool ctzOwnsFreeze = ctzFreeze && (Mods.HeroModes.CtzHealing.IsAuthority(scene)
+                || !scene.Services.IsReplica && ((PlayerEntity)owner).IsMainPlayer);
+            if (ctzOwnsFreeze && ((PlayerEntity)owner).ModCtzFreezeCooldown > 0) return BeamResultFlags.NoSpawn;
             float GetAmount(int unchargedAmt, int minChargeAmt, int fullChargeAmt)
             {
                 return chargePct <= 0 ? unchargedAmt : minChargeAmt + ((fullChargeAmt - minChargeAmt) * chargePct);
@@ -1883,6 +1922,7 @@ namespace MphRead.Entities
                 return result;
             }
 
+            if (ctzOwnsFreeze) ((PlayerEntity)owner).ModStartCtzFreezeCooldown();
             bool balancedNoxusFreezeProjectile = scene.GameState.Multiplayer
                 && scene.GameState.BalancedMode && charged
                 && owner is PlayerEntity noxusOwner && noxusOwner.Hunter == Hunter.Noxus
@@ -2013,7 +2053,7 @@ namespace MphRead.Entities
             // Both Balanced Battlehammers are straight, 3-round burst rifles.
             // Only Weavel receives 14/5 damage, 10% more splash coverage and
             // immunity to self splash; modifiers remain tied to the fire event.
-            if (battlehammerBurst)
+            if (balancedBattlehammerBurst)
             {
                 float directScale = damage / (float)Math.Max(1, (int)equip.UnchargedDamage);
                 float splashScale = splashDmg / (float)Math.Max(1, (int)equip.SplashDamage);
@@ -2183,7 +2223,7 @@ namespace MphRead.Entities
                 // Age doubles as the existing serialized replay delay state.
                 // Bullet 1 fires immediately; bullets 2 and 3 follow at +3/+6 ticks.
                 beam.Age = battlehammerBurst
-                    ? -i * BalancedModeRules.BattlehammerBulletSpacingFrames / 60f : 0;
+                    ? -i * (ctzBurst ? Mods.HeroModes.CtzRules.BurstSpacingTicks : BalancedModeRules.BattlehammerBulletSpacingFrames) / 60f : 0;
                 beam.InitialSpeed = beam.Speed = speed;
                 beam.FinalSpeed = finalSpeed;
                 beam.SpeedDecayTime = speedDecayTime;
@@ -2217,6 +2257,15 @@ namespace MphRead.Entities
                 scene.AimTrainer?.NoteProjectile(beam);
                 beam.HeadshotDamage = hsDamage;
                 beam.SplashDamage = splashDmg;
+                beam.ModCtzHealedSlots = parent?.ModCtzHealedSlots ?? 0;
+                beam.ModCtzDirectHealedSlots = parent?.ModCtzDirectHealedSlots ?? 0;
+                if (Mods.HeroModes.HeroRules.Active(scene.GameState.Mode) && owner is PlayerEntity { Hunter: Hunter.Weavel }
+                    && weapon.Beam == BeamType.Battlehammer)
+                {
+                    beam.Damage *= Mods.HeroModes.CtzRules.BattlehammerDamageMultiplier;
+                    beam.HeadshotDamage *= Mods.HeroModes.CtzRules.BattlehammerDamageMultiplier;
+                    beam.SplashDamage *= Mods.HeroModes.CtzRules.BattlehammerDamageMultiplier;
+                }
                 beam.SplashRadius = splashRadius;
                 beam.DamageInterpolation = damageInterpolation;
                 beam.MaxDistance = maxDist;
@@ -2716,6 +2765,12 @@ namespace MphRead.Entities
                 && (_scene.GameState.ShadowFreeze
                     || NetUnlagged.IceWavePresentRangeValid(player, Position, MaxDistance)))
             {
+                if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
+                {
+                    if (Mods.HeroModes.CtzSpawnRooms.BlocksSegment(_scene,
+                        Mods.HeroModes.CtzSpawnRooms.Owner(this)?.TeamIndex ?? -1, Position, position, out _, out _)) return;
+                    if (Mods.HeroModes.CtzHealing.TryAllyImpact(this, player, headshot: false, splash: false)) return;
+                }
                 Vector3 dir = GetDamageDirection(Position, player.Position);
                 DamageFlags flags = DamageFlags.NoDmgInvuln;
                 if (halfturret)

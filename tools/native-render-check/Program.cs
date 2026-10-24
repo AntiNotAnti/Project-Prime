@@ -99,7 +99,12 @@ var size = new Vector2i(int.Parse(dimensions[0]), int.Parse(dimensions[1]));
 if (size.X < 320 || size.Y < 180 || size.X > 4096 || size.Y > 2160)
     throw new ArgumentOutOfRangeException("Use -size 320x180 through 4096x2160.");
 // Reuse the client's user-data/culture setup without exposing it as a runtime API.
+string? mapDirectory=args.Contains("-mapdirectory")?Path.GetFullPath(Value("-mapdirectory", "")):null;
+string? userMapDirectory=args.Contains("-usermapdirectory")?Path.GetFullPath(Value("-usermapdirectory", "")):null;
 typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke(null, null);
+if(mapDirectory!=null)MphRead.Mods.MapGen.CustomRooms.MapDirectory=mapDirectory;
+if(userMapDirectory!=null)MphRead.Mods.MapGen.CustomRooms.UserMapDirectory=userMapDirectory;
+RenderOptions.LinearColor = args.Contains("-linearcolor");
 // A standalone diagnostic must not run the client's thumbnail workers: their
 // child command assumes ProjectPrime's entry point, not this tool's entry point.
 GraphicsBackendPolicy.LoadPreference();
@@ -130,6 +135,8 @@ window.ConfigureDiagnosticOptions(args);
 try
 {
     window.Run();
+    // Material bindings are witnesses while the scene is live; cleanup retires them.
+    bool accepted=window.Complete&&window.AuthoredMaterialsAccepted;
     var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult()
         : crouchGaitCheck ? window.CrouchGaitRenderResult() : crouchCheck ? window.CrouchRenderResult() : poseCheck ? window.DisplayPoseResult() : window.Result())!;
     if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(transitionGc == null
@@ -137,8 +144,8 @@ try
     if (transitionGc != null) result["transitionGc"] = JsonSerializer.SerializeToNode(transitionGc.Result(window.Complete));
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
     File.WriteAllText(output, result.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
-    Console.WriteLine("NATIVERENDER " + (window.Complete ? "PASS " : "FAIL ") + output);
-    return window.Complete ? 0 : 1;
+    Console.WriteLine("NATIVERENDER " + (accepted ? "PASS " : "FAIL ") + output);
+    return accepted ? 0 : 1;
 }
 catch (Exception ex)
 {
@@ -279,6 +286,7 @@ sealed partial class CheckWindow : RenderWindow
         ApplyDiagnosticOptions();
         if (!ResourceStressEnabled) base.OnLoad();
         RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
+        RenderOptions.LinearColor = Environment.GetCommandLineArgs().Contains("-linearcolor");
         RenderOptions.Shadows = _shadows;
         RenderOptions.PlayerOutline = _outlines;
         ApplyCheckCamera();
@@ -464,7 +472,7 @@ sealed partial class CheckWindow : RenderWindow
             }
         }
         _last = now;
-        if (_shots != null && _capture < 4 && Scene.FrameCount >= (ulong)(240 + _capture * 300))
+        if (_shots != null && _capture < 4 && Scene.FrameCount >= (ulong)(240 + _capture * _diagnosticShotStep))
         {
             // Capture runs are separate from performance runs. A fresh draw places
             // HUD pixels in the unswapped back buffer, as SaveWindow requires.
@@ -714,7 +722,12 @@ sealed partial class CheckWindow : RenderWindow
             BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene);
         double P(double percentile) => _intervals.Count == 0 ? 0
             : _intervals.Order().ElementAt(Math.Clamp((int)Math.Ceiling(_intervals.Count * percentile / 100) - 1, 0, _intervals.Count - 1));
-        return new { schema = 1, room = _room, cap = _cap, shadows = _shadows.ToString(), textureQuality = RenderOptions.TextureQuality.ToString(), lighting = RenderOptions.Lighting, resolutionScale = RenderOptions.ResolutionScale,
+        return new { schema = 1, authoredMaterials=AuthoredMaterialsResult(), mapDirectory=MphRead.Mods.MapGen.CustomRooms.MapDirectory, userMapDirectory=MphRead.Mods.MapGen.CustomRooms.UserMapDirectory, textureReplacements = RenderOptions.TextureReplacements, room = _room, cap = _cap, shadows = _shadows.ToString(), textureQuality = RenderOptions.TextureQuality.ToString(), lighting = RenderOptions.Lighting, resolutionScale = RenderOptions.ResolutionScale,
+            colorPipeline = new {
+                requested = typeof(Scene).GetField("SceneColorRequested", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Scene),
+                encodedOutput = typeof(Scene).GetField("_sceneEncodedReady", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Scene),
+                textureRefused = typeof(Scene).GetProperty("SceneColorTexturesFailed", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Scene)
+            },
             textureStreaming = new {
                 promotionAttemptBytes = Streaming("TexturePromotionAttemptBytes"),
                 worstPromotionMs = Streaming("WorstTexturePromotionMs"),

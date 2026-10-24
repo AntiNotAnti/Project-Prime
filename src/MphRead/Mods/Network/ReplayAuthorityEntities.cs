@@ -12,9 +12,17 @@ public partial class OctolithFlagEntity
         value.Carrier.Resolve(_scene, state), value.LastCarrier.Resolve(_scene, state));
     private void ApplyAuthority(ReplayFlagState value, PlayerEntity? carrier, PlayerEntity? lastCarrier)
     {
+        PlayerEntity? previous = _carrier;
         if (_carrier != null && _carrier.OctolithFlag == this) _carrier.OctolithFlag = null;
         _carrier = carrier; _lastCarrier = lastCarrier;
-        if (_carrier != null) _carrier.OctolithFlag = this;
+        if (_carrier != null)
+        {
+            _carrier.OctolithFlag = this;
+            // Remote pickup must initialize the same weapon/charge state as an
+            // authoritative pickup, especially when holding an affinity weapon.
+            if (_scene.GameState.Mode == GameMode.Oddball && _carrier != previous)
+                _carrier.ModOddballPickedUp();
+        }
         Position = value.Position; _atBase = value.AtBase; _grounded = value.Grounded;
         _resetTimer = value.ResetTimer; _gravity = value.Gravity;
         ClosestNode = _carrier?.ClosestNode ?? (_atBase ? BaseClosestNode : null);

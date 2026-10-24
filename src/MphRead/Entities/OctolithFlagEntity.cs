@@ -8,7 +8,7 @@ namespace MphRead.Entities
     {
         private readonly OctolithFlagEntityData _data;
         public OctolithFlagEntityData Data => _data;
-        private readonly Vector3 _basePosition = Vector3.Zero;
+        private Vector3 _basePosition = Vector3.Zero;
         public Vector3 BasePosition => _basePosition;
         private readonly bool _bounty = false;
 
@@ -32,7 +32,12 @@ namespace MphRead.Entities
             GameMode mode = _scene.GameState.Mode;
             Recolor = mode == GameMode.Capture ? data.TeamId : 2;
             _bounty = mode != GameMode.Capture;
-            if (mode == GameMode.Capture || mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic)
+            if (mode == GameMode.CaptureTheFlag)
+            {
+                _basePosition = Position;
+                SetAtBase();
+            }
+            else if (mode == GameMode.Capture || mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic || mode == GameMode.Oddball)
             {
                 SetUpModel("octolith_ctf");
                 SetUpModel(mode == GameMode.Capture ? "flagbase_ctf" : "flagbase_bounty");
@@ -43,7 +48,7 @@ namespace MphRead.Entities
 
         private void SetAtBase()
         {
-            Position = _basePosition.AddY(1.25f);
+            Position = _basePosition.AddY(_scene.GameState.Mode == GameMode.CaptureTheFlag ? Mods.HeroModes.CtfRules.FlagRadius : 1.25f);
             _atBase = true;
             _grounded = true;
             _resetTimer = 0;
@@ -71,6 +76,8 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (_scene.GameState.Mode == GameMode.Oddball) return ProcessOddball();
+            if (_scene.GameState.Mode == GameMode.CaptureTheFlag) return ProcessCtf();
             if (_scene.GameState.Mode == GameMode.Headhunter) return true;
             if (Mods.Network.NetObjectiveSync.IsClient(_scene))
             {
@@ -323,7 +330,8 @@ namespace MphRead.Entities
 
         public void OnCaptured()
         {
-            if (_scene.GameState.Mode == GameMode.Relic) return;
+            if (_scene.GameState.Mode == GameMode.CaptureTheFlag) { CaptureCtf(); return; }
+            if (_scene.GameState.Mode is GameMode.Relic or GameMode.Oddball) return;
             Debug.Assert(_carrier != null);
             if (!_bounty)
             {

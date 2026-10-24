@@ -31,8 +31,8 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
         RmlUiIntentKind.SetupRelease => 30,
         RmlUiIntentKind.HudAction => 67,
         RmlUiIntentKind.SettingsPreviousChoice => 96,
-        RmlUiIntentKind.HudElement => 15,
-        RmlUiIntentKind.HudProperty => 32,
+        RmlUiIntentKind.HudElement => 26,
+        RmlUiIntentKind.HudProperty => 92,
         RmlUiIntentKind.CampaignShipAction => 11,
         RmlUiIntentKind.CommunityTransferAction => 4,
         RmlUiIntentKind.SocialAction => 55,
@@ -103,6 +103,14 @@ foreach (RmlUiIntentKind kind in Enum.GetValues<RmlUiIntentKind>())
     }
     Require(!RmlUiIntentRegistry.IsValid(kind, (kind == RmlUiIntentKind.SettingsAction ? 256 : first + count)), $"Out-of-range argument accepted for {kind}");
 }
+foreach(int argument in Enumerable.Range(700,96).Concat(Enumerable.Range(800,24)))
+{
+    var expected=new RmlUiIntent(RmlUiIntentKind.SettingsAction,argument,new(1,1),1);
+    Require(RmlUiIntentRegistry.TryParseLegacy(RmlUiIntentRegistry.ToLegacy(expected),expected.Document,expected.Sequence,out var parsed)&&parsed==expected,
+        "Settings help/palette action roundtrip "+argument);
+}
+foreach(int argument in new[]{699,796,797,798,799,824})
+    Require(!RmlUiIntentRegistry.IsValid(RmlUiIntentKind.SettingsAction,argument),"Settings action gap remains invalid "+argument);
 Require(RmlUiIntentRegistry.LobbyRuleChoiceCount == 19 && RmlUiIntentRegistry.OfflineRuleChoiceCount == 15,
     "Reviewed rule action families append Riftline M7 after Third Person and Movement");
 Require((int)RmlUiIntentKind.HunterBodySelect == 286 && (int)RmlUiIntentKind.HunterDroneSelect == 287,
@@ -170,7 +178,7 @@ for (int index = 0; index < studioBuildActions.Length; index++)
 Require(RmlUiIntentRegistry.TryParseLegacy("hud:element:14", new(1, 1), 1, out var movementHudIntent)
     && movementHudIntent.Kind == RmlUiIntentKind.HudElement && movementHudIntent.Argument == 14,
     "Movement HUD element action is admitted by the managed codec");
-Require(!RmlUiIntentRegistry.TryParseLegacy("hud:element:15", new(1, 1), 1, out _),
+Require(!RmlUiIntentRegistry.TryParseLegacy("hud:element:26", new(1, 1), 1, out _),
     "HUD element actions remain bounded after appending movement telemetry");
 foreach (string bad in new[] { "play:server:-1", "play:server:08", "play:server:8", "lobby:rules-toggle:19", "offline:rule:15",
     "lobby:slot-team:-1", "lobby:slot-team:08", "lobby:slot-team:8",

@@ -21,7 +21,8 @@ namespace MphRead
         internal bool OwnsDamage(Entities.PlayerEntity victim, Entities.BeamProjectileEntity beam) => false;
     }
     internal sealed class Services { internal bool IsReplica { get; set; } }
-    internal sealed class State { internal bool Multiplayer { get; set; } = true; internal bool Teams { get; set; } }
+    internal sealed class AssistStats { internal int[] Counts { get; } = new int[8]; internal void Assist(int slot) => Counts[slot]++; }
+    internal sealed class State { internal AssistStats CtzStats { get; } = new(); internal bool Multiplayer { get; set; } = true; internal bool Teams { get; set; } }
     internal enum BeamType { None = -1, PowerBeam = 0, OmegaCannon = 8 }
 }
 namespace MphRead.Entities

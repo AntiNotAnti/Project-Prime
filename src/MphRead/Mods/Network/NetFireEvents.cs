@@ -504,6 +504,9 @@ public static class NetFireEvents
 
     private static BeamResultFlags PlayAccepted(PlayerEntity player, ShotKey key, FireEvent fire, bool admittedDiscrete)
     {
+        if (Mods.HeroModes.HeroRules.Active(player.OwningScene.GameState.Mode)
+            && player.ModCarryingCtfFlag)
+            return BeamResultFlags.NoSpawn;
         var state = _slots[player.SlotIndex];
         if (state.PlayingAccepted) throw new InvalidOperationException("Nested accepted shot playback.");
         FireEvent saved = state.Active;

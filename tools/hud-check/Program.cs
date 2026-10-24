@@ -158,7 +158,7 @@ Near(migratedReticle.Crosshair.Opacity,.192f,"legacy reticle opacity factors sur
 Check(HudProfileStore.Serialize(migratedReticle)==HudProfileStore.Serialize(migratedReticle.DeepClone()),"schema-two migration runs once across save/load");
 Features.ProHud=false; Features.ProHudFixedWeapon=false; Features.ReticleOpacity=.3f; Radar.Enabled=false; Radar.ShowBackground=true; Radar.ShowOutlines=false; Features.KillFeedEnabled=false;
 Crosshair.Style=CrosshairStyle.Brackets; Crosshair.Size=CrosshairSize.Big;
-profile=HudProfileMigration.FromLegacy(); Check(profile.Mode==HudMode.Classic && !profile.FixedWeapon && !profile.Elements["core.radar"].Enabled && profile.RadarBackground && !profile.RadarOutlines && !profile.Elements["combat.killFeed"].Enabled,"migration"); Near(profile.NativeReticleOpacity,.3f,"reticle migration"); Check(profile.Crosshair.Brackets,"crosshair migration");
+profile=HudProfileMigration.FromLegacy(); Check(profile.Mode==HudMode.Custom && profile.Crosshair.Native && !profile.FixedWeapon && !profile.Elements["core.radar"].Enabled && profile.RadarBackground && !profile.RadarOutlines && !profile.Elements["combat.killFeed"].Enabled,"migration"); Near(profile.NativeReticleOpacity,.3f,"reticle migration"); Check(profile.Crosshair.Brackets,"crosshair migration");
 profile.Crosshair.Scale=8; profile.ResetElement("core.crosshair"); Near(profile.Crosshair.Scale,1,"reset restores crosshair appearance");
 var history=new HudStudioHistory(profile); string before=history.Capture();
 history.Draft.Elements["core.radar"].OffsetX=100; history.Draft.Elements["core.radar"].OffsetX=200; history.Commit(before);

@@ -10,6 +10,8 @@ namespace MphRead.Entities
     {
         private void ModDrawTeamScoreboard()
         {
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
+            { if(Mods.HeroModes.HeroRules.IsPayload(_scene.GameState.Mode))ModDrawPayloadScoreboard();else ModDrawCtzScoreboard(); return; }
             bool timed = _scene.GameState.Mode == GameMode.SurvivalTeams || _scene.GameState.Mode == GameMode.DefenderTeams;
             bool deaths = _scene.GameState.Mode == GameMode.BattleTeams || _scene.GameState.Mode == GameMode.SurvivalTeams;
             ColorRgba ink = new ColorRgba(239, 239, 247, 255);

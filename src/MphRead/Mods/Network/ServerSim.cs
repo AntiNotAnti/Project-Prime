@@ -55,6 +55,7 @@ namespace MphRead.Mods.Network
         private Scene? _scene;
         internal Scene? EvidenceScene => _scene;
         private NetClientJoinOwnership? _authorityOwner;
+        internal Scene? ActiveScene => _scene;
         private string _room = "";
         private GameMode _mode = GameMode.Battle;
 

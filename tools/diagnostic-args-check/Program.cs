@@ -20,6 +20,8 @@ void Check(string name, string[] args, params string[] secrets)
         fields.SetValue(null, writer);
         DebugLog.WriteArguments(args);
         DebugLog.Checkpoint("test", "header complete");
+        writer.Flush();
+        writer.Dispose(); // Windows requires closing the exclusive fixture writer before reading.
         var report = new StringBuilder();
         DebugLog.AppendRecent(report);
         string disk = File.ReadAllText(path), crash = report.ToString();

@@ -41,6 +41,13 @@ public static class GameModeCheck
             MatchTypeDefinition captureType = MatchTypeCatalog.GameTypes[MatchTypeCatalog.BaseModeIndex(GameMode.Capture)];
             Check(MatchTypeCatalog.NormalizeFormat(captureType, MatchFormat.FreeForAll) == MatchFormat.Auto,
                 "Capture coerces invalid FFA matchup to Teams");
+            Check(MatchTypeCatalog.IsInternalTeamMode(GameMode.NodesTeams) && !MatchTypeCatalog.IsInternalTeamMode(GameMode.Nodes)
+                && MatchTypeCatalog.FormatForMode(GameMode.NodesTeams)==MatchFormat.Auto, "Legacy Nodes retains its internal team representation");
+            Check(MatchTypeCatalog.FormatForMode(GameMode.KillConfirmed)==MatchFormat.FreeForAll
+                && MatchTypeCatalog.FormatForMode(GameMode.KillConfirmedTeams)==MatchFormat.Auto, "Legacy Kill Confirmed retains both match formats");
+            MatchTypeDefinition customCaptureType = MatchTypeCatalog.GameTypes[MatchTypeCatalog.BaseModeIndex(GameMode.CaptureTheFlag)];
+            Check(customCaptureType.Team==GameMode.CaptureTheFlag && MatchTypeCatalog.NormalizeFormat(customCaptureType, MatchFormat.FreeForAll) == MatchFormat.Auto,
+                "Unified Capture the Flag coerces invalid FFA matchup to Teams");
             NetChat.Clear();
             NetChat.Remember(new ChatPacket { Kind = ChatPacket.KindSystem, Name = "TRACE", Text = "joined" });
             Check(NetChat.History[^1] == "TRACE joined", "named system chat retains player name");

@@ -52,7 +52,7 @@ internal static class ParkourAnimationWireTests
 
     private static void IntentCodecs()
     {
-        Check(NetConfig.ProtocolVersion == 85 && IntentPacket.Protocol80TouchSize == 1296
+        Check(NetConfig.ProtocolVersion == 86 && IntentPacket.Protocol80TouchSize == 1296
             && IntentPacket.Protocol82TouchSize == 1298 && IntentPacket.TouchCanonicalSize == 1299
             && CompactIntentCodec.HeaderSize == 136 && FireEvent.Size == 74,
             "literal84 phase extension preserves published touch/nonce/fire widths");
@@ -243,7 +243,7 @@ internal static class ParkourAnimationWireTests
             for (byte phase = 0; phase <= 15; phase++)
             {
                 var state = Seed(phase, custom ? context : null); byte[] bytes = state.CaptureCheckpoint().Bytes.ToArray();
-                Check(bytes[4] == (custom ? 17 : 16) && bytes[6] == 85 && bytes[7] == (custom ? 119 : 87), "current checkpoint explicit16/17 phase64 contract");
+                Check(bytes[4] == (custom ? 17 : 16) && bytes[6] == 86 && bytes[7] == (custom ? 119 : 87), "current checkpoint explicit16/17 phase64 contract");
                 var restored = new ReplayReplicaState(); Restore(restored, bytes);
                 Check(restored.CaptureCheckpoint().Bytes.SequenceEqual(bytes) && restored.TryGetPlayer(0, out var player)
                     && player.MantleVisualPhase == phase && restored.TryGetIntent(0, out var intent) && intent.MantleVisualPhase == phase

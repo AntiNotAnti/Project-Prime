@@ -5,7 +5,7 @@ internal static class MatchObjectiveReport
 {
     internal static (int A, int B, int C, int D) Values(SceneGameState s, int slot) => s.Mode switch
     {
-        GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams => (s.OctolithScores[slot], s.OctolithDrops[slot], s.OctolithStops[slot], Seconds(s.ObjectiveSeconds[slot])),
+        GameMode.CaptureTheFlag or GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams => (s.OctolithScores[slot], s.OctolithDrops[slot], s.OctolithStops[slot], Seconds(s.ObjectiveSeconds[slot])),
         GameMode.Nodes or GameMode.NodesTeams => (s.NodesCaptured[slot], s.NodesLost[slot], Seconds(s.ObjectiveSeconds[slot]), 0),
         GameMode.Defender or GameMode.DefenderTeams or GameMode.Hardpoint or GameMode.HardpointTeams => (Seconds(s.ObjectiveSeconds[slot]), s.ObjectiveContests[slot], 0, 0),
         GameMode.PrimeHunter => (Seconds(s.Time[slot]), s.KillsAsPrime[slot], s.PrimesKilled[slot], 0),
@@ -21,7 +21,7 @@ internal static class MatchObjectiveReport
         var (a,b,c,d) = Values(s, slot);
         return s.Mode switch
         {
-            GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams => $"CAPTURES {a}   DROPS {b}   STOPS {c}   CARRY {d}s",
+            GameMode.CaptureTheFlag or GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams => $"CAPTURES {a}   DROPS {b}   STOPS {c}   CARRY {d}s",
             GameMode.Nodes or GameMode.NodesTeams => $"CAPTURED {a}   LOST {b}   OBJECTIVE {c}s",
             GameMode.Defender or GameMode.DefenderTeams or GameMode.Hardpoint or GameMode.HardpointTeams => $"OBJECTIVE {a}s   CONTESTS {b}",
             GameMode.PrimeHunter => $"PRIME {a}s   PRIME KILLS {b}   PRIMES KILLED {c}",
@@ -36,7 +36,7 @@ internal static class MatchObjectiveReport
     {
         switch(s.Mode)
         {
-            case GameMode.Capture: case GameMode.Bounty: case GameMode.BountyTeams:
+            case GameMode.CaptureTheFlag: case GameMode.Capture: case GameMode.Bounty: case GameMode.BountyTeams:
                 s.OctolithScores[slot]=a; s.OctolithDrops[slot]=b; s.OctolithStops[slot]=c; s.ObjectiveSeconds[slot]=d; break;
             case GameMode.Nodes: case GameMode.NodesTeams:
                 s.NodesCaptured[slot]=a; s.NodesLost[slot]=b; s.ObjectiveSeconds[slot]=c; break;

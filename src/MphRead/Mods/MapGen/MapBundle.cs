@@ -106,5 +106,24 @@ namespace MphRead.Mods.MapGen
             var file = new FileInfo(path);
             return new(file.Length, file.LastWriteTimeUtc.Ticks);
         }
+
+        internal static void CopyEntry(string bundlePath, string name, Stream destination,
+            System.Threading.CancellationToken stop)
+        {
+            string full = Path.GetFullPath(bundlePath);
+            ValidationStamp before = Stamp(full);
+            if (!_validated.TryGetValue(full, out ValidationStamp known) || known != before)
+            {
+                using var package = new MapPackageReader(full);
+                if (Stamp(full) != before) throw new IOException("Map changed during validation.");
+                _validated[full] = before;
+            }
+            MapPackageReader.CopyValidatedEntry(full, name, destination, stop);
+            if (Stamp(full) != before)
+            {
+                _validated.TryRemove(full, out _);
+                throw new IOException("Map changed during video extraction.");
+            }
+        }
     }
 }

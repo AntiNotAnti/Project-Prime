@@ -42,7 +42,28 @@ internal sealed partial class ReplayWindowAcceptance
         Do("RML97 native workspace enables four views",()=>Activate("replay_four_views"));
         Wait("RML97 real four-view toggle is enabled",()=>Page?.FourViews==true);
         WaitFrames(6,"RML97 composed four pictures preserve canonical world and foreground clock",()=>
-        {Rml97SameWorld();Capture("rml97-four-views");RequireStudioCompositeVariation("four-views");_rml97StudioChecks.Add(new{Feature="four-view-composition",Swaps=6,Frame=ReplayController.CurrentFrame,CanonicalHash=_rml97Baseline,Owner=Id(_rml97Owner)});});
+        {
+            Rml97SameWorld();
+            var scene = DemoPlayback.PresentationScene!;
+            var passes = scene.LastReplayFourViews;
+            bool reuse = Environment.GetEnvironmentVariable("PRIME_REPLAY_PRIMARY_REUSE") != "0";
+            Require(scene.ReplayPreviewBounds.HasValue, "four-view qualification retains an actual native viewport");
+            var bounds = scene.ReplayPreviewBounds!.Value;
+            bool compatible = (long)(bounds.Z / 2) * scene.Size.Y == (long)(bounds.W / 2) * scene.Size.X;
+            bool expectedReuse = reuse && compatible;
+            var diagnostics=new{Feature="four-view-pass-diagnostics",PrimaryReuseEnabled=reuse,CompatibleHalfAspect=compatible,
+                Bounds=new{X=bounds.X,Y=bounds.Y,Width=bounds.Z,Height=bounds.W},PrimarySize=new{Width=scene.Size.X,Height=scene.Size.Y},
+                passes.PrimaryReused,passes.AuxiliaryRenderCalls,passes.AuxiliaryCacheReused,passes.CpuMilliseconds};
+            _rml97StudioChecks.Add(diagnostics);
+            File.WriteAllText(Path.Combine(_output,"four-view-pass.json"),JsonSerializer.Serialize(diagnostics,JsonOptions));
+            Require(passes.PrimaryReused == expectedReuse && passes.AuxiliaryRenderCalls == (expectedReuse ? 3 : 4)
+                && !passes.AuxiliaryCacheReused,
+                "four-view reuses an aspect-compatible primary, with four-camera fallback for odd aspect or explicit rollback");
+            Capture("rml97-four-views");RequireStudioCompositeVariation("four-views");
+            _rml97StudioChecks.Add(new{Feature="four-view-composition",Swaps=6,Frame=ReplayController.CurrentFrame,
+                CanonicalHash=_rml97Baseline,Owner=Id(_rml97Owner),passes.PrimaryReused,
+                passes.AuxiliaryRenderCalls,passes.CpuMilliseconds});
+        });
         Do("RML97 native four-view toggle returns to single picture",()=>Activate("replay_four_views"));
         Wait("RML97 single actual replay picture restored",()=>Page?.FourViews==false&&_lastWorldFrame==_observedFrames);
         // Failure is injected into the *real* replay world's third auxiliary
@@ -80,6 +101,7 @@ internal sealed partial class ReplayWindowAcceptance
         Wait("RML97 actual camera owner saved the first key",()=>ReplayCamera.Track.Keys.Count>0);
         Do("RML97 refresh persistent camera tools after saved pose",()=>Activate("studio_refresh"));
         Wait("RML97 actual camera tools have current paused review",()=>TryTools()?.Snapshot().Current==true);
+        PlanReplayIndependentCameraChannels();
         string graphDiagnostic="";int graphDiagnosticCount=0;
         Do("RML98 expose the entire authored FOV graph through its native Camera Graph control",()=>Activate("studio_camera_graph"));
         Wait("RML98 actual FOV graph lane is wholly presented inside the inspector clip",()=>
@@ -119,11 +141,11 @@ internal sealed partial class ReplayWindowAcceptance
         });
         Wait("RML97 native graph drag preview exists without publication",()=>
         {if(Read<object>(Page,"_curveDrag")==null)return false;Require(Hash(_rml97Path+".camera")==_rml97Camera&&Tools.Snapshot().Pending==null,"actual graph preview has not written or staged metadata");return true;});
-        Do("RML97 release actual graph drag into reviewed confirmation",()=>RmlUiOpenGlSmoke.PointerButton(MouseButton.Left,_rml97CurveEnd.X,_rml97CurveEnd.Y,false));
-        Wait("RML97 actual graph drag stages a curve edit",()=>Tools.Snapshot().Pending is{Kind:TheatreCameraToolsChange.Curve});
-        Do("RML97 cancel exact graph edit through its actual native button",()=>{Capture("rml97-curve-review");Activate("replay_camera_tools_confirm_cancel");});
-        Wait("RML97 graph cancellation preserves exact camera sidecar",()=>
-        {if(Tools.Snapshot().Pending!=null)return false;Require(Hash(_rml97Path+".camera")==_rml97Camera,"cancelled actual curve drag preserved bytes");_rml97StudioChecks.Add(new{Feature="actual-graph-drag-cancel",CameraSha256=_rml97Camera});return true;});
+        Do("RML97 release actual graph drag into one memory transaction",()=>RmlUiOpenGlSmoke.PointerButton(MouseButton.Left,_rml97CurveEnd.X,_rml97CurveEnd.Y,false));
+        Wait("RML97 actual graph drag commits memory without a modal",()=>Tools.Snapshot() is{Dirty:true,Pending:null});
+        Do("RML97 undo exact graph edit through its actual native button",()=>{Capture("rml97-curve-memory");Activate("replay_camera_tools_undo");});
+        Wait("RML97 graph undo preserves exact camera sidecar",()=>
+        {if(Tools.Snapshot().Dirty||Tools.Snapshot().Pending!=null)return false;Require(Hash(_rml97Path+".camera")==_rml97Camera,"undone actual curve drag preserved bytes");_rml97StudioChecks.Add(new{Feature="actual-graph-drag-memory-undo",CameraSha256=_rml97Camera});return true;});
         Do("RML97 switch persistent inspector from Camera to Markers",()=>Activate("studio_tab_markers"));
         Wait("RML97 actual workspace keeps playback controls in foreground",()=>StudioWorkspaceForeground());
         Wait("RML97 actual editor owns a current review",()=>Editor?.Snapshot().Live.Current==true);
@@ -156,9 +178,17 @@ internal sealed partial class ReplayWindowAcceptance
         });
         Wait("RML97 spatial worker completion or cancellation retired",()=>Read<Task<TheatreSpatialAnalysis>>(Page,"_spatialTask")==null);
         Do("RML97 return from Analysis to persistent Markers inspector",()=>Activate("studio_tab_markers"));
-        Do("RML97 author actual reel entries for portable rebind qualification",()=>Activate("replay_editor_add_top"));
+        Do("RML97 author the reviewed selection reel for portable rebind qualification",()=>
+        {
+            var reviewed=Editor!.Snapshot();
+            Require(reviewed.Live.Current&&reviewed.Context.MarkIn==0&&reviewed.Context.MarkOut==30,
+                "authored reel uses the actual reviewed source range 0..30");
+            // Accepted-fact synthetic archives need not contain indexed event
+            // highlights. The reviewed selection is real source coverage.
+            Activate("replay_editor_add_selection");
+        });
         Wait("RML97 actual reel confirmation is current",()=>Read<object>(Page,"_editorConfirmation") is RmlUiDocumentToken token&&token!=default);
-        Do("RML97 confirm bounded real highlight reel",()=>Activate("replay_editor_confirm_apply"));
+        Do("RML97 confirm the bounded authored reviewed-selection reel",()=>Activate("replay_editor_confirm_apply"));
         Wait("RML97 saved reel refreshes exact editor context",()=>Editor?.Snapshot().Live.Current==true&&Editor.Snapshot().Context.Reel.Length>0);
         Do("RML97 open actual audio/comparison/bundle tools",()=>Activate("studio_tab_audio"));
         Do("RML97 refresh actual persistent audio context after camera and reel changes",()=>Activate("studio_refresh"));
@@ -177,7 +207,8 @@ internal sealed partial class ReplayWindowAcceptance
             string path=Rml97ToolOutput();if(path.Length==0||!File.Exists(path))return false;
             var pcm=StudioPcmAudio.ReadWave(path);Require(pcm.Frames==24000&&pcm.Channels==2&&pcm.Samples.Any(s=>Math.Abs(s)>.1f),"reviewed 30-frame authored mix rendered real nonzero PCM");
             VerifyRml97CustomAudioWave(pcm);
-            _rml97StudioChecks.Add(new{Feature="actual-offline-audio-mix",pcm.Frames,pcm.SampleRate,pcm.Channels,Output=path,Scope="authored overlay plus persisted custom recorded-event cue; canonical game-event cues disabled"});return true;
+            _rml97StudioChecks.Add(new{Feature="actual-offline-audio-mix",pcm.Frames,pcm.SampleRate,pcm.Channels,Output=path,
+                Scope=_rml97HasRecordedCue?"authored overlay plus persisted custom recorded-event cue; canonical game-event cues disabled":"authored overlay only; source has no recorded cue events"});return true;
         },45000);
         Do("RML97 preview actual reviewed mix when the shared device is available",()=>
         {
@@ -186,7 +217,7 @@ internal sealed partial class ReplayWindowAcceptance
             if(_rml97PreviewAvailable)Activate("replay_studio_preview");
         });
         Wait("RML97 actual shared-device preview acquired or device unavailable",()=>!_rml97PreviewAvailable||Read<object>(Read<object>(Page,"_editorBackend"),"_studioPreview")!=null,45000);
-        Do("RML97 shared preview source includes persisted custom event cue",()=>
+        Do("RML97 shared preview source retains its qualified audio inputs",()=>
         {
             if(_rml97PreviewAvailable)VerifyRml97CustomAudioWave(StudioPcmAudio.ReadWave(Rml97ToolOutput()));
         });
@@ -257,6 +288,7 @@ internal sealed partial class ReplayWindowAcceptance
             &&ReplayController.IsPaused&&ReplayController.CurrentFrame==60,45000);
         WaitFrames(3,"RPS03 stress capture identical-world after seek",()=>
         {
+            RequireReplayGlClean("four-view seek to frame 60");
             Require(Page?.FourViews==true,"four-view mode disappeared during seek");
             Require(ReferenceEquals(DemoPlayback.PlaybackOwner,_rml97Owner),"replay owner changed while seeking");
             atSixty=Rml97WorldHash();
@@ -268,6 +300,21 @@ internal sealed partial class ReplayWindowAcceptance
         Do("RPS03 stress restore initial replay frame",()=>ReplayController.Seek(0,resume:false));
         Wait("RPS03 stress restored initial paused world",()=>!ReplayController.IsSeeking
             &&ReplayController.CurrentFrame==0&&ReplayController.IsPaused&&Rml97WorldHash()==_rml97Baseline,45000);
+        Do("RPS03 restored initial world retains its owner and clean GL context",()=>
+        {
+            RequireReplayGlClean("stress seek back to frame zero");
+            Require(ReferenceEquals(DemoPlayback.PlaybackOwner,_rml97Owner)
+                &&ReplayController.CurrentFrame==0&&ReplayController.IsPaused&&!ReplayController.IsSeeking
+                &&Rml97WorldHash()==_rml97Baseline,"backward seek atomically restores the original world under the same player");
+            // A backward seek replaces the private Scene/session atomically.
+            // Subsequent render/edit checks retain that new session's transport;
+            // they must not require a retired session to remain the active clock.
+            _rml97StudioChecks.Add(new{Feature="stress-atomic-seek-transport-rebind",Owner=Id(_rml97Owner),
+                BeforeTransport=Id(_rml97Transport),AfterTransport=Id(DemoPlayback.Session.Transport),
+                Frame=ReplayController.CurrentFrame,SeekGeneration=DemoPlayback.Session.Transport.SeekGeneration,
+                CanonicalHash=_rml97Baseline});
+            _rml97Transport=DemoPlayback.Session.Transport;
+        });
     }
     private void PlanRml97LibraryPromotion()
     {
@@ -326,7 +373,10 @@ internal sealed partial class ReplayWindowAcceptance
     private string Rml97WorldHash()=>ReplayStateHash.Compute(DemoPlayback.PresentationScene!,ReplayController.CurrentFrame);
     private void Rml97SameWorld()
     {
+        RequireReplayGlClean("Studio composition, recovery or view toggle");
+        string currentHash=Rml97WorldHash();
         Require(ReferenceEquals(DemoPlayback.PlaybackOwner,_rml97Owner)&&ReferenceEquals(DemoPlayback.Session.Transport,_rml97Transport)
-            &&ReplayController.CurrentFrame==0&&ReplayController.IsPaused&&!ReplayController.IsSeeking&&Rml97WorldHash()==_rml97Baseline,"actual Studio tools preserve original canonical world/foreground clock");
+            &&ReplayController.CurrentFrame==0&&ReplayController.IsPaused&&!ReplayController.IsSeeking&&currentHash==_rml97Baseline,
+            $"actual Studio tools preserve original canonical world/foreground clock: owner={Id(DemoPlayback.PlaybackOwner)}/{Id(_rml97Owner)}, transport={Id(DemoPlayback.Session.Transport)}/{Id(_rml97Transport)}, frame={ReplayController.CurrentFrame}, paused={ReplayController.IsPaused}, seeking={ReplayController.IsSeeking}, hash={currentHash}/{_rml97Baseline}");
     }
 }

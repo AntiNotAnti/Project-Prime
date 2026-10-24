@@ -19,7 +19,7 @@ namespace MphRead.Entities
         /// Server-owned match rule. Null/offline sessions preserve the stock
         /// behaviour and show opponent health.
         /// </summary>
-        private static bool ModHideOpponentHealth =>
+        private bool ModHideOpponentHealth =>
             NetSession.ActiveMatchDefinition?.HideOpponentHealth == true;
 
         /// <summary>

@@ -45,8 +45,10 @@ namespace MphRead.Mods.Network
                 reason = "Choose a team mode for a team format, or a free-for-all mode for FFA.";
             else if (GameState.IsTeamMode(match.Mode) && !ResolveTeamLayout(match).IsValid)
                 reason = "Use 2 to 4 nonempty teams, zero inactive capacities, and at most 8 players.";
-            else if (match.Mode == GameMode.Capture && TeamCount(match) != 2)
+            else if ((match.Mode == GameMode.Capture || (match.Mode == GameMode.CaptureTheZone || match.Mode == GameMode.PushThePayload)) && TeamCount(match) != 2)
                 reason = "Capture requires exactly two teams because maps have two bases.";
+            else if ((match.Mode == GameMode.CaptureTheZone || match.Mode == GameMode.PushThePayload) && (TeamCapacity(match,0) != TeamCapacity(match,1) || TeamCapacity(match,0) > 4))
+                reason = "Capture the Zone supports equal teams of 1-4 players.";
             return reason.Length == 0 ? LobbyResultCode.Ok : LobbyResultCode.InvalidConfiguration;
         }
 
@@ -59,6 +61,8 @@ namespace MphRead.Mods.Network
                 for (int slot = 0; slot < roster.Count; slot++)
                     if (roster.IsBot(slot))
                     { reason = "Online Riftline M7 matches require human players without bots."; return LobbyResultCode.InvalidConfiguration; }
+            if (Mods.HeroModes.HeroRules.Active(match.Mode))
+                return Mods.HeroModes.HeroRosterBridge.ValidateStart(match, roster, requireReady, out reason);
             TeamLayout layout = ResolveTeamLayout(match);
             int required = match.Mode == GameMode.OneInTheChamber || layout.TeamCount > 0
                 ? 2

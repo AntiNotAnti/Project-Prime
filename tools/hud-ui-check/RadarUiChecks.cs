@@ -21,6 +21,9 @@ internal static class RadarUiChecks
             var canvas=view.GetVisualDescendants().OfType<HudStudioCanvas>().Single();
             var chooser=view.GetVisualDescendants().OfType<ComboBox>().First(c=>c.ItemsSource==HudProfileDefaults.ElementIds);
             chooser.SelectedIndex=4; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            // The current editor groups radar presets under Element behavior.
+            var section=view.GetVisualDescendants().OfType<ComboBox>().Single(c=>c.ItemsSource is string[] choices && choices.Contains("Element behavior"));
+            section.SelectedIndex=3; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             var original=canvas.History.Capture();
             foreach(var style in Enum.GetValues<HudRadarStyle>())
             {

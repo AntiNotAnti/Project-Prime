@@ -57,6 +57,15 @@ namespace MphRead
         public RenderItemType Type { get; set; }
         public int PolygonId { get; set; }
         public float Alpha { get; set; }
+        /// <summary>
+        /// Authored surface coverage policy. Legacy is the zero/default
+        /// behavior for native materials and for glTF scenes using Original.
+        /// </summary>
+        public Mods.Render.TextureAlphaPolicy AlphaPolicy { get; set; }
+        /// <summary>glTF baseColorFactor.a, applied only for authored MASK/BLEND.</summary>
+        public float AuthoredAlphaFactor { get; set; } = 1f;
+        /// <summary>True when Diffuse/Ambient are authored glTF linear factors.</summary>
+        public bool AuthoredLinearTint { get; set; }
         public PolygonMode PolygonMode { get; set; }
         public RenderMode RenderMode { get; set; }
         public CullingMode CullingMode { get; set; }
@@ -126,6 +135,9 @@ namespace MphRead
             // todo: consider using ArrayPool
             MatrixStack = new float[16 * 32];
             Points = Array.Empty<Vector3>();
+            AlphaPolicy = Mods.Render.TextureAlphaPolicy.Legacy;
+            AuthoredAlphaFactor = 1f;
+            AuthoredLinearTint = false;
         }
     }
 

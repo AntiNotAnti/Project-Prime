@@ -46,4 +46,24 @@ foreach(float x in new[]{0f,.5f,1})foreach(float y in new[]{0f,.5f,1})
     Check(center.X*DsLayout.HorizontalStretch>=77-.001f&&center.X*DsLayout.HorizontalStretch<=768*DsLayout.HorizontalStretch-77+.001f
         &&center.Y>=77-.001f&&center.Y<=576-77+.001f,"bottom radar remains inside screen at normalized extremes");
 }
-Console.WriteLine($"DS LAYOUT PASS: {checks} assertions; both ratios, seven viewport shapes, real native hit regions. No render or physical-device claim.");
+// Newly integrated competitive controls share the native DS coordinate owner.
+MphRead.GameState.Current.Mode=MphRead.GameMode.Dust2Competitive;
+foreach(string aspect in new[]{"4:3","5:3"})
+{
+    DsLayout.ScreenAspect=aspect; DsLayout.UpdateInputBounds(1920,1080);
+    foreach(bool spectator in new[]{false,true})
+    {
+        MphRead.Mods.SpectatorMode.IsDust2RoundWatch=spectator;
+        foreach(var original in spectator ? StylusZone.DustSpectatorButtons : StylusZone.DustButtons)
+        {
+            var button=StylusZone.EffectiveButton(original);
+            float x=StylusZone.Left+button.X/256*StylusZone.Width,y=StylusZone.Top+button.Y/192*StylusZone.Height;
+            Check(StylusZone.RegionAt(x,y)==button.Region,"competitive native action hit region "+button.Region+" "+aspect);
+        }
+        if(spectator)Check(!StylusZone.ActiveButtons.Any(b=>b.Region==StylusRegion.PowerBeam),"round watch exposes spectator controls");
+    }
+}
+MphRead.GameState.Current.Mode=MphRead.GameMode.Battle;
+MphRead.Mods.SpectatorMode.IsDust2RoundWatch=false;
+SceneViewportChecks.Run(Check);
+Console.WriteLine($"DS LAYOUT PASS: {checks} assertions; both ratios, seven viewport shapes, real native hit regions and source-linked viewport scopes. No render or physical-device claim.");

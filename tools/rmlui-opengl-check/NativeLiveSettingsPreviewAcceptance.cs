@@ -110,25 +110,27 @@ internal static class NativeLiveSettingsPreviewAcceptance
             var original=HudProfiles.CopyCurrent();string baseline=HudProfileStore.Serialize(original);int writes=0;
             using var hud=new NativeHudEditorPage(host,pages,original,asModal:true,options:parent.CopyHudOptions(),
                 autoSave:(_,_)=>{writes++;return true;},canPreview:true);
-            hud.Open();Settle(hud.Refresh);HudClick(hud,"hud_section_layout");
+            hud.Open();Settle(hud.Refresh);HudClick(hud,"hud_section_global");
             var owner=Owner<HudEditorController>(hud,"_controller");
             var first=owner.Snapshot().Properties.Take(3).ToArray();
             Check(first.Any(property=>property.Label.Contains("Stacked dual-screen layout",StringComparison.OrdinalIgnoreCase))
                 &&first.Any(property=>property.Label.Contains("Screen proportions",StringComparison.OrdinalIgnoreCase))
                 &&first.Any(property=>property.Label.Contains("Stylus input mode",StringComparison.OrdinalIgnoreCase)),
-                "Position shows all three real stacked-screen master controls before other settings");
+                "HUD-wide shows all three real stacked-screen master controls before other settings");
             capture?.Invoke("hud-dual-screen-controls");
             for(int master=0;master<first.Length;master++)
             {
                 host.SetField(hud.Document,"hud_property_search",first[master].Label.Split(" · ").Last());HudClick(hud,"hud_search");
                 Check(owner.Snapshot().Properties.Length==1&&owner.Snapshot().Properties[0].Path==first[master].Path,
                     "section search reaches real stacked-screen master "+master);
-                Check(host.FocusDocument(hud.Document,"hud_property0_input"),"native input reaches stacked-screen master "+master);Settle(hud.Refresh);
+                Check(host.FocusDocument(hud.Document,"hud_property0_choice"),"native input reaches stacked-screen master "+master);Settle(hud.Refresh);
                 capture?.Invoke("hud-dual-screen-control-"+master);
             }
+            HudClick(hud,"hud_section_layout");
             host.SetField(hud.Document,"hud_property_search","/elements/core.crosshair/scale");HudClick(hud,"hud_search");
             int scaleIndex=Array.FindIndex(owner.Snapshot().Properties.ToArray(),property=>property.Path=="/elements/core.crosshair/scale");
             Check(scaleIndex>=0,"live preview reaches the inline selected-element scale property");
+            HudClick(hud,"hud_property"+scaleIndex+"_exact");
             string scaleField="hud_property"+scaleIndex+"_input";
             Check(host.FocusDocument(hud.Document,scaleField),"native scroll reveals the inline HUD scale field");Settle(hud.Refresh);
             host.SetField(hud.Document,scaleField,"1.275");

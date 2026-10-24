@@ -11,10 +11,21 @@ using MphRead.Mods.Replay;
 internal sealed partial class ReplayWindowAcceptance
 {
     private ReplayEvent _rml97CueEvent;
+    private readonly bool _rml97HasRecordedCue;
     private string _rml97CueRevision="";
     private TheatreAudioCueState Rml97Cues=>Read<TheatreAudioCueState>(Page,"_studioCueState")!;
     private void PlanRml97CustomAudio()
     {
+        if(!_rml97HasRecordedCue)
+        {
+            Do("RML97 record unsupported recorded-event cue fixture scope",()=>
+            {
+                Require(!DemoPlayback.Events.Any(e=>e.Frame<30),"recorded cue eligibility matches the inspected source footer");
+                _rml97StudioChecks.Add(new{Feature="recorded-event-cue-author-update-remove-and-waveform",Result="NOT_RUN",
+                    Reason="Supplied synthetic archive has no recorded event in the reviewed first 30 frames; no source events are fabricated."});
+            });
+            return;
+        }
         Do("RML97 select an actual recorded event inside reviewed audio range",()=>
         {
             Require(!File.Exists(_rml97Path+".studio-audio.json"),"isolated recording begins without audio cue metadata");
@@ -88,6 +99,14 @@ internal sealed partial class ReplayWindowAcceptance
     }
     private void VerifyRml97CustomAudioWave(StudioPcmAudio pcm)
     {
+        if(!_rml97HasRecordedCue)
+        {
+            float expectedOverlay=StudioPcmAudio.ReadWave(_rml97Wave).Samples[0];
+            Require(Math.Abs(pcm.Samples[0]-expectedOverlay)<.001f,"actual mixed WAV retains the exact authored overlay without fabricated event cues");
+            _rml97StudioChecks.Add(new{Feature="actual-authored-overlay-only-waveform",Expected=expectedOverlay,
+                Actual=pcm.Samples[0],Scope="generated private PCM; no recorded events available; no audibility claim"});
+            return;
+        }
         int sample=checked((int)_rml97CueEvent.Frame*800);
         // The authored overlay and cue WAV contain the same constant quarter-scale
         // PCM. Music bus .5 * cue gain .5 adds one quarter of that PCM per match.
@@ -99,6 +118,7 @@ internal sealed partial class ReplayWindowAcceptance
     }
     private void PlanRml97RemoveCustomAudio()
     {
+        if(!_rml97HasRecordedCue)return;
         Do("RML97 select restored custom cue through actual Next button",()=>Activate("replay_studio_cue_next"));
         Do("RML97 remove selected custom cue through actual native action",()=>Activate("replay_studio_cue_remove"));
         Wait("RML97 actual backend persisted cue removal and native zero count",()=>

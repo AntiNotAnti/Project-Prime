@@ -99,7 +99,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly ProgressRow _progress = new();
 
         private readonly FieldRow _name;
-        private readonly ChoiceRow _mode;
+        private readonly ChoiceRow _mode, _heroObjective;
         private readonly ChoiceRow _format;
         private readonly ChoiceRow _hunter;
         private readonly ChoiceRow _kind;
@@ -169,6 +169,11 @@ namespace MphRead.Mods.Launcher.Gui
             int lastMode = MatchTypeCatalog.BaseModeIndex(LauncherPrefs.LastLobbyMode);
             _mode = new ChoiceRow("Game type", _modes.Select(m => m.Label).ToArray(),
                 Math.Max(0, lastMode));
+            _heroObjective = new ChoiceRow("Objective", Mods.HeroModes.HeroModeMenu.Labels,
+                Mods.HeroModes.HeroRules.Active(LauncherPrefs.LastLobbyMode) ? Mods.HeroModes.HeroModeMenu.Index(LauncherPrefs.LastLobbyMode) : LauncherPrefs.LastHeroObjective);
+            ControllerNav.Identify(_heroObjective, "create.hero-objective");
+            _mode.StackLabel=true; _heroObjective.StackLabel=true;
+            _heroObjective.Changed += (_, _) => { LauncherPrefs.LastHeroObjective = _heroObjective.Index; SyncMatchup(); };
             _format = new ChoiceRow("Matchup", _matchups.Select(m => m.Label).ToArray(),
                 MatchTypeCatalog.BasicMatchupIndex(MatchTypeCatalog.FormatForMode(LauncherPrefs.LastLobbyMode)));
             _mode.Changed += (_, _) => SyncMatchup();
@@ -192,6 +197,7 @@ namespace MphRead.Mods.Launcher.Gui
                     PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
                 _name,
                 _mode,
+                _heroObjective,
                 _format);
             var matchPanel = new PrimePanel(match, raised: true)
             {
@@ -709,7 +715,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             MatchTypeDefinition type = _modes[Math.Clamp(_mode.Index, 0, _modes.Length - 1)];
             MatchFormat format = MatchTypeCatalog.NormalizeFormat(type, SelectedFormat());
-            return type.Resolve(format);
+            return Mods.HeroModes.HeroModeMenu.Resolve(type, format, _heroObjective.Index);
         }
 
         private void SyncMatchup()
@@ -718,6 +724,7 @@ namespace MphRead.Mods.Launcher.Gui
             MatchFormat normalized = MatchTypeCatalog.NormalizeFormat(type, SelectedFormat());
             int index = MatchTypeCatalog.BasicMatchupIndex(normalized);
             if (_format.Index != index) _format.Index = index;
+            _heroObjective.IsVisible = Mods.HeroModes.HeroModeMenu.IsFamily(type);
             _format.IsEnabled = !type.TeamOnly && !type.FfaOnly;
         }
 
@@ -1186,11 +1193,11 @@ namespace MphRead.Mods.Launcher.Gui
                 new Rect(0, 0, Bounds.Width, Bounds.Height));
             bool lit = _hot || IsFocused;
             var label = new FormattedText(_label, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(bold: false), 13,
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(bold: false)), 13,
                 GuiTheme.TextDimBrush);
             context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
             var value = new FormattedText(_value + "   >", CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, GuiTheme.Face(bold: true), 13,
+                FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(bold: true)), 13,
                 new SolidColorBrush(lit ? GuiTheme.Accent : GuiTheme.Text));
             context.DrawText(value, new Point(Bounds.Width - value.Width - 4,
                 (Bounds.Height - value.Height) / 2));

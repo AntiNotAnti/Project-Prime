@@ -24,6 +24,7 @@ namespace MphRead.Mods.Replay
         private static long _sampleIndex;
         private static uint? _stepRequestedAt;
         private static int _written;
+        private static int _encodedWritten;
         private static int _totalFrames;
         private static string? _directory;
         private static ReplayCameraMode _previousMode;
@@ -36,9 +37,16 @@ namespace MphRead.Mods.Replay
 
         private static ReplayEncoderJob? _encoder;
         private static ReplayVideoExportManifest? _encodingJob;
+        private static ReplayFrameWriter? _frameWriter;
+        private static ReplayVideoExportManifest? _finishingFrames;
+        private static double _readbackMilliseconds;
+        internal static int PendingPngFrames => _frameWriter?.Pending ?? 0;
+        internal static double ReadbackMilliseconds => _readbackMilliseconds;
+        internal static double PngEncodeMilliseconds { get; private set; }
+        internal static int MaximumPngFrames { get; private set; }
         private static ReplayExportState _state;
         public static ReplayExportState State { get { PollEncoder(); return _state; } }
-        internal static bool HasOwnedJob => _job != null || _encoder != null || HasAudioWork;
+        internal static bool HasOwnedJob => _job != null || _frameWriter != null || _encoder != null || HasAudioWork;
         internal static ReplayVideoExportManifest? OwnedManifest => _job ?? _encodingJob;
         public static bool Active { get { PollEncoder(); return HasOwnedJob; } }
         public static bool Rendering => _job != null;
@@ -56,7 +64,7 @@ namespace MphRead.Mods.Replay
             && ReplayController.CurrentFrame == _sampler.At(_sampleIndex).SimulationFrame
                 ? _sampler.At(_sampleIndex).Frame : ReplayController.CurrentFrame;
         internal static OpenTK.Mathematics.Vector2i? OutputSize => _job == null ? null : new(_job.Width, _job.Height);
-        public static int FramesWritten => _written;
+        public static int FramesWritten => _frameWriter?.Written ?? _encodedWritten;
         public static float Progress => State == ReplayExportState.Encoding ? EncodeProgress : RenderProgress;
         private static string _status = "";
         public static string Status { get { PollEncoder(); return _encoder != null ? $"Encoding {EncodeProgress:P0}" : _status; } private set => _status = value; }
@@ -128,6 +136,11 @@ namespace MphRead.Mods.Replay
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
             { Fail(ex.Message); return false; }
             _written = 0;
+            _encodedWritten = 0;
+            _readbackMilliseconds = PngEncodeMilliseconds = 0;
+            MaximumPngFrames = 0;
+            _finishingFrames = null;
+            _frameWriter = new(MphRead.Mods.ScreenCapture.ExportPngWriter());
             _segmentIndex = 0;
             _sampleIndex = 0;
             _stepRequestedAt = null;
@@ -148,6 +161,9 @@ namespace MphRead.Mods.Replay
             // Only Start's acquired playback lease authorizes a render retry receipt.
             // Detached metadata cleared during cancellation does not gain a new strong owner.
             var cancelled = _renderPlaybackOwner != null ? _job : null;
+            if (_frameWriter != null) _encodingJob ??= _job;
+            _finishingFrames = null;
+            _frameWriter?.Cancel();
             _job = null;
             _segments = Array.Empty<ReplayVideoSegment>();
             _segmentIndex = 0;
@@ -155,6 +171,7 @@ namespace MphRead.Mods.Replay
             CancelAudioWork();
             _encoder?.Cancel();
             if (_encoder == null && !HasAudioWork) _state = ReplayExportState.Cancelled;
+            if (_frameWriter == null && _encoder == null && !HasAudioWork) _encodingJob = null;
             Status = "Video export cancelled.";
             ReplayExportQueue.NoteCancelled(cancelled);
         }
@@ -232,12 +249,25 @@ namespace MphRead.Mods.Replay
             // Scene-target capture is only sufficient when every HUD layer is
             // intentionally absent. Any requested HUD/overlay uses the finished
             // window composite, which is captured before launcher/editor chrome.
-            bool saved = job.IncludeGameHud || job.IncludeReplayOverlay
-                ? MphRead.Mods.ScreenCapture.SaveWindow(scene, path)
-                : MphRead.Mods.ScreenCapture.Save(scene, path);
-            if (!saved)
+            // Backpressure holds the exact rational sample until capacity is
+            // available; it never queues a simulation step or skips a picture.
+            using var reservation = _frameWriter?.TryReserve();
+            if (reservation == null)
             {
-                Fail($"Frame {sample.Frame:0.###} could not be captured; export stopped.");
+                Status = $"Writing PNG frames ({PendingPngFrames} pending)...";
+                return;
+            }
+            try
+            {
+                long readbackStart = Stopwatch.GetTimestamp();
+                var pixels = MphRead.Mods.ScreenCapture.ReadExportFrame(scene,
+                    job.IncludeGameHud || job.IncludeReplayOverlay, path);
+                _readbackMilliseconds += Stopwatch.GetElapsedTime(readbackStart).TotalMilliseconds;
+                reservation.Submit(pixels);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException)
+            {
+                Fail($"Frame {sample.Frame:0.###} could not be captured: {error.Message}");
                 return;
             }
             _written++;
@@ -340,7 +370,42 @@ namespace MphRead.Mods.Replay
                 return;
 
             RestoreCameraState();
-            Status = $"Rendered {_written} frames.";
+            _encodingJob = _finishingFrames = job;
+            _state = ReplayExportState.Encoding;
+            Status = $"Finishing {_written} PNG frames...";
+            _frameWriter!.Complete();
+            PollFrameWriter();
+        }
+
+        // A job keeps its output ownership through the last PNG write, including
+        // cancellation/failure. FFmpeg and audio finalization cannot race this drain.
+        private static bool PollFrameWriter()
+        {
+            if (_frameWriter is not { } writer) return false;
+            if (!writer.Completion.IsCompleted) return _job == null;
+            var result = writer.Completion.GetAwaiter().GetResult();
+            writer.Dispose();
+            _frameWriter = null;
+            _encodedWritten = result.Written;
+            PngEncodeMilliseconds = result.EncodeMilliseconds;
+            MaximumPngFrames = writer.MaximumPending;
+            var job = _finishingFrames;
+            _finishingFrames = null;
+            if (result.Error != null)
+            {
+                Fail("PNG encoding failed. Completed images retained. " + result.Error);
+                return true;
+            }
+            if (result.Cancelled || _state is ReplayExportState.Cancelled or ReplayExportState.Failed)
+            {
+                if (_state != ReplayExportState.Failed) _state = ReplayExportState.Cancelled;
+                if (!HasAudioWork && _encoder == null) _encodingJob = null;
+                return true;
+            }
+            if (job == null) return false;
+            if (result.Written != _written)
+            { Fail("PNG frame count did not match the exact export sequence."); return true; }
+            Status = $"Rendered {result.Written} frames.";
 #if !ANDROID && !MPHREAD_SERVER
             FinishWithOfflineAudio(job);
 #elif !ANDROID
@@ -353,12 +418,19 @@ namespace MphRead.Mods.Replay
             Status += " PNG sequence is ready for desktop encoding.";
             ReplayExportQueue.NoteFinished(Status);
 #endif
+            return true;
         }
 
         private static void PollEncoder()
         {
+            if (PollFrameWriter()) return;
             if(PollAudioWork())return;
-            if (_encoder?.Completion.IsCompleted != true) return;
+            if (_encoder == null)
+            {
+                if (_job == null && !HasAudioWork) _encodingJob = null;
+                return;
+            }
+            if (!_encoder.Completion.IsCompleted) return;
             var result = _encoder.Completion.GetAwaiter().GetResult();
             if (!result.Cancelled && result.Error == null && !File.Exists(_encodingJob?.SuggestedOutput))
                 result = result with { Error = "FFmpeg exited without producing the requested video." };
@@ -378,7 +450,10 @@ namespace MphRead.Mods.Replay
         {
             ReplayOwnerExport.End();
             CancelAudioWork(failure:true);
-            ReplayExportQueue.NoteFailure(_job, message);
+            ReplayExportQueue.NoteFailure(_job ?? _encodingJob, message);
+            if (_frameWriter != null || HasAudioWork) _encodingJob ??= _job;
+            _finishingFrames = null;
+            _frameWriter?.Cancel();
             _job = null; _segments = Array.Empty<ReplayVideoSegment>();
             RestoreCameraState(); LastError = message; Status = message; _state = ReplayExportState.Failed;
             ReplayExportQueue.NoteFinished(message);

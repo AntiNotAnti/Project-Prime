@@ -2,6 +2,9 @@
 #replay_camera_tools_panel h2, #replay_camera_tools_panel h3, #replay_camera_tools_panel p, #replay_camera_tools_panel label, #replay_camera_tools_panel input, #replay_camera_tools_confirm_panel h2, #replay_camera_tools_confirm_panel h3, #replay_camera_tools_confirm_panel p { display:block; white-space:pre-wrap; margin:8dp 0; }
 #replay_camera_tools_destination { width:96%; min-height:34dp; color:#edf7ff; background-color:#14283a; border:1dp #29485e; }
 
+.camera_channel_controls { display:flex; flex-direction:column; align-items:stretch; width:100%; gap:4dp; margin:6dp 0; padding:6dp; box-sizing:border-box; background-color:#101f30; }
+.camera_channel_controls .play_action { display:block; width:100%; min-width:0; min-height:32dp; margin:0; padding:6dp 8dp; box-sizing:border-box; text-align:left; white-space:normal; }
+
 .camera_curve { display:block; height:64dp; width:100%; background-color:#101f30; margin:6dp 0; }
 .curve_point { display:inline-block; width:1.5625%; height:3dp; background-color:#58cadf; vertical-align:top; }
 .curve_y_0 { margin-top:60dp; }

@@ -28,8 +28,14 @@ public readonly record struct HudEditorRect(float X, float Y, float Width, float
     public bool Contains(Vector2 point, float padding = 0) => point.X >= X-padding && point.X <= Right+padding && point.Y >= Y-padding && point.Y <= Bottom+padding;
 }
 public sealed record HudEditorOption(string Id, string Label, string Value, ImmutableArray<string> Choices,
-    string Hint = "", Func<string, string?>? Validate = null, int Section = 2, string Group = "");
-public sealed record HudEditorProperty(string Path, string Label, string Value, string Kind, ImmutableArray<string> Choices);
+    string Hint = "", Func<string, string?>? Validate = null, int Section = 2, string Group = "",
+    HudEditorNumericRange? Range = null, int Element = -1);
+public sealed record HudEditorNumericRange(float Minimum, float Maximum, float Step);
+public sealed record HudEditorProperty(string Path, string Label, string Value, string Kind, ImmutableArray<string> Choices)
+{
+    public HudEditorNumericRange? Range { get; init; }
+    public string Help { get; init; } = "";
+}
 public sealed record HudEditorElement(int Index, string Id, HudEditorRect Bounds, bool Enabled, bool Locked, bool Selected, float Opacity, string Color);
 public sealed record HudEditorSnapshot
 {

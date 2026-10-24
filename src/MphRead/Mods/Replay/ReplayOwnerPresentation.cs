@@ -20,7 +20,7 @@ internal readonly record struct ReplayOwnerPose(double Frame, double RenderSecon
     internal float? CustomScopeBlend { get; init; }
 }
 
-internal sealed class ReplayOwnerTrack
+internal sealed partial class ReplayOwnerTrack : IDisposable
 {
     internal const string Extension = ".ownerpose";
     internal const int MaximumSamples = 65536;
@@ -29,7 +29,7 @@ internal sealed class ReplayOwnerTrack
     internal const int Version2RecordBytes = LegacyRecordBytes + 4 + ReplayOwnerVisual.Bytes;
     internal const int RecordBytes = Version2RecordBytes + 5;
     private const int HeaderBytes = 4 + 2 + 2 + 4 + 32;
-    internal const long MaximumFileBytes = HeaderBytes + (long)MaximumSamples * RecordBytes + 32;
+    internal const long MaximumFileBytes = 8L * 1024 * 1024 * 1024;
     private readonly ReplayOwnerPose[] _samples;
     internal int Count { get; private set; }
     internal int Dropped { get; private set; }
@@ -40,6 +40,7 @@ internal sealed class ReplayOwnerTrack
     }
     internal bool Add(in ReplayOwnerPose sample)
     {
+        if (_indexed != null) return false;
         if (!Valid(sample) || Count > 0 && (sample.Frame <= _samples[Count - 1].Frame
             || sample.RenderSeconds < _samples[Count - 1].RenderSeconds)) return false;
         if (Count == _samples.Length) { Dropped++; return false; }
@@ -76,6 +77,7 @@ internal sealed class ReplayOwnerTrack
         ushort life, out ReplayOwnerPose pose)
     {
         pose = default;
+        if (_indexed != null) return SampleIndexed(frame, match, epoch, slot, generation, life, out pose);
         if (!double.IsFinite(frame) || Count == 0 || frame < _samples[0].Frame) return false;
         int lo = 0, hi = Count - 1;
         while (lo < hi)
@@ -120,34 +122,37 @@ internal sealed class ReplayOwnerTrack
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
-    private static int _activeLoads;
+    private static readonly SemaphoreSlim LoadSlots = new(4, 4);
     internal static void CopyRange(string source, string output, uint first, uint last, CancellationToken cancellation)
     {
-        var original = Load(source, cancellation);
+        using var original = Load(source, cancellation);
         if(original == null) return;
-        var selected = new ReplayOwnerTrack(Math.Max(1, original.Count));
-        for(int i=0;i<original.Count;i++)
+        using var selected = new ReplayOwnerStream();
+        try
         {
-            cancellation.ThrowIfCancellationRequested();
-            var sample=original._samples[i];
-            if(sample.Frame>=first&&sample.Frame<=last)selected.Add(sample);
+            foreach (var sample in original.Pictures())
+            {
+                cancellation.ThrowIfCancellationRequested();
+                if(sample.Frame>=first&&sample.Frame<=last)selected.WriteOffline(sample,cancellation);
+            }
+            selected.Complete(output, Task.CompletedTask, () => true, cancellation).GetAwaiter().GetResult();
         }
-        try { selected.Save(output, cancellation); }
-        catch(Exception error) when(error is IOException or UnauthorizedAccessException)
+        catch(Exception error) when(error is IOException or InvalidDataException or UnauthorizedAccessException)
         { DebugLog.Line("replay", "Optional owner presentation range could not be saved: "+error.GetType().Name); }
     }
-    internal static Task<ReplayOwnerTrack?> LoadAsyncBounded(string replay, CancellationToken cancellation = default,
+    internal static async Task<ReplayOwnerTrack?> LoadAsyncBounded(string replay, CancellationToken cancellation = default,
         Action? beforeLoadForCheck = null)
     {
-        // Rapid seeks may retire worlds faster than disk hashing completes.
-        // Admit at most four jobs; saturation uses ordinary authority playback.
-        if (Interlocked.Increment(ref _activeLoads) > 4)
-        { Interlocked.Decrement(ref _activeLoads); return Task.FromResult<ReplayOwnerTrack?>(null); }
-        return Task.Run(() =>
+        // Only admitted jobs occupy worker threads or start file IO. Replacement
+        // scenes share their playback task; queued retired sources cancel promptly.
+        bool admitted = false;
+        try
         {
-            try { beforeLoadForCheck?.Invoke(); return Load(replay,cancellation); }
-            finally { Interlocked.Decrement(ref _activeLoads); }
-        });
+            await LoadSlots.WaitAsync(cancellation).ConfigureAwait(false); admitted = true;
+            return await Task.Run(() => { beforeLoadForCheck?.Invoke(); return Load(replay,cancellation); }).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) { return null; }
+        finally { if (admitted) LoadSlots.Release(); }
     }
 
     internal static ReplayOwnerTrack? Load(string replay, CancellationToken cancellation = default)
@@ -155,6 +160,12 @@ internal sealed class ReplayOwnerTrack
         try
         {
             using var stream = new FileStream(replay + Extension, FileMode.Open, FileAccess.Read, FileShare.Read);
+            if (stream.Length >= 8)
+            {
+                using var probe = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: true);
+                if (probe.ReadUInt32() == Magic && probe.ReadUInt16() == 4 && probe.ReadUInt16() == 60) return LoadIndexed(replay, stream, cancellation);
+                stream.Position = 0;
+            }
             if (stream.Length < HeaderBytes + LegacyRecordBytes + 32
                 || stream.Length > HeaderBytes + (long)MaximumSamples * RecordBytes + 32) return null;
             using var reader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: true);
@@ -199,7 +210,7 @@ internal sealed class ReplayOwnerTrack
             }
             return CryptographicOperations.FixedTimeEquals(expected, hash.GetHashAndReset()) ? track : null;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or OperationCanceledException)
+        catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or OperationCanceledException)
         { return null; }
     }
     private static byte[] Hash(string path, CancellationToken cancellation)
@@ -216,48 +227,54 @@ internal sealed class ReplayOwnerTrack
 
 internal static class ReplayOwnerCapture
 {
-    private static readonly bool Enabled = Environment.GetEnvironmentVariable("PRIME_REPLAY_OWNER_CAPTURE") == "1";
-    private static ReplayOwnerTrack? _track;
+    private static ReplayOwnerStream? _track;
     private static long _started;
     private static int _finishing;
     internal static string? LastError { get; private set; }
+    internal static ReplayOwnerCoverage Coverage => _track?.Coverage ?? _lastCoverage;
+    private static ReplayOwnerCoverage _lastCoverage;
     internal static void Begin()
     {
-        _track = Enabled && Volatile.Read(ref _finishing) < 2 ? new() : null;
-        _started = System.Diagnostics.Stopwatch.GetTimestamp(); LastError = null;
+        Abort();
+        bool enabled = Launcher.LauncherPrefs.HighFidelityReplayRecording
+            || Environment.GetEnvironmentVariable("PRIME_REPLAY_OWNER_CAPTURE") == "1";
+        _track = enabled && Volatile.Read(ref _finishing) < 2 ? new() : null;
+        _lastCoverage = default;
+        _started = System.Diagnostics.Stopwatch.GetTimestamp();
+        LastError = enabled && _track == null ? "Owner presentation unavailable while previous recordings finish." : null;
     }
     internal static void Capture(Scene scene, Matrix4 view, float worldFov, float gunFov)
     {
         if (_track == null || Headless.Active || scene.Services.IsReplica || !NetSession.Active
-            || DemoPlayback.IsActive || Mods.SpectatorMode.IsSpectating || scene.GameState.ThirdPersonCamera
-            || Mods.PauseMenu.Open || scene.GameState.MenuPause || scene.GameState.DialogPause) return;
+            || DemoPlayback.IsActive) return;
+        if (Mods.SpectatorMode.IsSpectating || scene.GameState.ThirdPersonCamera
+            || Mods.PauseMenu.Open || scene.GameState.MenuPause || scene.GameState.DialogPause)
+        { _track.Skip(); return; }
         var player = scene.Players.Main;
         if (player.SlotIndex != NetHooks.LocalSlot || player.IsBot || player.Health <= 0
-            || player.CameraType != CameraType.First || !player.ModTryOwnerRenderPose(out var gun)) return;
+            || player.CameraType != CameraType.First || !player.ModTryOwnerRenderPose(out var gun))
+        { _track.Skip(); return; }
         double frame = Math.Max(0, NetSession.NetFrame - 1d + (Render.FrameTiming.Active ? Render.FrameTiming.PresentationAlpha : 1));
-        _track.Add(new(frame, (System.Diagnostics.Stopwatch.GetTimestamp() - _started) / (double)System.Diagnostics.Stopwatch.Frequency,
+        _track.TryWrite(new(frame, (System.Diagnostics.Stopwatch.GetTimestamp() - _started) / (double)System.Diagnostics.Stopwatch.Frequency,
             NetSession.CurrentMatchId, NetSession.AuthorityEpoch, (byte)player.SlotIndex,
             NetPlayerLifecycle.Generation(player.SlotIndex), NetPlayerLifecycle.Get(player.SlotIndex),
             view, worldFov, gunFov, gun.GunPosition, gun.GunFacing, gun.GunUp)
             { Aspect = scene.Size.Y > 0 ? scene.Size.X / (float)scene.Size.Y : 0, Visual = player.ModCaptureOwnerVisual(),
                 CustomScopeBlend = player.ModCapturedCustomScopeBlend });
+        if (_track.Coverage.Dropped > 0) LastError = "Owner presentation has dropped samples; see coverage diagnostics.";
     }
     internal static void Finish(string path, Task canonicalCompletion, Func<bool> canonicalSucceeded)
     {
         var track = _track; _track = null;
-        if (track == null || track.Count == 0) return;
+        if (track == null) return;
         Interlocked.Increment(ref _finishing);
         _ = Task.Run(async () =>
         {
-            try
-            {
-                await canonicalCompletion.ConfigureAwait(false);
-                if (canonicalSucceeded()) track.Save(path);
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException)
+            try { await track.Complete(path, canonicalCompletion, canonicalSucceeded).ConfigureAwait(false); }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or InvalidDataException)
             { LastError = "Owner presentation unavailable: " + ex.Message; }
-            finally { Interlocked.Decrement(ref _finishing); }
+            finally { _lastCoverage = track.Coverage; track.Dispose(); Interlocked.Decrement(ref _finishing); }
         });
     }
-    internal static void Abort() => _track = null;
+    internal static void Abort() { _track?.Dispose(); _track = null; }
 }

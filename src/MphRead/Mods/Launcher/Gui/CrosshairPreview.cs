@@ -19,12 +19,14 @@ namespace MphRead.Mods.Launcher.Gui
     {
         public static void Draw(DrawingContext context, Rect area, CrosshairStyle style,
             CrosshairSize size)
+            => Draw(context, area, style, Crosshair.ScaleOf(size));
+
+        public static void Draw(DrawingContext context, Rect area, CrosshairStyle style, float scale)
         {
             context.DrawRectangle(GuiTheme.PanelBrush, new Pen(GuiTheme.EdgeBrush, 1),
                 new RoundedRect(area, 4));
             double cx = area.X + area.Width / 2;
             double cy = area.Y + area.Height / 2;
-            float scale = Crosshair.ScaleOf(size);
             IReadOnlyList<CrosshairBar> bars = Crosshair.BarsOf(style, scale);
             for (int i = 0; i < bars.Count; i++)
             {

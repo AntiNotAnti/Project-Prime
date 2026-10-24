@@ -514,7 +514,9 @@ internal sealed partial class RmlUiLiveMenuServices : IRmlUiMenuServices, IDispo
         return new RmlUiHunterDraft(
             session.MatchId, session.AuthorityEpoch,
             NetSession.LocalHunter, (byte)NetSession.LocalColor,
-            HunterRules.Pool(session.Match.LowTier).ToArray(), NetSession.LobbyCommandPending);
+            (HeroModes.HeroRules.Active(session.Match.Mode) || HeroModes.CtfRules.Active(session.Match.Mode)
+                ? HeroModes.HeroSelectionPolicy.Available(NetSession.LobbyRoster(), NetSession.LocalSlot)
+                : HunterRules.Pool(session.Match.LowTier).ToArray()), NetSession.LobbyCommandPending);
     }
 
     public bool ApplyHunterDraft(Hunter hunter, byte suit, ushort matchId, ulong authorityEpoch)

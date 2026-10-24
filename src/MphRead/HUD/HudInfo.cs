@@ -299,18 +299,18 @@ namespace MphRead.Hud
                 }
                 // Never upload into a cached immutable image on a budget miss.
                 if (_mutableImageBinding == -1)
-                    _mutableImageBinding = scene.BindGetTexture(Texture, Width, Height);
+                    _mutableImageBinding = scene.BindGetTexture(Texture, Width, Height, sceneColor: false);
                 else
-                    scene.BindTexture(Texture, Width, Height, _mutableImageBinding);
+                    scene.BindTexture(Texture, Width, Height, _mutableImageBinding, sceneColor: false);
                 BindingId = _mutableImageBinding;
             }
             else if (BindingId == -1)
             {
-                BindingId = scene.BindGetTexture(Texture, Width, Height);
+                BindingId = scene.BindGetTexture(Texture, Width, Height, sceneColor: false);
             }
             else
             {
-                scene.BindTexture(Texture, Width, Height, BindingId);
+                scene.BindTexture(Texture, Width, Height, BindingId, sceneColor: false);
             }
         }
 
@@ -648,7 +648,7 @@ namespace MphRead.Hud
                     }
                 }
             }
-            return (scene.BindGetTexture(texture, width, height), paletteData);
+            return (scene.BindGetTexture(texture, width, height, sceneColor: false), paletteData);
         }
 
         private static readonly (int Width, int Height)[,] _objectDimensions = new (int, int)[3, 4]

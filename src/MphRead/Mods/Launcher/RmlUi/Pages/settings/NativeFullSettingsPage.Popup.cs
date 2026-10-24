@@ -11,7 +11,8 @@ internal sealed partial class NativeFullSettingsPage
     private int _popupKind;
     // Settings remains the logical input owner while its native modal traps
     // pointer, Tab and keyboard focus above the retained settings document.
-    private RmlUiDocumentToken ForegroundDocument => _popup != default && _host.IsAlive(_popup) ? _popup : _document;
+    private RmlUiDocumentToken ForegroundDocument => _helpDocument != default && _host.IsAlive(_helpDocument) ? _helpDocument
+        : _popup != default && _host.IsAlive(_popup) ? _popup : _document;
 
     private void PresentWithPopup(Dictionary<string,RmlUiBindingValue> fields)
     {

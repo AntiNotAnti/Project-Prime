@@ -82,6 +82,9 @@ namespace MphRead.Mods.Render
         bool AuthoredNeutralAlbedo,
         Vector4? OverrideColor,
         Vector4? PaletteOverride,
+        TextureAlphaPolicy AlphaPolicy,
+        float AuthoredAlphaFactor,
+        bool AuthoredLinearTint,
         bool ShadowReceiverAllowed)
     {
         internal static RetainedMaterialDescriptor From(RenderItem item) =>
@@ -89,7 +92,9 @@ namespace MphRead.Mods.Render
                 item.Specular, item.Emission, item.EmissiveIntensity, item.Alpha, item.TexgenMode,
                 item.XRepeat, item.YRepeat, item.HasTexture, item.TextureBindingId,
                 item.TexcoordMatrix, item.Cosmetics, item.CosmeticMaterial,
-                item.TexturedPlayerSkin, item.AuthoredNeutralAlbedo, item.OverrideColor, item.PaletteOverride, ShadowReceiverPolicy.Eligible(item));
+                item.TexturedPlayerSkin, item.AuthoredNeutralAlbedo, item.OverrideColor, item.PaletteOverride,
+                item.AlphaPolicy, item.AuthoredAlphaFactor, item.AuthoredLinearTint,
+                ShadowReceiverPolicy.Eligible(item));
     }
 
     internal readonly record struct RetainedBatchState(
@@ -141,6 +146,7 @@ namespace MphRead.Mods.Render
                 && item.PolygonMode == PolygonMode.Modulate
                 && item.RenderMode == RenderMode.Normal
                 && item.Alpha >= 0.999f
+                && item.AlphaPolicy.Mode != TextureAlphaMode.Blend
                 && !item.Wireframe;
             BatchState = new RetainedBatchState(item.CullingMode, item.Wireframe,
                 item.RenderMode, material);
@@ -211,6 +217,10 @@ namespace MphRead.Mods.Render
                 Mix((uint)item.PolygonMode);
                 Mix((uint)item.RenderMode);
                 Mix((uint)item.CullingMode);
+                Mix((uint)item.AlphaPolicy.Mode);
+                MixFloat(item.AlphaPolicy.Cutoff);
+                MixFloat(item.AuthoredAlphaFactor);
+                Mix(item.AuthoredLinearTint ? 1u : 0u);
                 Mix(item.Wireframe ? 1u : 0u);
                 Mix(item.Lighting ? 1u : 0u);
                 MixVector3(item.Diffuse);

@@ -1,7 +1,7 @@
 using MphRead.Mods.Replay;
 using OpenTK.Mathematics;
 namespace MphRead {
-public partial class Scene {public long LifetimeGeneration=1;public Players Players=new();internal void UseNativeReplayFreeCamera(ReplayCameraKeyframe pose){} }
+public partial class Scene {public long LifetimeGeneration=1;public Players Players=new();internal void RestoreNativeReplayMemoryCamera(ReplayCameraKeyframe key){} internal void UseNativeReplayFreeCamera(ReplayCameraKeyframe pose){} }
 public sealed class Players {public int MainPlayerIndex=0;public System.Collections.Generic.List<MphRead.Entities.PlayerEntity> Items=new(){new(){SlotIndex=1},new(){SlotIndex=3}};}
 }
 namespace MphRead.Mods.Network {

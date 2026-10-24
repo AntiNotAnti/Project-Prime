@@ -224,10 +224,10 @@ namespace MphRead
 
         /// <summary>
         /// Whether local first-person presentation follows raw, late-latched aim.
-        /// Both Pro weapon styles retain responsive camera input; Dynamic keeps
-        /// its eased simulation basis only for weapon presentation.
+        /// Static/Quake uses immediate aim. Dynamic/Metroid keeps camera, weapon
+        /// and reticle on the same eased native basis, as in the v20 source.
         /// </summary>
-        public static bool ResponsiveAimCamera => FixedCrosshair;
+        public static bool ResponsiveAimCamera => FixedAimCamera;
 
         /// <summary>
         /// Static (true) or dynamic (false) weapon while <see cref="ProHud"/>

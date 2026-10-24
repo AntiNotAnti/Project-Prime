@@ -5,8 +5,8 @@ namespace MphRead.Mods.Network;
 internal enum LobbyQueueWireState : byte { Waiting, NextMatch, Offered, Disconnected, Left, Expired, Rejected }
 [NetPacket(PacketType.QueueHello, 35)]
 internal readonly partial record struct QueueHelloPacket([NetRange(NetConfig.ProtocolVersion, NetConfig.ProtocolVersion)] byte Protocol,
-    [NetRange(1,uint.MaxValue)] uint ClientId, ulong ClientNonce)
-{ partial void ValidateSchema(ref bool valid) => valid = ClientNonce != 0; }
+    [NetRange(1,uint.MaxValue)] uint ClientId, ulong ClientNonce, uint Capability = UnifiedModeRules.Capability)
+{ partial void ValidateSchema(ref bool valid) => valid = ClientNonce != 0 && Capability == UnifiedModeRules.Capability; }
 [NetPacket(PacketType.QueueWelcome, 35)]
 internal readonly partial record struct QueueWelcomePacket([NetRange(NetConfig.ProtocolVersion, NetConfig.ProtocolVersion)] byte Protocol,
     [NetRange(1,uint.MaxValue)] uint ClientId, ulong ClientNonce)

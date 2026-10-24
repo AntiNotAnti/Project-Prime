@@ -101,9 +101,9 @@ internal static class ReplayOwnerTrackTests
                 Check(!ReplayOwnerTrack.Valid(Pose() with { Aspect = aspect }), "invalid aspect rejected");
             track.Save(source); byte[] good = File.ReadAllBytes(sidecar);
             Check(File.ReadAllBytes(source).SequenceEqual(replay), "saving optional track preserves canonical replay");
-            Check(BinaryPrimitives.ReadUInt16LittleEndian(good.AsSpan(4)) == 2
+            Check(BinaryPrimitives.ReadUInt16LittleEndian(good.AsSpan(4)) == 3
                 && good.Length == 44 + 2 * ReplayOwnerTrack.RecordBytes + 32
-                && ReplayOwnerTrack.RecordBytes == 264, "schema two version and exact record length");
+                && ReplayOwnerTrack.RecordBytes == 269, "schema three version and exact record length");
             var visualTrack = new ReplayOwnerTrack(1);
             var visualPose = Pose() with { Aspect = 16f / 9, Visual = visual };
             Check(visualTrack.Add(visualPose), "visual picture accepted");
@@ -112,6 +112,14 @@ internal static class ReplayOwnerTrackTests
             var visualReloaded = ReplayOwnerTrack.Load(source);
             Check(visualReloaded != null && visualReloaded.Sample(10, 7, 99, 2, 3, 4, out var visualLoaded)
                 && visualLoaded == visualPose, "schema two preserves aspect and complete visual picture");
+            byte[] version2 = new byte[44 + ReplayOwnerTrack.Version2RecordBytes + 32];
+            visualBytes.AsSpan(0,44).CopyTo(version2); BinaryPrimitives.WriteUInt16LittleEndian(version2.AsSpan(4),2);
+            visualBytes.AsSpan(44,ReplayOwnerTrack.Version2RecordBytes).CopyTo(version2.AsSpan(44));
+            SHA256.HashData(version2.AsSpan(0,version2.Length-32)).CopyTo(version2.AsSpan(version2.Length-32));
+            File.WriteAllBytes(sidecar,version2);
+            using (var version2Track = ReplayOwnerTrack.Load(source))
+                Check(version2Track != null && version2Track.Sample(10,7,99,2,3,4,out var v2Pose) && v2Pose==visualPose,
+                    "schema two remains readable without scope blend");
             // Build a genuine schema-one file: each old record omits the new aspect/visual tail.
             byte[] legacy = new byte[44 + 2 * ReplayOwnerTrack.LegacyRecordBytes + 32];
             good.AsSpan(0, 44).CopyTo(legacy);
@@ -146,7 +154,7 @@ internal static class ReplayOwnerTrackTests
             Reject(invalidGroup, "checksum-valid animation group slot falls back", true);
             var broken = (byte[])good.Clone(); broken[^1] ^= 1; Reject(broken, "bad checksum falls back");
             Reject(good[..^1], "truncation falls back");
-            broken = (byte[])good.Clone(); broken[4] = 3; Reject(broken, "unsupported schema falls back", true);
+            broken = (byte[])good.Clone(); broken[4] = 255; Reject(broken, "unsupported schema falls back", true);
             broken = (byte[])good.Clone(); broken[6] = 30; Reject(broken, "unsupported timebase falls back", true);
             foreach (int count in new[] { -1, 0, int.MaxValue, ReplayOwnerTrack.MaximumSamples + 1, 1 })
             { broken = (byte[])good.Clone(); BinaryPrimitives.WriteInt32LittleEndian(broken.AsSpan(8), count); Reject(broken, "invalid count/length refused before sample allocation", true); }
@@ -183,22 +191,91 @@ internal static class ReplayOwnerTrackTests
             File.Delete(source); Check(ReplayOwnerTrack.Load(source) == null, "missing source falls back");
             foreach (int capacity in new[] { 0, ReplayOwnerTrack.MaximumSamples + 1 })
             { bool rejected = false; try { _ = new ReplayOwnerTrack(capacity); } catch (ArgumentOutOfRangeException) { rejected = true; } Check(rejected, "constructor enforces capacity budget"); }
+            File.WriteAllBytes(source,replay); File.WriteAllBytes(sidecar,good);
             using (var release = new ManualResetEventSlim(false))
+            using (var started = new CountdownEvent(4))
             {
                 var jobs = new System.Threading.Tasks.Task<ReplayOwnerTrack?>[4];
+                ReplayOwnerPresentationSource? queuedSource = null;
                 try
                 {
                     for (int i = 0; i < jobs.Length; i++)
-                        jobs[i] = ReplayOwnerTrack.LoadAsyncBounded(source, beforeLoadForCheck: () => release.Wait());
-                    var saturated = ReplayOwnerTrack.LoadAsyncBounded(source);
-                    Check(saturated.IsCompletedSuccessfully && saturated.Result == null,
-                        "rapid seek loader saturation falls back without queue growth");
+                        jobs[i] = ReplayOwnerTrack.LoadAsyncBounded(source, beforeLoadForCheck: () => { started.Signal(); release.Wait(); });
+                    Check(started.Wait(TimeSpan.FromSeconds(10)),"four file load workers acquired admission");
+                    using var cancellation = new CancellationTokenSource();
+                    var cancelled = ReplayOwnerTrack.LoadAsyncBounded(source,cancellation.Token);
+                    queuedSource = new ReplayOwnerPresentationSource(source);
+                    Check(!cancelled.IsCompleted && !queuedSource.Load.IsCompleted,"saturated loads await admission without losing source fidelity");
+                    cancellation.Cancel();
+                    Check(cancelled.Wait(TimeSpan.FromSeconds(10)) && cancelled.Result == null,"queued retired source cancels before IO admission");
                 }
                 finally { release.Set(); }
-                Check(System.Threading.Tasks.Task.WaitAll(jobs, TimeSpan.FromSeconds(10)),
-                    "bounded loader workers release their admission slots");
-                Check(ReplayOwnerTrack.LoadAsyncBounded(source).GetAwaiter().GetResult() == null,
-                    "loader accepts subsequent missing-source fallback after saturation");
+                Check(System.Threading.Tasks.Task.WaitAll(jobs, TimeSpan.FromSeconds(10)),"bounded loader workers release admission slots");
+                using (queuedSource)
+                    Check(queuedSource!.Load.GetAwaiter().GetResult()?.Count == 2,"queued shared source eventually retains verified owner pictures");
+                foreach(var job in jobs)job.Result?.Dispose();
+            }
+            using (var drain = new ManualResetEventSlim(false))
+            using (var bounded = new ReplayOwnerStream(2, () => drain.Wait()))
+            {
+                Check(bounded.TryWrite(Pose(0)) && bounded.TryWrite(Pose(1)) && !bounded.TryWrite(Pose(2))
+                    && bounded.Coverage.Dropped == 1, "bounded producer overflow is deterministic and explicit");
+                drain.Set();
+                bounded.Complete(source,System.Threading.Tasks.Task.CompletedTask,()=>false).GetAwaiter().GetResult();
+            }
+            using (var releaseFailure = new ManualResetEventSlim(false))
+            using (var failedWriter = new ReplayOwnerStream(1, () => { releaseFailure.Wait(); throw new IOException("Injected owner storage failure"); }))
+            {
+                Check(failedWriter.TryWrite(Pose(0)),"offline failure fixture fills bounded producer queue");
+                var blocked = System.Threading.Tasks.Task.Run(() => failedWriter.WriteOffline(Pose(1),CancellationToken.None));
+                releaseFailure.Set();
+                Check(SpinWait.SpinUntil(()=>blocked.IsCompleted,TimeSpan.FromSeconds(10)),"storage worker failure releases offline backpressure waiter");
+                bool failed = false;try { blocked.GetAwaiter().GetResult(); } catch(IOException) { failed = true; }
+                Check(failed,"offline writer reports original storage failure instead of dropping or hanging");
+            }
+            File.WriteAllBytes(source, replay);
+            using (var streaming = new ReplayOwnerStream())
+            {
+                // Ten minutes of 240 Hz pictures exceeds the removed lifetime cap twice.
+                const int pictures = 144001;
+                for (int i = 0; i < pictures; i++)
+                {
+                    var picture = Pose(i / 4d) with { Life = (ushort)(i < 72000 ? 4 : 5) };
+                    while (!streaming.TryWrite(picture)) Thread.Yield();
+                }
+                streaming.Skip();
+                streaming.Complete(source, System.Threading.Tasks.Task.CompletedTask, () => true).GetAwaiter().GetResult();
+                using var streamed = ReplayOwnerTrack.Load(source);
+                Check(streamed?.Count == pictures && streamed.Coverage.Samples == pictures && streamed.Coverage.Skipped == 1,
+                    "ten minute 240 Hz streamed source has no lifetime sample cap and preserves telemetry");
+                string provenance = streamed!.Provenance(true,false);
+                for (int i = 0; i < 100; i++) _ = streamed.Provenance(true,false);
+                long provenanceAllocated = GC.GetAllocatedBytesForCurrentThread();
+                for (int i = 0; i < 1000; i++) provenance = streamed.Provenance(true,false);
+                Check(GC.GetAllocatedBytesForCurrentThread() == provenanceAllocated && provenance.Contains("144001 pictures"),
+                    "source provenance reuses prepared labels without per-picture formatting allocations");
+                Check(streamed!.Sample(36000, 7, 99, 2, 3, 5, out var finalPicture) && finalPicture.Frame == 36000,
+                    "streamed tail remains seekable beyond the legacy cap");
+                Check(streamed.Sample(0,7,99,2,3,4,out var beginning) && beginning == Pose(0),
+                    "indexed backward seek retrieves the exact first source picture");
+                Check(!streamed.Sample(18000,7,99,2,3,4,out _) && streamed.Sample(18000,7,99,2,3,5,out _),
+                    "streamed chunk boundary fences lifecycle identity");
+                using var shared = new ReplayOwnerPresentationSource(source);
+                Check(shared.Load.GetAwaiter().GetResult()?.Count == pictures && ReferenceEquals(shared.Load,shared.Load),
+                    "one playback source retains its verified loading task for replacement scenes");
+                string croppedPath=Path.Combine(directory,"cropped.ppdemo"); File.WriteAllBytes(croppedPath,replay);
+                ReplayOwnerTrack.CopyRange(source,croppedPath,0,36000,CancellationToken.None);
+                using(var cropped=ReplayOwnerTrack.Load(croppedPath))
+                {
+                    Check(cropped?.Count==pictures && cropped.Coverage.Dropped==0,"offline range copy preserves more than65536 pictures with no artificial queue drops");
+                    bool equal=true;
+                    using var expected=streamed.Pictures().GetEnumerator(); using var actual=cropped!.Pictures().GetEnumerator();
+                    while(expected.MoveNext())if(!actual.MoveNext()||expected.Current!=actual.Current){equal=false;break;}
+                    Check(equal&&!actual.MoveNext(),"offline crop preserves every source picture exactly");
+                }
+                byte[] corrupt = File.ReadAllBytes(sidecar); corrupt[80] ^= 1; File.WriteAllBytes(sidecar,corrupt);
+                Check(ReplayOwnerTrack.Load(source) == null, "streamed corrupted payload rejected");
+                Check(streamed.Sample(36000,7,99,2,3,5,out _), "verified private snapshot survives source sidecar edits");
             }
             Console.WriteLine($"PASS: {_checks} owner presentation track assertions; synthetic codec/file/pose validation; asset animation rendering not exercised");
             return 0;

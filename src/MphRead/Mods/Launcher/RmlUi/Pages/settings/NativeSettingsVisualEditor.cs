@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.RmlUi.Host;
 namespace MphRead.Mods.Launcher.RmlUi.Pages.Settings;
@@ -129,11 +130,22 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
         _colorHex=_rows[_selected].Value;
         _host.SetField(_document,"settings_visual_color",_colorHex);
     }
+    private void SetColor(string value)
+    {
+        if(!_controller.Stage(_rows[_selected],value)){_colorError=_controller.Status;return;}
+        _colorError=null;SyncColor();_host.SetField(_document,"settings_visual_color",_rows[_selected].Value);
+    }
+    private static string Ink(string hex)
+    {
+        uint rgb=uint.Parse(hex.AsSpan(1),NumberStyles.HexNumber,CultureInfo.InvariantCulture);
+        float light=((rgb>>16)*.2126f+((rgb>>8)&255)*.7152f+(rgb&255)*.0722f)/255;
+        return light>.5f?"#061520":"#FFFFFF";
+    }
     internal bool Handle(in RmlUiIntent intent)
     {
         if(!OwnsForeground||intent.Document!=_document||intent.Kind!=RmlUiIntentKind.SettingsAction)return false;
         int a=intent.Argument;
-        if(!(a is >=32 and <64 or >=223 and <=241)||!_pages.Accept(intent))return false;
+        if(!(a is >=32 and <64 or >=223 and <=241 or >=800 and <=823)||!_pages.Accept(intent))return false;
         if(a is >=32 and <64)
         {if(a-32<_rows.Length&&CaptureColor()){_selected=a-32;_host.FocusDocument(_document,"settings_visual_pick_"+_selected);}}
         else switch(a)
@@ -170,6 +182,10 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
                 if(_kind==0&&_selected>=TouchSettings.Order.Length)
                 {var row=_controller.Rows.First(r=>r.Group=="Touch buttons"&&r.Label=="Extra "+(_selected-TouchSettings.Order.Length+1)+" enabled");
                     _controller.Stage(row,(!bool.Parse(row.Value)).ToString());}break;
+            case >=800 and <=815:
+                if(_kind==2)SetColor(HudColorSelection.Palette[a-800]);break;
+            case >=816 and <=823:
+                if(_kind==2&&a-816<HudColorSelection.Recent.Count)SetColor(HudColorSelection.Recent[a-816]);break;
         }
         if(_kind==2&&(a is 225 or 226))_host.SetField(_document,"settings_visual_color",_rows[_selected].Value);
         Present();return true;
@@ -224,6 +240,19 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
         }
         if(_kind==2)
         {
+            var palette=HudColorSelection.Palette;var recent=HudColorSelection.Recent;
+            for(int i=0;i<palette.Length;i++)
+            {
+                _host.SetBool(_document,"visible:settings_visual_palette_"+i,true);
+                _host.SetText(_document,"color:settings_visual_palette_"+i,palette[i]);
+                _host.SetText(_document,"ink:settings_visual_palette_"+i,Ink(palette[i]));
+            }
+            _host.SetBool(_document,"visible:settings_visual_recent_section",recent.Count>0);
+            for(int i=0;i<8;i++)
+            {
+                bool visible=i<recent.Count;_host.SetBool(_document,"visible:settings_visual_recent_"+i,visible);
+                if(visible){_host.SetText(_document,"color:settings_visual_recent_"+i,recent[i]);_host.SetText(_document,"ink:settings_visual_recent_"+i,Ink(recent[i]));}
+            }
             SyncColor();PresentWheel();
             if(_controller.AutoApply?_presentedColorSelection!=_selected:_host.FocusedElement()!="settings_visual_color")
                 _host.SetField(_document,"settings_visual_color",_rows[_selected].Value);
@@ -279,6 +308,8 @@ internal sealed class NativeSettingsVisualEditor : IDisposable
     {
         ReleasePointer();_preview=false;
         if(save&&_controller.AutoApply&&!_controller.FlushAutoApply())return;
+        if(save&&(_controller.AutoApply||!discard)&&_kind==2)
+            foreach(var row in _rows)if(_before.TryGetValue(row,out var before)&&!String.Equals(row.Value,before,StringComparison.OrdinalIgnoreCase))HudColorSelection.Remember(row.Value);
         _wheelCanvas?.Dispose();_wheelCanvas=null;_brightnessCanvas?.Dispose();_brightnessCanvas=null;
         if(!_pages.CloseModal())throw new InvalidOperationException("Visual settings editor could not close.");
         if(discard&&!_controller.AutoApply){foreach(var pair in _before)pair.Key.Value=pair.Value;_controller.Stage(_rows[0],_rows[0].Value);}

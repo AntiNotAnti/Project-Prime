@@ -173,7 +173,7 @@ public sealed class NetDynamicGeometryHistory
                 _entityIds[entity] = id;
                 if (entity is DoorEntity door) objects.Add(new DoorGeometry(id, door));
                 else if (entity is ForceFieldEntity field) objects.Add(new FieldGeometry(id, field));
-                else if (entity.Type is EntityType.Platform or EntityType.Object)
+                else if (entity.Type is EntityType.Platform or EntityType.Object or EntityType.Payload)
                     for (int slot = 0; slot < entity.EntityCollision.Length; slot++)
                         if (entity.EntityCollision[slot] is { Collision: not null } collision)
                             { objects.Add(new MeshGeometry(id + slot, collision)); _collisionIds[collision] = id + slot; }

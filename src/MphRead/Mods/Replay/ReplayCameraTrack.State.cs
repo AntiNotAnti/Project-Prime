@@ -6,7 +6,7 @@ namespace MphRead.Mods.Replay;
 
 internal sealed partial class ReplayCameraTrack
 {
-    internal const int MaxStateBytes = 8192;
+    internal const int MaxStateBytes = 64 + MaxKeys * KeySizeV7;
     private const uint StateMagic = 0x53435046; // FPCS
 
     /// <summary>Bounded camera authoring state without replay identities or paths.
@@ -16,10 +16,11 @@ internal sealed partial class ReplayCameraTrack
         var keys = _windowSource?._keys ?? _keys;
         using var stream = new MemoryStream();
         using var writer = new BinaryWriter(stream);
-        writer.Write(StateMagic); writer.Write((byte)1); writer.Write(_windowSource != null);
+        bool channels=HasChannelCurves(keys);
+        writer.Write(StateMagic); writer.Write((byte)(channels?3:2)); writer.Write(_windowSource != null);
         if (_windowSource != null) { writer.Write(_windowStart); writer.Write(_windowEnd); }
-        writer.Write((ushort)keys.Count);
-        foreach (var key in keys) WriteStateKey(writer, key);
+        writer.Write(keys.Count);
+        foreach (var key in keys) WriteStateKey(writer, key,channels);
         writer.Flush(); byte[] body = stream.ToArray();
         writer.Write(SHA256.HashData(body)); writer.Flush();
         return stream.ToArray();
@@ -35,20 +36,23 @@ internal sealed partial class ReplayCameraTrack
                 throw new InvalidDataException("Camera state checksum failed.");
             using var stream = new MemoryStream(bytes, writable: false);
             using var reader = new BinaryReader(stream);
-            if (reader.ReadUInt32() != StateMagic || reader.ReadByte() != 1)
+            if (reader.ReadUInt32() != StateMagic)
+                throw new InvalidDataException("Unsupported camera state.");
+            byte version = reader.ReadByte();
+            if (version is not (1 or 2 or 3))
                 throw new InvalidDataException("Unsupported camera state.");
             byte flag = reader.ReadByte();
             if (flag > 1) throw new InvalidDataException("Invalid camera state window.");
             uint start = 0, end = 0;
             if (flag == 1)
             { start = reader.ReadUInt32(); end = reader.ReadUInt32(); if (start >= end) throw new InvalidDataException("Invalid camera state window."); }
-            int count = reader.ReadUInt16();
-            if (count > MaxKeys || stream.Position + count * KeySizeV4 + 32 != bytes.Length)
+            int count = version == 1 ? reader.ReadUInt16() : reader.ReadInt32();
+            if (count < 0 || count > (version == 1 ? 64 : MaxKeys) || stream.Position + count * (version>=3?KeySizeV7:KeySizeV4) + 32 != bytes.Length)
                 throw new InvalidDataException("Invalid camera state key count.");
             var source = new ReplayCameraTrack();
             for (int i = 0; i < count; i++)
             {
-                var key = ReadStateKey(reader);
+                var key = ReadStateKey(reader,version>=3);
                 if (!Valid(key) || i > 0 && key.Frame <= source._keys[^1].Frame)
                     throw new InvalidDataException("Invalid camera state key.");
                 source._keys.Add(key);
@@ -62,7 +66,7 @@ internal sealed partial class ReplayCameraTrack
         { LastError = ex.Message; return false; }
     }
 
-    private static void WriteStateKey(BinaryWriter writer, ReplayCameraKeyframe key)
+    private static void WriteStateKey(BinaryWriter writer, ReplayCameraKeyframe key,bool channels=false)
     {
         writer.Write(key.Frame); writer.Write(key.Position.X); writer.Write(key.Position.Y); writer.Write(key.Position.Z);
         writer.Write(key.Rotation.X); writer.Write(key.Rotation.Y); writer.Write(key.Rotation.Z); writer.Write(key.Rotation.W);
@@ -74,8 +78,9 @@ internal sealed partial class ReplayCameraTrack
         writer.Write(outgoing.X); writer.Write(outgoing.Y); writer.Write(outgoing.Z);
         writer.Write(key.FovIncomingTangent); writer.Write(key.FovOutgoingTangent);
         writer.Write(key.RollIncomingTangent); writer.Write(key.RollOutgoingTangent);
+        if(channels)WriteCurves(writer,key.Curves);
     }
-    private static ReplayCameraKeyframe ReadStateKey(BinaryReader reader)
+    private static ReplayCameraKeyframe ReadStateKey(BinaryReader reader,bool channels=false)
     {
         uint frame = reader.ReadUInt32();
         var position = new OpenTK.Mathematics.Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
@@ -87,6 +92,6 @@ internal sealed partial class ReplayCameraTrack
         if (hasIn > 1 || hasOut > 1) throw new InvalidDataException("Invalid camera tangent flag.");
         return new(frame, position, rotation, fov, slot, roll, interpolation, ease,
             hasIn == 1 ? incoming : null, hasOut == 1 ? outgoing : null,
-            reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
+            reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(),channels?ReadCurves(reader):default);
     }
 }

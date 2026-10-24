@@ -4,5 +4,6 @@
   <ItemGroup>
     <Compile Include="../../src/MphRead/Mods/Input/DsLayout.cs" Link="DsLayout.cs" />
     <Compile Include="../../src/MphRead/Mods/Input/StylusZone.cs" Link="StylusZone.cs" />
+    <Compile Include="../../src/MphRead/Mods/Render/SceneDsLayout.cs" Link="SceneDsLayout.cs" />
   </ItemGroup>
 </Project>

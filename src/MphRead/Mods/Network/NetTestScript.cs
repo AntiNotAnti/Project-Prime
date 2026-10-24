@@ -45,8 +45,11 @@ namespace MphRead.Mods.Network
     /// PlayerAi write into, so the engine cannot tell it apart from a person
     /// playing.
     /// </summary>
-    public static class NetTestScript
+    public static partial class NetTestScript
     {
+        // Only the diagnostic's own scene may retain scripted controls across
+        // keyboard polling. Never suppress input in a normal client scene.
+        internal static Scene? OfflineInputScene { get; set; }
         /// <summary>
         /// Seconds per phase. Lowered by the map audit, which visits every
         /// room and cannot afford seventy seconds each.
@@ -137,6 +140,7 @@ namespace MphRead.Mods.Network
             AimDeltaX = 0;
             AimDeltaY = 0;
             FramesOnTarget = 0;
+            _explorationBlockedMoves = 0;
         }
 
         /// <summary>
@@ -334,6 +338,12 @@ namespace MphRead.Mods.Network
                 // and the death-cry bug live in. See
                 // NetPlayerBridge.DescribesTheLifeBefore.
                 Hold(c.Shoot, true);
+                Finish(player, c);
+                return;
+            }
+            if (GroundedExploration)
+            {
+                DriveExploration(player, c);
                 Finish(player, c);
                 return;
             }

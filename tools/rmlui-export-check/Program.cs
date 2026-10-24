@@ -6,6 +6,11 @@ var backend = new MemoryExports();
 using var page = new TheatreExportController(backend);
 Check(page.Snapshot().Options.Source == TheatreExportSource.Selection && page.Snapshot().Current, "captures existing marks without another transport");
 Check(page.Change("fps") && page.Change("game-hud") && page.Change("encoder"), "native draft options can be edited");
+var rates = new HashSet<int>();
+int originalRate = page.Snapshot().Options.Fps;
+for (int i = 0; i < 8; i++) { rates.Add(page.Snapshot().Options.Fps); Check(page.Change("fps"), "cycle supported native export rate"); }
+Check(rates.Contains(240) && page.Snapshot().Options.Fps == originalRate,
+    "native export rate cycle includes 240 FPS and returns to the reviewed draft");
 var options = page.Snapshot().Options;
 backend.FailWrite = true;
 Check(!page.Enqueue() && page.Snapshot().Options == options && backend.Accepted.Count == 0, "backend failure keeps exact draft options");

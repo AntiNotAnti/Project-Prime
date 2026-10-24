@@ -26,6 +26,7 @@ public static class MapModeCapabilities
     public static bool Supports(string roomKey, GameMode mode, MatchWorldProfile profile,
         out string reason, int? configuredPlayers = null, bool allowLocalSource = false)
     {
+
         if (mode == GameMode.InstaGib) mode = GameMode.Battle;
         if (!profile.IsValid) { reason = "Invalid multiplayer world profile."; return false; }
         if (!Metadata.RoomMetadata.TryGetValue(roomKey, out var room) || room.EntityPath == null || room.FirstHunt)
@@ -39,14 +40,21 @@ public static class MapModeCapabilities
                 + "Choose an installed arena or repair the game files in Settings.";
             return false;
         }
+        if(mode == GameMode.PushThePayload && HeroModes.PayloadMap.Error(custom) is {} payloadReason)
+        { reason=payloadReason; return false; }
+        if (mode == GameMode.CaptureTheZone && custom?.CaptureZone?.Valid != true)
+        { reason = "Capture the Zone requires an authored capture-zone map."; return false; }
         if (custom != null && MapModeValidator.WhyUnsupported(custom, mode,
             configuredPlayers ?? custom.Capabilities?.MinPlayers ?? 1) is string unsupported)
         { reason = unsupported; return false; }
         try
         {
-            int layer = SceneSetup.GetMultiplayerEntityLayer(mode, profile.EntityLayerPlayers, profile.Resources);
+            int layer = SceneSetup.GetMultiplayerEntityLayer(
+                mode == GameMode.Oddball && !Mods.Oddball.OddballMap.IsCombatHall(room.Name) ? GameMode.Battle : mode,
+                profile.EntityLayerPlayers, profile.Resources);
             var entities = MapResourceRules.Resolve(room, profile.Resources,
                 Read.GetEntities(room.EntityPath, layer, false, allowHook: true));
+            if (mode == GameMode.Oddball) entities = Mods.Oddball.OddballMap.Resolve(room, entities);
             if (mode is GameMode.Hardpoint or GameMode.HardpointTeams && custom != null
                 && (custom.HardpointOrder == null || custom.HardpointOrder.Any(id => !entities.Any(e => e is Entity<NodeDefenseEntityData> node && node.Data.Header.EntityId == id))))
             { reason = "Hardpoint order references an objective missing from the selected layer."; return false; }
@@ -60,9 +68,17 @@ public static class MapModeCapabilities
     {
         string displayName = String.IsNullOrWhiteSpace(map.InGameName)
             ? Launcher.LauncherRoomDisplayName.Get(map.Name) : map.InGameName;
+
         if (mode == GameMode.InstaGib) mode = GameMode.Battle;
         reason = MapModeValidator.WhyUnsupported(map, mode, players) ?? "";
         if (reason.Length != 0) return false;
+        if(mode == GameMode.PushThePayload) { reason=HeroModes.PayloadMap.Error(map)??"";return reason.Length==0; }
+        if (mode == GameMode.CaptureTheZone)
+        {
+            reason = map.CaptureZone?.Valid != true ? "A valid capture volume is required."
+                : !map.Spawns.Any(s=>s.Team==0) || !map.Spawns.Any(s=>s.Team==1) ? "Both teams need safe spawns." : "";
+            return reason.Length == 0;
+        }
         if (map.NativeRoom is { PreserveEntities: true } native)
         {
             if (!Metadata.RoomMetadata.TryGetValue(native.Room, out var room) || room.EntityPath == null)
@@ -70,7 +86,9 @@ public static class MapModeCapabilities
             try
             {
                 var profile = MatchWorldProfile.Resolve(players);
-                int layer = SceneSetup.GetMultiplayerEntityLayer(mode, profile.EntityLayerPlayers, profile.Resources);
+                int layer = SceneSetup.GetMultiplayerEntityLayer(
+                mode == GameMode.Oddball && !Mods.Oddball.OddballMap.IsCombatHall(room.Name) ? GameMode.Battle : mode,
+                profile.EntityLayerPlayers, profile.Resources);
                 var entities = Read.GetEntities(room.EntityPath, layer, false, allowHook: true)
                     .Where(e => !native.EditableSpawns || e.Type != EntityType.PlayerSpawn).ToList();
                 foreach (var spawn in map.Spawns)
@@ -81,6 +99,7 @@ public static class MapModeCapabilities
                     var entry = Read.ReadStruct<EntityEntry>(new byte[24]);
                     entities.Add(new Entity<PlayerSpawnEntityData>(entry, EntityType.PlayerSpawn, 0, data, data.Header));
                 }
+                if (mode == GameMode.Oddball) entities = Mods.Oddball.OddballMap.Resolve(room, entities).ToList();
                 return SupportsEntities(map.Name, mode, entities, out reason);
             }
             catch (Exception ex) when (ex is System.IO.IOException or ProgramException or KeyNotFoundException)
@@ -101,18 +120,30 @@ public static class MapModeCapabilities
         string? missing = null;
         var spawns = entities.OfType<Entity<PlayerSpawnEntityData>>().Where(e => e.Data.Active != 0).ToArray();
         if (spawns.Length == 0) missing = "active player spawns";
-        else if (mode == GameMode.Capture)
+        else if (mode == GameMode.CaptureTheZone || mode == GameMode.PushThePayload)
+        {
+            if (!spawns.Any(e=>e.Data.TeamIndex==0) || !spawns.Any(e=>e.Data.TeamIndex==1))
+                missing = "spawns for both teams";
+        }
+        else if (mode is GameMode.Capture or GameMode.CaptureTheFlag)
         {
             var bases = entities.OfType<Entity<FlagBaseEntityData>>().Select(e => e.Data.TeamId).ToHashSet();
             var flags = entities.OfType<Entity<OctolithFlagEntityData>>().Select(e => e.Data.TeamId).ToHashSet();
             if (!bases.Contains(0) || !bases.Contains(1)) missing = "bases for both teams";
             else if (!flags.Contains(0) || !flags.Contains(1)) missing = "Octoliths for both teams";
+            else if (mode == GameMode.CaptureTheFlag && (entities.Count(e => e.Type == EntityType.OctolithFlag) != 2
+                || entities.Count(e => e.Type == EntityType.FlagBase) != 2)) missing = "exactly two flag anchors and two bases";
             else if (!spawns.Any(e => e.Data.TeamIndex == 0) || !spawns.Any(e => e.Data.TeamIndex == 1))
                 missing = "spawns for both teams";
         }
         else if (mode == GameMode.Headhunter)
         {
             if (!entities.Any(e => e.Type == EntityType.FlagBase)) missing = "a token banking base";
+        }
+        else if (mode == GameMode.Oddball)
+        {
+            if (entities.Count(e => e.Type == EntityType.OctolithFlag) != 1) missing = "exactly one neutral skull source";
+            else if (!spawns.Any(e => e.Data.TeamIndex == 0) || !spawns.Any(e => e.Data.TeamIndex == 1)) missing = "native spawns for both teams";
         }
         else if (mode == GameMode.Relic)
         {

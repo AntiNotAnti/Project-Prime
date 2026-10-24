@@ -77,7 +77,7 @@ public sealed partial class TheatrePlaybackPagePresenter
         _host.SetText(_cameraModal, "replay_camera_replay", Path.GetFileName(state.Context.LogicalPath));
         _host.SetText(_cameraModal, "replay_camera_review", $"REVIEWED FRAME {state.Context.Frame} // " + CameraPose(state.Context.Pose));
         _host.SetText(_cameraModal, "replay_camera_count", state.Context.Keys.Length == 0 ? "NO CAMERA KEYFRAMES"
-            : $"KEY {state.SelectedIndex + 1} / {state.Context.Keys.Length} (MAXIMUM 64)");
+            : $"KEY {state.SelectedIndex + 1} / {state.Context.Keys.Length} (MAXIMUM 1024)");
         _host.SetText(_cameraModal, "replay_camera_selected", state.Selected is { } key
             ? $"FRAME {key.Frame} // " + Time(key.Frame) + " // " + CameraPose(key.Pose) : "Add the reviewed camera pose at the playhead.");
         _host.SetText(_cameraModal, "replay_camera_status", state.Status);

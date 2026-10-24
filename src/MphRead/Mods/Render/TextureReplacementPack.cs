@@ -37,7 +37,13 @@ namespace MphRead.Mods.Render
             if (nativeFlipbook && local != null)
                 local = local with { Albedo = null };
             if (local != null && HasChannels(local))
-                return capturedSource != null && local.Albedo == null ? local with { Albedo = capturedSource.Albedo } : local;
+            {
+                if (local.Albedo == null && capturedSource?.Albedo is { } inherited)
+                    return local with { Albedo = inherited.WithTexturePolicy(inherited.TransferOverride,
+                        local.AlphaPolicy, local.WrapS is { } s && local.WrapT is { } t
+                            ? new TextureWrapPolicy(s, t) : inherited.WrapPolicy, local.AlphaFactor) };
+                return local;
+            }
             if (capturedSource != null) return capturedSource;
             return MapMaterialAssetRegistry.Resolve(portableKey,
                 includeCompanions: RenderOptions.AdvancedMaterials) ?? local;
@@ -54,7 +60,9 @@ namespace MphRead.Mods.Render
             => ResolveLocalExplicit(key) ?? sourceBanks?.Resolve(key) ?? MapMaterialAssetRegistry.Resolve(key);
 
         private static bool HasChannels(ResolvedMaterial material)
-            => material.Albedo != null || material.Normal != null || material.SpecularRoughness != null || material.Emissive != null;
+            => material.Albedo != null || material.Normal != null || material.SpecularRoughness != null || material.Emissive != null
+                || material.AlphaPolicy.Mode != TextureAlphaMode.Legacy || material.AlphaFactor != 1
+                || material.WrapS.HasValue || material.WrapT.HasValue;
 
         private static void EnsureLoaded()
         {
@@ -109,11 +117,12 @@ namespace MphRead.Mods.Render
                         && (material.Emissive?.CanDecodeOffThread ?? true)));
 
         internal static PreparedTextureAsset? DecodePrepared(MaterialImage image,
-            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
+            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension,
+            bool linearFiltering = false)
         {
             try
             {
-                return image.Prepare(assetClass, channel, maximumDimension);
+                return image.Prepare(assetClass, channel, maximumDimension, linearFiltering);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
                 or OverflowException or InvalidOperationException or UnauthorizedAccessException)
@@ -213,14 +222,9 @@ namespace MphRead.Mods.Render
             width = height = 0;
             try
             {
-                if (image.IsRawRgba)
-                {
-                    PreparedTextureAsset asset = image.Prepare(assetClass, channel,
-                        TextureAssetManager.DimensionLimit(assetClass, channel));
-                    return TryUploadPreparedBound(asset, repeat: true, out width, out height);
-                }
-                using Stream stream = image.OpenRead();
-                return TextureAssetManager.TryUploadBound(stream, image.Path, assetClass, channel, repeat: true, out width, out height);
+                PreparedTextureAsset asset = image.Prepare(assetClass, channel,
+                    TextureAssetManager.DimensionLimit(assetClass, channel));
+                return TryUploadPreparedBound(asset, repeat: true, out width, out height);
             }
             catch (Exception ex)
             {

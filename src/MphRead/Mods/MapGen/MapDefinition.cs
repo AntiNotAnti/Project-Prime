@@ -60,6 +60,9 @@ namespace MphRead.Mods.MapGen
         /// </summary>
         public int ScaleFactor { get; set; } = 4;
 
+        public CaptureZoneDefinition? CaptureZone { get; set; }
+        public JsonElement? PayloadEscort { get; set; }
+
         public float KillHeight { get; set; } = -40f;
         public float FarClip { get; set; } = 350f;
 
@@ -675,6 +678,8 @@ namespace MphRead.Mods.MapGen
         public Guid Id { get; set; }
         /// <summary>Legacy/native single-texture FPTX fallback used by every client.</summary>
         public string? Texture { get; set; }
+        /// <summary>Optional full-color desktop OpenGL video; native Texture is the deliberate fallback.</summary>
+        public MapVideoTexture? VideoTexture { get; set; }
         /// <summary>Optional portable HD albedo packaged with the map.</summary>
         public string? Albedo { get; set; }
         /// <summary>Optional image bound to a private source texture bank.</summary>
@@ -701,6 +706,20 @@ namespace MphRead.Mods.MapGen
         public bool TwoSided { get; set; }
         /// <summary>Optional texture-coordinate animation authored in texture tiles per second.</summary>
         public MapMaterialAnimation? Animation { get; set; }
+    }
+
+    /// <summary>Portable MP4 playback metadata; independent of model import and geometry.</summary>
+    public sealed class MapVideoTexture
+    {
+        public string Source { get; set; } = "";
+        public int Width { get; set; }
+        public int Height { get; set; }
+        public int FramesPerSecond { get; set; } = 60;
+        public int FrameCount { get; set; }
+        /// <summary>Repeat the source clip. False holds its final frame. Defaults to true for existing video maps.</summary>
+        public bool Loop { get; set; } = true;
+        /// <summary>Empty shares playback with identical source/clock settings. Different groups have independent clocks.</summary>
+        public string PlaybackGroup { get; set; } = "";
     }
 
     /// <summary>

@@ -24,7 +24,8 @@ internal static class DemoClip
         || ReplayCapture.Recorder.Timeline.CustomArchiveFormat is 7 or 8);
     public static string? LastError { get; private set; }
     public static string? LastSavedPath { get; private set; }
-    public static bool Active => Seconds > 0 && NetSession.Active && !DemoPlayback.IsActive;
+    public static bool Active => Seconds > 0 && NetSession.Active && !DemoPlayback.IsActive
+        && !(NetSession.ServerMatch is { } match && Mods.HeroModes.HeroRules.Active((GameMode)match.Mode));
     public static double Held => ReplayCapture.Recorder.Timeline.FirstRecordingFrame is uint first
         && ReplayCapture.Recorder.Timeline.LastRecordingFrame is uint last
         ? Math.Min(Seconds, (last - first) / 60.0) : 0;
@@ -46,6 +47,11 @@ internal static class DemoClip
     }
     public static string? SaveWithFeedback()
     {
+        if (NetSession.ServerMatch is { } match && Mods.HeroModes.HeroRules.Active((GameMode)match.Mode))
+        {
+            Chat.ChatBox.System("Capture the Zone replay clips are unavailable in this development build.");
+            return null;
+        }
         double held = Held;
         string? path = Save();
         Chat.ChatBox.System(path == null ? "nothing to clip yet" : $"saving the last {held:0} s to " + Path.GetFileName(path));

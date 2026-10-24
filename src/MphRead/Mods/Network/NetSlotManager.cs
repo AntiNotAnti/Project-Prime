@@ -82,7 +82,7 @@ namespace MphRead.Mods.Network
                     }
                     Activate(player, slot);
                 }
-                else if (occupied && slot != NetSession.LocalSlot
+                else if (occupied && (slot != NetSession.LocalSlot || Mods.HeroModes.HeroRules.Active(player.OwningScene.GameState.Mode) || Mods.HeroModes.CtfRules.Active(player.OwningScene.GameState.Mode))
                     && NetSession.SlotHunter[slot] != player.Hunter)
                 {
                     // The roster's first mention of a slot can precede the
@@ -91,9 +91,22 @@ namespace MphRead.Mods.Network
                     // only before the player spawns: the alternative is
                     // wearing the wrong character for the rest of the map, and
                     // ModSetHunter makes this converge on the next frame.
-                    player.ModPrepareHunterResources(NetSession.SlotHunter[slot]);
-                    player.ModSetHunter(NetSession.SlotHunter[slot]);
-                    player.Initialize();
+                    if (Mods.HeroModes.HeroRules.Active(player.OwningScene.GameState.Mode))
+                    {
+                        if (player.Health > 0) continue; // never repair a roster with a live health-refilling hero swap
+                        player.ModChangeHeroWhileDead(NetSession.SlotHunter[slot]);
+                    }
+                    else if (Mods.HeroModes.CtfRules.Active(player.OwningScene.GameState.Mode))
+                    {
+                        if (player.Health > 0) continue;
+                        player.ModChangeCtfHunterWhileDead(NetSession.SlotHunter[slot]);
+                    }
+                    else
+                    {
+                        player.ModPrepareHunterResources(NetSession.SlotHunter[slot]);
+                        player.ModSetHunter(NetSession.SlotHunter[slot]);
+                        player.Initialize();
+                    }
                     Console.WriteLine($"[net] slot {slot} is playing {player.Hunter}");
                     NetLog.Event($"slot {slot} is playing {player.Hunter}");
                 }
@@ -135,11 +148,12 @@ namespace MphRead.Mods.Network
             // The hunter comes from the server roster. Initial loading no
             // longer uploads every possible hunter, so prepare this slot's
             // actual hunter before Initialize binds its model resources.
-            Hunter wantedHunter = slot == NetSession.LocalSlot
+            bool ctzRosterOwned = Mods.HeroModes.HeroRules.Active(player.OwningScene.GameState.Mode) || Mods.HeroModes.CtfRules.Active(player.OwningScene.GameState.Mode);
+            Hunter wantedHunter = slot == NetSession.LocalSlot && !ctzRosterOwned
                 ? player.Hunter
                 : NetSession.SlotHunter[slot];
             player.ModPrepareHunterResources(wantedHunter);
-            if (slot != NetSession.LocalSlot && wantedHunter != player.Hunter)
+            if ((slot != NetSession.LocalSlot || ctzRosterOwned) && wantedHunter != player.Hunter)
             {
                 player.ModSetHunter(wantedHunter);
             }

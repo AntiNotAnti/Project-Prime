@@ -7,7 +7,7 @@ public partial class Scene
     private System.Numerics.Vector3 _profileHudColor = System.Numerics.Vector3.One;
     private float _profileHudScale = 1, _profileHudAlpha = 1, _profileHudX, _profileHudY;
     internal int HudTextElement = -1;
-    internal HudLayoutScope PushHudElement(int index, float legacyX, float legacyY, bool visible = true)
+    internal HudLayoutScope PushHudElement(int index, float legacyX, float legacyY, bool visible = true, bool requiredFeedback = false)
     {
         var saved = new HudLayoutScope(this, _profileHudScale, _profileHudAlpha, _profileHudX, _profileHudY, _profileHudColor, HudTextElement);
         HudTextElement=index;
@@ -17,7 +17,7 @@ public partial class Scene
         var transform = new HudTransform(Size.X, Size.Y, runtime.SafeArea);
         var position = transform.Resolve(element.Anchor, element.Offset);
         _profileHudScale = element.Scale * transform.UnitScale / (Size.Y / 1080f);
-        _profileHudAlpha = element.Enabled && visible ? element.Opacity : 0;
+        _profileHudAlpha = (element.Enabled || requiredFeedback) && visible ? element.Opacity : 0;
         _profileHudColor = element.Color;
         _profileHudX = position.X * 256 / Size.X - legacyX * _profileHudScale;
         _profileHudY = position.Y * 192 / Size.Y - legacyY * _profileHudScale;

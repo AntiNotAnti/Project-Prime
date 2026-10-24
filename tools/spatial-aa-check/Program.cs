@@ -14,8 +14,20 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using G = MphRead.Mods.Render.GraphicsApi;
 
-bool enabled = args.Contains("--enabled");
-Environment.SetEnvironmentVariable("PROJECT_PRIME_GL_SPATIAL_AA", enabled ? "1" : null);
+bool requested = args.Contains("--enabled");
+bool forceLegacy = args.Contains("--force-legacy")
+    || Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_FORCE_LEGACY") == "1";
+Environment.SetEnvironmentVariable("PROJECT_PRIME_GL_SPATIAL_AA", requested ? "1" : null);
+Environment.SetEnvironmentVariable("PROJECT_PRIME_GL_FORCE_LEGACY", forceLegacy ? "1" : null);
+bool enabled = requested && !forceLegacy
+    && !args.Any(a => a.Equals("-gllegacy", StringComparison.OrdinalIgnoreCase));
+return Run(enabled);
+
+// Keep Scene and graphics type initialization behind a non-inlined boundary.
+// Scene is beforefieldinit; JIT compilation of this method must follow policy setup.
+[MethodImpl(MethodImplOptions.NoInlining)]
+static int Run(bool enabled)
+{
 GraphicsBackendPolicy.Configure("opengl");
 var settings = DesktopGlContext.Settings(background: true);
 settings.ClientSize = new(65, 65);
@@ -26,8 +38,12 @@ var scene = (Scene)RuntimeHelpers.GetUninitializedObject(typeof(Scene));
 var applySpatial = (Action)typeof(Scene).GetMethod("ApplySpatialAntialiasing", BindingFlags.Instance | BindingFlags.NonPublic)!
     .CreateDelegate(typeof(Action), scene);
 scene.Size = new(width, height);
-var field = typeof(Scene).GetField("_frameTransientTextures", BindingFlags.Instance | BindingFlags.NonPublic)!;
-field.SetValue(scene, Activator.CreateInstance(field.FieldType));
+// Uninitialized test scenes must still own the collections read by aggregate target accounting.
+foreach (string name in new[] { "_frameTransientTextures", "_supersampleResolveTargets" })
+{
+    var field = typeof(Scene).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!;
+    field.SetValue(scene, Activator.CreateInstance(field.FieldType));
+}
 int input = G.GenTexture(), framebuffer = G.GenFramebuffer();
 try
 {
@@ -177,3 +193,5 @@ void Save(byte[] rgba, string path)
     MphRead.Mods.PngEncoder.Write<byte>(rgba, width, height, ReFuel.Stb.StbiImageFormat.Rgba, stream);
 }
 static void Check(bool condition, string message) { if (!condition) throw new Exception(message); Console.WriteLine("PASS " + message); }
+
+}

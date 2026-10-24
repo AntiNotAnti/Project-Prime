@@ -389,7 +389,7 @@ namespace MphRead.Entities
                 }
                 _nodeData = _scene.Room.NodeData;
                 SetClosestNodeList(_player.Position);
-                if (_scene.GameState.Mode == GameMode.Capture)
+                if (_scene.GameState.Mode is GameMode.Capture or GameMode.CaptureTheFlag)
                 {
                     foreach (EntityBase entity in _scene.Entities)
                     {
@@ -424,7 +424,7 @@ namespace MphRead.Entities
                         _forceDisable = true;
                     }
                 }
-                else if (_scene.GameState.Mode == GameMode.Bounty || _scene.GameState.Mode == GameMode.BountyTeams || _scene.GameState.Mode == GameMode.Relic)
+                else if (_scene.GameState.Mode == GameMode.Bounty || _scene.GameState.Mode == GameMode.BountyTeams || _scene.GameState.Mode == GameMode.Relic || _scene.GameState.Mode == GameMode.Oddball)
                 {
                     foreach (EntityBase entity in _scene.Entities)
                     {
@@ -432,7 +432,8 @@ namespace MphRead.Entities
                         {
                             _octolithFlagCC = _octolithFlagD4 = _octolithFlagDC = (OctolithFlagEntity)entity;
                         }
-                        else if (entity.Type == EntityType.FlagBase && _flagBaseD0 == null)
+                        else if (entity.Type == EntityType.FlagBase && _flagBaseD0 == null
+                            && (_scene.GameState.Mode != GameMode.Oddball || ((FlagBaseEntity)entity).Data.TeamId == _player.TeamIndex))
                         {
                             _flagBaseD0 = _flagBaseD8 = _flagBaseE0 = (FlagBaseEntity)entity;
                         }
@@ -672,6 +673,7 @@ namespace MphRead.Entities
                 {
                     return;
                 }
+                ApplyCtfBotInteraction();
                 Flags3 |= AiFlags3.NoInput;
                 for (int i = 0; i < _buttons.AllButtons.Count; i++)
                 {
@@ -909,6 +911,7 @@ namespace MphRead.Entities
                 // bot decisions. All supported rulesets use the native Hunter AI.
                 ApplyCompetitiveHunterCombat();
                 ApplyCustomWeaponPickupGoal();
+                ApplyPayloadObjective();
                 // The legacy tree and tactical/hunter layers only submit desired inputs.
                 // The final motor resolves one legal, rate-limited player command.
                 ApplyBotMotor();
@@ -3319,7 +3322,7 @@ namespace MphRead.Entities
                     Span<int> offsets = stackalloc int[10];
                     while (offsetCount < 10 && i < specIndex - navIndex)
                     {
-                        if (_scene.GameState.Mode == GameMode.Capture && _player.TeamIndex == 1)
+                        if ((_scene.GameState.Mode is GameMode.Capture or GameMode.CaptureTheFlag) && _player.TeamIndex == 1)
                         {
                             uint field4 = _nodeList[navIndex + i].Field4;
                             if (field4 > 100 && field4 <= 110)
@@ -5538,7 +5541,7 @@ namespace MphRead.Entities
 
             private int Func3_213B690(AiContext context, AiPersonalityData5 param)
             {
-                if (_scene.GameState.Mode == GameMode.Capture)
+                if (_scene.GameState.Mode is GameMode.Capture or GameMode.CaptureTheFlag)
                 {
                     return 0;
                 }
@@ -5858,12 +5861,12 @@ namespace MphRead.Entities
 
             private int Func3_213AE14(AiContext context, AiPersonalityData5 param)
             {
-                return _scene.GameState.Mode == GameMode.Capture ? 1 : 0;
+                return (_scene.GameState.Mode is GameMode.Capture or GameMode.CaptureTheFlag) ? 1 : 0;
             }
 
             private int Func3_213ADF8(AiContext context, AiPersonalityData5 param)
             {
-                return _scene.GameState.Mode != GameMode.Capture ? 1 : 0; // inverted
+                return (_scene.GameState.Mode is not (GameMode.Capture or GameMode.CaptureTheFlag)) ? 1 : 0; // inverted
             }
 
             private int Func3_213ADC4(AiContext context, AiPersonalityData5 param)
@@ -5888,7 +5891,7 @@ namespace MphRead.Entities
 
             private int Func3_213ACE8(AiContext context, AiPersonalityData5 param)
             {
-                if (_scene.GameState.Mode == GameMode.Capture && _player.TeamIndex == 0 && _field30 > 100) // sktodo-ai: FPS stuff?
+                if ((_scene.GameState.Mode is GameMode.Capture or GameMode.CaptureTheFlag) && _player.TeamIndex == 0 && _field30 > 100) // sktodo-ai: FPS stuff?
                 {
                     return 1;
                 }

@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
 using MphRead;
 using MphRead.Entities;
 using MphRead.Formats;
@@ -23,14 +24,17 @@ static partial class Program
     }
     static void Put(object owner,string name,object value)=>DeepField(owner,name).SetValue(owner,value);
     static T Take<T>(object owner,string name)=>(T)DeepField(owner,name).GetValue(owner)!;
-    static Model DynamicGeometry(int nodes=5,int meshes=1,int materials=2)
+    static Model DynamicGeometry(int nodes=5,int meshes=1,int materials=2,bool parkour=false)
     {
+        string[] names=["root","Spine_1","L_shoulder","L_elbow","L_wrist","R_shoulder","L_hip","L_knee","L_ankle","R_hip","R_knee","R_ankle"];
+        short[] parents=[-1,0,1,2,3,1,0,6,7,0,9,10],children=[1,2,3,4,-1,-1,7,8,-1,10,11,-1],next=[-1,6,5,-1,-1,-1,9,-1,-1,-1,-1,-1];
+        if(parkour) nodes=names.Length;
         byte[] Name(string text) { byte[] name=new byte[64]; System.Text.Encoding.ASCII.GetBytes(text).CopyTo(name,0); return name; }
         var rawNodes=Enumerable.Range(0,nodes).Select(i=>Raw<RawNode>(
-            (nameof(RawNode.Name),Name(i==1?"Spine_1":"node"+i)),
-            (nameof(RawNode.ParentId),(short)(i==0?-1:i-1)),
-            (nameof(RawNode.ChildId),(short)(i+1<nodes?i+1:-1)),(nameof(RawNode.NextId),(short)-1),
-            (nameof(RawNode.Enabled),1u),(nameof(RawNode.MeshCount),(ushort)(i==0?meshes:0)),
+            (nameof(RawNode.Name),Name(parkour?names[i]:i==1?"Spine_1":"node"+i)),
+            (nameof(RawNode.ParentId),parkour?parents[i]:(short)(i==0?-1:i-1)),
+            (nameof(RawNode.ChildId),parkour?children[i]:(short)(i+1<nodes?i+1:-1)),(nameof(RawNode.NextId),parkour?next[i]:(short)-1),
+            (nameof(RawNode.Enabled),1u),(nameof(RawNode.MeshCount),(ushort)(i==(parkour?2:0)?meshes:0)),
             (nameof(RawNode.Scale),new Vector3Fx(4096,4096,4096)))).ToArray();
         var material=Raw<RawMaterial>((nameof(RawMaterial.Name),Name("body")),
             (nameof(RawMaterial.TextureId),(short)-1),(nameof(RawMaterial.PaletteId),(short)-1),
@@ -71,7 +75,7 @@ static partial class Program
         var lower=new ModelInstance(model);var upper=new ModelInstance(model);
         Put(player,"_bipedModel1",lower);Put(player,"_bipedModel2",upper);Put(player,"_altModel",new ModelInstance(model));
         Put(player,"_trailModel",new ModelInstance(model));
-        var lods=Take<ModelInstance[]>(player,"_bipedModelLods");lods[0]=lower;lods[1]=lower;
+        var lods=Take<ModelInstance[]>(player,"_bipedModelLods");lods[0]=new(model);lods[1]=new(model);
         var spines=Take<Node?[]>(player,"_spineNodes");spines[0]=model.Nodes[1];spines[1]=model.Nodes[1];
         player.NodeRef=new NodeRef("offscreen",1,1,0);player.LoadFlags=LoadFlags.Active|LoadFlags.Spawned;
         player.Position=new(.25f,0,0);return player;
@@ -126,7 +130,7 @@ static partial class Program
         const BindingFlags flags=BindingFlags.Static|BindingFlags.NonPublic;
         FieldInfo packField=typeof(CharacterModelRuntime).GetField("_pack",flags)!,loadedField=typeof(CharacterModelRuntime).GetField("_packLoaded",flags)!;
         object? oldPack=packField.GetValue(null),oldLoaded=loadedField.GetValue(null);
-        var assets=new Dictionary<(Hunter,CharacterModelPart,int),CharacterModelAsset>();
+        var assets=new Dictionary<(Hunter,CharacterModelPart,int,BeamType?),CharacterModelAsset>();
         object pack=typeof(CharacterModelPack).GetConstructors(BindingFlags.Instance|BindingFlags.NonPublic).Single().Invoke([assets,null]);
         packField.SetValue(null,pack);loadedField.SetValue(null,true);
         object table=typeof(CharacterModelRuntime).GetField("_scenes",flags)!.GetValue(null)!;
@@ -139,6 +143,8 @@ static partial class Program
         object resources=lookup[1]!;
         var rigid=(IDictionary)resources.GetType().GetField("RigidModels")!.GetValue(resources)!;
         var weighted=(IDictionary)resources.GetType().GetField("WeightedModels")!.GetValue(resources)!;
+        int initialRigid=rigid.Count,initialWeighted=weighted.Count;
+        int segmentNode=Enumerable.Range(0,source.Nodes.Count).First(i=>source.Nodes[i].MeshCount>0);
         RenderOptions.CharacterModelReplacements=true;
         foreach(bool skin in new[]{false,true})
         {
@@ -148,9 +154,9 @@ static partial class Program
                 "in-memory-detached-"+skin,new Dictionary<string,string>(),new HashSet<string>(),skin,1);
             assets[(Hunter.Samus,CharacterModelPart.Biped,0,(BeamType?)null)]=asset;
             if(skin) weighted.Add(CharacterModelRuntime.ModelCacheKey(asset,source.Id),new CharacterWeightedRenderModel(asset,
-                new[]{new CharacterWeightedRenderSegment(0,hd.Meshes[0].ListId)},new[]{new CharacterWeightedRenderJoint(0,Matrix4.Identity)},3,3));
+                new[]{new CharacterWeightedRenderSegment(0,hd.Meshes[0].ListId)},new[]{new CharacterWeightedRenderJoint(segmentNode,Matrix4.Identity)},3,3));
             else rigid.Add(CharacterModelRuntime.ModelCacheKey(asset,source.Id),new CharacterRigidRenderModel(asset,
-                new[]{new CharacterRigidRenderSegment(0,0,hd.Meshes[0].ListId)},3,3));
+                new[]{new CharacterRigidRenderSegment(segmentNode,0,hd.Meshes[0].ListId)},3,3));
             Collection(scene);Set(scene,"_cameraMode",CameraMode.Player);
             string before=PoseState(Take<ModelInstance>(player,"_bipedModel2"));player.Draw();
             RenderItem detached=Detached(scene).Single();Matrix4 transform=detached.Transform;
@@ -162,10 +168,92 @@ static partial class Program
             Check(visible.ListId==hd.Meshes[0].ListId&&visible.Transform==transform
                 &&visible.MatrixStack.Take(visible.MatrixStackCount*16).SequenceEqual(palette),$"{(skin?"weighted":"rigid")} HD detached/visible packet and palette parity");
             for(int i=0;i<8;i++){Collection(scene);Set(scene,"_cameraMode",CameraMode.Player);player.Draw();}
-            Check(rigid.Count==1&&weighted.Count==(skin?1:0),"detached clone identity cannot duplicate scene HD geometry cache");
+            Check(rigid.Count==initialRigid+1&&weighted.Count==initialWeighted+(skin?1:0),"detached clone identity cannot duplicate scene HD geometry cache");
         }
         RenderOptions.CharacterModelReplacements=false;packField.SetValue(null,oldPack);loadedField.SetValue(null,oldLoaded);
         Set(scene,"_cameraMode",CameraMode.Player);
+    }
+    static Model DynamicParkourChecks(Scene scene)
+    {
+        Model rig=DynamicGeometry(parkour:true);Call(scene,"GenerateLists",rig,false);
+        ParkourPoseOverlay.Prewarm(rig);
+        PlayerEntity player=DynamicPlayer(scene,rig);
+        Set(scene,"_cameraMode",CameraMode.Player);
+        var movement=scene.GameState.MovementModel;
+        typeof(SceneGameState).GetProperty(nameof(SceneGameState.MovementModel))!.SetValue(scene.GameState,MphRead.Mods.Movement.MovementModel.Parkour);
+        // Consume the existing replicated visual seam. No controller flags,
+        // positions, velocities, native frames or simulation steps are changed.
+        player.ModApplyReplicatedMantleVisual(8,1);
+        Check(player.ModGetParkourAnimationPose().MantleWeight>0,"accepted visual mantle cue reaches current picture sampler");
+        ModelInstance source=Take<ModelInstance>(player,"_bipedModel2");string before=PoseState(source);
+        Vector3 position=player.Position,speed=player.Speed;ulong frame=scene.FrameCount;
+        Collection(scene);player.Draw();Matrix4 posed=Detached(scene).Single().Transform;
+        Check(PoseState(source)==before&&player.Position==position&&player.Speed==speed&&scene.FrameCount==frame,
+            "detached Parkour overlay leaves canonical skeleton/cursors and gameplay placement unchanged");
+        Collection(scene);Set(scene,"_cameraMode",CameraMode.Pivot);player.Draw();
+        Matrix4 visiblePose=Take<List<RenderItem>>(scene,"_nonDecalItems").Single().Transform;
+        try
+        {
+            ParkourPoseOverlay.SuppressForCheck=true;Collection(scene);player.Draw();
+            Check(Take<List<RenderItem>>(scene,"_nonDecalItems").Single().Transform!=visiblePose,
+                "independent visible Parkour overlay witness changes the actual shoulder packet");
+        }
+        finally { ParkourPoseOverlay.SuppressForCheck=false; }
+        Console.WriteLine($"DYNAMIC SHADOWS visible_parkour_witness=PASS detached_matches_visible={visiblePose==posed}");
+        Check(visiblePose==posed,
+            "actual native camera-visible and detached Parkour packets use the same ordered pose overlay");
+        Set(scene,"_cameraMode",CameraMode.Player);DynamicHdChecks(scene,player,rig);
+        DynamicSampledCurveChecks(scene,player,rig);
+        typeof(SceneGameState).GetProperty(nameof(SceneGameState.MovementModel))!.SetValue(scene.GameState,movement);
+        return rig;
+    }
+    static void DynamicSampledCurveChecks(Scene scene,PlayerEntity player,Model model)
+    {
+        NodeAnimation Curve(bool moving)=>Raw<NodeAnimation>(
+            (nameof(NodeAnimation.ScaleLutLengthX),(ushort)1),(nameof(NodeAnimation.ScaleLutLengthY),(ushort)1),(nameof(NodeAnimation.ScaleLutLengthZ),(ushort)1),
+            (nameof(NodeAnimation.RotateLutLengthX),(ushort)1),(nameof(NodeAnimation.RotateLutLengthY),(ushort)1),(nameof(NodeAnimation.RotateLutLengthZ),(ushort)1),
+            (nameof(NodeAnimation.TranslateLutLengthX),(ushort)(moving?4:1)),(nameof(NodeAnimation.TranslateBlendX),(byte)1),
+            (nameof(NodeAnimation.TranslateLutLengthY),(ushort)1),(nameof(NodeAnimation.TranslateLutLengthZ),(ushort)1));
+        var group=new NodeAnimationGroup(Raw<RawNodeAnimationGroup>((nameof(RawNodeAnimationGroup.FrameCount),4u)),
+            new float[]{1},new float[]{0},new float[]{0,1,2,3},model.Nodes.ToDictionary(n=>n.Name,n=>Curve(n.ParentIndex<0)));
+        ModelInstance lower=Take<ModelInstance>(player,"_bipedModel1"),upper=Take<ModelInstance>(player,"_bipedModel2");
+        foreach(var instance in new[]{lower,upper})
+        {
+            instance.AnimInfo.Node.Group=group;instance.AnimInfo.Node.Slot=0;
+            instance.AnimInfo.Index[0]=0;instance.AnimInfo.FrameCount[0]=4;instance.AnimInfo.Flags[0]=AnimFlags.None;
+            instance.AnimInfo.Frame[0]=0;instance.PresentationSamples.Record(instance.AnimInfo,0,0);
+            instance.AnimInfo.Frame[0]=1;instance.PresentationSamples.Record(instance.AnimInfo,0,1);
+        }
+        int priorCap=FrameTiming.FrameRateCap;
+        try
+        {
+            FrameTiming.ResetDiagnostics();FrameTiming.Reset();FrameTiming.FrameRateCap=144;
+            FrameTiming.Advance(FrameTiming.StepSeconds);FrameTiming.Advance(FrameTiming.StepSeconds*.5);
+            Check(lower.PresentationSamples.TryGet(lower.AnimInfo,0,FrameTiming.TotalSteps+FrameTiming.PresentationAlpha,out var sample)
+                &&Math.Abs(sample.Fraction-.5f)<.0001f,"real high-refresh presentation history yields fractional source curve");
+            string lowerBefore=PoseState(lower),upperBefore=PoseState(upper);ulong frame=scene.FrameCount;
+            Collection(scene);player.Draw();Matrix4 sampled=Detached(scene).Single().Transform;
+            Check(PoseState(lower)==lowerBefore&&PoseState(upper)==upperBefore&&scene.FrameCount==frame,
+                "sampled offscreen preparation leaves both canonical animation channels and fixed simulation unchanged");
+            Collection(scene);Set(scene,"_cameraMode",CameraMode.Pivot);player.Draw();
+            Check(Take<List<RenderItem>>(scene,"_nonDecalItems").Single().Transform==sampled,
+                "fractional native animation and Parkour overlay compose identically in detached and visible packets");
+            Set(scene,"_cameraMode",CameraMode.Player);lower.PresentationSamples.Reset();upper.PresentationSamples.Reset();
+            Collection(scene);player.Draw();
+            Check(Detached(scene).Single().Transform!=sampled,"canonical-only negative control differs from the fractional curve");
+        }
+        finally { FrameTiming.FrameRateCap=priorCap;FrameTiming.Reset(); }
+    }
+    static Model DynamicLodChecks(Scene scene,PlayerEntity player,Model source)
+    {
+        Model lod=DynamicGeometry();Call(scene,"GenerateLists",lod,false);
+        Take<ModelInstance[]>(player,"_bipedModelLods")[1]=new(lod);Take<Node?[]>(player,"_spineNodes")[1]=lod.Nodes[1];
+        Features.MaxPlayerDetail=false;Set(scene,"_cameraMode",CameraMode.Player);player.Position=new(10,0,0);
+        Collection(scene);player.Draw();
+        Check(Detached(scene).Single().ListId==lod.Meshes[0].ListId&&player.Flags2.TestFlag(PlayerFlags2.Lod1),"actual LOD transition uses current source rig and borrowed geometry");
+        player.Position=new(.25f,0,0);Collection(scene);player.Draw();
+        Check(Detached(scene).Single().ListId==source.Meshes[0].ListId&&!player.Flags2.TestFlag(PlayerFlags2.Lod1),"return to previous LOD refreshes its pose without stale geometry");
+        Features.MaxPlayerDetail=true;return lod;
     }
     static void DynamicShadowChecks()
     {
@@ -174,7 +262,9 @@ static partial class Program
         var settings=DesktopGlContext.Settings(true);settings.ClientSize=new(32,32);settings.StartVisible=false;
         using var window=new NativeWindow(settings);window.Context.MakeCurrent();
         GL.LoadBindings(new OpenTK.Windowing.GraphicsLibraryFramework.GLFWBindingsContext());
-        Console.WriteLine($"dynamic shadows native renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)} mvid={typeof(Scene).Module.ModuleVersionId}");
+        string configuration=typeof(Scene).Assembly.GetCustomAttribute<AssemblyConfigurationAttribute>()?.Configuration??"unknown";
+        string assemblySha=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(typeof(Scene).Assembly.Location))).ToLowerInvariant();
+        Console.WriteLine($"dynamic shadows native configuration={configuration} renderer={GL.GetString(StringName.Renderer)} gl={GL.GetString(StringName.Version)} mvid={typeof(Scene).Module.ModuleVersionId} assembly_sha256={assemblySha}");
         ShadowQuality previous=RenderOptions.Shadows;bool replacements=RenderOptions.CharacterModelReplacements;
         bool cosmetics=RenderOptions.ShowCustomCosmetics,detail=Features.MaxPlayerDetail;
         RenderOptions.Shadows=ShadowQuality.Low;RenderOptions.CharacterModelReplacements=false;RenderOptions.ShowCustomCosmetics=false;Features.MaxPlayerDetail=true;
@@ -221,6 +311,12 @@ static partial class Program
         Check(frozen.Length==2&&PoseState(Take<ModelInstance>(player,"_bipedIceModel"))==before,"frozen body and shell prepared separately without canonical ice-anchor mutation");
         Collection(scene);Set(scene,"_cameraMode",CameraMode.Pivot);player.Draw();
         Check(Take<List<RenderItem>>(scene,"_nonDecalItems").Select(p=>p.Transform).SequenceEqual(frozen),"native frozen body/shell detached versus visible parity");
+        Set(scene,"_cameraMode",CameraMode.Player);Put(player,"<Flags1>k__BackingField",PlayerFlags1.AltForm);Put(player,"<Flags2>k__BackingField",PlayerFlags2.Cloaking);
+        Collection(scene);before=PoseState(Take<ModelInstance>(player,"_altIceModel"));player.Draw();frozen=Detached(scene).Select(p=>p.Transform).ToArray();
+        Check(frozen.Length==2&&PoseState(Take<ModelInstance>(player,"_altIceModel"))==before,"frozen alternate body/shell leaves source pose ownership unchanged");
+        Collection(scene);Set(scene,"_cameraMode",CameraMode.Pivot);player.Draw();
+        Check(Take<List<RenderItem>>(scene,"_nonDecalItems").Select(p=>p.Transform).SequenceEqual(frozen),"native alternate frozen shell detached/visible transform parity");
+        Put(player,"<Flags1>k__BackingField",PlayerFlags1.None);Put(player,"<Flags2>k__BackingField",PlayerFlags2.None);
         Put(player,"_frozenGfxTimer",(ushort)0);Set(scene,"_cameraMode",CameraMode.Player);
         DynamicHdChecks(scene,player,model);
         player.Hunter=Hunter.Weavel;Put(player,"<Values>k__BackingField",Metadata.PlayerValues[(int)Hunter.Weavel]);
@@ -284,12 +380,31 @@ static partial class Program
         GL.BindFramebuffer(FramebufferTarget.Framebuffer,Take<int>(scene,"_shadowFramebuffer"));float[] visibleDepth=new float[depth.Length];GL.ReadPixels(0,0,size,size,PixelFormat.DepthComponent,PixelType.Float,visibleDepth);
         Check(depth.SequenceEqual(visibleDepth),"actual offscreen and ordinary native shadow depth pixels match");
         Console.WriteLine($"DYNAMIC SHADOWS native covered_depth_pixels={covered} target={size} rigs={Take<DetachedShadowPoseCache>(scene,"_detachedShadowPoses").Count} packet_cap={Scene.MaxDetachedShadowPackets}");
+        Model lodRig=DynamicLodChecks(scene,player,model);
+        Model parkourRig=DynamicParkourChecks(scene);
         Collection(scene);RenderOptions.Shadows=ShadowQuality.Off;Call(scene,"BeginDetachedShadowCollection");
         Check(!scene.CanPrepareDetachedShadows&&Take<DetachedShadowPoseCache>(scene,"_detachedShadowPoses").Count==0,"quality Off clears detached ownership");
         scene.UnloadGl();Check(Take<DetachedShadowPoseCache>(scene,"_detachedShadowPoses").Count==0,"scene unload clears detached CPU owners");
         Check(GL.IsList(model.Meshes[0].ListId),"detached scene teardown cannot delete borrowed geometry");
         SharedModelResources.Retain(model);SharedModelResources.Release(model);
+        SharedModelResources.Retain(parkourRig);SharedModelResources.Release(parkourRig);
+        SharedModelResources.Retain(lodRig);SharedModelResources.Release(lodRig);
         RenderOptions.Shadows=previous;RenderOptions.CharacterModelReplacements=replacements;RenderOptions.ShowCustomCosmetics=cosmetics;Features.MaxPlayerDetail=detail;
         Check(GL.GetError()==ErrorCode.NoError,"dynamic caster native GL state valid");
+        string? receipt=Environment.GetEnvironmentVariable("PROJECT_PRIME_DYNAMIC_SHADOW_RECEIPT");
+        if(!string.IsNullOrWhiteSpace(receipt))
+        {
+            receipt=Path.GetFullPath(receipt);Directory.CreateDirectory(Path.GetDirectoryName(receipt)!);
+            File.WriteAllText(receipt,System.Text.Json.JsonSerializer.Serialize(new {
+                schema=1,status="PASS",checks,platform="Windows",configuration,
+                sourceCommit=Environment.GetEnvironmentVariable("PROJECT_PRIME_QUALIFICATION_COMMIT")??"unknown",
+                assemblySha256=assemblySha,mvid=typeof(Scene).Module.ModuleVersionId,
+                renderer=GL.GetString(StringName.Renderer),gl=GL.GetString(StringName.Version),
+                scope="Synthetic actual production hooks/pose/packet/depth/ownership; no full-game motion, performance or Android device acceptance.",
+                coveredDepthPixels=covered,shadowTarget=size,rigCap=DetachedShadowPoseCache.MaxRigs,
+                nodeCap=DetachedShadowPoseCache.MaxNodes,meshCap=DetachedShadowPoseCache.MaxMeshes,
+                materialCap=DetachedShadowPoseCache.MaxMaterials,packetCap=Scene.MaxDetachedShadowPackets
+            },new System.Text.Json.JsonSerializerOptions {WriteIndented=true}));
+        }
     }
 }

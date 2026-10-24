@@ -19,6 +19,10 @@ public partial class Scene
     {
         if (!DemoPlayback.IsCustomPlayback || !DemoPlayback.Owns(this)) return false;
         ReplayCamera.EnsureTrack();
+#if !MPHREAD_SERVER
+        if(ReplayCamera.TryMemoryPreview(this,out var preview))
+        { ClearCustomInspectionFirstPerson();_freeCam=true;ApplyReplayKeyframe(preview);return true; }
+#endif
         if (ReplayCamera.BookmarkRequested)
         {
             ReplayCamera.BookmarkRequested = false;

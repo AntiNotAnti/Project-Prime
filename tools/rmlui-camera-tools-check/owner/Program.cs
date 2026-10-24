@@ -15,12 +15,16 @@ Matrix4.LookAt(new Vector3(9,8,7),new Vector3(9,8,6),Vector3.UnitY),Matrix4.Crea
 TheatreCameraToolsEdit Move(TheatreCameraToolsContext context)=>new(TheatreCameraToolsChange.Move,context,ImmutableArray.Create(context.Camera.Keys[0].Frame),context.Camera.Keys,context.Camera.Keys.SetItem(0,context.Camera.Keys[0] with{Frame=15}));
 try{
 DemoPlayback.LogicalPath=DemoPlayback.PlaybackPath=source;
-var track=new ReplayCameraTrack();track.Put(new(10,Vector3.One,Quaternion.Identity,1.2f));track.Put(new(20,new Vector3(2),Quaternion.Identity,1.4f));Check(track.Save(source),"retained owner writes synthetic source-bound v3 camera");
+var channels=new ReplayCameraChannelCurves(ReplayCameraChannelMode.Smooth,ReplayCameraChannelEase.InOut,
+    ReplayCameraChannelMode.Bezier,ReplayCameraChannelEase.In,ReplayCameraChannelMode.Hold,ReplayCameraChannelEase.None);
+var track=new ReplayCameraTrack();track.Put(new(10,Vector3.One,Quaternion.Identity,1.2f,Curves:channels));track.Put(new(20,new Vector3(2),Quaternion.Identity,1.4f));Check(track.Save(source),"retained owner writes synthetic source-bound independent-curve camera");
 var identity=ReplayCameraTrackIdentity.Create(source);byte[] encoded=track.EncodeReviewed(identity);
 Check(encoded.SequenceEqual(File.ReadAllBytes(source+".camera")),"reviewed binary encoder matches retained Save format byte-for-byte");
 var annotations=new ReplayAnnotationDocument{Bookmarks=new(){new(Guid.NewGuid(),35,"NEAR BOOKMARK",DateTime.UnixEpoch)}};File.WriteAllText(source+ReplayAnnotations.Extension,JsonSerializer.Serialize(annotations));
 Publish();var backend=RmlUiOpenGlSmoke.Fixture();var context=backend.CaptureTools();
 Check(context.Camera.Pose.X==9&&context.Camera.Pose.Y==8&&context.Camera.Pose.Z==7&&Math.Abs(context.Camera.Pose.Fov-80)<.01f,"tools use actual matrix-decoded successful picture, not raw key poses");
+Check(context.Camera.Keys[0].Pose.Channels==new TheatreCameraChannelCurves(2,4,3,2,4,1),
+    "native-to-reviewed conversion preserves all six orientation/lens curve fields");
 Check(context.Markers.Length==3&&context.Markers.Any(m=>m.Frame==35)&&context.LookAtSlots.SequenceEqual(new[]{1,3}),"explicit capture bounds nearest marker choices and actual metadata target slots");
 int reads=DemoPlayback.LogicalReads;bool allCurrent=true;for(int i=0;i<20;i++)allCurrent&=backend.ToolsCurrent(context);Check(allCurrent,"readonly current owner fence remains stable across repeated native polling");Check(DemoPlayback.LogicalReads==reads,"readonly ToolsCurrent never resolves logicalpath or reads files");
 byte[] originalSource=File.ReadAllBytes(source);DateTime stamp=File.GetLastWriteTimeUtc(source);File.WriteAllBytes(source,originalSource.Reverse().ToArray());File.SetLastWriteTimeUtc(source,stamp);
@@ -32,6 +36,62 @@ Check(Reject(()=>backend.CommitTools(Move(context)))&&ReplayCamera.Track.Keys[0]
 context=backend.CaptureTools();var move=Move(context);var saved=backend.CommitTools(move);
 var readback=new ReplayCameraTrack();Check(saved.Verified&&readback.Load(source)&&readback.Keys[0].Frame==15&&ReplayCamera.Track.Keys[0].Frame==15,"verified publication updates retained file and SAME in-memory track with exact keys");
 Check(Reject(()=>backend.CommitTools(move)),"old context cannot repeat track edit after original keys changed");
+Check(readback.Keys[0].Curves==channels&&ReplayCamera.Track.Keys[0].Curves==channels,
+    "translated native key preserves every curve byte through atomic sidecar publication");
+var memoryBackend=(ITheatreCameraMemoryBackend)backend;
+var beforeChannels=backend.CaptureTools();byte[] beforeChannelFile=File.ReadAllBytes(camera);
+var editedKey=beforeChannels.Camera.Keys[0] with{Pose=beforeChannels.Camera.Keys[0].Pose with{Channels=new(2,4,3,3,4,1)}};
+var curveEdit=new TheatreCameraToolsEdit(TheatreCameraToolsChange.FovEase,beforeChannels,ImmutableArray.Create(editedKey.Frame),
+    beforeChannels.Camera.Keys,beforeChannels.Camera.Keys.SetItem(0,editedKey));
+var channelDocument=memoryBackend.CommitMemory(curveEdit);
+Check(ReplayCamera.Track.Keys[0].Curves==channels with{FovEase=ReplayCameraChannelEase.Out}
+    &&BitConverter.SingleToInt32Bits(ReplayCamera.Track.Keys[0].Fov)==BitConverter.SingleToInt32Bits(readback.Keys[0].Fov)
+    &&File.ReadAllBytes(camera).SequenceEqual(beforeChannelFile),
+    "independent channel memory edit retains exact native lens bits and never writes the source sidecar");
+var undoChannels=memoryBackend.RestoreMemory(channelDocument,beforeChannels);
+Check(ReplayCamera.Track.Keys[0].Curves==channels,"native undo restores all curve metadata exactly");
+var redoChannels=memoryBackend.RestoreMemory(undoChannels,channelDocument);
+var savedChannels=memoryBackend.SaveMemory(redoChannels);
+var channelReadback=new ReplayCameraTrack();
+Check(channelReadback.Load(source)&&channelReadback.Keys[0].Curves==channels with{FovEase=ReplayCameraChannelEase.Out}
+    &&File.ReadAllBytes(source).SequenceEqual(originalSource),
+    "native redo/save persists independent curves without changing the replay archive");
+memoryBackend.CancelMemoryPreview();
+var cleanReview=backend.CaptureTools();
+ReplayCamera.CommitReviewedKeyframe(source,new(30,new Vector3(4),Quaternion.Identity,1.3f,Curves:channels),remove:false);
+Publish();
+var refreshed=memoryBackend.RebindMemory(cleanReview);
+Check(refreshed.Camera.Keys.Any(key=>key.Frame==30)&&refreshed.SavedKeys.SequenceEqual(refreshed.Camera.Keys)
+    &&refreshed.Camera.CameraRevision!=cleanReview.Camera.CameraRevision&&!ReplayCamera.MemoryDocumentDirty,
+    "clean explicit refresh adopts a newly basic-saved native key as its real saved baseline");
+var refreshKey=refreshed.Camera.Keys[0];
+var refreshEdit=new TheatreCameraToolsEdit(TheatreCameraToolsChange.Transform,refreshed,ImmutableArray.Create(refreshKey.Frame),
+    refreshed.Camera.Keys,refreshed.Camera.Keys.SetItem(0,refreshKey with{Pose=refreshKey.Pose with{X=refreshKey.Pose.X+1}}));
+var dirtyRefresh=memoryBackend.CommitMemory(refreshEdit);
+Publish();var dirtyRebound=memoryBackend.RebindMemory(dirtyRefresh);
+Check(dirtyRebound.Camera.Keys.SequenceEqual(dirtyRefresh.Camera.Keys)&&dirtyRebound.SavedKeys.SequenceEqual(refreshed.SavedKeys)
+    &&ReplayCamera.MemoryDocumentDirty,"dirty refresh keeps original saved baseline and exact unsaved native keys");
+Check(Reject(()=>memoryBackend.RebindMemory(refreshed)),"clean stale facade cannot adopt another active dirty document");
+byte[] savedRefreshFile=File.ReadAllBytes(camera);var externalRefresh=new ReplayCameraTrack();
+Check(externalRefresh.Load(source)&&externalRefresh.Put(new(40,new Vector3(5),Quaternion.Identity,1.1f))&&externalRefresh.Save(source),
+    "external saved baseline fixture changes actual camera bytes");
+byte[] dirtyState=ReplayCamera.Track.ExportState();
+Check(Reject(()=>memoryBackend.RebindMemory(dirtyRebound))&&ReplayCamera.Track.ExportState().SequenceEqual(dirtyState),
+    "dirty refresh rejects changed saved sidecar without losing native document state");
+File.WriteAllBytes(camera,savedRefreshFile);
+memoryBackend.DiscardMemory(dirtyRebound);Publish();
+var discardedRefresh=memoryBackend.RebindMemory(dirtyRebound);
+Check(discardedRefresh.Camera.Keys.SequenceEqual(refreshed.Camera.Keys)
+    &&discardedRefresh.SavedKeys.SequenceEqual(discardedRefresh.Camera.Keys)&&!ReplayCamera.MemoryDocumentDirty,
+    "explicit discard then refresh reloads saved baseline through the same facade");
+Check(memoryBackend.RebindMemory(dirtyRebound).SavedKeys.SequenceEqual(discardedRefresh.SavedKeys),
+    "discarded old-context refresh remains retryable after a successful backend capture");
+File.WriteAllBytes(source,originalSource.Reverse().ToArray());File.SetLastWriteTimeUtc(source,stamp);
+Check(Reject(()=>memoryBackend.RebindMemory(discardedRefresh)),"clean refresh retains full source ABA hash fence");
+File.WriteAllBytes(source,originalSource);File.SetLastWriteTimeUtc(source,stamp);
+object refreshOwner=DemoPlayback.PlaybackOwner;DemoPlayback.PlaybackOwner=new object();
+Check(Reject(()=>memoryBackend.RebindMemory(discardedRefresh)),"clean refresh cannot rebind a restarted playback owner");
+DemoPlayback.PlaybackOwner=refreshOwner;
 context=backend.CaptureTools();backend.ChangeMotion(context,TheatreCameraMotionChange.ConstantSpeed);
 Check(!backend.ToolsCurrent(context)&&Reject(()=>backend.CaptureTools()),"motion toggle invalidates actual presented settings until world picture publication");Publish();context=backend.CaptureTools();Check(!context.Motion.ConstantSpeed,"explicit new-picture capture reviews runtime speed change");
 backend.ChangeMotion(context,TheatreCameraMotionChange.Collision);Check(Reject(()=>backend.CaptureTools()),"collision toggle cannot authorize old picture");Publish();context=backend.CaptureTools();Check(!context.Motion.Collision,"collision new-picture review");

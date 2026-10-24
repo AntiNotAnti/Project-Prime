@@ -17,7 +17,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly MenuSettings _settings;
         private readonly IReadOnlyList<string> _rooms;
         private readonly PrimeOverlayHost _overlays;
-        private readonly ChoiceRow _hunter, _suit, _mode, _format, _bots, _skill;
+        private readonly ChoiceRow _hunter, _suit, _mode, _heroObjective, _format, _bots, _skill;
         private readonly PrimeButton _map, _resume, _newRun, _start, _ship;
         private readonly TextBlock _saveDetail;
         private readonly PrimeButton[] _slots = new PrimeButton[AdventureSave.SlotCount];
@@ -37,7 +37,11 @@ namespace MphRead.Mods.Launcher.Gui
             var names = Multiplayer.HunterRules.Pool(settings.LowTier == "on").Select(h => h.ToString()).Append("Random").ToArray();
             _hunter = new ChoiceRow("Hunter", names, Math.Max(0, Array.IndexOf(names, LauncherPrefs.LastHunter.ToString())));
             _suit = new ChoiceRow("Suit", new[] { "1", "2", "3", "4" }, Math.Clamp(LauncherPrefs.LastColor, 0, 3));
-            _mode = new ChoiceRow("Game type", MatchTypeCatalog.GameTypes.Select(m => m.Label).ToArray());
+            _mode = new ChoiceRow("Game type", MatchTypeCatalog.OfflineGameTypes.Select(m => m.Label).ToArray());
+            _heroObjective = new ChoiceRow("Objective", Mods.HeroModes.HeroModeMenu.Labels, LauncherPrefs.LastHeroObjective);
+            ControllerNav.Identify(_heroObjective, "offline.hero-objective");
+            _mode.StackLabel=true; _heroObjective.StackLabel=true;
+            _heroObjective.Changed += (_, _) => { LauncherPrefs.LastHeroObjective = _heroObjective.Index; SyncMatchup(); if (_map != null) Refresh(); };
             _format = new ChoiceRow("Matchup", MatchTypeCatalog.BasicMatchups.Select(m => m.Label).ToArray(),
                 settings.TeamPlay == "on" ? MatchTypeCatalog.BasicMatchupIndex(MatchFormat.Auto) : 0);
             _mode.Changed += (_, _) => SyncMatchup();
@@ -81,6 +85,7 @@ namespace MphRead.Mods.Launcher.Gui
                     "Choose the game type, matchup and bot opposition.",
                     PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush),
                 _mode,
+                _heroObjective,
                 _format,
                 _bots,
                 _skill,
@@ -262,9 +267,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _stand.Suit = _suit.Index;
                 RefreshMatchChrome();
             };
-            _mode.Changed += (_, _) => RefreshMatchChrome();
+            _mode.Changed += (_, _) => Refresh();
             _format.Changed += (_, _) => RefreshMatchChrome();
-            _bots.Changed += (_, _) => RefreshMatchChrome();
+            _bots.Changed += (_, _) => Refresh();
             _skill.Changed += (_, _) => RefreshMatchChrome();
 
             Content = root;
@@ -424,7 +429,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             MatchTypeDefinition type = MatchTypeCatalog.GameTypes[Math.Clamp(_mode.Index, 0, MatchTypeCatalog.GameTypes.Length - 1)];
             MatchFormat format = MatchTypeCatalog.BasicMatchups[Math.Clamp(_format.Index, 0, MatchTypeCatalog.BasicMatchups.Length - 1)].Format;
-            return type.Resolve(MatchTypeCatalog.NormalizeFormat(type, format));
+            return Mods.HeroModes.HeroModeMenu.Resolve(type, MatchTypeCatalog.NormalizeFormat(type, format), _heroObjective.Index);
         }
 
         private void SyncMatchup()
@@ -434,6 +439,7 @@ namespace MphRead.Mods.Launcher.Gui
                 MatchTypeCatalog.BasicMatchups[Math.Clamp(_format.Index, 0, MatchTypeCatalog.BasicMatchups.Length - 1)].Format);
             int index = MatchTypeCatalog.BasicMatchupIndex(normalized);
             if (_format.Index != index) _format.Index = index;
+            _heroObjective.IsVisible = Mods.HeroModes.HeroModeMenu.IsFamily(type);
             _format.IsEnabled = !type.TeamOnly && !type.FfaOnly;
         }
 
@@ -455,6 +461,20 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void Rules()
         {
+            if (HeroModes.CtfRules.Active(SelectedMode()))
+            {
+                _overlays.Show(new PrimePanel(PrimeChrome.Stack(
+                    PrimeChrome.Title("CAPTURE THE FLAG RULES"),
+                    PrimeChrome.Text("CTF uses native MPH hunter health, weapons and ammunition.\n"
+                        + "Ordinary weapon, hunter and Octolith modifiers do not apply.\n"
+                        + "Your saved rules for other modes are unchanged.\n\n"
+                        + $"First to {HeroModes.CtfRules.CaptureLimit} captures; "
+                        + $"{HeroModes.CtfRules.MatchSeconds / 60} minute development time limit.\n"
+                        + "Zoom / ADS: pick up or throw. Carrier: +20% speed, no shooting or alt form.",
+                        14, PrimeTheme.TextSecondaryBrush),
+                    new PrimeButton("BACK", _overlays.Close))), PrimeModalSize.Medium);
+                return;
+            }
             var score = new FieldRow("Point goal", _settings.PointGoal, boxWidth: 88);
             var time = new FieldRow("Time limit (m:ss)", _settings.TimeLimit, boxWidth: 88);
             var objective = new FieldRow("Time goal (m:ss)", _settings.TimeGoal, boxWidth: 88);
@@ -598,8 +618,12 @@ namespace MphRead.Mods.Launcher.Gui
         public void OnDeactivated() { }
         public void Refresh()
         {
-            if (_room.Length == 0 && _rooms.Count > 0) _room = LauncherPrefs.PreferredMap(_rooms);
-            _start.IsEnabled = _rooms.Count > 0;
+            bool Compatible(string room) => Multiplayer.MapModeCapabilities.Supports(room, SelectedMode(),
+                Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out _, _bots.Index + 1);
+            if (Mods.HeroModes.HeroRules.Active(SelectedMode()) && (_bots.Index + 1 < 2 || (_bots.Index + 1) % 2 != 0))
+                _bots.Index = Math.Clamp(_bots.Index | 1, 1, 7);
+            if (_room.Length == 0 || !Compatible(_room)) _room = _rooms.FirstOrDefault(Compatible) ?? "";
+            _start.IsEnabled = _room.Length > 0;
             _map.Label = _room.Length == 0
                 ? "NO ARENAS // SET UP GAME FILES"
                 : RoomName(_room).ToUpperInvariant();
@@ -623,7 +647,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             string room = _room.Length == 0 ? "NO ARENA" : RoomName(_room).ToUpperInvariant();
             _matchSummary.Text =
-                $"{_mode.Value.ToUpperInvariant()}  //  {_format.Value.ToUpperInvariant()}  //  "
+                $"{MatchTypeCatalog.BaseLabel(SelectedMode()).ToUpperInvariant()}  //  {_format.Value.ToUpperInvariant()}  //  "
                 + $"{_bots.Value.ToUpperInvariant()}  //  {_skill.Value.ToUpperInvariant()}  //  {room}";
         }
     }

@@ -55,10 +55,15 @@ namespace MphRead.Mods.Network
         internal IReadOnlyList<ReplayCheckpointIndex> DurableCheckpoints => _reader?.Checkpoints ?? Array.Empty<ReplayCheckpointIndex>();
         internal uint CheckpointVisibleFrame(ReplayCheckpointIndex index) => index.Frame >= LeadInFrames ? index.Frame - LeadInFrames : 0;
         internal uint SourceFrame => _customArchiveRequest || IsCustomArchiveInspection ? CurrentFrame : _frame;
-        internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true)
+        internal Func<byte[]> PrepareCheckpointRead(ReplayCheckpointIndex index)
+        {
+            var reader = _reader ?? throw new InvalidOperationException("Replay reader is unavailable.");
+            return reader.PrepareCheckpointRead(index);
+        }
+        internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index, bool requireIndexedFirePresentation = true, byte[]? prefetched = null)
         {
             if (_customArchiveRequest) throw new InvalidOperationException("Prepared custom requests cannot load playback checkpoints.");
-            var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
+            var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(prefetched ?? _reader!.ReadCheckpoint(index), _reader!.Metadata?.BuildId);
             if (_reader.Metadata?.TimedShotCertificates == true && !checkpoint.HasTimedShotContract)
             { checkpoint.Dispose(); throw new InvalidDataException("Durable world lacks recorded timed shot facts; reconstructing from baseline."); }
             if (checkpoint.RequiresNativeTouchContract && !checkpoint.HasNativeTouchContract)
