@@ -17,6 +17,15 @@ static string Digest(IReadOnlyList<WeaponInfo> table)
             foreach (var field in typeof(WeaponInfo).GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
                 .OrderBy(x => x.Name, StringComparer.Ordinal))
             {
+                // Hero rows carry a cosmetic name outside the frozen native tuning schema.
+                // Native tables must never acquire that override; all other stored fields
+                // remain in the original CW-00 digest, including future unexpected fields.
+                if (field.Name == "_modeName")
+                {
+                    if (field.FieldType != typeof(string) || field.GetValue(row) != null)
+                        throw new InvalidOperationException("Native weapon row acquired a mode-only name override.");
+                    continue;
+                }
                 writer.WritePropertyName(field.Name);
                 JsonSerializer.Serialize(writer, field.GetValue(row), field.FieldType);
             }

@@ -115,6 +115,11 @@ submission; it is not inferred from those earlier results.
   checks and native OpenGL workspace runs at 640x360, 1280x720 and 1920x1080 passed,
   with the existing scroll, clip, marker, GL-state and teardown checks unchanged.
   CI retains the previously missing workspace evidence and synthetic profile logs.
+- The native weapon baseline retains its original IDs, counts and MP/1P tuning
+  hashes. Its reflection checker excludes only the new mode display-name field,
+  requiring that field to remain null on every native row. All 54 remaining
+  Linux acceptance commands passed locally, including lobby, map-download,
+  lifecycle, transport and benchmark checks.
 
 Generated binaries, cloned owned game assets, profiles, captures and logs stay
 in ignored local artifact folders. No Internet multiplayer or Android physical
