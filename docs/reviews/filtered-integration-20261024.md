@@ -102,6 +102,11 @@ submission; it is not inferred from those earlier results.
   again after the CI repairs (6, 1 and 27 existing warnings respectively).
 - Normal zero-step CTF first presentation and same-window rematch passed again
   on Alinos Perch and expanded Fault Line with seven bots and linear color.
+- The full custom-weapons suite passed 37,077 checks after updating its rematch
+  expectation: the destination room changes while every other frozen rule,
+  including M7 availability, and the original plan remain unchanged. Production
+  rematch behavior is unchanged. Both authored maps also passed 100 real localhost
+  UDP lobby/readiness/load-barrier checks apiece with eight clients.
 
 Generated binaries, cloned owned game assets, profiles, captures and logs stay
 in ignored local artifact folders. No Internet multiplayer or Android physical
