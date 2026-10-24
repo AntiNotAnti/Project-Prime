@@ -713,6 +713,19 @@ public partial class PlayerEntity
                 }
                 WeaponInfo weaponInfo = _scene.WeaponRules[(int)beam +
                     (Weapons.GetAffinityBeam(_player.Hunter) == beam ? 9 : 0)];
+                if (visible && _player.BotLevel >= 2)
+                {
+                    Vector3 delta = (target.Position - _player.Position).WithY(0);
+                    Vector3 speed = BotAimObservedVelocity(target).WithY(0);
+                    Vector3 across = delta.LengthSquared > .001f
+                        ? new Vector3(delta.Z, 0, -delta.X).Normalized()
+                        : Vector3.UnitX;
+                    float lateralSpeed = MathF.Abs(Vector3.Dot(speed, across));
+                    score += BotWeaponTactics.EstimatedCombatValue(
+                        weaponInfo, beam, distance, lateralSpeed,
+                        target.ModFrozen, _player.BotLevel,
+                        _scene.GameState.Multiplayer && _scene.GameState.BalancedMode);
+                }
                 int cost = _player.ModAmmoCostForWeapon(beam, weaponInfo);
                 float remainingShots = cost <= 0 ? 1000f
                     : _player.ModAmmoForWeapon(beam, weaponInfo) / (float)cost;
