@@ -2605,6 +2605,34 @@ namespace MphRead.Mods.Network
                 entry.Damage = self.Damage; entry.Direction = self.Impulse;
                 entry.Flags = (byte)((entry.Flags & HitClaimPacket.FlagLethal) | self.Effects);
             }
+            // A rescued claim is not a native collision. For Noxus's short,
+            // instant affinity ice wave, victim-near-HitPoint is insufficient:
+            // without a source-to-victim test it could freeze anywhere on the
+            // map even with Shadow Freeze OFF. Use the authority's emitted
+            // component and archived victim pose. Balanced Mode's traveling
+            // freeze bolt requires a native physical hit, not a cone rescue.
+            if ((entry.Flags & HitClaimPacket.FlagFrozen) != 0 && victimSlot != shooterSlot)
+            {
+                bool turret = (entry.Flags & HitClaimPacket.FlagHalfturret) != 0;
+                bool historical = turret
+                    ? NetUnlagged.TryHistoricalHalfturretPosition(victimSlot, entry.AckFrame,
+                        entry.VictimGeneration, entry.VictimLifeId, out Vector3 atShot)
+                    : NetUnlagged.PositionAt(victimSlot, entry.AckFrame,
+                        entry.VictimGeneration, entry.VictimLifeId, out atShot);
+                bool proved = entry.Beam == (byte)BeamType.Judicator
+                    && shooter.Hunter == Hunter.Noxus
+                    && !shooter.OwningScene.GameState.BalancedMode
+                    && historical
+                    && NetShotProof.ProvesChargedJudicatorWave(shooterSlot, proofClaim,
+                        atShot, turret ? victim.Halfturret?.Position ?? victim.Position : victim.Position,
+                        shooter.OwningScene.GameState.ShadowFreeze);
+                if (!proved)
+                {
+                    RefusedHere++;
+                    Answer(shooterSlot, entry.Id, HitVerdictPacket.ResultGeometry);
+                    return;
+                }
+            }
             bool continuous = IsContinuous(proofClaim);
             bool lifeDrain = false;
             if (continuous && !NetContinuousAdmission.Validate(shooterSlot, proofClaim, out lifeDrain))
