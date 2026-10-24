@@ -103,8 +103,8 @@ public sealed class RmlUiRuleEditor
 
     public bool NextMode(bool previous = false)
     {
-        int current = MatchTypeCatalog.BaseModeIndex(Draft.Match.Mode);
-        MatchTypeDefinition next = MatchTypeCatalog.GameTypes[(current + (previous ? MatchTypeCatalog.GameTypes.Length-1 : 1)) % MatchTypeCatalog.GameTypes.Length];
+        int current = RmlUiModeCatalog.BaseModeIndex(Draft.Match.Mode);
+        MatchTypeDefinition next = RmlUiModeCatalog.GameTypes[(current + (previous ? RmlUiModeCatalog.GameTypes.Length-1 : 1)) % RmlUiModeCatalog.GameTypes.Length];
         MatchFormat format = MatchTypeCatalog.NormalizeFormat(next, Draft.Match.Format);
         GameMode mode = next.Resolve(format);
         var match = Draft.Match with
@@ -123,8 +123,8 @@ public sealed class RmlUiRuleEditor
 
     public bool NextFormat(bool previous = false)
     {
-        MatchTypeDefinition type = MatchTypeCatalog.GameTypes[
-            MatchTypeCatalog.BaseModeIndex(Draft.Match.Mode)];
+        MatchTypeDefinition type = RmlUiModeCatalog.GameTypes[
+            RmlUiModeCatalog.BaseModeIndex(Draft.Match.Mode)];
         int index = MatchTypeCatalog.MatchupIndex(Draft.Match.Format);
         // Custom has its own team layout editor; no synthesized invalid layout.
         for (int i = 1; i < MatchTypeCatalog.Matchups.Length; i++)

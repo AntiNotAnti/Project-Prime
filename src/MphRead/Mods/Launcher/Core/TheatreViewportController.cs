@@ -15,6 +15,7 @@ public sealed class TheatreViewportController
     private double? _dragX, _dragY;
     private float _yaw, _pitch;
     public bool Focused { get; private set; }
+    internal bool Interacting => _dragX.HasValue || _held.Count != 0;
 
     public void Focus() { Verify(); Focused = true; }
     public void Release()

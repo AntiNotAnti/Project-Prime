@@ -246,7 +246,7 @@ namespace MphRead.Mods.Replay
 
     internal static class ReplayExportRates
     {
-        public static readonly int[] Supported = { 24, 30, 48, 60, 90, 120, 144 };
+        public static readonly int[] Supported = { 24, 30, 48, 60, 90, 120, 144, 240 };
         public static bool IsSupported(int fps) => Array.IndexOf(Supported, fps) >= 0;
     }
 

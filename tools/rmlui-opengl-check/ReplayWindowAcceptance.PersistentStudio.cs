@@ -45,14 +45,26 @@ internal sealed partial class ReplayWindowAcceptance
             && transport.Y + transport.Height <= viewport.Y + 2
             && viewport.Y + viewport.Height <= timeline.Y + 2,
             "persistent workspace keeps usable transport, world picture, inspector and timeline visible together: " + stage);
+        string selectedTab = Read<string>(Page, "_workspaceTab") ?? "camera";
+        TimelineBox selectedButton = default;
         foreach (string tab in new[] { "camera", "markers", "combat", "analysis", "audio", "export" })
         {
             var button = StudioBounds("studio_tab_" + tab);
-            Require(button.Width >= 20 && button.Height >= 15 && button.Inside(tabs) && button.Inside(inspector),
-                "actual tab control is contained inside its visible inspector: " + tab);
+            Require(button.Width >= 20 && button.Height >= 15, "actual Studio tab retains a usable hit area: " + tab);
+            // This is an authored horizontal overflow strip. At 360dp its six
+            // minimum-width buttons cannot all fit simultaneously. The real
+            // native focus path scrolls the activated button into view; the
+            // qualification below visits every tab through that path.
+            if (tab == selectedTab)
+            {
+                selectedButton = button;
+                Require(button.Inside(tabs) && button.Inside(inspector),
+                    "actual selected tab is fully visible in its scrolled inspector strip: " + tab);
+            }
         }
         _rml97StudioChecks.Add(new { Feature = "persistent-workspace-visible-layout", Stage = stage,
-            Document = Page!.Document, Transport = transport, Timeline = timeline, Inspector = inspector, Viewport = viewport, Tabs = tabs });
+            Document = Page!.Document, Transport = transport, Timeline = timeline, Inspector = inspector, Viewport = viewport,
+            Tabs = tabs, SelectedTab = selectedTab, SelectedButton = selectedButton });
     }
 
     private void PlanPersistentStudioQualification()

@@ -239,6 +239,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NcsfPlay\NcsfPlay.csproj" />
+    <ProjectReference Include="../PayloadEscort.Core/PayloadEscort.Core.csproj" />
     <ProjectReference Include="../MphRead.CorpsePhysics/MphRead.CorpsePhysics.csproj" />
     <AndroidAsset Include="../MphRead.CorpsePhysics/THIRD-PARTY-NOTICES.md" LogicalName="corpse-physics/THIRD-PARTY-NOTICES.md" />
   </ItemGroup>
@@ -305,5 +306,12 @@
     <EmbeddedResource Include="../MphRead/Assets/DsHud/*.bin;../MphRead/Assets/DsHud/*.rgb" Link="Assets/DsHud/%(Filename)%(Extension)" />
     <AvaloniaResource Include="../MphRead/Assets/HudFonts/*.ttf" Link="Assets/HudFonts/%(Filename)%(Extension)" />
     <AndroidAsset Include="../MphRead/Assets/HudFonts/*-*.txt;../MphRead/Assets/DsHud/*LICENSE.txt" Link="licenses/hud/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- Shared custom-mode renderers address these resources by the same names
+       on desktop and Android. Keep them in this head's separately built assembly. -->
+  <ItemGroup>
+    <EmbeddedResource Include="../MphRead/Assets/Ctf/SanctuaryBanners.png" LogicalName="Ctf.SanctuaryBanners.png" />
+    <EmbeddedResource Include="../MphRead/Assets/Sounds/Ctf/*.wav" Link="Assets/Sounds/Ctf/%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

@@ -10,12 +10,21 @@ public partial class Scene
     // HUD, even when the window or Android surface is smaller than the movie.
     private int _replayOutputFramebuffer, _replayOutputTexture;
     private Vector2i _replayOutputSize;
+#if !ANDROID && !MPHREAD_SERVER
+    private bool _replayPrimaryComplete;
+    private double _replayPrimaryFrame;
+    private Matrix4 _replayPrimaryView, _replayPrimaryProjection;
+#endif
     internal Vector2i ReplayPreviewSize { get; set; }
     internal Vector4i? ReplayPreviewBounds { get; set; }
     private bool ExportingReplay => Mods.Network.DemoPlayback.Owns(this) && Mods.Replay.ReplayVideoExporter.Rendering;
     private int ReplayOutputFramebuffer()
     {
-        if (!ExportingReplay && !ReplayPreviewBounds.HasValue) { ReleaseReplayOutput(); return 0; }
+        if (!DsTopPass && !ExportingReplay && !ReplayPreviewBounds.HasValue)
+        {
+            if (!UseDsLayout) ReleaseReplayOutput();
+            return 0;
+        }
         if (_replayOutputFramebuffer != 0 && _replayOutputSize == Size) return _replayOutputFramebuffer;
         ReleaseReplayOutput();
         _replayOutputSize = Size;
@@ -35,20 +44,33 @@ public partial class Scene
     }
     private void PreviewReplayOutput()
     {
-        if ((!ExportingReplay && !ReplayPreviewBounds.HasValue) || _replayOutputFramebuffer == 0) return;
+        if ((!DsTopPass && !ExportingReplay && !ReplayPreviewBounds.HasValue) || _replayOutputFramebuffer == 0) return;
+#if !ANDROID && !MPHREAD_SERVER
+        if (!NativeReplayMultiViewActive)
+        {
+            // This is the finished HUD composite, after the primary draw and
+            // before editor chrome. Auxiliary renders must never renew its lease.
+            _replayPrimaryComplete = true;
+            _replayPrimaryFrame = ReplayPresentationFrame;
+            _replayPrimaryView = _viewMatrix;
+            _replayPrimaryProjection = _perspectiveMatrix;
+        }
+#endif
         GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _replayOutputFramebuffer);
         GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
-        var bounds = ReplayPreviewBounds ?? new Vector4i(0, 0, ReplayPreviewSize.X, ReplayPreviewSize.Y);
+        var previewSize = DsTopPass ? _dsWindowSize : ReplayPreviewSize;
+        var bounds = DsTopPass ? Mods.Input.DsLayout.Bounds(previewSize.X, previewSize.Y).Top
+            : ReplayPreviewBounds ?? new Vector4i(0, 0, previewSize.X, previewSize.Y);
         GL.ClearColor(0, 0, 0, 1);
         #if !ANDROID && !MPHREAD_SERVER
         if(!NativeReplayMultiViewPreserveCanvas)
 #endif
         GL.Clear(ClearBufferMask.ColorBufferBit);
-        int bottom = ReplayPreviewSize.Y - bounds.Y - bounds.W;
+        int bottom = previewSize.Y - bounds.Y - bounds.W;
         GL.BlitFramebuffer(0, 0, Size.X, Size.Y, bounds.X, bottom, bounds.X + bounds.Z, bottom + bounds.W,
             ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
-        GL.Viewport(0, 0, ReplayPreviewSize.X, ReplayPreviewSize.Y);
+        GL.Viewport(0, 0, previewSize.X, previewSize.Y);
     }
 #if !ANDROID && !MPHREAD_SERVER
     /// <summary>
@@ -58,7 +80,9 @@ public partial class Scene
     /// </summary>
     private bool BlitNativeReplayPrimaryTile(Vector4i bounds, Vector2i framebuffer)
     {
-        if (_replayOutputFramebuffer == 0 || _replayOutputSize != Size
+        if (!_replayPrimaryComplete || _replayOutputFramebuffer == 0 || _replayOutputSize != Size
+            || _replayPrimaryFrame != ReplayPresentationFrame
+            || _replayPrimaryView != _viewMatrix || _replayPrimaryProjection != _perspectiveMatrix
             || Size.X <= 0 || Size.Y <= 0 || bounds.Z <= 0 || bounds.W <= 0)
             return false;
         GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _replayOutputFramebuffer);
@@ -79,6 +103,10 @@ public partial class Scene
 #endif
     private void ReleaseReplayOutput()
     {
+#if !ANDROID && !MPHREAD_SERVER
+        ReleaseReplayAuxiliaryCache();
+        _replayPrimaryComplete = false;
+#endif
         if (_replayOutputFramebuffer != 0) GL.DeleteFramebuffer(_replayOutputFramebuffer);
         if (_replayOutputTexture != 0) GL.DeleteTexture(_replayOutputTexture);
         _replayOutputFramebuffer = _replayOutputTexture = 0;

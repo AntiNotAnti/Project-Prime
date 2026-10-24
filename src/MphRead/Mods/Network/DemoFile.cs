@@ -257,6 +257,8 @@ namespace MphRead.Mods.Network
         internal IReadOnlyList<ReplayCheckpointIndex> Checkpoints => _v3?.Checkpoints ?? Array.Empty<ReplayCheckpointIndex>();
         internal byte[] ReadCheckpoint(ReplayCheckpointIndex entry) => _v3?.ReadCheckpoint(entry)
             ?? throw new InvalidDataException("Legacy replay has no durable checkpoints.");
+        internal Func<byte[]> PrepareCheckpointRead(ReplayCheckpointIndex entry) => _v3?.PrepareCheckpointRead(entry)
+            ?? throw new InvalidDataException("Legacy replay has no durable checkpoints.");
 
         public DemoRecord? SeekAfter(uint frame)
         {

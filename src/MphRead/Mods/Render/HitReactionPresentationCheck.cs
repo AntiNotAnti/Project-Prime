@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using MphRead.Entities;
+using MphRead.Formats;
 using MphRead.Mods.Input;
 using OpenTK.Mathematics;
 
@@ -14,6 +15,10 @@ internal static class HitReactionPresentationCheck
         int priorCap = FrameTiming.FrameRateCap;
         bool priorPro = Features.ProHud, priorFixed = Features.FixedCrosshair;
         bool priorWeapon = Features.FixedWeapon, priorProWeapon = Features.ProHudFixedWeapon;
+        bool priorStylus = PointerInput.StylusMode;
+        bool priorZoneWanted = StylusZone.Wanted;
+        bool priorDsLayoutEnabled = DsLayout.Enabled;
+        string priorDsScreenAspect = DsLayout.ScreenAspect;
         var priorGame = GameState.Current;
         var priorPlayers = PlayerEntity.LegacyRegistry;
         var priorRandom = Rng.Current;
@@ -64,6 +69,33 @@ internal static class HitReactionPresentationCheck
             }
             bool Near(Vector3 a, Vector3 b) => (a - b).Length < .0001f;
             Vector3 forward = -Vector3.UnitZ;
+            var priorSize = scene.Size;
+            try
+            {
+                scene.Size = new Vector2i(2560, 1440);
+                PointerInput.StylusMode = true;
+                DsLayout.Enabled = true;
+                DsLayout.ScreenAspect = "4:3";
+                var projection = scene.GetPerspectiveMatrix(MathHelper.DegreesToRadians(78));
+                Check(MathF.Abs(projection.M22 / projection.M11 - 4f / 3f) < .00001f,
+                    "DS layout uses configured 4:3 projection before rendering, including reticle updates");
+                DsLayout.ScreenAspect = "5:3";
+                projection = scene.GetPerspectiveMatrix(MathHelper.DegreesToRadians(78));
+                Check(MathF.Abs(projection.M22 / projection.M11 - 5f / 3f) < .00001f,
+                    "DS layout honors the configured 5:3 projection");
+                DsLayout.Enabled = false;
+                projection = scene.GetPerspectiveMatrix(MathHelper.DegreesToRadians(78));
+                Check(MathF.Abs(projection.M22 / projection.M11 - 16f / 9f) < .00001f,
+                    "disabling DS layout restores full-window projection");
+            }
+            finally
+            {
+                scene.Size = priorSize;
+                // Keep stylus tests independent of any previously enabled DS layout.
+                DsLayout.Enabled = false;
+                DsLayout.ScreenAspect = priorDsScreenAspect;
+                StylusZone.Enabled = false;
+            }
             Vector3 shaken = new Vector3(.3f, .1f, -1).Normalized();
             foreach (int rate in new[] { 120, 144, 240 })
             foreach (int policy in new[] { 0, 1, 2 })
@@ -152,9 +184,11 @@ internal static class HitReactionPresentationCheck
                 Pose(forward, forward, 38);
                 var inputBefore = Render(.5);
                 var inputAfter = Render(.5, 10);
-                Check(!Near(inputBefore.Camera, inputAfter.Camera)
-                    && MathF.Abs(inputBefore.Fov - inputAfter.Fov) < .0001f,
-                    $"{rate} Hz scope sampling keeps pending local aim responsive");
+                bool pendingAimPolicy=proHud
+                    ? Near(inputBefore.Camera,inputAfter.Camera)
+                    : !Near(inputBefore.Camera,inputAfter.Camera);
+                Check(pendingAimPolicy&&MathF.Abs(inputBefore.Fov-inputAfter.Fov)<.0001f,
+                    $"{rate} Hz {(proHud?"Dynamic":"Static")} scope follows its draw-time aim policy");
                 Check(player.CameraInfo.Fov == canonicalFov && player.Position == canonicalPosition
                     && player.CameraInfo.Position == canonicalCamera && player.CameraInfo.Target == canonicalTarget
                     && player.ModGunVector == canonicalAim && scene.Random.Rng1 == rng1 && scene.Random.Rng2 == rng2,
@@ -230,27 +264,217 @@ internal static class HitReactionPresentationCheck
 
                 Features.ProHud = true;
                 Features.ProHudFixedWeapon = false;
-                // Reproduce the v0.1.34 regression: Dynamic keeps an eased
-                // simulation camera (forward) while raw mouse aim has already
-                // turned left. Presentation must follow raw aim immediately
-                // without destroying the Dynamic simulation state.
+                // Dynamic keeps the camera on its coherent eased native basis,
+                // even while raw aim and extra pointer input differ at draw.
+                // The pending aim must not leak into the displayed camera or
+                // mutate the camera state consumed by the next simulation step.
+                player.CameraInfo.ModResetDrawState();
+                player.ModResetFirstPersonDrawState();
                 Pose(forward, forward);
+                Pose(forward, shaken);
                 Set("_facingVector", forward);
                 Set("_gunVec1", -Vector3.UnitX);
                 Set("_aimVec", -Vector3.UnitX);
+                Vector3 currentCameraPosition=player.CameraInfo.Position;
+                Vector3 currentCameraTarget=player.CameraInfo.Target;
+                Vector3 currentCameraFacing=player.CameraInfo.Facing;
+                Vector3 currentAim=player.ModGunVector;
+                Vector3 ExpectedDrawCamera(double alpha)
+                {
+                    if(!player.CameraInfo.ModGetFirstPersonDrawPose(alpha,out Vector3 position,
+                        out Vector3 target,out _,out _,fenceLiveClock:true))
+                        throw new InvalidOperationException("Dynamic camera history was unavailable.");
+                    return (target-position).Normalized();
+                }
                 var dynamicStart = Render(0);
                 var dynamicMiddle = Render(.5);
                 var dynamicEnd = Render(1);
-                Check(Near(dynamicStart.Camera, -Vector3.UnitX)
-                    && Near(dynamicMiddle.Camera, -Vector3.UnitX)
-                    && Near(dynamicEnd.Camera, -Vector3.UnitX),
-                    $"{rate} Hz Pro HUD Dynamic renders raw aim without legacy camera lag");
+                Check(Near(dynamicStart.Camera,ExpectedDrawCamera(0))
+                    && Near(dynamicMiddle.Camera,ExpectedDrawCamera(.5))
+                    && Near(dynamicEnd.Camera,ExpectedDrawCamera(1))
+                    && !Near(dynamicMiddle.Camera,-Vector3.UnitX),
+                    $"{rate} Hz Pro HUD Dynamic follows the eased CameraInfo draw basis");
                 var dynamicLate = Render(.5, 10);
-                Check(!Near(dynamicLate.Camera, dynamicMiddle.Camera),
-                    $"{rate} Hz Pro HUD Dynamic late-latches pending mouse aim");
-                Check(player.CameraInfo.Facing == forward,
-                    $"{rate} Hz Pro HUD Dynamic leaves eased simulation camera untouched");
+                Check(Near(dynamicLate.Camera,dynamicMiddle.Camera)
+                    &&player.CameraInfo.Position==currentCameraPosition
+                    &&player.CameraInfo.Target==currentCameraTarget
+                    &&player.CameraInfo.Facing==currentCameraFacing
+                    &&player.ModGunVector==currentAim,
+                    $"{rate} Hz Pro HUD Dynamic ignores pending draw aim without mutating simulation state");
                 Features.ProHud = false;
+            }
+            // Dynamic keeps the raw shot direction inside the authored cone,
+            // while only a held local pen moves the camera toward it. Exercise
+            // the real aim helpers and pen contact so zero-delta frames and pen
+            // release cannot silently change the shot or view.
+            var updateX = typeof(PlayerEntity).GetMethod("UpdateAimX",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var updateY = typeof(PlayerEntity).GetMethod("UpdateAimY",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var follow = typeof(PlayerEntity).GetMethod("UpdateStylusAimFollow",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            void Contact(bool down, bool accepts = true)
+                => PointerDevice.Update(new PointerSample(PointerDeviceType.Pen, 1,
+                    128, 96, false, down, true), 256, 192, acceptsInput: accepts);
+            void Tick()
+            {
+                updateY.Invoke(player, new object[] { 0f, false });
+                updateX.Invoke(player, new object[] { 0f, false });
+                follow.Invoke(player, null);
+            }
+            Vector3 ReadVector(string name) => (Vector3)typeof(PlayerEntity)
+                .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(player)!;
+            void SetFloat(string name, float value) => typeof(PlayerEntity)
+                .GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(player, value);
+            var flagsProperty = typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Flags1))!;
+            void SetFlags(PlayerFlags1 flags) => flagsProperty.SetValue(player, flags);
+            var frameAdvance = typeof(Scene).GetField("_frameAdvanceOn",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var frameAdvanceLast = typeof(Scene).GetField("_frameAdvanceLastFrame",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var blockedSequence = (CameraSequence)System.Runtime.CompilerServices.RuntimeHelpers
+                .GetUninitializedObject(typeof(CameraSequence));
+            CameraSequence? priorSequence = scene.CameraSequences.Current;
+            var customSelected = typeof(PlayerEntity).GetField("_customScopeSelected",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            var customOptic = typeof(PlayerEntity).GetField("_customScopeOptic",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            try
+            {
+                foreach (bool pro in new[] { false, true })
+                {
+                    PointerDevice.Reset();
+                    PointerInput.StylusMode = true;
+                    StylusZone.Enabled = false;
+                    Contact(false);
+                    Features.ProHud = pro;
+                    Features.FixedCrosshair = true;
+                    Features.FixedWeapon = false;
+                    Features.ProHudFixedWeapon = false;
+                    SetFlags(player.Flags1 & ~PlayerFlags1.NoAimInput);
+                    customSelected.SetValue(player, false);
+                    customOptic.SetValue(player, (byte)0);
+
+                    Vector3 driftAim = new Vector3(MathF.Sin(.15f), 0, -MathF.Cos(.15f));
+                    Pose(driftAim, forward);
+                    Set("_facingVector", forward);
+                    SetFloat("_aimY", 0);
+                    for (int tick = 0; tick < 600; tick++)
+                    {
+                        updateY.Invoke(player, new object[] { 0f, false });
+                        updateX.Invoke(player, new object[] { 0f, false });
+                    }
+                    Check(Near(ReadVector("_facingVector"), forward)
+                        && Near(ReadVector("_gunVec1"), driftAim),
+                        $"{(pro ? "Pro" : "Classic")} Dynamic holds offset after 600 idle ticks");
+
+                    Vector3 wideAim = new Vector3(MathF.Sin(.6f), 0, -MathF.Cos(.6f));
+                    Set("_gunVec1", wideAim);
+                    updateX.Invoke(player, new object[] { 0f, false });
+                    Vector3 edgeFacing = ReadVector("_facingVector");
+                    float edgeDot = Vector3.Dot(edgeFacing, ReadVector("_gunVec1"));
+                    Check(!Near(edgeFacing, forward) && Near(ReadVector("_gunVec1"), wideAim)
+                        && MathF.Abs(edgeDot - Fixed.ToFloat(3956)) < .001f,
+                        $"{(pro ? "Pro" : "Classic")} Dynamic turns at full cone boundary without recenter pull");
+                    for (int tick = 0; tick < 600; tick++)
+                    {
+                        updateY.Invoke(player, new object[] { 0f, false });
+                        updateX.Invoke(player, new object[] { 0f, false });
+                    }
+                    Check(Near(ReadVector("_facingVector"), edgeFacing),
+                        $"{(pro ? "Pro" : "Classic")} Dynamic retains boundary offset at rest");
+
+                    Contact(true);
+                    Tick();
+                    Vector3 firstFollow = ReadVector("_facingVector");
+                    Vector3 expectedFollow = (edgeFacing + (wideAim - edgeFacing) * .1f).Normalized();
+                    Check(Near(firstFollow, expectedFollow) && Near(ReadVector("_gunVec1"), wideAim)
+                        && Vector3.Dot(firstFollow, wideAim) > edgeDot,
+                        $"{pro} stationary pen contact applies one gradual camera step without moving aim");
+
+                    // Render from the camera basis produced by that same follow
+                    // step. Dynamic Pro HUD must not substitute the raw shot ray.
+                    player.CameraInfo.ModResetDrawState();
+                    player.ModResetFirstPersonDrawState();
+                    Pose(wideAim, firstFollow);
+                    Check(Near(Render(1).Camera, firstFollow),
+                        $"{pro} Dynamic first-person render follows the eased pen camera");
+
+                    Contact(false);
+                    for (int tick = 0; tick < 600; tick++) Tick();
+                    Check(Near(ReadVector("_facingVector"), firstFollow),
+                        $"{pro} lifting stops follow immediately, including release debounce");
+
+                    // Explicit ownership and pause gates must also keep the
+                    // contact-driven follow from changing this camera basis.
+                    Contact(true);
+                    SetFlags(player.Flags1 | PlayerFlags1.NoAimInput);
+                    Tick();
+                    Check(Near(ReadVector("_facingVector"), firstFollow),
+                        $"{pro} NoAimInput suppresses stationary pen follow");
+                    SetFlags(player.Flags1 & ~PlayerFlags1.NoAimInput);
+
+                    blockedSequence.Flags = CamSeqFlags.BlockInput;
+                    scene.CameraSequences.Current = blockedSequence;
+                    Tick();
+                    Check(Near(ReadVector("_facingVector"), firstFollow),
+                        $"{pro} input-blocking camera sequence suppresses pen follow");
+                    scene.CameraSequences.Current = null;
+
+                    frameAdvance.SetValue(scene, true);
+                    Tick();
+                    Check(Near(ReadVector("_facingVector"), firstFollow),
+                        $"{pro} frame advance suppresses pen follow");
+                    frameAdvance.SetValue(scene, false);
+                    frameAdvanceLast.SetValue(scene, true);
+                    Tick();
+                    Check(Near(ReadVector("_facingVector"), firstFollow),
+                        $"{pro} final frame-advance boundary suppresses pen follow");
+                    frameAdvanceLast.SetValue(scene, false);
+
+                    // A selected custom optic remains welded to raw aim and
+                    // never re-enters the Dynamic contact-follow path.
+                    Set("_facingVector", edgeFacing);
+                    customSelected.SetValue(player, true);
+                    customOptic.SetValue(player, (byte)1);
+                    follow.Invoke(player, null);
+                    Check(Near(ReadVector("_facingVector"), edgeFacing),
+                        $"{pro} custom optic suppresses Dynamic pen follow");
+                    updateX.Invoke(player, new object[] { 0f, false });
+                    Check(Near(ReadVector("_facingVector"), wideAim),
+                        $"{pro} custom optic keeps its raw-aim camera weld");
+                    customSelected.SetValue(player, false);
+                    customOptic.SetValue(player, (byte)0);
+                    scene.CameraSequences.Current = null;
+                    PointerDevice.Reset();
+                    Contact(true, accepts: false);
+                    Contact(true);
+                    Set("_facingVector", firstFollow);
+                    Tick();
+                    Check(!PointerDevice.AimContact && Near(ReadVector("_facingVector"), firstFollow),
+                        $"{pro} menu-owned pen contact cannot recenter after returning to gameplay");
+
+                    PointerDevice.Reset();
+                    Contact(true);
+                    for (int tick = 0; tick < 120; tick++) Tick();
+                    Check(Near(ReadVector("_facingVector"), wideAim)
+                        && Near(ReadVector("_gunVec1"), wideAim),
+                        $"{pro} sustained stationary contact converges while shot direction stays fixed");
+                }
+            }
+            finally
+            {
+                PointerDevice.Reset();
+                PointerInput.StylusMode = false;
+                StylusZone.Enabled = false;
+                scene.CameraSequences.Current = priorSequence;
+                frameAdvance.SetValue(scene, false);
+                frameAdvanceLast.SetValue(scene, false);
+                customSelected.SetValue(player, false);
+                customOptic.SetValue(player, (byte)0);
+                Features.ProHud = false;
+                Features.FixedCrosshair = true;
+                Features.FixedWeapon = true;
             }
             // Spectator/replay POV does not late-latch local input, but its
             // arm cannon must still consume the same fractional camera pose.
@@ -346,6 +570,11 @@ internal static class HitReactionPresentationCheck
         }
         finally
         {
+            PointerDevice.Reset();
+            PointerInput.StylusMode = priorStylus;
+            StylusZone.Enabled = priorZoneWanted;
+            DsLayout.ScreenAspect = priorDsScreenAspect;
+            DsLayout.Enabled = priorDsLayoutEnabled;
             Features.ProHud = priorPro; Features.FixedCrosshair = priorFixed;
             Features.FixedWeapon = priorWeapon; Features.ProHudFixedWeapon = priorProWeapon;
             FrameTiming.FrameRateCap = priorCap;

@@ -36,17 +36,10 @@ try
         File.Copy(originalAssemblyPath, alternate);
         using (var append = new FileStream(alternate, FileMode.Append))
             append.Write(new byte[] { 0x41, 0x55, 0x44, 0x49, 0x54 });
-        var loader = new AssemblyLoadContext("external application image", isCollectible: true);
-        try
-        {
-            var external = loader.LoadFromAssemblyPath(alternate);
-            Require(RuntimeApplicationImage.AssemblyPath(external) == alternate, "actual external assembly location");
-            using var externalFile = File.OpenRead(alternate);
-            string externalHash = Convert.ToHexString(SHA256.HashData(externalFile)).ToLowerInvariant();
-            Require(RuntimeApplicationImage.Capture(external) == (externalHash, "assembly")
-                && externalHash != original.Sha256, "actual external assembly checksum");
-        }
-        finally { loader.Unload(); }
+        var unloaded = VerifyExternal(alternate, original.Sha256);
+        for (int i = 0; unloaded.IsAlive && i < 10; i++)
+        { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+        Require(!unloaded.IsAlive, "external assembly context releases file before cleanup");
     }
     else
     {
@@ -75,4 +68,22 @@ Console.WriteLine($"PASS: six application image assertions ({original.Kind}, {or
 static void Require(bool condition, string label)
 {
     if (!condition) throw new InvalidOperationException(label);
+}
+
+[System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.NoInlining)]
+static WeakReference VerifyExternal(string alternate, string originalHash)
+{
+    var loader = new AssemblyLoadContext("external application image", isCollectible: true);
+    var weak = new WeakReference(loader);
+    try
+    {
+        var external = loader.LoadFromAssemblyPath(alternate);
+        Require(RuntimeApplicationImage.AssemblyPath(external) == alternate, "actual external assembly location");
+        using var externalFile = File.OpenRead(alternate);
+        string externalHash = Convert.ToHexString(SHA256.HashData(externalFile)).ToLowerInvariant();
+        Require(RuntimeApplicationImage.Capture(external) == (externalHash, "assembly")
+            && externalHash != originalHash, "actual external assembly checksum");
+    }
+    finally { loader.Unload(); }
+    return weak;
 }

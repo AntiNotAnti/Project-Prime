@@ -12,7 +12,7 @@ internal static class Protocol84CheckpointFixtures
     internal static byte[] ToProtocol84(ReadOnlySpan<byte> current)
     {
         if (current.Length < 8 || BinaryPrimitives.ReadUInt32LittleEndian(current) != 0x43525050
-            || current[6] != 85 || PlayerState.Size != 192 || IntentPacket.TouchCanonicalSize != 1299)
+            || current[6] != 86 || PlayerState.Size != 192 || IntentPacket.TouchCanonicalSize != 1299)
             throw new InvalidOperationException("Unexpected protocol85 checkpoint fixture widths/header.");
         ushort version = BinaryPrimitives.ReadUInt16LittleEndian(current[4..]);
         bool custom = version == 17;

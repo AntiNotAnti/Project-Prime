@@ -107,7 +107,7 @@ namespace MphRead
                     }
                 }
             }
-            else if (mode == GameMode.Capture)
+            else if ((mode == GameMode.Capture || mode == GameMode.CaptureTheFlag))
             {
                 if (Metadata.CtfNodeDataOverrides.TryGetValue(roomId, out string? nodeOverride))
                 {
@@ -387,6 +387,8 @@ namespace MphRead
                         worldProfile!.Value.Resources);
                 }
             }
+            if (mode == GameMode.Oddball && !Mods.Oddball.OddballMap.IsCombatHall(metadata.Name))
+                entityLayerId = GetMultiplayerEntityLayer(GameMode.Battle, worldProfile!.Value.EntityLayerPlayers, worldProfile.Value.Resources);
             if (nodeLayerMask == 0)
             {
                 int nodePlayerCount = vanillaDuelResources || Features.MaxRoomDetail ? 2 : playerCount;
@@ -443,7 +445,7 @@ namespace MphRead
                 {
                     nodeLayerMask |= (int)NodeLayer.MultiplayerLod1;
                 }
-                if (mode == GameMode.Capture)
+                if ((mode == GameMode.Capture || mode == GameMode.CaptureTheFlag))
                 {
                     nodeLayerMask |= (int)NodeLayer.CaptureTheFlag;
                 }
@@ -462,6 +464,7 @@ namespace MphRead
             // only FirstHunt is passed here, not Hybrid -- model/anim/col should be loaded from FH, and ent/node from MPH
             IReadOnlyList<Entity> entities = Read.GetEntities(metadata.EntityPath, layerId, metadata.FirstHunt, allowHook: true);
             entities = Mods.Multiplayer.MapResourceRules.Resolve(metadata, resources, entities);
+            if (scene.GameState.Mode == GameMode.Oddball) entities = Mods.Oddball.OddballMap.Resolve(metadata, entities);
             if (scene.GameState.Multiplayer && !scene.Services.IsReplica && !metadata.FirstHunt
                 && !Mods.Multiplayer.MapModeCapabilities.SupportsEntities(metadata.Name, scene.GameState.Mode, entities, out string reason))
                 throw new ProgramException(reason);

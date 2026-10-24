@@ -188,6 +188,7 @@ internal sealed class SceneMatchEvents
                 ushort generation = NetSession.Active ? NetPlayerLifecycle.Generation(contributor.Slot) : _generations[contributor.Slot];
                 if (generation != contributor.SlotGeneration) continue; // disconnected/reused occupant cannot receive an assist
                 if (!Bus.TryEmit(Tick(scene), MatchSemanticEventType.PlayerAssisted, contributor, Actor(victim))) RejectedEvents++;
+                else scene.GameState.CtzStats.Assist(contributor.Slot);
             }
         }
         else RejectedEvents++;

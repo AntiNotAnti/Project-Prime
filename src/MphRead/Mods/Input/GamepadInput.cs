@@ -415,6 +415,10 @@ namespace MphRead.Mods.Input
             {
                 return;
             }
+            // The offline audit already supplied this scene's complete input.
+            // Match the keyboard ownership guard: a physical pad must neither
+            // erase scripted analogue magnitudes nor add hardware controls.
+            if (ReferenceEquals(player.OwningScene, Network.NetTestScript.OfflineInputScene)) return;
             PlayerControls controls = player.Controls;
             // This state belongs to the current controller sample, not the
             // PlayerControls lifetime. Clear it before every local projection so

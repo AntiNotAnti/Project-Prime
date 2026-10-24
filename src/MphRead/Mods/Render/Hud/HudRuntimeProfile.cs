@@ -42,7 +42,7 @@ public sealed class CrosshairRuntime
         _parts=Array.Empty<CrosshairRuntime>();
         WidthScale=p.WidthScale;HeightScale=p.HeightScale;Rotation=p.Rotation;ShotScale=p.ShotScale;ChargeScale=p.ChargeScale;ZoomScale=p.ZoomScale;
         MatchHudPalette=p.MatchHudPalette;NativeOriginalColors=p.NativeOriginalColors;MinimumVisibility=p.MinimumVisibility;NativeAnimations=p.NativeAnimations;Motion=p.Motion;
-        Native=p.Native; NativeScale=p.Scale; NativeThickness=p.NativeThickness; Enabled = p.Enabled; HealthColor = p.HealthColor; Opacity = p.Opacity; Outline = p.Outline * p.Scale;
+        p.Validate(); Native=p.Native; NativeScale=p.Scale; NativeThickness=p.NativeThickness; Enabled = p.Enabled; HealthColor = p.HealthColor; Opacity = p.Opacity; Outline = p.Outline * p.Scale;
         OutlineColor = HudColor.Parse(p.OutlineColor); OutlineOpacity = p.OutlineOpacity;
         uint rgb = Convert.ToUInt32(p.Color[1..], 16);
         Color = new Vector3((rgb >> 16) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);

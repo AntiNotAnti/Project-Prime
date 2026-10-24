@@ -21,13 +21,14 @@ body { background-color:#030c14; }
 .native_settings_groups button:hover, .native_settings_groups button:focus { background-color:#20475c; border-bottom-color:#8cd4e3; color:#ffffff; }
 .native_settings_scroller { flex:1; min-height:0; overflow-y:auto; overflow-x:hidden; padding-right:8dp; }
 .native_settings_row { display:flex; flex-wrap:wrap; align-items:center; min-width:0; padding:9dp 6dp; border-bottom:1dp #204155; }
-.native_settings_caption { width:57%; min-width:0; padding-right:10dp; }
-.native_settings_group { font-size:10dp; line-height:13dp; color:#8cd4e3; margin:0 0 3dp; }
-.native_settings_row label { display:block; font-size:15dp; line-height:18dp; }
-.native_settings_row input { width:42%; min-width:0; padding:7dp; font-size:12dp; }
-.native_settings_row button { width:42%; min-width:0; padding:7dp; font-size:12dp; text-align:center; background-color:#12364b; border:1dp #37677c; }
+.native_settings_caption { display:flex; align-items:center; width:57%; min-width:0; padding-right:10dp; }
+.native_settings_group { font-size:11dp; line-height:14dp; color:#8cd4e3; margin:0 0 3dp; }
+.native_settings_row label { display:block; flex:1; min-width:0; font-size:16dp; line-height:20dp; }
+.native_settings_row input { width:42%; min-width:0; padding:7dp; font-size:14dp; }
+.native_settings_row button { width:42%; min-width:0; padding:7dp; font-size:14dp; text-align:center; background-color:#12364b; border:1dp #37677c; }
+.native_settings_caption button.native_settings_info { flex:0 0 28dp; width:28dp; min-width:28dp; min-height:28dp; margin-left:6dp; padding:0; border-radius:50%; font-size:14dp; font-weight:bold; }
 .native_settings_row button:hover, .native_settings_row button:focus { background-color:#24556c; border-color:#8cd4e3; color:#ffffff; }
-.native_settings_hint { width:100%; color:#87a3b5; font-size:10dp; line-height:13dp; margin-top:4dp; }
+.native_settings_hint { width:100%; color:#a0bac8; font-size:12dp; line-height:16dp; margin-top:5dp; }
 /* All rows in the selected group are scrolled directly; no page controls remain. */
 .native_settings_paging { display:none; }
 .native_settings_footer { display:flex; flex-shrink:0; margin-top:6dp; }
@@ -60,9 +61,9 @@ body { background-color:#030c14; }
  .native_settings_groups { max-height:25dp; margin-bottom:3dp; }
  .native_settings_groups button { min-height:21dp; padding:3dp 5dp; font-size:10dp; }
  .native_settings_row { padding:5dp 3dp; }
- .native_settings_row label { font-size:12dp; line-height:15dp; }
- .native_settings_row input, .native_settings_row button { padding:5dp; font-size:10dp; }
- .native_settings_hint { margin-top:2dp; font-size:9dp; line-height:11dp; }
+ .native_settings_row label { font-size:14dp; line-height:17dp; }
+ .native_settings_row input, .native_settings_row button { padding:5dp; font-size:12dp; }
+ .native_settings_hint { margin-top:3dp; font-size:11dp; line-height:14dp; }
  .native_settings_footer { margin-top:4dp; }
  .native_settings_footer button { min-height:25dp; margin-right:5dp; padding:5dp 8dp; font-size:10dp; }
  #native_settings_status { margin-top:3dp; min-height:13dp; max-height:13dp; line-height:13dp; font-size:9dp; }
@@ -132,7 +133,6 @@ body { background-color:#030c14; }
  .native_settings_commands { margin-top:10dp; padding:8dp; }
  .native_settings_footer button { padding:5dp 7dp; font-size:10dp; }
 }
-
 .native_settings_help { flex-shrink:0; margin:4dp 0 0; max-height:28dp; overflow-y:auto; font-size:10dp; line-height:13dp; color:#a3becb; }
 #native_settings_advanced { align-self:flex-start; margin-bottom:5dp; padding:5dp 8dp; font-size:11dp; }
 
@@ -215,3 +215,9 @@ body.touch-targets #screen .native_settings_subpages.native_settings_tab_cards {
  .native_settings_category_card span { font-size:11dp; line-height:15dp; }
  .native_settings_subpages.native_settings_tab_cards button { min-height:48dp; font-size:13dp; padding:9dp; }
 }
+
+
+/* HUD Studio is a Display landing destination alongside its setting sections. */
+#native_settings_subpages #native_settings_hud { min-height:72dp; padding:12dp; font-size:16dp; text-align:left; border:1dp #72c7ff; background-color:#12364b; }
+#native_settings_hud strong { display:block; font-size:18dp; line-height:23dp; color:#ecf8ff; }
+#native_settings_hud span { display:block; font-size:14dp; line-height:19dp; color:#b8d6e5; }

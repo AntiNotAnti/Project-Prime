@@ -9,14 +9,14 @@ namespace MphRead;
 public partial class Scene
 {
     private sealed record WorldShaderProgram(int Program, ShaderLocations Locations,
-        CosmeticUniforms? Cosmetics, int Skin, int OutlineMask, int OutlineColor, int Sampler, int NeutralAlbedo);
+        CosmeticUniforms? Cosmetics, int Skin, int OutlineMask, int OutlineColor, int Sampler, int NeutralAlbedo, int Video);
     private WorldShaderProgram? _fullWorldProgram, _nativeWorldProgram, _plainWorldProgram, _unlitWorldProgram;
     private static readonly bool _worldShaderVariantsEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("SHADER_VARIANTS");
     private static readonly bool _plainWorldShaderEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("PLAIN_SHADER");
     private static readonly bool _unlitWorldShaderEnabled = Mods.Render.OpenGlOptimizationPolicy.Enabled("UNLIT_SHADER");
 
     private WorldShaderProgram SaveWorldProgram() => new(_shaderProgramId, _shaderLocations,
-        _cosmeticUniforms, _texturedPlayerSkinUniform, _playerOutlineMaskUniform, _playerOutlineColorUniform, _worldSampler, _authoredNeutralAlbedoUniform);
+        _cosmeticUniforms, _texturedPlayerSkinUniform, _playerOutlineMaskUniform, _playerOutlineColorUniform, _worldSampler, _authoredNeutralAlbedoUniform, _photographicVideoUniform);
 
     private void UseWorldProgram(WorldShaderProgram program)
     {
@@ -25,7 +25,9 @@ public partial class Scene
         _playerOutlineMaskUniform = program.OutlineMask; _playerOutlineColorUniform = program.OutlineColor;
         _worldSampler = program.Sampler;
         _authoredNeutralAlbedoUniform = program.NeutralAlbedo;
+        _photographicVideoUniform = program.Video;
         GL.UseProgram(_shaderProgramId);
+        SetSceneLinearColorUniform(SceneLinearColorActive);
     }
 
     private void PrewarmWorldShaderVariants()

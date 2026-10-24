@@ -1,6 +1,11 @@
 using MphRead.Mods.Launcher.Core;
 using MphRead.Mods.Render.Hud;
 using MphRead.Mods.Input;
+#if MPHREAD_RMLUI_GL_SMOKE
+using System.Collections.Immutable;
+using System.Reflection;
+using MphRead.Mods.Launcher.RmlUi.Pages.Hud;
+#endif
 
 int checks=0;
 void Check(bool value,string message){if(!value)throw new InvalidOperationException("HUD contract: "+message);checks++;}
@@ -11,6 +16,11 @@ using(var controller=new HudEditorController(original,backend))
 {
     var first=controller.Snapshot();
     Check(ReferenceEquals(first,controller.Snapshot()),"unchanged profile snapshot retains revision");
+    int modeScoreboard=Array.IndexOf(HudProfileDefaults.ElementIds,"match.oddballScoreboard");
+    Check(first.Elements[modeScoreboard].Opacity==0,"mode scoreboard is absent from ordinary gameplay preview");
+    var aim=controller.Bounds(0).Center;
+    controller.PointerDown(9,aim.X,aim.Y);controller.PointerUp(9);
+    Check(controller.Snapshot().Selected==0,"inactive mode scoreboard cannot intercept the centered crosshair");
     controller.SelectElement(1);controller.Dispatch(HudEditorAction.NudgeRight);
     Check(original.Elements["core.health"].OffsetX==11.25f&&HudProfiles.Generation==generation,"detached edits never mutate original or publish active HUD");
     Check(first.Elements[1].Bounds==new HudEditorController(original,backend).Snapshot().Elements[1].Bounds,"captured geometry stays immutable");
@@ -167,14 +177,20 @@ using(var controller=new HudEditorController(original,backend, new[]{new HudEdit
     controller.Dispatch(HudEditorAction.SectionGlobal);
     Check(!controller.Snapshot().ProfilesWorkspace&&controller.Snapshot().InspectorSection==2&&controller.Snapshot().PropertySearch.Length==0,"section navigation returns to elements and resets search");
     controller.Dispatch(HudEditorAction.SectionAppearance);
-    Check(controller.Snapshot().Properties.All(p=>p.Path.StartsWith("/health/")||p.Path is "/smoothArtwork" or "/haloLowHealthSound"||p.Path.StartsWith("/elements/core.health/")),"element appearance avoids repeating unrelated HUD global settings");
+    Check(controller.Snapshot().Properties.All(p=>p.Path.StartsWith("/health/")||p.Path=="/haloLowHealthSound"||p.Path.StartsWith("/elements/core.health/")),"element appearance contains only the selected component's related controls");
+    controller.Dispatch(HudEditorAction.SectionGlobal);
+    controller.Dispatch(HudEditorAction.SearchProperties,"smoothArtwork");
+    Check(controller.Snapshot().Properties.Any(p=>p.Path=="/smoothArtwork"),"HUD-wide section owns shared artwork smoothing");
+    controller.Dispatch(HudEditorAction.SearchProperties,"textScale");
+    Check(controller.Snapshot().Properties.Any(p=>p.Path=="/textScale"),"HUD-wide section owns shared text scale");
 }
 HudInlineSectionCheck.Run(Check);
-Console.WriteLine($"HUD CONTRACT PASS {checks} checks.");
 #if MPHREAD_RMLUI_GL_SMOKE
+HudPreviewBitmapCpuCheck.Run(Check);
 if(args.Length==3&&args[0]=="--native")NativeHudCheck.Run(args[1],args[2]);
 if(args.Length==4&&args[0]=="--native-gl")NativeHudGlCheck.Run(args[1],args[2],args[3]);
 #endif
+Console.WriteLine($"HUD CONTRACT PASS {checks} checks.");
 internal sealed class HudBoundary:IHudEditorBackend
 {
     public string? Warning=>null;
@@ -182,3 +198,70 @@ internal sealed class HudBoundary:IHudEditorBackend
     public void SaveNamed(string name,HudProfile profile){Saved=profile.DeepClone();Saved.Name=name;}
     public HudProfile LoadNamed(string name)=>Saved?.DeepClone()??throw new FileNotFoundException("Named HUD profile missing.");
 }
+#if MPHREAD_RMLUI_GL_SMOKE
+internal static class HudPreviewBitmapCpuCheck
+{
+    internal static void Run(Action<bool,string> check)
+    {
+        var sampling=typeof(HudPreviewBitmap).GetMethod("VerifyAlphaImageNonFirstRowSamplingForCpuCheck",BindingFlags.Static|BindingFlags.NonPublic);
+        check(sampling?.Invoke(null,null) is true,"font atlas alpha sampling addresses a glyph row after the first atlas row");
+
+        string directory=Path.Combine(Path.GetTempPath(),"hud-preview-cpu-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        try
+        {
+            byte[] Render(HudProfile profile,HudEditorProperty? property=null,int index=1)
+            {
+                var element=index==1
+                    ?new HudEditorElement(1,"core.health",new(32,32,192,128),true,false,true,1,"#FFFFFF")
+                    :new HudEditorElement(14,HudProfileDefaults.MovementTelemetryId,new(32,32,192,128),true,false,true,1,"#FFFFFF");
+                var state=new HudEditorSnapshot
+                {
+                    ProfileJson=HudProfileStore.Serialize(profile),Selected=1,InspectorSection=2,Property=property,
+                    Elements=ImmutableArray.Create(element),Surface=new(0,0,256,192),CanvasWidth=256,CanvasHeight=192,
+                    PreviewWidth=256,PreviewHeight=192,Scenario=HudPreviewScenario.Healthy
+                };
+                var preview=new HudPreviewBitmap(Path.Combine(directory,Guid.NewGuid().ToString("N")),nativeRoot:"");
+                string path=preview.Build(state,CancellationToken.None).Path;
+                return File.ReadAllBytes(path);
+            }
+            bool HasBrightText(byte[] tga)
+            {
+                for(int y=33;y<159;y++)for(int x=33;x<223;x++)
+                {
+                    int at=18+(y*256+x)*3;
+                    if(tga[at]>180&&tga[at+1]>180&&tga[at+2]>180)return true;
+                }
+                return false;
+            }
+            var health=HudProfileDefaults.Create("Project Prime");
+            health.Health.Gauge=false;health.IndependentGauges=true;
+            var healthStyle=health.Typography.Get("core.health");healthStyle.Enabled=true;healthStyle.MatchPalette=false;
+            healthStyle.Color="#FFFFFF";healthStyle.Font="font04";healthStyle.Validate();
+            byte[] withNumber=Render(health);
+            var noNumber=health.DeepClone();noNumber.Health.Number=false;
+            check(HasBrightText(withNumber)&&!HasBrightText(Render(noNumber)),
+                "health lettering remains visible with independent gauges enabled and the parent gauge turned off");
+
+            var defaultDisabled=HudProfileDefaults.Create("Project Prime");
+            defaultDisabled.Health.Gauge=false;defaultDisabled.IndependentGauges=true;
+            byte[] defaultOutput=Render(defaultDisabled);
+            var customDisabled=defaultDisabled.DeepClone();
+            var hidden=customDisabled.Typography.Get("core.health");hidden.Enabled=false;hidden.Font="font30";
+            hidden.Size=6;hidden.MatchPalette=false;hidden.Color="#FFFFFF";hidden.Opacity=.1f;hidden.Outline=5;hidden.Validate();
+            check(defaultOutput.SequenceEqual(Render(customDisabled)),
+                "disabled saved typography previews its runtime defaults while retaining its authored values");
+
+            var replayA=HudProfileDefaults.Create("Project Prime");
+            replayA.Elements[HudProfileDefaults.MovementTelemetryId].Enabled=true;
+            var replayStyle=replayA.Typography.Get("game.replay");replayStyle.Enabled=true;replayStyle.Font="font04";replayStyle.Validate();
+            var replayProperty=new HudEditorProperty("/typography/styles/game.replay/font","Font","DejaVu Sans","Choice",ImmutableArray<string>.Empty);
+            byte[] replayPixelsA=Render(replayA,replayProperty,index:14);
+            var replayB=replayA.DeepClone();replayB.Typography.Get("game.replay").Font="font03";
+            check(!replayPixelsA.SequenceEqual(Render(replayB,replayProperty,index:14)),
+                "HUD-wide replay lettering previews its selected atlas in a visible text element");
+        }
+        finally { Directory.Delete(directory,true); }
+    }
+}
+#endif

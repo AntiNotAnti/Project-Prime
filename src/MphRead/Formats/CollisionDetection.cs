@@ -1375,7 +1375,7 @@ namespace MphRead.Formats
         {
             foreach (EntityBase entity in scene.Entities)
             {
-                if (entity.Type != EntityType.Object && entity.Type != EntityType.Platform)
+                if (entity.Type != EntityType.Object && entity.Type != EntityType.Platform && entity.Type != EntityType.Payload)
                 {
                     continue;
                 }

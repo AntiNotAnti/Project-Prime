@@ -756,11 +756,11 @@ namespace MphRead
         public bool SideScene { get; set; }
 
         private PixelInternalFormat _sceneColorFormat;
-        private static PixelInternalFormat SceneColorFormat
+        private PixelInternalFormat SceneColorFormat
         {
             get
             {
-                return PixelInternalFormat.Rgb;
+                return SceneColorRequested ? PixelInternalFormat.Rgba8 : PixelInternalFormat.Rgb;
             }
         }
 
@@ -812,7 +812,7 @@ namespace MphRead
 #endif
 
             if (!ReplaceSceneTargets(RenderSize))
-                throw new InvalidOperationException("No drawable scene target within the allocation budget.");
+                throw new InvalidOperationException($"No drawable scene target within the allocation budget: requested={RenderSize}, scene={Size}, retainedBytes={EstimatedTargetBytes()}, budgetBytes={TargetBudgetBytes}, framebuffer={FramebufferStatus}, glError={GL.GetError()}.");
 
             InitWorldUniformLocations();
 
@@ -892,6 +892,7 @@ namespace MphRead
             _shaderLocations.UseLight = GL.GetUniformLocation(_shaderProgramId, "use_light");
             _shaderLocations.ShowColors = GL.GetUniformLocation(_shaderProgramId, "show_colors");
             _shaderLocations.UseTexture = GL.GetUniformLocation(_shaderProgramId, "use_texture");
+            _photographicVideoUniform = GL.GetUniformLocation(_shaderProgramId, "photographic_video");
             _shaderLocations.DepthOnly = GL.GetUniformLocation(_shaderProgramId, "depth_only");
             _shaderLocations.DepthVertexFast = GL.GetUniformLocation(_shaderProgramId, "depth_vertex_fast");
             _shaderLocations.AdvancedMaterials = GL.GetUniformLocation(_shaderProgramId, "advanced_materials");
@@ -902,6 +903,12 @@ namespace MphRead
             InitShadowReceiverUniforms();
             _shaderLocations.MaterialCameraPosition = GL.GetUniformLocation(_shaderProgramId, "material_camera_position");
             _shaderLocations.ModernMaterialCorrections = GL.GetUniformLocation(_shaderProgramId, "modern_material_corrections");
+            _shaderLocations.SceneLinearColor = GL.GetUniformLocation(_shaderProgramId, "scene_linear_color");
+            _shaderLocations.AuthoredAlphaMode = GL.GetUniformLocation(_shaderProgramId, "authored_alpha_mode");
+            _shaderLocations.AuthoredAlphaCutoff = GL.GetUniformLocation(_shaderProgramId, "authored_alpha_cutoff");
+            _shaderLocations.AuthoredAlphaFactor = GL.GetUniformLocation(_shaderProgramId, "authored_alpha_factor");
+            _shaderLocations.AuthoredAlphaEnabled = GL.GetUniformLocation(_shaderProgramId, "authored_alpha_enabled");
+            _shaderLocations.AuthoredLinearTint = GL.GetUniformLocation(_shaderProgramId, "authored_linear_tint");
             _shaderLocations.Light1Color = GL.GetUniformLocation(_shaderProgramId, "light1col");
             _shaderLocations.Light1Vector = GL.GetUniformLocation(_shaderProgramId, "light1vec");
             _shaderLocations.Light2Color = GL.GetUniformLocation(_shaderProgramId, "light2col");
@@ -944,6 +951,7 @@ namespace MphRead
             GL.UseProgram(_shaderProgramId);
             ApplyCosmeticUniforms(default);
             GL.Uniform1(_shaderLocations.ModernMaterialCorrections, ModernMaterialCorrectionsEnabled ? 1 : 0);
+            SetSceneLinearColorUniform(SceneLinearColorActive);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "tex"), 0);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "normal_tex"), 1);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "specular_tex"), 2);
@@ -1417,7 +1425,10 @@ namespace MphRead
                     var key = new Mods.Render.Materials.MaterialAssetKey(
                         scope + "/recolor/" + recolor);
                     bool explicitMaterial =
-                        Mods.Render.TextureReplacementPack.ResolveExplicit(key, model.SourceBankMaterials) != null;
+                        (Mods.RenderOptions.TextureReplacements
+                            ? Mods.Render.TextureReplacementPack.ResolveExplicit(key, model.SourceBankMaterials)
+                            : SceneColorRequested ? Mods.Render.Materials.MapMaterialAssetRegistry.Resolve(key) : null) != null;
+                    bool videoMaterial = Mods.Render.Materials.MapMaterialAssetRegistry.Video(key) != null;
 
                     foreach (var pair in pairs)
                     {
@@ -1435,8 +1446,8 @@ namespace MphRead
                         // texture-pair overrides and lets companion maps follow
                         // the material identity across the whole animation.
                         if (map.Authored.ContainsKey(slot)
-                            || !Mods.RenderOptions.TextureReplacements
-                            || (!nativeFlipbook && !explicitMaterial))
+                            || (!Mods.RenderOptions.TextureReplacements && !SceneColorRequested && !videoMaterial)
+                            || (!nativeFlipbook && !explicitMaterial && !videoMaterial))
                             continue;
 
                         yield return new AuthoredTextureRefresh(model, index, pair.Texture, pair.Palette, recolor, key);
@@ -1488,6 +1499,8 @@ namespace MphRead
 
         private void ReleaseTexture(int texture)
         {
+            ReleaseSceneColorTexture(texture);
+            DetachMapVideoTexture(texture);
             ReleaseWorldMaterialResidency(texture);
             _flatColors.Remove(texture);
             InvalidateTextureSampling(texture);
@@ -1538,13 +1551,16 @@ namespace MphRead
         }
 
         private bool TryUploadWorldMaterialPreparedBound(Mods.Render.PreparedTextureAsset asset,
-            int texture, bool repeat, out int width, out int height)
+            int texture, bool repeat, out int width, out int height, bool registerSceneColor = true)
         {
             width = height = 0;
             if (!TryReserveWorldMaterialResidency(texture, asset)) return false;
             if (Mods.Render.TextureReplacementPack.TryUploadPreparedBound(
                 asset, repeat, out width, out height))
+            {
+                if (registerSceneColor) RegisterSceneColorAsset(texture, asset);
                 return true;
+            }
             ReleaseWorldMaterialResidency(texture);
             RestoreNativeWorldTexture(texture);
             return false;
@@ -1562,6 +1578,7 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, binding);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
                 width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, rgba);
+            RegisterSceneColorPixels(binding, rgba, width, height);
             InvalidateTextureSampling(binding);
             _modernTextureSampling.Remove(binding);
             _textureUploadSampling[binding] = Mods.Render.TextureSamplingPolicy.ResolveNativeWorld();
@@ -1573,7 +1590,7 @@ namespace MphRead
             Mods.Render.TextureAssetChannel channel)
             => Mods.Render.TextureReplacementPack.DecodePrepared(
                 image, assetClass, channel,
-                Mods.Render.TextureAssetManager.DimensionLimit(assetClass, channel));
+                Mods.Render.TextureAssetManager.DimensionLimit(assetClass, channel), linearFiltering: SceneColorRequested);
 
         private Mods.Render.MaterialMapBindings UploadWorldMaterialCompanions(
             Mods.Render.Materials.ResolvedMaterial material,
@@ -1636,11 +1653,12 @@ namespace MphRead
             int DimensionCap,
             Mods.TextureAssetQuality Quality,
             string SamplingKey,
-            int MaterialRevision);
+            int MaterialRevision,
+            bool LinearFiltering = false);
 
         private sealed record StreamingTextureDecode(
             StreamingTextureRequest Request,
-            Task<Mods.Render.PreparedTextureAsset?> Task);
+            Mods.Render.TextureDecodeJob<Mods.Render.PreparedTextureAsset> Job);
 
         private const int MaxDesktopStreamingTextureDecodes = 2;
         private static int StreamingTextureDecodeLimit => OperatingSystem.IsAndroid() ? 1 : MaxDesktopStreamingTextureDecodes;
@@ -1660,6 +1678,9 @@ namespace MphRead
         internal long TexturePromotionAttemptBytes => _streamingUploadBytes;
         internal double WorstTexturePromotionMs => _streamingWorstUploadMs;
         internal long RejectedTextureDecodeReservationBytes => _streamingRejectedDecodeBytes;
+        internal long SharedTextureDecodeReservationBytes => Mods.Render.TextureDecodeBudget.Shared.ReservedBytes;
+        internal long PeakSharedTextureDecodeReservationBytes => Mods.Render.TextureDecodeBudget.Shared.PeakReservedBytes;
+        internal int SharedTextureDecodeJobs => Mods.Render.TextureDecodeBudget.Shared.ActiveJobs;
         internal long TextureDecodeReservationBytes
         {
             get
@@ -1758,6 +1779,12 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             Mods.Render.TextureAssetClass replacementClass = Mods.Render.TextureReplacementPack.Classify(model);
             Mods.Render.Materials.ResolvedMaterial? replacementMaterial = null;
+            if (SceneColorRequested)
+            {
+                _sceneTextureAlpha.Remove(_lastTextureId);
+                _sceneTextureAlphaFactor.Remove(_lastTextureId);
+                _sceneTextureWrap.Remove(_lastTextureId);
+            }
             if (Mods.RenderOptions.TextureReplacements)
             {
                 Mods.Render.Materials.MaterialAssetKey modelKey =
@@ -1766,7 +1793,30 @@ namespace MphRead
                     model.Name, textureId, paletteId, recolorId,
                     authoredKey ?? modelKey, modelKey, model.SourceBankMaterials);
             }
+            if (SceneColorRequested && replacementMaterial != null)
+            {
+                _sceneTextureAlpha[_lastTextureId] = replacementMaterial.AlphaPolicy;
+                _sceneTextureAlphaFactor[_lastTextureId] = replacementMaterial.AlphaFactor;
+                if (replacementMaterial.WrapS is { } s && replacementMaterial.WrapT is { } t)
+                    _sceneTextureWrap[_lastTextureId] = new(s, t);
+            }
+            else if (SceneColorRequested && !Mods.RenderOptions.TextureReplacements)
+            {
+                Mods.Render.Materials.MaterialAssetKey key = authoredKey
+                    ?? Mods.Render.Materials.MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId);
+                var authored = Mods.Render.Materials.MapMaterialAssetRegistry.Resolve(key, includeCompanions: false);
+                if (authored != null)
+                {
+                    _sceneTextureAlpha[_lastTextureId] = authored.AlphaPolicy;
+                    _sceneTextureAlphaFactor[_lastTextureId] = authored.AlphaFactor;
+                    if (authored.WrapS is { } s && authored.WrapT is { } t)
+                        _sceneTextureWrap[_lastTextureId] = new(s, t);
+                }
+            }
 
+            if (authoredKey is { } videoKey && Mods.Render.Materials.MapMaterialAssetRegistry.Video(videoKey) != null
+                && replacementMaterial != null)
+                replacementMaterial = replacementMaterial with { Albedo = null };
             bool streamReplacement = replacementMaterial?.Albedo != null
                 && Mods.Render.TextureReplacementPack.CanDecodeOffThread(
                     replacementMaterial, includeCompanions: Mods.RenderOptions.AdvancedMaterials);
@@ -1806,6 +1856,7 @@ namespace MphRead
                     GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
                         texture.Width, texture.Height, 0, PixelFormat.Rgba,
                         PixelType.UnsignedByte, pixels);
+                    RegisterSceneColorPixels(_lastTextureId, pixels, texture.Width, texture.Height);
                 }
                 else
                 {
@@ -1816,6 +1867,7 @@ namespace MphRead
                     GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
                         uploadWidth, uploadHeight, 0, PixelFormat.Rgba,
                         PixelType.UnsignedByte, uploadPixels);
+                    RegisterSceneColorPixels(_lastTextureId, uploadPixels, uploadWidth, uploadHeight);
                 }
             }
             // Native cartridge textures keep lazy mip generation so the
@@ -1862,6 +1914,7 @@ namespace MphRead
                 }
             }
             _flatColors[_lastTextureId] = pixelSummary.FlatColor;
+            StartMapVideoTexture(_lastTextureId, authoredKey);
             return pixelSummary.OnlyOpaque;
         }
 
@@ -1939,7 +1992,7 @@ namespace MphRead
             _streamingTextureQueue.Enqueue(new StreamingTextureRequest(
                 bindingId, version, material, assetClass, channel, image, cap,
                 Mods.RenderOptions.TextureQuality, samplingKey,
-                Mods.Render.TextureReplacementPack.Revision));
+                Mods.Render.TextureReplacementPack.Revision, SceneColorRequested));
         }
 
         private bool StreamingTextureRequestCurrent(StreamingTextureRequest request)
@@ -1975,22 +2028,26 @@ namespace MphRead
             for (int i = 0; i < _streamingTextureDecodes.Count;)
             {
                 StreamingTextureDecode pending = _streamingTextureDecodes[i];
-                if (!pending.Task.IsCompleted)
+                // Retire stale workers before checking completion: a native codec
+                // may still run, but must never publish into this/new map state.
+                if (!StreamingTextureRequestCurrent(pending.Request))
+                {
+                    _streamingTextureDecodes.RemoveAt(i);
+                    pending.Job.Dispose();
+                    continue;
+                }
+
+                if (!pending.Job.Completion.IsCompleted)
                 {
                     i++;
                     continue;
                 }
 
-                if (!StreamingTextureRequestCurrent(pending.Request))
-                {
-                    _streamingTextureDecodes.RemoveAt(i);
-                    continue;
-                }
-
                 if (!canPromote) { i++; continue; }
                 _streamingTextureDecodes.RemoveAt(i);
+                using var decodeOwnership = pending.Job;
                 Mods.Render.PreparedTextureAsset? asset;
-                try { asset = pending.Task.GetAwaiter().GetResult(); }
+                try { asset = pending.Job.TakeCompleted(); }
                 catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
                 {
                     // A broken replacement must never take down the match or evict
@@ -2062,13 +2119,31 @@ namespace MphRead
                     break;
                 }
 
+                // Shared across Scenes: retired workers retain their slots/bytes
+                // until their non-interruptible codec really completes.
+                if (!Mods.Render.TextureDecodeBudget.Shared.TryAcquire(decodedBytes, out var reservation)) break;
                 _streamingTextureQueue.Dequeue();
-                Task<Mods.Render.PreparedTextureAsset?> task = Task.Run(() =>
-                    Mods.Render.TextureReplacementPack.DecodePrepared(
-                        request.Image, request.AssetClass, request.Channel,
-                        request.DimensionCap));
-                _streamingTextureDecodes.Add(new StreamingTextureDecode(request, task));
+                Mods.Render.TextureDecodeJob<Mods.Render.PreparedTextureAsset>? job = null;
+                try
+                {
+                    job = new(reservation, cancellation =>
+                    {
+                        cancellation.ThrowIfCancellationRequested();
+                        var prepared = Mods.Render.TextureReplacementPack.DecodePrepared(
+                            request.Image, request.AssetClass, request.Channel, request.DimensionCap, request.LinearFiltering);
+                        cancellation.ThrowIfCancellationRequested();
+                        return prepared;
+                    });
+                    _streamingTextureDecodes.Add(new StreamingTextureDecode(request, job));
+                }
+                catch { if (job != null) job.Dispose(); else reservation.Dispose(); throw; }
             }
+        }
+
+        private void RetireModernTextureDecodes()
+        {
+            foreach (var pending in _streamingTextureDecodes) pending.Job.Dispose();
+            _streamingTextureDecodes.Clear();
         }
 
         private static bool SerializedStreamingDecode(StreamingTextureRequest request)
@@ -2102,6 +2177,7 @@ namespace MphRead
                 InvalidateTextureSampling(request.Binding);
                 RegisterModernTexture(request.Binding, request.AssetClass,
                     Mods.Render.TextureAssetChannel.Albedo, asset);
+                RegisterSceneColorAsset(request.Binding, asset);
                 if (request.Image.IsRawRgba && asset is Mods.Render.ModernTextureAsset rgba)
                 {
                     var average = new Mods.Render.NativeTexturePixelBuffer.FlatColor();
@@ -2162,7 +2238,7 @@ namespace MphRead
         /// </summary>
         private readonly Dictionary<int, Vector3> _flatColors = new Dictionary<int, Vector3>();
 
-        public int BindGetTexture(IReadOnlyList<ColorRgba> data, int width, int height)
+        public int BindGetTexture(IReadOnlyList<ColorRgba> data, int width, int height, bool sceneColor = true)
         {
             using var uploadTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.TextureUpload);
             Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.TextureUploads);
@@ -2171,13 +2247,14 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                 PixelFormat.Rgba, PixelType.UnsignedByte, data as ColorRgba[] ?? data.ToArray());
+            if (sceneColor) RegisterSceneColorPixels(_lastTextureId, data, width, height);
             InvalidateTextureSampling(_lastTextureId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             _flatColors[_lastTextureId] = AverageOf(data);
             return _lastTextureId;
         }
 
-        public void BindTexture(IReadOnlyList<ColorRgba> data, int width, int height, int bindingId)
+        public void BindTexture(IReadOnlyList<ColorRgba> data, int width, int height, int bindingId, bool sceneColor = true)
         {
             using var uploadTiming = Mods.Render.OpenGlPassProfiler.Measure(Mods.Render.OpenGlCpuPass.TextureUpload);
             Mods.Render.OpenGlPassProfiler.Count(Mods.Render.OpenGlFrameCounter.TextureUploads);
@@ -2185,6 +2262,7 @@ namespace MphRead
             GL.BindTexture(TextureTarget.Texture2D, bindingId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
                 PixelFormat.Rgba, PixelType.UnsignedByte, data as ColorRgba[] ?? data.ToArray());
+            if (sceneColor) RegisterSceneColorPixels(bindingId, data, width, height);
             InvalidateTextureSampling(bindingId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             // this binding may already have had a different picture in it
@@ -2733,6 +2811,7 @@ namespace MphRead
         private void OnDrawFrameCore()
         {
             Mods.Sound.HaloHealthAlert.Update(this);
+            CtfAnnouncements.Update(this);
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
             { theatre.OnDrawFrame(); return; }
             if (Mods.KillCam.Presentation(this) is { } historical)
@@ -3044,7 +3123,7 @@ namespace MphRead
 
         public byte[]? ReadSceneTarget(out int width, out int height)
         {
-            Vector2i target = _graphicsOutputReady ? _graphicsOutputSize : _targetSize;
+            Vector2i target = SceneCaptureSize;
             width = target.X;
             height = target.Y;
             if (_frameBuffer == 0)
@@ -3052,7 +3131,7 @@ namespace MphRead
                 return null;
             }
             return Mods.Render.CaptureReadback.Read(new Mods.Render.CaptureSource(
-                GraphicsReadFramebuffer(), width, height, "processed-scene"));
+                SceneReadFramebuffer, width, height, "processed-scene", SceneCaptureEncoding));
         }
 
         public void AfterRenderFrame()
@@ -3449,11 +3528,12 @@ namespace MphRead
             }
             int x = (target.X - side) / 2;
             int y = (target.Y - side) / 2;
-            var pixels = new byte[side * side * 4];
+            byte[] pixels;
             try
             {
                 DrawCelQuad(target, probe: true);
-                GL.ReadPixels(x, y, side, side, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                pixels = Mods.Render.CaptureReadback.ReadRgbaRegion(new Mods.Render.CaptureSource(
+                    _frameBuffer, target.X, target.Y, "cel-calibration"), x, y, side, side);
             }
             catch (Exception ex)
             {
@@ -3616,6 +3696,7 @@ namespace MphRead
 
         private bool RenderFrameContent()
         {
+            UpdateMapVideoTextures();
             CountFrame();
             // Explicit custom inspection owns camera/viewmodel pictures, not
             // a foreground retail HUD. Constructing that HUD would add models
@@ -4931,6 +5012,9 @@ namespace MphRead
             item.RetainedBoundsMin = Vector3.Zero;
             item.RetainedBoundsMax = Vector3.Zero;
             item.EmissiveIntensity = 1f;
+            item.AlphaPolicy = Mods.Render.TextureAlphaPolicy.Legacy;
+            item.AuthoredAlphaFactor = 1f;
+            item.AuthoredLinearTint = false;
             return item;
         }
 
@@ -4946,7 +5030,8 @@ namespace MphRead
             bool texturedPlayerSkin = false, Vector4? playerOutlineColor = null,
             bool weightedSkinning = false, bool authoredTexture = false,
             RepeatMode authoredWrapS = RepeatMode.Repeat, RepeatMode authoredWrapT = RepeatMode.Repeat,
-            bool authoredDoubleSided = false, bool authoredTransparent = false, bool independentSurface = false, Vector3? authoredSurfaceTint = null, bool authoredNeutralAlbedo = false, Vector3? diffuseOverride = null)
+            bool authoredDoubleSided = false, bool authoredTransparent = false, bool independentSurface = false, Vector3? authoredSurfaceTint = null, bool authoredNeutralAlbedo = false, Vector3? diffuseOverride = null,
+            Mods.Render.TextureAlphaPolicy authoredAlphaPolicy = default, float authoredAlphaFactor = 1f)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -5076,6 +5161,10 @@ namespace MphRead
                     item.PaletteOverride = null;
                 }
             }
+            item.AlphaPolicy = authoredAlphaPolicy;
+            item.AuthoredAlphaFactor = authoredAlphaFactor;
+            item.AuthoredLinearTint = SceneColorRequested && independentSurface
+                && authoredSurfaceTint.HasValue && diffuseOverride == null;
             StampSourceGxSubmission(item);
             AddRenderItem(item);
         }
@@ -5099,6 +5188,9 @@ namespace MphRead
             item.Type = RenderItemType.Mesh;
             item.Cosmetics = default;
             item.CosmeticMaterial = default;
+            item.AlphaPolicy = Mods.Render.TextureAlphaPolicy.Legacy;
+            item.AuthoredAlphaFactor = 1f;
+            item.AuthoredLinearTint = false;
             item.PolygonId = polygonId;
             item.Alpha = material.CurrentAlpha * alphaScale;
             item.PolygonMode = material.PolygonMode;
@@ -5168,6 +5260,7 @@ namespace MphRead
                     item.OverrideColor = selection;
             }
 
+            ApplySceneAlphaPolicy(item);
             if (submit)
                 SubmitRenderItem(item, pooled: false, setViewModel: false);
         }
@@ -5299,6 +5392,7 @@ namespace MphRead
         private void SubmitRenderItem(
             RenderItem item, bool pooled, bool setViewModel)
         {
+            ApplySceneAlphaPolicy(item);
             if (_collectingDetachedShadows)
             {
                 SubmitDetachedShadow(item, pooled);
@@ -5772,15 +5866,17 @@ namespace MphRead
             if (!_exiting)
             {
                 _exiting = true;
+                // Fence texture publication before later cleanup can throw.
+                // Native codecs may finish independently without Scene capture;
+                // their process-shared leases remain held until actual completion.
+                _streamingTextureVersions.Clear();
+                _streamingTextureQueue.Clear();
+                RetireModernTextureDecodes();
                 foreach (var player in Players.Items) player?.ModRetireSourceBody();
                 foreach (var player in Players.Items) player?.ModRetireCharacterGameplay();
-                // Keep known asynchronous/decoder owners explicit. No release
-                // is inferred merely because UnloadGl later clears its queues.
-                // Movie decoder workers never capture Scene or OpenAL and
-                // can retire independently after cancellation. Only truly
-                // unfenced streaming callbacks count as a teardown risk.
-                _unfencedCallbacksAtCleanup =
-                    _streamingTextureDecodes.Any(decode => !decode.Task.IsCompleted);
+                // This snapshot reports Scene-owned pending jobs. Retired codec
+                // work remains visible through shared reservation diagnostics;
+                // unknown external callback counts remain explicitly untracked.
                 ObserveLifetime(Mods.Diagnostics.SceneLifetimeStage.CleanupStarted);
                 // Retire movie-owned audio before another owner's cleanup
                 // can throw. An incomplete room-transition cancellation must
@@ -5795,6 +5891,7 @@ namespace MphRead
                 }
                 PlatformEntity.DestroyBeams(this);
                 EnemyInstanceEntity.DestroyBeams(this);
+                CtfAnnouncements.Dispose(); // close-window cleanup can skip UnloadGl
                 if (Services.AllowsPresentationSideEffects) Sound.Sfx.ShutDown();
                 OutputStop();
                 Selection.Clear();
@@ -5828,6 +5925,8 @@ namespace MphRead
             _palettePreparationCollecting = false;
             _palettePreparation?.Clear();
             _palettePreparation = null;
+                CtfAnnouncements.Dispose();
+            DisposeMapVideoTextures();
             ReleaseReplayOutput();
             if (Mods.Headless.Active)
             {
@@ -5847,6 +5946,13 @@ namespace MphRead
             DisposeEditorMeshes();
 #endif
             ReleaseSupersampleResolveTargets();
+            DisposeSceneColorPipeline();
+            _sceneColorTextures.Clear();
+            _sceneColorTextureBytes.Clear();
+            _sceneTextureAlpha.Clear();
+            _sceneTextureAlphaFactor.Clear();
+            _sceneTextureWrap.Clear();
+            _sceneColorResidentBytes = 0;
             if (_ownedTextures != null)
             {
                 foreach (int texture in _ownedTextures) GL.DeleteTexture(texture);
@@ -5859,7 +5965,7 @@ namespace MphRead
             ClearTextureSettingsRefresh();
             _streamingTextureVersions.Clear();
             _streamingTextureQueue.Clear();
-            _streamingTextureDecodes.Clear();
+            RetireModernTextureDecodes();
             _mipmappedTextures?.Clear();
             _appliedTextureSampling.Clear();
             _modernTextureSampling.Clear();
@@ -5888,6 +5994,7 @@ namespace MphRead
             DisposeShadowMap();
             ReleaseDetachedShadowCasters();
             DisposeFrameTransientTextures();
+            ReleaseSupersampleResolveTargets();
             ReleaseSceneShaderInitialization();
             Mods.MapGen.MapRuntimeUsage.Release(this);
             _visualReleaseComplete = true;
@@ -6414,6 +6521,7 @@ namespace MphRead
 
         private void SetHudLayerUniforms()
         {
+            if (SceneColorRequested) GL.Uniform1(_shaderLocations.AuthoredAlphaEnabled, 0);
             GL.Uniform1(_texturedPlayerSkinUniform, 0);
             GL.Uniform1(_authoredNeutralAlbedoUniform, 0);
             GL.Uniform1(_playerOutlineMaskUniform, 0);
@@ -7212,6 +7320,7 @@ localCenter *= _profileHudScale;
 
         private void DoMaterial(RenderItem item)
         {
+            if (SceneColorRequested) GL.Uniform1(_shaderLocations.AuthoredLinearTint, item.AuthoredLinearTint ? 1 : 0);
             ApplyCosmeticUniforms(item.Cosmetics);
             GL.Uniform1(_shaderLocations.UseLight, (LightingOn || _editorMaterialPreview) && item.Lighting ? 1 : 0);
             // MPH applies the material colors initially by calling DIF_AMB with bit 15 set,
@@ -7320,13 +7429,15 @@ localCenter *= _profileHudScale;
 
         private void BindRenderItemBaseTexture(RenderItem item)
         {
+            SetAuthoredAlphaUniforms(item);
             GL.ActiveTexture(TextureUnit.Texture0);
-
+            int albedoBinding = item.HasTexture ? ResolveMapVideoBinding(item.TextureBindingId, sampled: _showTextures) : -1;
+            GL.Uniform1(_photographicVideoUniform, item.HasTexture && albedoBinding != item.TextureBindingId ? 1 : 0);
             if (item.HasTexture)
             {
-                GL.BindTexture(TextureTarget.Texture2D, item.TextureBindingId);
-                ApplyBoundTextureSampling(item.TextureBindingId,
-                    item.XRepeat, item.YRepeat);
+                int binding = ResolveSceneColorTexture(albedoBinding);
+                GL.BindTexture(TextureTarget.Texture2D, binding);
+                ApplyBoundTextureSampling(binding, item.XRepeat, item.YRepeat);
                 Matrix4 texcoordMatrix = item.TexcoordMatrix;
                 GL.Uniform1(_shaderLocations.TexgenMode, (int)item.TexgenMode);
                 GL.UniformMatrix4(_shaderLocations.TextureMatrix, transpose: false, ref texcoordMatrix);
@@ -7355,32 +7466,32 @@ localCenter *= _profileHudScale;
                 GL.Uniform1(_shaderLocations.UseEmissiveMap, materialMaps.Emissive != 0 ? 1 : 0);
 
                 GL.ActiveTexture(TextureUnit.Texture1);
-                GL.BindTexture(TextureTarget.Texture2D, materialMaps.Normal);
+                GL.BindTexture(TextureTarget.Texture2D, ResolveSceneColorTexture(materialMaps.Normal));
                 if (materialMaps.Normal != 0 && _modernTextureSampling.ContainsKey(materialMaps.Normal))
                 {
-                    ApplyBoundTextureSampling(materialMaps.Normal,
+                    ApplyBoundTextureSampling(ResolveSceneColorTexture(materialMaps.Normal),
                         item.XRepeat, item.YRepeat);
                 }
 
                 GL.ActiveTexture(TextureUnit.Texture2);
-                GL.BindTexture(TextureTarget.Texture2D, materialMaps.Specular);
+                GL.BindTexture(TextureTarget.Texture2D, ResolveSceneColorTexture(materialMaps.Specular));
                 if (materialMaps.Specular != 0 && _modernTextureSampling.ContainsKey(materialMaps.Specular))
                 {
-                    ApplyBoundTextureSampling(materialMaps.Specular,
+                    ApplyBoundTextureSampling(ResolveSceneColorTexture(materialMaps.Specular),
                         item.XRepeat, item.YRepeat);
                 }
 
                 GL.ActiveTexture(TextureUnit.Texture3);
-                GL.BindTexture(TextureTarget.Texture2D, materialMaps.Emissive);
+                GL.BindTexture(TextureTarget.Texture2D, ResolveSceneColorTexture(materialMaps.Emissive));
                 if (materialMaps.Emissive != 0 && _modernTextureSampling.ContainsKey(materialMaps.Emissive))
                 {
-                    ApplyBoundTextureSampling(materialMaps.Emissive,
+                    ApplyBoundTextureSampling(ResolveSceneColorTexture(materialMaps.Emissive),
                         item.XRepeat, item.YRepeat);
                 }
             }
             GL.Uniform1(_authoredNeutralAlbedoUniform, item.AuthoredNeutralAlbedo ? 1 : 0);
             BindRenderItemBaseTexture(item);
-            SetFlatColor(item.HasTexture && _showTextures ? item.TextureBindingId : -1);
+            SetFlatColor(item.HasTexture && _showTextures ? ResolveSceneColorTexture(ResolveMapVideoBinding(item.TextureBindingId)) : -1);
             GL.Uniform1(_texturedPlayerSkinUniform, !_drawingPlayerOutlineMask && item.TexturedPlayerSkin
                 ? (Mods.RenderOptions.BrightSkinStyle == Mods.PlayerSkinStyle.HighContrastTextured ? 2 : 1) : 0);
             Vector4? overrideColor = _drawingPlayerOutlineMask ? null : item.OverrideColor;

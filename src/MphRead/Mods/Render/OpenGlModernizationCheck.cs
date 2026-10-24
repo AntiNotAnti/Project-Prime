@@ -7,6 +7,30 @@ namespace MphRead.Mods.Render;
 /// <summary>Asset-free checks: capability facts and sample aggregation never invoke GL.</summary>
 internal static class OpenGlModernizationCheck
 {
+    private static bool DepthAlphaSourceContract(string source, string sample)
+    {
+        // Keep this structural check scoped to the actual early-depth block.
+        // The authored helper changes coverage before the original native
+        // multiplication; its first guard must return native alpha unchanged.
+        // Pixel/depth behavior is independently exercised by the GPU fixtures.
+        string compact = string.Join(" ", source.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+        const string helper = "float scene_material_alpha(float alpha) { "
+            + "if (!authored_alpha_enabled || authored_alpha_mode == 0) return alpha; "
+            + "if (authored_alpha_mode == 1) return 1.0; alpha *= authored_alpha_factor; "
+            + "if (authored_alpha_mode == 2) { if (alpha < authored_alpha_cutoff) discard; return 1.0; } return alpha; }";
+        int start = compact.IndexOf("if (depth_only && !use_override && !player_outline_mask", StringComparison.Ordinal);
+        int end = start < 0 ? -1 : compact.IndexOf("return; }", start, StringComparison.Ordinal);
+        if (!compact.Contains(helper, StringComparison.Ordinal) || start < 0 || end < 0) return false;
+        string depth = compact[start..end];
+        string textured = "float texa = scene_material_alpha(" + sample + "(tex, texcoord).a); "
+            + "if (mat_mode == 1) a = mat_alpha * color.a "
+            + "* (authored_alpha_enabled && authored_alpha_mode == 3 ? texa : 1.0); "
+            + "else if (mat_mode == 2) a = mat_alpha * texa * color.a; "
+            + "else a = color.a * (mat_alpha * texa);";
+        return depth.Contains(textured, StringComparison.Ordinal)
+            && depth.Contains("else a = color.a * mat_alpha * scene_material_alpha(1.0);", StringComparison.Ordinal);
+    }
+
     internal static int Run()
     {
         int failures = 0;
@@ -19,12 +43,11 @@ internal static class OpenGlModernizationCheck
             && Shaders.FragmentShader.Contains("cosmetic_skin == 0 && cosmetic_effect == 0 && cosmetic_dissolve <= 0.0", StringComparison.Ordinal)
             && Shaders.FragmentShader.Contains("apply_cosmetics(col);", StringComparison.Ordinal),
             "depth shader preserves full fallback for overrides, outlines and cosmetic coverage");
-        Check(Shaders.FragmentShader.Contains("if (mat_mode == 1) a = mat_alpha * color.a;", StringComparison.Ordinal)
-            && Shaders.FragmentShader.Contains("a = mat_alpha * texa * color.a;", StringComparison.Ordinal)
-            && Shaders.FragmentShader.Contains("a = color.a * (mat_alpha * texa);", StringComparison.Ordinal)
-            && Shaders.FragmentShader.Contains("else a = color.a * mat_alpha;", StringComparison.Ordinal),
-            "depth shader retains native material alpha multiplication order");
+        Check(DepthAlphaSourceContract(Shaders.FragmentShader, "texture2D"),
+            "depth shader retains native material alpha multiplication order and guarded authored coverage");
 #if ANDROID
+        Check(DepthAlphaSourceContract(EsShaders.FragmentShader, "texture"),
+            "GLES depth shader shares guarded authored coverage and native alpha multiplication order");
         Check(EsShaders.VertexShader.Contains("uniform bool weighted_skinning;", StringComparison.Ordinal)
             && EsShaders.VertexShader.Contains("mtx_stack[j3] * weights.w", StringComparison.Ordinal)
             && EsShaders.VertexShader.Contains("!weighted_skinning && vtx_in_color.a == 0.0", StringComparison.Ordinal),

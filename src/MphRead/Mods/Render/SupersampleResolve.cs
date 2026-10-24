@@ -13,6 +13,7 @@ public partial class Scene
     // let the established final compositor resolve the last <=2:1 stage.
     private int ResolveSupersampledCompositeTexture()
     {
+        if (_sceneEncodedReady) return _sceneEncodedTexture;
         int source=GraphicsCompositeTexture(),read=GraphicsReadFramebuffer();
         Vector2i size=_graphicsOutputReady?_graphicsOutputSize:_targetSize;
         int used=0;
@@ -24,7 +25,11 @@ public partial class Scene
                 ReleaseSupersampleResolveTargets(used);
             if(used==_supersampleResolveTargets.Count)
             {
-                if(!CanAllocateTargetBytes((long)next.X*next.Y*4))break;
+                if(!CanAllocateTargetBytes((long)next.X*next.Y*4))
+                {
+                    if (SceneLinearColorActive) throw new InvalidOperationException("Linear scene resolve budget exceeded.");
+                    break;
+                }
                 int texture=AllocateTexture(),framebuffer=GL.GenFramebuffer();
                 GL.BindTexture(TextureTarget.Texture2D,texture);
                 GL.TexImage2D(TextureTarget.Texture2D,0,PixelInternalFormat.Rgb,next.X,next.Y,0,PixelFormat.Rgb,PixelType.UnsignedByte,IntPtr.Zero);

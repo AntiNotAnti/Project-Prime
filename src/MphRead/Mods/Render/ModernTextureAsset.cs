@@ -39,14 +39,15 @@ namespace MphRead.Mods.Render
         public byte[] Pixels { get; }
 
         private ModernTextureAsset(string key, TextureAssetClass assetClass, TextureAssetChannel channel,
-            int width, int height, byte[] pixels)
-            : base(key, assetClass, channel, width, height)
+            int width, int height, byte[] pixels, TextureAssetSemantics? semantics = null)
+            : base(key, assetClass, channel, width, height, semantics)
         {
             Pixels = pixels;
         }
 
-        public static ModernTextureAsset Decode(Stream source, string key, TextureAssetClass assetClass,
-            TextureAssetChannel channel, int maximumDimension = MaximumDimension)
+        public static unsafe ModernTextureAsset Decode(Stream source, string key, TextureAssetClass assetClass,
+            TextureAssetChannel channel, int maximumDimension = MaximumDimension,
+            TextureAssetSemantics? semantics = null, bool linearFiltering = false)
         {
             if (source == null || !source.CanRead) throw new InvalidDataException("Texture source is unreadable.");
             maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);
@@ -65,7 +66,7 @@ namespace MphRead.Mods.Render
                 int read = source.Read(header);
                 source.Position = start;
                 if (read == header.Length && IsSupportedTga(header))
-                    return DecodeTga(source, key, assetClass, channel, maximumDimension);
+                    return DecodeTga(source, key, assetClass, channel, maximumDimension, semantics, linearFiltering);
 #if ANDROID
                 using var bounds = new Android.Graphics.BitmapFactory.Options
                 {
@@ -75,8 +76,9 @@ namespace MphRead.Mods.Render
                 source.Position = start;
                 ValidateDimensions(bounds.OutWidth, bounds.OutHeight);
                 int sample = 1;
-                while (Math.Max(bounds.OutWidth, bounds.OutHeight) / (sample * 2) >= maximumDimension)
-                    sample *= 2;
+                if (!linearFiltering)
+                    while (Math.Max(bounds.OutWidth, bounds.OutHeight) / (sample * 2) >= maximumDimension)
+                        sample *= 2;
                 using var options = new Android.Graphics.BitmapFactory.Options
                 {
                     InScaled = false, InPremultiplied = false, InSampleSize = sample
@@ -98,8 +100,10 @@ namespace MphRead.Mods.Render
                         rgba[offset + 3] = (byte)(pixel >> 24);
                     }
                 }
-                return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba)
-                    .Fit(maximumDimension);
+                var decoded = new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba, semantics);
+                return linearFiltering
+                    ? ColorTexturePolicy.FitForLinearFiltering(decoded, maximumDimension)
+                    : decoded.Fit(maximumDimension);
 #else
                 StbImage image;
                 try { image = StbImage.Load(source, StbiImageFormat.Rgba); }
@@ -117,15 +121,32 @@ namespace MphRead.Mods.Render
                         // high-resolution source is capped, sample directly from
                         // that native surface into the final managed asset instead
                         // of first allocating a second full-resolution byte[].
-                        byte[] fitted = Resample(image.ImagePointer, image.Width, image.Height,
-                            targetWidth, targetHeight, channel == TextureAssetChannel.Normal);
+                        byte[] fitted;
+                        if (linearFiltering)
+                        {
+                            TextureAssetSemantics effectiveSemantics = semantics ?? TextureAssetSemantics.ForChannel(channel);
+                            ReadOnlySpan<byte> sourcePixels = new(image.ImagePointer.ToPointer(),
+                                checked(image.Width * image.Height * 4));
+                            fitted = ColorTexturePolicy.Filter(sourcePixels, image.Width, image.Height,
+                                targetWidth, targetHeight, effectiveSemantics);
+                            if (effectiveSemantics.Alpha.Mode == TextureAlphaMode.Mask)
+                                ColorTexturePolicy.PreserveAlphaCoverage(fitted,
+                                    ColorTexturePolicy.Coverage(sourcePixels, effectiveSemantics.Alpha.Cutoff,
+                                        effectiveSemantics.AlphaFactor), image.Width * image.Height,
+                                    effectiveSemantics.Alpha.Cutoff, effectiveSemantics.AlphaFactor);
+                        }
+                        else
+                        {
+                            fitted = Resample(image.ImagePointer, image.Width, image.Height,
+                                targetWidth, targetHeight, channel == TextureAssetChannel.Normal);
+                        }
                         return new ModernTextureAsset(key, assetClass, channel,
-                            targetWidth, targetHeight, fitted);
+                            targetWidth, targetHeight, fitted, semantics);
                     }
 
                     byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
                     Marshal.Copy(image.ImagePointer, rgba, 0, rgba.Length);
-                    return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba);
+                    return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba, semantics);
                 }
 #endif
             }
@@ -204,7 +225,8 @@ namespace MphRead.Mods.Render
                 && System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(header[14..16]) > 0;
 
         private static ModernTextureAsset DecodeTga(Stream source, string key, TextureAssetClass assetClass,
-            TextureAssetChannel channel, int maximumDimension)
+            TextureAssetChannel channel, int maximumDimension, TextureAssetSemantics? semantics,
+            bool linearFiltering)
         {
             Span<byte> header = stackalloc byte[18];
             source.ReadExactly(header);
@@ -223,7 +245,7 @@ namespace MphRead.Mods.Render
                 source.ReadExactly(id);
             }
             (int targetWidth, int targetHeight) = FitDimensions(width, height, maximumDimension);
-            byte[] rgba = new byte[checked(targetWidth * targetHeight * 4)];
+            byte[] rgba = new byte[checked((linearFiltering ? width * height : targetWidth * targetHeight) * 4)];
             byte[] pixel = new byte[4];
             int written = 0;
             void WritePixel(byte[] bgra)
@@ -232,9 +254,10 @@ namespace MphRead.Mods.Render
                 int rawX = written % width, rawY = written / width;
                 int x = rightOrigin ? width - 1 - rawX : rawX;
                 int y = topOrigin ? rawY : height - 1 - rawY;
-                int targetX = Math.Min(targetWidth - 1, x * targetWidth / width);
-                int targetY = Math.Min(targetHeight - 1, y * targetHeight / height);
-                int target = (targetY * targetWidth + targetX) * 4;
+                int outputWidth = linearFiltering ? width : targetWidth;
+                int targetX = linearFiltering ? x : Math.Min(targetWidth - 1, x * targetWidth / width);
+                int targetY = linearFiltering ? y : Math.Min(targetHeight - 1, y * targetHeight / height);
+                int target = (targetY * outputWidth + targetX) * 4;
                 rgba[target] = bgra[2];
                 rgba[target + 1] = bgra[1];
                 rgba[target + 2] = bgra[0];
@@ -269,22 +292,29 @@ namespace MphRead.Mods.Render
                 }
             }
             if (written != width * height) throw new InvalidDataException("Truncated TGA image.");
-            if (channel == TextureAssetChannel.Normal) RenormalizeNormals(rgba);
-            return new ModernTextureAsset(key, assetClass, channel, targetWidth, targetHeight, rgba);
+            if (!linearFiltering)
+            {
+                if (channel == TextureAssetChannel.Normal) RenormalizeNormals(rgba);
+                return new ModernTextureAsset(key, assetClass, channel, targetWidth, targetHeight, rgba, semantics);
+            }
+            var decoded = new ModernTextureAsset(key, assetClass, channel, width, height, rgba, semantics);
+            return ColorTexturePolicy.FitForLinearFiltering(decoded, maximumDimension, semantics);
         }
 
         public static ModernTextureAsset FromRgba(string key, TextureAssetClass assetClass,
-            TextureAssetChannel channel, int width, int height, byte[] pixels)
+            TextureAssetChannel channel, int width, int height, byte[] pixels,
+            TextureAssetSemantics? semantics = null)
         {
             ValidateDimensions(width, height);
             if (pixels == null || pixels.LongLength != (long)width * height * 4)
                 throw new InvalidDataException("Texture RGBA byte count does not match its dimensions.");
-            return new ModernTextureAsset(key, assetClass, channel, width, height, pixels);
+            return new ModernTextureAsset(key, assetClass, channel, width, height, pixels, semantics);
         }
 
-        internal static ModernTextureAsset FromRgbaPointer(string key,
+        internal static unsafe ModernTextureAsset FromRgbaPointer(string key,
             TextureAssetClass assetClass, TextureAssetChannel channel,
-            int width, int height, IntPtr pixels, int maximumDimension)
+            int width, int height, IntPtr pixels, int maximumDimension,
+            TextureAssetSemantics? semantics = null, bool linearFiltering = false)
         {
             ValidateDimensions(width, height);
             if (pixels == IntPtr.Zero)
@@ -293,15 +323,31 @@ namespace MphRead.Mods.Render
             (int targetWidth, int targetHeight) = FitDimensions(width, height, maximumDimension);
             if (targetWidth != width || targetHeight != height)
             {
-                byte[] fitted = Resample(pixels, width, height, targetWidth, targetHeight,
-                    channel == TextureAssetChannel.Normal);
+                byte[] fitted;
+                if (linearFiltering)
+                {
+                    TextureAssetSemantics effectiveSemantics = semantics ?? TextureAssetSemantics.ForChannel(channel);
+                    ReadOnlySpan<byte> sourcePixels = new(pixels.ToPointer(), checked(width * height * 4));
+                    fitted = ColorTexturePolicy.Filter(sourcePixels, width, height, targetWidth, targetHeight,
+                        effectiveSemantics);
+                    if (effectiveSemantics.Alpha.Mode == TextureAlphaMode.Mask)
+                        ColorTexturePolicy.PreserveAlphaCoverage(fitted,
+                            ColorTexturePolicy.Coverage(sourcePixels, effectiveSemantics.Alpha.Cutoff,
+                                effectiveSemantics.AlphaFactor), width * height,
+                            effectiveSemantics.Alpha.Cutoff, effectiveSemantics.AlphaFactor);
+                }
+                else
+                {
+                    fitted = Resample(pixels, width, height, targetWidth, targetHeight,
+                        channel == TextureAssetChannel.Normal);
+                }
                 return new ModernTextureAsset(key, assetClass, channel,
-                    targetWidth, targetHeight, fitted);
+                    targetWidth, targetHeight, fitted, semantics);
             }
 
             byte[] rgba = new byte[checked(width * height * 4)];
             Marshal.Copy(pixels, rgba, 0, rgba.Length);
-            return new ModernTextureAsset(key, assetClass, channel, width, height, rgba);
+            return new ModernTextureAsset(key, assetClass, channel, width, height, rgba, semantics);
         }
 
         public ModernTextureAsset Fit(int maximumDimension)
@@ -310,7 +356,14 @@ namespace MphRead.Mods.Render
             if (Width <= maximumDimension && Height <= maximumDimension) return this;
             (int width, int height) = FitDimensions(Width, Height, maximumDimension);
             byte[] pixels = Resample(Pixels, Width, Height, width, height, Channel == TextureAssetChannel.Normal);
-            return new ModernTextureAsset(Key, AssetClass, Channel, width, height, pixels);
+            return new ModernTextureAsset(Key, AssetClass, Channel, width, height, pixels, Semantics);
+        }
+
+        internal override PreparedTextureAsset WithSemantics(TextureAssetSemantics semantics)
+        {
+            if (semantics.Channel != Channel)
+                throw new ArgumentException("Texture semantics channel does not match the asset channel.", nameof(semantics));
+            return new ModernTextureAsset(Key, AssetClass, Channel, Width, Height, Pixels, semantics);
         }
 
         private static (int Width, int Height) FitDimensions(int width, int height, int maximumDimension)

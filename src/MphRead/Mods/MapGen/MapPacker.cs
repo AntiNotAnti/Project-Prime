@@ -128,6 +128,19 @@ namespace MphRead.Mods.MapGen
             }
         }
 
+        internal static (byte[] Model,byte[] Collision) BuildEntityAssets(BuiltMap map)
+        {
+            byte[] model;
+            lock (MapCompiler.ContentReadLock)
+            {
+                MapTexturePack? sourcePack = map.Definition.Import?.LoadTexturePack();
+                IReadOnlyList<MapMaterial> materials = sourcePack == null ? map.Definition.Materials
+                    : Q3ShaderNativePlan.ForImport(map.Definition, sourcePack);
+                (model, _) = BuildModel(map, new Dictionary<string, MapFlipbookBinding>(StringComparer.Ordinal), sourcePack, materials);
+            }
+            return (model,BuildCollision(map));
+        }
+
         private static (byte[], int) BuildModel(BuiltMap map,
             Dictionary<string, MapFlipbookBinding> flipbooks,
             MapTexturePack? own, IReadOnlyList<MapMaterial> animationMaterials)

@@ -25,3 +25,8 @@ body { background-color:#030c14; }
 .settings_visual_color_steps,.settings_visual_color_hex { display:flex; flex-wrap:wrap; align-items:center; }
 #settings_visual_color_tools label { font-size:11dp; margin:5dp; }
 #settings_visual_color { width:100dp; min-width:100dp; padding:5dp; background-color:#0b293b; color:#ffffff; border:1dp #8ab4c8; }
+.settings_visual_palette_section { flex-shrink:0; margin:7dp 6dp; }
+.settings_visual_palette_section h2 { margin:0 0 5dp; color:#c9e8f3; font-size:13dp; line-height:17dp; }
+.settings_visual_palette { display:flex; flex-wrap:wrap; align-items:center; }
+.settings_visual_palette button { flex:0 0 32dp; width:32dp; min-width:32dp; height:32dp; min-height:32dp; padding:0; border:2dp #d2efff; }
+.settings_visual_palette button:hover,.settings_visual_palette button:focus { outline:2dp #ffffff; border-color:#ffffff; }

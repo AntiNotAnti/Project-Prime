@@ -163,7 +163,10 @@ internal static class MovementTourTests
             Step(Keys.C); Step();
             for (int i = 0; i < 180 && (!player.IsAltForm || player.IsMorphing); i++) Step();
             Require(player.IsAltForm && !player.IsMorphing, "native completed alt entry");
-            Steps(32, Keys.I); Steps(32, Keys.L);
+            bool strafeAlt = player.Values.AltFormStrafe != 0;
+            Vector3 altMoveStart = player.Position;
+            Steps(32, strafeAlt ? Keys.W : Keys.I); Steps(32, strafeAlt ? Keys.D : Keys.L);
+            Require((player.Position - altMoveStart).Length > .01f, "native alt controls produce actual displacement");
             if (hunter == Hunter.Samus)
             {
                 bool boosted = false;
@@ -189,7 +192,40 @@ internal static class MovementTourTests
             }
             Step(); Step(Keys.C); Step();
             for (int i = 0; i < 180 && (player.IsAltForm || player.IsUnmorphing); i++) Step();
-            Require(!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing, "native completed biped return");
+            if (player.IsAltForm && !(bool)typeof(PlayerEntity).GetMethod("CanOccupyCollisionForm", Private)!.Invoke(player, new object[] { false })!)
+            {
+                // The alt body can legitimately approach a wall more closely than the wider biped.
+                // Keep the rejected expansion as a control, then move away from the measured blocking face through native input.
+                Require(!player.IsMorphing && !player.IsUnmorphing, "blocked biped expansion leaves stable alt form");
+                Vector3 beforeClearance = player.Position;
+                int clearanceInputFrames = 0;
+                while (clearanceInputFrames < 60 && !(bool)typeof(PlayerEntity).GetMethod("CanOccupyCollisionForm", Private)!.Invoke(player, new object[] { false })!)
+                {
+                    var volume = (CollisionVolume)typeof(PlayerEntity).GetField("_volumeUnxf", Private)!.GetValue(player)!;
+                    var targetVolume = PlayerEntity.PlayerVolumes[(int)hunter, 0];
+                    Vector3 target = player.Position + volume.SpherePosition - targetVolume.SpherePosition;
+                    if (player.Flags1.TestFlag(PlayerFlags1.Standing)) target.Y += Math.Max(0, targetVolume.SphereRadius - volume.SphereRadius);
+                    object[] probe = { target, false, default(CollisionResult), false };
+                    typeof(PlayerEntity).GetMethod("FindDeepestPenetration", Private)!.Invoke(player, probe);
+                    Require(!(bool)probe[3], "clearance recovery query is not saturated");
+                    Vector3 normal = ((CollisionResult)probe[2]).Plane.Xyz;
+                    float Axis(string name) => (float)typeof(PlayerEntity).GetField(name, Private)!.GetValue(player)!;
+                    Vector3 forward = new(Axis("_field70"), 0, Axis("_field74"));
+                    Vector3 right = new(-Axis("_field78"), 0, -Axis("_field7C"));
+                    float f = Vector3.Dot(normal, forward), side = Vector3.Dot(normal, right);
+                    Keys away = Math.Abs(f) >= Math.Abs(side)
+                        ? (f >= 0 ? (strafeAlt ? Keys.W : Keys.I) : (strafeAlt ? Keys.S : Keys.K))
+                        : (side >= 0 ? (strafeAlt ? Keys.D : Keys.L) : (strafeAlt ? Keys.A : Keys.J));
+                    Step(away); clearanceInputFrames++;
+                    Require(player.Health > 0, "clearance recovery stays alive");
+                }
+                Require((bool)typeof(PlayerEntity).GetMethod("CanOccupyCollisionForm", Private)!.Invoke(player, new object[] { false })!, "native movement away from blocking face reaches biped clearance");
+                Require((player.Position - beforeClearance).Length > 0, "clearance recovery uses actual movement");
+                Console.WriteLine($"FORM CLEARANCE {hunter}: rejected blocked expansion, regained clearance in {clearanceInputFrames} native input frames");
+                Step(); Step(Keys.C); Step();
+                for (int i = 0; i < 180 && (player.IsAltForm || player.IsUnmorphing); i++) Step();
+            }
+            Require(!player.IsAltForm && !player.IsMorphing && !player.IsUnmorphing, $"native completed biped return: position={player.Position} health={player.Health} flags1={player.Flags1} flags2={player.Flags2} clearance={typeof(PlayerEntity).GetMethod("CanOccupyCollisionForm", Private)!.Invoke(player, new object[] { false })}");
             MovementValidationReport report = NetMovementValidationShadow.Capture();
             MovementValidationCounts biped = report.Hunters[(int)hunter * 2];
             MovementValidationCounts alt = report.Hunters[(int)hunter * 2 + 1];

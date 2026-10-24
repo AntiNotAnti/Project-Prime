@@ -114,6 +114,32 @@ namespace MphRead.Mods.MapGen
             return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
         }
 
+        internal static void CopyTo(MapDefinition definition, string relative, Stream destination,
+            System.Threading.CancellationToken stop)
+        {
+            MapPackageReader.CanonicalName(relative);
+            if (!definition.Assets.Any(a => a.Path.Equals(relative, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException("Undeclared map asset: " + relative);
+            if (definition.BundlePath != null)
+            {
+                MapBundle.CopyEntry(definition.BundlePath, relative, destination, stop);
+                return;
+            }
+            string root = Path.GetFullPath(definition.BaseDirectory ?? CustomRooms.MapDirectory);
+            string full = Path.GetFullPath(Path.Combine(root, relative));
+            if (!full.StartsWith(root + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("Map asset escapes its project.");
+            using Stream input = File.OpenRead(full);
+            if (input.Length > MapPackageReader.MaxEntryBytes) throw new InvalidDataException("Map asset is too large.");
+            byte[] buffer = new byte[64 * 1024];
+            int count;
+            while ((count = input.Read(buffer, 0, buffer.Length)) != 0)
+            {
+                stop.ThrowIfCancellationRequested();
+                destination.Write(buffer, 0, count);
+            }
+        }
+
         public static void Validate(MapDefinition definition,MapValidationResult result,bool checkFiles)
         {
             if(definition.Assets==null){result.Error("FP-MAP-021","Asset list cannot be null.");return;}
@@ -130,7 +156,8 @@ namespace MphRead.Mods.MapGen
                     if(asset.Kind=="texture"&&ext is not(".png" or ".jpg" or ".jpeg" or ".tga" or ".ktx2" or ".tex"))throw new InvalidDataException("Unsupported map texture format.");
                     if(asset.Kind=="preview"&&ext!=".png")throw new InvalidDataException("Preview must be PNG.");
                     if(asset.Kind=="source-texture-bank" && (ext!=".bin" || definition.BundlePath!=null))throw new InvalidDataException("Source banks require private loose .bin assets.");
-                    if(asset.Kind is not("audio" or "texture" or "preview" or "source-texture-bank"))throw new InvalidDataException("Unknown asset kind.");
+                    if(asset.Kind is not("audio" or "texture" or "preview" or "source-texture-bank" or "video"))throw new InvalidDataException("Unknown asset kind.");
+                    if(asset.Kind=="video"&&ext!=".mp4")throw new InvalidDataException("Video textures must be MP4.");
                     if(checkFiles)
                     {
                         if(asset.Kind=="source-texture-bank")
@@ -141,6 +168,8 @@ namespace MphRead.Mods.MapGen
                             continue;
                         }
                         byte[] bytes=Read(definition,asset.Path);
+                        if(asset.Kind=="video"&&(bytes.Length<12||!bytes.AsSpan(4,4).SequenceEqual(new byte[]{102,116,121,112})))
+                            throw new InvalidDataException("Video texture must have an MP4 file-type header.");
                         if(asset.Kind=="preview"&&(bytes.Length<24||!bytes.AsSpan(0,8).SequenceEqual(new byte[]{137,80,78,71,13,10,26,10})
                             ||System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(16)) is <1 or >4096
                             ||System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes.AsSpan(20)) is <1 or >4096))
@@ -216,6 +245,20 @@ namespace MphRead.Mods.MapGen
                     catch(Exception ex)when(ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                     {result.Error("FP-MAP-001",ex.Message,material.Id);}
                 }
+                if (material?.VideoTexture is {} video)
+                {
+                    if (!paths.Contains(video.Source) || !definition.Assets.Any(a=>a?.Path==video.Source&&a.Kind=="video")
+                        || !video.Source.EndsWith(".mp4",StringComparison.OrdinalIgnoreCase))
+                        result.Error("FP-MAP-001","Video texture must reference a declared MP4 video asset.",material.Id);
+                    if (video.Width is <8 or >8192 || video.Height is <8 or >8192
+                        || (long)video.Width*video.Height>16777216 || video.FramesPerSecond is <1 or >60
+                        || video.FrameCount is <1 or >36000 || material.Animation?.FlipbookFrames?.Count>0
+                        || material.Albedo!=null)
+                        result.Error("FP-MAP-001","Video texture dimensions, clock or material combination are invalid.",material.Id);
+                }
+                if (material?.VideoTexture is { } groupedVideo && (groupedVideo.PlaybackGroup == null
+                    || groupedVideo.PlaybackGroup.Length > 128 || groupedVideo.PlaybackGroup.Any(char.IsControl)))
+                    result.Error("FP-MAP-001", "Video playback group must contain at most 128 printable characters.", material.Id);
                 if(material?.Texture is {} texture)
                 {
                     if(!paths.Contains(texture)||!texture.EndsWith(".tex",StringComparison.OrdinalIgnoreCase))result.Error("FP-MAP-001","Custom materials must reference a baked texture asset.",material.Id);
@@ -275,6 +318,9 @@ namespace MphRead.Mods.MapGen
         {
             string displayName = String.IsNullOrWhiteSpace(definition.InGameName)
                 ? Launcher.LauncherRoomDisplayName.Get(definition.Name) : definition.InGameName;
+            if(mode==GameMode.PushThePayload && HeroModes.PayloadMap.Error(definition) is {} payloadReason) return payloadReason;
+            if(mode==GameMode.CaptureTheZone && definition.CaptureZone?.Valid!=true)
+                return "Capture the Zone requires a valid, explicit capture volume.";
             if(definition.Capabilities is not {} capabilities)return null;
             if(capabilities.SupportedModes==null||!capabilities.SupportedModes.Any(m => string.Equals(m, mode.ToString(), StringComparison.OrdinalIgnoreCase) || mode == GameMode.Battle && string.Equals(m, "InstaGib", StringComparison.OrdinalIgnoreCase)))return $"{displayName} does not support {mode}.";
             if(players<capabilities.MinPlayers||players>capabilities.MaxPlayers)return $"{displayName} supports {capabilities.MinPlayers}–{capabilities.MaxPlayers} players.";
@@ -286,6 +332,8 @@ namespace MphRead.Mods.MapGen
                 || d.HardpointOrder.Any(id => id < 0 || id > short.MaxValue)
                 || d.HardpointOrder.Distinct().Count() != d.HardpointOrder.Count)
                 r.Error("FP-MAP-022", "Hardpoint order must contain unique objective entity IDs.");
+            if (d.CaptureZone != null && !d.CaptureZone.Valid)
+                r.Error("FP-MAP-022","Invalid capture-zone bounds.");
             if(d.Capabilities is not {} c)return;
             if(c.MinPlayers<1||c.MaxPlayers>8||c.MinPlayers>c.MaxPlayers)r.Error("FP-MAP-022","Player range must be within 1–8.");
             if(c.SupportedModes==null||c.SupportedModes.Count==0){r.Error("FP-MAP-022","Choose at least one supported mode.");return;}
@@ -293,6 +341,27 @@ namespace MphRead.Mods.MapGen
             {
                 if(!Enum.TryParse<GameMode>(mode,true,out var parsed)||!Enum.IsDefined(parsed)){r.Error("FP-MAP-022","Unknown game mode: "+mode);continue;}
                 if (parsed == GameMode.InstaGib) parsed = GameMode.Battle;
+                if (parsed == GameMode.PushThePayload)
+                {
+                    if(HeroModes.PayloadMap.Error(d) is {} error) r.Error("FP-MAP-022",error);
+                    foreach(var item in d.Items) if(!Enum.TryParse<ItemType>(item.Type,true,out var type) || !HeroModes.HeroRules.AllowedPickup(type))
+                        r.Error("FP-MAP-022","Hero Shooter permits only health pickups.");
+                    continue;
+                }
+                if (parsed == GameMode.CaptureTheZone)
+                {
+                    if (d.CaptureZone?.Valid != true) r.Error("FP-MAP-022","Capture the Zone requires authored bounds.");
+                    foreach (var item in d.Items)
+                    {
+                        if (!Enum.TryParse<ItemType>(item.Type,true,out var itemType) || !Mods.HeroModes.HeroRules.AllowedPickup(itemType))
+                            r.Error("FP-MAP-022","Capture the Zone permits only health pickups.");
+                        if (item.Position?.Length==3 && d.CaptureZone?.Contains(new OpenTK.Mathematics.Vector3(item.Position[0],item.Position[1],item.Position[2]))==true)
+                            r.Error("FP-MAP-022","Health must remain outside the capture zone.");
+                    }
+                    if(!d.Spawns.Any(s=>s?.Team==0)||!d.Spawns.Any(s=>s?.Team==1))
+                        r.Error("FP-MAP-022","Capture the Zone requires both team spawns.");
+                    continue;
+                }
                 if(mode.Contains("Teams",StringComparison.OrdinalIgnoreCase)&&(!d.Spawns.Any(s=>s?.Team==0)||!d.Spawns.Any(s=>s?.Team==1)))r.Error("FP-MAP-022","Team modes require spawns for both teams.");
                 if(parsed is not(GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.PrimeHunter or GameMode.OneInTheChamber or GameMode.GunGame or GameMode.KillConfirmed or GameMode.KillConfirmedTeams) && d.NativeRoom?.PreserveEntities != true)
                     r.Error("FP-MAP-022",$"{mode} requires objective entities that this source does not supply.");

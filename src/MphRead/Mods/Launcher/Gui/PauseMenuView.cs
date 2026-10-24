@@ -52,6 +52,7 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? VoteMapRequested;
         public event EventHandler? ReplayControlsRequested;
         public event EventHandler? CampaignJournalRequested;
+        public event EventHandler? HeroSelectionRequested;
 
         private readonly HubNavButton _resume;
         private readonly HubNavButton _voteYes;
@@ -87,6 +88,9 @@ namespace MphRead.Mods.Launcher.Gui
                 HorizontalAlignment = HorizontalAlignment.Stretch
             };
             _menu = menu;
+
+            if (Mods.HeroModes.HeroRules.Active(GameState.Mode) && !DemoPlayback.IsActive)
+                Add(menu, "HUNTER SELECTION (WHILE DEAD)", () => HeroSelectionRequested?.Invoke(this, EventArgs.Empty));
 
             if (DemoPlayback.IsActive)
             {

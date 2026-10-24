@@ -104,7 +104,7 @@ namespace MphRead
                     : Mods.Render.OpenGlFrameCounter.HudSpriteCacheFallbacks);
                 return false;
             }
-            binding = BindGetTexture(pixels, width, height);
+            binding = BindGetTexture(pixels, width, height, sceneColor: false);
             if (cache.Store(pixels, width, height, binding)) return true;
             ReleaseTexture(binding);
             binding = 0;

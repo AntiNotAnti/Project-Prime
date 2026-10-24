@@ -100,6 +100,7 @@ namespace MphRead.Mods
             settings.Bloom = Normalize(settings.Bloom, "off", "bloom", changed);
             settings.BloomIntensity = Normalize(settings.BloomIntensity, "0", "bloom intensity", changed);
             settings.ColorGrade = Normalize(settings.ColorGrade, "original", "color grade", changed);
+            settings.LinearColor = NormalizeToggle(settings.LinearColor, false, "linear world color", changed);
             settings.Gamma = Normalize(settings.Gamma, "100", "gamma", changed);
             settings.Contrast = Normalize(settings.Contrast, "100", "contrast", changed);
             settings.Saturation = Normalize(settings.Saturation, "100", "saturation", changed);
@@ -201,6 +202,7 @@ namespace MphRead.Mods
             settings.Saturation = "100";
             settings.EnhancedLighting = "off";
             settings.AdvancedMaterials = "off";
+            settings.LinearColor = "off";
             settings.DeferredPbr = "off";
             settings.ShadowQuality = "off";
             settings.AmbientOcclusion = "off";

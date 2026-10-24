@@ -323,7 +323,7 @@ var fileBaseline=capturedWorlds.First(item=>item.Name=="before-pickup");
                     {
                         uint fileOrigin=fileSource.Session.RecordingFrame;string filePath=Path.Combine(output,"actual-full-custom"+DemoFile.Extension);
                         var fileMetadata=baselineWorld.ClipMetadata(0,Array.Empty<ReplayPlayerInfo>());
-                        Check(fileMetadata.ProtocolVersion==85&&baselineWorld.DecoderState().Bytes[4]==17,"new full custom file records current85/checkpoint17 while world12 appendix15 remains unchanged");
+                        Check(fileMetadata.ProtocolVersion==86&&baselineWorld.DecoderState().Bytes[4]==17,"new full custom file records current85/checkpoint17 while world12 appendix15 remains unchanged");
                         uint betweenFrame=checked(namedFileFrames.Single(item=>item.Name=="accepted-launch").Frame+5);
                         while(betweenFrame<fullInspection.RecordingFrame&&namedFileFrames.Any(item=>item.Frame==betweenFrame))betweenFrame++;
                         Check(betweenFrame>fileOrigin&&betweenFrame<fullInspection.RecordingFrame&&!namedFileFrames.Any(item=>item.Frame==betweenFrame),"genuine non-indexed between target fits accepted stream");

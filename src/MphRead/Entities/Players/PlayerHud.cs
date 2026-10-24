@@ -641,15 +641,15 @@ namespace MphRead.Entities
             {
                 _rulesInfo = HudElements.RulesInfo[2];
             }
-            else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic)
+            else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic || mode == GameMode.Oddball)
             {
                 _rulesInfo = HudElements.RulesInfo[3];
             }
-            else if (mode == GameMode.Capture)
+            else if (mode is GameMode.Capture or GameMode.CaptureTheFlag)
             {
                 _rulesInfo = HudElements.RulesInfo[4];
             }
-            else if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || _scene.GameState.IsHardpoint)
+            else if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || _scene.GameState.IsHardpoint || Mods.HeroModes.HeroRules.Active(mode))
             {
                 _rulesInfo = HudElements.RulesInfo[5];
             }
@@ -660,7 +660,28 @@ namespace MphRead.Entities
             char[] buf = new char[256];
             for (int i = 0; i < _rulesInfo.Count; i++)
             {
-                string line = mode == GameMode.GunGame ? i switch
+                string line = mode == GameMode.CaptureTheFlag ? i switch
+                {
+                    0 => "CAPTURE THE FLAG",1 => "Steal the enemy flag and bring it to your base.",
+                    2 => "Your own flag must be home to score.",3 => "Zoom / ADS picks up or throws the flag.",
+                    _ => "Carrying: +20% speed; no shooting or alternate form."
+                } : mode == GameMode.PushThePayload ? i switch
+                {
+                    0 => "PUSH THE PAYLOAD",1 => "Escort the cart after 22.5 seconds of preparation.",
+                    2 => "Enemies contest. Checkpoints add time and forward spawns.",
+                    3 => "Teams swap sides after each attack.",_ => "Match the best delivery or distance to win."
+                } : mode == GameMode.Oddball ? i switch
+                {
+                    0 => "ODDBALL",1 => "Hold the ball to score for your team.",
+                    2 => "Move and aim while carrying. Attack to melee.",_ => "Win two rounds to take the match."
+                } : Mods.HeroModes.HeroRules.Active(mode) ? i switch
+                {
+                    0 => "CAPTURE THE ZONE",
+                    1 => "Capture for 5 seconds; occupy the zone to score.",
+                    2 => "Enemies contest. First to 100% wins the round.",
+                    3 => "Win two rounds. Teams swap spawn sides.",
+                    _ => "Affinity only. Leave the zone to collect health."
+                } : mode == GameMode.GunGame ? i switch
                 {
                     0 => "GUN GAME", 1 => "Each enemy kill advances your weapon.",
                     2 => "Your stage survives death. Weapon pickups are disabled.",
@@ -1565,6 +1586,7 @@ namespace MphRead.Entities
                 _hudTextOverride=null;
             }
             ApplyNativeHudSmoothing();
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)) if(Mods.HeroModes.HeroRules.IsPayload(_scene.GameState.Mode))ModDrawPayloadHud();else ModDrawCtzHud();
             if (_scene.DsTopPass) DrawDsBorder(false);
             // Before the pause check, not after it: a frame rate you cannot
             // read while the settings window is open -- which is where the
@@ -1605,7 +1627,8 @@ namespace MphRead.Entities
             // chat, the results screen or the vote prompt.
             ModDrawStylusZone();
             ModDrawChat();
-            ModDrawKillFeed();
+            if (_scene.GameState.Mode != GameMode.Oddball || (!ShowScoreboard && _scene.GameState.MatchState == MatchState.InProgress))
+                ModDrawKillFeed();
             // With the chat, and above the results screen for the reason the
             // comment below gives about that one: a vote is asked during a
             // running match and answered from wherever the player is looking.
@@ -1666,7 +1689,7 @@ namespace MphRead.Entities
                 else
                 {
                     float wheelScale = ModPlaceWeaponSelect();
-                    for (int i = 0; i < 6; i++)
+                    for (int i = 0; i < 6 && !_scene.DsTopPass; i++)
                     {
                         _scene.DrawHudObject(_selectBoxInsts[i], mode: 1, scale: wheelScale);
                         _scene.DrawHudObject(_weaponSelectInsts[i], mode: 1, scale: wheelScale);
@@ -1697,10 +1720,11 @@ namespace MphRead.Entities
                     // The stock timer is a scoreboard surface. A Custom HUD can
                     // promote it to a persistent gameplay element; its own
                     // visibility/context rules still decide whether it is shown.
-                    if (DrawCustomMatchTimerDuringGameplay)
+                    if (DrawCustomMatchTimerDuringGameplay || Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
                     {
                         DrawMatchTime();
                     }
+                    if (Mods.HeroModes.CtfRules.Active(_scene.GameState.Mode)) ModDrawCtfHud();
                     if (Health > 0)
                     {
                         if (!_scene.GameState.DialogPause)
@@ -2014,6 +2038,9 @@ namespace MphRead.Entities
 
         private void DrawMatchTime()
         {
+            if(ShowScoreboard)return;
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
+            { if(Mods.HeroModes.HeroRules.IsPayload(_scene.GameState.Mode))ModDrawPayloadClock();else ModDrawCtzClock(); return; }
             using var layout = UseHudLayout(6, 128, 10);
             if (_scene.GameState.MatchTime < 0)
             {
@@ -2021,6 +2048,14 @@ namespace MphRead.Entities
             }
             var time = TimeSpan.FromSeconds(_scene.GameState.MatchTime);
             int palette = time.TotalSeconds < 10 ? 2 : 0;
+            if (_scene.GameState.Mode == GameMode.Oddball && _scene.DsTopPass
+                && Mods.Render.Hud.HudProfiles.Runtime.Mode != Mods.Render.Hud.HudMode.Custom)
+            {
+                // The non-custom stacked HUD has its health bar at top centre.
+                // Authored Custom HUD timer positions remain entirely untouched.
+                DrawText2D(242, 12, Align.Right, palette, FormatTime(time), scale: .65f);
+                return;
+            }
             float posY = 10;
             string text = Strings.GetHudMessage(5); // TIME
             DrawText2D(128, posY, Align.Center, palette, text);
@@ -2100,6 +2135,7 @@ namespace MphRead.Entities
 
         private void DrawScoreboard()
         {
+            if (Mods.Network.UnifiedModeRules.Custom(_scene.GameState.Mode)) { ModDrawUnifiedScoreboard(); return; }
             if (_scene.GameState.Teams)
             {
                 ModDrawTeamScoreboard();
@@ -2273,11 +2309,12 @@ namespace MphRead.Entities
             }
             _ammoBarMeter.TankAmount = ModAmmoCapForWeapon(CurrentWeapon, info) + 1;
             _ammoBarMeter.TankCount = 0;
-            int amount = ModAmmoForWeapon(CurrentWeapon, info);
-            DrawMeter(_hudObjects.AmmoBarPosX + _objShiftX, _hudObjects.AmmoBarPosY + _objShiftY, amount, amount,
+            int amount = Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)
+                ? ModAmmoCapForWeapon(CurrentWeapon, info) : ModAmmoForWeapon(CurrentWeapon, info);
+            if (!Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)) DrawMeter(_hudObjects.AmmoBarPosX + _objShiftX, _hudObjects.AmmoBarPosY + _objShiftY, amount, amount,
                 _ammoBarPalette, _ammoBarMeter, drawText: false, drawTanks: false, Features.HudOpacity);
             amount /= info.AmmoCost;
-            string ammoText = $"{amount:00}";
+            string ammoText = Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) ? "INF" : $"{amount:00}";
             float ammoTextX = _hudObjects.AmmoBarPosX + _ammoBarMeter.BarOffsetX + _objShiftX;
             float ammoTextY = _hudObjects.AmmoBarPosY + _ammoBarMeter.BarOffsetY + _objShiftY;
             // Out from under the weapon icon, which is drawn after this and
@@ -2855,7 +2892,7 @@ namespace MphRead.Entities
         private void ProcessHudBounty()
         {
             var goodColor = new ColorRgb(15, 15, 31);
-            if (OctolithFlag != null && _scene.GameState.Mode != GameMode.Relic)
+            if (OctolithFlag != null && _scene.GameState.Mode is not (GameMode.Relic or GameMode.Oddball))
             {
                 foreach (FlagBaseEntity flagBase in _scene.GetFlagBaseEntities())
                 {
@@ -3024,6 +3061,7 @@ namespace MphRead.Entities
                 {
                     case GameMode.Bounty:
                     case GameMode.BountyTeams:
+                    case GameMode.Oddball:
                     case GameMode.Relic: ProcessHudBounty(); break;
                     case GameMode.KillConfirmed:
                     case GameMode.KillConfirmedTeams:
@@ -3109,9 +3147,14 @@ namespace MphRead.Entities
 
         private void DrawModeHud()
         {
+            if (_scene.GameState.Mode == GameMode.Oddball && _showScoreboard) return;
             using var layout = UseHudLayout(10,0,0);
             GameMode mode = _scene.GameState.Mode;
-            if (mode == GameMode.SinglePlayer)
+            if (mode == GameMode.Oddball)
+            {
+                ModDrawOddballHud();
+            }
+            else if (mode == GameMode.SinglePlayer)
             {
                 DrawHudAdventure();
             }
@@ -3125,7 +3168,7 @@ namespace MphRead.Entities
                 {
                     DrawHudSurvival();
                 }
-                else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic)
+                else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic || mode == GameMode.Oddball)
                 {
                     DrawHudBounty();
                 }
@@ -3735,11 +3778,12 @@ namespace MphRead.Entities
 
         private void DrawOpponent()
         {
-            if (_opponentIndex == -1 || _opponentHealthbarTimer == 0 || !Features.TopScreenTargetInfo)
+            bool healedAlly = ModCtzShowingHealedAlly;
+            if (_opponentIndex == -1 || _opponentHealthbarTimer == 0 || (!Features.TopScreenTargetInfo && !healedAlly))
             {
                 return;
             }
-            using var layout = UseHudLayout(9,93,149);
+            using var layout = _scene.PushHudElement(9,93,149,HudElementVisible(9),requiredFeedback:healedAlly);
             PlayerEntity opponent = _scene.Players.Items[_opponentIndex];
             float posX = 93;
             float posY = 182;
@@ -3774,7 +3818,7 @@ namespace MphRead.Entities
             _scene.DrawHudObject(portrait, mode: 1);
             posX += 18;
             posY -= 26;
-            if (Mods.Network.NetHudHealth.Visible(opponent.SlotIndex))
+            if (healedAlly || Mods.Network.NetHudHealth.Visible(opponent.SlotIndex))
             {
                 int displayHealth = ModOpponentHudHealth(opponent);
                 int remainingAmount = displayHealth >= Values.EnergyTank ? displayHealth - Values.EnergyTank : 0;
@@ -3786,7 +3830,8 @@ namespace MphRead.Entities
                 DrawMeter(posX, posY + 5, Values.EnergyTank - 1, remainingAmount, 0, _enemyHealthMeter,
                     drawText: false, drawTanks: false);
             }
-            string score = FormatModeScore(opponent.SlotIndex);
+            string score = healedAlly ? $"HP {ModOpponentHudHealth(opponent)} / {opponent.HealthMax}"
+                : FormatModeScore(opponent.SlotIndex);
             DrawText2D(posX + 5, posY + 14, Align.Left, 0, score);
         }
 
@@ -3794,6 +3839,8 @@ namespace MphRead.Entities
 
         private void DrawModeRules()
         {
+            // CTZ announces its name once per round for three seconds; rules/name remain on the scoreboard.
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)) return;
             string? header = _rulesLines[0];
             Debug.Assert(header != null);
             ColorRgba? color = Paths.IsMphJapan || Paths.IsMphKorea ? null : new ColorRgba(0x7FDE);
@@ -3934,6 +3981,7 @@ namespace MphRead.Entities
 
         private void DrawRadar()
         {
+            // No dead-location radar scouting when the team has nobody left to watch.
             if(!HudDrawMetrics.Enabled) { DrawEnhancedRadar(); return; }
             long before=HudDrawMetrics.Begin(out long started);
             DrawEnhancedRadar();

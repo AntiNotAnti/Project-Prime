@@ -75,9 +75,8 @@ public partial class Scene
     internal ForegroundSceneLease ForegroundLease { get; private set; }
     private bool _cleanupComplete;
     private bool _visualReleaseComplete;
-    private bool _unfencedCallbacksAtCleanup;
     internal bool ForegroundReleaseEligible => _cleanupComplete && _visualReleaseComplete
-        && !_unfencedCallbacksAtCleanup && !GameState.InRoomTransition
+        && !GameState.InRoomTransition
         && _room?.TransitionWorkerPending != true && !SideScene && !IsReplayLab && !Services.IsReplica
         && !Mods.Network.NetAiClient.IsBoundTo(this);
     internal void BindForegroundFacades() => ForegroundLease = ForegroundSceneBinding.Bind(this);

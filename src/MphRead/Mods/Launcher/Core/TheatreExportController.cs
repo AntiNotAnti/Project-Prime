@@ -65,7 +65,7 @@ public sealed class TheatreExportController : IDisposable
                     GameHud = preset.GameHud, ReplayOverlay = preset.ReplayOverlay }; break;
             case "resolution": _options = _options with { Resolution = (_options.Resolution + 1) % 4 }; break;
             case "fps":
-                int[] rates = { 24, 30, 48, 60, 90, 120, 144 };
+                int[] rates = { 24, 30, 48, 60, 90, 120, 144, 240 };
                 _options = _options with { Fps = rates[(Array.IndexOf(rates, _options.Fps) + 1) % rates.Length] }; break;
             case "game-hud": _options = _options with { GameHud = !_options.GameHud }; break;
             case "replay-overlay": _options = _options with { ReplayOverlay = !_options.ReplayOverlay }; break;
@@ -84,7 +84,7 @@ public sealed class TheatreExportController : IDisposable
         if (!_authority || !_backend.IsCurrent(_context))
         { _authority = false; throw new InvalidOperationException("The export inputs changed. Refresh before queueing."); }
         if (_options.Preset < 0 || _options.Preset >= _backend.Presets.Length || _options.Resolution is < 0 or > 3
-            || !new[] { 24, 30, 48, 60, 90, 120, 144 }.Contains(_options.Fps)
+            || !new[] { 24, 30, 48, 60, 90, 120, 144, 240 }.Contains(_options.Fps)
             || !Enum.IsDefined(_options.Source) || !Enum.IsDefined(_options.Camera)
             || !_backend.Encoders().Contains(_options.Encoder)) throw new ArgumentException("Review supported export options.");
         if (_options.Source == TheatreExportSource.Selection && (_context.MarkIn is not { } start

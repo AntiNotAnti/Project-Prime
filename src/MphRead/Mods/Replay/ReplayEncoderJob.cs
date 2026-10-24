@@ -30,9 +30,16 @@ internal sealed class ReplayEncoderJob : IDisposable
         {
             _cancel.Token.ThrowIfCancellationRequested();
             await File.WriteAllTextAsync(Path.Combine(directory, "encode.txt"), executable + " " + (argumentList==null?arguments:String.Join(" ",argumentList.Select(a=>System.Text.Json.JsonSerializer.Serialize(a)))), _cancel.Token).ConfigureAwait(false);
-            using var process = new Process { StartInfo = new ProcessStartInfo(executable, arguments)
+            // CreateProcess still limits its current-directory argument on
+            // Windows even when the absolute media paths support long names.
+            using var work=OperatingSystem.IsWindows()&&Path.GetFullPath(directory).Length>=240
+                ?ReplayExportWorkDirectory.Create():null;
+            string program=work!=null&&!Path.IsPathFullyQualified(executable)
+                &&(executable.Contains(Path.DirectorySeparatorChar)||executable.Contains(Path.AltDirectorySeparatorChar)
+                    ||File.Exists(Path.Combine(directory,executable)))?Path.GetFullPath(executable,directory):executable;
+            using var process = new Process { StartInfo = new ProcessStartInfo(program, arguments)
             { UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true,
-                RedirectStandardOutput = true, WorkingDirectory = directory } };
+                RedirectStandardOutput = true, WorkingDirectory = work?.Path??directory } };
             if(argumentList!=null)foreach(string argument in argumentList)process.StartInfo.ArgumentList.Add(argument);
             if (!process.Start()) return new(false, null, "Encoder did not start.", "");
             // Cancellation only signals from the render thread. Kill/wait occur here.

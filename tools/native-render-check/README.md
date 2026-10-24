@@ -1,5 +1,26 @@
 # Native desktop renderer diagnostic
 
+`-authoredmaterials` enables HD texture replacements and advanced material channels
+for this diagnostic process. Combine it with `-linearcolor` to exercise the linear
+world renderer. The result records actual modern texture bindings, source material
+draws and resident material bytes. This option fails acceptance if neither a modern
+binding nor a source draw was observed, or a requested linear scene did not produce
+its encoded output. It does not save graphics preferences.
+
+Windows campaign tooling is `qualify_windows_renderer.ps1`; it requires a fresh
+output folder, preserves failed cases, exits nonzero when any gate fails, and
+checks frozen binary identity/conditions as well as the declared cadence gates.
+`-SourceSnapshot` and `-BuildBinding` accept explicit build provenance digests;
+posthoc working-tree hashes alone do not attest binaries. The manifest writer's
+`--snapshot-source` mode inventories full tracked inputs before/after a build;
+prefer outputs outside the checkout. Optional `--end-source-snapshot` validates
+the end digest and build-input equality. See
+`docs/performance/renderer-next/windows-tooling.md` for exact scope and checks.
+
+Frozen-value display-pose regressions require an explicit
+`PROJECT_PRIME_POSE_REFERENCE_DLL` and use `DOTNET_EXE` or native PATH discovery,
+including Windows `dotnet.exe`; they do not select old historical builds.
+
 This tool runs the normal `RenderWindow` loop, including its fixed 60 Hz
 simulation, frame cap, render profiling and `SwapBuffers`. It requires the
 operator's extracted assets and `paths.txt` in `PROJECT_PRIME_USER_DATA`.

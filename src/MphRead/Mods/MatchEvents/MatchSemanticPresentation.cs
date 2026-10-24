@@ -46,6 +46,7 @@ internal sealed class MatchSemanticPresentation
         _medals.Clear(); _medalStyles.Clear();
         receiver.DrainPresentation(fact =>
         {
+            scene.CtfAnnouncements.OnEvent(scene, fact);
             if (fact.Type is MatchSemanticEventType.PlayerKilled or MatchSemanticEventType.PlayerSuicide)
                 scene.KillFeed.RecordCanonical(scene, fact.ToFact());
             if (fact.Type == MatchSemanticEventType.Headshot

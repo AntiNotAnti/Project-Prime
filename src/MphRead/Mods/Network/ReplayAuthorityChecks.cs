@@ -26,7 +26,11 @@ internal static class ReplayAuthorityChecks
         var decoded = ReplayAuthorityWorld.Decode(bytes);
         check(decoded.Encode().AsSpan().SequenceEqual(bytes), "world value codec roundtrip");
         check(decoded.ActiveHardpointId == 12 && decoded.HardpointTicksRemaining == 1234, "Hardpoint state codec roundtrip");
-        byte[] legacyWorld = bytes[..^ReplayAuthorityWorld.ModeTailSize]; legacyWorld[0] = 3;
+        const int emptyUnifiedTailBytes = 6; // zone/payload flags, ball length, support/combat counts
+        check(bytes.AsSpan(bytes.Length-emptyUnifiedTailBytes).ToArray().All(b=>b==0), "ordinary world has an empty unified appendix");
+        byte[] version4 = bytes[..^emptyUnifiedTailBytes]; version4[0] = 4;
+        check(ReplayAuthorityWorld.Decode(version4).ActiveHardpointId == 12, "version 4 preserves Hardpoint state without unified appendix");
+        byte[] legacyWorld = version4[..^ReplayAuthorityWorld.ModeTailSize]; legacyWorld[0] = 3;
         var legacyDecoded = ReplayAuthorityWorld.Decode(legacyWorld);
         check(legacyDecoded.ActiveHardpointId == -1 && legacyDecoded.HardpointTicksRemaining == 0, "version 3 world supplies inactive Hardpoint defaults");
         var tokenWorld = new ReplayAuthorityWorld { MatchId = 7, Epoch = 9, Tick = 120, NextTokenId = 3,

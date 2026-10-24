@@ -134,6 +134,13 @@ namespace MphRead.Mods.Launcher.Gui
 
         private Action<DrawingContext, Rect>? _preview;
 
+        private bool _stackLabel;
+        internal bool StackLabel
+        {
+            get => _stackLabel;
+            set { _stackLabel=value; Height=value?52:(_preview==null?34:48); InvalidateMeasure(); InvalidateVisual(); }
+        }
+        internal double AvailableValueWidth => Math.Max(0, RightArrow.X-LeftArrow.Right-8);
         private const double PreviewWidth = 52;
 
         private double PreviewRoom => _preview == null ? 0 : PreviewWidth;
@@ -157,6 +164,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             get
             {
+                if (_stackLabel) return new Rect(0, 18, ArrowWidth, Math.Max(0, Bounds.Height-18));
                 // The label keeps 110 points where there are 110 to spare and
                 // a little under half the row where there are not. A flat
                 // floor is what put the arrows 138 points apart inside the
@@ -172,7 +180,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         private Rect RightArrow =>
-            new(Bounds.Width - PreviewRoom - ArrowWidth, 0, ArrowWidth, Bounds.Height);
+            new(Bounds.Width - PreviewRoom - ArrowWidth, _stackLabel?18:0, ArrowWidth, Math.Max(0,Bounds.Height-(_stackLabel?18:0)));
 
         protected override void OnPointerMoved(PointerEventArgs e)
         {
@@ -268,7 +276,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             var label = new FormattedText(_label, CultureInfo.InvariantCulture,
                 FlowDirection.LeftToRight, GameTypography.Resolve(GuiTheme.Face(false)), 13, GuiTheme.TextDimBrush);
-            context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
+            context.DrawText(label, new Point(4, _stackLabel?0:(Bounds.Height - label.Height) / 2));
 
             // The value lives in the fixed column between the arrows, and is
             // trimmed to it rather than pushing them apart.
@@ -289,7 +297,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             double centre = (left.Right + RightArrow.X) / 2;
             context.DrawText(value, new Point(centre - value.Width / 2,
-                (Bounds.Height - value.Height) / 2));
+                (_stackLabel?18:0) + (Bounds.Height - (_stackLabel?18:0) - value.Height) / 2));
 
             Arrow(context, left, pointsLeft: true, _leftHot);
             Arrow(context, RightArrow, pointsLeft: false, _rightHot);

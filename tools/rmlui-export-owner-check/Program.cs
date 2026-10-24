@@ -6,6 +6,10 @@ using MphRead.Mods.Replay;
 int checks = 0;
 void Check(bool value, string message)
 { if (!value) throw new InvalidOperationException("Actual export owner: " + message); checks++; }
+void AwaitEncoder()=>Check(SpinWait.SpinUntil(()=>ReplayVideoExporter.State==ReplayExportState.Encoding
+    &&typeof(ReplayVideoExporter).GetField("_encoder",System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Static)!.GetValue(null)!=null,
+    TimeSpan.FromSeconds(10)),"PNG worker drains before encoder ownership is published");
+void AwaitIdle()=>Check(SpinWait.SpinUntil(()=>!ReplayVideoExporter.Active,TimeSpan.FromSeconds(10)),"cancelled or failed PNG worker retires before the next job starts");
 string temp = Path.Combine(Path.GetTempPath(), "prime-export-owner-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(temp);
 ReplayVideoExportManifest Job(int id) => new(3, "/synthetic.ppdemo", 1, 2, 1280, 720, 60, true, false, false,
@@ -65,6 +69,7 @@ try
     DemoPlayback.PresentationScene = new Scene { ReplayPresentationFrame = 2 };
     ReplayController.CurrentFrame = 2;
     ReplayVideoExporter.AfterSceneDraw(shell);
+    AwaitEncoder();
     Check(ReplayVideoExporter.State == ReplayExportState.Encoding && ReplayEncoderJob.Last != null,
         "same durable playback owner survives exporter seek-driven presentation replacement and reaches stub encoder");
     var encoder = ReplayEncoderJob.Last!;
@@ -80,6 +85,7 @@ try
     ReplayController.State = ReplayState.Paused; ReplayController.CurrentFrame = 1; DemoPlayback.PresentationScene!.ReplayPresentationFrame = 1;
     ReplayVideoExporter.AfterSceneDraw(shell);
     ReplayController.CurrentFrame = 2; DemoPlayback.PresentationScene.ReplayPresentationFrame = 2; ReplayVideoExporter.AfterSceneDraw(shell);
+    AwaitEncoder();
     var completing = ReplayExportQueue.OwnerSnapshot(); var completedEncoder = ReplayEncoderJob.Last!;
     File.WriteAllText(completedMarker, "SYNTHETIC COMPLETION MARKER - NOT A VIDEO");
     completedEncoder.Result.SetResult(new(false, 0, null, ""));
@@ -95,6 +101,7 @@ try
     Check(ReplayVideoExporter.State == ReplayExportState.Failed && ReplayCamera.FieldOfView == 123,
         "same-path replay replacement stops old export without restoring old camera over new owner");
     Check(!ReplayExportQueue.CancelExact(previous.Active!, previous.Revision), "stale active receipt cannot cancel replacement or terminal work");
+    AwaitIdle();
     ReplayExportQueue.Enqueue(Job(5));
     int pendingBeforeUnrelated = ReplayExportQueue.PendingCount;
     ReplayVideoExporter.AfterSceneDraw(new Scene());
@@ -106,6 +113,7 @@ try
     ReplayVideoExporter.Cancel();
     Check(ReferenceEquals(ReplayExportQueue.OwnerSnapshot().Retry?.Manifest, direct),
         "directly started cancelled export keeps exact retry receipt without relying on queue's last job");
+    AwaitIdle();
     var throwsOnFrame = new ReplayExportPolicy(() => null, () => throw new InvalidOperationException("injected frame-owner failure"), ReplayExportPresentation.Capture());
     Check(ReplayExportQueue.EnqueueOwned(Job(7), throwsOnFrame) && ReplayExportQueue.Pump(), "owned frame-error fixture starts through existing queue");
     ReplayController.State = ReplayState.Paused; DemoPlayback.PresentationScene!.ReplayPresentationFrame = 1;

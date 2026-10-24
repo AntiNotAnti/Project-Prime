@@ -161,6 +161,50 @@ namespace MphRead.Mods.Render
                 && !RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.TranslucentBehind, true)
                 && !RetainedOpaqueBatchPolicy.CanBatchPass(WorldRenderPassKind.TranslucentFront, true),
                 "depth batching cannot merge decal or translucent stencil passes");
+            var alphaIdentityCache = new RetainedMaterialIdentity.Cache();
+            var maskItemA = new RenderItem
+            {
+                Type = RenderItemType.Mesh, ListId = 811, RenderMode = RenderMode.Normal,
+                Alpha = 1f, AuthoredAlphaFactor = 0.4f,
+                AlphaPolicy = new(TextureAlphaMode.Mask, 0.4f), RetainedRoomOwned = true
+            };
+            var maskItemB = new RenderItem
+            {
+                Type = RenderItemType.Mesh, ListId = 812, RenderMode = RenderMode.Normal,
+                Alpha = 1f, AuthoredAlphaFactor = 0.4f,
+                AlphaPolicy = new(TextureAlphaMode.Mask, 0.6f), RetainedRoomOwned = true
+            };
+            var blendItem = new RenderItem
+            {
+                Type = RenderItemType.Mesh, ListId = 813, RenderMode = RenderMode.Normal,
+                Alpha = 1f, AuthoredAlphaFactor = 0.4f,
+                AlphaPolicy = new(TextureAlphaMode.Blend), RetainedRoomOwned = true
+            };
+            RetainedDrawPacket maskPacketA = new(maskItemA, 0,
+                new RetainedMeshDescriptor(RetainedMeshDescriptor.KeyOf(maskItemA)), alphaIdentityCache);
+            RetainedDrawPacket maskPacketB = new(maskItemB, 1,
+                new RetainedMeshDescriptor(RetainedMeshDescriptor.KeyOf(maskItemB)), alphaIdentityCache);
+            RetainedDrawPacket blendPacket = new(blendItem, 2,
+                new RetainedMeshDescriptor(RetainedMeshDescriptor.KeyOf(blendItem)), alphaIdentityCache);
+            Check(maskPacketA.ReorderableOpaque && !blendPacket.ReorderableOpaque,
+                "authored MASK stays in opaque coverage while BLEND cannot enter opaque reordering");
+            Check(maskPacketA.BatchState != maskPacketB.BatchState
+                && maskPacketA.StateKey != maskPacketB.StateKey
+                && !ReferenceEquals(maskPacketA.MaterialIdentity, maskPacketB.MaterialIdentity),
+                "alpha cutoff participates in retained material state, hash and identity");
+            Check(maskPacketA.Material.AuthoredAlphaFactor == 0.4f
+                && maskPacketA.Material.AlphaPolicy.Mode == TextureAlphaMode.Mask
+                && blendPacket.Material.AlphaPolicy.Mode == TextureAlphaMode.Blend,
+                "retained descriptor captures alpha mode and authored color factor");
+            var linearTintItem = new RenderItem
+            {
+                Type = maskItemA.Type, ListId = maskItemA.ListId, RenderMode = maskItemA.RenderMode,
+                Alpha = maskItemA.Alpha, AuthoredAlphaFactor = maskItemA.AuthoredAlphaFactor,
+                AlphaPolicy = maskItemA.AlphaPolicy, AuthoredLinearTint = true
+            };
+            Check(RetainedMaterialDescriptor.From(linearTintItem)
+                    != RetainedMaterialDescriptor.From(maskItemA),
+                "retained descriptor distinguishes authored linear surface tint from native diffuse");
             Check(OpenGlOptimizationPolicy.DefaultEnabled("DEPTH_BATCH")
                 && !OpenGlOptimizationPolicy.Select(true, false, "0", validatedDefault: true)
                 && !OpenGlOptimizationPolicy.Select(true, true, "1", validatedDefault: true),

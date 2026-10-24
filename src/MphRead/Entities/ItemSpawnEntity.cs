@@ -116,6 +116,8 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) && !Mods.HeroModes.HeroRules.AllowedPickup(_data.ItemType))
+            { Active = false; if (Item != null) Item.DespawnTimer = 0; return true; }
             if (!_linkDone && _data.ParentId != -1)
             {
                 if (_scene.TryGetEntity(_data.ParentId, out EntityBase? parent))

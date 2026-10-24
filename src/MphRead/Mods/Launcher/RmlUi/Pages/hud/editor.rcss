@@ -69,3 +69,39 @@ body { background-color:#030c14; }
 #native_hud_unsaved p { display: block; margin-bottom: 16dp; color: #b2cadc; line-height: 22dp; }
 #native_hud_unsaved button { display: block; width: 100%; margin-top: 8dp; }
 @media (max-width: 780dp) { #native_hud_unsaved { left: 5%; width: 84%; top: 15%; } }
+
+/* Readable, focused inspector controls. Numeric fields are an optional precision tool. */
+#hud_page { font-size:16dp; }
+.hud_intro, .hud_help, .hud_preview_note { font-size:14dp; line-height:20dp; }
+#hud_page .play_action { font-size:13dp; min-height:34dp; padding:7dp 9dp; }
+.hud_pick { font-size:15dp; line-height:20dp; padding:9dp; }
+.hud_property { padding:10dp; margin-bottom:10dp; color:#d9edf8; }
+.hud_property_heading { display:flex; align-items:center; width:100%; margin-bottom:7dp; }
+.hud_property_heading label { width:auto; flex:1; font-size:16dp; line-height:22dp; color:#edf7ff; }
+#hud_page .hud_info { flex:0 0 28dp; width:28dp; min-width:28dp; max-width:28dp; min-height:28dp; padding:2dp; margin:0; border-radius:14dp; font-size:15dp; text-align:center; line-height:20dp; }
+.hud_property_editor { width:100%; min-width:0; flex:1 1 100%; gap:4dp; }
+.hud_property_editor .play_input { font-size:16dp; padding:7dp; }
+#hud_page .hud_property_editor .hud_choice_value, #hud_page .hud_property_editor .hud_color { flex:1; width:auto; min-width:0; font-size:14dp; padding:7dp; }
+#hud_page .hud_property_editor .hud_inline_reset { flex:0 0 54dp; width:54dp; min-width:54dp; font-size:11dp; }
+#hud_page .hud_property_editor .hud_exact { flex:0 0 28dp; width:28dp; min-width:28dp; }
+.hud_slider { flex:1; width:auto; min-width:40dp; height:34dp; margin:0; padding:0; border:0; background-color:#123047; color:#8cd4e3; }
+.hud_slider slidertrack { height:4dp; margin:15dp 5dp; background-color:#31566c; }
+.hud_slider sliderbar { width:14dp; height:20dp; margin-top:7dp; background-color:#8cd4e3; border:1dp #cceaff; }
+.hud_number { flex:0 0 64dp; width:64dp; padding:4dp; font-size:15dp; text-align:right; color:#edf7ff; }
+.hud_property_hint { font-size:14dp; line-height:20dp; color:#bad0df; }
+#hud_status { font-size:13dp; line-height:19dp; }
+#hud_color_dialog { position:absolute; left:15%; right:15%; top:5%; width:auto; max-width:860dp; max-height:90%; overflow-y:auto; overflow-x:hidden; box-sizing:border-box; padding:20dp; border:1dp #72c7ff; background-color:#041321; color:#e1f1fc; font-size:16dp; }
+#hud_color_dialog h1 { display:block; font-size:26dp; margin-bottom:10dp; }
+#hud_color_dialog h2 { display:block; font-size:18dp; margin:12dp 0 8dp; }
+#hud_color_dialog p { display:block; font-size:14dp; line-height:20dp; margin:5dp 0; }
+#hud_color_preview { width:100%; height:38dp; margin:8dp 0; border:1dp #8baec3; }
+.hud_swatches { display:flex; flex-wrap:wrap; gap:7dp; width:100%; }
+.hud_swatch { flex:0 0 10%; width:10%; min-height:38dp; border:1dp #bad0df; margin:0 0 6dp; }
+.hud_swatch:hover, .hud_swatch:focus { border:3dp #ffffff; }
+.hud_color_channels { display:flex; flex-wrap:wrap; align-items:center; width:100%; }
+.hud_color_channels label { width:20%; font-size:15dp; }
+.hud_color_channels .hud_slider { flex:0 0 78%; width:78%; }
+#hud_color_hex { width:45%; margin:8dp; padding:8dp; font-size:16dp; background-color:#123047; color:#ffffff; border:1dp #31566c; }
+#hud_color_dialog .play_action { min-height:36dp; padding:8dp 12dp; margin:6dp; font-size:15dp; color:#e1f1fc; background-color:#123047; border:1dp #72c7ff; }
+#hud_color_error { color:#ffb7bf; }
+@media (max-width:780dp) { #hud_color_dialog { left:4%; right:4%; width:auto; max-width:none; top:3%; max-height:94%; padding:14dp; } .hud_pick { font-size:14dp; } }

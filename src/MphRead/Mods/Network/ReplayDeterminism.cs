@@ -2,6 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using System.Text.Json;
+using MphRead.Mods.Replay;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
@@ -24,12 +27,47 @@ internal static class ReplayDeterminism
     internal static byte[] Projection(Scene scene, uint frame)
         => Convert.FromHexString(ReplayStateHash.Compute(scene, frame) + scene.ReplayPresentationHash(frame));
 
-    public static int Run(string path, string? hashOutput = null)
+    public static int Run(string path, string? hashOutput = null, string? reportOutput = null)
     {
         Headless.Enter();
         string tracePath = Path.Combine(Path.GetTempPath(), "prime-replay-trace-" + Guid.NewGuid().ToString("N"));
+        string? sourceHash = null;
+        var seekUpdates = new ReplayTimingWindow();
+        var seeks = new ReplayTimingWindow();
+        int exportSamples = 0;
+        void Report(string status, string? error = null)
+        {
+            if (reportOutput == null) return;
+            if (!string.Equals(Path.GetExtension(reportOutput), ".json", StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Replay parity report must use a .json path.");
+            string output = Path.GetFullPath(reportOutput);
+            if (ReplayPathComparer.Same(output, path) || hashOutput != null && ReplayPathComparer.Same(output, hashOutput))
+                throw new ArgumentException("Replay parity report must be separate from source and archive output.");
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            File.WriteAllText(output, JsonSerializer.Serialize(new
+            {
+                Schema = 1, Status = status, Error = error, SourceSha256 = sourceHash,
+                Runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+                Platform = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                InteractiveBudgetMilliseconds = PassiveReplayPlayer.InteractiveBudgetMilliseconds,
+                SeekUpdates = seekUpdates.Snapshot(), Seeks = seeks.Snapshot(), ExportStateSamples = exportSamples,
+                ImageParity = "NOT_RUN", AudioParity = "NOT_RUN", PhysicalDisplayPacing = "NOT_RUN",
+                Scope = "Canonical gameplay and reconstructed presentation hashes; synthetic export sample clocks do not establish rendered output or captured-source image/audio parity."
+            }, new JsonSerializerOptions { WriteIndented = true }));
+        }
+        void Settle(PassiveReplayPlayer player)
+        {
+            var elapsed = System.Diagnostics.Stopwatch.StartNew();
+            while (!player.Ready)
+            {
+                player.Update(); seekUpdates.Add(player.LastUpdateMilliseconds);
+                if (elapsed.Elapsed.TotalMinutes > 5) throw new TimeoutException("Replay seek failed to settle within five minutes.");
+            }
+            seeks.Add(elapsed.Elapsed.TotalMilliseconds);
+        }
         try
         {
+            using (var source = File.OpenRead(path)) sourceHash = Convert.ToHexString(SHA256.HashData(source));
             using var trace = new FileStream(tracePath, FileMode.CreateNew, FileAccess.ReadWrite, FileShare.None,
                 64 * 1024, FileOptions.DeleteOnClose);
             var expected = new List<ReplayExpectedHash>();
@@ -90,19 +128,42 @@ internal static class ReplayDeterminism
                 Compare(player, 0);
                 player.Stepped += scene => Compare(player, player.Current.Session.CurrentFrame);
                 player.Seek(target);
-                while (!player.Ready) player.Update();
+                Settle(player);
                 Compare(player, target);
             }
             // Exercise already populated checkpoint caches, including backward seeks.
             using (var cached = Open(path))
             {
                 cached.Seek(duration);
-                while (!cached.Ready) cached.Update();
+                Settle(cached);
                 foreach (uint target in targets.Reverse())
                 {
                     cached.Seek(target);
-                    while (!cached.Ready) cached.Update();
+                    Settle(cached);
                     Compare(cached, target);
+                }
+                // New UI requests abandon earlier targets, including a rebuild
+                // whose immutable checkpoint read may still be outstanding.
+                foreach (uint target in targets)
+                {
+                    cached.Seek(duration); cached.Update(1, 0);
+                    cached.Seek(duration / 2); cached.Seek(target);
+                    Settle(cached); Compare(cached, target);
+                }
+            }
+            foreach (int fps in new[] { 30, 60, 120, 240 })
+            {
+                using var sampled = Open(path);
+                uint first = duration / 2, last = Math.Min(duration, first + 60);
+                var sampler = new ReplayExportSampler(first, last, fps);
+                double previous = -1;
+                for (long index = 0; index < sampler.Count; index++)
+                {
+                    var sample = sampler.At(index);
+                    if (sample.Frame <= previous || sample.SimulationFrame > last)
+                        throw new InvalidDataException("Export samples are duplicated or outside the range.");
+                    sampled.Seek(sample.SimulationFrame); Settle(sampled);
+                    Compare(sampled, sample.SimulationFrame); previous = sample.Frame; exportSamples++;
                 }
             }
             foreach (float rate in new[] { .25f, .5f, 1f, 2f, 4f })
@@ -133,10 +194,18 @@ internal static class ReplayDeterminism
                 var result = ReplayArchive.WithExpectedHashes(path, hashOutput, expected);
                 if (result != ReplayOpenResult.Success) throw new IOException($"Could not write expected hashes: {result}.");
             }
-            Console.WriteLine($"[replaydeterminism] PASS: {duration + 1} gameplay/presentation frames, {targets.Length} cold and cached seeks, all five rates, frozen EOF and divergence detection.");
+            using (var source = File.OpenRead(path))
+                if (sourceHash != Convert.ToHexString(SHA256.HashData(source))) throw new IOException("Source replay changed during parity verification.");
+            Report("PASS");
+            Console.WriteLine($"[replaydeterminism] PASS: {duration + 1} gameplay/presentation frames, {targets.Length} cold/cached/coalesced seeks, all five rates, {exportSamples} state samples at 30/60/120/240 FPS, frozen EOF and divergence detection. Image/audio parity not run.");
             return 0;
         }
-        catch (Exception ex) { Console.WriteLine("[replaydeterminism] FAIL: " + ex); return 1; }
+        catch (Exception ex)
+        {
+            Console.WriteLine("[replaydeterminism] FAIL: " + ex);
+            try { Report("FAIL", ex.Message); } catch (Exception reportError) { Console.WriteLine("[replaydeterminism] Could not write report: " + reportError.Message); }
+            return 1;
+        }
     }
     private static void RequireCursor(Scene scene, uint frame)
     {

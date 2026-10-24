@@ -342,7 +342,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             string hint = $"{TouchSettings.LabelOf(_selected)}  •  drag to move  •  pinch to resize";
             var text = new FormattedText(hint, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, new Typeface("monospace"), 11, Brushes.White);
+                FlowDirection.LeftToRight, GameTypography.Resolve(new Typeface("monospace")), 11, Brushes.White);
             context.FillRectangle(new SolidColorBrush(Color.FromArgb(175, 0, 0, 0)),
                 new Rect(surface.X + 6, surface.Bottom - text.Height - 10,
                     Math.Min(surface.Width - 12, text.Width + 12), text.Height + 6));
@@ -353,7 +353,7 @@ namespace MphRead.Mods.Launcher.Gui
             Point centre, double size, IBrush brush)
         {
             var text = new FormattedText(label, CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight, new Typeface("monospace"), size, brush);
+                FlowDirection.LeftToRight, GameTypography.Resolve(new Typeface("monospace")), size, brush);
             context.DrawText(text, new Point(
                 centre.X - text.Width / 2,
                 centre.Y - text.Height / 2));

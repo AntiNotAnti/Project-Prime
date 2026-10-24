@@ -116,6 +116,7 @@ namespace MphRead.Mods.Render
             }
             failures += RunStallCase() ? 0 : 1;
             failures += RunPresentationAlphaCase() ? 0 : 1;
+            failures += CameraStartupCheck.Run();
             failures += RunDynamicCrosshairCameraPolicyCase() ? 0 : 1;
             failures += RunFirstPersonPresentationCase() ? 0 : 1;
             failures += HitReactionPresentationCheck.Run() ? 0 : 1;
@@ -261,7 +262,7 @@ namespace MphRead.Mods.Render
                 bool dynamicOk = Features.FixedCrosshair
                     && !Features.FixedWeapon
                     && !Features.FixedAimCamera
-                    && Features.ResponsiveAimCamera
+                    && !Features.ResponsiveAimCamera
                     && PlayerEntity.ModDynamicReticlePresentation(
                         Features.ProHud, Features.FixedWeapon);
 
@@ -278,7 +279,7 @@ namespace MphRead.Mods.Render
                     && !PlayerEntity.ModDynamicReticlePresentation(proHud: false, fixedWeapon: true);
                 bool ok = dynamicOk && staticOk && classicOk;
                 Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} Pro HUD dynamic crosshair camera"
-                    + $" | dynamic={(dynamicOk ? "responsive camera / moving reticle" : "wrong policy")}"
+                    + $" | dynamic={(dynamicOk ? "native eased camera / moving reticle" : "wrong policy")}"
                     + $" | static={(staticOk ? "responsive camera / fixed reticle" : "wrong policy")}"
                     + $" | classic={(classicOk ? "weapon-style reticle" : "wrong policy")}");
                 return ok;

@@ -20,7 +20,7 @@ internal static partial class ReplayFormatV3
             if (metadata.CustomWeapons != null) throw new InvalidDataException("Custom metadata requires archive format7/8.");
             return null;
         }
-        if (metadata.ProtocolVersion is not (83 or 84 or 85) || metadata.CustomWeapons is not { MetadataDefinition: not null } descriptor
+        if (metadata.ProtocolVersion is not (83 or 84 or 85 or 86) || metadata.CustomWeapons is not { MetadataDefinition: not null } descriptor
             || metadata.WorldCheckpoint.Length > Replay.ReplayWorldCheckpoint.MaximumBytes || metadata.Bootstrap.Packets.Count != 1
             || metadata.Bootstrap.Packets[0] is not { Length: > 1 } packet || packet.Length > MaxCustomConstruction || packet[0] != 253
             || (ulong)metadata.OriginRecordingFrame + metadata.LeadInFrames > uint.MaxValue)
@@ -54,7 +54,7 @@ internal static partial class ReplayFormatV3
     private static (ReplayCustomWeaponDescriptor Descriptor, bool Timed, bool? Continuation)
         ReadCustomArchiveCapability(BinaryReader reader, byte protocol)
     {
-        if (protocol is not (83 or 84 or 85) || reader.ReadUInt32() != CustomWeaponCapabilityMagic || reader.ReadByte() != 1)
+        if (protocol is not (83 or 84 or 85 or 86) || reader.ReadUInt32() != CustomWeaponCapabilityMagic || reader.ReadByte() != 1)
             throw new InvalidDataException("Unsupported custom archive capability.");
         byte flags = reader.ReadByte(), continuation = reader.ReadByte(), reserved = reader.ReadByte();
         int length = reader.ReadInt32();

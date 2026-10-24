@@ -23,7 +23,7 @@ internal static unsafe class DesktopCompressionChecks
         {
             if (DesktopTextureCompressionPolicy.SupportsBc7)
                 throw new Exception("Disabled desktop compression published a supported capability.");
-            Console.WriteLine("PASS desktop block compression remains disabled by default");
+            Console.WriteLine("PASS desktop block compression is disabled by policy (default off or forced legacy)");
             return;
         }
         if (!DesktopTextureCompressionPolicy.SupportsBc7)

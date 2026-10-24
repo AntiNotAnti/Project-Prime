@@ -117,6 +117,21 @@ namespace MphRead.Mods
                 return true;
             }
 
+            if (HasFlag(args, "hudassetcheck"))
+            { Environment.ExitCode = Render.Hud.HudAssetChecks.Run(); return true; }
+
+            if (HasFlag(args, "unifiedlobbycheck"))
+            { Environment.ExitCode = Network.NetLobbyTest.RunUnifiedSwitches(); return true; }
+            if (HasFlag(args, "heromergecheck"))
+            { Environment.ExitCode = HeroModes.HeroMergeChecks.Run(); return true; }
+            if (HasFlag(args, "ctzcheck"))
+            { Environment.ExitCode = HeroModes.CtzChecks.Run(); return true; }
+#if MPHREAD_AVALONIA && !ANDROID
+            if (ValueAfter(args, "heromenucheck") is string heroMenuOutput)
+            { Environment.ExitCode = HeroModes.HeroMenuChecks.Run(heroMenuOutput); return true; }
+            if (ValueAfter(args, "ctzuicheck") is string ctzUiOutput)
+            { Environment.ExitCode = HeroModes.CtzUiChecks.Run(ctzUiOutput); return true; }
+#endif
             bool serverInvocation = HasFlag(args, "server")
                 || HasFlag(args, "dedicated") || HasFlag(args, "masterserver");
             bool hostedChild = HasFlag(args, "hostedchild");
@@ -259,6 +274,16 @@ namespace MphRead.Mods
                 MapGen.MapCommunityServer.Run(hubPrefix, ValueAfter(args, "maphubstorage") ?? System.IO.Path.Combine(Platform.AppPaths.UserDataDirectory, "community"));
                 return true;
             }
+#if MPHREAD_AVALONIA && !ANDROID
+            if (HasFlag(args, "ctfuicheck"))
+            { Environment.ExitCode = HeroModes.CtfUiChecks.Run(ValueAfter(args, "ctfuicheck") ?? "ctf-ui-checks"); return true; }
+#endif
+            if (HasFlag(args, "ctfmapcheck"))
+            { Environment.ExitCode = HeroModes.CtfMapAudit.Run(ValueAfter(args, "ctfmapcheck") ?? "ctf-map-audit.json"); return true; }
+            if (HasFlag(args, "ctfcheck"))
+            { Environment.ExitCode = HeroModes.CtfChecks.Run(); return true; }
+            if (HasFlag(args, "ctflobbycheck"))
+            { Environment.ExitCode = Network.NetLobbyTest.RunCtf(); return true; }
             if (HasFlag(args, "advancedrulescheck"))
             {
                 Environment.ExitCode = Network.NetLobbyTest.RunAdvancedRules();
@@ -883,6 +908,11 @@ namespace MphRead.Mods
                 return true;
             }
 #endif
+#if MPHREAD_AVALONIA && !ANDROID
+            if (ValueAfter(args, "oddballuicheck") is string oddUi) {
+                Environment.ExitCode = Launcher.Gui.OddballUiChecks.Run(oddUi); return true;
+            }
+#endif
             string? uiShot = ValueAfter(args, "uishot");
 #if MPHREAD_SHELL
             if (ValueAfter(args, "mapviewportcheck") is string mapViewportCheck)
@@ -967,6 +997,7 @@ namespace MphRead.Mods
             }
             if ((HasFlag(args, "launcher") || defaultLauncher) && !HasFlag(args, "menu"))
             {
+                Oddball.OddballAudioAssets.Start();
 #if MPHREAD_AVALONIA
                 if (!HasFlag(args, "text") && Launcher.Gui.GuiLauncher.TryRun())
                 {
@@ -1253,7 +1284,7 @@ namespace MphRead.Mods
                 AllowMapVotes = !HasFlag(args, "novote"),
                 // This process is the server, so it is the one that may
                 // replace itself. See DedicatedServer.AutoUpdate.
-                AutoUpdate = true,
+                AutoUpdate = !Mods.HeroModes.HeroRules.Active(rotation.Current.Mode),
                 HostedChild = hostedChild,
                 ReplayPolicy = new Network.ServerReplayPolicy(
                     Enabled: serverReplays,
@@ -1616,6 +1647,30 @@ namespace MphRead.Mods
 
             (int width, int height) = ParseSize(args);
 
+            if (ValueAfter(args,"payloadnetworkcheck") is string payloadNetworkRoom)
+            { Environment.ExitCode=Network.NetLobbyTest.RunCtz(payloadNetworkRoom,GameMode.PushThePayload); return true; }
+            if (ValueAfter(args,"ctznetworkcheck") is string ctzNetworkRoom)
+            { Environment.ExitCode=Network.NetLobbyTest.RunCtz(ctzNetworkRoom); return true; }
+#if !ANDROID && !MPHREAD_SERVER
+            if (ValueAfter(args,"payloadrendercheck") is string payloadRenderRoom)
+            { Environment.ExitCode=HeroModes.PayloadRenderChecks.Run(payloadRenderRoom,ValueAfter(args,"output") ?? "payload-render",HasFlag(args,"payloadbots")); return true; }
+            if (ValueAfter(args,"ctzdsplaycheck") is string ctzDsRoom)
+            { Environment.ExitCode=HeroModes.CtzV3RenderChecks.Run(ctzDsRoom,ValueAfter(args,"output") ?? "ctz-ds-play", dsLayout:true,renderWidth:int.TryParse(ValueAfter(args,"renderwidth"),out int rw)?rw:1200,renderHeight:int.TryParse(ValueAfter(args,"renderheight"),out int rh)?rh:720); return true; }
+            if (ValueAfter(args,"ctzv3rendercheck") is string ctzV3RenderRoom)
+            { Environment.ExitCode=HeroModes.CtzV3RenderChecks.Run(ctzV3RenderRoom,ValueAfter(args,"output") ?? "ctz-v3-render",renderWidth:int.TryParse(ValueAfter(args,"renderwidth"),out int rw2)?rw2:1200,renderHeight:int.TryParse(ValueAfter(args,"renderheight"),out int rh2)?rh2:720); return true; }
+            if (ValueAfter(args,"ctzv2rendercheck") is string ctzV2RenderRoom)
+            { Environment.ExitCode=HeroModes.CtzV2RenderChecks.Run(ctzV2RenderRoom,ValueAfter(args,"output") ?? "ctz-v2-render"); return true; }
+#endif
+            if (ValueAfter(args,"ctzv3check") is string ctzV3Room)
+            { Environment.ExitCode=HeroModes.CtzV3Checks.Run(ctzV3Room); return true; }
+            if (ValueAfter(args,"ctzv2check") is string ctzV2Room)
+            { Environment.ExitCode=HeroModes.CtzV2Checks.Run(ctzV2Room); return true; }
+            if (ValueAfter(args,"payloadscenecheck") is string payloadNativeRoom)
+            { Environment.ExitCode=HeroModes.PayloadSceneChecks.Run(payloadNativeRoom); return true; }
+            if (ValueAfter(args,"ctzscenecheck") is string ctzNativeRoom)
+            { Environment.ExitCode=HeroModes.CtzSceneChecks.Run(ctzNativeRoom); return true; }
+
+
             // Opt-in per-second report of what this process believes about a
             // networked session -- slot occupancy, scoreboard count, which
             // remote slots have state. The failure worth catching is not
@@ -1687,6 +1742,19 @@ namespace MphRead.Mods
 
             // The multiplayer room list, one per line, so a shell loop can
             // walk every map without hard-coding the names.
+#if !ANDROID && !MPHREAD_SERVER
+            if (ValueAfter(args, "oddballrender") is string oddballOutput) {
+                Environment.ExitCode = Oddball.OddballRenderChecks.Run(oddballOutput); return true;
+            }
+#endif
+            if (ValueAfter(args, "oddballmapcheck") is string oddballMapOutput) {
+                Environment.ExitCode = Oddball.OddballMapChecks.Run(oddballMapOutput); return true;
+            }
+            if (HasFlag(args, "oddballcheck"))
+            {
+                Environment.ExitCode = Oddball.OddballChecks.Run();
+                return true;
+            }
             if (HasFlag(args, "gamemodecheckscene"))
             {
                 Environment.ExitCode = Network.GameModeSceneCheck.Run();
@@ -2038,6 +2106,12 @@ namespace MphRead.Mods
                 // The HUD is drawn to the window, not to the offscreen
                 // target every other capture reads, so seeing it needs a real
                 // window and a read from its buffer.
+                // Exercise packaged HD channels explicitly; keep the native audit default.
+                if (HasFlag(args, "authoredmaterials"))
+                {
+                    RenderOptions.TextureReplacements = true;
+                    RenderOptions.AdvancedMaterials = true;
+                }
                 Network.MapAudit.ShowWindow = HasFlag(args, "hudshots");
                 Network.MapAudit.TeamProbe = HasFlag(args, "teamprobe");
                 // -hunter H puts that hunter in slot 0, whose HUD every
@@ -2389,6 +2463,12 @@ namespace MphRead.Mods
                     ValueAfter(args, "output") ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "prime-replay-owner-export-check"), ownerPresentation: true);
                 return true;
             }
+            if (ValueAfter(args, "replaycurveexportcheck") is string curveExportSource)
+            {
+                Environment.ExitCode = Network.ReplayExportCheck.Run(curveExportSource,
+                    ValueAfter(args, "output") ?? System.IO.Path.Combine(System.IO.Path.GetTempPath(), "prime-replay-curve-export-check"), channelCurves: true);
+                return true;
+            }
             if (ValueAfter(args, "replaytheatrecheck") is string theatreSource)
             {
                 Environment.ExitCode = Network.ReplayTheatreCheck.Run(theatreSource, ValueAfter(args, "shots"));
@@ -2434,7 +2514,7 @@ namespace MphRead.Mods
             }
             if (ValueAfter(args, "replaydeterminism") is string replayPath)
             {
-                Environment.ExitCode = Network.ReplayDeterminism.Run(replayPath, ValueAfter(args, "replayhashout"));
+                Environment.ExitCode = Network.ReplayDeterminism.Run(replayPath, ValueAfter(args, "replayhashout"), ValueAfter(args, "replayreport"));
                 return true;
             }
             if (ValueAfter(args, "replayclipcheck") is string clipSource

@@ -36,8 +36,12 @@ namespace MphRead.Mods.Network
             new("Kill Confirmed", GameMode.KillConfirmed, GameMode.KillConfirmedTeams),
             new("Headhunter", GameMode.Headhunter, GameMode.Headhunter, FfaOnly: true),
             new("Relic", GameMode.Relic, GameMode.Relic, FfaOnly: true),
-            new("Prime Hunter", GameMode.PrimeHunter, GameMode.PrimeHunter, FfaOnly: true)
+            new("Prime Hunter", GameMode.PrimeHunter, GameMode.PrimeHunter, FfaOnly: true),
+            new("Hero Shooter", GameMode.CaptureTheZone, GameMode.CaptureTheZone, TeamOnly: true),
+            new("Oddball", GameMode.Oddball, GameMode.Oddball, TeamOnly: true),
+            new("Capture the Flag", GameMode.CaptureTheFlag, GameMode.CaptureTheFlag, TeamOnly: true),
         };
+        public static readonly MatchTypeDefinition[] OfflineGameTypes = GameTypes;
 
         public static readonly MatchupDefinition[] Matchups =
         {
@@ -60,6 +64,7 @@ namespace MphRead.Mods.Network
         public static int BaseModeIndex(GameMode mode)
         {
             if (mode == GameMode.InstaGib) mode = GameMode.Battle;
+            if (mode == GameMode.PushThePayload) mode = GameMode.CaptureTheZone;
             int index = Array.FindIndex(GameTypes, type => type.Free == mode || type.Team == mode);
             return index < 0 ? 0 : index;
         }
@@ -86,13 +91,16 @@ namespace MphRead.Mods.Network
         }
 
         public static bool IsInternalTeamMode(GameMode mode) =>
-            mode is GameMode.BattleTeams or GameMode.SurvivalTeams or GameMode.Capture
+            mode is GameMode.BattleTeams or GameMode.SurvivalTeams or GameMode.Capture or GameMode.CaptureTheZone or GameMode.PushThePayload
                 or GameMode.BountyTeams or GameMode.NodesTeams or GameMode.DefenderTeams
-                or GameMode.HardpointTeams or GameMode.KillConfirmedTeams;
+                or GameMode.HardpointTeams or GameMode.KillConfirmedTeams or GameMode.CaptureTheFlag or GameMode.Oddball;
 
         public static string BaseLabel(GameMode mode)
         {
+            if (mode == GameMode.CaptureTheZone) return "Hero Shooter / Capture the Zone";
+            if (mode == GameMode.PushThePayload) return "Hero Shooter / Push the Payload";
             if (mode == GameMode.InstaGib) mode = GameMode.Battle;
+            if (mode == GameMode.PushThePayload) mode = GameMode.CaptureTheZone;
             int index = Array.FindIndex(GameTypes, type => type.Free == mode || type.Team == mode);
             if (index >= 0) return GameTypes[index].Label;
 

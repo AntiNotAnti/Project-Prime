@@ -55,7 +55,7 @@ internal sealed class KillcamText
             if (x + advance > right) break;
             if (character != ' ')
             {
-                if (_textures[index] == 0) _textures[index] = _scene.BindGetTexture(glyph.Pixels, Cell, Cell);
+                if (_textures[index] == 0) _textures[index] = _scene.BindGetTexture(glyph.Pixels, Cell, Cell, sceneColor: false);
                 _scene.DrawHudTexture(x, y, x + Cell / 4f * scale, y + Cell / 4f * scale, _textures[index], alpha);
             }
             x += advance;
@@ -68,7 +68,7 @@ internal sealed class KillcamText
         {
             var pixels=new ColorRgba[atlas.Alpha.Length];
             for(int i=0;i<pixels.Length;i++)pixels[i]=new(255,255,255,atlas.Alpha[i]);
-            texture=_scene.BindGetTexture(pixels,HudFonts.AtlasWidth,HudFonts.AtlasHeight);_fontTextures.Add(style.Font,texture);
+            texture=_scene.BindGetTexture(pixels,HudFonts.AtlasWidth,HudFonts.AtlasHeight,sceneColor:false);_fontTextures.Add(style.Font,texture);
         }
         float unit=scale/6*style.Size*HudProfiles.Runtime.TextScale;
         var rgb=style.MatchPalette?HudProfiles.Runtime.AccentInk:style.Ink;

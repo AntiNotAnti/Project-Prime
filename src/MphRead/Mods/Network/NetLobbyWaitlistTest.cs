@@ -206,7 +206,11 @@ public static partial class NetLobbyTest
         // Match the current wire version while freezing every other golden byte.
         string protocolHex = NetConfig.ProtocolVersion.ToString("X2", System.Globalization.CultureInfo.InvariantCulture);
         Fixture(QueueHelloPacket.Size, b => new QueueHelloPacket(NetConfig.ProtocolVersion,1,2).Write(b),
-            b => QueueHelloPacket.TryRead(b,out _), "39" + protocolHex + "010000000200000000000000");
+            b => QueueHelloPacket.TryRead(b,out _), "39" + protocolHex + "010000000200000000000000" + Convert.ToHexString(BitConverter.GetBytes(UnifiedModeRules.Capability)));
+        byte[] wrongCapability = new byte[QueueHelloPacket.Size];
+        new QueueHelloPacket(NetConfig.ProtocolVersion, 1, 2).Write(wrongCapability);
+        wrongCapability[^1] ^= 1;
+        Check(!QueueHelloPacket.TryRead(wrongCapability, out _), "incompatible queue capabilities rejected before reservation");
         Fixture(QueueWelcomePacket.Size, b => new QueueWelcomePacket(NetConfig.ProtocolVersion,1,2).Write(b),
             b => QueueWelcomePacket.TryRead(b,out _), "3A" + protocolHex + "010000000200000000000000");
         byte[] obsoleteHello = new byte[QueueHelloPacket.Size];

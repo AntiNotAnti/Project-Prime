@@ -91,7 +91,7 @@ namespace MphRead.Entities
             // Preserve the cartridge/native scripted invulnerability channel in
             // multiplayer. In single-player this is the same firing behavior the
             // original code had before the two timers were separated.
-            if (!_scene.GameState.Multiplayer)
+            if (!_scene.GameState.Multiplayer || Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
             {
                 _spawnInvulnTimer = 0;
             }

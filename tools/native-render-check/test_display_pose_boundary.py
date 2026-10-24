@@ -7,16 +7,13 @@ import subprocess
 import tempfile
 import unittest
 from xml.sax.saxutils import escape
+from frozen_pose_runtime import frozen_runtime
 
 
 class DisplayPoseBoundaryTests(unittest.TestCase):
     def test_first_warmup_neutral_prevents_focus_alias_release(self):
         root = Path(__file__).resolve().parents[2]
-        reference = Path(os.environ.get("PROJECT_PRIME_POSE_REFERENCE_DLL", str(root /
-            "artifacts/cpp03-mac-world-pose-pilot-20261017/tool-v2/ProjectPrime.dll")))
-        dotnet = Path.home() / ".dotnet/dotnet"
-        if not reference.is_file() or not dotnet.is_file():
-            self.skipTest("Explicit frozen engine DLL / local SDK unavailable; native world acceptance NOT_RUN")
+        dotnet, reference = frozen_runtime(self)
         source = (root / "tools/native-render-check/DisplayPoseQualification.cs").read_text()
         match = re.search(r'case "warmup":(.*?)break;', source, re.S)
         self.assertIsNotNone(match)
@@ -78,11 +75,7 @@ Console.WriteLine("NEUTRAL_WARMUP_SOURCE_PASS; actual Rest/Controls/PointerBindi
 
     def test_actual_charge_branch_changes_only_retreat_input_for_fixed_steps(self):
         root = Path(__file__).resolve().parents[2]
-        reference = Path(os.environ.get("PROJECT_PRIME_POSE_REFERENCE_DLL", str(root /
-            "artifacts/rmlui-checkpoint-rml66-candidate-20261017/compiled-client/ProjectPrime.dll")))
-        dotnet = Path.home() / ".dotnet/dotnet"
-        if not reference.is_file() or not dotnet.is_file():
-            self.skipTest("Frozen engine DLL / local SDK unavailable; native world acceptance NOT_RUN")
+        dotnet, reference = frozen_runtime(self)
         source = (root / "tools/native-render-check/DisplayPoseQualification.cs").read_text()
         match = re.search(r'case "charge":(.*?)break;', source, re.S)
         self.assertIsNotNone(match)
@@ -138,11 +131,7 @@ Console.WriteLine("RETREAT_CHARGE_SOURCE_PASS; actual HoldFire/controls and fixt
 
     def test_current_actor_fractional_animation_anchor_guard(self):
         root = Path(__file__).resolve().parents[2]
-        reference = Path(os.environ.get("PROJECT_PRIME_POSE_REFERENCE_DLL", str(root /
-            "artifacts/cpp03-mac-world-pose-pilot-20261017/tool-v2/ProjectPrime.dll")))
-        dotnet = Path.home() / ".dotnet/dotnet"
-        if not reference.is_file() or not dotnet.is_file():
-            self.skipTest("Explicit frozen engine DLL / local SDK unavailable; native world acceptance NOT_RUN")
+        dotnet, reference = frozen_runtime(self)
         source = (root / "src/MphRead/Entities/Players/PlayerDraw.cs").read_text()
         def expression(name):
             match = re.search(r"bool " + name + r"\s*=\s*(.*?);", source, re.S)
@@ -159,10 +148,11 @@ using System.Reflection;
 using MphRead;
 using OpenTK.Mathematics;
 void Check(bool value,string label){if(!value)throw new Exception(label);}
-bool Guard(bool replica,bool network,bool main,bool spectator,bool drawAlive,bool active,bool high,bool carry,bool interpolatedPose)
+bool Guard(bool replica,bool network,bool main,bool spectator,bool drawAlive,bool active,bool high,bool carry,bool interpolatedPose,bool localThirdPersonActor=false,bool crouchInterpolated=false)
 {
  bool ordinaryOfflinePresentation = ELIGIBLE;
  bool ordinaryOfflineActor = ordinaryOfflinePresentation && carry;
+ bool isolateLocalOrOfflineActor = ACTOR_ISOLATION;
  bool isolateBipedAnchors = ISOLATION;
  return isolateBipedAnchors;
 }
@@ -192,13 +182,15 @@ Check(actorCurrent&&(float)alpha==1f&&animationSample&&fraction==.5f&&info.Frame
 Check(Guard(false,false,false,false,true,true,true,!actorCurrent,animationSample),"animation-only sample isolates canonical biped effect/ice anchors");
 Check(Guard(false,false,false,false,true,true,true,true,false),"actor-carry isolation preserved without animation sample");
 Check(!Guard(false,false,false,false,true,true,true,false,false),"unsampled canonical path avoids extra isolation work");
+Check(Guard(false,false,true,false,true,true,true,false,false,true),"local third-person actor isolates canonical anchors");
+Check(Guard(false,false,true,false,true,true,true,false,false,false,true),"interpolated crouch isolates canonical anchors");
 foreach(int excluded in Enumerable.Range(0,7))
 {
  bool[] gate={false,false,false,false,true,true,true};gate[excluded]=!gate[excluded];
  Check(!Guard(gate[0],gate[1],gate[2],gate[3],gate[4],gate[5],gate[6],false,true),"existing replica/network/main/spectator/dead/inactive/60Hz scope retained");
 }
 Console.WriteLine("DISPLAY_POSE_BOUNDARY_SOURCE_PASS; actual frozen value objects/current predicate only; GL/world NOT_RUN");
-'''.replace("ELIGIBLE", eligible).replace("ISOLATION", isolation)
+'''.replace("ACTOR_ISOLATION", expression("isolateLocalOrOfflineActor")).replace("ELIGIBLE", eligible).replace("ISOLATION", isolation)
         with tempfile.TemporaryDirectory(prefix="prime-display-pose-boundary-") as temporary:
             scratch = Path(temporary)
             (scratch / "Program.cs").write_text(code)

@@ -636,7 +636,7 @@ public partial class PlayerEntity
             bool occupyingObjective, bool carriesFlag, bool primeHunter)
         {
             float score = 0;
-            if (carriesFlag && mode is GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams or GameMode.Relic)
+            if (carriesFlag && mode is GameMode.Capture or GameMode.CaptureTheFlag or GameMode.Bounty or GameMode.BountyTeams or GameMode.Relic)
             {
                 score = Math.Max(score, 36);
             }

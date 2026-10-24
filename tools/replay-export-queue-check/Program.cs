@@ -30,6 +30,7 @@ ReplayVideoExportManifest[] Snapshot() => Private<Queue<ReplayVideoExportManifes
 ReplayExportQueue.ClearPending();
 try
 {
+    FrameWriterChecks.Run(Check);
     var accepted = Enumerable.Range(0, capacity).Select(Job).ToArray();
     accepted[0] = accepted[0] with { Version = 2 };
     Check(accepted.All(ReplayExportQueue.Enqueue), "first eight pending jobs are accepted");

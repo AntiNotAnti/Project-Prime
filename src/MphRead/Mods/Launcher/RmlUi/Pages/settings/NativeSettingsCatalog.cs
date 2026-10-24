@@ -21,7 +21,7 @@ internal static class NativeSettingsCatalog
 
     internal static string Summary(int category) => category switch
     {
-        0 => "Window, field of view, frame rate, player visibility and campaign preferences",
+        0 => "Window, field of view, weapon presentation, frame rate and campaign preferences",
         1 => "Quality presets, textures, lighting and cosmetic effects",
         2 => "Volume, language and combat notification sounds",
         3 => "Aim, movement, weapons, actions and input devices",

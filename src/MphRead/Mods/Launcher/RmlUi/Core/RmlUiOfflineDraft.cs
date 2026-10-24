@@ -65,7 +65,7 @@ public sealed class RmlUiOfflineDraft
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(LauncherRoomDisplayName.Get, StringComparer.OrdinalIgnoreCase)
             .ThenBy(x => x, StringComparer.OrdinalIgnoreCase).ToArray();
-        _types = MatchTypeCatalog.GameTypes;
+        _types = RmlUiModeCatalog.GameTypes;
         Current = new(LauncherPrefs.PreferredMap(_rooms), GameMode.Battle,
             (uint)hunter < 7 ? hunter : Hunter.Samus,
             Math.Clamp(suit, 0, 3), Math.Clamp(bots, 0, 7), Math.Clamp(level, 0, 3));
@@ -197,17 +197,19 @@ public sealed class RmlUiOfflineDraft
                 value => Current = Current with { RoomKey = value }, direction);
             case 1:
             {
-                MatchTypeDefinition current = _types[MatchTypeCatalog.BaseModeIndex(Current.Mode)];
+                MatchTypeDefinition current = _types[RmlUiModeCatalog.BaseModeIndex(Current.Mode)];
                 MatchFormat format = MatchTypeCatalog.FormatForMode(Current.Mode);
                 return Step(_types, current, next =>
                 {
                     format = MatchTypeCatalog.NormalizeFormat(next, format);
                     Current = Current with { Mode = next.Resolve(format) };
+                    if (HeroModes.HeroRules.Active(Current.Mode))
+                        Current = Current with { Bots = Math.Clamp(Current.Bots | 1, 1, 7) };
                 }, direction);
             }
             case 2:
             {
-                MatchTypeDefinition type = _types[MatchTypeCatalog.BaseModeIndex(Current.Mode)];
+                MatchTypeDefinition type = _types[RmlUiModeCatalog.BaseModeIndex(Current.Mode)];
                 if (type.FfaOnly || type.TeamOnly) return false;
                 MatchFormat next = MatchTypeCatalog.FormatForMode(Current.Mode) == MatchFormat.FreeForAll
                     ? MatchFormat.Auto : MatchFormat.FreeForAll;
@@ -215,7 +217,9 @@ public sealed class RmlUiOfflineDraft
                 return true;
             }
             case 3:
-                Current = Current with { Bots = (Current.Bots + direction + 8) % 8 };
+                Current = Current with { Bots = HeroModes.HeroRules.Active(Current.Mode)
+                    ? ((Current.Bots / 2 + direction + 4) % 4) * 2 + 1
+                    : (Current.Bots + direction + 8) % 8 };
                 _selectedBot = SelectedBot; return true;
             case 4:
                 int level = (Current.BotLevel + direction + 4) % 4;
@@ -258,7 +262,7 @@ public sealed class RmlUiOfflineDraft
     public bool Valid => Current.ValidateForm(_rooms)
         && OfflineBotSettings.Validate(Current.BotRoster, Current.Bots, _lowTier);
     public string Map => LauncherRoomDisplayName.Get(Current.RoomKey);
-    public string Mode => MatchTypeCatalog.BaseLabel(Current.Mode);
+    public string Mode => RmlUiModeCatalog.BaseLabel(Current.Mode);
     public string Matchup => MatchTypeCatalog.IsInternalTeamMode(Current.Mode)
         ? "TEAMS" : "FREE FOR ALL";
     public string Bots => Current.Bots + " BOTS";

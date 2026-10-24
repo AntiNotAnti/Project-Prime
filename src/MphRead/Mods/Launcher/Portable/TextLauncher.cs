@@ -468,11 +468,12 @@ namespace MphRead.Mods.Launcher
             out LaunchPlan plan)
         {
             plan = default;
-            if (!AskRoom(settings, rooms, out string roomKey))
+            GameMode mode = AskMode();
+            var compatible=rooms.Where(room=>Multiplayer.MapModeCapabilities.Supports(room,mode,Multiplayer.MatchWorldProfile.Resolve(8),out _,8)).ToArray();
+            if (!AskRoom(settings, compatible, out string roomKey))
             {
                 return false;
             }
-            GameMode mode = AskMode();
             int bots = AskInt("  Bots (0-7)", LauncherPrefs.Bots, 0,
                 PlayerEntity.SlotCapacity - 1);
             int level = AskInt("  Bot skill (0 easy, 1 normal, 2 hard, 3 insane)",
@@ -501,11 +502,12 @@ namespace MphRead.Mods.Launcher
             out LaunchPlan plan)
         {
             plan = default;
-            if (!AskRoom(settings, rooms, out string roomKey))
+            GameMode mode = AskMode();
+            var compatible=rooms.Where(room=>Multiplayer.MapModeCapabilities.Supports(room,mode,Multiplayer.MatchWorldProfile.Resolve(8),out _,8)).ToArray();
+            if (!AskRoom(settings, compatible, out string roomKey))
             {
                 return false;
             }
-            GameMode mode = AskMode();
             string name = AskName();
             Hunter hunter = AskHunter();
             bool onMaster = AskYesNo("  Let the directory run it (no port forwarding)",
@@ -703,27 +705,19 @@ namespace MphRead.Mods.Launcher
 
         private static GameMode AskMode()
         {
-            // The modes a multiplayer match can be started in. Not every
-            // GameMode value is one -- SinglePlayer and None are in the enum
-            // too -- so this is the list rather than the enum.
-            GameMode[] modes =
-            {
-                GameMode.Battle, GameMode.BattleTeams, GameMode.Survival,
-                GameMode.SurvivalTeams, GameMode.Capture, GameMode.Bounty,
-                GameMode.BountyTeams, GameMode.Defender, GameMode.DefenderTeams,
-                GameMode.Nodes, GameMode.NodesTeams, GameMode.PrimeHunter, GameMode.OneInTheChamber
-            };
+            var types=MatchTypeCatalog.GameTypes;
             Console.WriteLine();
-            for (int i = 0; i < modes.Length; i++)
-            {
-                Console.WriteLine($"  [{i + 1,2}] {NetStatus.ModeName(modes[i])}");
-            }
-            Console.WriteLine();
-            string answer = Ask("  Mode", "1");
-            return Int32.TryParse(answer, NumberStyles.Integer, CultureInfo.InvariantCulture,
-                out int index) && index >= 1 && index <= modes.Length
-                ? modes[index - 1]
-                : GameMode.Battle;
+            for(int i=0;i<types.Length;i++)Console.WriteLine($"  [{i+1,2}] {types[i].Label}");
+            string answer=Ask("  Mode",(MatchTypeCatalog.BaseModeIndex(LauncherPrefs.LastLobbyMode)+1).ToString(CultureInfo.InvariantCulture));
+            int index=Int32.TryParse(answer,NumberStyles.Integer,CultureInfo.InvariantCulture,out int chosen)?Math.Clamp(chosen-1,0,types.Length-1):0;
+            var type=types[index];
+            GameMode mode;
+            if(HeroModes.HeroModeMenu.IsFamily(type)){
+                Console.WriteLine("  [1] Capture the Zone\n  [2] Push the Payload");
+                LauncherPrefs.LastHeroObjective=AskInt("  Hero Shooter objective",LauncherPrefs.LastHeroObjective+1,1,2)-1;
+                mode=HeroModes.HeroModeMenu.Resolve(type,MatchFormat.FourVsFour,LauncherPrefs.LastHeroObjective);
+            }else mode=type.Resolve(type.TeamOnly || AskYesNo("  Teams",true)?MatchFormat.Auto:MatchFormat.FreeForAll);
+            LauncherPrefs.LastLobbyMode=mode;LauncherPrefs.Save();return mode;
         }
 
         private static string AskName()

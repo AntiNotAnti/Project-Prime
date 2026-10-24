@@ -68,6 +68,7 @@ namespace MphRead
         public string Saturation { get; set; } = "100";
         public string EnhancedLighting { get; set; } = "off";
         public string AdvancedMaterials { get; set; } = "off";
+        public string LinearColor { get; set; } = "off";
         public string DeferredPbr { get; set; } = "off";
         public string ShadowQuality { get; set; } = "off";
         public string AmbientOcclusion { get; set; } = "off";
@@ -80,6 +81,8 @@ namespace MphRead
         public string ShowCustomCosmetics { get; set; } = "on";
         public string CosmeticQuality { get; set; } = "medium";
         public string TextureReplacements { get; set; } = "off";
+        public string VideoTextures { get; set; } = "on";
+        public string VideoTextureMemoryMiB { get; set; } = "512";
         public string CharacterModelReplacements { get; set; } = "off";
         public string PointGoal { get; set; } = "7";
         public string TimeLimit { get; set; } = "7:00";

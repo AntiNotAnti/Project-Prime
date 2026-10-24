@@ -28,7 +28,8 @@ public enum TheatrePlaybackAction
     TimelineOpen, TimelineRefresh, TimelineZoomIn, TimelineZoomOut, TimelinePanLeft, TimelinePanRight, TimelineCenter, TimelineReset, TimelineCancelDrag, TimelineClose, TimelineActivate,
     SpatialOpen, SpatialAnalyze, SpatialKind, SpatialPlayer, SpatialRange, SpatialCancel, SpatialClose,
     StudioToolsOpen, StudioToolsRun, StudioToolsOperation, StudioToolsGameEvents, StudioToolsCombatFeedback, StudioToolsCancel, StudioToolsClose, CameraToolsTransform, CameraToolsHandles, FourViews, StudioToolsPreview, StudioToolsStopPreview, CameraToolsCurveKey, SpatialWorld, StudioCueEvent, StudioCueBus, StudioCuePrevious, StudioCueNext, StudioCueAdd, StudioCueUpdate, StudioCueRemove,
-    StudioAudioEnabled = 256, StudioAudioSave = 257
+    StudioAudioEnabled = 256, StudioAudioSave = 257, CameraToolsSave = 307, CameraToolsUndo, CameraToolsRedo, CameraToolsDiscard,
+    CameraToolsOrientationCurve, CameraToolsOrientationEase, CameraToolsFovCurve, CameraToolsFovEase, CameraToolsRollCurve, CameraToolsRollEase
 }
 
 public sealed record TheatrePlaybackSnapshot(Guid Lifetime, long Revision, bool Active, uint Frame,

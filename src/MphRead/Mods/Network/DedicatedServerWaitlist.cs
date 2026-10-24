@@ -20,7 +20,7 @@ public sealed partial class DedicatedServer
     private sealed class QueuePeer
     {
         internal IPEndPoint Endpoint = null!;
-        internal uint ClientId, Revision;
+        internal uint ClientId, Revision, Capability;
         internal ulong Nonce, QueueId;
         internal double CreatedAt, LastSeen;
         internal bool Disconnected;
@@ -105,6 +105,8 @@ public sealed partial class DedicatedServer
     }
     private void HandleQueueHello(ReceivedPacket packet, double now)
     {
+        if (Mods.HeroModes.HeroRules.Active(CurrentDefinition.Mode))
+        { SendRefusal(packet.Sender, RefusedPacket.ReasonCtfRuleset); return; } // CTF v1 direct lobby joining only; queue extension not implemented.
         if (_waitlist == null || !QueueHelloPacket.TryRead(packet.Payload, out var hello) || hello.ClientNonce == 0
             || Find(packet.Sender) != null) return;
         if (!_queuePeers.TryGetValue(packet.Sender, out var peer))
@@ -115,7 +117,7 @@ public sealed partial class DedicatedServer
             // A client ID cannot claim an already connected player or queue identity.
             if (_peers.Any(p => p.ClientId == hello.ClientId) || _queuePeers.Values.Any(p => p.ClientId == hello.ClientId)) return;
             peer = new QueuePeer { Endpoint = new IPEndPoint(packet.Sender.Address, packet.Sender.Port),
-                ClientId = hello.ClientId, Nonce = hello.ClientNonce, CreatedAt = now, LastSeen = now };
+                ClientId = hello.ClientId, Capability = hello.Capability, Nonce = hello.ClientNonce, CreatedAt = now, LastSeen = now };
             _queuePeers.Add(peer.Endpoint, peer);
         }
         else if (peer.ClientId != hello.ClientId || peer.Nonce != hello.ClientNonce) return;
@@ -176,9 +178,10 @@ public sealed partial class DedicatedServer
                 if (_waitlist.TryAccept(owner, accept.QueueId, accept.OfferId, accept.MatchId, accept.AuthorityEpoch, now, slot =>
                 {
                     // Use ordinary team/lifecycle/player admission, preserving the same socket and connection.
-                    byte[] hello = new byte[7]; hello[0] = (byte)PacketType.Hello;
+                    byte[] hello = new byte[28]; hello[0] = (byte)PacketType.Hello;
                     hello[1] = NetConfig.ProtocolVersion; hello[2] = (byte)slot;
                     BinaryPrimitives.WriteUInt32LittleEndian(hello.AsSpan(3), peer.ClientId);
+                    BinaryPrimitives.WriteUInt32LittleEndian(hello.AsSpan(24), peer.Capability);
                     _queueAdmitting = true;
                     try { HandleHello(new ReceivedPacket(peer.Endpoint, hello, hello.Length, connectionId: packet.ConnectionId), now, slot); }
                     finally { _queueAdmitting = false; }

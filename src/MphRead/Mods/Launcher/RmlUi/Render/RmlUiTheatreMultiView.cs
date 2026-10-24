@@ -17,7 +17,7 @@ internal static partial class RmlUiOpenGlSmoke
         var size = window.FramebufferSize;
         var bounds = NativeReplayViewportBounds(size.X, size.Y);
         if (bounds == null) return false;
-        try { return scene.DrawNativeReplayFourViews(bounds.Value, size); }
+        try { return scene.DrawNativeReplayFourViews(bounds.Value, size, page.AuxiliaryPreviewInteracting); }
         catch (Exception error) when (error is not OutOfMemoryException and not StackOverflowException and not AccessViolationException)
         {
             Mods.DebugLog.Line("replay", "Four-view auxiliary render failed; returning to single view: " + error);

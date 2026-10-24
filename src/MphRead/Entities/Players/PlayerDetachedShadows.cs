@@ -23,6 +23,7 @@ public partial class PlayerEntity
         ModelInstance source = drawAltForm ? drone ? _droneModel! : _altModel : _bipedModel2;
         if (source == null || !_scene.TryPrepareDetachedShadow(this,source,out var pose)) return;
         Model model = pose.Instance.Model;
+        Matrix4 bipedWorld = Matrix4.Identity;
         model.ComputeNodeMatrices(0);
         if (!drawAltForm)
         {
@@ -33,6 +34,7 @@ public partial class PlayerEntity
             if (ModTucked) position.Y += ModTuckRise;
             Matrix4 world = ModBuildBipedDrawTransform(position,facing,new(_field70,0,_field74),
                 Metadata.HunterScales[Hunter],Fixed.ToFloat(Values.MinPickupHeight),out float pitch);
+            bipedWorld = world;
             AnimationSamples.Sample? lower = TryHunterNodeSample(_bipedModel1,out var l) ? l : null;
             AnimationSamples.Sample? upper = TryHunterNodeSample(_bipedModel2,out var u) ? u : null;
             UpdateHunterBipedPose(model,model.Nodes[spine],world,pitch,lower,upper,
@@ -73,6 +75,7 @@ public partial class PlayerEntity
         _scene.UpdateDetachedShadowMaterials(source.Model,model,drone && drawAltForm ? 0 : Recolor);
         using (_scene.BeginDetachedShadowSubmission(pose))
         {
+            using (drawAltForm ? default(ParkourPoseOverlay.Scope) : ParkourPoseOverlay.Begin(model,bipedWorld,ModGetParkourAnimationPose()))
             using (drawAltForm ? default(HeadHitPoseOverlay.Scope) : HeadHitPoseOverlay.Begin(model,_scene.ModHeadHitPose(this)))
             {
                 if (drone && drawAltForm || !TryDrawModernCharacter(pose.Instance,

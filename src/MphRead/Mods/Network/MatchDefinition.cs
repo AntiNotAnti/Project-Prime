@@ -28,6 +28,9 @@ namespace MphRead.Mods.Network
             GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber => 2, // two spare lives = three total
             GameMode.Bounty or GameMode.BountyTeams => 3,
             GameMode.Capture => 5,
+            GameMode.CaptureTheZone => Mods.HeroModes.CtzRules.CaptureLimit,
+            GameMode.CaptureTheFlag => Mods.HeroModes.CtfRules.CaptureLimit,
+            GameMode.PushThePayload => 3,
             GameMode.KillConfirmed or GameMode.KillConfirmedTeams or GameMode.Headhunter => 25,
             GameMode.Defender or GameMode.DefenderTeams => 90,
             GameMode.Nodes or GameMode.NodesTeams => 70,
@@ -88,9 +91,14 @@ namespace MphRead.Mods.Network
         public bool ThirdPersonCamera { get; init; }
         public MovementModel MovementModel { get; init; }
         public bool OctolithAutoReset { get; init; }
-        public MatchDefinition NormalizeLegacy() => Mode == GameMode.InstaGib
+        public MatchDefinition NormalizeLegacy() => Mode==GameMode.CaptureTheFlag
+            ? this with { PointGoal=Mods.HeroModes.CtfRules.CaptureLimit,TimeLimitSeconds=Mods.HeroModes.CtfRules.MatchSeconds,AffinityWeapons=false,DisablePowerups=false,BalancedMode=false,EnhancedHunters=false,Fiesta=false,OneInTheChamber=false,InstaGib=false,LowTier=false,NoImperialist=false,OctolithAutoReset=false }
+            : Mods.HeroModes.HeroRules.Active(Mode)
+            ? this with { PointGoal=(ushort)(Mods.HeroModes.HeroRules.IsPayload(Mode) ? 3 : 2), TimeLimitSeconds=0, AffinityWeapons=true, FriendlyFire=false, EnhancedHunters = false, Fiesta = false, OneInTheChamber = false, InstaGib = false, LowTier = false, NoImperialist = false, BalancedMode = false, OctolithAutoReset = false, DisablePowerups = true, ShadowFreeze = false, VanillaDuelResources = false }
+            : Mode == GameMode.InstaGib
             ? this with { Mode = GameMode.Battle, InstaGib = true }
-            : Mode == GameMode.OneInTheChamber ? this with { PointGoal = 2, TimeLimitSeconds = 0 } : this;
+            : Mode == GameMode.OneInTheChamber ? this with { PointGoal = 2, TimeLimitSeconds = 0 }
+            : this;
 
         /// <summary>Load-boundary rules, before player resources or world entities are created.</summary>
         public void ApplyInitialConfiguration(SceneGameState state)
@@ -108,6 +116,14 @@ namespace MphRead.Mods.Network
         {
             _ = MovementModelRules.Modifier(MovementModel);
             state.MovementModel = MovementModel;
+            if (Mode == GameMode.Oddball)
+            {
+                state.FriendlyFire = false; state.Fiesta = state.OneInTheChamber = state.InstaGib = false;
+                state.EnhancedHunters = state.BalancedMode = state.LowTier = state.OctolithReset = false;
+                state.PointGoal = 100; state.TimeGoal = 0; state.TeamCount = 2;
+                state.NoImperialist = false; state.ShadowFreeze = ShadowFreeze; state.SpawnProtection = SpawnProtection;
+                state.AffinityWeapons = AffinityWeapons; return;
+            }
             state.FriendlyFire = FriendlyFire;
             state.AffinityWeapons = AffinityWeapons;
             state.Fiesta = Fiesta; state.OneInTheChamber = OneInTheChamber || Mode == GameMode.OneInTheChamber;

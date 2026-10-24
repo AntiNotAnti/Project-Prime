@@ -34,6 +34,7 @@ if(Environment.GetEnvironmentVariable("HUD_NATIVE_ASSET_ROOT") is {} nativeRoot)
 string directory=Path.Combine(Path.GetTempPath(),"prime-hud-ui-"+Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(directory); HudProfiles.Load(directory);
 var original=HudProfiles.CopyCurrent();
+checks += HudSettingsApplyChecks.Run();
 
 // Regression: the stock HUD keeps the match timer tied to the scoreboard,
 // while a Custom HUD may promote match.timer into the normal gameplay pass.
@@ -62,8 +63,8 @@ Check(notificationQueue[0].Scale>0 && notificationQueue[1].Position.Y>notificati
 HudProfiles.Publish(original);
 
 var dynamicAim=original.DeepClone(); dynamicAim.Mode=HudMode.ProjectPrime; dynamicAim.FixedWeapon=false; HudProfiles.Publish(dynamicAim);
-Check(Features.FixedCrosshair && !Features.FixedAimCamera && Features.ResponsiveAimCamera,
-    "Pro HUD dynamic weapon keeps eased visual state with responsive aim camera");
+Check(Features.FixedCrosshair && !Features.FixedAimCamera && !Features.ResponsiveAimCamera,
+    "Pro HUD Dynamic keeps camera, weapon and reticle on the native eased basis");
 dynamicAim.FixedWeapon=true; HudProfiles.Publish(dynamicAim);
 Check(Features.FixedAimCamera && Features.ResponsiveAimCamera,
     "Pro HUD static weapon welds visual state and keeps responsive aim camera");

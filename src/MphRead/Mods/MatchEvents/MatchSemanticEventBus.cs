@@ -51,6 +51,9 @@ internal sealed class MatchSemanticEventBus
             or MatchSemanticEventType.ObjectivePickedUp or MatchSemanticEventType.ObjectiveDropped
             or MatchSemanticEventType.ObjectiveCaptured or MatchSemanticEventType.ObjectiveDefended
             or MatchSemanticEventType.NodeCaptured => fact.Actor.IsPlayer && fact.Target == MatchSemanticActor.None,
+        MatchSemanticEventType.CtfFlagReset => fact.Actor == MatchSemanticActor.None
+            && fact.Target == MatchSemanticActor.None && fact.EntityId >= 0
+            && fact.Weapon == -1 && fact.Flags == 0 && fact.Value is >= 0 and <= 2,
         MatchSemanticEventType.PlayerKilled => fact.Target.IsPlayer && fact.Actor != fact.Target
             && (fact.Actor.IsPlayer || (fact.Flags & MatchSemanticEventFlags.Environment) != 0),
         MatchSemanticEventType.PlayerSuicide => fact.Actor.IsPlayer && fact.Actor == fact.Target,

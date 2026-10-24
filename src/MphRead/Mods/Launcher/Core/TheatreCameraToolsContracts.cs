@@ -11,9 +11,10 @@ public sealed record TheatreCameraToolsContext(TheatreCameraContext Camera,objec
     string AnnotationRevision,ImmutableArray<TheatreCameraMarker> Markers,ImmutableArray<int> LookAtSlots,
     TheatreCameraMotion Motion,object Persisted)
 {
+    public ImmutableArray<TheatreCameraKey> SavedKeys { get; init; }
     public ImmutableArray<TheatreCameraCurvePoint> Curve { get; init; }=ImmutableArray<TheatreCameraCurvePoint>.Empty;
 }
-public enum TheatreCameraToolsChange { Move, Paste, Duplicate, SnapEvent, SnapKill, SnapBookmark, Interpolation, Ease, LookAt, Remove, Transform, Handles, Curve }
+public enum TheatreCameraToolsChange { Move, Paste, Duplicate, SnapEvent, SnapKill, SnapBookmark, Interpolation, Ease, LookAt, Remove, Transform, Handles, Curve, OrientationCurve, OrientationEase, FovCurve, FovEase, RollCurve, RollEase }
 public sealed record TheatreCameraTransform(float X,float Y,float Z,float Yaw,float Pitch,float Roll,int FrameOffset,float FovOffset,float RollOffset);
 public sealed record TheatreCameraCurvePoint(uint Frame,float X,float Y,float Z,float Fov,float Roll);
 public sealed record TheatreCameraCurveEdit(int Channel,int Handle,float Delta);
@@ -23,7 +24,26 @@ public sealed record TheatreCameraToolsEdit(TheatreCameraToolsChange Kind,Theatr
 public sealed record TheatreCameraToolsResult(bool Verified,string Notice);
 public sealed record TheatreCameraToolsSnapshot(TheatreCameraToolsContext Context,int FocusIndex,TheatreCameraKey? Focus,
     ImmutableArray<uint> Selection,uint Destination,int ClipboardCount,TheatreCameraToolsEdit? Pending,bool Current,
-    string Status,string Error);
+    string Status,string Error)
+{
+    public bool Dirty { get; init; }
+    public int UndoCount { get; init; }
+    public int RedoCount { get; init; }
+};
+
+/// <summary>All preview/commit/restore operations are memory-only and run on the scene owner.
+/// SaveMemory is the sole persistence boundary and must revalidate the original source and sidecar.</summary>
+public interface ITheatreCameraMemoryBackend
+{
+    void PreviewMemory(TheatreCameraToolsEdit edit);
+    void CancelMemoryPreview();
+    TheatreCameraToolsContext RebindMemory(TheatreCameraToolsContext current);
+    void DiscardMemory(TheatreCameraToolsContext current);
+    string RecoveryStatus(TheatreCameraToolsContext current)=>"";
+    TheatreCameraToolsContext CommitMemory(TheatreCameraToolsEdit edit);
+    TheatreCameraToolsContext RestoreMemory(TheatreCameraToolsContext current, TheatreCameraToolsContext target);
+    TheatreCameraToolsContext SaveMemory(TheatreCameraToolsContext current);
+}
 
 /// <summary>Optional advanced commands on the SAME camera owner used by the basic native panel.</summary>
 public interface ITheatreCameraToolsBackend

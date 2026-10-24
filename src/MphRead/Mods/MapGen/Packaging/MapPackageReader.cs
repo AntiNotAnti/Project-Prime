@@ -157,6 +157,29 @@ namespace MphRead.Mods.MapGen
             return found == null ? null : ReadRequired(entries, found, MaxEntryBytes);
         }
 
+        internal static void CopyValidatedEntry(string path, string name, Stream destination,
+            System.Threading.CancellationToken stop)
+        {
+            RequireArchiveSize(path);
+            using ZipArchive archive = ZipFile.OpenRead(path);
+            Dictionary<string, ZipArchiveEntry> entries = ScanEntries(archive);
+            string found = Find(entries, name) ?? throw new InvalidDataException("Missing map asset: " + name);
+            ZipArchiveEntry entry = entries[found];
+            using Stream input = entry.Open();
+            byte[] buffer = new byte[64 * 1024];
+            long copied = 0;
+            int count;
+            while ((count = input.Read(buffer, 0, buffer.Length)) != 0)
+            {
+                stop.ThrowIfCancellationRequested();
+                copied += count;
+                if (copied > entry.Length || copied > MaxEntryBytes)
+                    throw new InvalidDataException("Map asset exceeds its declared entry size.");
+                destination.Write(buffer, 0, count);
+            }
+            if (copied != entry.Length) throw new InvalidDataException("Map asset is truncated: " + name);
+        }
+
         private static void RequireArchiveSize(string path)
         {
             long length = new FileInfo(path).Length;
@@ -180,7 +203,7 @@ namespace MphRead.Mods.MapGen
                     throw new InvalidDataException("Package expanded size exceeds the limit.");
                 string ext = Path.GetExtension(name).ToLowerInvariant();
                 if (ext is not (".json" or ".bsp" or ".obj" or ".tex" or ".png"
-                    or ".jpg" or ".jpeg" or ".tga" or ".ktx2" or ".ogg" or ".wav" or ".mp3"))
+                    or ".jpg" or ".jpeg" or ".tga" or ".ktx2" or ".ogg" or ".wav" or ".mp3" or ".mp4"))
                     throw new InvalidDataException("Unsupported package asset: " + name);
             }
             return entries;

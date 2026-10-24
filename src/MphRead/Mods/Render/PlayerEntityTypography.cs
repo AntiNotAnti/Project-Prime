@@ -28,7 +28,7 @@ public partial class PlayerEntity
         {
             var pixels=new ColorRgba[atlas.Alpha.Length];
             for(int i=0;i<pixels.Length;i++)pixels[i]=new(255,255,255,atlas.Alpha[i]);
-            binding=_scene.BindGetTexture(pixels,HudFonts.AtlasWidth,HudFonts.AtlasHeight);_hudFontBindings.Add(style.Font,binding);
+            binding=_scene.BindGetTexture(pixels,HudFonts.AtlasWidth,HudFonts.AtlasHeight,sceneColor:false);_hudFontBindings.Add(style.Font,binding);
         }
         float sy=size/48*style.Size*unit*HudProfiles.Runtime.TextScale;
         float sx=sy*(_scene.Size.Y*256f/(_scene.Size.X*192f));

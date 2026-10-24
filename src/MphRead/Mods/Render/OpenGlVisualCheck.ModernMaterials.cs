@@ -13,6 +13,7 @@ internal static partial class OpenGlVisualCheck
     // material invariants without retail assets or visual acceptance claims.
     private static void CheckModernMaterialCorrections(string output)
     {
+        CheckSceneLinearColor(output);
         ResetPass();
         const string vertexSource = @"#version 120
 uniform vec3 fixture_normal;

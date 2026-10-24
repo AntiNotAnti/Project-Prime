@@ -93,9 +93,23 @@ internal static class BackendChecks
             ReplayStudioAudioSettingsStore.Save(audioReview,context.SourceRevision,new(Enabled:false),()=>{});
             context=backend.Capture();
             Check(context.AudioSnapshot is ReplayExportAudioInput {Settings.Enabled:false,Sources.IsEmpty:true},"review freezes actual disabled audio values rather than retaining an editor provider");
+            var channelCurves=new ReplayCameraChannelCurves(ReplayCameraChannelMode.Smooth,ReplayCameraChannelEase.InOut,
+                ReplayCameraChannelMode.Bezier,ReplayCameraChannelEase.Out,ReplayCameraChannelMode.Hold,ReplayCameraChannelEase.None);
+            ReplayCamera.Track.Clear();
+            ReplayCamera.Track.Put(new(10,Vector3.One,Quaternion.Identity,1.2f,Curves:channelCurves));
+            Check(ReplayCamera.Track.Save(descriptor),"independent camera curves persist in the exact reviewed virtual source");
             var finalOptions = options with { Preset = 1, Resolution = 0, Fps = 48, GameHud = true, ReplayOverlay = true, Camera = TheatreExportCamera.Chase };
             var lifetime=EnqueueDetached(finalOptions);
             var accepted = backend.Queue();var admission=ReplayDetachedExportQueue.Active!;
+            Check(admission.Presentation.Keys.Single().Curves==channelCurves,
+                "detached preview/export presentation freezes all independent orientation and lens curves");
+            var transported=JsonSerializer.Deserialize<ReplayExportPresentation>(
+                JsonSerializer.Serialize(admission.Presentation,ReplayDetachedExportFiles.Json),ReplayDetachedExportFiles.Json);
+            Check(transported!=null&&transported.Keys.SequenceEqual(admission.Presentation.Keys),
+                "private worker JSON roundtrip preserves every independent curve and exact camera key");
+            ReplayCamera.Track.Put(ReplayCamera.Track.Keys[0] with{Curves=default});
+            Check(admission.Presentation.Keys.Single().Curves==channelCurves,
+                "accepted independent curve metadata is immutable across later editor changes");
             Check(accepted.Active != null && admission.LogicalPath == descriptor
                 &&ReferenceEquals(accepted.Active.Token,admission.Receipt)&&admission.PlaybackHash==Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(playback)))
                 &&admission.Room==DemoPlayback.Metadata!.RoomKey&&admission.Subject==DemoPlayback.PresentationScene!.Players.MainPlayerIndex,

@@ -240,7 +240,8 @@ namespace MphRead.NetTest
                 using var socket = new LoopbackPeer();
                 socket.Client.ReceiveTimeout = 2000;
                 var endpoint = new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, server.BoundPort);
-                byte[] hello = new byte[7] { (byte)PacketType.Hello, NetConfig.ProtocolVersion, 255, 42, 0, 0, 0 };
+                byte[] hello = new byte[28]; hello[0] = (byte)PacketType.Hello; hello[1] = NetConfig.ProtocolVersion; hello[2] = 255; hello[3] = 42;
+                BinaryPrimitives.WriteUInt32LittleEndian(hello.AsSpan(24), UnifiedModeRules.Capability);
                 socket.Send(hello, hello.Length, endpoint);
                 bool welcome = false, match = false, roster = false, authorityPacket = false;
                 MatchStatePacket admission = default;

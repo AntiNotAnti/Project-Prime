@@ -11,7 +11,7 @@ internal static class DesktopTextureCompressionPolicy
     internal const int Bc7InternalFormat = 0x8E8C; // COMPRESSED_RGBA_BPTC_UNORM
     internal static readonly bool Enabled =
         Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_BC7_TEXTURES") == "1"
-        && Environment.GetEnvironmentVariable("PROJECT_PRIME_GL_FORCE_LEGACY") != "1";
+        && !OpenGlOptimizationPolicy.ForceLegacy;
     private static int _bc7;
     internal static bool SupportsBc7 => Volatile.Read(ref _bc7) != 0;
 

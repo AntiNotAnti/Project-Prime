@@ -350,6 +350,15 @@ namespace MphRead.Mods.Launcher
                     _publishedPathsRoot = null;
                     Paths.UpdatePaths();
                     Paths.ChooseMphPath();
+                    // A preferred migrated revision can point at a removed installation.
+                    if (!Directory.Exists(Paths.FileSystem))
+                    {
+                        foreach (string key in new[] { Ver.AMHE1, Ver.AMHP1, Ver.AMHJ1, Ver.AMHK0,
+                            Ver.AMHE0, Ver.AMHP0, Ver.AMHJ0, Ver.A76E0 })
+                            if (Paths.AllPaths.TryGetValue(key, out string? available)
+                                && !String.IsNullOrWhiteSpace(available) && Directory.Exists(available))
+                            { Paths.MphKey = key; break; }
+                    }
                     Paths.ChooseFhPath();
                     if (!String.Equals(root, Root, StringComparison.Ordinal))
                         throw new InvalidOperationException(FilesInUse);

@@ -136,6 +136,11 @@ public static class NetAltHitCheck
                 "Double Damage fixture begins under native authority without a grant");
             victim.Health = 199;
             shooter.ModSetShotState(0, shooter.Values.AltAttackDamage, doubleDamage: true, boostActive: true);
+            Check(!shooter.DoubleDamage, "owner-reported bit cannot forge an authority Double Damage grant");
+            // This contact-damage fixture installs native authority state; pickup admission has separate tests.
+            typeof(PlayerEntity).GetField("_doubleDmgTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(shooter, (ushort)60);
+            NetShotSourceJournal.SetDouble(shooter, 60);
             shooter.ModApplyReportedBoostState(fresh: true);
             Check(!shooter.DoubleDamage && (ushort)doubleTimer.GetValue(shooter)! == 0,
                 "spoofed true owner bit cannot grant authority Double Damage");
@@ -144,6 +149,10 @@ public static class NetAltHitCheck
             Check(exactHealth - victim.Health == shooter.Values.AltAttackDamage,
                 "spoofed true owner bit leaves full boost damage unmultiplied");
             shooter.ModSetShotState(0, 0, doubleDamage: false, boostActive: false);
+            Check(shooter.DoubleDamage, "owner-reported inactive bit cannot revoke an authority grant");
+            typeof(PlayerEntity).GetField("_doubleDmgTimer", BindingFlags.NonPublic | BindingFlags.Instance)!
+                .SetValue(shooter, (ushort)0);
+            NetShotSourceJournal.SetDouble(shooter, 0);
 
             ItemInstanceEntity? doubleItem = null;
             TimedGrantRecord? fixtureGrant = null;

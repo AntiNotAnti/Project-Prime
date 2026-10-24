@@ -23,6 +23,13 @@ public partial class Scene
                 + (_renderBuffer != 0 ? 4 : 0) + (_depthTexture != 0 ? 4 : 0));
         bytes += (long)_graphicsOutputSize.X * _graphicsOutputSize.Y * 4;
         bytes += SpatialAntialiasingTargetBytes;
+        bytes += SceneColorPipelineBytes;
+        if (_replayOutputFramebuffer != 0)
+            bytes += (long)_replayOutputSize.X * _replayOutputSize.Y * 4;
+#if !ANDROID && !MPHREAD_SERVER
+        if (_replayAuxiliaryFramebuffer != 0)
+            bytes += (long)_replayAuxiliaryBounds.Z * _replayAuxiliaryBounds.W * 4;
+#endif
         foreach (var resolve in _supersampleResolveTargets)
             bytes += (long)resolve.Size.X * resolve.Size.Y * 4;
         bytes += (long)_shadowTargetSize * _shadowTargetSize
@@ -122,7 +129,7 @@ public partial class Scene
         }
     }
 
-    private static int AllocateTargetColor(Vector2i target, bool scaled)
+    private int AllocateTargetColor(Vector2i target, bool scaled)
     {
         int texture = GL.GenTexture();
         try

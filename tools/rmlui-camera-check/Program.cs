@@ -70,6 +70,19 @@ Check(!camera.Refresh(), "replacement recording requires fresh panel");
 Check(Task.Run(() => { try { camera.Add(); return false; } catch (InvalidOperationException) { return true; } }).GetAwaiter().GetResult(),
     "another thread cannot dispatch camera edits");
 camera.Dispose(); Check(!camera.Add() && !camera.Refresh() && !camera.Snapshot().Current, "disposed camera owner cannot edit");
+var channels=new TheatreCameraChannelCurves(2,4,3,2,4,1);
+var channelMemory=new MemoryCamera();channelMemory.Context=channelMemory.Context with{
+    Keys=ImmutableArray.Create(new TheatreCameraKey(60,MemoryCamera.Pose with{Channels=channels}))};
+using(var channelCamera=new TheatreCameraController(channelMemory))
+{
+    Check(channelCamera.RequestUpdate()&&channelCamera.Snapshot().Pending!.Key.Pose.Channels==channels,
+        "basic selected-pose update preserves independent key curves");
+    channelCamera.Cancel();
+    Check(channelCamera.Add()&&channelCamera.Snapshot().Pending!.Key.Pose.Channels==channels,
+        "occupied-frame basic Add preserves the original independent curves");
+    Check(channelCamera.Confirm()&&channelMemory.Context.Keys[0].Pose.Channels==channels,
+        "confirmed legacy pose replacement preserves all six independent channels");
+}
 Console.WriteLine($"PASS {checks} native camera ownership/pose/seek/confirmation/retry checks; synthetic memory only");
 PresentationChecks.Run();
 

@@ -12,6 +12,19 @@ namespace MphRead.Mods.Render.Materials;
 /// </summary>
 internal static class MapMaterialAssetRegistry
 {
+    internal static (MapDefinition Definition, MapVideoTexture Video)? Video(MaterialAssetKey key)
+    {
+        string[] parts=key.Value.Split('/');
+        if(parts.Length!=6||parts[0]!="map"||parts[2]!="material"||parts[4]!="recolor"
+            ||!Guid.TryParseExact(parts[1],"N",out Guid mapId)||!Guid.TryParseExact(parts[3],"N",out Guid materialId))return null;
+        foreach(MapDefinition definition in CustomRooms.Definitions)
+        {
+            if(definition.MapId!=mapId)continue;
+            if(definition.Materials.FirstOrDefault(m=>m.Id==materialId)?.VideoTexture is {} video)
+                return (definition,video);
+        }
+        return null;
+    }
     public static ResolvedMaterial? Resolve(MaterialAssetKey key, bool includeCompanions = true)
     {
         if (!key.Value.StartsWith("map/", StringComparison.Ordinal)) return null;

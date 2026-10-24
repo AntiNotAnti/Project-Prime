@@ -12,6 +12,8 @@ namespace MphRead.Mods
         public bool Lighting { get; init; } = true;
         public bool Fog { get; init; } = true;
         public bool TextureFiltering { get; init; } = false;
+        public bool TextureReplacements { get; init; }
+        public TextureSamplingMode TextureSampling { get; init; } = TextureSamplingMode.Auto;
         public bool TextureMipmaps { get; init; } = false;
         public int TextureAnisotropy { get; init; } = 1;
         public TextureUpscaleMode TextureUpscale { get; init; } = TextureUpscaleMode.Off;
@@ -46,11 +48,11 @@ namespace MphRead.Mods
             };
             var enhanced = performance with
             {
-                TextureAnisotropy = 8, AdvancedMaterials = true
+                TextureAnisotropy = 8, AdvancedMaterials = true, TextureReplacements = true
             };
             var ultra = enhanced with
             {
-                ResolutionScale = 150, TextureAnisotropy = 16
+                ResolutionScale = 150, TextureAnisotropy = 16, TextureSampling = TextureSamplingMode.Custom
             };
             return preset switch
             {

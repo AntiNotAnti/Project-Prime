@@ -33,7 +33,10 @@ namespace MphRead.Mods.Launcher
                 new("Kill Confirmed teams", GameMode.KillConfirmedTeams),
                 new("Headhunter", GameMode.Headhunter),
                 new("Relic", GameMode.Relic),
-                new("Prime hunter", GameMode.PrimeHunter)
+                new("Prime hunter", GameMode.PrimeHunter),
+                new("Hero Shooter / Capture the Zone", GameMode.CaptureTheZone),
+                new("Hero Shooter / Push the Payload", GameMode.PushThePayload),
+                new("Oddball", GameMode.Oddball), new("Capture the Flag", GameMode.CaptureTheFlag),
             };
 
         // Pure validation candidate for native and legacy launchers. Call this
@@ -54,7 +57,7 @@ namespace MphRead.Mods.Launcher
                     : "Drone combat practice requires Weavel, a valid suit, zero to seven opponents and a valid difficulty.");
             if (!Movement.MovementModelRules.TryParse(settings.MovementModel, out var movementModel))
                 throw new ArgumentException("MovementModel must be Native, Momentum, Quake3, Traversal or Parkour.", nameof(settings));
-            Hunter resolvedHunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on");
+            Hunter resolvedHunter = Multiplayer.HunterRules.Resolve(hunter, mode != GameMode.Oddball && settings.LowTier == "on");
             var plan = new LaunchPlan
             {
                 Kind = LaunchKind.Offline,
@@ -69,7 +72,7 @@ namespace MphRead.Mods.Launcher
                     ? LocalDroneAppearanceRules.CanonicalForHunter(LauncherPrefs.LocalDrone, resolvedHunter) : LocalDroneAppearance.Native,
                 IsPlaytest = character != OfflineCharacterMode.Native,
                 Hunter = resolvedHunter,
-                MatchRules = new Network.MatchDefinition
+                MatchRules = mode == GameMode.Oddball ? new Network.MatchDefinition { RoomKey = roomKey, Mode = mode, PointGoal = 100, TimeLimitSeconds = 300, Format = Network.MatchFormat.Auto, AffinityWeapons = true, ShadowFreeze = true, SpawnProtection = settings.SpawnProtection == "on" } : new Network.MatchDefinition
                 {
                     Mode = mode,
                     FriendlyFire = settings.FriendlyFire == "on",
@@ -95,6 +98,7 @@ namespace MphRead.Mods.Launcher
                 BotRoster = botRoster,
                 LocalTeam = localTeam
             };
+            plan = plan with { MatchRules = plan.MatchRules.NormalizeLegacy() };
             if (mode != GameMode.SinglePlayer
                 && !Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out string reason))
                 throw new ArgumentException(reason, nameof(settings));

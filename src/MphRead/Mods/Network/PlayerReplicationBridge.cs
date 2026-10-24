@@ -562,6 +562,11 @@ namespace MphRead.Mods.Network
                 && player.OwningScene.Services is ReplaySceneServices replay
                 && replay.Session.SourceProtocolVersion >= 77)
                 Set(c.Morph, false, false);
+            if (player.ModCarryingCtfFlag)
+            {
+                Set(c.Shoot, false, false); Set(c.Morph, false, false);
+                player.ModCancelFlagCarrierFire();
+            }
             if (c.Morph.IsPressed)
             {
                 Log($"slot {player.SlotIndex} morph press received, now {player.ModFormState()}");
@@ -606,12 +611,13 @@ namespace MphRead.Mods.Network
             // After the weapon, because zoom belongs to one and the engine
             // refuses it on a weapon that cannot. Taken as state rather than
             // rebuilt from the press: see IntentButtons.ZoomedState.
-            player.ModSetZoom(((intent.Buttons & IntentButtons.ZoomedState) == IntentButtons.ZoomedState));
+            player.ModSetZoom(!player.ModCarryingCtfFlag && ((intent.Buttons & IntentButtons.ZoomedState) == IntentButtons.ZoomedState));
             // The owner's own answer about whether it is still in the match.
             // On the authority this is what makes a spectator stop being a
             // target; from there the snapshot's FlagSpectating carries it to
             // everybody else.
-            player.ModSetSpectating(((intent.Buttons & IntentButtons.SpectatingState) == IntentButtons.SpectatingState));
+            if (!Mods.HeroModes.HeroRules.Active(player.OwningScene.GameState.Mode))
+                player.ModSetSpectating(((intent.Buttons & IntentButtons.SpectatingState) == IntentButtons.SpectatingState));
             // And which form its owner says it is in -- but only here, on the
             // machine that answers that question for everybody else.
             //
@@ -640,7 +646,7 @@ namespace MphRead.Mods.Network
             // long enough for the puppet to be pulled both ways.
             if (_host.IsAuthority)
             {
-                ApplyForm(player, ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
+                ApplyForm(player, !player.ModCarryingCtfFlag && ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
                 player.ModAdmitReportedCrouch(c.Crouch.IsDown, (intent.Buttons & IntentButtons.CrouchedState) != 0,
                     (intent.Buttons & IntentButtons.TuckedState) != 0);
             }
@@ -675,6 +681,7 @@ namespace MphRead.Mods.Network
                     (intent.ShotFlags & IntentPacket.FlagDoubleDamage) != 0,
                     (intent.ShotFlags & IntentPacket.FlagBoosting) != 0);
             }
+            if (player.ModCarryingCtfFlag) player.ModCancelFlagCarrierFire();
             if (!_host.IsReplica) NetFireEvents.Prepare(player, intent);
             return true;
         }
@@ -1202,7 +1209,7 @@ namespace MphRead.Mods.Network
                 NetMovementValidationShadow.ObserveAccepted(player, intent);
             }
             Vector3 reported = InForm(player, intent.Position,
-                ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
+                !player.ModCarryingCtfFlag && ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState));
             NoteReportedVelocity(player, reported, intent.Frame,
                 (byte)(((uint)intent.Buttons & (uint)IntentButtons.TuckRebaseMask) >> 25));
             Vector3 delta = reported - player.Position;
@@ -1304,7 +1311,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             Move(player, InForm(player, intent.Position,
-                ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState)));
+                !player.ModCarryingCtfFlag && ((intent.Buttons & IntentButtons.AltFormState) == IntentButtons.AltFormState)));
         }
 
         private bool StaleSinceSpawn(PlayerEntity player, in IntentPacket intent) =>

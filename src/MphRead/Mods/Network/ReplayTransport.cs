@@ -36,6 +36,7 @@ namespace MphRead.Mods.Network
         internal long SeekGeneration { get; private set; }
         internal uint? RequestedSeekTarget => SeekTarget;
         internal uint? SeekTarget => _target ?? _rebuild;
+        internal bool RequiresRebuild => _rebuild.HasValue;
         internal bool ResumeAfterSeek => _resumeAfterSeek;
         internal void CopyPreferences(ReplayTransport source)
         {

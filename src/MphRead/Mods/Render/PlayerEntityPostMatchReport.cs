@@ -67,6 +67,7 @@ namespace MphRead.Entities
                 return;
             }
 
+            bool oddball = _scene.GameState.Mode == GameMode.Oddball;
             bool networked = NetSession.Active;
             int count = networked
                 ? NetSession.PostMatchReportCount
@@ -86,7 +87,7 @@ namespace MphRead.Entities
             const float contentHeight = 13.5f;
 
             DrawText2D(left + 1.8f * aspect, titleY, Align.Left, 0,
-                (NetSession.MatchContainsBots ? "PRACTICE - BOTS USED" : "POST-MATCH REPORT"), _killFeedInk, scale: 0.48f);
+                (oddball && _scene.GameState.Oddball is { } odd ? $"ODDBALL // TEAM {(char)('A' + odd.Winner)} WINS {odd.RoundsWon[0]} - {odd.RoundsWon[1]}" : NetSession.MatchContainsBots ? "PRACTICE - BOTS USED" : "POST-MATCH REPORT"), _killFeedInk, scale: 0.48f);
             DrawText2D(right - 1.2f * aspect, titleY + 0.5f, Align.Right, 0,
                 count > 0 ? $"{count} PLAYER{(count == 1 ? "" : "S")}" : "RESULTS",
                 _killFeedSpecial, scale: 0.34f);
@@ -114,7 +115,7 @@ namespace MphRead.Entities
             DrawText2D(kdX, headerY, Align.Center, 0,
                 "K/D", _killFeedSpecial, scale: 0.31f);
             DrawText2D(accX, headerY, Align.Center, 0,
-                "ACC", _killFeedSpecial, scale: 0.31f);
+                oddball ? "HOLD" : "ACC", _killFeedSpecial, scale: 0.31f);
             DrawText2D(dmgX, headerY, Align.Center, 0,
                 "DAMAGE DEALT", _killFeedSpecial, scale: 0.31f);
 
@@ -190,7 +191,7 @@ namespace MphRead.Entities
                     $"{state.Kills[slot]}/{state.Deaths[slot]}",
                     _killFeedInk, scale: 0.40f);
                 DrawText2D(accX, y + 0.55f, Align.Center, 0,
-                    $"{accuracy}%", _killFeedInk, scale: 0.40f);
+                    (oddball ? $"{_scene.GameState.Oddball!.HoldTicks[slot] / 60}s" : $"{accuracy}%"), _killFeedInk, scale: 0.40f);
                 DrawText2D(dmgX, y + 0.55f, Align.Center, 0,
                     state.MatchDamageDealt[slot].ToString(),
                     _killFeedInk, scale: 0.40f);

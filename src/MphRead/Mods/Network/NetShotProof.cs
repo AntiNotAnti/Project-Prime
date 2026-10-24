@@ -159,7 +159,8 @@ public static class NetShotProof
                 charge=(fire.Charge-mechanics.MinCharge*2)/(float)Math.Max(1,(mechanics.FullCharge-mechanics.MinCharge)*2);
             else if(fire.Charge>=mechanics.FullCharge*2) charge=1;
         }
-        bool battlehammerBurst = BalancedModeRules.IsBattlehammerBurst(
+        bool ctzBurst = Mods.HeroModes.HeroRules.Active(player.OwningScene.GameState.Mode) && (BeamType)weapon == BeamType.Battlehammer;
+        bool battlehammerBurst = ctzBurst || BalancedModeRules.IsBattlehammerBurst(
             player.OwningScene.GameState.Multiplayer, player.OwningScene.GameState.BalancedMode, (BeamType)weapon);
         int cost = battlehammerBurst ? BalancedModeRules.BattlehammerBurstAmmoCost
             : (int)(charge<=0?mechanics.AmmoCost:mechanics.MinChargeCost+(mechanics.ChargeCost-mechanics.MinChargeCost)*charge);
@@ -181,7 +182,7 @@ public static class NetShotProof
                 : !NetDynamicGeometryHistory.TryTraceDistanceAtFrame(player.OwningScene,body,fire.Origin,pose.WorldFrame,out float wall)
                     ? ShotProofReason.HistoryUnavailable : wall<.999f?ShotProofReason.BlockedMuzzle:ShotProofReason.Verified;
         }
-        int cooldown = battlehammerBurst ? BalancedModeRules.BattlehammerBurstCooldownFrames
+        int cooldown = ctzBurst ? Mods.HeroModes.CtzRules.BurstPeriodTicks : battlehammerBurst ? BalancedModeRules.BattlehammerBurstCooldownFrames
             : (fire.Kind == FireEventKind.AutomaticFire
                 ? Math.Max(inputMechanics.ShotCooldown, inputMechanics.AutofireCooldown) : inputMechanics.ShotCooldown) * 2;
         var sourceReason = NetShotSourceJournal.Inspect(key, fire, mechanics.AmmoType, cost, cooldown);

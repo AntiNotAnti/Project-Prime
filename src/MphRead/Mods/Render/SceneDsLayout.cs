@@ -38,7 +38,9 @@ public partial class Scene
             Size = new Vector2i(top.Z, top.W);
         }
         try { OnDrawFrameCore(); }
-        finally { Size = window; _dsWindowSize = default; }
+        // Core preparation may adopt a replay viewport size. Only this DS
+        // scope owns a temporary size; normal pictures must retain that resize.
+        finally { if (ds) { Size = window; _dsWindowSize = default; } }
     }
 
     public bool OnRenderFrame()
@@ -53,7 +55,7 @@ public partial class Scene
             Size = new Vector2i(top.Z, top.W);
         }
         try { result = OnRenderFrameCore(); }
-        finally { Size = window; _dsWindowSize = default; }
+        finally { if (ds) { Size = window; _dsWindowSize = default; } }
         if (ds && result)
         {
             BeginHudPass();

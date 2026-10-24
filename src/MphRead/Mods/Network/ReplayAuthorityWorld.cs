@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Collections.Generic;
 using System.IO;
 using MphRead.Entities;
@@ -69,6 +70,11 @@ internal sealed class ReplayAuthorityWorld
         uint ack = NetSession.RemoteIntentValid[slot] ? NetSession.RemoteIntents[slot].Frame : NetSession.NetFrame;
         return new(ReplayActorRef.Capture(player), (ushort)Math.Clamp(player.ModAmmo.Ua, 0, ushort.MaxValue), ack);
     }
+    internal MphRead.Mods.HeroModes.CtzSnapshot? Zone { get; set; }
+    internal byte[] Ball { get; set; } = [];
+    internal HeroModes.PayloadFrame? Payload { get; set; }
+    internal HeroModes.CtzSupportState[] Support { get; set; } = Array.Empty<HeroModes.CtzSupportState>();
+    internal HeroModes.CtzCombatRow[] Combat { get; set; } = Array.Empty<HeroModes.CtzCombatRow>();
     internal ReplayFlagState[] Flags { get; set; } = [];
     internal ReplayNodeState[] Nodes { get; set; } = [];
     internal ReplayPickupState[] Pickups { get; set; } = [];
@@ -103,7 +109,7 @@ internal sealed class ReplayAuthorityWorld
         for (int slot = 0; slot < 8; slot++) chamber[slot] = CaptureChamber(scene, slot);
         var tokenStats = new int[48]; CaptureTokenStats(scene.GameState, tokenStats);
         var objectiveStats = new int[32]; CaptureObjectiveStats(scene.GameState, objectiveStats);
-        return new() { ObjectiveStats = objectiveStats, NextTokenId = scene.GameState.NextTokenId, Tokens = tokens.ToArray(), TokenStats = tokenStats, MatchId = matchId, Epoch = epoch, Tick = tick,
+        return new() { Ball=scene.GameState.Mode==GameMode.Oddball ? scene.GameState.Oddball?.CaptureSnapshot()??[] : [], Combat = scene.GameState.CtzStats.Capture(), Support = HeroModes.HeroRules.Active(scene.GameState.Mode) ? scene.Players.Items.Select(p=>p.ModCaptureCtzSupport()).ToArray() : Array.Empty<HeroModes.CtzSupportState>(), Payload = HeroModes.HeroRules.IsPayload(scene.GameState.Mode) ? scene.Payload.Frame : null, Zone = HeroModes.HeroRules.IsZone(scene.GameState.Mode) ? scene.CaptureZone.State : null, ObjectiveStats = objectiveStats, NextTokenId = scene.GameState.NextTokenId, Tokens = tokens.ToArray(), TokenStats = tokenStats, MatchId = matchId, Epoch = epoch, Tick = tick,
             Prime = ReplayActorRef.Capture(prime is >= 0 and < 8 ? scene.Players.Items[prime] : null),
             Phase = scene.GameState.MatchState, MatchTime = scene.GameState.MatchTime,
             ActiveHardpointId = scene.GameState.ActiveHardpointId, HardpointTicksRemaining = scene.GameState.HardpointTicksRemaining, Chamber = chamber,
@@ -121,7 +127,8 @@ internal sealed class ReplayAuthorityWorld
     {
         using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.AuthorityEncode);
         long start = w.BaseStream.Position;
-        w.Write((byte)4); w.Write(MatchId); w.Write(Epoch); w.Write(Tick);
+        if(Zone.HasValue && Payload.HasValue) throw Invalid();
+        w.Write((byte)10); w.Write(MatchId); w.Write(Epoch); w.Write(Tick);
         Actor(Prime); w.Write((byte)Phase); w.Write(MatchTime); w.Write((byte)EndCause); w.Write(EndingKill.HasValue);
         if (EndingKill is { } kill)
         {
@@ -151,6 +158,16 @@ internal sealed class ReplayAuthorityWorld
         Count(tokenCount);
         foreach (var token in Tokens.AsSpan(0, tokenCount))
         { w.Write(token.Id); w.Write(token.Victim); w.Write(token.Team); w.Write(token.Value); Vector(token.Position); w.Write(token.Timer); }
+        w.Write(Zone.HasValue); w.Write(Payload.HasValue);
+        if(Ball.Length>512)throw Invalid();w.Write((ushort)Ball.Length);w.Write(Ball);
+        if(Payload is {} payload) payload.Write(w);
+        else if(Zone is {} zone) zone.Write(w);
+        {
+            if(Support.Length>8 || Support.Select(s=>s.Slot).Distinct().Count()!=Support.Length) throw new InvalidDataException("Invalid support roster.");
+            w.Write((byte)Support.Length);foreach(var support in Support) support.Write(w);
+            if (Combat.Length > 8 || Combat.Select(s=>s.Slot).Distinct().Count()!=Combat.Length) throw Invalid();
+            w.Write((byte)Combat.Length);foreach(var row in Combat) row.Write(w);
+        }
         if (w.BaseStream.Position - start > MaximumBytes) throw Invalid();
         void Scores(int[] values) { if (values.Length != 8) throw Invalid(); foreach (int value in values) w.Write(value); }
         void Count(int n) { if (n > MaximumEntities) throw Invalid(); w.Write((ushort)n); }
@@ -163,7 +180,7 @@ internal sealed class ReplayAuthorityWorld
         using var stream = new MemoryStream(bytes.ToArray(), false); using var r = new BinaryReader(stream);
         try
         {
-            byte version = r.ReadByte(); if (version is < 1 or > 4) throw Invalid();
+            byte version = r.ReadByte(); if (version is < 1 or > 10) throw Invalid();
             ushort match = r.ReadUInt16(); ulong epoch = r.ReadUInt64(); uint tick = r.ReadUInt32();
             var prime = Actor(); var phase = (MatchState)r.ReadByte(); float time = Float();
             var cause = (ReplayEndCause)r.ReadByte(); ReplayKillIdentity? kill = null;
@@ -231,8 +248,28 @@ internal sealed class ReplayAuthorityWorld
             }
             if (hardpoint < -1 || hardpointTicks is < 0 or > Multiplayer.HardpointRules.RotationTicks
                 || hardpoint >= 0 && !Array.Exists(nodes, node => node.Id == hardpoint)) throw Invalid();
+            bool hasZone=version>=10?r.ReadBoolean():version is >=5 and <=8;
+            bool hasPayload=version>=10?r.ReadBoolean():version==9;
+            if(hasZone && hasPayload)throw Invalid();
+            byte[] ball=[];if(version>=10){int length=r.ReadUInt16();if(length>512)throw Invalid();ball=r.ReadBytes(length);if(ball.Length!=length)throw Invalid();if(length>0)new Oddball.OddballMatch().ApplySnapshot(ball);}
+            HeroModes.PayloadFrame? payload = hasPayload ? HeroModes.PayloadFrame.Read(r) : null;
+            HeroModes.CtzSnapshot? zone = hasZone ? HeroModes.CtzSnapshot.Read(r, hasRoundClock: version >= 7) : null;
+            var support=Array.Empty<HeroModes.CtzSupportState>();
+            if(version>=6)
+            {
+                int count=r.ReadByte();if(count>8) throw Invalid();
+                support=new HeroModes.CtzSupportState[count];var slots=new System.Collections.Generic.HashSet<byte>();
+                for(int i=0;i<count;i++) { support[i]=HeroModes.CtzSupportState.Read(r);if(!slots.Add(support[i].Slot)) throw Invalid(); }
+            }
+            var combat=Array.Empty<HeroModes.CtzCombatRow>();
+            if (version >= 8)
+            {
+                int count=r.ReadByte();if(count>8) throw Invalid();
+                combat=new HeroModes.CtzCombatRow[count];var slots=new HashSet<byte>();
+                for(int i=0;i<count;i++){combat[i]=HeroModes.CtzCombatRow.Read(r,extended:version>=10);if(!slots.Add(combat[i].Slot))throw Invalid();}
+            }
             if (stream.Position != stream.Length) throw Invalid();
-            return new() { ObjectiveStats = objectiveStats, NextTokenId = nextTokenId, TokenStats = tokenStats, Tokens = tokens, MatchId = match, Epoch = epoch, Tick = tick, Prime = prime, Phase = phase, MatchTime = time,
+            return new() { Ball=ball, Payload=payload, Combat=combat, Support=support, Zone = zone, ObjectiveStats = objectiveStats, NextTokenId = nextTokenId, TokenStats = tokenStats, Tokens = tokens, MatchId = match, Epoch = epoch, Tick = tick, Prime = prime, Phase = phase, MatchTime = time,
                 EndCause = cause, EndingKill = kill, TeamPoints = points, FlagScores = flagscores, NodesCaptured = captured,
                 Flags = flags, Nodes = nodes, Pickups = pickups, Drops = drops, Doors = doors,
                 ActiveHardpointId = hardpoint, HardpointTicksRemaining = hardpointTicks, Chamber = chamber };
@@ -257,6 +294,16 @@ internal sealed class ReplayAuthorityWorld
         if (!scene.Services.IsReplica) throw new InvalidOperationException("Replay world facts require a private scene.");
         foreach (var ammo in Chamber)
             ammo.Actor.Resolve(scene, state)?.ApplyChamberAmmo(ammo.Ammo, ammo.AcknowledgedFrame);
+        if (HeroModes.HeroRules.IsPayload(scene.GameState.Mode) && Payload is {} payload)
+        { scene.Payload.Apply(scene,payload); foreach(var support in Support) scene.Players.Items[support.Slot].ModApplyCtzSupport(support); scene.GameState.CtzStats.Apply(Combat); }
+        if (HeroModes.HeroRules.IsZone(scene.GameState.Mode) && Zone is { } zone)
+        {
+            scene.CaptureZone.Apply(zone);
+            foreach(var support in Support) scene.Players.Items[support.Slot].ModApplyCtzSupport(support);
+            scene.GameState.CtzStats.Apply(Combat);
+        }
+        if(scene.GameState.Mode==GameMode.Oddball && Ball.Length>0)(scene.GameState.Oddball??=new()).ApplySnapshot(Ball);
+        scene.GameState.CtzStats.Apply(Combat);
         scene.GameState.ActiveHardpointId = ActiveHardpointId;
         scene.GameState.HardpointTicksRemaining = HardpointTicksRemaining;
         scene.GameState.PrimeHunter = Prime.Resolve(scene, state)?.SlotIndex ?? -1;

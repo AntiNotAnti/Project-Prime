@@ -677,6 +677,8 @@ namespace MphRead.Entities
             CameraInfo.UpVector = Vector3.UnitY;
             CameraInfo.Target = Position + _facingVector;
             CameraInfo.NodeRef = NodeRef.None;
+            CameraInfo.RebuildView();
+            CameraInfo.ModResetDrawState();
             NodeRef = NodeRef.None;
             _timeIdle = 0;
             _timeSinceInput = 0;
@@ -743,11 +745,11 @@ namespace MphRead.Entities
                 Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
+            _scene.MatchEvents.Spawn(_scene, this);
+            _scene.PlayerReplication.NoteSpawn(SlotIndex);
             ModResetTraversalStance();
             ModResetGroundTravel();
             _modFormStartedFrame = 0;
-            _scene.MatchEvents.Spawn(_scene, this);
-            _scene.PlayerReplication.NoteSpawn(SlotIndex);
             if (IsMainPlayer)
             {
                 _scene.NoteRenderLifecycle("spawn begin");
@@ -1519,6 +1521,8 @@ namespace MphRead.Entities
 
         private bool TryEquipWeapon(BeamType beam, bool silent = false, bool debug = false)
         {
+
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) && beam != Mods.HeroModes.HeroRules.Primary(Hunter)) return false;
             if (_scene.GameState.OneInTheChamber && beam is not (BeamType.PowerBeam or BeamType.Imperialist)) return false;
             if (_scene.GameState.Mode == GameMode.GunGame && beam != Mods.Multiplayer.GunGameRules.Weapon(_scene.GameState.Points[SlotIndex])) return false;
             if (_scene.GameState.NoImperialist && beam == BeamType.Imperialist) return false;
@@ -1868,7 +1872,10 @@ namespace MphRead.Entities
         // remain the sole damage owner.
         private void TakeDamageCore(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source, bool scoutDroneLaser)
         {
+
+            using var ctzDamageMeasurement = new CtzDamageMeasurement(this, source);
             if (_scene.Services.SuppressDamage) return;
+            if (!NetDamage.Replaying && Mods.HeroModes.CtzSpawnRooms.ProtectsFrom(this, source)) return;
             if (_scene.AimTrainer?.TryHandleDamage(this, source, damage, flags) == true) return;
             bool enhancedWasFrozen = ModFrozen;
             using var predictedScores = new Mods.Network.NetDamage.PredictionScoreScope(Mods.Network.NetHitPrediction.Predicting);
@@ -2082,6 +2089,12 @@ namespace MphRead.Entities
                 if (Mods.EnhancedHunters.EnhancedHunters.Authority(this))
                     Mods.EnhancedHunters.EnhancedHunterTelemetry.Event(Hunter, "rocket-jumps");
             }
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) && beam?.Beam == BeamType.Battlehammer && direction.HasValue)
+                direction=ModBoundCtzKnockback(direction.Value);
+            if (damage > 0 && Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)
+                && !ignoreDamage && !flags.TestFlag(DamageFlags.Death)
+                && !NetDamage.ApplyingClaim && !NetDamage.Replaying)
+                damage = Mods.HeroModes.HeroRules.ReduceDamage(Hunter, damage);
             uint combatUnsplitDamage = damage;
             if (flags.TestFlag(DamageFlags.Halfturret) && !ignoreDamage) // todo?: and either main player or not wifi
             {
@@ -2443,7 +2456,7 @@ namespace MphRead.Entities
                     _scene.SetFade(FadeType.FadeInWhite, 90 / 30f, overwrite: true);
                 }
                 Speed = Vector3.Zero;
-                _respawnTimer = RespawnTime;
+                _respawnTimer = Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) ? Mods.HeroModes.CtzRules.RespawnTicks(Hunter) : _scene.GameState.Mode is GameMode.CaptureTheFlag or GameMode.Oddball ? (ushort)600 : RespawnTime;
                 _timeSinceDead = 0;
                 if (_scene.GameState.SinglePlayer)
                 {
@@ -3241,7 +3254,7 @@ namespace MphRead.Entities
                 {
                     uint phase = (uint)continuousBeam.ModContinuousPhase;
                     bool authority = NetSession.IsAuthority || NetSession.IsHost;
-                    var healed = authority || NetHitPrediction.CanPredictDrain(drainOwner, phase)
+                    var healed = (authority || NetHitPrediction.CanPredictDrain(drainOwner, phase))
                         ? NetContinuousPayments.Heal(drainOwner, this, bodyRemoved, turretRemoved,
                             continuousBeam.Flags.TestFlag(BeamFlags.LifeDrain)) : default;
                     var paid = NetHitClaims.CaptureOutcome(this, bodyRemoved,

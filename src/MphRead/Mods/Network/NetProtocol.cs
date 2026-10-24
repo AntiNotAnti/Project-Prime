@@ -129,6 +129,8 @@ namespace MphRead.Mods.Network
         public const byte ReasonLoadTimeout = 5;
         public const byte ReasonServerBusy = 6;
         public const byte ReasonCustomWeaponReadiness = 7;
+        public const byte ReasonCtfRuleset = 8;
+        public const byte ReasonCtzRuleset = ReasonCtfRuleset;
 
         public byte Reason;
         public byte Players;
@@ -155,6 +157,7 @@ namespace MphRead.Mods.Network
         {
             return Reason switch
             {
+                ReasonCtfRuleset => "This server requires the matching unified custom-mode client and ruleset.",
                 ReasonKicked => "You were removed by the lobby owner.",
                 ReasonInMatch => "This server does not allow joining a match in progress.",
                 ReasonLoadTimeout => "The match could not wait any longer for this client to finish loading.",
@@ -487,7 +490,7 @@ namespace MphRead.Mods.Network
             status = default;
             static bool KnownSize(int length, int size) => length == size || length == size + 1
                 || length == size + 9 || length == size + 12;
-            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82 or 83 or 84 or 85)
+            if (KnownSize(src.Length, Size) && src[MatchStatePacket.Size + 1] is 60 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 76 or 77 or 78 or 79 or 80 or 81 or 82 or 83 or 84 or 85 or 86)
                 status = Read(src);
             else
             {
@@ -1264,8 +1267,8 @@ namespace MphRead.Mods.Network
                 int slot = src[offset];
                 int team = unchecked((sbyte)src[offset + 7 + MaxNameBytes]);
                 if (slot >= MaxSlots || (seen & (1 << slot)) != 0 || src[offset + 1] >= 7
-                    || src[offset + 9 + MaxNameBytes] > 1 || src[offset + 10 + MaxNameBytes] > 3
-                    || (src[offset + 9 + MaxNameBytes] == 0 && src[offset + 10 + MaxNameBytes] != 0)
+                    || src[offset + 9 + MaxNameBytes] > 2 || src[offset + 10 + MaxNameBytes] > 3
+                    || ((src[offset + 9 + MaxNameBytes] & 1) == 0 && src[offset + 10 + MaxNameBytes] != 0)
                     || src[offset + 2] > 3 || team < -1 || team > 3 || src[offset + 8 + MaxNameBytes] > 1
                     || !PlayerHandicap.IsValid(src[offset + 11 + MaxNameBytes]))
                     return false;
@@ -2688,7 +2691,7 @@ namespace MphRead.Mods.Network
         // Protocol81 adds exact package preparation at99/100/101; native layouts and Parkour-v4 attribution remain unchanged.
         // Protocol82 selects Parkour v5 and accepted grapple state; historical profiles remain frozen.
         // Protocol83 appends the exact archive hash to HostRequest; native gameplay/replay widths remain unchanged.
-        public const int ProtocolVersion = 85;
+        public const int ProtocolVersion = 86;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

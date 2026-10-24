@@ -86,9 +86,12 @@ internal static class NativeHudCheck
                 void Inline(string path,string value)
                 {
                     int row=controller.Snapshot().Properties.Select((property,index)=>(property,index)).Single(item=>item.property.Path==path).index;
+                    if(controller.Snapshot().Properties[row].Range!=null)Activate("hud_property"+row+"_exact",RmlUiIntentKind.HudProperty);
                     host.SetField(page.Document,"hud_property"+row+"_input",value);
+                    // Capture each precise value before moving to another row's optional field.
+                    Activate("hud_property"+row+"_info",RmlUiIntentKind.HudProperty);
                 }
-                Activate("hud_section_typography",RmlUiIntentKind.HudAction);
+                Activate("hud_section_global",RmlUiIntentKind.HudAction);
                 host.SetField(page.Document,"hud_property_search","/typography/globalFont");
                 Activate("hud_search",RmlUiIntentKind.HudAction);
                 Check(controller.Snapshot().Properties.Single().Path=="/typography/globalFont"
@@ -98,7 +101,7 @@ internal static class NativeHudCheck
                 Activate("hud_section_global",RmlUiIntentKind.HudAction);
                 Check(controller.CopyDraft().Typography.GlobalFont==HudFonts.All[2].Id,
                     "native pending font text is converted to its canonical profile id");
-                Activate("hud_section_typography",RmlUiIntentKind.HudAction);
+                Activate("hud_section_global",RmlUiIntentKind.HudAction);
                 host.SetField(page.Document,"hud_property_search","/typography/globalFont");
                 Activate("hud_search",RmlUiIntentKind.HudAction);
                 Check(host.ReadField(page.Document,"hud_property0_input")==HudFonts.All[2].Name,

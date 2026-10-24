@@ -12,6 +12,7 @@ internal sealed record CameraCurveLane(int Channel,TimelineBox Box);
 internal sealed record CameraCurveTicket(RmlUiDocumentToken Document,TheatreCameraToolsContext Context,TimelineMetrics Metrics,TimelineBox Clip,ImmutableArray<CameraCurveControl> Controls,ImmutableArray<CameraCurveLane> Lanes=default);
 public sealed partial class TheatrePlaybackPagePresenter
 {
+    private ImmutableArray<TheatreCameraKey> _curveVisibleKeys=ImmutableArray<TheatreCameraKey>.Empty;
     private readonly (float Min,float Max)[] _curveRanges=new (float,float)[5];
     private CameraCurveTicket? _preparedCurves,_presentedCurves;
     private sealed record CurveDrag(CameraCurveTicket Ticket,CameraCurveControl Control,double X,double Y,ImmutableArray<uint> Selection,bool Moving,float Delta);
@@ -45,6 +46,7 @@ public sealed partial class TheatrePlaybackPagePresenter
     private void PresentCameraCurveKeys(TheatreCameraToolsSnapshot state)
     {
         var context=state.Context;
+        _curveVisibleKeys=context.Camera.Keys.Skip(Math.Max(0,state.FocusIndex-32)).Take(64).ToImmutableArray();
         for(int channel=0;channel<5;channel++)
         {
             string laneId="replay_camera_curve_lane_"+channel;if(!CurveBounds(laneId,out var lane))continue;
@@ -64,9 +66,9 @@ public sealed partial class TheatrePlaybackPagePresenter
             double X(uint frame)=>Math.Clamp(frame/(double)Math.Max(1u,context.Camera.Duration)*(lane.Width-8),0,Math.Max(0,lane.Width-8));
             for(int i=0;i<64;i++)
             {
-                string id=$"replay_camera_curve_key_{channel}_{i}";bool visible=i<context.Camera.Keys.Length;
+                string id=$"replay_camera_curve_key_{channel}_{i}";bool visible=i<_curveVisibleKeys.Length;
                 _host.SetBool(_cameraToolsModal,"visible:"+id,visible);if(!visible)continue;
-                var key=context.Camera.Keys[i];_host.SetBool(_cameraToolsModal,"class:"+id+":selected",state.Selection.Contains(key.Frame));_host.SetText(_cameraToolsModal,"rect:"+id,Rect(X(key.Frame),Y(CurveValue(key.Pose,channel)),8,8));
+                var key=_curveVisibleKeys[i];_host.SetBool(_cameraToolsModal,"class:"+id+":selected",state.Selection.Contains(key.Frame));_host.SetText(_cameraToolsModal,"rect:"+id,Rect(X(key.Frame),Y(CurveValue(key.Pose,channel)),8,8));
                 _host.SetText(_cameraToolsModal,id,$"Channel {channel} authored key frame {key.Frame}");_host.SetBool(_cameraToolsModal,"disabled:"+id,!state.Current||state.Pending!=null);
             }
             foreach(int handle in new[]{-1,1})
@@ -100,7 +102,7 @@ public sealed partial class TheatrePlaybackPagePresenter
             lanes.Add(new(channel,lane));
             void Add(string id,uint frame,int handle)
             {if(CurveBounds(id,out var box)&&box.Inside(lane)&&box.Inside(clip))controls.Add(new(id,frame,channel,handle,box,lane,_curveRanges[channel].Min,_curveRanges[channel].Max));}
-            for(int i=0;i<state.Context.Camera.Keys.Length;i++)Add($"replay_camera_curve_key_{channel}_{i}",state.Context.Camera.Keys[i].Frame,0);
+            for(int i=0;i<_curveVisibleKeys.Length;i++)Add($"replay_camera_curve_key_{channel}_{i}",_curveVisibleKeys[i].Frame,0);
             if(state.Focus is{} key){Add("replay_camera_curve_in_"+channel,key.Frame,-1);Add("replay_camera_curve_out_"+channel,key.Frame,1);}
         }
         return _preparedCurves=new(_cameraToolsModal,state.Context,metrics,clip,controls.ToImmutable(),lanes.ToImmutable());
@@ -202,7 +204,10 @@ public sealed partial class TheatrePlaybackPagePresenter
         }
         var point=metrics.Pixels(x,y);if(!drag.Ticket.Clip.Contains(point.X,point.Y)){ReleaseCameraCurveInput();return;}
         float delta=(float)(-(y-drag.Y)*metrics.FramebufferHeight/metrics.ClientHeight/Math.Max(1,drag.Control.Lane.Height-8)*(drag.Control.Maximum-drag.Control.Minimum));
-        _curveDrag=drag with{Delta=delta};PresentCameraTools();
+        _curveDrag=drag with{Delta=delta};
+        if(_cameraTools.MemoryEditing&&_cameraTools.Curve(new(drag.Control.Channel,drag.Control.Handle,delta)))
+            _cameraTools.PreviewChange(TheatreCameraToolsChange.Curve);
+        PresentCameraTools();
     }
     private static TimelineBox CurveSelectionRectangle(CurveBoxDrag drag)
         =>new(Math.Min(drag.X,drag.EndX),Math.Min(drag.Y,drag.EndY),Math.Abs(drag.EndX-drag.X),Math.Abs(drag.EndY-drag.Y));
@@ -217,7 +222,7 @@ public sealed partial class TheatrePlaybackPagePresenter
     }
     internal void ReleaseCameraCurveInput()
     {
-        _curveBox=null;_curveDrag=null;_preparedCurves=null;_presentedCurves=null;
+        if(_curveDrag!=null)_cameraTools?.CancelPreview();_curveBox=null;_curveDrag=null;_preparedCurves=null;_presentedCurves=null;
         if(_cameraToolsModal!=default&&_host.IsAlive(_cameraToolsModal))
             for(int channel=0;channel<5;channel++)_host.SetBool(_cameraToolsModal,"visible:replay_camera_curve_selection_"+channel,false);
     }

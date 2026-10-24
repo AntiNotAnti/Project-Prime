@@ -24,7 +24,7 @@ namespace MphRead
         Artifact = 17,
         CameraSequence = 18,
         ForceField = 19,
-        // 20 = missing?
+        Payload = 20, // Runtime-only authored moving cover; never a native ROM entity.
         BeamEffect = 21,
         Bomb = 22,
         EnemyInstance = 23,

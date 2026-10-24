@@ -45,13 +45,13 @@ internal static partial class RmlUiOpenGlSmoke
             ulong mapHash=DemoPlayback.Metadata?.MapHash??0;
             var players=(DemoPlayback.Metadata?.Players??Array.Empty<ReplayPlayerInfo>()).ToImmutableArray();
             // Snapshot only bounded, already-reviewed sidecars. Never copy an arbitrary live file tree.
-            var camera=ReplayReviewedMetadata.Read(context.LogicalPath+".camera",8192);
+            var camera=ReplayReviewedMetadata.Read(context.LogicalPath+".camera",ReplayCameraTrack.MaxSidecarBytes);
             var annotations=files.Annotations;var reel=files.Reel;
             byte[]? portableCamera=null;string? portableMap=null;
             if(options.Tool==TheatreStudioTool.PortableBundle)
             {
                 var track=new ReplayCameraTrack();if(!track.Load(context.LogicalPath))throw new InvalidDataException(track.LastError);portableCamera=track.ExportState();
-                if(ReplayReviewedMetadata.Read(camera.Path,8192).Revision!=camera.Revision)throw new IOException("Camera changed while preparing bundle.");
+                if(ReplayReviewedMetadata.Read(camera.Path,ReplayCameraTrack.MaxSidecarBytes).Revision!=camera.Revision)throw new IOException("Camera changed while preparing bundle.");
                 if(mapIdentity is{} required&&CustomRooms.Installed.TryGet(required.MapId,out var installed)&&installed.Identity.Matches(required))portableMap=installed.PackagePath;
             }
             BuildEvidence? evidence=null;

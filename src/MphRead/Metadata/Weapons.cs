@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MphRead.Entities;
 
 namespace MphRead
@@ -154,9 +155,9 @@ namespace MphRead
         public byte Padding21 { get; }
         public ushort MinCharge { get; }
         public ushort FullCharge { get; }
-        public ushort AmmoCost { get; }
-        public ushort MinChargeCost { get; }
-        public ushort ChargeCost { get; }
+        public ushort AmmoCost { get; private set; }
+        public ushort MinChargeCost { get; private set; }
+        public ushort ChargeCost { get; private set; }
         public ushort UnchargedDamage { get; }
         public ushort MinChargeDamage { get; }
         public ushort ChargedDamage { get; }
@@ -215,11 +216,112 @@ namespace MphRead
         public ushort SmokeDrain { get; } // reduce level by this amount each frame (or bring it to 0)
         public ushort SmokeShotAmount { get; } // increase level by this amount when firing uncharged shot
         public ushort SmokeChargeAmount { get; } // increase level by this amount each frame while charging
+        internal WeaponInfo WithAmmoCosts(ushort cost, ushort minCharge, ushort charge)
+        {
+            var result = (WeaponInfo)MemberwiseClone();
+            result.AmmoCost = cost; result.MinChargeCost = minCharge; result.ChargeCost = charge;
+            return result;
+        }
 
-        public string Name => Metadata.WeaponNames[(int)Beam];
+
+        private string? _modeName;
+        public string Name => _modeName ?? Metadata.WeaponNames[(int)Beam];
         public WeaponInfo? UnchargedRicochetWeapon => _unchargedRicoWeaponIdx == -1 ? null : Weapons.Ricochets[_unchargedRicoWeaponIdx];
         public WeaponInfo? ChargedRicochetWeapon => _chargedRicoWeaponIdx == -1 ? null : Weapons.Ricochets[_chargedRicoWeaponIdx];
         public string Description { get; }
+
+
+        /// <summary>Isolated immutable CTZ rows; normal and single-player tables remain untouched.</summary>
+        internal WeaponInfo ForHeroMode(bool aether)
+        {
+            var weapon = new WeaponInfo(
+                beam: Beam,
+                beamKind: BeamKind,
+                drawFuncIds: DrawFuncIds.ToArray(),
+                colors: Colors.ToArray(),
+                priority: Priority,
+                flags: aether ? (Flags | WeaponFlags.CanCharge) & ~WeaponFlags.PartialCharge : Flags & ~WeaponFlags.CanCharge,
+                splashDamage: aether ? (ushort)0 : (ushort)4,
+                minChargeSplashDamage: aether ? (ushort)0 : (ushort)4,
+                chargedSplashDamage: aether ? (ushort)0 : (ushort)4,
+                splashDmgTypes: SplashDamageTypes.ToArray(),
+                shotCooldown: aether ? (byte)6 : (byte)12,
+                autofireCooldown: aether ? (byte)6 : (byte)12,
+                ammoType: AmmoType,
+                colEffects: CollisionEffects.ToArray(),
+                muzzleEffects: MuzzleEffects.ToArray(),
+                dmgDirTypes: DmgDirTypes.ToArray(),
+                dmgInterp: DamageInterpolations.ToArray(),
+                afflictions: Afflictions.ToArray(),
+                padding21: Padding21,
+                minCharge: aether ? (ushort)12 : (ushort)0,
+                // The native gun animation divides by the charge range even for non-charge weapons.
+                fullCharge: aether ? (ushort)24 : (ushort)1,
+                ammoCost: AmmoCost,
+                minChargeCost: MinChargeCost,
+                chargeCost: ChargeCost,
+                unchargedDamage: aether ? (ushort)20 : (ushort)14,
+                minChargeDamage: aether ? (ushort)35 : (ushort)14,
+                chargedDamage: aether ? (ushort)60 : (ushort)14,
+                headshotDamage: aether ? (ushort)24 : (ushort)14,
+                minChargeHeadshotDamage: aether ? (ushort)42 : (ushort)14,
+                chargedHeadshotDamage: aether ? (ushort)72 : (ushort)14,
+                unchargedLifespan: UnchargedLifespan,
+                minChargeLifespan: MinChargeLifespan,
+                chargedLifespan: ChargedLifespan,
+                speedDecay: SpeedDecayTimes.ToArray(),
+                padding42: Padding42,
+                speedInterp: SpeedInterpolations.ToArray(),
+                unchargedDmgDirMag: aether ? 0 : 819,
+                minChargeDmgDirMag: aether ? 0 : 819,
+                chargedDmgDirMag: aether ? 0 : 819,
+                zoomFov: ZoomFov,
+                unchargedCylRadius: UnchargedCylRadius,
+                minChargeCylRadius: MinChargeCylRadius,
+                chargedCylRadius: ChargedCylRadius,
+                unchargedSpeed: aether ? 6144 : 12288,
+                minChargeSpeed: aether ? 8192 : 12288,
+                chargedSpeed: aether ? 10240 : 12288,
+                unchargedFinalSpeed: aether ? 6144 : 12288,
+                minChargeFinalSpeed: aether ? 8192 : 12288,
+                chargedFinalSpeed: aether ? 10240 : 12288,
+                unchargedGravity: 0,
+                minChargeGravity: 0,
+                chargedGravity: 0,
+                unchargedHoming: 0,
+                minChargeHoming: 0,
+                chargedHoming: 0,
+                homingRange: HomingRange,
+                homingTolerance: HomingTolerance,
+                unchargedSplashRadius: UnchargedSplashRadius,
+                minChargeSplashRadius: MinChargeSplashRadius,
+                chargedSplashRadius: ChargedSplashRadius,
+                unchargedDistance: UnchargedDistance,
+                minChargeDistance: MinChargeDistance,
+                chargedDistance: ChargedDistance,
+                unchargedSpread: UnchargedSpread,
+                minChargeSpread: MinChargeSpread,
+                chargedSpread: ChargedSpread,
+                unRicoLossH: UnchargedRicochetLossH,
+                minRicoLossH: MinChargeRicochetLossH,
+                chRicoLossH: ChargedRicochetLossH,
+                unRicoLossV: UnchargedRicochetLossV,
+                minRicoLossV: MinChargeRicochetLossV,
+                chRicoLossV: ChargedRicochetLossV,
+                projectileCount: (ushort)1,
+                minChargedProjectileCount: (ushort)1,
+                chargeProjectileCount: (ushort)1,
+                smokeStart: SmokeStart,
+                smokeMinimum: SmokeMinimum,
+                smokeDrain: SmokeDrain,
+                smokeShotAmount: SmokeShotAmount,
+                smokeChargeAmount: SmokeChargeAmount,
+                description: aether ? "Aether Pulse: mode-exclusive charged energy primary." : "Hero Battlehammer: timed straight three-round burst.",
+                unchargedRicoWeaponIdx: _unchargedRicoWeaponIdx,
+                chargedRicoWeaponIdx: _chargedRicoWeaponIdx);
+            weapon._modeName = aether ? "Aether Pulse" : "Battlehammer Burst";
+            return weapon;
+        }
 
         public WeaponInfo(BeamType beam, BeamType beamKind, byte[] drawFuncIds, ushort[] colors, byte priority, WeaponFlags flags,
             ushort splashDamage, ushort minChargeSplashDamage, ushort chargedSplashDamage, byte[] splashDmgTypes, byte shotCooldown,

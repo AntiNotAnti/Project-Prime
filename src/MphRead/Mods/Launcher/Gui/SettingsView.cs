@@ -146,10 +146,13 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _textureQualityRow = null!;
         private ChoiceRow _graphicsPresetRow = null!;
         private ToggleRow _advancedMaterialsRow = null!;
+        private ToggleRow _linearColorRow = null!;
         private ToggleRow _showCosmeticsRow = null!;
         private ChoiceRow _cosmeticQualityRow = null!;
         private ChoiceRow _shadowQualityRow = null!;
         private ToggleRow _textureReplacementsRow = null!;
+        private ToggleRow _videoTexturesRow = null!;
+        private SliderRow _videoTextureMemoryRow = null!;
         private ToggleRow _characterModelReplacementsRow = null!;
         private ToggleRow _celRow = null!;
         private SliderRow _celBandsRow = null!;
@@ -235,13 +238,10 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private SliderRow _fpsLimitRow = null!;
         private SliderRow _fovRow = null!;
-        private ToggleRow _proHud = null!;
         private ToggleRow _smoothNativeHud = null!;
         private ToggleRow _detailedCampaignMap = null!;
         private ToggleRow? _originalCampaignCredits;
         private ToggleRow _killFeed = null!;
-        private ChoiceRow _crosshairSizeRow = null!;
-        private ChoiceRow _crosshairStyleRow = null!;
         private ChoiceRow _weaponStyleRow = null!;
         private ToggleRow _radarRow = null!;
         private ToggleRow _radarBackgroundRow = null!;
@@ -261,6 +261,7 @@ namespace MphRead.Mods.Launcher.Gui
         private int _audioPageIndex;
         private ChoiceRow _languageRow = null!;
         private SliderRow _sensitivity = null!;
+        private DecimalSliderRow _horizontalSensitivity=null!, _verticalSensitivity=null!, _stylusHorizontalSensitivity=null!, _stylusVerticalSensitivity=null!;
         private SliderRow _imperialistZoomSensitivity = null!;
         private SliderRow _imperialistZoomAmount = null!;
         private ToggleRow _customScopeHold = null!;
@@ -428,7 +429,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             var footer = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+                ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto,Auto"),
                 ColumnSpacing = 10
             };
             var back = new HubNavButton(shell ? "DISCARD" : "BACK", compact: true);
@@ -448,8 +449,15 @@ namespace MphRead.Mods.Launcher.Gui
             var save = new PrimeButton(shell ? "APPLY CHANGES" : inGame ? "APPLY" : "SAVE", primary: true);
             ControllerNav.Identify(save, "settings.detail.save");
             save.Click += (_, _) => TryCommit();
-            Grid.SetColumn(save, 2);
+            Grid.SetColumn(save, 3);
             footer.Children.Add(save);
+            if (inGame)
+            {
+                var preview = new PrimeButton("PREVIEW");
+                preview.Click += (_, _) => PreviewDraft();
+                ToolTip.SetTip(preview,"Try gameplay settings for 60 seconds. Escape returns here. Window mode, profile, storage and restart-only settings require Apply.");
+                Grid.SetColumn(preview,2); footer.Children.Add(preview);
+            }
             Grid.SetRow(footer, 2);
             contentRoot.Children.Add(footer);
 
@@ -1467,7 +1475,7 @@ namespace MphRead.Mods.Launcher.Gui
             // -nohelmet still sets two of them -- they simply are not asked
             // about here.
             Heading(page, "HUD");
-            var editHud = new HubNavButton("EDIT HUD", compact: true);
+            var editHud = new HubNavButton("CUSTOM HUD", compact: true);
             editHud.Click += (_, _) =>
             {
                 object? previous = Content;
@@ -1477,19 +1485,25 @@ namespace MphRead.Mods.Launcher.Gui
                     Content = previous;
                     if (profile == null) return;
                     _hudDraft = profile;
-                    _proHud.On = profile.Mode != Mods.Render.Hud.HudMode.Classic;
+                    _stylusGuideColor=profile.AccentColor;_stylusGuideColorEditor?.Apply(_stylusGuideColor);
                     _killFeed.On = profile.Elements["combat.killFeed"].Enabled;
                     _radarRow.On = profile.Elements["core.radar"].Enabled;
                     _radarBackgroundRow.On = profile.RadarBackground;
                     _radarOutlinesRow.On = profile.RadarOutlines;
                     _weaponStyleRow.Index = profile.FixedWeapon ? 0 : 1;
                     ShowCrosshairRows();
-                });
+                }, preview:_inGame ? PreviewHud : null);
             };
             page.Children.Add(editHud);
+            var editCrosshair=new HubNavButton("CUSTOM CROSSHAIR",compact:true);
+            editCrosshair.Click+=(_,_)=>
+            {
+                object? previous=Content;
+                Content=new HudStudioView(_hudDraft??Mods.Render.Hud.HudProfiles.CopyCurrent(),profile=> { Content=previous;if(profile!=null){_hudDraft=profile;_stylusGuideColor=profile.AccentColor;_stylusGuideColorEditor?.Apply(_stylusGuideColor);} },crosshairOnly:true, preview:_inGame ? PreviewHud : null);
+            };
+            page.Children.Add(editCrosshair);
             if (Mods.Render.Hud.HudProfiles.LoadWarning is string hudWarning) Explain(page, hudWarning);
 
-            _proHud = Add(page, new ToggleRow("Pro mode HUD", Features.ProHud));
             _smoothNativeHud = Add(page, new ToggleRow("Smooth native HUD",
                 RenderOptions.SmoothNativeHud));
             Explain(page, "Smooth native HUD uses filtered sampling for the original DS reticle, meters and weapon-menu sprites when they are enlarged on modern displays. Turn it off for the original hard pixel edges.");
@@ -1502,18 +1516,6 @@ namespace MphRead.Mods.Launcher.Gui
             }
             _killFeed = Add(page, new ToggleRow("Kill feed", Features.KillFeedEnabled));
             Explain(page, "Shows confirmed match deaths with attacker, weapon or cause, victim, headshots and team kills.");
-            // Size applies to both the original DS reticle and the Pro/custom
-            // crosshair. Type and weapon behavior remain Pro-mode choices.
-            _crosshairSizeRow = Add(page, new ChoiceRow("Crosshair size",
-                Crosshair.SizeNames, (int)Crosshair.Size));
-            Explain(page, "Size applies to both the original DS reticle and Pro mode crosshairs.");
-            _crosshairStyleRow = Add(page, new ChoiceRow("Crosshair type",
-                Crosshair.StyleNames, (int)Crosshair.Style));
-            _crosshairStyleRow.Preview = (context, area) => CrosshairPreview.Draw(context, area,
-                (CrosshairStyle)_crosshairStyleRow.Index, (CrosshairSize)_crosshairSizeRow.Index);
-            // The preview lives on the type row and answers both rows, so the
-            // size row has to ask for it to be repainted.
-            _crosshairSizeRow.Changed += (_, _) => _crosshairStyleRow.InvalidateVisual();
             // Where the gun sits, which is the one Pro-mode question with two
             // real answers rather than a right one. Static is Quake's: the
             // weapon and crosshair are welded to the camera. Dynamic keeps
@@ -1523,10 +1525,9 @@ namespace MphRead.Mods.Launcher.Gui
             // readouts remain screen-locked in both styles. Pro mode has always
             // drawn Static by default; Dynamic remains an optional presentation
             // choice without changing mouse/controller response.
-            _weaponStyleRow = Add(page, new ChoiceRow("Weapon",
+            _weaponStyleRow = Add(page, new ChoiceRow("Weapon presentation",
                 new[] { "Static (Quake)", "Dynamic (Metroid)" },
                 Features.ProHudFixedWeapon ? 0 : 1));
-            _proHud.Changed += (_, _) => ShowCrosshairRows();
             ShowCrosshairRows();
 
             // Independent of Pro mode: a round overlay under the FPS counter
@@ -1584,7 +1585,7 @@ namespace MphRead.Mods.Launcher.Gui
             _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
                 new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
                 (int)RenderOptions.Preset));
-            Explain(page, "Quality presets adjust native texture sampling and render resolution only. They no longer enable experimental post-processing, color changes or hidden GPU passes.");
+            Explain(page, "Enhanced and higher enable available HQ textures. Ultra uses 150% render scale and 16x sampling; Extreme uses 200%. No preset enables shadows or experimental post effects. HQ assets must actually exist to add texture detail.");
 
             Heading(page, "Rendering");
             Explain(page, "100% is native. 200%, 400% and 800% are true 2x, 4x and 8x internal dimensions. If that exceeds the GPU's render-target limit, Project Prime automatically fits the largest aspect-correct target the driver supports.");
@@ -1615,20 +1616,27 @@ namespace MphRead.Mods.Launcher.Gui
                 (int)RenderOptions.TextureUpscale));
             _textureReplacementsRow = Add(page, new ToggleRow("HD texture replacements",
                 RenderOptions.TextureReplacements));
+            _videoTexturesRow = Add(page, new ToggleRow("Map video textures", RenderOptions.VideoTextures));
+            _videoTextureMemoryRow = Add(page, new SliderRow("Video playback memory",
+                RenderOptions.VideoTextureMemoryMiB, v => $"{v} MiB", min: 64, max: 4096, keyStep: 64));
+            Explain(page, "Video materials play at their authored resolution independently of HD replacements and the static HD resolution tier. Repeated surfaces share playback. Admission counts fixed frame queues, GPU mip chains and measured decoder memory (32 MiB reserved before measurement). Driver and other game overhead are additional. Failures are recorded in video-textures-last.json in the user-data folder and the session log.");
+            Explain(page, Mods.Render.MapVideoDiagnostics.Summary);
             _characterModelReplacementsRow = Add(page, new ToggleRow("HD character models",
                 RenderOptions.CharacterModelReplacements));
             Explain(page, "HD character models use validated local GLB replacements from character-models/default. They are presentation-only: native animation, hitboxes, collision, networking and replays remain authoritative, with automatic native fallback.");
             _textureQualityRow = Add(page, new ChoiceRow("HD asset resolution",
                 new[] { "Automatic", "Low (1K)", "Medium (2K)", "High (4K)", "Ultra (8K)" },
                 (int)RenderOptions.TextureQuality));
-            Explain(page, "Scale2x/4x enlarges cartridge art. HD asset resolution controls authored map/material, hunter, weapon, alternate-form, turret and effect textures. All authored textures clamp to the GPU limit; cosmetic assets also use a residency budget.");
+            Explain(page, "Filtering controls always affect cartridge textures; select Custom HD sampling to apply them to HQ assets. HD tiers cap supplied images; they cannot add detail beyond the source. Scale2x/4x changes pixel-art edges without inventing detail. Render scale is quadratic: 200% draws 4x as many pixels, 400% draws 16x, and 800% draws 64x.");
             _filteringRow.Changed += (_, _) => ShowTextureQualityRows();
+            _textureSamplingRow.Changed += (_, _) => ShowTextureQualityRows();
             ShowTextureQualityRows();
 
             Heading(page, "Native lighting and shadows");
             _lightingRow = Add(page, new ToggleRow("Original lighting", RenderOptions.Lighting));
             _advancedMaterialsRow = Add(page, new ToggleRow("Advanced material maps",
                 RenderOptions.AdvancedMaterials));
+            _linearColorRow = Add(page, new ToggleRow("Linear world color (next scene)", RenderOptions.LinearColor));
             _shadowQualityRow = Add(page, new ChoiceRow("Directional shadows",
                 new[] { "Off", "Low", "High", "Ultra" }, (int)RenderOptions.Shadows));
             Explain(page, "Original world lighting and authored surface textures are preserved. Optional directional shadows are independently controlled; experimental bloom, temporal AA, HDR, AO, screen-space reflections, PBR and fog overlays have been retired.");
@@ -1659,10 +1667,13 @@ namespace MphRead.Mods.Launcher.Gui
             if (profile == null) return;
             _resolutionScale.Value = profile.ResolutionScale;
             _advancedMaterialsRow.On = profile.AdvancedMaterials;
+            if (preset == GraphicsPreset.Original) _linearColorRow.On = false;
             _shadowQualityRow.Index = (int)profile.Shadows;
             _lightingRow.On = profile.Lighting;
             _fogRow.On = profile.Fog;
             _filteringRow.On = profile.TextureFiltering;
+            _textureReplacementsRow.On = profile.TextureReplacements;
+            _textureSamplingRow.Index = (int)profile.TextureSampling;
             _mipmapRow.On = profile.TextureMipmaps;
             _textureUpscaleRow.Index = (int)profile.TextureUpscale;
             _anisotropyRow.Index = AnisotropyIndex(profile.TextureAnisotropy);
@@ -1676,6 +1687,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void ShowTextureQualityRows()
         {
+            // These always affect cartridge textures; authored assets only use them
+            // in Custom mode. Make that distinction visible rather than silently ignoring edits.
             _mipmapRow.IsVisible = _filteringRow.On;
             _anisotropyRow.IsVisible = _filteringRow.On;
         }
@@ -1688,10 +1701,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void ShowCrosshairRows()
         {
-            bool custom = (_hudDraft?.Mode ?? Mods.Render.Hud.HudProfiles.Runtime.Mode) == Mods.Render.Hud.HudMode.Custom;
-            _crosshairSizeRow.IsVisible = !custom || !_proHud.On;
-            _crosshairStyleRow.IsVisible = _proHud.On && !custom;
-            _weaponStyleRow.IsVisible = _proHud.On;
+            _weaponStyleRow.IsVisible = true;
         }
 
         private void ShowRadarRows()
@@ -1992,6 +2002,9 @@ namespace MphRead.Mods.Launcher.Gui
                 SensitivityToSlider(InputSettings.MouseSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
                 min: 1, max: 300, keyStep: 1));
+            _horizontalSensitivity=Add(page,new DecimalSliderRow("Horizontal sensitivity",InputSettings.HorizontalSensitivity,.01f,3f,.01f,"x base"));
+            _verticalSensitivity=Add(page,new DecimalSliderRow("Vertical sensitivity",InputSettings.VerticalSensitivity,.01f,3f,.01f,"x base"));
+            Explain(page,"These separate axes multiply the base sensitivity above. 1.00x preserves your current feel. Mouse and stylus share these values; controller tuning is separate.");
             _imperialistZoomSensitivity = Add(page, new SliderRow("Imperialist zoom sensitivity",
                 SensitivityToSlider(InputSettings.ImperialistZoomSensitivity),
                 v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
@@ -2062,6 +2075,7 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (PropertyInfo property in InputSettings.Bindings)
             {
                 rows.Add(Add(page, new KeyRow(property)));
+                if (property.Name == "Zoom") page.Children.Add(new Note(Mods.HeroModes.CtfRules.ZoomDescription));
             }
             _keyRows = rows;
         }
@@ -2178,6 +2192,13 @@ namespace MphRead.Mods.Launcher.Gui
         {
             Heading(page, "Pen tablet");
             _penTablet = Add(page, new ToggleRow("Stylus mode", Mods.Input.PointerInput.StylusMode));
+            _stylusHorizontalSensitivity=Add(page,new DecimalSliderRow("Horizontal sensitivity",InputSettings.HorizontalSensitivity,.01f,3f,.01f,"x base"));
+            _stylusVerticalSensitivity=Add(page,new DecimalSliderRow("Vertical sensitivity",InputSettings.VerticalSensitivity,.01f,3f,.01f,"x base"));
+            _stylusHorizontalSensitivity.ValueChanged+=(_,_)=>_horizontalSensitivity.Value=_stylusHorizontalSensitivity.Value;
+            _stylusVerticalSensitivity.ValueChanged+=(_,_)=>_verticalSensitivity.Value=_stylusVerticalSensitivity.Value;
+            _horizontalSensitivity.ValueChanged+=(_,_)=>_stylusHorizontalSensitivity.Value=_horizontalSensitivity.Value;
+            _verticalSensitivity.ValueChanged+=(_,_)=>_stylusVerticalSensitivity.Value=_verticalSensitivity.Value;
+            Explain(page,"Horizontal turns left/right; vertical looks up/down. These multiply Mouse base sensitivity and stay synchronized with its axis sliders. 1.00x preserves your current aiming feel.");
             BuildStylusZone(page);
             _penTablet.Changed += (_, _) => ShowStylusRows();
             ShowStylusRows();
@@ -2207,6 +2228,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 InputSettings.Reset();
                 _sensitivity.Value = SensitivityToSlider(InputSettings.MouseSensitivity);
+                _horizontalSensitivity.Value=InputSettings.HorizontalSensitivity;_verticalSensitivity.Value=InputSettings.VerticalSensitivity;
                 _imperialistZoomSensitivity.Value = SensitivityToSlider(InputSettings.ImperialistZoomSensitivity);
                 _imperialistZoomAmount.Value = (int)MathF.Round(InputSettings.ImperialistZoomAmount * 100);
                 _customScopeHold.On = InputSettings.CustomScopeHold;
@@ -2220,6 +2242,12 @@ namespace MphRead.Mods.Launcher.Gui
                 if (_mouseAltFormMovement != null) _mouseAltFormMovement.On = InputSettings.MouseAltFormMovement;
                 if (_stylusMovementBoost != null) _stylusMovementBoost.On = InputSettings.StylusMovementBoost;
                 _penTablet.On = Mods.Input.PointerInput.StylusMode;
+                if (_dsLayout != null) _dsLayout.On = Mods.Input.DsLayout.Enabled;
+                if (_dsAspect != null) _dsAspect.Index = Mods.Input.DsLayout.ScreenAspect == "5:3" ? 1 : 0;
+                if (_dsRadarSize != null) _dsRadarSize.Value = Mods.Input.DsLayout.RadarSize*100;
+                if (_dsRadarX != null) _dsRadarX.Value = Mods.Input.DsLayout.RadarX*100;
+                if (_dsRadarY != null) _dsRadarY.Value = Mods.Input.DsLayout.RadarY*100;
+                if (_dsSelectSize != null) _dsSelectSize.Value = Mods.Input.StylusZone.SelectSize*100;
                 if (_repositionFilter != null) _repositionFilter.On = Mods.Input.PointerInput.GuardJumps;
                 if (_stylusZone != null)
                 {
@@ -2289,6 +2317,9 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly List<(Mods.Input.TouchControl Control, ToggleRow Row)> _touchRows = new();
 
         private ToggleRow? _stylusZone;
+        private ToggleRow? _dsLayout;
+        private ChoiceRow? _dsAspect;
+        private DecimalSliderRow? _dsRadarSize, _dsSelectSize, _dsRadarX, _dsRadarY;
         private ToggleRow? _stylusNativeUi;
         private SliderRow? _stylusNativeUiOpacity;
         private SliderRow? _stylusCursorOpacity;
@@ -2310,6 +2341,16 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (OperatingSystem.IsAndroid()) return;
 
+            _dsLayout = Add(page, new ToggleRow("DS Layout — stacked screens", Mods.Input.DsLayout.Enabled));
+            _stylusRows.Add(_dsLayout);
+            _dsAspect = Add(page, new ChoiceRow("Screen aspect ratio", new[] { "4:3", "5:3" }, Mods.Input.DsLayout.ScreenAspect == "5:3" ? 1 : 0));
+            _stylusRows.Add(_dsAspect);
+            _dsRadarSize = Add(page, new DecimalSliderRow("Bottom-screen radar size", Mods.Input.DsLayout.RadarSize*100, 25f, 300f, .1f, "%"));
+            _dsSelectSize = Add(page, new DecimalSliderRow("Weapon-selection button size", Mods.Input.StylusZone.SelectSize*100, 50f, 109.09f, .1f, "%"));
+            _dsRadarX = Add(page, new DecimalSliderRow("Bottom-screen radar horizontal position", Mods.Input.DsLayout.RadarX*100, 0f, 100f, .1f, "%"));
+            _dsRadarY = Add(page, new DecimalSliderRow("Bottom-screen radar vertical position", Mods.Input.DsLayout.RadarY*100, 0f, 100f, .1f, "%"));
+            _stylusRows.Add(_dsRadarX); _stylusRows.Add(_dsRadarY);
+            _stylusRows.Add(_dsRadarSize); _stylusRows.Add(_dsSelectSize);
             _stylusZone = Add(page, new ToggleRow("DS touch-screen zone", Mods.Input.StylusZone.Wanted));
             _stylusRows.Add(_stylusZone);
 
@@ -2349,11 +2390,13 @@ namespace MphRead.Mods.Launcher.Gui
                 (int)MathF.Round(Mods.Input.StylusZone.ButtonOpacity * 100),
                 v => $"{v}%", min: 0, max: 100, keyStep: 5));
             _stylusGuideColor = Mods.Input.StylusZone.GuideColor;
-            _stylusGuideColorEditor = new HudColorEditor("Guide", _stylusGuideColor,
+            _stylusGuideColorEditor = new HudColorEditor("Bottom-screen", _stylusGuideColor,
                 color => _stylusGuideColor = color);
-            _stylusAdvanced.Children.Add(_stylusGuideColorEditor);
+            page.Children.Add(_stylusGuideColorEditor);
+            _stylusRows.Add(_stylusGuideColorEditor);
             _stylusAdvanced.Children.Add(new Note(
-                "Native UI draws the hunter's original DS lower screen and automatically swaps "
+                "Stacked-screen mode uses the approved blue HUD with a centered radar. Copy a Pro HUD hex color "
+                + "into Bottom-screen color to match it. Native UI applies to the overlay only and swaps "
                 + "to the alt-form and weapon-select artwork. The guide rectangle and circular "
                 + "buttons are used only when native art is off or unavailable; placement always "
                 + "keeps a visible guide. Guide color tints the fallback rectangle, buttons and "
@@ -2954,11 +2997,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
-        private void Commit()
+        private void Commit(bool preview = false)
         {
             if (Settings.SettingsPersistence.RestartRequired) return;
             // Display
-            if (_windowRow != null)
+            if (!preview && _windowRow != null)
             {
                 LauncherPrefs.WindowMode = (WindowStartMode)_windowRow.Index;
                 WindowMode.Startup = LauncherPrefs.WindowMode;
@@ -3001,12 +3044,15 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
                 .ToString().ToLowerInvariant();
             _settings.AdvancedMaterials = RenderOptions.OnOff(_advancedMaterialsRow.On);
+            _settings.LinearColor = RenderOptions.OnOff(_linearColorRow.On);
             _settings.ShadowQuality = ((ShadowQuality)Math.Clamp(_shadowQualityRow.Index, 0, 3))
                 .ToString().ToLowerInvariant();
             SettingsMigration.ResetRetiredPostProcessing(_settings);
             _settings.ShowCustomCosmetics = RenderOptions.OnOff(_showCosmeticsRow.On);
             _settings.CosmeticQuality = ((Cosmetics.CosmeticEffectQuality)Math.Clamp(_cosmeticQualityRow.Index, 0, 3)).ToString().ToLowerInvariant();
             _settings.TextureReplacements = RenderOptions.OnOff(_textureReplacementsRow.On);
+            _settings.VideoTextures = RenderOptions.OnOff(_videoTexturesRow.On);
+            _settings.VideoTextureMemoryMiB = _videoTextureMemoryRow.Value.ToString(CultureInfo.InvariantCulture);
             _settings.CharacterModelReplacements = RenderOptions.OnOff(_characterModelReplacementsRow.On);
             _settings.TextureUpscale = ((TextureUpscaleMode)Math.Clamp(_textureUpscaleRow.Index, 0, 2))
                 .ToString().ToLowerInvariant();
@@ -3028,10 +3074,7 @@ namespace MphRead.Mods.Launcher.Gui
             CancelOutlineColorPreview();
             if (_outlineDraft != null)
                 OutlineColorPalette.Publish(_outlineDraft);
-            Features.ProHud = _proHud.On;
             Features.KillFeedEnabled = _killFeed.On;
-            Crosshair.Size = (CrosshairSize)_crosshairSizeRow.Index;
-            Crosshair.Style = (CrosshairStyle)_crosshairStyleRow.Index;
             Features.ProHudFixedWeapon = _weaponStyleRow.Index == 0;
             Radar.Enabled = _radarRow.On;
             Radar.ShowBackground = _radarBackgroundRow.On;
@@ -3055,6 +3098,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             // Controls
             InputSettings.MouseSensitivity = SliderToSensitivity(_sensitivity.Value);
+            InputSettings.HorizontalSensitivity=_horizontalSensitivity.Value;InputSettings.VerticalSensitivity=_verticalSensitivity.Value;
             InputSettings.ImperialistZoomSensitivity = SliderToSensitivity(_imperialistZoomSensitivity.Value);
             InputSettings.ImperialistZoomAmount = _imperialistZoomAmount.Value / 100f;
             InputSettings.CustomScopeHold = _customScopeHold.On;
@@ -3072,6 +3116,12 @@ namespace MphRead.Mods.Launcher.Gui
             if (_stylusMovementBoost != null)
                 InputSettings.StylusMovementBoost = _stylusMovementBoost.On;
             Mods.Input.PointerInput.StylusMode = _penTablet.On;
+            if (_dsLayout != null) Mods.Input.DsLayout.Enabled = _dsLayout.On;
+            if (_dsAspect != null) Mods.Input.DsLayout.ScreenAspect = _dsAspect.Value;
+            if (_dsRadarSize != null) Mods.Input.DsLayout.RadarSize = _dsRadarSize.Value / 100f;
+            if (_dsRadarX != null) Mods.Input.DsLayout.RadarX = _dsRadarX.Value / 100f;
+            if (_dsRadarY != null) Mods.Input.DsLayout.RadarY = _dsRadarY.Value / 100f;
+            if (_dsSelectSize != null) Mods.Input.StylusZone.SelectSize = _dsSelectSize.Value / 100f;
             if (_repositionFilter != null)
                 Mods.Input.PointerInput.GuardJumps = _repositionFilter.On;
             if (_stylusZone != null)
@@ -3119,7 +3169,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Mods.Input.TouchSettings.ReplaceInstances(_touchEditor.CopyInstances());
                 }
             }
-            InputSettings.Save();
+            if (!preview) InputSettings.Save();
             // The players in the match already have their own copies of these.
             // In-game settings target the registry supplied by the owning match:
             // launcher previews and other side scenes may exist at the same time.
@@ -3130,6 +3180,20 @@ namespace MphRead.Mods.Launcher.Gui
             else
             {
                 InputSettings.ApplyToPlayers();
+            }
+            if (preview)
+            {
+                Mods.GameSettings.Apply(_settings);
+                var temporary = _hudDraft?.DeepClone() ?? Mods.Render.Hud.HudProfiles.CopyCurrent();
+                if (!_previewEditorDraft)
+                {
+                    temporary.AccentColor = _stylusGuideColor;
+                    temporary.FixedWeapon = Features.ProHudFixedWeapon;
+                    temporary.Elements["core.radar"].Enabled = Radar.Enabled;
+                    temporary.Elements["combat.killFeed"].Enabled = Features.KillFeedEnabled;
+                }
+                Mods.Render.Hud.HudProfiles.Publish(temporary);
+                return;
             }
             // Launcher preferences
             if (Network.PlayerNameCodec.ValidationError(_playerName.Value) == null)
@@ -3184,14 +3248,11 @@ namespace MphRead.Mods.Launcher.Gui
             if (_finalKillCamRow != null)
                 LauncherPrefs.FinalKillCamEnabled = _finalKillCamRow.On;
             var hud = _hudDraft?.DeepClone() ?? Mods.Render.Hud.HudProfiles.CopyCurrent();
-            hud.Mode = Features.ProHud ? (hud.Mode == Mods.Render.Hud.HudMode.Classic ? Mods.Render.Hud.HudMode.ProjectPrime : hud.Mode) : Mods.Render.Hud.HudMode.Classic;
             hud.FixedWeapon = Features.ProHudFixedWeapon;
             hud.NativeReticleOpacity = Features.ReticleOpacity;
             hud.Elements["core.radar"].Enabled = Radar.Enabled;
             hud.RadarBackground = Radar.ShowBackground; hud.RadarOutlines = Radar.ShowOutlines;
             hud.Elements["combat.killFeed"].Enabled = Features.KillFeedEnabled;
-            if (_hudDraft == null && (Crosshair.Style != _initialCrosshairStyle || Crosshair.Size != _initialCrosshairSize))
-                hud.Crosshair = Mods.Render.Hud.CrosshairProfile.FromLegacy(Crosshair.Style, Crosshair.Size);
             GameState.CommitSettings(_settings);
             LauncherPrefs.Save();
             Mods.Sound.CombatFeedbackAudio.Reload();

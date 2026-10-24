@@ -66,6 +66,8 @@ namespace MphRead.Mods
         /// </summary>
         public static void Request(Hunter hunter, int color)
         {
+            // CTZ reservations must be accepted by the host through its hero-selection view.
+            if (Mods.HeroModes.HeroRules.Active(GameState.Mode)) return;
             _hunter = Multiplayer.HunterRules.Resolve(hunter, GameState.LowTier);
             _color = PlayerColors.Clamp(color);
         }
@@ -82,6 +84,11 @@ namespace MphRead.Mods
             if (player != player.OwningScene.Players.Main || !player.OwningScene.GameState.Multiplayer)
             {
                 return;
+            }
+            if (Mods.HeroModes.HeroRules.Active(player.OwningScene.GameState.Mode))
+            {
+                _hunter = null; _color = null;
+                return; // Never apply a queued legacy selection outside the authoritative roster.
             }
             if (!_hunter.HasValue && !_color.HasValue)
             {

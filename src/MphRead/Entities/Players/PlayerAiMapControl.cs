@@ -237,7 +237,7 @@ public partial class PlayerEntity
             // The carrier's live position is friendly information, not wall
             // tracking. Never steal control while the bot is itself carrying.
             if (_scene.GameState.Teams
-                && (_scene.GameState.Mode is GameMode.Capture or GameMode.BountyTeams))
+                && (_scene.GameState.Mode is GameMode.Capture or GameMode.CaptureTheFlag or GameMode.BountyTeams))
             {
                 foreach (PlayerEntity ally in _scene.GetPlayerEntities())
                 {

@@ -1305,7 +1305,11 @@ namespace MphRead
         KillConfirmed = 20,
         KillConfirmedTeams = 21,
         Headhunter = 22,
-        OneInTheChamber = 23
+        OneInTheChamber = 23,
+        CaptureTheZone = 25,
+        PushThePayload = 26,
+        CaptureTheFlag = 24,
+        Oddball = 27,
     }
 
     [Flags]

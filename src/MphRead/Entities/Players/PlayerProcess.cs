@@ -64,7 +64,10 @@ namespace MphRead.Entities
         {
             Mods.Network.NetGrantNetwork.BeforePlayer(this);
             UpdateChamberFallback();
+            Vector3 ctzBefore = Position;
+            ModTickCtzSupport();
             bool result = ProcessPlayer();
+            ModEnforceCtzSpawnRoom(ctzBefore);
             if (Mods.EnhancedHunters.EnhancedHunters.LegacyReplay(_scene))
             {
                 Mods.EnhancedHunters.EnhancedHunters.OnPlayerFrame(this);
@@ -182,6 +185,7 @@ namespace MphRead.Entities
             {
                 Controls.ClearAll();
             }
+            if (Mods.HeroModes.PayloadRuntime.Locked(this)) { Controls.ClearAll(); Speed=Vector3.Zero; ModCancelHeroFire(); }
             PrevPosition = Position;
             PrevSpeed = Speed;
             Flags1 &= ~PlayerFlags1.AltFormPrevious;
@@ -212,6 +216,8 @@ namespace MphRead.Entities
             }
             if (_health == 0)
             {
+                if (_scene.GameState.Mode == GameMode.Oddball && _respawnTimer > 0 && IsMainPlayer && !Mods.Headless.Active)
+                    QueueHudMessage(128, 152, 1 / 1000f, 0, $"RESPAWNING IN {(_respawnTimer + 59) / 60}");
                 if (!Mods.Network.NetHooks.SuppressSpawn(this)
                     && _respawnTimer == 0 && EnemySpawner == null)
                 {
@@ -294,7 +300,7 @@ namespace MphRead.Entities
                         }
                         if (_scene.GameState.SinglePlayer || Controls.Shoot.IsDown
                             || _scene.PlayerReplication.RespawnRequested(SlotIndex) || time <= 0 || IsBot
-                            || Mods.Network.NetHooks.ForceSpawn(this)) // todo: or forced
+                            || Mods.Network.NetHooks.ForceSpawn(this) || MphRead.Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)) // todo: or forced
                         {
                             // todo?: something with wi-fi
                             // else...
@@ -608,7 +614,7 @@ namespace MphRead.Entities
             // check could reselect the same empty weapon every frame, looping
             // the switch/no-ammo sounds while never choosing a usable fallback.
             int ammo = ModAmmoForWeapon(CurrentWeapon, EquipInfo.Weapon);
-            if (CurrentWeapon != BeamType.PowerBeam && ammo >= 0
+            if (!EquipInfo.InfiniteAmmo && CurrentWeapon != BeamType.PowerBeam && ammo >= 0
                 && ammo < ModAmmoCostForWeapon(CurrentWeapon, EquipInfo.Weapon))
             {
                 BeamType fallback = BeamType.PowerBeam;
@@ -1440,6 +1446,7 @@ namespace MphRead.Entities
             distSqr *= distSqr;
             foreach (ItemInstanceEntity item in _scene.GetItemInstanceEntities())
             {
+                if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) && !Mods.HeroModes.HeroRules.AllowedPickup(item.ItemType)) continue;
                 if (item.TokenId > 0 || _scene.Services.IsReplica || !Mods.Network.NetHealthSync.OwnsPickup(item) || item.DespawnTimer == 0) continue;
                 bool inRange = false;
                 if (IsAltForm)
@@ -1805,6 +1812,10 @@ namespace MphRead.Entities
 
         private bool TrySwitchForms(bool force = false)
         {
+
+
+            // Forced/remote transformation must not bypass the carrier restriction.
+            if (ModCarryingCtfFlag && !IsAltForm) return false;
             if (!IsAltForm && _scene.GameState.Mode == GameMode.Relic && OctolithFlag != null) return false;
             if (!force && (IsMorphing || IsUnmorphing || _frozenTimer > 0 || _field6D0 || _deathaltTimer > 0
                     || Flags2.TestFlag(PlayerFlags2.NoFormSwitch)
@@ -2461,7 +2472,7 @@ namespace MphRead.Entities
             // --> shouldn't matter since spawn points are meant to be together in the entity list
             foreach (PlayerSpawnEntity candidate in _scene.GetPlayerSpawnEntities())
             {
-                if (limit >= 25)
+                if (limit >= 25 && _scene.GameState.Mode != GameMode.Oddball)
                 {
                     break;
                 }
@@ -2470,12 +2481,14 @@ namespace MphRead.Entities
                     limit++;
                     continue;
                 }
-                if (_scene.GameState.Mode == GameMode.Capture && candidate.Data.TeamIndex != -1
-                    && candidate.Data.TeamIndex != TeamIndex)
+                if ((_scene.GameState.Mode == GameMode.Capture || _scene.GameState.Mode == GameMode.CaptureTheZone) && candidate.Data.TeamIndex != -1
+                    && candidate.Data.TeamIndex != (_scene.GameState.Mode == GameMode.CaptureTheZone ? TeamIndex ^ ((_scene.CaptureZone.State.Round-1)&1) : TeamIndex))
                 {
                     limit++;
                     continue;
                 }
+                if (Mods.HeroModes.HeroRules.IsPayload(_scene.GameState.Mode) && !_scene.Payload.ValidSpawn(_scene,TeamIndex,candidate.Position))
+                { limit++; continue; }
                 float minDistSqr = 100;
                 foreach (PlayerEntity player in _scene.GetPlayerEntities())
                 {
@@ -2519,7 +2532,9 @@ namespace MphRead.Entities
                 // worse spawn, not a reason not to spawn.
                 foreach (PlayerSpawnEntity fallback in _scene.GetPlayerSpawnEntities())
                 {
-                    if (fallback.IsActive)
+                    if (fallback.IsActive && (_scene.GameState.Mode != GameMode.Oddball
+                        || fallback.Data.TeamIndex == -1 || fallback.Data.TeamIndex ==
+                        (TeamIndex ^ (((_scene.GameState.Oddball?.RoundNumber ?? 1) - 1) % 2))))
                     {
                         chosenSpawn = fallback;
                         break;
@@ -2535,6 +2550,7 @@ namespace MphRead.Entities
 
         private int GetTimeUntilRespawn()
         {
+            if (_scene.GameState.Mode == GameMode.Oddball) return LoadFlags.TestFlag(LoadFlags.Spawned) ? Math.Max(0, 600 - _timeSinceDead) : 0;
             // todo: FPS stuff
             int count = 0;
             if (_scene.GameState.Mode != GameMode.Survival && _scene.GameState.Mode != GameMode.SurvivalTeams && _scene.GameState.Mode != GameMode.OneInTheChamber)

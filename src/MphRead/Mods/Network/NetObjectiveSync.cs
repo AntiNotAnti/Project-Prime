@@ -23,6 +23,12 @@ internal static class NetObjectiveSync
         world.ApplyTokens(scene);
         foreach (var ammo in world.Chamber)
             Resolve(scene, ammo.Actor)?.ApplyChamberAmmo(ammo.Ammo, ammo.AcknowledgedFrame);
+        if(HeroModes.HeroRules.IsPayload(scene.GameState.Mode) && world.Payload is {} payload)
+        { scene.Payload.Apply(scene,payload); foreach(var support in world.Support) scene.Players.Items[support.Slot].ModApplyCtzSupport(support); }
+        if (HeroModes.HeroRules.IsZone(scene.GameState.Mode) && world.Zone is { } zone)
+        { scene.CaptureZone.Apply(zone); foreach(var support in world.Support) scene.Players.Items[support.Slot].ModApplyCtzSupport(support); }
+        if(scene.GameState.Mode==GameMode.Oddball && world.Ball.Length>0)(scene.GameState.Oddball??=new()).ApplySnapshot(world.Ball);
+        scene.GameState.CtzStats.Apply(world.Combat);
         scene.GameState.ActiveHardpointId = world.ActiveHardpointId;
         scene.GameState.HardpointTicksRemaining = world.HardpointTicksRemaining;
         scene.GameState.PrimeHunter = Resolve(scene, world.Prime)?.SlotIndex ?? -1;

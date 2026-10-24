@@ -35,7 +35,7 @@ internal static class RemoteWeaponPackageRequestChecks
                 if(!string.IsNullOrEmpty(hash))Convert.FromHexString(hash).CopyTo(bytes,proof+16);
                 return bytes;
             }
-            Check(NetConfig.ProtocolVersion==85,"deliberate live protocol 85 contract");
+            Check(NetConfig.ProtocolVersion == 86,"deliberate live protocol 85 contract");
             var native=Request();byte[] absent=Bytes(native);int oldLength=79+1+4+81+16;
             Check(native.Length==oldLength+32&&absent.SequenceEqual(Golden(native,0,null)),"native independent vector preserves prior fields and appends exactly 32 zero bytes");
             native.WeaponArchiveHash="";Check(Bytes(native).SequenceEqual(absent),"null and empty native selection have identical bytes");

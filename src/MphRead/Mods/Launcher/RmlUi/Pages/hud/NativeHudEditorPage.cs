@@ -46,7 +46,7 @@ internal sealed class NativeHudEditorPage : IDisposable
     public RmlUiDocumentToken Document => _presenter.Document;
     public bool Closed => _disposed || _retired || _controller.Snapshot().Closed;
     public bool HasLivePage => !_disposed && !_retired && _presenter.IsOpen;
-    public bool OwnsForeground => !Closed && Foreground(_confirm != default ? _confirm : Document);
+    public bool OwnsForeground => !Closed && Foreground(_confirm != default ? _confirm : _presenter.ForegroundDocument);
     public bool CanNavigateAway => Closed || !Dirty;
     internal HudEditorOption[] CopyOptions() => _controller.CopyOptions();
     private bool Dirty => !System.Linq.Enumerable.SequenceEqual(_originalOptions, _controller.CopyOptions()) || _controller.Snapshot().ProfileJson != _original
@@ -90,7 +90,8 @@ internal sealed class NativeHudEditorPage : IDisposable
     }
     public bool Handle(in RmlUiIntent intent)
     {
-        if (!OwnsForeground || intent.Document != (_confirm != default ? _confirm : Document)) return false;
+        if (!OwnsForeground || intent.Document != (_confirm != default ? _confirm : _presenter.ForegroundDocument)) return false;
+        if(_presenter.PopupOpen)return _presenter.HandleIntent(intent);
         if(intent.Kind==RmlUiIntentKind.SettingsAction&&intent.Argument==246)
         {
             if(_confirm!=default||!_canPreview||!_pages.Accept(intent))return false;
@@ -120,6 +121,7 @@ internal sealed class NativeHudEditorPage : IDisposable
     public bool Back()
     {
         if (!OwnsForeground) return false;
+        if(_presenter.DismissPopup())return true;
         if (_confirm != default) { if (!_pages.CloseModal()) return false; _confirm = default; _host.FocusDocument(Document, "hud_cancel"); return true; }
         if (_controller.ControllerMoveMode) return _presenter.Back();
         return RequestBack();
@@ -144,7 +146,7 @@ internal sealed class NativeHudEditorPage : IDisposable
         + "\n" + string.Join("\n", options.Select(option => option.Id + "=" + option.Value));
     private void TickAutoSave()
     {
-        if (_autoSave == null || SettingsPreview.Active || _previewRequested || !OwnsForeground || _confirm != default) return;
+        if (_autoSave == null || SettingsPreview.Active || _previewRequested || !OwnsForeground || _confirm != default || _presenter.PopupOpen) return;
         long now = Stopwatch.GetTimestamp();
         if (_controller.GestureActive) { _lastEdit = now; return; }
         var key = EditKey();

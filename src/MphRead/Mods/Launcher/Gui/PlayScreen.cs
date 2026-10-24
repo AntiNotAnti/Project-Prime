@@ -1455,6 +1455,9 @@ namespace MphRead.Mods.Launcher.Gui
             // different settings under them. Running a server is its own act
             // and it moved to Online, beside the servers it joins.
             _mode = new ChoiceRow("Game type", _modes.Select(m => m.Label).ToArray());
+            _heroObjective = new ChoiceRow("Objective", Mods.HeroModes.HeroModeMenu.Labels, LauncherPrefs.LastHeroObjective);
+            _mode.StackLabel=true; _heroObjective.StackLabel=true;
+            _heroObjective.Changed += (_, _) => { LauncherPrefs.LastHeroObjective = _heroObjective.Index; SyncOfflineMatchup(); };
             _format = new ChoiceRow("Matchup", _matchups.Select(m => m.Label).ToArray());
             _mode.Changed += (_, _) => SyncOfflineMatchup();
             _format.Changed += (_, _) => SyncOfflineMatchup();
@@ -1470,6 +1473,7 @@ namespace MphRead.Mods.Launcher.Gui
             // and they keep whatever the player set the last time it was up.
             _offlineRows.Clear();
             _offlineRows.Add(_mode);
+            _offlineRows.Add(_heroObjective);
             _offlineRows.Add(_format);
             _offlineRows.Add(_hunter!);
             _offlineRows.Add(_suit!);
@@ -1480,6 +1484,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         private ChoiceRow? _suit;
+        private ChoiceRow? _heroObjective;
 
         /// <summary>The sampled colour of the suit the rows currently name.</summary>
         private Color SuitColour()
@@ -1572,7 +1577,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             MatchTypeDefinition type = _modes[Math.Clamp(_mode?.Index ?? 0, 0, _modes.Length - 1)];
             MatchFormat format = _matchups[Math.Clamp(_format?.Index ?? 0, 0, _matchups.Length - 1)].Format;
-            return type.Resolve(MatchTypeCatalog.NormalizeFormat(type, format));
+            return Mods.HeroModes.HeroModeMenu.Resolve(type, MatchTypeCatalog.NormalizeFormat(type, format), _heroObjective?.Index ?? 0);
         }
 
         private void SyncOfflineMatchup()
@@ -1583,6 +1588,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _matchups[Math.Clamp(_format.Index, 0, _matchups.Length - 1)].Format);
             int index = MatchTypeCatalog.BasicMatchupIndex(normalized);
             if (_format.Index != index) _format.Index = index;
+            if (_heroObjective != null) _heroObjective.IsVisible = Mods.HeroModes.HeroModeMenu.IsFamily(type);
             _format.IsEnabled = !type.TeamOnly && !type.FfaOnly;
         }
 

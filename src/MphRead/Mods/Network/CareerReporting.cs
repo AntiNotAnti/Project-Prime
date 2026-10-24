@@ -417,7 +417,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void EnsureCareerMatchStarted(double now)
         {
-            if (_botAssistedMatch || _careerMatch != null || _sim == null || _phase != SessionPhase.InMatch
+            if (Mods.HeroModes.HeroRules.Active(CurrentDefinition.Mode) || _botAssistedMatch || _careerMatch != null || _sim == null || _phase != SessionPhase.InMatch
                 || _peers.Count == 0 || !NetRoomChange.GameplayReady)
             {
                 return;

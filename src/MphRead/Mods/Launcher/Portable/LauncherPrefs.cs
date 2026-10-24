@@ -90,6 +90,7 @@ namespace MphRead.Mods.Launcher
 
         /// <summary>The last lobby mode whose time/goal rules were accepted by the server.</summary>
         public static GameMode LastLobbyMode { get; set; } = GameMode.Battle;
+        public static int LastHeroObjective { get; set; }
         /// <summary>Last accepted lobby clock, in seconds. Zero means unlimited.</summary>
         public static int LastLobbyTimeLimitSeconds { get; set; } = 7 * 60;
         /// <summary>Last accepted goal for <see cref="LastLobbyMode"/>. Zero means unlimited where supported.</summary>
@@ -258,6 +259,7 @@ namespace MphRead.Mods.Launcher
         public static bool DebugLogs { get; set; } = true;
 
         /// <summary>Replay library soft limit. Zero means unlimited.</summary>
+        public static bool HighFidelityReplayRecording { get; set; }
         public static int ReplayStorageLimitGb { get; set; } = 10;
         public static bool ReplayAutoPrune { get; set; } = true;
         /// <summary>Full recordings prune first; clips remain protected unless opted in.</summary>
@@ -436,6 +438,9 @@ namespace MphRead.Mods.Launcher
                         case "last_map":
                             LastSelectedMap = value;
                             break;
+                        case "hero_objective":
+                            if (int.TryParse(value, out int objective)) LastHeroObjective = Math.Clamp(objective, 0, 1);
+                            break;
                         case "lobby_mode":
                             if (Enum.TryParse(value, ignoreCase: true, out GameMode lobbyMode)
                                 && Enum.IsDefined(lobbyMode))
@@ -573,6 +578,9 @@ namespace MphRead.Mods.Launcher
                         case "invincible_sound":
                             if (value.Length > 0) InvincibleSound = value;
                             break;
+                        case "replay_high_fidelity":
+                            if (Boolean.TryParse(value, out bool highFidelity)) HighFidelityReplayRecording = highFidelity;
+                            break;
                         case "replay_storage_gb":
                             if (Int32.TryParse(value, NumberStyles.Integer,
                                 CultureInfo.InvariantCulture, out int replayStorage)
@@ -696,6 +704,7 @@ namespace MphRead.Mods.Launcher
                     $"bot_level={BotLevel.ToString(CultureInfo.InvariantCulture)}",
                     $"host_port={HostPort.ToString(CultureInfo.InvariantCulture)}",
                     $"lobby_mode={LastLobbyMode}",
+                    $"hero_objective={Math.Clamp(LastHeroObjective,0,1)}",
                     $"lobby_time_limit_seconds={LastLobbyTimeLimitSeconds.ToString(CultureInfo.InvariantCulture)}",
                     $"lobby_goal={LastLobbyGoal.ToString(CultureInfo.InvariantCulture)}",
                     $"list_hosted={ListHostedGame.ToString().ToLowerInvariant()}",
@@ -731,6 +740,7 @@ namespace MphRead.Mods.Launcher
                     $"rampage_sound={RampageSound}",
                     $"untouchable_sound={UntouchableSound}",
                     $"invincible_sound={InvincibleSound}",
+                    $"replay_high_fidelity={HighFidelityReplayRecording.ToString().ToLowerInvariant()}",
                     $"replay_storage_gb={ReplayStorageLimitGb.ToString(CultureInfo.InvariantCulture)}",
                     $"replay_auto_prune={ReplayAutoPrune.ToString().ToLowerInvariant()}",
                     $"replay_delete_clips={ReplayDeleteClips.ToString().ToLowerInvariant()}",

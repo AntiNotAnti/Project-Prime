@@ -9,6 +9,7 @@ string Child(string mode,string directory)=>prefix+$"--child {mode} \"{directory
 if(args.Length>0 && args[0]=="--child")
 {
  string mode=args[1],directory=args[2];
+ if(mode=="cwd"){File.WriteAllText(Path.Combine(directory,"actual-cwd.txt"),Environment.CurrentDirectory);Console.WriteLine("frame=14");return 0;}
  if(mode=="hold") {File.WriteAllText(Path.Combine(directory,"child.pid"),Environment.ProcessId.ToString());await Task.Delay(15000);return 0;}
  File.WriteAllText(Path.Combine(directory,"parent.pid"),Environment.ProcessId.ToString());
  if(mode=="inherited")
@@ -38,6 +39,36 @@ async Task KillOwned(string pidFile)
 string root=Path.Combine(Path.GetTempPath(),"prime-pipe-check-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(root);
 try
 {
+ string longOutput=root;
+ while(longOutput.Length<310)longOutput=Path.Combine(longOutput,"nested-export-output-"+Guid.NewGuid().ToString("N"));
+ Directory.CreateDirectory(longOutput);
+ string privatePath;
+ using(var work=ReplayExportWorkDirectory.Create())
+ {
+  privatePath=work.Path;
+  Check(Path.IsPathFullyQualified(privatePath)&&privatePath.Length<240&&!privatePath.StartsWith(longOutput,StringComparison.Ordinal),"private process cwd is short and independent of a greater-than-MAX_PATH output");
+  var start=new ProcessStartInfo(executable,Child("cwd",longOutput)){UseShellExecute=false,CreateNoWindow=true,WorkingDirectory=privatePath};
+  using var process=Process.Start(start)!;await process.WaitForExitAsync().WaitAsync(TimeSpan.FromSeconds(10));
+  Check(process.ExitCode==0&&File.ReadAllText(Path.Combine(longOutput,"actual-cwd.txt"))==privatePath,"actual child starts in private short cwd and accesses the unchanged long output");
+ }
+ Check(!Directory.Exists(privatePath),"owned process scope cleanup runs after child retirement");
+ using(var job=new ReplayEncoderJob(executable,Child("cwd",longOutput),longOutput))
+ {
+  var result=await job.Completion.WaitAsync(TimeSpan.FromSeconds(10));
+  Check(!result.Cancelled&&result.ExitCode==0&&result.Error==null&&job.Frames==14,"actual encoder process accepts long output path and completes progress");
+  string cwd=File.ReadAllText(Path.Combine(longOutput,"actual-cwd.txt"));
+  Check(OperatingSystem.IsWindows()?cwd.Length<240&&!Directory.Exists(cwd):cwd==longOutput,"long-path encoder working directory is safe and cleaned after completion");
+  Check(File.Exists(Path.Combine(longOutput,"encode.txt"))&&File.Exists(Path.Combine(longOutput,"encode.log")),"long-output encoder keeps command and stderr receipts in reviewed output");
+ }
+ var siblings=Enumerable.Range(0,20).Select(_=>ReplayExportWorkDirectory.RetryOutput(longOutput,Guid.NewGuid())).ToArray();
+ Check(siblings.Distinct().Count()==20&&siblings.All(path=>Path.GetDirectoryName(path)==longOutput)
+  &&siblings.Select(path=>path.Length).Distinct().Count()==1,"twenty retry output attempts remain unique fixed-depth siblings");
+ string normalCwd=Path.Combine(root,"normal-cwd");Directory.CreateDirectory(normalCwd);
+ using(var job=new ReplayEncoderJob(executable,Child("cwd",normalCwd),normalCwd))
+ {
+  var result=await job.Completion.WaitAsync(TimeSpan.FromSeconds(10));
+  Check(result.ExitCode==0&&File.ReadAllText(Path.Combine(normalCwd,"actual-cwd.txt"))==normalCwd,"ordinary short-directory encoder preserves its existing cwd contract");
+ }
  foreach(string mode in new[]{"success","failure","long"})
  {
   string directory=Path.Combine(root,mode);Directory.CreateDirectory(directory);

@@ -108,6 +108,13 @@
     <NoWarn Condition="'$(MphReadAvalonia)' == 'true'">$(NoWarn);AVA3001</NoWarn>
   </PropertyGroup>
 
+  <!-- Keep upstream license/credits and bundled-asset notices visible beside
+       the executable, including single-file publish output. -->
+  <ItemGroup>
+    <None Include="..\..\LICENSE" Link="licenses\ProjectPrime-MIT.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Include="..\..\README.md" Link="README.md" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+    <None Update="Assets\DsHud\DejaVu-LICENSE.txt;Assets\Geo\ATTRIBUTION.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" ExcludeFromSingleFile="true" />
+  </ItemGroup>
   <!-- Mods\Launcher\Gui\ is the front screen and every window behind it, in
        Avalonia. Mods\Launcher\Portable\ is the half of the launcher that is
        just logic: preferences, game-file setup, what a launch consists of, and
@@ -289,6 +296,7 @@
     <InternalsVisibleTo Include="theatre-storage-check" />
     <InternalsVisibleTo Include="replay-sidecar-check" />
     <InternalsVisibleTo Include="rmlui-license-check" />
+    <InternalsVisibleTo Include="video-texture-check" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true'">
@@ -346,7 +354,7 @@
          package carrying the folder as well as the bundle would carry the
          same map twice, one copy of it naming a .pk3 that is deliberately not
          there. -->
-    <None Include="..\..\maps\**\*.json;..\..\maps\**\*.bsp;..\..\maps\**\*.tex;..\..\maps\**\*.pk3;..\..\maps\**\*.obj;..\..\maps\**\*.mtl"
+    <None Include="..\..\maps\**\*.json;..\..\maps\**\*.bsp;..\..\maps\**\*.tex;..\..\maps\**\*.pk3;..\..\maps\**\*.obj;..\..\maps\**\*.mtl;..\..\maps\**\*.png;..\..\maps\**\*.jpg;..\..\maps\**\*.jpeg;..\..\maps\**\*.tga;..\..\maps\**\*.ogg;..\..\maps\**\*.wav;..\..\maps\**\*.mp4;..\..\maps\**\*.ppmesh"
           Exclude="..\..\maps\*.json;..\..\maps\*.bsp;..\..\maps\*.tex;..\..\maps\*.obj"
           Link="maps\%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -366,6 +374,7 @@
     </EmbeddedResource>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="../PayloadEscort.Core/PayloadEscort.Core.csproj" />
     <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <None Include="../../tools/fidelity-oracle/baselines/*.json"
           Condition="'$(MphReadServer)' != 'true'"
@@ -464,4 +473,87 @@
       </AssemblyAttribute>
     </ItemGroup>
   </Target>
+  <Target Name="ValidateCustomHudAssets" BeforeTargets="PrepareResources" Condition="'$(MphReadServer)' != 'true'">
+    <ItemGroup>
+      <RequiredHudAsset Include="Assets/DsHud/font.bin" />
+      <RequiredHudAsset Include="Assets/DsHud/background.rgb" />
+      <RequiredHudAsset Include="Assets/HudFonts/font00.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font00.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font01.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font01.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font02.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font02.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font03.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font03.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font04.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font04.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font05.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font05.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font06.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font06.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font07.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font07.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font08.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font08.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font09.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font09.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font10.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font10.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font11.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font11.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font12.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font12.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font13.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font13.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font14.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font14.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font15.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font15.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font16.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font16.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font17.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font17.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font18.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font18.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font19.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font19.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font20.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font20.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font21.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font21.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font22.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font22.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font23.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font23.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font24.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font24.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font25.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font25.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font26.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font26.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font27.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font27.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font28.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font28.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font29.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font29.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font30.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font30.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font31.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font31.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font32.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font32.ttf" />
+      <RequiredHudAsset Include="Assets/HudFonts/font33.bin" />
+      <RequiredHudAsset Include="Assets/HudFonts/font33.ttf" />
+      <RequiredHudAsset Include="Assets/Fonts/heyNovember.ttf" />
+      <RequiredHudAsset Include="Assets/Fonts/JetBrainsMono-Regular.ttf" />
+      <RequiredHudAsset Include="Assets/Fonts/JetBrainsMono-Bold.ttf" />
+      <RequiredHudAsset Include="Assets/Fonts/Rajdhani-SemiBold.ttf" />
+      <RequiredHudAsset Include="Assets/Fonts/Rajdhani-Bold.ttf" />
+      <RequiredHudAsset Include="Assets/Fonts/Roboto-Bold.ttf" />
+    </ItemGroup>
+    <Error Condition="!Exists('%(RequiredHudAsset.FullPath)')" Code="CTZHUD001"
+      Text="Required HUD build input missing: %(RequiredHudAsset.Identity). Restore the exact baseline HUD resources before publishing; the client must not ship without them." />
+  </Target>
+<ItemGroup><EmbeddedResource Include="Assets/Ctf/SanctuaryBanners.png" LogicalName="Ctf.SanctuaryBanners.png"/><EmbeddedResource Include="Assets/Sounds/Ctf/*.wav"/></ItemGroup>
 </Project>

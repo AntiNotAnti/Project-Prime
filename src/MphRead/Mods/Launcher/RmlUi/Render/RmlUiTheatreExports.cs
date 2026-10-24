@@ -31,7 +31,7 @@ internal static partial class RmlUiOpenGlSmoke
                     throw new InvalidOperationException("Wait for this replay's presentation before reviewing export inputs.");
                 string sourceFacts = SourceFacts(replay.LogicalPath, replay.PlaybackPath);
                 string source = SourceWitness(replay.LogicalPath, replay.PlaybackPath);
-                string camera = SidecarWitness(replay.LogicalPath + ".camera", 8192);
+                string camera = SidecarWitness(replay.LogicalPath + ".camera", ReplayCameraTrack.MaxSidecarBytes);
                 var track = new ReplayCameraTrack();
                 if (!track.Load(replay.LogicalPath)) throw new InvalidDataException(track.LastError);
                 string reel = SidecarWitness(replay.LogicalPath + ReplayReels.Extension, 1024 * 1024);
@@ -41,7 +41,7 @@ internal static partial class RmlUiOpenGlSmoke
                 var audioSnapshot=ReplayExportAudioInput.Capture(audio.Settings,DemoPlayback.Events,DemoPlayback.Metadata?.Players??Array.Empty<ReplayPlayerInfo>());
 
                 if (sourceFacts != SourceFacts(replay.LogicalPath, replay.PlaybackPath)
-                    || camera != SidecarWitness(replay.LogicalPath + ".camera", 8192)
+                    || camera != SidecarWitness(replay.LogicalPath + ".camera", ReplayCameraTrack.MaxSidecarBytes)
                     || reel != SidecarWitness(replay.LogicalPath + ReplayReels.Extension, 1024 * 1024)
                     || audio.Reviewed.Revision != ReplayReviewedMetadata.Read(replay.LogicalPath + ReplayStudioAudioSettingsStore.Extension).Revision)
                     throw new InvalidOperationException("Export source files changed during review. Refresh.");
@@ -142,7 +142,7 @@ internal static partial class RmlUiOpenGlSmoke
         {
             if (!OwnerCurrent(context) || DemoPlayback.LogicalPath != context.LogicalPath) return "The original playback owner changed. Review a new export in that replay.";
             if (SourceWitness(context.LogicalPath, context.PlaybackPath) != context.SourceRevision
-                || SidecarWitness(context.LogicalPath + ".camera", 8192) != context.CameraRevision
+                || SidecarWitness(context.LogicalPath + ".camera", ReplayCameraTrack.MaxSidecarBytes) != context.CameraRevision
                 || SidecarWitness(context.LogicalPath + ReplayAnnotations.Extension, 1024 * 1024) != context.AnnotationRevision
                 || SidecarWitness(context.LogicalPath + ReplayReels.Extension, 1024 * 1024) != context.ReelRevision)
                 return "The reviewed replay, camera, annotations or reel changed. Refresh before creating a new export.";

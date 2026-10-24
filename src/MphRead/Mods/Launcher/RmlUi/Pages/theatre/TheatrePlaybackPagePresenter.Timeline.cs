@@ -108,6 +108,7 @@ public sealed partial class TheatrePlaybackPagePresenter
     private void StageTimelineCamera(TheatreCameraToolsChange change)
     {
         if(_cameraTools?.ValidateReview()!=true)return;
+        if(_cameraTools.MemoryEditing){_cameraTools.Apply(change);_timeline?.Review(_cameraTools.Snapshot());return;}
         if(_cameraTools.Stage(change))
         {
             _timeline?.Invalidate("Review the existing exact full-track confirmation.");
@@ -130,7 +131,9 @@ public sealed partial class TheatrePlaybackPagePresenter
         _host.SetBool(_timelineModal,"disabled:replay_timeline_seek",!snapshot.Current||_editorBackend is not ITheatreTimelineSeek);
         foreach(string name in new[]{"toggle","range","all","clear","snap_event","snap_kill","snap_bookmark"})
             _host.SetBool(_timelineModal,"disabled:replay_timeline_"+name,!snapshot.Current||snapshot.Context.Camera.Keys.IsEmpty);
-        _timelineVisible=camera.Keys.Where(key=>key.Frame>=window.First&&key.Frame<=window.Last).ToImmutableArray();
+        _timelineVisible=camera.Keys.Where(key=>key.Frame>=window.First&&key.Frame<=window.Last)
+            .GroupBy(key=>(int)Math.Min(63,(key.Frame-window.First)*64d/Math.Max(1u,window.Last-window.First+1)))
+            .Select(bin=>bin.FirstOrDefault(key=>key.Frame==snapshot.Focus?.Frame)??bin.First()).ToImmutableArray();
         if(TimelineBounds("replay_timeline_camera",out var lane))
         {
             for(int i=0;i<64;i++)
@@ -215,7 +218,7 @@ public sealed partial class TheatrePlaybackPagePresenter
         return _timeline?.Presented(ticket,_timelineModal,metrics,successful)==true;
     }
     partial void RetireWorkspaceInput();
-    internal void ReleaseTimelineInput(){RetireWorkspaceInput();ReleaseCameraCurveInput();_timelinePress=null;_timeline?.Invalidate("Timeline input focus or frame ownership retired. Saved keys are unchanged.");}
+    internal void ReleaseTimelineInput(){_cameraTools?.CancelPreview();RetireWorkspaceInput();ReleaseCameraCurveInput();_timelinePress=null;_timeline?.Invalidate("Timeline input focus or frame ownership retired. Saved keys are unchanged.");}
     internal bool TimelinePointerButton(int button,double x,double y,bool down,TimelineMetrics metrics,bool windowFocused)
     {
         if(!TimelineOpen||_timeline==null||_cameraTools==null||button!=0)return false;
@@ -257,7 +260,13 @@ public sealed partial class TheatrePlaybackPagePresenter
                 ||!TimelinePointerGeometryCurrent(metrics)
                 ||!_timeline.Begin(press.Key,press.X,press.Y,_cameraTools.Snapshot(),_timelineModal,metrics,focused)){ReleaseTimelineInput();return;}
         }
-        if(_timeline.Dragging)_timeline.Move(x,y,_cameraTools.Snapshot(),_timelineModal,metrics,focused&&_host.FocusedElement()=="replay_timeline_surface");
+        if(_timeline.Dragging)
+        {
+            _timeline.Move(x,y,_cameraTools.Snapshot(),_timelineModal,metrics,focused&&_host.FocusedElement()=="replay_timeline_surface");
+            if(_cameraTools.MemoryEditing&&_timeline.PreviewValid&&!_timeline.Preview.IsEmpty
+                &&_cameraTools.Destination(_timeline.Preview.Min().ToString(CultureInfo.InvariantCulture)))
+                _cameraTools.PreviewChange(TheatreCameraToolsChange.Move);
+        }
         PresentTimeline();
     }
     private bool TimelinePointerGeometryCurrent(TimelineMetrics metrics)=>_timeline!=null

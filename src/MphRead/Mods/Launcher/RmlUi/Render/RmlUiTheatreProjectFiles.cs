@@ -29,7 +29,7 @@ internal static partial class RmlUiOpenGlSmoke
             if(context.Persisted is not Files files)throw new InvalidOperationException("Refresh this project before saving.");
             var annotations=ReplayAnnotations.ReadReviewed(files.Annotations,context.Duration);
             var reel=ReplayReels.ReadReviewed(files.Reel,context.LogicalPath,context.Duration);
-            string cameraRevision=ReplayReviewedMetadata.Read(context.LogicalPath+".camera",8192).Revision;
+            string cameraRevision=ReplayReviewedMetadata.Read(context.LogicalPath+".camera",ReplayCameraTrack.MaxSidecarBytes).Revision;
             var camera=new ReplayCameraTrack();if(!camera.Load(context.LogicalPath))throw new InvalidDataException(camera.LastError);
             var cropped=new ReplayCameraTrack();
             if(camera.Sample(start,out var first))cropped.Put(first with{Frame=0});
@@ -68,7 +68,7 @@ internal static partial class RmlUiOpenGlSmoke
             lock(ReplayAnnotationWitness.Gate)
             {
                 Validate(context,true);
-                if(ReplayReviewedMetadata.Read(context.LogicalPath+".camera",8192).Revision!=owned.CameraRevision)
+                if(ReplayReviewedMetadata.Read(context.LogicalPath+".camera",ReplayCameraTrack.MaxSidecarBytes).Revision!=owned.CameraRevision)
                     throw new TheatreEditorStaleException("Camera edits changed while Save As was preparing. Review and save again.");
                 owned.Commit();return owned.Destination;
             }

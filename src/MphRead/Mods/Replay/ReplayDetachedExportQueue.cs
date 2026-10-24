@@ -122,20 +122,22 @@ internal static class ReplayDetachedExportQueue
     {
         internal readonly ReplayExportReceipt Receipt;
         internal readonly ReplayExportPresentation Presentation;
-        internal readonly string ExpectedHash,Room,WorkDirectory,LogicalPath;
+        internal readonly string ExpectedHash,Room,WorkDirectory,LogicalPath,OutputRoot;
         internal readonly int Subject;
         internal readonly Admission Inputs;
         internal readonly CancellationTokenSource Cancellation=new();
         internal ReplayDetachedExportTicket? Ticket;
+        internal readonly ReplayDetachedExportTicket? FrozenTicket;
         internal volatile bool CancelRequested;
-        internal Job(ReplayVideoExportManifest manifest,ReplayExportPresentation presentation,string hash,string room,int subject,string logicalPath,ReplayDetachedExportTicket? frozen=null)
+        internal Job(ReplayVideoExportManifest manifest,ReplayExportPresentation presentation,string hash,string room,int subject,string logicalPath,ReplayDetachedExportTicket? frozen=null,string? outputRoot=null)
         {
             Inputs=new(manifest,frozen);
             try
             {
                 Receipt=new(Guid.NewGuid(),manifest);Presentation=presentation;ExpectedHash=hash;Room=room;Subject=subject;LogicalPath=logicalPath;
-                WorkDirectory=Path.Combine(Path.GetDirectoryName(Path.GetFullPath(manifest.FramePattern))!,".studio-worker-"+Receipt.Id.ToString("N"));
-                Directory.CreateDirectory(WorkDirectory);
+                OutputRoot=outputRoot??Path.GetDirectoryName(Path.GetFullPath(manifest.FramePattern))!;
+                FrozenTicket=frozen;
+                WorkDirectory=ReplayExportWorkDirectory.CreateRetained();
             }
             catch{Inputs.Dispose();throw;}
         }
@@ -339,12 +341,13 @@ internal static class ReplayDetachedExportQueue
         {
             if(_retry==null||reviewed.Revision!=_revision||!ReferenceEquals(reviewed.Retry?.Token,_retry.Receipt)||!CheckCapacity())return false;
             var previous=_retry;var manifest=previous.Receipt.Manifest;
-            string directory=Path.Combine(Path.GetDirectoryName(Path.GetFullPath(manifest.FramePattern))!,"retry-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(directory);
+            string directory=ReplayExportWorkDirectory.RetryOutput(previous.OutputRoot,Guid.NewGuid());Directory.CreateDirectory(directory);
             string frames=Path.Combine(directory,"frame_%08d.png"),output=Path.Combine(directory,Path.GetFileName(manifest.SuggestedOutput));
             manifest=manifest with{FramePattern=frames,SuggestedOutput=output,
                 FfmpegArguments=manifest.FfmpegArguments.Replace(manifest.FramePattern,frames,StringComparison.Ordinal).Replace(manifest.SuggestedOutput,output,StringComparison.Ordinal)};
             ReplayVideoExport.WriteReviewedManifest(manifest);
-            var job=new Job(manifest,previous.Presentation,previous.ExpectedHash,previous.Room,previous.Subject,previous.LogicalPath,previous.Ticket);
+            var job=new Job(manifest,previous.Presentation,previous.ExpectedHash,previous.Room,previous.Subject,previous.LogicalPath,
+                previous.Ticket??previous.FrozenTicket,previous.OutputRoot);
             Pending.Enqueue(job);_revision++;_status="Queued a new independent export attempt.";StartPump();return true;
         }
     }

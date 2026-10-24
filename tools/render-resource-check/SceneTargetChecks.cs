@@ -24,6 +24,7 @@ internal static class SceneTargetChecks
             RenderOptions.CelShading = false; RenderOptions.Shadows = ShadowQuality.Off;
             Check((bool)replace.Invoke(scene, new object[] { new Vector2i(32, 32) })!, "initial bundle drawable");
             int initialFramebuffer = Value("_frameBuffer"), initialColor = Value("_screenTexture");
+            ReplayAuxiliaryScopeChecks.Run(scene, initialFramebuffer);
             Check(Value("_celTexture") == 0 && Value("_renderBuffer") != 0, "cel off has one color and one depth owner");
             callback.SetValue(null, (Action<string>)(stage =>
             {

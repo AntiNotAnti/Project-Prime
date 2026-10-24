@@ -8,16 +8,15 @@ namespace MphRead.Mods.Replay;
 internal static class ReplayOwnerExport
 {
     private static Task<ReplayOwnerTrack?>? _load;
-    private static CancellationTokenSource? _cancellation;
+    private static ReplayOwnerPresentationSource? _source;
     internal static bool Ready => _load?.IsCompleted ?? true;
     internal static ReplayOwnerTrack? Track => _load?.IsCompletedSuccessfully == true ? _load.Result : null;
     internal static void Begin(string source)
     {
-        End(); _cancellation = new();
-        _load = ReplayOwnerTrack.LoadAsyncBounded(source, _cancellation.Token);
+        End(); _source = new(source); _load = _source.Load;
     }
     internal static void End()
     {
-        _cancellation?.Cancel(); _cancellation?.Dispose(); _cancellation = null; _load = null;
+        _source?.Dispose(); _source = null; _load = null;
     }
 }

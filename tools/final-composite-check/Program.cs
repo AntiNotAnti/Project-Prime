@@ -54,6 +54,7 @@ try { Check(ScreenCapture.SaveWindow(width, height, "unused.png") && encoded, "w
 finally { ScreenCapture.PngWriter = null; }
 try { FinalCompositeCapture.Read(8192, 8192); throw new Exception("readback budget ignored"); }
 catch (ArgumentOutOfRangeException) { Console.WriteLine("PASS bounded readback"); }
+CaptureRegionChecks.Run();
 RenderTransitionChecks.Run(width, height);
 Console.WriteLine($"FINALCOMPOSITE PASS actual={G.GetString(StringName.Renderer)} {G.GetString(StringName.Version)}");
 return 0;

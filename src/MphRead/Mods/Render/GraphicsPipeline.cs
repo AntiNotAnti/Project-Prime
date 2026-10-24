@@ -31,6 +31,7 @@ namespace MphRead
         private int _gfxShadowProjection;
         private int _gfxShadowTexel;
         private int _gfxShadowLightDir;
+        private bool _graphicsOutputLinear;
 
         /// <summary>
         /// A disabled or invalid shadow map must not allocate a fullscreen
@@ -200,16 +201,16 @@ namespace MphRead
                 }
             }
 
-            if (_graphicsOutputSize != target)
+            if (_graphicsOutputSize != target || _graphicsOutputLinear != SceneLinearColorActive)
             {
-                if (!CanAllocateTargetBytes((long)target.X * target.Y * 4))
+                if (!CanAllocateTargetBytes((long)target.X * target.Y * (SceneLinearColorActive ? 8 : 4)))
                     throw new InvalidOperationException("Shadow composite exceeds the render-target budget.");
                 int framebuffer = 0, texture = 0;
                 try
                 {
                     framebuffer = GL.GenFramebuffer(); texture = GL.GenTexture();
                     GL.BindTexture(TextureTarget.Texture2D, texture);
-                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, SceneLinearColorActive ? PixelInternalFormat.Rgba16f : PixelInternalFormat.Rgba8,
                         target.X, target.Y, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
                     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
                     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
@@ -225,6 +226,7 @@ namespace MphRead
                     _graphicsOutputFramebuffer = framebuffer; framebuffer = 0;
                     _graphicsOutputTexture = texture; texture = 0;
                     _graphicsOutputSize = target;
+                    _graphicsOutputLinear = SceneLinearColorActive;
                 }
                 finally
                 {

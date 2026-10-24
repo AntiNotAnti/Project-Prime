@@ -19,7 +19,10 @@ namespace MphRead
             ? Sound.Sfx.Instance ?? _silentAudio : _silentAudio;
         internal Mods.Network.ContinuousWeaponPhase ContinuousPhase { get; } = new(PlayerEntity.SlotCapacity);
         internal Mods.Network.ContinuousWeaponPhase WeaponPhase => Services.IsReplica ? ContinuousPhase : Mods.Network.NetSession.ContinuousPhase;
-        public IReadOnlyList<WeaponInfo> WeaponRules => GameState.Multiplayer ? Weapons.WeaponsMP : Weapons.Weapons1P;
+        public Mods.HeroModes.CtzState CaptureZone { get; } = new();
+        internal Mods.HeroModes.PayloadRuntime Payload { get; } = new();
+        public IReadOnlyList<WeaponInfo> WeaponRules => Mods.HeroModes.HeroRules.Active(GameState.Mode)
+            ? Mods.HeroModes.HeroRules.WeaponTable : GameState.Multiplayer ? Weapons.WeaponsMP : Weapons.Weapons1P;
         internal IReadOnlyList<PlayerEntity.HudMessage> HudMessages { get; } = PlayerEntity.CreateHudMessages();
         internal Mods.Combat.KillFeed KillFeed { get; } = new();
         // Presentation-only, lazily allocated: headless servers and standard
@@ -79,7 +82,8 @@ namespace MphRead
                 {
                     isFirstOfType = false;
                 }
-                if (existing.Type != EntityType.Room && existing.Type > entity.Type)
+                // Keep brush carriers before player physics without renumbering native entity IDs.
+                if (existing.Type != EntityType.Room && (int)existing.Type > (int)entity.Type)
                 {
                     LinkedListNode<EntityBase> newNode = _entities.AddBefore(item, entity);
                     if (isFirstOfType)
@@ -426,6 +430,7 @@ namespace MphRead
                 { EntityType.Artifact, null },
                 { EntityType.CameraSequence, null },
                 { EntityType.ForceField, null },
+                { EntityType.Payload, null },
                 { EntityType.BeamEffect, null },
                 { EntityType.Bomb, null },
                 { EntityType.EnemyInstance, null },

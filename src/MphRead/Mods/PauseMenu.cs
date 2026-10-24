@@ -136,6 +136,7 @@ namespace MphRead.Mods
         /// <summary>Forget what the last match asked for.</summary>
         public static void Reset()
         {
+            SettingsPreview.End();
             LeftMatch = false;
             QuitProgram = false;
             _leave = false;
@@ -148,6 +149,8 @@ namespace MphRead.Mods
 
         internal static void RequestFullscreenToggle() => _toggleFullscreen = true;
         internal static void RequestWindowMode(WindowStartMode mode) => _requestedWindowMode = mode;
+
+        internal static void MarkOpen() => _open = true;
 
         internal static void MarkClosed()
         {

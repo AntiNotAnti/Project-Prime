@@ -32,7 +32,7 @@ namespace MphRead.Mods.Network
         private bool _disposed;
         private bool _ownsScene = true;
         internal Scene DetachScene() { _ownsScene = false; return Scene; }
-        public PassiveReplayScene(string path, Vector2i size) : this(Open(path), size)
+        public PassiveReplayScene(string path, Vector2i size, Replay.ReplayOwnerPresentationSource? ownerPresentation = null) : this(Open(path), size)
         {
             try
             {
@@ -60,7 +60,7 @@ namespace MphRead.Mods.Network
                     }
                 }
                 Scene.ReplayPoses = new(this, path, indexedFirePresentation);
-                Scene.BeginOwnerPresentation(path);
+                Scene.BeginOwnerPresentation(path, ownerPresentation);
             }
             catch { Dispose(); throw; }
         }
@@ -146,11 +146,11 @@ namespace MphRead.Mods.Network
             try { checkpoint.RestoreCustom(scene); return scene; }
             catch { scene.Dispose(); throw; }
         }
-        internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true)
+        internal static PassiveReplayScene OpenCustomArchiveInspection(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget = true, Replay.ReplayOwnerPresentationSource? ownerPresentation = null)
         {
             if (prepared.FormatVersion is not (7 or 8))
                 throw new InvalidDataException("Ordinary custom archive Scene admission requires format7 or format8.");
-            return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
+            return OpenPreparedCustomArchive(prepared, size, reconstructToTarget, ownerPresentation);
         }
         internal static PassiveReplayScene OpenCustomClip(ReplayTimelineClip clip, PreparedReplayWeaponPackage resources, Vector2i size)
         {
@@ -184,7 +184,7 @@ namespace MphRead.Mods.Network
                 throw new InvalidDataException("Authority post-world inspection requires its explicit format8 origin.");
             return OpenPreparedCustomArchive(prepared, size, reconstructToTarget);
         }
-        private static PassiveReplayScene OpenPreparedCustomArchive(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget)
+        private static PassiveReplayScene OpenPreparedCustomArchive(PreparedCustomReplayArchive prepared, Vector2i size, bool reconstructToTarget, Replay.ReplayOwnerPresentationSource? ownerPresentation = null)
         {
             using var world = prepared.CopyWorld();
             var scene = RestoreCustomInspection(world, prepared.Resources, size);
@@ -194,7 +194,7 @@ namespace MphRead.Mods.Network
                 // Preserve the producer's saved firing contract. Merely
                 // opening a file must not relabel an unindexed world.
                 scene.Scene.ReplayPoses = new(scene, prepared, world.IndexedFirePresentation);
-                scene.Scene.BeginOwnerPresentation(prepared.Path);
+                scene.Scene.BeginOwnerPresentation(prepared.Path, ownerPresentation);
                 scene.PrepareCustomPresentation();
                 while (reconstructToTarget && scene.Session.RecordingFrame < prepared.TargetFrame)
                     if (!scene.StepCustomArchiveInspection()) throw new InvalidDataException("Custom archive ended before its requested seek frame.");

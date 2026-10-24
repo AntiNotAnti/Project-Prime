@@ -127,8 +127,17 @@ public static class BotAiChecks
                 > BotStrategicPolicy.FocusPenalty(true, 3, 3)
             && BotStrategicPolicy.NodeAssignmentPenalty(2, false, false)
                 > BotStrategicPolicy.NodeAssignmentPenalty(2, false, true)
-            && BotStrategicPolicy.NodeAssignmentPenalty(1, false, false) == 0f,
+            && BotStrategicPolicy.NodeAssignmentPenalty(0, false, false) == 0f
+            && BotStrategicPolicy.NodeAssignmentPenalty(1, false, false) == 24f,
             "squad bots spread visible target focus and reserve scoring zones");
+        Check(BotStrategicPolicy.NodeAssignmentPenalty(1, false, true) == 0f
+            && BotStrategicPolicy.NodeAssignmentPenalty(2, false, true) == 24f,
+            "a contested ordinary node allows two total bots before assignment cost");
+        Check(BotStrategicPolicy.NodeAssignmentPenalty(1, true, false) == 0f
+            && BotStrategicPolicy.NodeAssignmentPenalty(2, true, false) == 14f
+            && BotStrategicPolicy.NodeAssignmentPenalty(2, true, true) == 0f
+            && BotStrategicPolicy.NodeAssignmentPenalty(3, true, true) == 14f,
+            "hardpoints reserve two uncontested or three contested bots including this bot");
         Check(BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, .2f,
                 currentlyCommitted: false, contested: false, recovery: true)
                 > BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, .2f,
@@ -173,9 +182,9 @@ public static class BotAiChecks
                 > BotGoalPolicy.Utility(BotGoalKind.Objective, 28f, 0.7f,
                     currentlyCommitted: false, contested: false)
             && BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, 0.2f,
-                currentlyCommitted: false, contested: false)
+                currentlyCommitted: false, contested: false, recovery: true)
                 > BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, 1f,
-                    currentlyCommitted: false, contested: false),
+                    currentlyCommitted: false, contested: false, recovery: true),
             "utility planner prioritizes contested, committed and recovery goals");
         Check(BotGoalPolicy.KeepCommittedGoal(true, true, false,
                 float.PositiveInfinity, 0.65f)

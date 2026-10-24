@@ -42,7 +42,7 @@ internal static class Protocol17Tests
     {
         try
         {
-            Check(NetConfig.ProtocolVersion == 85, "current protocol train is 85");
+            Check(NetConfig.ProtocolVersion == 86, "current protocol train is 85");
             var readinessRefusal=new RefusedPacket{Reason=RefusedPacket.ReasonCustomWeaponReadiness,Players=2,MaxPlayers=8};
             var refusalBytes=new byte[RefusedPacket.Size];readinessRefusal.Write(refusalBytes);
             var decodedRefusal=RefusedPacket.Read(refusalBytes);

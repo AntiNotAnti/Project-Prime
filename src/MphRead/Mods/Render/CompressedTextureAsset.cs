@@ -10,9 +10,9 @@ internal sealed class CompressedTextureAsset : PreparedTextureAsset
 
     internal CompressedTextureAsset(string key, TextureAssetClass assetClass,
         TextureAssetChannel channel, GpuTextureCompressionFormat format,
-        CompressedTextureMip[] mips)
+        CompressedTextureMip[] mips, TextureAssetSemantics? semantics = null)
         : base(key, assetClass, channel, mips.Length == 0 ? 0 : mips[0].Width,
-            mips.Length == 0 ? 0 : mips[0].Height)
+            mips.Length == 0 ? 0 : mips[0].Height, semantics)
     {
         if (format is not (GpuTextureCompressionFormat.Bc7Rgba or GpuTextureCompressionFormat.Etc2Rgba8 or GpuTextureCompressionFormat.Astc4x4Rgba)
             || mips.Length == 0 || Width <= 0 || Height <= 0
@@ -29,6 +29,9 @@ internal sealed class CompressedTextureAsset : PreparedTextureAsset
         Format = format;
         Mips = mips;
     }
+
+    internal override PreparedTextureAsset WithSemantics(TextureAssetSemantics semantics)
+        => new CompressedTextureAsset(Key, AssetClass, Channel, Format, Mips, semantics);
 
     public override bool MipmapsAvailable => Mips.Length == GpuCompressedTextureMath.MipLevelCount(Width, Height);
     public override bool CanGenerateMipmaps => false;

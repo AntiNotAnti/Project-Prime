@@ -134,7 +134,11 @@ public sealed partial class TheatrePlaybackPagePresenter : IDisposable
     public bool TryTakeEngineCommand(out TheatrePlaybackAction command) => _controller.TryTakeEngineCommand(out command);
     public bool Close()
     {
+        if(_cameraTools?.Snapshot().Dirty==true)
+        {_cameraToolsProblem="Save or discard the unsaved camera document before leaving Studio.";PresentCameraTools();return false;}
         _workspaceClosing=true;
+        try
+        {
         CloseWorkspaceProjectFiles();
         Viewport.Release();
         if (!CloseStudioTools()) return false;
@@ -147,7 +151,9 @@ public sealed partial class TheatrePlaybackPagePresenter : IDisposable
         if (!CloseRanges(retire: true)) return false;
         if (!CloseBookmarks()) return false;
         if (IsOpen && !_pages.ClosePage()) return false;
-        _document = default;_workspaceClosing=false; return true;
+        _document = default;return true;
+        }
+        finally{_workspaceClosing=false;}
     }
     public void Dispose() { if (_disposed) return; if (!Close()) throw new InvalidOperationException("The replay controls could not be closed."); _disposed = true; }
     private static string Time(uint frames) => $"{frames / 3600}:{frames / 60 % 60:00}";

@@ -35,6 +35,7 @@ internal static class GpuCheck
             });
             window.Context.MakeCurrent();
             GL.LoadBindings(new OpenTK.Windowing.GraphicsLibraryFramework.GLFWBindingsContext());
+            StreamingDecodeLifetimeGpuCheck.Run();
             MipResidencyChecks.RunGpu();
             DesktopCompressionChecks.RunGpu();
             var uploader = typeof(Scene).Assembly.GetType("MphRead.Mods.Render.TextureReplacementPack", true)!;
@@ -157,6 +158,7 @@ internal static class GpuCheck
                     Console.WriteLine("Material provenance GPU checks PASS: shared original binding, reload creates independent red/original authored textures");
                     SourceBankGpuCheck.Run(root, packRoot, scene, model, mapId, firstId, secondId);
                     TextureSettingsGpuCheck.Run(packRoot);
+                    LinearMaterialGpuChecks.Run(scene);
                 }
                 finally { MphRead.Mods.RenderOptions.TextureReplacements = priorReplacements; }
                 int[] allOwned = ((IEnumerable<int>)typeof(Scene).GetField("_ownedTextures", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scene)!).ToArray();

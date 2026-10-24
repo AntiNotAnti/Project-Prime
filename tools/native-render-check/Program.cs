@@ -99,7 +99,12 @@ var size = new Vector2i(int.Parse(dimensions[0]), int.Parse(dimensions[1]));
 if (size.X < 320 || size.Y < 180 || size.X > 4096 || size.Y > 2160)
     throw new ArgumentOutOfRangeException("Use -size 320x180 through 4096x2160.");
 // Reuse the client's user-data/culture setup without exposing it as a runtime API.
+string? mapDirectory=args.Contains("-mapdirectory")?Path.GetFullPath(Value("-mapdirectory", "")):null;
+string? userMapDirectory=args.Contains("-usermapdirectory")?Path.GetFullPath(Value("-usermapdirectory", "")):null;
 typeof(Scene).Assembly.GetType("MphRead.ConsoleSetup")!.GetMethod("Run")!.Invoke(null, null);
+if(mapDirectory!=null)MphRead.Mods.MapGen.CustomRooms.MapDirectory=mapDirectory;
+if(userMapDirectory!=null)MphRead.Mods.MapGen.CustomRooms.UserMapDirectory=userMapDirectory;
+RenderOptions.LinearColor = args.Contains("-linearcolor");
 // A standalone diagnostic must not run the client's thumbnail workers: their
 // child command assumes ProjectPrime's entry point, not this tool's entry point.
 GraphicsBackendPolicy.LoadPreference();
@@ -130,6 +135,8 @@ window.ConfigureDiagnosticOptions(args);
 try
 {
     window.Run();
+    // Material bindings are witnesses while the scene is live; cleanup retires them.
+    bool accepted=window.Complete&&window.MovementReplayAccepted&&window.AuthoredMaterialsAccepted;
     var result = JsonSerializer.SerializeToNode(window.ResourceStressEnabled ? window.ResourceStressResult()
         : crouchGaitCheck ? window.CrouchGaitRenderResult() : crouchCheck ? window.CrouchRenderResult() : poseCheck ? window.DisplayPoseResult() : window.Result())!;
     if (!window.ResourceStressEnabled) result["cleanup"] = JsonSerializer.SerializeToNode(transitionGc == null
@@ -137,8 +144,8 @@ try
     if (transitionGc != null) result["transitionGc"] = JsonSerializer.SerializeToNode(transitionGc.Result(window.Complete));
     Directory.CreateDirectory(Path.GetDirectoryName(output)!);
     File.WriteAllText(output, result.ToJsonString(new JsonSerializerOptions { WriteIndented = true }) + "\n");
-    Console.WriteLine("NATIVERENDER " + (window.Complete ? "PASS " : "FAIL ") + output);
-    return window.Complete ? 0 : 1;
+    Console.WriteLine("NATIVERENDER " + (accepted ? "PASS " : "FAIL ") + output);
+    return accepted ? 0 : 1;
 }
 catch (Exception ex)
 {
@@ -279,6 +286,7 @@ sealed partial class CheckWindow : RenderWindow
         ApplyDiagnosticOptions();
         if (!ResourceStressEnabled) base.OnLoad();
         RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
+        RenderOptions.LinearColor = Environment.GetCommandLineArgs().Contains("-linearcolor");
         RenderOptions.Shadows = _shadows;
         RenderOptions.PlayerOutline = _outlines;
         ApplyCheckCamera();
@@ -415,10 +423,13 @@ sealed partial class CheckWindow : RenderWindow
             typeof(Scene).GetField("_frameAdvanceOn", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
             typeof(Scene).GetField("_advanceOneFrame", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(Scene, true);
         }
+        PrepareMovementReplay();
         StabilizeCaptureKillFeed();
         ApplyCheckCamera();
         // Actual client pacing, simulation, render and SwapBuffers all run here.
         base.OnRenderFrame(args);
+        ApplyInputSupportPrototype();
+        ObserveMovementReplay();
         ObserveWindowState();
         if (_impactCheck && _impactPresentation == null && Scene.FrameCount >= 240)
         {
@@ -464,7 +475,7 @@ sealed partial class CheckWindow : RenderWindow
             }
         }
         _last = now;
-        if (_shots != null && _capture < 4 && Scene.FrameCount >= (ulong)(240 + _capture * 300))
+        if (_shots != null && _capture < 4 && Scene.FrameCount >= (ulong)(240 + _capture * _diagnosticShotStep))
         {
             // Capture runs are separate from performance runs. A fresh draw places
             // HUD pixels in the unswapped back buffer, as SaveWindow requires.
@@ -483,13 +494,14 @@ sealed partial class CheckWindow : RenderWindow
             }
             _captures.Add(new { index = _capture, simulationFrame = Scene.FrameCount,
                 camera = Scene.CameraPosition.ToString(), width = Scene.Size.X, height = Scene.Size.Y,
+                sourceImageReads=typeof(Scene).GetField("_sourceMaterialImageReads",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
                 worldDepth, shadow = ShadowSnapshot(_capture == 0), pickups = PickupSnapshot() });
             if (_capture == 0 && _outlineCheck) CheckOutlineOcclusion();
             _capture++;
         }
         if (GL.GetError() is var error && error != ErrorCode.NoError)
             throw new InvalidOperationException("Native renderer GL error: " + error);
-        if (Scene.FrameCount >= (ulong)(_seconds * 60))
+        if (Scene.FrameCount >= (ulong)(_seconds * 60) || MovementReplayFinished)
         {
             if (_windowCycle && (_windowStage != 4 || FramebufferSize.X <= 0 || FramebufferSize.Y <= 0 || !IsVisible))
                 throw new InvalidOperationException("Native window cycle did not recover a visible framebuffer.");
@@ -638,6 +650,19 @@ sealed partial class CheckWindow : RenderWindow
         var ledger = GlRetirementLedger.Capture(scene);
         int Field(string name) => (int)(typeof(Scene).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(scene) ?? 0);
         int shadowFbo = Field("_shadowFramebuffer"), shadowTexture = Field("_shadowDepthTexture");
+        int sourceLightmapDepthBefore = Field("_sourceLightmapDepthCopy");
+        int sourceLightmapProgramBefore = Field("_sourceLightmapProgram");
+        var sourceLightmapGroups = (Array?)typeof(Scene).GetField("_sourceLightmapGroups", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(scene);
+        int[] sourceLightmapTextures = sourceLightmapGroups?.Cast<object>().Select(group =>
+            (int)group.GetType().GetProperty("Texture")!.GetValue(group)!).ToArray() ?? Array.Empty<int>();
+        int[] sourceLightmapLists = sourceLightmapGroups?.Cast<object>().Select(group =>
+            (int)group.GetType().GetProperty("DisplayList")!.GetValue(group)!).ToArray() ?? Array.Empty<int>();
+        var sourceProgramMap=(System.Collections.IDictionary?)typeof(Scene).GetField("_sourceMaterialPrograms",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(scene);
+        var sourceTextureMap=(System.Collections.IDictionary?)typeof(Scene).GetField("_sourceMaterialTextures",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(scene);
+        int[] sourcePrograms=sourceProgramMap?.Values.Cast<object>().Select(value=>(int)value.GetType().GetProperty("Id")!.GetValue(value)!).ToArray()??Array.Empty<int>();
+        int[] sourceTextures=sourceTextureMap?.Values.Cast<int>().ToArray()??Array.Empty<int>();
+        var sourceDraws=(Array?)typeof(Scene).GetField("_sourceMaterialDraws",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(scene);
+        int[] sourceLists=sourceDraws?.Cast<object>().Select(value=>(int)value.GetType().GetProperty("List")!.GetValue(value)!).ToArray()??Array.Empty<int>();
         Type retained = typeof(Scene).Assembly.GetType("MphRead.Mods.Render.DesktopRetainedGeometry")!;
         object? Counter(string name) => retained.GetProperty(name, BindingFlags.Static | BindingFlags.NonPublic)?.GetValue(null);
         long GlyphProperty(string name) => Convert.ToInt64(typeof(Scene)
@@ -679,6 +704,15 @@ sealed partial class CheckWindow : RenderWindow
         int recognizedProgramNamesAfter=programsBefore.Count(GL.IsProgram);
         if (ownedTexturesAfter!=0 || framebufferAfter!=0 || !programOwnerFieldsReleased)
             throw new InvalidOperationException($"Scene unload retained owned resources: textures={ownedTexturesAfter},framebuffer={framebufferAfter},programs={ownedProgramsAfter}.");
+        bool sourceLightmapReleased = Field("_sourceLightmapDepthCopy") == 0
+            && Field("_sourceLightmapProgram") == 0
+            && (sourceLightmapDepthBefore == 0 || !GL.IsTexture(sourceLightmapDepthBefore))
+            && (sourceLightmapProgramBefore == 0 || !GL.IsProgram(sourceLightmapProgramBefore))
+            && sourceLightmapTextures.All(texture => !GL.IsTexture(texture))
+            && sourceLightmapLists.All(list => !GL.IsList(list));
+        if (!sourceLightmapReleased) throw new InvalidOperationException("Scene unload retained source-lightmap GL resources.");
+        bool sourceMaterialsReleased=sourcePrograms.All(id=>!GL.IsProgram(id)) && sourceTextures.All(id=>!GL.IsTexture(id)) && sourceLists.All(id=>!GL.IsList(id));
+        if(!sourceMaterialsReleased)throw new InvalidOperationException("Scene unload retained source material GPU resources.");
         bool shadowReleased = (shadowFbo == 0 || !GL.IsFramebuffer(shadowFbo))
             && (shadowTexture == 0 || !GL.IsTexture(shadowTexture)) && Field("_shadowFramebuffer") == 0 && Field("_shadowDepthTexture") == 0;
         object? retainedAfter = Counter("RetainedListCount");
@@ -692,7 +726,10 @@ sealed partial class CheckWindow : RenderWindow
         long depthSnapshotBytesAfter = DepthSnapshotBytes();
         if (depthSnapshotBytesAfter != 0 || proceduralBytesAfter != 0 || spriteCountAfter != 0 || spriteBytesAfter != 0 || glyphCountAfter != 0 || glyphBytesAfter != 0 || !shadowReleased || retainedAfter is int count && count != 0 || combinedAfter != 0 || GL.GetError() != ErrorCode.NoError)
             throw new InvalidOperationException("Scene unload retained live GL resources or an error.");
-        return new { detailedRetirement, ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programOwnerFieldsReleased,ownedProgramsAfter,recognizedProgramNamesAfter,pendingDeletedProgramCountAfter,currentProgramAfter,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
+        return new { sourceMaterialsReleased,sourceMaterialProgramsBefore=sourcePrograms.Length,sourceMaterialTexturesBefore=sourceTextures.Length,
+            sourceMaterialListsBefore=sourceLists.Length,sourceLightmapReleased, sourceLightmapDepthBefore, sourceLightmapProgramBefore,
+            sourceLightmapTexturesBefore = sourceLightmapTextures.Length,
+            detailedRetirement, ownedTexturesBefore,ownedTexturesAfter,framebufferBefore,framebufferAfter,programCountBefore=programsBefore.Length,programOwnerFieldsReleased,ownedProgramsAfter,recognizedProgramNamesAfter,pendingDeletedProgramCountAfter,currentProgramAfter,depthSnapshotBytesBefore, depthSnapshotBytesAfter, proceduralBytesBefore, proceduralBytesAfter, shadowReleased, retainedListsBefore = retainedBefore, retainedListsAfter = retainedAfter,
             combinedBytesBefore = combinedBefore, combinedBytesAfter = combinedAfter,
             retainedBytesBefore, retainedBytesAfter, shadowColorBytesBefore,
             glyphCountBefore, glyphBytesBefore, glyphCountAfter, glyphBytesAfter,
@@ -714,7 +751,23 @@ sealed partial class CheckWindow : RenderWindow
             BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene);
         double P(double percentile) => _intervals.Count == 0 ? 0
             : _intervals.Order().ElementAt(Math.Clamp((int)Math.Ceiling(_intervals.Count * percentile / 100) - 1, 0, _intervals.Count - 1));
-        return new { schema = 1, room = _room, cap = _cap, shadows = _shadows.ToString(), textureQuality = RenderOptions.TextureQuality.ToString(), lighting = RenderOptions.Lighting, resolutionScale = RenderOptions.ResolutionScale,
+        var sourceMovers=new List<object>();
+        foreach(var entity in Scene.Entities)
+            if(entity.Type==EntityType.SourceMover)
+            {
+                var type=entity.GetType();
+                sourceMovers.Add(new {
+                    motionFrame=type.GetField("_motionFrame",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(entity),
+                    paused=type.GetField("_paused",BindingFlags.Instance|BindingFlags.NonPublic)!.GetValue(entity),
+                    position=new[]{entity.Transform.Row3.X,entity.Transform.Row3.Y,entity.Transform.Row3.Z}
+                });
+            }
+        return new { schema = 1, sourceMovers, movementReplay = MovementReplayResult(), authoredMaterials=AuthoredMaterialsResult(), mapDirectory=MphRead.Mods.MapGen.CustomRooms.MapDirectory, userMapDirectory=MphRead.Mods.MapGen.CustomRooms.UserMapDirectory, textureReplacements = RenderOptions.TextureReplacements, room = _room, cap = _cap, shadows = _shadows.ToString(), textureQuality = RenderOptions.TextureQuality.ToString(), lighting = RenderOptions.Lighting, resolutionScale = RenderOptions.ResolutionScale,
+            colorPipeline = new {
+                requested = typeof(Scene).GetField("SceneColorRequested", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Scene),
+                encodedOutput = typeof(Scene).GetField("_sceneEncodedReady", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Scene),
+                textureRefused = typeof(Scene).GetProperty("SceneColorTexturesFailed", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(Scene)
+            },
             textureStreaming = new {
                 promotionAttemptBytes = Streaming("TexturePromotionAttemptBytes"),
                 worstPromotionMs = Streaming("WorstTexturePromotionMs"),
@@ -735,6 +788,25 @@ sealed partial class CheckWindow : RenderWindow
                     appliedAdvancedMaterials = Streaming("AppliedAdvancedMaterials"),
                     appliedMaterialRevision = Streaming("AppliedMaterialRevision") },
                 scope = "promotion attempts including failures; decode reservations exclude native codec scratch" },
+            sourceMaterials = new {
+                ready=typeof(Scene).GetField("_sourceMaterialReady",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
+                refused=typeof(Scene).GetField("_sourceMaterialRefused",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
+                reason=typeof(Scene).GetField("_sourceMaterialReason",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
+                imageReads=typeof(Scene).GetField("_sourceMaterialImageReads",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
+                draws=typeof(Scene).GetField("_sourceMaterialDrawCalls",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
+                depthReplays=typeof(Scene).GetField("_sourceMaterialDepthReplays",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
+                shadowDraws=typeof(Scene).GetField("_sourceMaterialShadowDraws",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
+                frustumRejected=typeof(Scene).GetField("_sourceMaterialFrustumRejected",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene),
+                pvsRejected=typeof(Scene).GetField("_sourceMaterialPvsRejected",BindingFlags.Instance|BindingFlags.NonPublic)?.GetValue(Scene)
+            },
+            sourceFogCount = typeof(Scene).GetField("_activeSourceFogCount", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene),
+            graphicsPipelineRefused = typeof(Scene).GetField("_graphicsPipelineRefused", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene),
+            sourceBakedLighting = new {
+                ready = typeof(Scene).GetField("_sourceLightmapReady", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene),
+                refused = typeof(Scene).GetField("_sourceLightmapRefused", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene),
+                groups = ((Array?)typeof(Scene).GetField("_sourceLightmapGroups", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene))?.Length ?? 0,
+                depthSnapshot = typeof(Scene).GetField("_sourceLightmapDepthCopy", BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(Scene)
+            },
             vendor = _glVendor, renderer = _glRenderer, glVersion = _glVersion,
             effectiveCap = FrameTiming.FrameRateCap, softwareFrequency = UpdateFrequency, vsync = VSync.ToString(),
             assemblyMvid = typeof(Scene).Module.ModuleVersionId, framebuffer = new[] { FramebufferSize.X, FramebufferSize.Y },

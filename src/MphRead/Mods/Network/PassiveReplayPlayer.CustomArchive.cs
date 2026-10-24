@@ -28,11 +28,13 @@ internal sealed partial class PassiveReplayPlayer
 
     private PassiveReplayPlayer(PreparedCustomReplayArchive prepared, string storeRoot, Vector2i size)
     {
+        _ownerPresentationSource = Headless.Active ? null : new(prepared.Path);
         _customArchive = true; _customPath = prepared.Path; _customStore = Path.GetFullPath(storeRoot);
         _customThread = Environment.CurrentManagedThreadId;
         _options = new(EnableMemoryCheckpoints: false);
         _open = () => throw new InvalidOperationException("Custom archives require their prepared resource owner.");
-        Current = PassiveReplayScene.OpenCustomArchiveInspection(prepared, size, reconstructToTarget: false);
+        try { Current = PassiveReplayScene.OpenCustomArchiveInspection(prepared, size, reconstructToTarget: false, ownerPresentation: _ownerPresentationSource); }
+        catch { _ownerPresentationSource?.Dispose(); throw; }
         try
         {
             _customBaseline = Current.Session.Metadata!; _customDuration = Current.Session.LastFrame;
@@ -46,7 +48,7 @@ internal sealed partial class PassiveReplayPlayer
                 Transport.ContinueSeek(target, resume: true);
             }
         }
-        catch { Current.Dispose(); throw; }
+        catch { Current.Dispose(); _ownerPresentationSource?.Dispose(); throw; }
     }
 
     private int UpdateCustom(int maximumSteps, double maximumMilliseconds)
@@ -136,7 +138,6 @@ internal sealed partial class PassiveReplayPlayer
         if (!Transport.IsSeeking)
         {
             _customGoal = null;
-            if (_seekTime.IsRunning) { _seekTime.Stop(); SeekMilliseconds = _seekTime.Elapsed.TotalMilliseconds; }
         }
         return steps;
     }
@@ -144,7 +145,7 @@ internal sealed partial class PassiveReplayPlayer
     private void ReplaceCustom(PreparedCustomReplayArchive prepared, uint target, bool resume)
     {
         PassiveReplayScene? replacement = PassiveReplayScene.OpenCustomArchiveInspection(prepared,
-            Current.Scene.Size, reconstructToTarget: false);
+            Current.Scene.Size, reconstructToTarget: false, ownerPresentation: _ownerPresentationSource);
         try
         {
             replacement.Session.Transport.Begin(); replacement.Session.Transport.AfterFrame();

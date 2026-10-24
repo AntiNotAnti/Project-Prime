@@ -22,7 +22,7 @@ public sealed partial class TheatrePlaybackPagePresenter
         bool confirming=_cameraToolsConfirmation!=default&&intent.Document==_cameraToolsConfirmation
             &&action is TheatrePlaybackAction.CameraToolsConfirm or TheatrePlaybackAction.CameraToolsCancel;
         bool editing=_cameraToolsConfirmation==default&&_cameraToolsModal!=default&&intent.Document==_cameraToolsModal
-            &&(action is TheatrePlaybackAction.CameraToolsTransform or TheatrePlaybackAction.CameraToolsHandles or TheatrePlaybackAction.CameraToolsCurveKey||intent.Argument>=(int)TheatrePlaybackAction.CameraToolsRefresh&&intent.Argument<=(int)TheatrePlaybackAction.CameraToolsNearest)
+            &&(action is TheatrePlaybackAction.CameraToolsDiscard or TheatrePlaybackAction.CameraToolsSave or TheatrePlaybackAction.CameraToolsUndo or TheatrePlaybackAction.CameraToolsRedo or TheatrePlaybackAction.CameraToolsTransform or TheatrePlaybackAction.CameraToolsHandles or TheatrePlaybackAction.CameraToolsCurveKey||intent.Argument>=(int)TheatrePlaybackAction.CameraToolsOrientationCurve&&intent.Argument<=(int)TheatrePlaybackAction.CameraToolsRollEase||intent.Argument>=(int)TheatrePlaybackAction.CameraToolsRefresh&&intent.Argument<=(int)TheatrePlaybackAction.CameraToolsNearest)
             &&action is not(TheatrePlaybackAction.CameraToolsConfirm or TheatrePlaybackAction.CameraToolsCancel);
         if((!opening&&!confirming&&!editing)||!_pages.Accept(intent))return false;
         try
@@ -36,11 +36,21 @@ public sealed partial class TheatrePlaybackPagePresenter
             }
             else if(_cameraTools!=null)switch(action)
             {
+                case TheatrePlaybackAction.CameraToolsOrientationCurve:StageCameraTools(TheatreCameraToolsChange.OrientationCurve);break;
+                case TheatrePlaybackAction.CameraToolsOrientationEase:StageCameraTools(TheatreCameraToolsChange.OrientationEase);break;
+                case TheatrePlaybackAction.CameraToolsFovCurve:StageCameraTools(TheatreCameraToolsChange.FovCurve);break;
+                case TheatrePlaybackAction.CameraToolsFovEase:StageCameraTools(TheatreCameraToolsChange.FovEase);break;
+                case TheatrePlaybackAction.CameraToolsRollCurve:StageCameraTools(TheatreCameraToolsChange.RollCurve);break;
+                case TheatrePlaybackAction.CameraToolsRollEase:StageCameraTools(TheatreCameraToolsChange.RollEase);break;
                 case TheatrePlaybackAction.CameraToolsCurveKey:ActivateCameraCurveKey();break;
                 case TheatrePlaybackAction.CameraToolsHandles:
                     if(_cameraTools.Handles(ReadCameraHandles()))StageCameraTools(TheatreCameraToolsChange.Handles);break;
                 case TheatrePlaybackAction.CameraToolsTransform:
                     if(_cameraTools.Transform(ReadCameraTransform()))StageCameraTools(TheatreCameraToolsChange.Transform);break;
+                case TheatrePlaybackAction.CameraToolsDiscard:_cameraTools.Discard();break;
+                case TheatrePlaybackAction.CameraToolsSave:_cameraTools.Save();break;
+                case TheatrePlaybackAction.CameraToolsUndo:_cameraTools.Undo();break;
+                case TheatrePlaybackAction.CameraToolsRedo:_cameraTools.Redo();break;
                 case TheatrePlaybackAction.CameraToolsRefresh:_cameraTools.Refresh();break;
                 case TheatrePlaybackAction.CameraToolsPrevious:_cameraTools.MoveFocus(-1);break;
                 case TheatrePlaybackAction.CameraToolsNext:_cameraTools.MoveFocus(1);break;
@@ -84,6 +94,7 @@ public sealed partial class TheatrePlaybackPagePresenter
         if(_cameraTools==null)return;
         if(kind is TheatreCameraToolsChange.Move or TheatreCameraToolsChange.Paste
             &&!_cameraTools.Destination(_host.ReadField(_cameraToolsModal,"replay_camera_tools_destination")))return;
+        if(_cameraTools.MemoryEditing){_cameraTools.Apply(kind);return;}
         if(_cameraTools.Stage(kind))_cameraToolsConfirmation=_pages.OpenModal(new("replay-camera-tools-confirm","pages/theatre/camera-tools-confirm.rml","replay_camera_tools_confirm_cancel"));
     }
     private void PresentCameraTools()
@@ -93,14 +104,15 @@ public sealed partial class TheatrePlaybackPagePresenter
         if(_cameraToolsModal==default||_cameraTools==null)return;
         var state=_cameraTools.Snapshot();var camera=state.Context.Camera;bool keys=state.Focus!=null,selected=!state.Selection.IsEmpty;
         _host.SetText(_cameraToolsModal,"replay_camera_tools_replay",Path.GetFileName(camera.LogicalPath));
-        _host.SetText(_cameraToolsModal,"replay_camera_tools_review",$"REVIEWED PLAYHEAD {camera.Frame} // {camera.Keys.Length} / 64 SAVED KEYS // {state.ClipboardCount} COPIED");
+        _host.SetText(_cameraToolsModal,"replay_camera_tools_review",$"REVIEWED PLAYHEAD {camera.Frame} // {camera.Keys.Length} / 1024 KEYS // {state.ClipboardCount} COPIED");
         _host.SetText(_cameraToolsModal,"replay_camera_tools_focus",state.Focus is{} key?$"FOCUS {state.FocusIndex+1} / {camera.Keys.Length}\n"+DescribeToolsKey(key):"NO SAVED CAMERA KEYS");
         _host.SetText(_cameraToolsModal,"replay_camera_tools_selection","SELECTED FRAMES: "+(selected?string.Join(", ",state.Selection):"NONE"));
         _host.SetText(_cameraToolsModal,"replay_camera_tools_speed","CONSTANT SPEED: "+(state.Context.Motion.ConstantSpeed?"ON":"OFF"));
         _host.SetText(_cameraToolsModal,"replay_camera_tools_collision","PATH COLLISION: "+(state.Context.Motion.Collision?"ON":"OFF"));
         _host.SetText(_cameraToolsModal,"replay_camera_tools_director","DIRECTOR: "+(state.Context.Motion.Director?"ON":"OFF"));
+        PresentCameraChannels(state);
         PresentCameraCurves(state.Context);
-        _host.SetText(_cameraToolsModal,"replay_camera_tools_status",state.Status);
+        _host.SetText(_cameraToolsModal,"replay_camera_tools_status",state.Status+(state.Dirty?" // UNSAVED":" // SAVED")+$" // UNDO {state.UndoCount} / REDO {state.RedoCount}");
         _host.SetText(_cameraToolsModal,"replay_camera_tools_error",_cameraToolsProblem.Length>0?_cameraToolsProblem:state.Error.Length>0?state.Error:!state.Current?"Pause, wait for a new picture and refresh before editing.":"");
         foreach(string id in new[]{"previous","next","toggle","range","all","nearest","preview"})_host.SetBool(_cameraToolsModal,"disabled:replay_camera_tools_"+id,!state.Current||!keys);
         foreach(string id in new[]{"move","copy","snap_event","snap_kill","snap_bookmark","interpolation","ease","look_at","remove","transform","handles"})_host.SetBool(_cameraToolsModal,"disabled:replay_camera_tools_"+id,!state.Current||!selected);
@@ -173,7 +185,26 @@ public sealed partial class TheatrePlaybackPagePresenter
             throw new ArgumentException("Enter a whole frame offset.");
         return new(Value("x"),Value("y"),Value("z"),Value("yaw"),Value("pitch"),Value("roll"),frame,Value("fov"),Value("lens_roll"));
     }
-    private static string DescribeToolsKey(TheatreCameraKey key)=>$"FRAME {key.Frame} // {CameraPose(key.Pose)}\nINTERPOLATION {new[]{"LINEAR","SMOOTH","SPLINE","HOLD","BEZIER"}[key.Pose.Interpolation]} // EASE {new[]{"NONE","IN","OUT","IN OUT"}[key.Pose.Ease]} // LOOK AT {(key.Pose.LookAt < 0 ? "NONE" : "PLAYER " + (key.Pose.LookAt + 1).ToString(CultureInfo.InvariantCulture))}"+DescribeCameraHandles(key.Pose.Handles);
+    private static string DescribeToolsKey(TheatreCameraKey key)=>$"FRAME {key.Frame} // {CameraPose(key.Pose)}\nINTERPOLATION {new[]{"LINEAR","SMOOTH","SPLINE","HOLD","BEZIER"}[key.Pose.Interpolation]} // EASE {new[]{"NONE","IN","OUT","IN OUT"}[key.Pose.Ease]} // LOOK AT {(key.Pose.LookAt < 0 ? "NONE" : "PLAYER " + (key.Pose.LookAt + 1).ToString(CultureInfo.InvariantCulture))}"+DescribeCameraHandles(key.Pose.Handles)+DescribeCameraChannels(key.Pose.Channels)+(key.Pose.LookAt>=0?"\nLOOK-AT OVERRIDES AUTHORED ORIENTATION. TARGET SWITCHES AND RECORDED MOTION MAY PRODUCE ABRUPT TURNS.":"");
+    private static string ChannelMode(int value)=>new[]{"INHERIT","LINEAR","SMOOTH","BEZIER","HOLD"}[value];
+    private static string ChannelEase(int value)=>new[]{"INHERIT","NONE","IN","OUT","IN OUT"}[value];
+    private static string DescribeCameraChannels(TheatreCameraChannelCurves? value)
+    {
+        var c=value??new(0,0,0,0,0,0);
+        return $"\nORIENTATION {ChannelMode(c.Orientation)} / {ChannelEase(c.OrientationEase)} // FOV {ChannelMode(c.Fov)} / {ChannelEase(c.FovEase)} // ROLL {ChannelMode(c.Roll)} / {ChannelEase(c.RollEase)}";
+    }
+    private void PresentCameraChannels(TheatreCameraToolsSnapshot state)
+    {
+        var c=state.Focus?.Pose.Channels??new(0,0,0,0,0,0);
+        string[] ids={"orientation_curve","orientation_ease","fov_curve","fov_ease","roll_curve","roll_ease"};
+        string[] labels={"ORIENTATION: "+ChannelMode(c.Orientation),"ORIENTATION EASE: "+ChannelEase(c.OrientationEase),
+            "FOV: "+ChannelMode(c.Fov),"FOV EASE: "+ChannelEase(c.FovEase),"ROLL: "+ChannelMode(c.Roll),"ROLL EASE: "+ChannelEase(c.RollEase)};
+        for(int i=0;i<ids.Length;i++)
+        {
+            _host.SetText(_cameraToolsModal,"replay_camera_tools_"+ids[i],labels[i]);
+            _host.SetBool(_cameraToolsModal,"disabled:replay_camera_tools_"+ids[i],!state.Current||state.Selection.IsEmpty||state.Pending!=null);
+        }
+    }
     private static string DescribeCameraHandles(TheatreCameraHandles? handles)
     {
         if(handles==null)return "\nHANDLES AUTO // FOV/ROLL OFFSETS 0";
@@ -188,6 +219,8 @@ public sealed partial class TheatrePlaybackPagePresenter
     }
     private bool CloseCameraTools()
     {
+        if(_cameraTools?.Snapshot().Dirty==true)
+        {_cameraToolsProblem="Camera document has unsaved changes. Save or undo before closing; the document and history are retained.";return false;}
         if(WorkspaceMode&&!_workspaceClosing){SelectWorkspaceTab("camera");return true;}
         if(_cameraToolsConfirmation!=default){if(_host.IsAlive(_cameraToolsConfirmation)&&!_pages.CloseModal())return false;_cameraToolsConfirmation=default;}
         if(_cameraToolsModal!=default){if(_cameraToolsModal!=_document&&_host.IsAlive(_cameraToolsModal)&&!_pages.CloseModal())return false;_cameraToolsModal=default;}

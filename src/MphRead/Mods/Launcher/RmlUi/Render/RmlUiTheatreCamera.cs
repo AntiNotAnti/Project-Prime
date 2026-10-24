@@ -27,7 +27,7 @@ internal static partial class RmlUiOpenGlSmoke
                 string recording = RecordingWitness(logical, playback);
                 ReplayCamera.EnsureTrack();
                 string revision = CameraRevision(logical);
-                ReplayCamera.ReloadReviewedTrack(logical);
+                if(!_preserveMemoryCapture)ReplayCamera.ReloadReviewedTrack(logical);
                 if (CameraRevision(logical) != revision || RecordingWitness(logical, playback) != recording)
                     throw new TheatreCameraStaleException("The camera sidecar changed while it was being reviewed. Refresh.");
                 var transport = DemoPlayback.Session.Transport;
@@ -88,7 +88,9 @@ internal static partial class RmlUiOpenGlSmoke
                     || (exact.Change == TheatreCameraChange.Add && (existing != null || exact.Key.Frame != context.Frame))
                     || (exact.Change != TheatreCameraChange.Add && existing == null)
                     || (exact.Change == TheatreCameraChange.Remove && existing != exact.Key)
-                    || (exact.Change != TheatreCameraChange.Remove && exact.Key.Pose != context.Pose))
+                    || (exact.Change != TheatreCameraChange.Remove && (exact.Key.Pose with{Channels=context.Pose.Channels}) != context.Pose)
+                    || (exact.Change == TheatreCameraChange.Add && exact.Key.Pose.Channels != context.Pose.Channels)
+                    || (exact.Change == TheatreCameraChange.Replace && exact.Key.Pose.Channels != existing!.Pose.Channels))
                     throw new TheatreCameraStaleException("The exact camera edit no longer matches the reviewed frame and key.");
                 ReplayCamera.CommitReviewedKeyframe(context.LogicalPath, NativeKey(exact.Key),
                     exact.Change == TheatreCameraChange.Remove);
@@ -135,7 +137,7 @@ internal static partial class RmlUiOpenGlSmoke
             var file = new FileInfo(logical + ".camera");
             if (file.LinkTarget != null) throw new IOException("The camera sidecar is a symbolic link.");
             if (!file.Exists) return "missing";
-            if (file.Length > 8192) throw new InvalidDataException("The camera sidecar is too large to edit safely.");
+            if (file.Length > ReplayCameraTrack.MaxSidecarBytes) throw new InvalidDataException("The camera sidecar is too large to edit safely.");
             return Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file.FullName)));
         }
         private static TheatreCameraPose Pose(ReplayCameraKeyframe key) => new(key.Position.X, key.Position.Y, key.Position.Z,
@@ -144,7 +146,9 @@ internal static partial class RmlUiOpenGlSmoke
             key.LookAtSlot, (int)key.Interpolation, (int)key.Ease,
             key.IncomingTangent.HasValue||key.OutgoingTangent.HasValue||key.FovIncomingTangent!=0||key.FovOutgoingTangent!=0||key.RollIncomingTangent!=0||key.RollOutgoingTangent!=0
                 ?new TheatreCameraHandles(key.IncomingTangent is{} input?new(input.X,input.Y,input.Z):null,key.OutgoingTangent is{} output?new(output.X,output.Y,output.Z):null,
-                    MathHelper.RadiansToDegrees(key.FovIncomingTangent),MathHelper.RadiansToDegrees(key.FovOutgoingTangent),MathHelper.RadiansToDegrees(key.RollIncomingTangent),MathHelper.RadiansToDegrees(key.RollOutgoingTangent)):null);
+                    MathHelper.RadiansToDegrees(key.FovIncomingTangent),MathHelper.RadiansToDegrees(key.FovOutgoingTangent),MathHelper.RadiansToDegrees(key.RollIncomingTangent),MathHelper.RadiansToDegrees(key.RollOutgoingTangent)):null)
+            {Channels=key.Curves==default?null:new((int)key.Curves.Orientation,(int)key.Curves.OrientationEase,
+                (int)key.Curves.Fov,(int)key.Curves.FovEase,(int)key.Curves.Roll,(int)key.Curves.RollEase)};
         private static TheatreCameraKey Key(ReplayCameraKeyframe key) => new(key.Frame, Pose(key));
         private static ReplayCameraKeyframe NativeKey(TheatreCameraKey key) => new(key.Frame,
             new Vector3(key.Pose.X, key.Pose.Y, key.Pose.Z), new Quaternion(key.Pose.Qx, key.Pose.Qy, key.Pose.Qz, key.Pose.Qw),
@@ -152,7 +156,17 @@ internal static partial class RmlUiOpenGlSmoke
             (ReplayCameraInterpolation)key.Pose.Interpolation, (ReplayCameraEase)key.Pose.Ease,
             key.Pose.Handles?.Incoming is{} input?new Vector3(input.X,input.Y,input.Z):null,key.Pose.Handles?.Outgoing is{} output?new Vector3(output.X,output.Y,output.Z):null,
             MathHelper.DegreesToRadians(key.Pose.Handles?.FovIn??0),MathHelper.DegreesToRadians(key.Pose.Handles?.FovOut??0),
-            MathHelper.DegreesToRadians(key.Pose.Handles?.RollIn??0),MathHelper.DegreesToRadians(key.Pose.Handles?.RollOut??0));
+            MathHelper.DegreesToRadians(key.Pose.Handles?.RollIn??0),MathHelper.DegreesToRadians(key.Pose.Handles?.RollOut??0),
+            NativeChannels(key.Pose.Channels));
+        private static ReplayCameraChannelCurves NativeChannels(TheatreCameraChannelCurves? channels)
+        {
+            if(!TheatreCameraController.ValidChannels(channels))throw new ArgumentException("Invalid independent camera curves.");
+            var native=channels==null?default:new ReplayCameraChannelCurves((ReplayCameraChannelMode)channels.Orientation,(ReplayCameraChannelEase)channels.OrientationEase,
+                (ReplayCameraChannelMode)channels.Fov,(ReplayCameraChannelEase)channels.FovEase,
+                (ReplayCameraChannelMode)channels.Roll,(ReplayCameraChannelEase)channels.RollEase);
+            if(!ReplayCameraTrack.ValidCurves(native))throw new ArgumentException("Invalid native independent camera curves.");
+            return native;
+        }
     }
 }
 #endif

@@ -90,6 +90,63 @@ internal static class NativeSettingsPopupGlAcceptance
         Check(modes.Count == 2 && pages.Top == page.Document, "display trial reverts through the fake callback and restores Settings");
         controller.Discard(); page.Refresh();
 
+        // Per-setting help is a native modal, so it owns focus and prevents
+        // the Settings form from capturing input or auto-saving underneath it.
+        host.DiscardIntents(); Click(Box(page.Document, "native_settings_category_0"));
+        Check(host.TryTakeIntent(out var displayIntent) && displayIntent.Document == page.Document && displayIntent.Kind == RmlUiIntentKind.SettingsCategory
+            && page.Handle(displayIntent), "actual Display category click opens its settings sections"); Settle();
+        host.DiscardIntents(); Click(Box(page.Document, "native_settings_subpage_0"));
+        Check(host.TryTakeIntent(out var viewIntent) && viewIntent.Document == page.Document && viewIntent.Argument == 232
+            && page.Handle(viewIntent), "actual View section click exposes display settings"); Settle();
+        var visibleRows = (NativeSettingRow[])typeof(NativeFullSettingsPage).GetField("_visible", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(page)!;
+        int weaponHelpIndex = Array.FindIndex(visibleRows, row => row.Label == "Weapon presentation" && row.HasHelp);
+        Check(weaponHelpIndex >= 0, "weapon presentation exposes its setting help button");
+        Reveal(page.Document,"native_settings_info_"+weaponHelpIndex);
+        host.DiscardIntents(); Click(Box(page.Document, "native_settings_info_" + weaponHelpIndex));
+        Check(host.TryTakeIntent(out var helpIntent) && helpIntent.Document == page.Document && helpIntent.Argument == 700 + weaponHelpIndex
+            && page.Handle(helpIntent), "actual setting info click opens the foreground help dialog"); Settle();
+        RmlUiDocumentToken helpDocument = pages.Top;
+        Check(helpDocument != page.Document && pages.ModalCount == 1 && host.CurrentInputDocument == helpDocument,
+            "setting help opens as a foreground modal document over Settings");
+        Check(!host.FocusDocument(page.Document, "native_settings_search"), "help modal blocks focus on the parent Settings document");
+        Check(!page.KeyDown(Keys.F2, default) && !controller.Capturing, "help modal prevents parent Settings from capturing gameplay input");
+        var showFps = controller.Rows.Single(row => row.Label == "Show FPS");
+        string savedFps = showFps.Saved;
+        controller.Stage(showFps, savedFps.Equals("on", StringComparison.OrdinalIgnoreCase) ? "off" : "on");
+        controller.AutoApply = true;
+        Settle(500);
+        Check(controller.AutoApplyPending && showFps.Saved == savedFps, "help modal pauses automatic saving of the underlying Settings draft");
+        Contained(helpDocument,"native_settings_help_close");Capture("setting-help");
+        var helpClose = Box(helpDocument, "native_settings_help_close");
+        host.Input.PointerMoved(helpClose.X + helpClose.W / 2, helpClose.Y + helpClose.H / 2); host.Update();
+        Check(!page.MouseDown(MouseButton.Left), "help close click is left for native RmlUi dispatch instead of consumed as capture input");
+        Check(!page.ScrollBinding(true), "help scrolling is left for native RmlUi dispatch instead of consumed as binding input");
+        host.DiscardIntents(); Click(helpClose);
+        controller.AutoApply = false;
+        Check(host.TryTakeIntent(out var helpCloseClick) && helpCloseClick.Document == helpDocument && helpCloseClick.Argument == 247
+            && page.Handle(helpCloseClick), "actual help Close click emits and accepts its close intent"); Settle();
+        controller.Discard(); page.Refresh();
+        Check(showFps.Value == savedFps && !controller.Dirty, "closing help retains the underlying draft without committing it");
+        Check(pages.Top == page.Document && pages.ModalCount == 0, "native Close click retires help and restores Settings focus");
+
+        Reveal(page.Document,"native_settings_info_"+weaponHelpIndex);
+        host.DiscardIntents(); Click(Box(page.Document, "native_settings_info_" + weaponHelpIndex));
+        Check(host.TryTakeIntent(out var keyboardHelpIntent) && keyboardHelpIntent.Argument == 700 + weaponHelpIndex
+            && page.Handle(keyboardHelpIntent), "setting help can be reopened for keyboard interaction"); Settle();
+        helpDocument = pages.Top;
+        Check(helpDocument != page.Document && host.CurrentInputDocument == helpDocument
+            && !host.FocusDocument(page.Document, "native_settings_search"), "keyboard help modal retains focus away from parent Settings");
+        Check(!page.KeyDown(Keys.Tab, default), "Tab reaches native RmlUi while setting help is open");
+        host.Input.Key(1, true); host.Input.Key(1, false); host.Update();
+        Check(pages.Top == helpDocument && host.CurrentInputDocument == helpDocument
+            && host.FocusedElement() == "native_settings_help_close", "native Tab traversal stays inside the help modal");
+        Check(host.FocusDocument(helpDocument, "native_settings_help_close"), "help Close remains keyboard-focusable"); Settle();
+        Check(!page.KeyDown(Keys.Enter, default), "Enter reaches native RmlUi while setting help is open");
+        host.Input.Key(2, true); host.Input.Key(2, false); host.Update();
+        Check(host.TryTakeIntent(out var helpEnter) && helpEnter.Document == helpDocument && helpEnter.Argument == 247
+            && page.Handle(helpEnter), "native Enter activates the focused help Close button"); Settle();
+        Check(pages.Top == page.Document && pages.ModalCount == 0, "keyboard activation closes help and restores Settings focus");
+
         // Non-settings dialogs share the semantic block defaults as well.
         var quit = pages.OpenModal(new("popup-quit-fixture", "pages/common/quit.rml", "quit_cancel")); Settle();
         var heading = Box(quit, "quit_title"); var message = Box(quit, "quit_message"); var actions = Box(quit, "update_actions");

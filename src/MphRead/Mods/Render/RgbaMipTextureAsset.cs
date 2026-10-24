@@ -8,9 +8,10 @@ internal sealed class RgbaMipTextureAsset : PreparedTextureAsset
     internal CompressedTextureMip[] Mips { get; }
 
     internal RgbaMipTextureAsset(string key, TextureAssetClass assetClass,
-        TextureAssetChannel channel, CompressedTextureMip[] mips)
+        TextureAssetChannel channel, CompressedTextureMip[] mips,
+        TextureAssetSemantics? semantics = null)
         : base(key, assetClass, channel, mips.Length == 0 ? 0 : mips[0].Width,
-            mips.Length == 0 ? 0 : mips[0].Height)
+            mips.Length == 0 ? 0 : mips[0].Height, semantics)
     {
         if (mips.Length == 0 || mips.Length > GpuCompressedTextureMath.MipLevelCount(Width, Height))
             throw new ArgumentException("Invalid authored RGBA mip count.", nameof(mips));
@@ -23,6 +24,9 @@ internal sealed class RgbaMipTextureAsset : PreparedTextureAsset
         }
         Mips = mips;
     }
+
+    internal override PreparedTextureAsset WithSemantics(TextureAssetSemantics semantics)
+        => new RgbaMipTextureAsset(Key, AssetClass, Channel, Mips, semantics);
 
     public override bool MipmapsAvailable => Mips.Length == GpuCompressedTextureMath.MipLevelCount(Width, Height);
     public override bool CanGenerateMipmaps => false;

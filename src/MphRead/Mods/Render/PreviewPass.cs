@@ -520,7 +520,7 @@ namespace MphRead
             {
                 return;
             }
-            Vector2i target = _targetSize;
+            Vector2i target = SceneOverlaySize;
             // The rectangle, in the render target's pixels rather than the
             // window's: the scene may be rendered smaller than the window and
             // stretched (see RenderSize), and this pass is inside that target.
@@ -574,6 +574,7 @@ namespace MphRead
             }
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref view);
+            SetMaterialCamera(ref view);
             // No fog, whatever the room does with it: a preview window is not
             // in the room, and the far end of a foggy level would have the
             // hunter fade into the panel.
@@ -607,7 +608,8 @@ namespace MphRead
                 && _activePreview.Mode == Mods.Cosmetics.SkinContext.Biped
                 && Mods.Cosmetics.CosmeticPreview.Loadout != null
                 && LauncherPreviewSlot < 0)
-                Mods.ScreenCapture.QueueCosmeticThumbnail(x, y, width, height,
+                Mods.ScreenCapture.QueueCosmeticThumbnail(new Mods.Render.CaptureSource(
+                    GL.GetInteger(GetPName.DrawFramebufferBinding), target.X, target.Y, "cosmetic-preview", SceneCaptureEncoding), x, y, width, height,
                     Mods.Cosmetics.CosmeticThumbnail.PathFor(
                         _activePreview.Shown, _activePreview.ThumbnailKey));
             // Everything back the way the HUD expects to find it.
@@ -615,6 +617,7 @@ namespace MphRead
             GL.Viewport(0, 0, target.X, target.Y);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref _perspectiveMatrix);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
+            SetMaterialCamera(ref _viewMatrix);
             GL.Uniform1(_shaderLocations.UseFog, _hasFog && FogOn ? 1 : 0);
             GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
             _viewInvRotMatrix = previousBillboard;

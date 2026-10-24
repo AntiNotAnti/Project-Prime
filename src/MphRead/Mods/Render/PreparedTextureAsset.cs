@@ -1,4 +1,5 @@
 using System;
+using MphRead;
 
 namespace MphRead.Mods.Render
 {
@@ -20,13 +21,17 @@ namespace MphRead.Mods.Render
     internal abstract class PreparedTextureAsset
     {
         protected PreparedTextureAsset(string key, TextureAssetClass assetClass,
-            TextureAssetChannel channel, int width, int height)
+            TextureAssetChannel channel, int width, int height,
+            TextureAssetSemantics? semantics = null)
         {
             Key = key;
             AssetClass = assetClass;
             Channel = channel;
             Width = width;
             Height = height;
+            Semantics = semantics ?? TextureAssetSemantics.ForChannel(channel);
+            if (Semantics.Channel != channel)
+                throw new ArgumentException("Texture semantics channel does not match the asset channel.", nameof(semantics));
         }
 
         public string Key { get; }
@@ -34,6 +39,9 @@ namespace MphRead.Mods.Render
         public TextureAssetChannel Channel { get; }
         public int Width { get; }
         public int Height { get; }
+        public TextureAssetSemantics Semantics { get; }
+
+        internal abstract PreparedTextureAsset WithSemantics(TextureAssetSemantics semantics);
 
         // RGBA assets can generate a chain on the GPU. Compressed assets
         // override this and require an authored/transcoded chain.

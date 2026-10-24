@@ -36,7 +36,7 @@ public sealed class TheatreCameraController : IDisposable
         if (next.SceneGeneration != _original.SceneGeneration || next.LogicalPath != _original.LogicalPath
             || next.PlaybackPath != _original.PlaybackPath || next.RecordingRevision != _original.RecordingRevision)
             throw new InvalidOperationException("The replay owner or recording changed. Close this panel.");
-        if (!ValidPose(next.Pose) || next.Frame > next.Duration || next.Keys.IsDefault || next.Keys.Length > 64
+        if (!ValidPose(next.Pose) || next.Frame > next.Duration || next.Keys.IsDefault || next.Keys.Length > 1026
             || next.Keys.Any(key => key.Frame > next.Duration || !ValidPose(key.Pose))
             || next.Keys.Select(key => key.Frame).Distinct().Count() != next.Keys.Length)
             throw new InvalidDataException("The camera track is invalid for this replay.");
@@ -80,15 +80,16 @@ public sealed class TheatreCameraController : IDisposable
     {
         RequireNoConfirmation(); RequireReviewed();
         var key = new TheatreCameraKey(_context.Frame, _context.Pose);
-        if (_context.Keys.Any(row => row.Frame == key.Frame))
-            _pending = new(TheatreCameraChange.Replace, _context, key);
+        var existing = _context.Keys.FirstOrDefault(row => row.Frame == key.Frame);
+        if (existing != null)
+            _pending = new(TheatreCameraChange.Replace, _context, key with{Pose=key.Pose with{Channels=existing.Pose.Channels}});
         else { _backend.Commit(new(TheatreCameraChange.Add, _context, key)); RefreshOrThrow(); _status = "Camera keyframe saved."; }
     });
     public bool RequestUpdate() => Run(() =>
     {
         RequireNoConfirmation(); RequireReviewed();
         var key = Selected ?? throw new InvalidOperationException("Choose a camera keyframe.");
-        _pending = new(TheatreCameraChange.Replace, _context, key with { Pose = _context.Pose });
+        _pending = new(TheatreCameraChange.Replace, _context, key with { Pose = _context.Pose with{Channels=key.Pose.Channels} });
     });
     public bool RequestRemove() => Run(() =>
     {
@@ -137,7 +138,12 @@ public sealed class TheatreCameraController : IDisposable
             && float.IsFinite(pose.Fov) && pose.Fov is >= 1 and <= 175
             && float.IsFinite(pose.Roll) && Math.Abs(pose.Roll) <= 360
             && (pose.Handles==null||ValidHandles(pose.Handles))
+            && ValidChannels(pose.Channels)
             && pose.LookAt is >= -1 and < 8 && pose.Interpolation is >= 0 and < 5 && pose.Ease is >= 0 and < 4;
     }
+    internal static bool ValidChannels(TheatreCameraChannelCurves? channels)=>channels==null
+        ||channels.Orientation is >=0 and <=4 and not 3&&channels.OrientationEase is >=0 and <=4
+            &&channels.Fov is >=0 and <=4&&channels.FovEase is >=0 and <=4
+            &&channels.Roll is >=0 and <=4&&channels.RollEase is >=0 and <=4;
 }
 #endif

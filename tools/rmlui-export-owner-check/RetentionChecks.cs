@@ -14,6 +14,7 @@ internal static class RetentionChecks
         Directory.CreateDirectory(directory);
         try
         {
+            AwaitStopped();
             var retryBefore = ReplayExportQueue.OwnerSnapshot().Retry;
             WeakReference detached = CancelDetached(directory);
             Collect();
@@ -43,19 +44,21 @@ internal static class RetentionChecks
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static bool IsRetry(WeakReference manifest) => ReferenceEquals(ReplayExportQueue.OwnerSnapshot().Retry?.Manifest, manifest.Target);
     private static void Collect() { GC.Collect(); GC.WaitForPendingFinalizers(); GC.Collect(); }
+    private static void AwaitStopped()
+    {if(!SpinWait.SpinUntil(()=>!ReplayVideoExporter.Active,TimeSpan.FromSeconds(10)))throw new InvalidOperationException("Cancelled PNG owner did not retire.");}
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CancelDetached(string directory)
     {
         var job = Job(directory); var weak = new WeakReference(job);
         typeof(ReplayVideoExporter).GetField("_job", BindingFlags.NonPublic | BindingFlags.Static)!.SetValue(null, job);
-        ReplayVideoExporter.Cancel(); return weak;
+        ReplayVideoExporter.Cancel(); AwaitStopped(); return weak;
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static WeakReference CancelStarted(string directory)
     {
         var job = Job(directory); var weak = new WeakReference(job);
         if (!ReplayVideoExporter.Start(job)) throw new InvalidOperationException("Actual direct Start must acquire playback ownership.");
-        ReplayVideoExporter.Cancel(); return weak;
+        ReplayVideoExporter.Cancel(); AwaitStopped(); return weak;
     }
     [MethodImpl(MethodImplOptions.NoInlining)]
     private static (WeakReference, WeakReference) CancelAccepted(string directory, int index)
@@ -65,6 +68,6 @@ internal static class RetentionChecks
             () => null, ReplayExportPresentation.Capture());
         if (!ReplayExportQueue.EnqueueOwned(job, policy) || !ReplayExportQueue.Pump())
             throw new InvalidOperationException("Actual accepted Start must acquire playback ownership.");
-        ReplayVideoExporter.Cancel(); return (new(job), new(payload));
+        ReplayVideoExporter.Cancel(); AwaitStopped(); return (new(job), new(payload));
     }
 }

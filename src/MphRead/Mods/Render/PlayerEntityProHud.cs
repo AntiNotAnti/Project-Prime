@@ -92,8 +92,9 @@ namespace MphRead.Entities
                 }
             }
             DrawProAmmo();
-            using (var layout = UseHudLayout(5, 4 * aspect, 12))
-                ProScore(4 * aspect, 12, Align.Left, 1.1f);
+            if (!Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
+                using (var layout = UseHudLayout(5, 4 * aspect, 12))
+                    ProScore(4 * aspect, 12, Align.Left, 1.1f);
         }
 
         /// <summary>
@@ -137,8 +138,8 @@ namespace MphRead.Entities
             }
             int amount = _ammo[info.AmmoType];
             Span<char> ammoBuffer = stackalloc char[12];
-            scoped ReadOnlySpan<char> ammo = "--";
-            if (amount >= 0)
+            scoped ReadOnlySpan<char> ammo = Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) ? "INF" : "--";
+            if (amount >= 0 && !Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
             {
                 int shots = amount / info.AmmoCost;
                 if (shots.TryFormat(ammoBuffer, out int ammoLength))
@@ -157,7 +158,7 @@ namespace MphRead.Entities
             if (!custom || style.Background) _scene.DrawHudFlatBox(left, 170, right, 190, ProHudPanel);
             if (!custom || style.Icon) DrawProAmmoIcon(left + 2 * aspect, 172);
             if (!custom || style.Number) ProNumber(right - 4 * aspect, 172, Align.Right, ammo, ProInk(color), ProAmmoNumberScale * (custom ? style.NumberScale : 1));
-            if (!custom || style.Gauge)
+            if ((!custom || style.Gauge) && !Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode))
             {
                 using var gauge=UseHudLayout(custom && HudProfiles.Runtime.IndependentGauges ? 13 : -1,left+2*aspect,186);
                 ProBar(left + 2 * aspect, 186, (ProAmmoPanelWidth - 4) * (custom ? style.GaugeScale : 1), custom ? style.GaugeThickness : 3, ProAmmoFraction(), color, custom && style.Vertical);
@@ -278,6 +279,7 @@ namespace MphRead.Entities
         /// <summary>How full the ammo pool is, against <see cref="ProAmmoFull"/>.</summary>
         private float ProAmmoFraction()
         {
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)) return 1;
             int amount = _ammo[EquipInfo.Weapon.AmmoType];
             if (amount < 0)
             {
@@ -302,6 +304,7 @@ namespace MphRead.Entities
         /// </summary>
         private Vector4 ProAmmoColor()
         {
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode)) return ProGood;
             int amount = _ammo[EquipInfo.Weapon.AmmoType];
             if (amount < 0 || amount >= ProAmmoFull / 2)
             {

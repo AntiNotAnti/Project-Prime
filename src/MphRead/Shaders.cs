@@ -38,9 +38,11 @@ varying vec4 color;
 varying vec3 surface_normal;
 varying vec3 surface_position;
 
+" + MphRead.Mods.Render.SceneColorShaderSource.Input + MphRead.Mods.Render.SceneColorShaderSource.Normal + @"
 vec3 light_calc(vec3 light_vec, vec3 light_col, vec3 normal_vec, vec3 dif_col, vec3 amb_col, vec3 spe_col)
 {
     vec3 sight_vec = vec3(0.0, 0.0, -1.0);
+    light_col = scene_input_color(light_col);
     float dif_factor = max(0.0, -dot(light_vec, normal_vec));
     vec3 half_vec = (light_vec + sight_vec) / 2.0;
     float spe_factor = max(0.0, dot(-half_vec, normal_vec));
@@ -81,20 +83,22 @@ void main()
     }
     else {
     vec4 vtx_color = weighted_skinning ? vec4(1.0) : (show_colors ? gl_Color : vec4(1.0));
-    vec3 normal = normalize(mat3(model_mtx) * gl_Normal);
+    vtx_color.rgb = scene_material_color(vtx_color.rgb);
+    vec3 normal = scene_linear_color ? scene_transform_normal(mat3(model_mtx), gl_Normal)
+        : normalize(mat3(model_mtx) * gl_Normal);
     surface_normal = normal;
     surface_position = (model_mtx * gl_Vertex).xyz;
     if (use_light) {
-        vec3 dif_current = diffuse;
-        vec3 amb_current = ambient;
+        vec3 dif_current = scene_material_color(diffuse);
+        vec3 amb_current = scene_material_color(ambient);
         if (!weighted_skinning && gl_Color.a == 0.0) {
             // see comment on DIF_AMB
             dif_current = vtx_color.rgb;
             amb_current = vec3(0.0, 0.0, 0.0);
         }
-        vec3 col1 = light_calc(light1vec, light1col, normal, dif_current, amb_current, specular);
-        vec3 col2 = light_calc(light2vec, light2col, normal, dif_current, amb_current, specular);
-        color = vec4(min((col1 + col2 + emission), vec3(1.0, 1.0, 1.0)), 1.0);
+        vec3 col1 = light_calc(light1vec, light1col, normal, dif_current, amb_current, scene_input_color(specular));
+        vec3 col2 = light_calc(light2vec, light2col, normal, dif_current, amb_current, scene_input_color(specular));
+        color = vec4(min((col1 + col2 + scene_input_color(emission)), vec3(1.0, 1.0, 1.0)), 1.0);
     }
     else {
         // alpha will only be less than 1.0 here if DIF_AMB is used but lighting is disabled
@@ -150,9 +154,10 @@ void main()
 
         internal static string WithoutDepthVertexSpecialization(string source)
         {
-            // Verbatim shader literals inherit checkout line endings. Source
-            // transforms and their GLES identities must behave the same on Windows.
-            source = source.Replace("\r\n", "\n");
+            // Verbatim GLSL literals retain the checkout's physical line
+            // endings. Normalize before matching structural boundaries so the
+            // Windows CRLF checkout creates the same shader as an LF checkout.
+            source = source.Replace("\r\n", "\n").Replace('\r', '\n');
             foreach (string declaration in new[] { "uniform bool depth_vertex_fast;", "uniform bool depth_only;",
                 "uniform bool use_override;", "uniform bool player_outline_mask;", "uniform int cosmetic_skin;",
                 "uniform int cosmetic_effect;", "uniform float cosmetic_dissolve;" })
@@ -173,6 +178,7 @@ void main()
         public static string FragmentShader { get; } = @"
 #version 120
 uniform bool use_texture;
+uniform bool photographic_video;
 uniform bool depth_only;
 uniform bool fog_enable;
 uniform vec4 fog_color;
@@ -187,6 +193,13 @@ uniform bool use_normal_map;
 uniform bool use_specular_map;
 uniform bool use_emissive_map;
 uniform float emissive_intensity;
+// Neutral studio environment, not a recovered source-game reflection probe.
+uniform mat4 proj_mtx;
+uniform bool preview_environment;
+uniform bool preview_transmission;
+uniform sampler2D preview_scene;
+uniform vec4 preview_viewport;
+uniform vec2 preview_scene_size;
 uniform bool use_light;
 uniform vec3 light1vec;
 uniform vec3 light1col;
@@ -202,6 +215,10 @@ uniform vec4 override_color;
 uniform bool use_pal_override;
 uniform vec4 pal_override_color;
 uniform float mat_alpha;
+uniform int authored_alpha_mode;
+uniform bool authored_alpha_enabled;
+uniform float authored_alpha_cutoff;
+uniform float authored_alpha_factor;
 uniform int mat_mode;
 uniform vec3[32] toon_table;
 // Cel shading: 0 bands is off. Only the scene is drawn through this program;
@@ -219,6 +236,7 @@ varying vec4 color;
 varying vec3 surface_normal;
 varying vec3 surface_position;
 
+" + MphRead.Mods.Render.SceneColorShaderSource.Input + @"
 // Explicit modern-only experiment; Original/native variants omit this stage.
 uniform bool modern_material_corrections;
 uniform vec3 material_camera_position;
@@ -246,7 +264,7 @@ vec3 mapped_normal_legacy()
 
 vec3 mapped_normal()
 {
-    if (!modern_material_corrections) return mapped_normal_legacy();
+    if (!modern_material_corrections && !scene_linear_color) return mapped_normal_legacy();
     vec3 n = material_safe_normalize(surface_normal, vec3(0.0, 0.0, 1.0));
     if (!use_normal_map) return n;
     vec3 dp1 = dFdx(surface_position), dp2 = dFdy(surface_position);
@@ -268,42 +286,93 @@ vec3 mapped_normal()
     return material_safe_normalize(tangent * mapNormal.x + bitangent * mapNormal.y + n * mapNormal.z, n);
 }
 
-" + MphRead.Mods.Cosmetics.CosmeticShader.Source + @"
+" + MphRead.Mods.Render.SceneColorShaderSource.Cosmetics + @"
+vec3 preview_environment_color(vec3 direction, float roughness)
+{
+    vec3 ground = vec3(0.14, 0.12, 0.10);
+    vec3 sky = vec3(0.32, 0.40, 0.50);
+    vec3 environment = mix(ground, sky, smoothstep(-0.35, 0.65, direction.y));
+    return mix(environment, vec3(0.23, 0.26, 0.30), roughness * roughness);
+}
+
 void apply_material_lighting(inout vec4 col)
 {
     if (!advanced_materials) return;
     if (use_light) {
         vec3 n = mapped_normal();
+        vec3 baseNormal = normalize(surface_normal);
+        // Normals and lights are in world space. Recover the world-space eye ray
+        // from the view rotation; a fixed +Z vector made highlights camera-independent.
+        vec3 eyePosition = (view_mtx * vec4(surface_position, 1.0)).xyz;
+        vec3 eyeRay = abs(proj_mtx[3][3]) > 0.5 ? vec3(0.0, 0.0, -1.0) : normalize(eyePosition);
+        if (preview_environment && !gl_FrontFacing) { n = -n; baseNormal = -baseNormal; }
         float d1 = max(0.0, -dot(light1vec, n)), d2 = max(0.0, -dot(light2vec, n));
-        float l1 = dot(light1col, vec3(0.2126, 0.7152, 0.0722));
-        float l2 = dot(light2col, vec3(0.2126, 0.7152, 0.0722));
+        float l1 = dot(scene_input_color(light1col), vec3(0.2126, 0.7152, 0.0722));
+        float l2 = dot(scene_input_color(light2col), vec3(0.2126, 0.7152, 0.0722));
         col.rgb *= mix(0.92, 1.10, clamp((d1 * l1 + d2 * l2) * 0.65, 0.0, 1.0));
         vec4 sm = use_specular_map ? texture2D(specular_tex, texcoord)
-            : vec4(max(max(specular.r, specular.g), specular.b), 0.55, 0.0, 1.0);
+            : vec4(max(max(scene_input_color(specular).r, scene_input_color(specular).g), scene_input_color(specular).b), 0.55, 0.0, 1.0);
         float roughness = clamp(sm.g, 0.04, 1.0);
-        vec3 viewDir = modern_material_corrections
+        vec3 viewDir = (modern_material_corrections || scene_linear_color)
             ? material_safe_normalize(material_camera_position - surface_position, vec3(0.0, 0.0, 1.0))
-            : vec3(0.0, 0.0, 1.0);
+            : preview_environment ? transpose(mat3(view_mtx)) * -eyeRay : vec3(0.0, 0.0, 1.0);
         vec3 h1, h2;
-        if (modern_material_corrections) {
+        if (modern_material_corrections || scene_linear_color) {
             h1 = material_safe_normalize(-light1vec + viewDir, vec3(0.0));
             h2 = material_safe_normalize(-light2vec + viewDir, vec3(0.0));
         }
         else {
             h1 = normalize(-light1vec + viewDir); h2 = normalize(-light2vec + viewDir);
         }
+        float strength = clamp(sm.r, 0.0, 1.0);
         float exponent = mix(72.0, 4.0, roughness);
         float highlight = pow(max(dot(n, h1), 0.0), exponent) * l1
             + pow(max(dot(n, h2), 0.0), exponent) * l2;
-        col.rgb += vec3(highlight * clamp(sm.r, 0.0, 1.0) * 0.16);
+        col.rgb += vec3(highlight * strength * 0.16);
+        if (preview_environment && use_specular_map && strength > 0.0) {
+            float facing = clamp(dot(n, viewDir), 0.0, 1.0);
+            float fresnel = 0.04 + 0.96 * pow(1.0 - facing, 5.0);
+            vec3 reflected = preview_environment_color(reflect(-viewDir, n), roughness);
+            float reflection = strength * fresnel * mix(0.55, 0.12, roughness);
+            if (preview_transmission && col.a > 0.01 && col.a < 0.99) {
+                vec3 eyeNormal = mat3(view_mtx) * n;
+                vec3 refracted = refract(eyeRay, eyeNormal, 1.0 / 1.45);
+                // Thin-pane approximation: bounded pixel displacement, one opaque
+                // scene snapshot per frame, no recursive or per-pane scene renders.
+                vec2 offset = (refracted.xy - eyeRay.xy) * 10.0;
+                vec2 uv = (gl_FragCoord.xy - preview_viewport.xy + offset) / preview_viewport.zw;
+                vec2 halfPixel = 0.5 / preview_scene_size;
+                vec2 spread = vec2(roughness * 2.0) / preview_scene_size;
+                vec3 behind = texture2D(preview_scene, clamp(uv, halfPixel, 1.0-halfPixel)).rgb * 0.5;
+                behind += texture2D(preview_scene, clamp(uv + spread, halfPixel, 1.0-halfPixel)).rgb * 0.25;
+                behind += texture2D(preview_scene, clamp(uv - spread, halfPixel, 1.0-halfPixel)).rgb * 0.25;
+                col.rgb = mix(behind, col.rgb, col.a);
+                col.rgb = mix(col.rgb, reflected, reflection);
+                // Already composited against the opaque snapshot; avoid blending twice.
+                col.a = 1.0;
+            } else {
+                col.rgb = mix(col.rgb, reflected, reflection);
+            }
+        }
     }
     if (use_emissive_map)
         col.rgb += texture2D(emissive_tex, texcoord).rgb * 0.75 * emissive_intensity;
 }
 
+float scene_material_alpha(float alpha) {
+    if (!authored_alpha_enabled || authored_alpha_mode == 0) return alpha;
+    if (authored_alpha_mode == 1) return 1.0;
+    alpha *= authored_alpha_factor;
+    if (authored_alpha_mode == 2) {
+        if (alpha < authored_alpha_cutoff) discard;
+        return 1.0;
+    }
+    return alpha;
+}
+
 vec4 toon_color(vec4 vtx_color)
 {
-    return vec4(toon_table[int(clamp(vtx_color.r * 31.0, 0.0, 31.0))], vtx_color.a);
+    return vec4(scene_input_color(toon_table[int(clamp(vtx_color.r * 31.0, 0.0, 31.0))]), vtx_color.a);
 }
 
 // Brightness to steps, hue left alone: a surface keeps its colour and it is
@@ -342,19 +411,21 @@ void main()
         && cosmetic_skin == 0 && cosmetic_effect == 0 && cosmetic_dissolve <= 0.0) {
         float a;
         if (use_texture) {
-            float texa = texture2D(tex, texcoord).a;
-            if (mat_mode == 1) a = mat_alpha * color.a;
+            float texa = scene_material_alpha(texture2D(tex, texcoord).a);
+            if (mat_mode == 1) a = mat_alpha * color.a
+                * (authored_alpha_enabled && authored_alpha_mode == 3 ? texa : 1.0);
             else if (mat_mode == 2) a = mat_alpha * texa * color.a;
             else a = color.a * (mat_alpha * texa);
         }
-        else a = color.a * mat_alpha;
+        else a = color.a * mat_alpha * scene_material_alpha(1.0);
         gl_FragColor = vec4(0.0, 0.0, 0.0, a);
         return;
     }
     // mat_mode: 0 - modulate, 1 - decal, 2 - toon
     vec4 col;
     if (use_texture) {
-        vec4 texcolor = use_pal_override ? vec4(pal_override_color.xyz, texture2D(tex, texcoord).w) : texture2D(tex, texcoord);
+        vec4 texcolor = use_pal_override ? vec4(scene_input_color(pal_override_color.xyz), texture2D(tex, texcoord).w) : texture2D(tex, texcoord);
+        texcolor.a = scene_material_alpha(texcolor.a);
         if (authored_neutral_albedo && !use_pal_override) {
             // Keep full-resolution surface detail while replacing a muddy source hue.
             float detail = dot(texcolor.rgb, vec3(0.2126, 0.7152, 0.0722));
@@ -368,14 +439,14 @@ void main()
         // as drawn is that the surface is one colour and the line around it
         // carries the shape.
         if (use_flat && !use_pal_override && textured_player_skin == 0) {
-            texcolor.rgb = flat_color;
+            texcolor.rgb = scene_input_color(flat_color);
         }
         if (mat_mode == 1) {
             col = vec4(
                 (texcolor.r * texcolor.a + color.r * (1 - texcolor.a)),
                 (texcolor.g * texcolor.a + color.g * (1 - texcolor.a)),
                 (texcolor.b * texcolor.a + color.b * (1 - texcolor.a)),
-                mat_alpha * color.a
+                mat_alpha * color.a * (authored_alpha_enabled && authored_alpha_mode == 3 ? texcolor.a : 1.0)
             );
         }
         else if (mat_mode == 2) {
@@ -391,7 +462,7 @@ void main()
                 if (textured_player_skin == 2) {
                     // Strong suit/team identity, with contrast driven by the original texture.
                     float detail = smoothstep(0.05, 0.85, dot(texcolor.rgb, vec3(0.2126, 0.7152, 0.0722)));
-                    vec3 tinted = override_color.rgb * (0.25 + 0.75 * detail);
+                    vec3 tinted = scene_input_color(override_color.rgb) * (0.25 + 0.75 * detail);
                     col.rgb = mix(tinted, pow(texcolor.rgb, vec3(0.7)), 0.25);
                 }
                 else {
@@ -399,23 +470,24 @@ void main()
                 }
             }
             else {
-                col.rgb = override_color.rgb;
+                col.rgb = scene_input_color(override_color.rgb);
             }
             col.a *= override_color.a;
         }
     }
     else if (use_override) {
-        col = override_color;
+        col = vec4(scene_input_color(override_color.rgb), override_color.a);
     }
     else {
         col = mat_mode == 2 ? toon_color(color) : color;
         col.a *= mat_alpha;
     }
+    if (!use_texture) col.a *= scene_material_alpha(1.0);
     apply_material_lighting(col);
     apply_cosmetics(col);
     if (player_outline_mask) {
         if (col.a <= 0.01) discard;
-        col.rgb = player_outline_color;
+        col.rgb = scene_input_color(player_outline_color);
     }
     // Cel shading, on the finished surface colour -- the texture, the vertex
     // colours and the lighting together, which is the only place all three
@@ -424,7 +496,7 @@ void main()
     // dynamically, so the mode was invisible exactly where it should have
     // shown most. Before the fog, which is atmosphere rather than surface and
     // reads wrong in steps.
-    if (cel_bands > 0) {
+    if (cel_bands > 0 && !photographic_video) {
         col.rgb = cel_shade(col.rgb);
     }
     if (fog_enable) {
@@ -437,7 +509,14 @@ void main()
             // MPH fog table has min 0 and max 124
             density = (depth - fog_min) / (fog_max - fog_min) * 124.0 / 128.0;
         }
-        col = vec4((col * (1.0 - density) + fog_color * density).xyz, col.a);
+        if (scene_linear_color) {
+            if (density > 0.0) {
+                col.rgb = scene_native_fog_blend(col.rgb, fog_color.rgb, density);
+            }
+        }
+        else {
+            col = vec4((col*(1.0-density)+fog_color*density).xyz,col.a);
+        }
     }
     gl_FragColor = col;
 }
@@ -825,6 +904,9 @@ void main()
         public int WorldShadowLight { get; set; }
         public int MaterialCameraPosition { get; set; }
         public int ModernMaterialCorrections { get; set; }
+        public int SceneLinearColor { get; set; }
+        public int AuthoredLinearTint { get; set; }
+        public int AuthoredAlphaEnabled { get; set; }
         public int Light1Color { get; set; }
         public int Light1Vector { get; set; }
         public int Light2Color { get; set; }
@@ -852,6 +934,9 @@ void main()
         public int UsePaletteOverride { get; set; }
         public int PaletteOverrideColor { get; set; }
         public int MaterialAlpha { get; set; }
+        public int AuthoredAlphaMode { get; set; }
+        public int AuthoredAlphaCutoff { get; set; }
+        public int AuthoredAlphaFactor { get; set; }
         public int MaterialMode { get; set; }
         public int ViewMatrix { get; set; }
         public int ViewInvMatrix { get; set; }

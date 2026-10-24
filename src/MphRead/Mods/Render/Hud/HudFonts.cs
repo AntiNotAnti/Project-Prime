@@ -48,9 +48,7 @@ public static class HudFonts
     {
         int index=Math.Max(0,Index(id));
         if(Cache[index] is {} cached)return cached;
-        using var stream=typeof(HudFonts).Assembly.GetManifestResourceStream("MphRead.Assets.HudFonts."+All[index].Id+".bin")!;
-        using var reader=new BinaryReader(stream);
-        var advances=new float[96]; for(int i=0;i<96;i++)advances[i]=reader.ReadSingle();
-        return Cache[index]=new(advances,reader.ReadBytes(AtlasWidth*AtlasHeight));
+        return Cache[index] = HudAssetReader.ReadAtlas(
+            "MphRead.Assets.HudFonts." + All[index].Id + ".bin", AtlasWidth, AtlasHeight);
     }
 }

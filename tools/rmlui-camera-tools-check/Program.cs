@@ -36,8 +36,8 @@ Check(control.Confirm()&&control.Snapshot().Pending==null&&!control.Snapshot().C
 Check(!control.Confirm(),"completed publication cannot be repeated");backend.Unverified=false;backend.Publish();Check(control.Refresh(),"fresh explicit review after inspected publication");
 Check(Task.Run(()=>{try{control.Snapshot();return false;}catch(InvalidOperationException){return true;}}).GetAwaiter().GetResult(),"wrong owner thread rejected");
 backend.Context=backend.Context with{SourceRevision="REPLACED"};Check(!control.Refresh(),"same-path source replacement cannot renew old tools context");control.Dispose();Check(control.Snapshot().ClipboardCount==0&&!control.Copy(),"dispose drops bounded clipboard and pending authority");
-var capped=new Memory();capped.Context=capped.Context with{Camera=capped.Context.Camera with{Keys=Enumerable.Range(0,64).Select(frame=>new TheatreCameraKey((uint)frame,new(1,2,3,0,0,0,1,80,0,-1,0,0))).ToImmutableArray()}};
-using(var maximum=new TheatreCameraToolsController(capped))Check(maximum.SelectAll()&&maximum.Copy()&&maximum.Destination("100")&&!maximum.Stage(TheatreCameraToolsChange.Paste)&&capped.Commits==0,"64-key capacity rejects complete overflowing paste before any persistence");
+var capped=new Memory();capped.Context=capped.Context with{Camera=capped.Context.Camera with{Duration=10000,Keys=Enumerable.Range(0,1024).Select(frame=>new TheatreCameraKey((uint)frame,new(1,2,3,0,0,0,1,80,0,-1,0,0))).ToImmutableArray()}};
+using(var maximum=new TheatreCameraToolsController(capped))Check(maximum.SelectAll()&&maximum.Copy()&&maximum.Destination("2000")&&!maximum.Stage(TheatreCameraToolsChange.Paste)&&capped.Commits==0,"1024-key capacity rejects complete overflowing paste before any persistence");
 var rectangleSelection=new Memory();using(var box=new TheatreCameraToolsController(rectangleSelection))
 {
  Check(box.SelectFrames(ImmutableArray.Create(40u,10u,40u))&&box.Snapshot().Selection.SequenceEqual(new[]{10u,40u})&&rectangleSelection.Commits==0,"rectangle selection deduplicates exact authored frames without persistence");
@@ -71,9 +71,46 @@ var directBackend=new Memory();using(var direct=new TheatreCameraToolsController
 }
 foreach(float fov in new[]{10f,150f})Check(new TheatreWorkspaceCameraValues(0,0,0,0,0,0,fov).ValidFov,"legacy direct camera FOV endpoint accepted "+fov);
 foreach(float fov in new[]{9.99f,150.01f,float.NaN})Check(!new TheatreWorkspaceCameraValues(0,0,0,0,0,0,fov).ValidFov,"invalid direct camera FOV rejected "+fov);
+var documentBackend=new DocumentMemory();using(var document=new TheatreCameraToolsController(documentBackend))
+{
+ var initial=document.Snapshot().Context.Camera.Keys;
+ Check(document.Curve(new(0,0,3))&&document.PreviewChange(TheatreCameraToolsChange.Curve)
+  &&documentBackend.Context.Camera.Keys.SequenceEqual(initial)&&documentBackend.Commits==0&&documentBackend.Previews==1,
+  "pointer preview is memory-only and leaves the committed document unchanged");
+ document.CancelPreview();
+ for(int i=0;i<100;i++)Check(document.Curve(new(0,0,1))&&document.Apply(TheatreCameraToolsChange.Curve),"memory transaction "+i);
+ var edited=document.Snapshot().Context.Camera.Keys;
+ Check(document.Snapshot().Dirty&&document.Snapshot().UndoCount==100&&documentBackend.Commits==0,"100 memory transactions retain history and never write");
+ for(int i=0;i<100;i++)Check(document.Undo(),"undo "+i);
+ Check(document.Snapshot().Context.Camera.Keys.SequenceEqual(initial)&&!document.Snapshot().Dirty,"100 undo transactions restore exact original document");
+ for(int i=0;i<100;i++)Check(document.Redo(),"redo "+i);
+ Check(document.Snapshot().Context.Camera.Keys.SequenceEqual(edited),"100 redo transactions restore exact edited document");
+ documentBackend.Context=documentBackend.Context with{Camera=documentBackend.Context.Camera with{Frame=200,SeekGeneration=2}};
+ Check(document.Refresh()&&document.Snapshot().Dirty&&document.Snapshot().Context.Camera.Frame==200&&document.Snapshot().UndoCount==100,
+  "dirty document rebinds after a seek without losing keys, original baseline, or history");
+ Check(document.Undo()&&document.Redo()&&document.Snapshot().Context.Camera.Keys.SequenceEqual(edited),"undo and redo recover after dirty seek rebind");
+ var dirtyBaseline=documentBackend.Context;
+ documentBackend.Context=dirtyBaseline with{Camera=dirtyBaseline.Camera with{CameraRevision="CONFLICT"},SavedKeys=dirtyBaseline.Camera.Keys};
+ Check(!document.Refresh()&&document.Snapshot().Dirty&&document.Snapshot().Context.Camera.CameraRevision==dirtyBaseline.Camera.CameraRevision
+  &&document.Snapshot().Context.Camera.Keys.SequenceEqual(edited)&&document.Snapshot().UndoCount==100&&document.Snapshot().RedoCount==0,
+  "broken backend dirty baseline replacement fails closed and retains exact document and history");
+ documentBackend.Context=dirtyBaseline;Check(document.Refresh(),"original dirty baseline can be reviewed after rejected backend conflict");
+ documentBackend.Fail=true;Check(!document.Save()&&document.Snapshot().Dirty&&document.Snapshot().UndoCount==100,"failed save retains dirty document and history for recovery");
+ documentBackend.Fail=false;Check(document.Save()&&!document.Snapshot().Dirty&&documentBackend.Commits==1,"explicit save publishes exactly once");
+ var external=documentBackend.Context.Camera.Keys.Add(new TheatreCameraKey(500,documentBackend.Context.Camera.Keys[0].Pose));
+ documentBackend.Context=documentBackend.Context with{Camera=documentBackend.Context.Camera with{Keys=external,CameraRevision="BASIC-SAVED"},SavedKeys=external};
+ Check(document.Refresh()&&!document.Snapshot().Dirty&&document.Snapshot().Context.Camera.Keys.SequenceEqual(external)
+  &&document.Snapshot().UndoCount==0&&document.Snapshot().RedoCount==0,"clean explicit refresh adopts basic saved keys and retires prior baseline history");
+ Check(document.Curve(new(0,0,1))&&document.Apply(TheatreCameraToolsChange.Curve)&&document.Undo()&&!document.Snapshot().Dirty,
+  "new baseline supports editing and undo back to the newly saved keys");
+ documentBackend.Context=documentBackend.Context with{Camera=documentBackend.Context.Camera with{CameraRevision="SAME-KEYS-NEW-SAVED-BYTES"}};
+ Check(document.Refresh()&&!document.Snapshot().Dirty&&document.Snapshot().UndoCount==0&&document.Snapshot().RedoCount==0,
+  "same-key saved revision change also retires clean document history");
+}
+ChannelChecks.Run(Check);
 Console.WriteLine($"PASS {checks} camera tools multiselect/copy/move/snap/settings/confirmation/owner checks");
 PresenterChecks.Run();
-sealed class Memory:ITheatreCameraToolsBackend,ITheatreCameraBackend {
+class Memory:ITheatreCameraToolsBackend,ITheatreCameraBackend {
  internal bool Current=true,Fail,Unverified;internal int Commits,Previews;
  private static TheatreCameraPose Pose=new(1,2,3,0,0,0,1,80,0,-1,0,0);
  internal TheatreCameraToolsContext Context=new(new(1,new object(),new object(),0,"SYNTHETIC","SYNTHETIC","RECORDING","CAMERA",50,600,true,Pose,
@@ -93,4 +130,15 @@ sealed class Memory:ITheatreCameraToolsBackend,ITheatreCameraBackend {
  public void PreviewTools(TheatreCameraToolsContext context,TheatreCameraKey focus)=>Previews++;
  public void ChangeMotion(TheatreCameraToolsContext context,TheatreCameraMotionChange change){Context=Context with{Motion=change switch{TheatreCameraMotionChange.ConstantSpeed=>Context.Motion with{ConstantSpeed=!Context.Motion.ConstantSpeed},TheatreCameraMotionChange.Collision=>Context.Motion with{Collision=!Context.Motion.Collision},_=>Context.Motion with{Director=!Context.Motion.Director}}};}
  internal void Publish()=>Context=Context with{Camera=Context.Camera with{PresentationRevision=Context.Camera.PresentationRevision+1}};
+}
+
+sealed class DocumentMemory:Memory,ITheatreCameraMemoryBackend
+{
+ public void PreviewMemory(TheatreCameraToolsEdit edit)=>Previews++;
+ public void CancelMemoryPreview(){}
+ public TheatreCameraToolsContext RebindMemory(TheatreCameraToolsContext current)=>Context;
+ public void DiscardMemory(TheatreCameraToolsContext current){}
+ public TheatreCameraToolsContext CommitMemory(TheatreCameraToolsEdit edit)=>Context=Context with{Camera=Context.Camera with{Keys=edit.After}};
+ public TheatreCameraToolsContext RestoreMemory(TheatreCameraToolsContext current,TheatreCameraToolsContext target)=>Context=current with{Camera=current.Camera with{Keys=target.Camera.Keys}};
+ public TheatreCameraToolsContext SaveMemory(TheatreCameraToolsContext current){if(Fail)throw new IOException("Synthetic save failure");Commits++;return Context;}
 }

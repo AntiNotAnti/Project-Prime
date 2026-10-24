@@ -15,7 +15,12 @@ namespace MphRead.Mods.Render
 
                 RenderOptions.TextureReplacements = true;
                 RenderOptions.CharacterModelReplacements = true;
+                RenderOptions.LinearColor = true;
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
+                Check(!RenderOptions.LinearColor, "Original disables linear world color");
+                var legacyColorSettings = new MenuSettings();
+                SettingsMigration.Apply(legacyColorSettings, out _);
+                Check(legacyColorSettings.LinearColor == "off", "existing settings preserve native color by default");
                 Check(RenderOptions.Preset == GraphicsPreset.Original
                     && RenderOptions.ResolutionScale == 100
                     && RenderOptions.AntiAliasing == AntiAliasingMode.Off

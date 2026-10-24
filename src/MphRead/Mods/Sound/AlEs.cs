@@ -165,6 +165,7 @@ namespace MphRead.Mods.Sound
     internal static class AlcEs
     {
         private static readonly IntPtr _handle = new IntPtr(1);
+        private static IntPtr _currentContext;
 
         public static ALDevice OpenDevice(string? deviceName)
         {
@@ -185,12 +186,24 @@ namespace MphRead.Mods.Sound
             return device.Handle == IntPtr.Zero ? ALContext.Null : new ALContext(_handle);
         }
 
-        public static bool MakeContextCurrent(ALContext context) => true;
+        public static ALContext GetCurrentContext()
+            => new ALContext(System.Threading.Volatile.Read(ref _currentContext));
 
-        public static bool DestroyContext(ALContext context) => true;
+        public static bool MakeContextCurrent(ALContext context)
+        {
+            System.Threading.Interlocked.Exchange(ref _currentContext, context.Handle);
+            return true;
+        }
+
+        public static bool DestroyContext(ALContext context)
+        {
+            System.Threading.Interlocked.CompareExchange(ref _currentContext, IntPtr.Zero, context.Handle);
+            return true;
+        }
 
         public static bool CloseDevice(ALDevice device)
         {
+            System.Threading.Interlocked.Exchange(ref _currentContext, IntPtr.Zero);
             SfxMixer.Close();
             return true;
         }

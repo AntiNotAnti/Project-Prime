@@ -123,7 +123,9 @@ internal sealed class NativeOwnedSettingsAcceptance
         Wait("native pause ready for settings",()=>RmlUiOpenGlSmoke.NativePauseOpen);
         Do("open production in-game Settings",()=>Activate("ingame_settings"));
         Wait("native in-game settings overview owns focus",()=>ReadStatic<NativeFullSettingsPage>("_fullSettings") is{OwnsForeground:true});
-        Do("open HUD through actual Settings button",()=>Activate("native_settings_hud"));
+        Do("open Display category",()=>Activate("native_settings_overview_0"));
+        Wait("Display HUD Studio card is visible",()=>Host.TryGetElementBounds(Host.CurrentInputDocument,"native_settings_hud",out _,out _,out float width,out float height)&&width>0&&height>0);
+        Do("open HUD through Display card",()=>Activate("native_settings_hud"));
         Wait("actual HUD editor owns gameplay settings",()=>ReadStatic<NativeHudEditorPage>("_hudEditor") is{OwnsForeground:true});
         Do("choose HUD Position/Layout",()=>Activate("hud_section_layout"));
     }
@@ -140,6 +142,8 @@ internal sealed class NativeOwnedSettingsAcceptance
     {
         Do("return from HUD after "+aspect,()=>Activate("hud_cancel"));
         Wait("retained full Settings resumes after "+aspect,()=>ReadStatic<NativeHudEditorPage>("_hudEditor")==null&&ReadStatic<NativeFullSettingsPage>("_fullSettings") is{OwnsForeground:true});
+        Do("back to Settings overview after "+aspect,()=>Activate("native_settings_back"));
+        Wait("Settings overview resumes after "+aspect,()=>Host.TryGetElementBounds(Host.CurrentInputDocument,"native_settings_overview_0",out _,out _,out float width,out float height)&&width>0&&height>0);
         Do("back from Settings after "+aspect,()=>Activate("native_settings_back"));
         Wait("native pause owns returned Settings",()=>RmlUiOpenGlSmoke.NativePauseOpen);
         Do("resume actual gameplay after "+aspect,()=>Activate("ingame_resume"));

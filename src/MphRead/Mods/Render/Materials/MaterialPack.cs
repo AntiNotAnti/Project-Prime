@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ReFuel.Stb;
+using MphRead;
 using MphRead.Mods.Render;
 
 namespace MphRead.Mods.Render.Materials;
@@ -83,12 +84,35 @@ public sealed class MaterialPackEntry
     public string? Normal { get; set; }
     public string? SpecularRoughness { get; set; }
     public string? Emissive { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TextureAlphaMode? AlphaMode { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public float? AlphaCutoff { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public float? AlphaFactor { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TextureTransferFunction? AlbedoTransfer { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TextureTransferFunction? NormalTransfer { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TextureTransferFunction? SpecularRoughnessTransfer { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public TextureTransferFunction? EmissiveTransfer { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RepeatMode? WrapS { get; set; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public RepeatMode? WrapT { get; set; }
 }
 public sealed class MaterialImage
 {
     private readonly Func<Stream>? _open;
     private readonly Func<byte[]>? _readRgba;
     private readonly bool _factoryCanDecodeOffThread;
+    private readonly TextureAssetSemantics? _semanticsOverride;
+    public TextureTransferFunction? TransferOverride { get; }
+    public TextureAlphaPolicy AlphaPolicy { get; }
+    internal TextureWrapPolicy? WrapPolicy { get; }
+    internal float AlphaFactor { get; }
     public string Path { get; }
     public int Width { get; }
     public int Height { get; }
@@ -97,13 +121,23 @@ public sealed class MaterialImage
     public bool CanDecodeOffThread => IsFileBacked || _readRgba != null || _factoryCanDecodeOffThread;
     public MaterialImage(string path, int width, int height) : this(path, width, height, null, false) { }
     internal MaterialImage(string path, int width, int height, Func<Stream>? open,
-        bool canDecodeOffThread = false)
+        bool canDecodeOffThread = false, TextureTransferFunction? transferOverride = null,
+        TextureAlphaPolicy? alphaPolicy = null, TextureWrapPolicy? wrapPolicy = null,
+        float alphaFactor = 1f, TextureAssetSemantics? semanticsOverride = null)
     {
         Path = path;
         Width = width;
         Height = height;
         _open = open;
         _factoryCanDecodeOffThread = canDecodeOffThread;
+        TransferOverride = transferOverride;
+        AlphaPolicy = alphaPolicy ?? TextureAlphaPolicy.Legacy;
+        AlphaPolicy.Validate();
+        WrapPolicy = wrapPolicy?.Validate();
+        if (!float.IsFinite(alphaFactor) || alphaFactor < 0 || alphaFactor > 1)
+            throw new ArgumentOutOfRangeException(nameof(alphaFactor));
+        AlphaFactor = alphaFactor;
+        _semanticsOverride = semanticsOverride;
     }
     private MaterialImage(string path, int width, int height, Func<byte[]> readRgba)
         : this(path, width, height, null, true)
@@ -128,27 +162,69 @@ public sealed class MaterialImage
     }
 
     internal PreparedTextureAsset Prepare(TextureAssetClass assetClass, TextureAssetChannel channel,
-        int maximumDimension)
+        int maximumDimension, bool linearFiltering = false)
     {
-        if (_readRgba != null) return ReadRgba(assetClass, channel).Fit(maximumDimension);
+        TextureAssetSemantics semantics = _semanticsOverride ?? TextureAssetSemantics.ForChannel(channel,
+            alphaPolicy: channel == TextureAssetChannel.Albedo ? AlphaPolicy : null,
+            wrap: WrapPolicy, transferOverride: TransferOverride,
+            alphaFactor: AlphaFactor);
+        if (semantics.Channel != channel)
+            throw new InvalidDataException("Prepared material semantics do not match the requested channel.");
+        if (_readRgba != null)
+        {
+            ModernTextureAsset rgba = ReadRgba(assetClass, channel, semantics);
+            if (!linearFiltering) return rgba.Fit(maximumDimension);
+            ModernTextureAsset fitted = ColorTexturePolicy.FitForLinearFiltering(rgba, maximumDimension, semantics);
+            return ColorTexturePolicy.PrepareForLinearFiltering(fitted, semantics.Alpha, semantics.Wrap);
+        }
         using Stream stream = OpenRead();
-        return PreparedTextureCodec.Decode(stream, Path, assetClass, channel, maximumDimension);
+        return PreparedTextureCodec.Decode(stream, Path, assetClass, channel, maximumDimension,
+            semantics, linearFiltering);
     }
 
-    internal ModernTextureAsset ReadRgba(TextureAssetClass assetClass, TextureAssetChannel channel)
+    internal ModernTextureAsset ReadRgba(TextureAssetClass assetClass, TextureAssetChannel channel,
+        TextureAssetSemantics? semantics = null)
     {
         if (_readRgba != null)
         {
             byte[] pixels = _readRgba();
-            return ModernTextureAsset.FromRgba(Path, assetClass, channel, Width, Height, pixels);
+            return ModernTextureAsset.FromRgba(Path, assetClass, channel, Width, Height, pixels, semantics);
         }
         using Stream stream = OpenRead();
-        return PreparedTextureCodec.DecodeRgba(stream, Path, assetClass, channel);
+        return PreparedTextureCodec.DecodeRgba(stream, Path, assetClass, channel,
+            semantics: semantics);
     }
+
+    internal MaterialImage WithTexturePolicy(TextureTransferFunction? transfer,
+        TextureAlphaPolicy alpha, TextureWrapPolicy? wrap = null, float alphaFactor = 1f)
+    {
+        if (_readRgba != null)
+            return new MaterialImage(Path, Width, Height, _readRgba, transfer, alpha, wrap, alphaFactor);
+        return new MaterialImage(Path, Width, Height, _open, _factoryCanDecodeOffThread,
+            transfer, alpha, wrap, alphaFactor);
+    }
+
+    internal MaterialImage WithSemantics(TextureAssetSemantics semantics)
+    {
+        ArgumentNullException.ThrowIfNull(semantics);
+        if (_readRgba != null)
+            return new MaterialImage(Path, Width, Height, _readRgba, semantics.Transfer,
+                semantics.Alpha, semantics.Wrap, semantics.AlphaFactor, semantics);
+        return new MaterialImage(Path, Width, Height, _open, _factoryCanDecodeOffThread,
+            semantics.Transfer, semantics.Alpha, semantics.Wrap, semantics.AlphaFactor, semantics);
+    }
+
+    private MaterialImage(string path, int width, int height, Func<byte[]> readRgba,
+        TextureTransferFunction? transfer, TextureAlphaPolicy alpha, TextureWrapPolicy? wrap,
+        float alphaFactor = 1f, TextureAssetSemantics? semanticsOverride = null)
+        : this(path, width, height, null, true, transfer, alpha, wrap, alphaFactor, semanticsOverride)
+        => _readRgba = readRgba;
 }
 /// <summary>Backend-independent map semantics: normal XYZ, specular R / roughness G, emissive RGB.</summary>
 public sealed record ResolvedMaterial(MaterialAssetKey Key, MaterialImage? Albedo,
-    MaterialImage? Normal, MaterialImage? SpecularRoughness, MaterialImage? Emissive);
+    MaterialImage? Normal, MaterialImage? SpecularRoughness, MaterialImage? Emissive,
+    TextureAlphaPolicy AlphaPolicy = default, float AlphaFactor = 1f,
+    RepeatMode? WrapS = null, RepeatMode? WrapT = null);
 public sealed record MaterialPackIssue(string Key, string Channel, string Message, bool Error);
 
 public sealed class MaterialPack
@@ -162,7 +238,8 @@ public sealed class MaterialPack
     public static readonly JsonSerializerOptions Json = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, MaxDepth = 16
+        UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow, MaxDepth = 16,
+        Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase, allowIntegerValues: false) }
     };
     public MaterialPackManifest Manifest { get; }
     public IReadOnlyList<MaterialPackIssue> Issues => _issues;
@@ -197,7 +274,22 @@ public sealed class MaterialPack
             var key = new MaterialAssetKey(entry.Key);
             if (!keys.Add(key.Value)) throw new InvalidDataException("Duplicate material key: " + key);
             entry.Key = key.Value;
-            MaterialImage? Read(string? relative, string channel)
+            TextureAlphaPolicy alphaPolicy = entry.AlphaMode is { } alphaMode
+                ? new TextureAlphaPolicy(alphaMode, entry.AlphaCutoff ?? 0.5f)
+                : new TextureAlphaPolicy(TextureAlphaMode.Legacy, entry.AlphaCutoff ?? 0.5f);
+            if (entry.WrapS.HasValue != entry.WrapT.HasValue)
+                throw new InvalidDataException("WrapS and WrapT must be provided together: " + key + ".");
+            if (entry.WrapS is { } wrapS && (!Enum.IsDefined(wrapS) || !Enum.IsDefined(entry.WrapT!.Value)))
+                throw new InvalidDataException("Invalid texture wrap mode: " + key + ".");
+            TextureWrapPolicy? wrapPolicy = entry.WrapS is { } s
+                ? new TextureWrapPolicy(s, entry.WrapT!.Value) : null;
+            float alphaFactor = entry.AlphaFactor ?? 1f;
+            if (!float.IsFinite(alphaFactor) || alphaFactor < 0f || alphaFactor > 1f)
+                throw new InvalidDataException("Alpha factor must be finite and between zero and one: " + key + ".");
+            ValidateTransferOverride(entry.NormalTransfer, TextureAssetChannel.Normal, key);
+            ValidateTransferOverride(entry.SpecularRoughnessTransfer, TextureAssetChannel.Material, key);
+            MaterialImage? Read(string? relative, string channel, TextureTransferFunction? transfer,
+                TextureAlphaPolicy alpha, float channelAlphaFactor = 1f)
             {
                 if (string.IsNullOrEmpty(relative)) return null;
                 // Unsafe references are manifest errors even for optional channels.
@@ -211,17 +303,35 @@ public sealed class MaterialPack
                     total = checked(total + new FileInfo(path).Length);
                     if (total > MaximumPackBytes) throw new InvalidDataException("Pack exceeds byte limit.");
                 }
-                try { return ValidateImageMetadata(path); }
+                try
+                {
+                    return ValidateImageMetadata(path)?.WithTexturePolicy(transfer, alpha,
+                        wrapPolicy, channelAlphaFactor);
+                }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                 {
                     pack._issues.Add(new(key.Value, channel, ex.Message, channel == "albedo"));
                     return null;
                 }
             }
-            pack._materials.Add(key.Value, new(key, Read(entry.Albedo, "albedo"), Read(entry.Normal, "normal"),
-                Read(entry.SpecularRoughness, "specularRoughness"), Read(entry.Emissive, "emissive")));
+            pack._materials.Add(key.Value, new(key,
+                Read(entry.Albedo, "albedo", entry.AlbedoTransfer, alphaPolicy, alphaFactor),
+                Read(entry.Normal, "normal", entry.NormalTransfer, TextureAlphaPolicy.Legacy),
+                Read(entry.SpecularRoughness, "specularRoughness", entry.SpecularRoughnessTransfer, TextureAlphaPolicy.Legacy),
+                Read(entry.Emissive, "emissive", entry.EmissiveTransfer, TextureAlphaPolicy.Legacy),
+                alphaPolicy, alphaFactor, entry.WrapS, entry.WrapT));
         }
         return pack;
+    }
+
+    private static void ValidateTransferOverride(TextureTransferFunction? transfer,
+        TextureAssetChannel channel, MaterialAssetKey key)
+    {
+        if (transfer is { } value && !Enum.IsDefined(value))
+            throw new InvalidDataException("Invalid transfer function for " + key + ".");
+        if ((channel is TextureAssetChannel.Normal or TextureAssetChannel.Material or TextureAssetChannel.Mask)
+            && transfer == TextureTransferFunction.Srgb)
+            throw new InvalidDataException("Data texture channels must use linear transfer: " + key + ".");
     }
 
     internal static void ValidatePackBudget(string root, long additionalBytes = 0)

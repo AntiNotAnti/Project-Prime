@@ -106,6 +106,15 @@ namespace MphRead.Mods.Launcher.Gui
             var view = new PauseMenuView(offerWindowMode: true,
                 campaignAvailable: CampaignJournalView.Available(_players));
             view.Resumed += (_, _) => Pop();
+            view.HeroSelectionRequested += (_, _) =>
+            {
+                var hero = Mods.HeroModes.HeroSelectionFactory.Create(respawn: true);
+                var timer = new Avalonia.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+                timer.Tick += (_, _) => hero.Refresh();
+                hero.AttachedToVisualTree += (_, _) => timer.Start();
+                hero.DetachedFromVisualTree += (_, _) => timer.Stop();
+                Push(hero);
+            };
             view.FullscreenRequested += (_, _) =>
             {
                 PauseMenu.RequestFullscreenToggle();

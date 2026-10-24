@@ -1,6 +1,7 @@
 #if !MPHREAD_SERVER
 using System;
 using System.Collections.Immutable;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -18,6 +19,9 @@ public sealed class TheatreCameraToolsController : IDisposable
     private ImmutableArray<uint> _selection=ImmutableArray<uint>.Empty;
     private ImmutableArray<TheatreCameraKey> _clipboard=ImmutableArray<TheatreCameraKey>.Empty;
     private TheatreCameraToolsEdit? _pending;
+    private readonly List<TheatreCameraToolsContext> _undo = new(), _redo = new();
+    private ImmutableArray<TheatreCameraKey> _savedKeys;
+    public bool MemoryEditing => _backend is ITheatreCameraMemoryBackend;
     private uint _destination;
     private TheatreCameraCurveEdit _curve=new(0,0,0);
     private TheatreCameraHandles _handles=new(null,null,0,0,0,0);
@@ -30,23 +34,32 @@ public sealed class TheatreCameraToolsController : IDisposable
     public TheatreCameraToolsController(ITheatreCameraToolsBackend backend)
     {
         _backend=backend??throw new ArgumentNullException(nameof(backend));_original=_context=backend.CaptureTools();
-        Validate(_context);_authority=_backend.ToolsCurrent(_context);_destination=_context.Camera.Frame;
+        _savedKeys=_context.SavedKeys.IsDefault?_context.Camera.Keys:_context.SavedKeys;Validate(_context);_authority=_backend.ToolsCurrent(_context);_destination=_context.Camera.Frame;
         if(!_context.Camera.Keys.IsEmpty){_selection=ImmutableArray.Create(_context.Camera.Keys[0].Frame);_anchor=_selection[0];}
     }
     public TheatreCameraToolsSnapshot Snapshot()
     {
         Verify();if(!_disposed&&_authority&&!_backend.ToolsCurrent(_context))_authority=false;
-        return new(_context,_focus,Focused,_selection,_destination,_clipboard.Length,_pending,!_disposed&&_authority,_status,_error);
+        return new(_context,_focus,Focused,_selection,_destination,_clipboard.Length,_pending,!_disposed&&_authority,_status,_error.Length>0?_error:(_backend as ITheatreCameraMemoryBackend)?.RecoveryStatus(_context)??""){Dirty=MemoryEditing&&!_context.Camera.Keys.SequenceEqual(_savedKeys),UndoCount=_undo.Count,RedoCount=_redo.Count};
     }
     private TheatreCameraKey? Focused=>_context.Camera.Keys.IsEmpty?null:_context.Camera.Keys[_focus];
     public bool Refresh()=>Run(()=>
     {
-        Free();_authority=false;var next=_backend.CaptureTools();Validate(next);
+        Free();CancelPreview();_authority=false;
+        bool clean=MemoryEditing&&_context.Camera.Keys.SequenceEqual(_savedKeys);
+        var next=MemoryEditing?((ITheatreCameraMemoryBackend)_backend).RebindMemory(_context):_backend.CaptureTools();Validate(next);
         if(!ReferenceEquals(next.Owner,_original.Owner)||next.Camera.SceneGeneration!=_original.Camera.SceneGeneration||next.Camera.LogicalPath!=_original.Camera.LogicalPath
             ||next.Camera.PlaybackPath!=_original.Camera.PlaybackPath||next.SourceRevision!=_original.SourceRevision)
             throw new TheatreCameraStaleException("The original replay owner or source changed. Close camera tools.");
         if(_awaitingPicture is long previous&&next.Camera.PresentationRevision<=previous)
             throw new InvalidOperationException("Wait for a newer successful replay picture, then explicitly refresh.");
+        var saved=next.SavedKeys.IsDefault?next.Camera.Keys:next.SavedKeys;
+        bool baselineChanged=next.Camera.CameraRevision!=_context.Camera.CameraRevision
+            ||(!next.SavedKeys.IsDefault&&!saved.SequenceEqual(_savedKeys));
+        if(MemoryEditing&&!clean&&baselineChanged)
+            throw new TheatreCameraStaleException("The saved camera baseline changed. Unsaved keys and history are retained.");
+        if(clean&&baselineChanged)
+        {_savedKeys=saved;_undo.Clear();_redo.Clear();}
         uint? focused=Focused?.Frame;_context=next;_focus=0;
         for(int i=0;i<next.Camera.Keys.Length;i++)if(next.Camera.Keys[i].Frame==focused){_focus=i;break;}
         _selection=_selection.Where(frame=>next.Camera.Keys.Any(key=>key.Frame==frame)).ToImmutableArray();
@@ -70,7 +83,7 @@ public sealed class TheatreCameraToolsController : IDisposable
     {Free();if(!TheatreCameraController.ValidHandles(handles))throw new ArgumentException("Camera handles must contain finite values.");_handles=handles;});
     public bool Curve(TheatreCameraCurveEdit edit)=>Run(()=>
     {Free();if(edit.Channel is <0 or >4||edit.Handle is <-1 or >1||!float.IsFinite(edit.Delta))throw new ArgumentException("Invalid curve edit.");_curve=edit;});
-    public bool ValidateReview()=>Run(()=>{Free();Reviewed();_backend.ValidateReviewedTools(_context);});
+    public bool ValidateReview()=>Run(()=>{Free();Reviewed();if(!MemoryEditing)_backend.ValidateReviewedTools(_context);});
     public bool FocusSavedFrame(uint frame)=>Run(()=>
     {
         Free();Reviewed();int found=-1;
@@ -95,7 +108,7 @@ public sealed class TheatreCameraToolsController : IDisposable
     });
     public bool SelectFrames(ImmutableArray<uint> frames)=>Run(()=>
     {
-        Free();Reviewed();_backend.ValidateReviewedTools(_context);
+        Free();Reviewed();if(!MemoryEditing)_backend.ValidateReviewedTools(_context);
         if(frames.IsDefault)throw new ArgumentException("Choose a reviewed set of camera frames.");
         var selected=frames.Distinct().OrderBy(frame=>frame).ToImmutableArray();
         if(selected.Any(frame=>!_context.Camera.Keys.Any(key=>key.Frame==frame)))
@@ -111,11 +124,20 @@ public sealed class TheatreCameraToolsController : IDisposable
     public bool StageChoice(TheatreCameraToolsChange kind,int value)=>Stage(kind,value);
     public bool Stage(TheatreCameraToolsChange kind,int? choice=null)=>Run(()=>
     {
-        Free();Reviewed();if(choice!=null&&kind is not(TheatreCameraToolsChange.Interpolation or TheatreCameraToolsChange.Ease or TheatreCameraToolsChange.LookAt))throw new ArgumentException("This edit does not accept a direct camera choice.");
+        Free();Reviewed();if(choice!=null&&kind is not(TheatreCameraToolsChange.Interpolation or TheatreCameraToolsChange.Ease or TheatreCameraToolsChange.LookAt)&&!ChannelChange(kind))throw new ArgumentException("This edit does not accept a direct camera choice.");
         if(!Enum.IsDefined(kind))throw new ArgumentException("Unknown camera track command.");
         var before=_context.Camera.Keys;var after=before;var selected=kind is TheatreCameraToolsChange.Paste or TheatreCameraToolsChange.Duplicate?ImmutableArray<TheatreCameraKey>.Empty:Selected();
         switch(kind)
         {
+            case TheatreCameraToolsChange.OrientationCurve:case TheatreCameraToolsChange.OrientationEase:
+            case TheatreCameraToolsChange.FovCurve:case TheatreCameraToolsChange.FovEase:
+            case TheatreCameraToolsChange.RollCurve:case TheatreCameraToolsChange.RollEase:
+                var channels=Focus().Pose.Channels??new(0,0,0,0,0,0);
+                int current=ChannelValue(channels,kind),channelValue=choice??(current+1)%5;
+                if(choice==null&&kind==TheatreCameraToolsChange.OrientationCurve&&channelValue==3)channelValue=4;
+                if(channelValue is <0 or >4||kind==TheatreCameraToolsChange.OrientationCurve&&channelValue==3)
+                    throw new ArgumentException("Choose a supported independent camera curve; orientation does not support Bezier.");
+                after=before.Select(key=>_selection.Contains(key.Frame)?key with{Pose=key.Pose with{Channels=SetChannel(key.Pose.Channels,kind,channelValue)}}:key).ToImmutableArray();break;
             case TheatreCameraToolsChange.Move:
                 var moved=Translate(selected,_destination);after=Insert(before.Where(key=>!_selection.Contains(key.Frame)).ToImmutableArray(),moved);break;
             case TheatreCameraToolsChange.Paste:
@@ -157,11 +179,25 @@ public sealed class TheatreCameraToolsController : IDisposable
                 after=Insert(before.Where(key=>!_selection.Contains(key.Frame)).ToImmutableArray(),changed);break;
             case TheatreCameraToolsChange.Remove:after=before.Where(key=>!_selection.Contains(key.Frame)).ToImmutableArray();break;
         }
-        if(after.Length>64||after.Any(key=>key.Frame>_context.Camera.Duration||!TheatreCameraController.ValidPose(key.Pose))||after.Select(key=>key.Frame).Distinct().Count()!=after.Length)
-            throw new ArgumentException("The edit exceeds the 64-key track limit or contains an invalid key.");
+        if(after.Length>1026||after.Any(key=>key.Frame>_context.Camera.Duration||!TheatreCameraController.ValidPose(key.Pose))||after.Select(key=>key.Frame).Distinct().Count()!=after.Length)
+            throw new ArgumentException("The edit exceeds the 1024-key track limit or contains an invalid key.");
         if(after.SequenceEqual(before))throw new InvalidOperationException("This command does not change the reviewed track.");
         _pending=new(kind,_context,_selection,before,after);_status="Review the full exact track change before saving.";
     });
+    private static bool ChannelChange(TheatreCameraToolsChange kind)=>kind is TheatreCameraToolsChange.OrientationCurve or TheatreCameraToolsChange.OrientationEase
+        or TheatreCameraToolsChange.FovCurve or TheatreCameraToolsChange.FovEase or TheatreCameraToolsChange.RollCurve or TheatreCameraToolsChange.RollEase;
+    private static int ChannelValue(TheatreCameraChannelCurves curves,TheatreCameraToolsChange kind)=>kind switch
+    {TheatreCameraToolsChange.OrientationCurve=>curves.Orientation,TheatreCameraToolsChange.OrientationEase=>curves.OrientationEase,
+        TheatreCameraToolsChange.FovCurve=>curves.Fov,TheatreCameraToolsChange.FovEase=>curves.FovEase,
+        TheatreCameraToolsChange.RollCurve=>curves.Roll,_=>curves.RollEase};
+    private static TheatreCameraChannelCurves? SetChannel(TheatreCameraChannelCurves? channels,TheatreCameraToolsChange kind,int value)
+    {
+        var curves=channels??new(0,0,0,0,0,0);
+        curves=kind switch{TheatreCameraToolsChange.OrientationCurve=>curves with{Orientation=value},TheatreCameraToolsChange.OrientationEase=>curves with{OrientationEase=value},
+            TheatreCameraToolsChange.FovCurve=>curves with{Fov=value},TheatreCameraToolsChange.FovEase=>curves with{FovEase=value},
+            TheatreCameraToolsChange.RollCurve=>curves with{Roll=value},_=>curves with{RollEase=value}};
+        return curves==new TheatreCameraChannelCurves(0,0,0,0,0,0)?null:curves;
+    }
     private static TheatreCameraKey CurveKey(TheatreCameraKey key,ImmutableArray<TheatreCameraKey> keys,TheatreCameraCurveEdit edit)
     {
         var p=key.Pose;float d=edit.Delta;
@@ -189,6 +225,47 @@ public sealed class TheatreCameraToolsController : IDisposable
         if(added.Any(key=>existing.Any(row=>row.Frame==key.Frame)))throw new InvalidOperationException("A destination already contains an unselected camera key. No key was overwritten.");
         return existing.AddRange(added).OrderBy(key=>key.Frame).ToImmutableArray();
     }
+    public bool PreviewChange(TheatreCameraToolsChange kind)
+    {
+        if (!MemoryEditing) return false;
+        if (!Stage(kind)) { CancelPreview(); return false; }
+        return Run(() => { var edit = _pending!; _pending = null; ((ITheatreCameraMemoryBackend)_backend).PreviewMemory(edit); });
+    }
+    public void CancelPreview() { Verify(); if (_backend is ITheatreCameraMemoryBackend memory) memory.CancelMemoryPreview(); }
+    public bool Apply(TheatreCameraToolsChange kind, int? choice = null)
+    {
+        CancelPreview();
+        return Stage(kind, choice) && (MemoryEditing ? CommitDocument() : true);
+    }
+    public bool CommitDocument()=>Run(()=>
+    {
+        Reviewed(); var edit = _pending ?? throw new InvalidOperationException("No camera document edit is pending.");
+        var next = ((ITheatreCameraMemoryBackend)_backend).CommitMemory(edit);
+        _undo.Add(_context); if (_undo.Count > 100) _undo.RemoveAt(0); _redo.Clear();
+        _context=next; _pending=null; _authority=true; _focus=Math.Clamp(_focus,0,Math.Max(0,next.Camera.Keys.Length-1));
+        _selection=_selection.Where(f=>next.Camera.Keys.Any(k=>k.Frame==f)).ToImmutableArray();
+        _status="Camera document changed in memory. Save to publish the sidecar.";
+    });
+    public bool Undo()=>History(_undo,_redo);
+    public bool Redo()=>History(_redo,_undo);
+    private bool History(List<TheatreCameraToolsContext> from,List<TheatreCameraToolsContext> to)=>Run(()=>
+    {
+        Free(); Reviewed(); CancelPreview(); if(from.Count==0)throw new InvalidOperationException("No camera history in this direction.");
+        var next=((ITheatreCameraMemoryBackend)_backend).RestoreMemory(_context,from[^1]);
+        to.Add(_context);from.RemoveAt(from.Count-1);_context=next;_focus=Math.Clamp(_focus,0,Math.Max(0,next.Camera.Keys.Length-1));
+        _selection=_selection.Where(f=>next.Camera.Keys.Any(k=>k.Frame==f)).ToImmutableArray();_status="Camera history restored in memory.";
+    });
+    public bool Save()=>Run(()=>
+    {
+        Free();Reviewed();_context=((ITheatreCameraMemoryBackend)_backend).SaveMemory(_context);
+        _savedKeys=_context.Camera.Keys;_status="Camera document saved and source identity verified.";
+    });
+    public bool Discard()=>Run(()=>
+    {
+        _pending=null;((ITheatreCameraMemoryBackend)_backend).DiscardMemory(_context);
+        _savedKeys=_context.Camera.Keys;_undo.Clear();_redo.Clear();_authority=false;
+        _status="Unsaved camera document discarded. Close tools or refresh the current source.";
+    });
     public bool Confirm()=>Run(()=>
     {
         Reviewed();var pending=_pending??throw new InvalidOperationException("No reviewed camera track change is pending.");
@@ -206,7 +283,7 @@ public sealed class TheatreCameraToolsController : IDisposable
     private static void Validate(TheatreCameraToolsContext context)
     {
         var camera=context.Camera;
-        if(camera.Keys.IsDefault||camera.Keys.Length>64||camera.Keys.Any(key=>key.Frame>camera.Duration||!TheatreCameraController.ValidPose(key.Pose))
+        if(camera.Keys.IsDefault||camera.Keys.Length>1026||camera.Keys.Any(key=>key.Frame>camera.Duration||!TheatreCameraController.ValidPose(key.Pose))
             ||camera.Keys.Select(key=>key.Frame).Distinct().Count()!=camera.Keys.Length||!camera.Keys.SequenceEqual(camera.Keys.OrderBy(key=>key.Frame))||context.LookAtSlots.IsDefault
             ||context.LookAtSlots.Any(slot=>slot<0||slot>7)||context.Markers.IsDefault||context.Markers.Length>3||context.Markers.Any(row=>row.Frame>camera.Duration))
             throw new InvalidDataException("The reviewed camera keys, targets or markers are invalid.");
@@ -221,6 +298,6 @@ public sealed class TheatreCameraToolsController : IDisposable
         {if(error is TheatreCameraStaleException||!_backend.ToolsCurrent(_context))_authority=false;_error=error.Message;return false;}
     }
     private void Verify(){if(_thread!=Environment.CurrentManagedThreadId)throw new InvalidOperationException("Camera tools belong to the engine owner thread.");}
-    public void Dispose(){Verify();_disposed=true;_authority=false;_pending=null;_selection=ImmutableArray<uint>.Empty;_clipboard=ImmutableArray<TheatreCameraKey>.Empty;}
+    public void Dispose(){Verify();CancelPreview();_disposed=true;_authority=false;_pending=null;_selection=ImmutableArray<uint>.Empty;_clipboard=ImmutableArray<TheatreCameraKey>.Empty;}
 }
 #endif

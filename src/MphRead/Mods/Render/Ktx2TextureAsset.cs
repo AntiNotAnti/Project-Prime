@@ -21,7 +21,8 @@ namespace MphRead.Mods.Render
             bytes.Length >= Identifier.Length && bytes[..Identifier.Length].SequenceEqual(Identifier);
 
         internal static PreparedTextureAsset Decode(Stream source, string key,
-            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
+            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension,
+            TextureAssetSemantics? requestedSemantics = null, bool linearFiltering = false)
         {
             byte[] encoded = ReadEncoded(source);
             fixed (byte* bytes = encoded)
@@ -34,6 +35,7 @@ namespace MphRead.Mods.Render
                 try
                 {
                     ValidateShape(texture);
+                    TextureAssetSemantics semantics = ResolveSemantics(texture, channel, requestedSemantics);
                     int width = checked((int)texture->BaseWidth);
                     int height = checked((int)texture->BaseHeight);
                     maximumDimension = Math.Clamp(maximumDimension, 1,
@@ -55,7 +57,7 @@ namespace MphRead.Mods.Render
                             if (result != Ktx2.ErrorCode.Success)
                                 throw new InvalidDataException($"GPU block transcode failed: {result}.");
                             return CopyCompressed(texture, key, assetClass, channel,
-                                width, height, format);
+                                width, height, format, semantics: semantics);
                         }
 #endif
 #if !ANDROID
@@ -66,7 +68,7 @@ namespace MphRead.Mods.Render
                                 Ktx2.TranscodeFormat.BC7Rgba, Ktx2.TranscodeFlagBits.HighQuality);
                             if (result == Ktx2.ErrorCode.Success)
                                 return CopyCompressed(texture, key, assetClass, channel,
-                                    width, height, GpuTextureCompressionFormat.Bc7Rgba, maximumDimension);
+                                    width, height, GpuTextureCompressionFormat.Bc7Rgba, maximumDimension, semantics);
                             // A failed native transcode need not leave a reusable
                             // texture. Reopen the original payload before RGBA fallback.
                             Ktx2.Destroy(texture);
@@ -80,7 +82,7 @@ namespace MphRead.Mods.Render
 #endif
                         TranscodeRgba(texture);
                         return CopyRgbaChain(texture, key, assetClass, channel,
-                            width, height, maximumDimension);
+                            width, height, maximumDimension, semantics, linearFiltering);
                     }
 
 #if ANDROID
@@ -96,7 +98,7 @@ namespace MphRead.Mods.Render
                         };
                         if (fixedFormat != GpuTextureCompressionFormat.None)
                             return CopyCompressed(texture, key, assetClass, channel,
-                                width, height, fixedFormat);
+                                width, height, fixedFormat, semantics: semantics);
                     }
 #endif
 #if !ANDROID
@@ -104,13 +106,13 @@ namespace MphRead.Mods.Render
                         && texture->VkFormat is Ktx2.VkFormat.BC7UnormBlock or Ktx2.VkFormat.BC7SrgbBlock
                         && HasFittingAuthoredLevel(texture, width, height, maximumDimension))
                         return CopyCompressed(texture, key, assetClass, channel,
-                            width, height, GpuTextureCompressionFormat.Bc7Rgba, maximumDimension);
+                            width, height, GpuTextureCompressionFormat.Bc7Rgba, maximumDimension, semantics);
 #endif
                     if (texture->VkFormat is Ktx2.VkFormat.R8G8B8A8Unorm
                         or Ktx2.VkFormat.R8G8B8A8Srgb)
                     {
                         return CopyRgbaChain(texture, key, assetClass, channel,
-                            width, height, maximumDimension);
+                            width, height, maximumDimension, semantics, linearFiltering);
                     }
 
                     throw new InvalidDataException(
@@ -126,7 +128,7 @@ namespace MphRead.Mods.Render
 
         internal static ModernTextureAsset DecodeRgba(Stream source, string key,
             TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension,
-            int mipLevel = 0)
+            int mipLevel = 0, TextureAssetSemantics? requestedSemantics = null)
         {
             byte[] encoded = ReadEncoded(source);
             fixed (byte* bytes = encoded)
@@ -139,6 +141,7 @@ namespace MphRead.Mods.Render
                 try
                 {
                     ValidateShape(texture);
+                    TextureAssetSemantics semantics = ResolveSemantics(texture, channel, requestedSemantics);
                     if (Ktx2.NeedsTranscoding(texture)) TranscodeRgba(texture);
                     if (texture->VkFormat is not (Ktx2.VkFormat.R8G8B8A8Unorm
                         or Ktx2.VkFormat.R8G8B8A8Srgb))
@@ -151,7 +154,7 @@ namespace MphRead.Mods.Render
                     return CopyRgba(texture, key, assetClass, channel,
                         Math.Max(1, checked((int)texture->BaseWidth) >> mipLevel),
                         Math.Max(1, checked((int)texture->BaseHeight) >> mipLevel),
-                        maximumDimension, mipLevel);
+                        maximumDimension, semantics, mipLevel);
                 }
                 finally
                 {
@@ -188,9 +191,53 @@ namespace MphRead.Mods.Render
             }
         }
 
+        private static TextureAssetSemantics ResolveSemantics(Ktx2.Texture* texture,
+            TextureAssetChannel channel, TextureAssetSemantics? requested)
+        {
+            TextureAssetSemantics fallback = requested ?? TextureAssetSemantics.ForChannel(channel);
+            if (fallback.Channel != channel)
+                throw new InvalidDataException("KTX2 texture semantics channel does not match the requested channel.");
+            TextureTransferFunction? declared = DeclaredTransfer(texture);
+            if (declared == TextureTransferFunction.Srgb
+                && channel is TextureAssetChannel.Normal or TextureAssetChannel.Material or TextureAssetChannel.Mask)
+                throw new InvalidDataException("Numeric KTX2 texture channels must use linear transfer.");
+            return new TextureAssetSemantics(channel, declared ?? fallback.Transfer,
+                fallback.Alpha, fallback.Wrap, fallback.AlphaFactor);
+        }
+
+        private static TextureTransferFunction? DeclaredTransfer(Ktx2.Texture* texture)
+        {
+            switch (texture->VkFormat)
+            {
+                case Ktx2.VkFormat.R8G8B8A8Srgb:
+                case Ktx2.VkFormat.BC7SrgbBlock:
+                case Ktx2.VkFormat.Etc2R8G8B8A8SrgbBlock:
+                case Ktx2.VkFormat.Etc2R8G8B8SrgbBlock:
+                case Ktx2.VkFormat.Etc2R8G8B8A1SrgbBlock:
+                case Ktx2.VkFormat.Astc4X4SrgbBlock:
+                    return TextureTransferFunction.Srgb;
+                case Ktx2.VkFormat.R8G8B8A8Unorm:
+                case Ktx2.VkFormat.BC7UnormBlock:
+                case Ktx2.VkFormat.Etc2R8G8B8A8UnormBlock:
+                case Ktx2.VkFormat.Etc2R8G8B8UnormBlock:
+                case Ktx2.VkFormat.Etc2R8G8B8A1UnormBlock:
+                case Ktx2.VkFormat.Astc4X4UnormBlock:
+                    return TextureTransferFunction.Linear;
+            }
+            if (texture->PDfd == null) return null;
+            byte transfer = ((byte*)texture->PDfd)[14];
+            return transfer switch
+            {
+                1 => TextureTransferFunction.Linear,
+                2 => TextureTransferFunction.Srgb,
+                _ => null
+            };
+        }
+
         private static CompressedTextureAsset CopyCompressed(Ktx2.Texture* texture, string key,
             TextureAssetClass assetClass, TextureAssetChannel channel,
-            int width, int height, GpuTextureCompressionFormat format, int maximumDimension = int.MaxValue)
+            int width, int height, GpuTextureCompressionFormat format, int maximumDimension = int.MaxValue,
+            TextureAssetSemantics? semantics = null)
         {
             int maxLevels = GpuCompressedTextureMath.MipLevelCount(width, height);
             if (texture->NumLevels == 0 || texture->NumLevels > maxLevels)
@@ -217,7 +264,7 @@ namespace MphRead.Mods.Render
                 Marshal.Copy((IntPtr)(texture->PData + offset), blocks, 0, size);
                 mips.Add(new CompressedTextureMip(w, h, blocks));
             }
-            return new CompressedTextureAsset(key, assetClass, channel, format, mips.ToArray());
+            return new CompressedTextureAsset(key, assetClass, channel, format, mips.ToArray(), semantics);
         }
 
         private static bool HasFittingAuthoredLevel(Ktx2.Texture* texture, int width, int height, int cap)
@@ -238,7 +285,8 @@ namespace MphRead.Mods.Render
 
         private static ModernTextureAsset CopyRgba(Ktx2.Texture* texture, string key,
             TextureAssetClass assetClass, TextureAssetChannel channel,
-            int width, int height, int maximumDimension, int mipLevel = 0)
+            int width, int height, int maximumDimension, TextureAssetSemantics semantics,
+            int mipLevel = 0, bool linearFiltering = false)
         {
             Ktx2.ErrorCode error = Ktx2.GetImageOffset(texture, (uint)mipLevel, 0, 0, out nuint offset);
             if (error != Ktx2.ErrorCode.Success)
@@ -250,15 +298,17 @@ namespace MphRead.Mods.Render
                 throw new InvalidDataException("KTX2 RGBA base image is truncated.");
             return ModernTextureAsset.FromRgbaPointer(
                 key, assetClass, channel, width, height,
-                (IntPtr)(texture->PData + offset), maximumDimension);
+                (IntPtr)(texture->PData + offset), maximumDimension, semantics, linearFiltering);
         }
 
         private static PreparedTextureAsset CopyRgbaChain(Ktx2.Texture* texture, string key,
             TextureAssetClass assetClass, TextureAssetChannel channel,
-            int width, int height, int maximumDimension)
+            int width, int height, int maximumDimension, TextureAssetSemantics semantics,
+            bool linearFiltering)
         {
             if (texture->NumLevels <= 1)
-                return CopyRgba(texture, key, assetClass, channel, width, height, maximumDimension);
+                return CopyRgba(texture, key, assetClass, channel, width, height, maximumDimension,
+                    semantics, linearFiltering: linearFiltering);
             if (texture->NumLevels > GpuCompressedTextureMath.MipLevelCount(width, height))
                 throw new InvalidDataException("KTX2 RGBA mip count exceeds its dimensions.");
             uint first = 0;
@@ -267,7 +317,8 @@ namespace MphRead.Mods.Render
                     || Math.Max(1, height >> (int)first) > maximumDimension)) first++;
             int firstWidth = Math.Max(1, width >> (int)first), firstHeight = Math.Max(1, height >> (int)first);
             if (firstWidth > maximumDimension || firstHeight > maximumDimension)
-                return CopyRgba(texture, key, assetClass, channel, firstWidth, firstHeight, maximumDimension, (int)first);
+                return CopyRgba(texture, key, assetClass, channel, firstWidth, firstHeight, maximumDimension,
+                    semantics, (int)first, linearFiltering);
             var levels = new CompressedTextureMip[checked((int)(texture->NumLevels - first))];
             for (uint level = first; level < texture->NumLevels; level++)
             {
@@ -281,7 +332,7 @@ namespace MphRead.Mods.Render
                 Marshal.Copy((IntPtr)(texture->PData + offset), pixels, 0, bytes);
                 levels[level - first] = new(w, h, pixels);
             }
-            return new RgbaMipTextureAsset(key, assetClass, channel, levels);
+            return new RgbaMipTextureAsset(key, assetClass, channel, levels, semantics);
         }
 
         private static byte[] ReadEncoded(Stream source)

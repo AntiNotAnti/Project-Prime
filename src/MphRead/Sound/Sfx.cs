@@ -398,6 +398,7 @@ namespace MphRead.Sound
             LongSfxMute = 0;
             Mods.Sound.CombatFeedbackAudio.Warm();
             Mods.Sound.HaloHealthAlert.Warm();
+            scene?.CtfAnnouncements.Warm(scene);
         }
 
         public static void ShutDown()

@@ -4,7 +4,8 @@ internal enum MatchSemanticEventType : byte
 {
     MatchStarted, CountdownStarted, MatchEnded, PlayerSpawned, PlayerKilled, PlayerAssisted,
     PlayerSuicide, WeaponFired, Headshot, ObjectivePickedUp, ObjectiveDropped, ObjectiveCaptured,
-    ObjectiveDefended, NodeContested, NodeCaptured, PrimeChanged, MatchPoint, OvertimeStarted
+    ObjectiveDefended, NodeContested, NodeCaptured, PrimeChanged, MatchPoint, OvertimeStarted,
+    CtfFlagReset // CTF3 capability only: actor-free return/reset, not a capture or Defender award.
 }
 [Flags]
 internal enum MatchSemanticEventFlags : byte { None = 0, Headshot = 1, FriendlyFire = 2, Environment = 4, Prime = 8, Carrier = 16, AltForm = 32, Turret = 64 }

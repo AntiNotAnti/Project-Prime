@@ -37,6 +37,7 @@ internal sealed partial class ReplayCameraTrack
     private void RestoreTrack(ReplayCameraTrack snapshot)
     {
         _keys.Clear(); _keys.AddRange(snapshot._keys);
+        InvalidateEvaluation();
         _windowSource = snapshot._windowSource;
         _windowStart = snapshot._windowStart; _windowEnd = snapshot._windowEnd;
     }
@@ -57,6 +58,7 @@ internal sealed partial class ReplayCameraTrack
 
     private void RebuildWindowKeys()
     {
+        InvalidateEvaluation();
         _keys.Clear();
         var source = _windowSource!;
         if (source._keys.Count == 0) return;

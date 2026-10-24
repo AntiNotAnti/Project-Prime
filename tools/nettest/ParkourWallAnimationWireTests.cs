@@ -50,7 +50,7 @@ internal static class ParkourWallAnimationWireTests
 
     private static void PackedBytes()
     {
-        Check(NetConfig.ProtocolVersion == 85 && IntentPacket.TouchCanonicalSize == 1299
+        Check(NetConfig.ProtocolVersion == 86 && IntentPacket.TouchCanonicalSize == 1299
             && IntentPacket.Protocol82TouchSize == 1298 && PlayerState.Size == 192
             && PlayerState.Protocol80Size == 173 && PlayerGrappleState.Size == 19,
             "protocol85 retains every published width and the173-byte mechanical extension offset");
@@ -281,7 +281,7 @@ internal static class ParkourWallAnimationWireTests
             {
                 byte[] bytes = ParkourAnimationWireTests.Seed(mantle, custom ? context : null, wall).CaptureCheckpoint().Bytes.ToArray();
                 var restored = new ReplayReplicaState(); Restore(restored, bytes);
-                Check(bytes[4] == (custom ? 17 : 16) && bytes[6] == 85 && bytes[7] == (custom ? 119 : 87)
+                Check(bytes[4] == (custom ? 17 : 16) && bytes[6] == 86 && bytes[7] == (custom ? 119 : 87)
                     && restored.CaptureCheckpoint().Bytes.SequenceEqual(bytes) && restored.TryGetPlayer(0, out var player)
                     && player.WallVisualCue == wall && player.MantleVisualPhase == mantle
                     && restored.TryGetIntent(0, out var intent) && intent.WallVisualCue == wall && intent.MantleVisualPhase == mantle,

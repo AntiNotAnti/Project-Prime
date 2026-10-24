@@ -426,6 +426,9 @@ namespace MphRead
             new (GameMode.Survival, new List<int>() { 15 }),
             new (GameMode.SurvivalTeams, new List<int>() { 15 }),
             new (GameMode.Capture, new List<int>() { 12 }),
+            new (GameMode.CaptureTheZone, new List<int>() { 3 }),
+            new (GameMode.CaptureTheFlag, new List<int>() { 12 }),
+            new (GameMode.PushThePayload, new List<int>() { 3 }),
             new (GameMode.Bounty, new List<int>() { 8, 9, 10 }),
             new (GameMode.BountyTeams, new List<int>() { 11 }),
             new (GameMode.Nodes, new List<int>() { 4, 5, 6 }),
@@ -439,6 +442,7 @@ namespace MphRead
             new (GameMode.Headhunter, new List<int>() { 8, 9, 10 }),
             new (GameMode.GunGame, new List<int>() { 0, 1, 2 }),
             new (GameMode.Relic, new List<int>() { 8, 9, 10 }),
+            new (GameMode.Oddball, new List<int>() { 3 }),
             new (GameMode.PrimeHunter, new List<int>() { 0, 1, 2 }),
             new (GameMode.InstaGib, new List<int>() { 0, 1, 2 })
         ]);

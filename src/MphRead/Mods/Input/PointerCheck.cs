@@ -23,6 +23,7 @@ namespace MphRead.Mods.Input
                 NativeTouchChecks.Run();
                 CheckCameraBasis();
                 CheckZone();
+                CheckDsLayout();
                 CheckPlayerInput();
                 CheckOfflineInput();
                 CheckSettings();
@@ -53,6 +54,56 @@ namespace MphRead.Mods.Input
             if (!condition)
             {
                 throw new InvalidOperationException(label);
+            }
+        }
+
+        private static void CheckDsLayout()
+        {
+            bool priorMode = PointerInput.StylusMode, priorLayout = DsLayout.Enabled;
+            string priorAspect = DsLayout.ScreenAspect;
+            bool priorZone = StylusZone.Wanted;
+            float left = StylusZone.SavedLeft, top = StylusZone.SavedTop, width = StylusZone.SavedWidth;
+            float aspect = StylusZone.AspectCorrection;
+            try
+            {
+                PointerInput.StylusMode = true;
+                DsLayout.Enabled = true;
+                StylusZone.Enabled = false;
+                foreach (string screenAspect in new[] { "4:3", "5:3" })
+                foreach (var size in new[] { (2560,1440), (1920,1080), (1366,768), (768,1024), (853,641) })
+                {
+                    DsLayout.ScreenAspect = screenAspect;
+                    var (upper, lower) = DsLayout.Bounds(size.Item1, size.Item2);
+                    Require(upper.Z * 3 == upper.W * DsLayout.AspectWidth && lower.Z == upper.Z && lower.W == upper.W,
+                        "both DS screens have identical exact selected aspect dimensions");
+                    Require(upper.Y + upper.W == lower.Y && upper.X >= 0
+                        && upper.X + upper.Z <= size.Item1 && lower.Y + lower.W <= size.Item2,
+                        "stacked DS screens fit inside landscape, portrait and odd-sized windows");
+                    PointerDevice.Reset();
+                    void Pen(float x, float y, bool down) => PointerDevice.Update(
+                        new PointerSample(PointerDeviceType.Pen, 3, x, y, false, down, true),
+                        size.Item1, size.Item2);
+                    float x = lower.X + lower.Z * .5f, y = lower.Y + lower.W * .7f;
+                    Pen(x, y, false); Pen(x, y, true); Pen(x, y, true);
+                    Require(StylusZone.Enabled && PointerDevice.AimContact,
+                        "DS layout automatically owns the lower aiming surface");
+                    PointerDevice.Reset();
+                    Pen(x, upper.Y + upper.W * .5f, true);
+                    Pen(x + 5, upper.Y + upper.W * .5f, true);
+                    Require(!PointerDevice.AimContact && PointerDevice.TakeDelta() == (0f,0f),
+                        "upper-screen touch cannot aim");
+                }
+                DsLayout.Enabled = false;
+                Require(StylusZone.Left == left && StylusZone.Top == top && StylusZone.Width == width,
+                    "disabling DS layout restores the custom touch-zone rectangle");
+                Require(!StylusZone.Enabled, "disabling DS layout restores zone preference");
+            }
+            finally
+            {
+                PointerDevice.Reset();
+                DsLayout.ScreenAspect = priorAspect;
+                DsLayout.Enabled = priorLayout; PointerInput.StylusMode = priorMode;
+                StylusZone.Enabled = priorZone; StylusZone.AspectCorrection = aspect;
             }
         }
 
@@ -330,10 +381,14 @@ namespace MphRead.Mods.Input
             Frame(1510, 605, true);
             Frame(1520, 610, true); // two pictures before the simulation reads
             Require(StylusZone.Aiming && PointerDevice.TakeDelta() == (20f, 10f), "drag accumulates between simulation steps");
+            Require(PointerDevice.AimContact, "aim-area drag enables camera follow independently of fire");
+            Frame(1520, 610, true);
+            Require(PointerDevice.AimContact, "stationary aim-area contact keeps camera follow active");
             Require(PointerDevice.TakeDelta() == (0f, 0f), "catch-up simulation cannot apply movement twice");
             Frame(1530, 615, true, independentDown: true);
             Require(PointerDevice.PrimaryDown, "native independent mouse is not captured");
             Frame(1540, 620, false);
+            Require(!PointerDevice.AimContact, "lift stops camera follow before button-release debounce");
             PointerDevice.AdvanceSimulationStep();
             Frame(100, 600, false);
             Frame(1500, 600, true);
@@ -373,6 +428,7 @@ namespace MphRead.Mods.Input
             Frame(weaponX, weaponY, true, id: 10);
             Require(StylusZone.TakePressed() == StylusRegion.Weapons,
                 "WPN contact produces one action");
+            Require(!PointerDevice.AimContact, "weapon-button contact cannot recenter the camera");
             Frame(weaponX, weaponY, true, id: 11);
             Require(StylusZone.Held == StylusRegion.Weapons
                 && StylusZone.TakePressed() == StylusRegion.None,
@@ -704,6 +760,27 @@ namespace MphRead.Mods.Input
             Require(controls.Shoot.IsDown && controls.AltAttack.IsDown, "real controller contribution survives stylus capture");
             GamepadManager.RemoveDevice("pointercheck");
             GamepadInput.BeginFrame();
+            var previousAuditScene = Network.NetTestScript.OfflineInputScene;
+            try
+            {
+                controls.ClearAll();
+                controls.SetAnalogMovement(.25f, -.5f);
+                controls.RollDown.IsDown = true;
+                Network.NetTestScript.OfflineInputScene = scene;
+                GamepadInput.Apply(player);
+                Require(controls.AnalogMoveActive && controls.AnalogMoveX == .25f
+                    && controls.AnalogMoveY == -.5f && controls.RollDown.IsDown,
+                    "physical controller pass preserves offline audit analogue input ownership");
+                Network.NetTestScript.OfflineInputScene = null;
+                GamepadInput.Apply(player);
+                Require(!controls.AnalogMoveActive && controls.AnalogMoveX == 0 && controls.AnalogMoveY == 0,
+                    "ordinary controller pass still clears stale analogue movement");
+            }
+            finally
+            {
+                Network.NetTestScript.OfflineInputScene = previousAuditScene;
+                controls.ClearAll();
+            }
             foreach (StylusZone.Button button in StylusZone.Buttons)
             {
                 // This fixture calls ProcessInput directly, so model the fixed-step
@@ -910,6 +987,20 @@ namespace MphRead.Mods.Input
                 PointerInput.GuardJumps = true;
                 InputSettings.Load();
                 Require(PointerInput.StylusMode && !PointerInput.GuardJumps, "independent settings round trip");
+                DsLayout.Enabled = true;
+                DsLayout.ScreenAspect = "5:3";
+                float savedZoneLeft = StylusZone.SavedLeft;
+                float savedZoneTop = StylusZone.SavedTop;
+                float savedZoneWidth = StylusZone.SavedWidth;
+                DsLayout.UpdateInputBounds(1920, 1080);
+                InputSettings.Save();
+                DsLayout.Enabled = false;
+                InputSettings.Load();
+                Require(DsLayout.Enabled && DsLayout.ScreenAspect == "5:3" && Math.Abs(StylusZone.SavedLeft - savedZoneLeft) < .0001f
+                    && Math.Abs(StylusZone.SavedTop - savedZoneTop) < .0001f
+                    && Math.Abs(StylusZone.SavedWidth - savedZoneWidth) < .0001f,
+                    "DS layout persists without overwriting the custom zone");
+                DsLayout.Enabled = false;
 
                 File.WriteAllText(path,
                     "mouse_movement_boost=false\nmouse_alt_form_movement=true\n"

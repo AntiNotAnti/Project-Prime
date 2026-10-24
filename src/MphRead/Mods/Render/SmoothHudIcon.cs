@@ -132,11 +132,11 @@ namespace MphRead.Mods.Render
             }
             if (inst.BindingId == -1)
             {
-                inst.BindingId = scene.BindGetTexture(texture, outWidth, outHeight);
+                inst.BindingId = scene.BindGetTexture(texture, outWidth, outHeight, sceneColor: false);
             }
             else
             {
-                scene.BindTexture(texture, outWidth, outHeight, inst.BindingId);
+                scene.BindTexture(texture, outWidth, outHeight, inst.BindingId, sceneColor: false);
             }
         }
 

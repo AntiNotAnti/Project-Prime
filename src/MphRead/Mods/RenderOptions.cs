@@ -103,6 +103,8 @@ namespace MphRead.Mods
     /// </summary>
     public static class RenderOptions
     {
+        /// <summary>Opt-in linear-light world materials. Applied when a scene is created; native HUD stays encoded.</summary>
+        public static bool LinearColor { get; set; }
         /// <summary>
         /// Percent of the window the 3D scene is rendered at, 25 to 800.
         /// Halving it quarters the pixels; 200/400/800 are true 2x/4x/8x
@@ -383,6 +385,16 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TextureReplacements { get; set; }
 
+        /// <summary>Packaged video materials are independent of static HD replacement preferences.</summary>
+        public static bool VideoTextures { get; set; } = true;
+        /// <summary>Combined fixed RGB queues and GPU mip chains; shared instances are charged once.</summary>
+        public static int VideoTextureMemoryMiB
+        {
+            get => _videoTextureMemoryMiB;
+            set => _videoTextureMemoryMiB = Math.Clamp(value, 64, 4096);
+        }
+        private static int _videoTextureMemoryMiB = OperatingSystem.IsAndroid() ? 128 : 512;
+
         /// <summary>
         /// Use validated local GLB geometry replacements for hunters and their
         /// first-person/alternate presentation. Native MPH animation, collision,
@@ -398,13 +410,7 @@ namespace MphRead.Mods
         /// </summary>
         public static TextureAssetQuality TextureQuality { get; set; } = TextureAssetQuality.Automatic;
 
-        // Directional shadows are the only remaining depth-based OpenGL
-        // presentation feature. Native cel outlines and player outlines have
-        // their own depth targets and are not controlled by this switch.
         public static bool NeedsReadableDepth => Shadows != ShadowQuality.Off;
-
-        // Retired experimental post FX cannot trigger a fullscreen shader pass,
-        // regardless of older settings or calls from diagnostic tools.
         public static bool PostProcessingEnabled => Shadows != ShadowQuality.Off;
 
         /// <summary>
@@ -446,6 +452,8 @@ namespace MphRead.Mods
             Lighting = profile.Lighting;
             Fog = profile.Fog;
             TextureFiltering = profile.TextureFiltering;
+            TextureReplacements = profile.TextureReplacements;
+            TextureSampling = profile.TextureSampling;
             TextureMipmaps = profile.TextureMipmaps;
             TextureAnisotropy = profile.TextureAnisotropy;
             TextureUpscale = profile.TextureUpscale;
@@ -471,6 +479,7 @@ namespace MphRead.Mods
             RetireExperimentalPostEffects();
             if (preset == GraphicsPreset.Original)
             {
+                LinearColor = false;
                 TextureReplacements = false;
                 CharacterModelReplacements = false;
             }

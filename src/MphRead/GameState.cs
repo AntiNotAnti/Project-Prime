@@ -79,7 +79,7 @@ namespace MphRead
         public GameMode Mode { get; set; } = GameMode.SinglePlayer;
         public bool SinglePlayer => Mode == GameMode.SinglePlayer;
         public bool Multiplayer => Mode != GameMode.SinglePlayer;
-        public bool IsOctolithMode => Mode == GameMode.Capture || Mode == GameMode.Bounty || Mode == GameMode.BountyTeams || Mode == GameMode.Relic;
+        public bool IsOctolithMode => Mode == GameMode.Capture || Mode == GameMode.CaptureTheFlag || Mode == GameMode.Bounty || Mode == GameMode.BountyTeams || Mode == GameMode.Relic;
         public bool PausePrevented { get; set; }
         public bool MenuPause { get; private set; }
         public bool DialogPause { get; private set; }
@@ -224,6 +224,7 @@ namespace MphRead
         public int[] ShotsHit { get; } = new int[PlayerEntity.SlotCapacity];
         public int[] MatchDamageDealt { get; } = new int[PlayerEntity.SlotCapacity];
         public int[] MatchDamageTaken { get; } = new int[PlayerEntity.SlotCapacity];
+        internal Mods.HeroModes.CtzCombatStats CtzStats { get; } = new();
         public int[] LongestKillStreak { get; } = new int[PlayerEntity.SlotCapacity];
         public int[] KillStreak { get; } = new int[PlayerEntity.SlotCapacity];
         public int[] Suicides { get; } = new int[PlayerEntity.SlotCapacity];
@@ -300,8 +301,8 @@ namespace MphRead
         public bool IsTeamMode(GameMode mode)
         {
             return mode == GameMode.BattleTeams || mode == GameMode.SurvivalTeams
-                || mode == GameMode.Capture || mode == GameMode.BountyTeams || mode == GameMode.HardpointTeams || mode == GameMode.KillConfirmedTeams
-                || mode == GameMode.NodesTeams || mode == GameMode.DefenderTeams;
+                || mode == GameMode.Capture || mode == GameMode.CaptureTheFlag || mode == GameMode.CaptureTheZone || mode == GameMode.PushThePayload || mode == GameMode.BountyTeams || mode == GameMode.HardpointTeams || mode == GameMode.KillConfirmedTeams
+                || mode == GameMode.NodesTeams || mode == GameMode.DefenderTeams || mode == GameMode.Oddball;
         }
 
         /// <summary>Select the objective handler without changing authoritative goals.</summary>
@@ -341,9 +342,19 @@ namespace MphRead
                 if (applyDefaults) { MatchTime = 15 * 60; }
                 ModeState = ModeStateBounty;
             }
-            else if (Mode == GameMode.Capture)
+            else if (Mode == GameMode.CaptureTheZone)
             {
-                if (applyDefaults) { PointGoal = 5; }
+                PointGoal=2; MatchTime=-1;
+                ModeState=Mods.HeroModes.CtzRuntime.Tick;
+            }
+            else if (Mode == GameMode.PushThePayload)
+            {
+                PointGoal=3; MatchTime=-1;
+                ModeState=Mods.HeroModes.PayloadRuntime.Tick;
+            }
+            else if (Mode == GameMode.Capture || Mode == GameMode.CaptureTheFlag)
+            {
+                if (applyDefaults) { PointGoal = Mode == GameMode.CaptureTheFlag ? Mods.HeroModes.CtfRules.CaptureLimit : 5; }
                 if (applyDefaults) { MatchTime = 15 * 60; }
                 ModeState = ModeStateCapture;
             }
@@ -373,6 +384,11 @@ namespace MphRead
             {
                 if (applyDefaults) { TimeGoal = 150; MatchTime = 600; }
                 ModeState = ModeStateHardpoint;
+            }
+            else if (Mode == GameMode.Oddball)
+            {
+                if (applyDefaults) { Oddball = new Mods.Oddball.OddballMatch(); PointGoal = 100; MatchTime = 300; }
+                ModeState = scene => (Oddball ??= new Mods.Oddball.OddballMatch()).Tick(scene);
             }
             else if (Mode == GameMode.Relic)
             {
@@ -420,6 +436,9 @@ namespace MphRead
         /// <summary>Clear round progress while retaining the selected match rules.</summary>
         public void ResetRoundState()
         {
+            Owner?.CaptureZone.Reset();
+            Owner?.Payload.Reset();
+            CtzStats.Reset();
             Array.Clear(Points);
             Array.Clear(TeamPoints);
             Array.Clear(Kills);
@@ -494,6 +513,7 @@ namespace MphRead
 
         public void UpdateTime(Scene scene)
         {
+            if (Mode == GameMode.Oddball && MatchState == MatchState.InProgress) return; // Only the active round uses the objective clock; results still count down.
             // todo: update license info etc.
             if (MatchTime > 0)
             {
@@ -562,7 +582,7 @@ namespace MphRead
                     }
                 }
                 // todo: update MP playtime to license info
-                if (Multiplayer && !Features.AllowInvalidTeams)
+                if (Multiplayer && Mode != GameMode.Oddball && !Features.AllowInvalidTeams)
                 {
                     bool invalid = _players.MaxPlayers < 2;
                     if (!invalid && Teams)
@@ -1455,6 +1475,12 @@ namespace MphRead
                     Time[i] = TeamTime[player.TeamIndex];
                 }
             }
+            if (Mode == GameMode.PushThePayload && Owner != null) Owner.Payload.ApplyScores(Owner);
+            if (Mode == GameMode.CaptureTheZone && Owner != null)
+            {
+                TeamPoints[0]=Owner.CaptureZone.State.RedWins;
+                TeamPoints[1]=Owner.CaptureZone.State.BlueWins;
+            }
             if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.GunGame || IsTokenMode || Mode == GameMode.Capture || Mode == GameMode.Bounty
                 || Mode == GameMode.BountyTeams || Mode == GameMode.Nodes || Mode == GameMode.NodesTeams)
             {
@@ -1568,7 +1594,7 @@ namespace MphRead
                 }
                 return 1;
             }
-            if (Mode == GameMode.Capture || Mode == GameMode.Nodes || Mode == GameMode.NodesTeams
+            if (Mode == GameMode.Capture || Mode == GameMode.CaptureTheFlag || Mode == GameMode.CaptureTheZone || Mode == GameMode.PushThePayload || Mode == GameMode.Nodes || Mode == GameMode.NodesTeams
                 || Mode == GameMode.Bounty || Mode == GameMode.BountyTeams)
             {
                 if (points1 == points2 && kills1 == kills2)
@@ -1598,6 +1624,7 @@ namespace MphRead
 
         private int CompareTeams(int slot1, int slot2)
         {
+            if (Mode == GameMode.Oddball && Oddball != null) return Oddball.CompareTeams(slot1, slot2);
             int points1 = TeamPoints[slot1];
             int points2 = TeamPoints[slot2];
             float time1 = TeamTime[slot1];
@@ -1653,7 +1680,7 @@ namespace MphRead
                 }
                 return 1;
             }
-            if (Mode == GameMode.Capture || Mode == GameMode.NodesTeams || Mode == GameMode.BountyTeams)
+            if (Mode == GameMode.Capture || Mode == GameMode.CaptureTheFlag || Mode == GameMode.CaptureTheZone || Mode == GameMode.PushThePayload || Mode == GameMode.NodesTeams || Mode == GameMode.BountyTeams)
             {
                 if (points1 == points2 && kills1 == kills2)
                 {
@@ -1950,6 +1977,7 @@ namespace MphRead
 
         public void Reset()
         {
+            CtzStats.Reset();
             _cleanStorySave = new StorySave();
             LoadSave();
             CommitSave();

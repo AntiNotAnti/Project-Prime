@@ -39,7 +39,7 @@ internal static class RmlUiReplayProjectLibrary
         uint duration=descriptor.EndFrame-descriptor.StartFrame;
         var annotationFile=ReplayReviewedMetadata.Read(selected+ReplayAnnotations.Extension);
         var reelFile=ReplayReviewedMetadata.Read(selected+ReplayReels.Extension);
-        var cameraFile=ReplayReviewedMetadata.Read(selected+".camera",8192);
+        var cameraFile=ReplayReviewedMetadata.Read(selected+".camera",ReplayCameraTrack.MaxSidecarBytes);
         var annotations=ReplayAnnotations.ReadReviewed(annotationFile,duration);
         var reel=ReplayReels.ReadReviewed(reelFile,selected,duration);
         var camera=new ReplayCameraTrack();if(!camera.Load(selected))throw new InvalidDataException(camera.LastError);
@@ -63,7 +63,7 @@ internal static class RmlUiReplayProjectLibrary
             RmlUiReplayProjectPreferences.Stage(staged,preferences,sourceHash,descriptor.StartFrame,descriptor.EndFrame,token);
             token.ThrowIfCancellationRequested();
             ReplayReviewedMetadata.Validate(annotationFile);ReplayReviewedMetadata.Validate(reelFile);
-            if(ReplayReviewedMetadata.Read(selected+".camera",8192).Revision!=cameraFile.Revision)throw new IOException("Project camera changed during import.");
+            if(ReplayReviewedMetadata.Read(selected+".camera",ReplayCameraTrack.MaxSidecarBytes).Revision!=cameraFile.Revision)throw new IOException("Project camera changed during import.");
             sourceLease.Position=0;if(!SHA256.HashData(sourceLease).AsSpan().SequenceEqual(sourceHash))throw new IOException("Project source changed during import.");
             RmlUiReplayProjectPreferences.Validate(preferences);
             File.Move(stagedRecording,recording,false);published.Add(recording);

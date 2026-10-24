@@ -22,7 +22,9 @@ internal sealed partial class ReplayWindowAcceptance
             string[] paths={Path.Combine(LauncherPrefs.Directory,"launcher.txt"),Path.Combine(LauncherPrefs.Directory,"controls.txt"),Path.GetFullPath(Path.Combine("Savedata","settings.json")),Path.Combine(LauncherPrefs.Directory,"Savedata","hud-profiles","active.json")};
             bytes=paths.ToDictionary(p=>p,p=>File.Exists(p)?File.ReadAllBytes(p):null);live=controller.Rows.ToDictionary(r=>r,r=>r.Read());originalHud=HudProfileStore.Serialize(HudProfiles.CopyCurrent());return true;
         });
-        DoHeader("open owned HUD through actual native Edit HUD button",()=>Activate("native_settings_hud"));
+        DoHeader("open Display for owned HUD",()=>Activate("native_settings_overview_0"));
+        Wait("Display HUD Studio card is visible",()=>Host!.TryGetElementBounds(Host.CurrentInputDocument,"native_settings_hud",out _,out _,out float width,out float height)&&width>0&&height>0);
+        DoHeader("open owned HUD through Display card",()=>Activate("native_settings_hud"));
         Wait("owned HUD wrapper presents generated asset bitmap and complete layout",()=>
         {
             hud=ReadStatic<NativeHudEditorPage>("_hudEditor");if(!HeaderWindowFocused()||hud?.OwnsForeground!=true)return false;

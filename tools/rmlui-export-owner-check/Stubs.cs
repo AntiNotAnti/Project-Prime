@@ -48,6 +48,9 @@ namespace MphRead.Mods
         public static MphRead.Scene? LastScene;
         public static bool Save(MphRead.Scene scene, string path) { Captures++; LastScene = scene; return true; }
         public static bool SaveWindow(MphRead.Scene scene, string path) => Save(scene, path);
+        public static Replay.ReplayExportPixels ReadExportFrame(MphRead.Scene scene,bool composite,string path)
+        { Captures++; LastScene=scene; return new(new byte[]{20,30,40},1,1,path); }
+        public static Action<Replay.ReplayExportPixels> ExportPngWriter()=>static _=>{};
     }
 }
 namespace MphRead.Mods.Replay

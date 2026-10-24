@@ -1,0 +1,20 @@
+.native_settings_help { position:absolute; left:7%; right:7%; top:8%; height:84%; max-height:720dp; display:flex; flex-direction:column; min-height:0; padding:24dp; overflow:hidden; color:#e2f1f7; background-color:#071b29; border:2dp #77b6ca; }
+.native_settings_help_heading { display:flex; flex-shrink:0; align-items:center; justify-content:space-between; padding-bottom:12dp; border-bottom:1dp #31596d; }
+.native_settings_help_heading .eyebrow { margin-bottom:4dp; color:#8cd4e3; font-size:12dp; letter-spacing:1dp; }
+.native_settings_help_heading h2 { margin:0; font-size:26dp; line-height:32dp; color:#f0fbff; }
+.native_settings_help_heading button { min-width:96dp; min-height:44dp; margin-left:12dp; padding:8dp 14dp; font-size:14dp; }
+.native_settings_help_scroll { flex:1; min-height:0; margin-top:14dp; padding-right:10dp; overflow-y:auto; }
+#native_settings_help_body { display:block; width:100%; white-space:pre-wrap; margin:0; color:#e2f1f7; font-size:17dp; line-height:25dp; }
+.native_settings_help_escape { flex-shrink:0; margin:12dp 0 0; color:#a9c3d1; font-size:13dp; line-height:18dp; }
+@media (max-width:760dp) {
+ .native_settings_help { left:4%; right:4%; top:6%; height:88%; padding:15dp; }
+ .native_settings_help_heading h2 { font-size:22dp; line-height:27dp; }
+ #native_settings_help_body { font-size:16dp; line-height:23dp; }
+}
+@media (max-height:500dp) {
+ .native_settings_help { top:3%; height:94%; padding:12dp; }
+ .native_settings_help_heading { padding-bottom:6dp; }
+ .native_settings_help_heading h2 { font-size:20dp; line-height:24dp; }
+ #native_settings_help_body { font-size:15dp; line-height:21dp; }
+ .native_settings_help_escape { margin-top:6dp; font-size:12dp; line-height:16dp; }
+}

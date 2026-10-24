@@ -690,11 +690,9 @@ namespace MphRead.Entities
 
             Vector3 renderFacing;
             Vector3 upHint;
-            // Classic moving-reticle presentation intentionally keeps the
-            // legacy eased camera. Pro HUD is different: Dynamic/Metroid may
-            // keep that eased simulation state for weapon drift, but
-            // its local rendered camera must still use the responsive raw-aim
-            // path so changing weapon style cannot add mouse latency.
+            // Dynamic/Metroid and Classic use the native camera timeline.
+            // The rendered camera must share the drifting reticle's basis;
+            // rotating only the world onto raw aim makes the two disagree.
             Vector3 drawCameraPosition = default;
             Vector3 drawCameraTarget = default;
             Vector3 drawCameraUp = default;
@@ -734,14 +732,15 @@ namespace MphRead.Entities
                     fov = CameraInfo.ModGetDrawFov(presentationAlpha, fenceLiveClock: true);
                 }
 
-                // Static/Quake and Pro HUD Dynamic/Metroid both use a
-                // low-latency rendered camera. Dynamic retains its eased
-                // simulation basis only for weapon presentation.
                 ModResponsiveCameraBasis(out Vector3 baseFacing, out upHint);
-                ModRenderAimDelta(presentationAlpha,
-                    pointerX, pointerY, controllerX, controllerY,
-                    out float x, out float y);
-                renderFacing = ModLateLatchedFacing(baseFacing, x, y);
+                renderFacing = baseFacing;
+                if (Features.ResponsiveAimCamera)
+                {
+                    ModRenderAimDelta(presentationAlpha,
+                        pointerX, pointerY, controllerX, controllerY,
+                        out float x, out float y);
+                    renderFacing = ModLateLatchedFacing(baseFacing, x, y);
+                }
             }
 
             float eyeCorrection = ModCrouchDrawEyeCorrection(presentationAlpha);
@@ -1609,6 +1608,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModForceForm(bool altForm)
         {
+            if (ModCarryingCtfFlag && altForm) return;
             if (altForm == IsAltForm)
             {
                 // Unmorph changes the form bit before its animation ends. If
@@ -1693,6 +1693,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetWeapon(BeamType weapon)
         {
+            if (Mods.HeroModes.HeroRules.Active(_scene.GameState.Mode) && weapon != Mods.HeroModes.HeroRules.Primary(Hunter)) return;
             if (!Mods.Multiplayer.WeaponResourceRules.AllowsBeam(weapon, _scene.GameState.InstaGib, _scene.GameState.NoImperialist)) return;
             if (weapon == CurrentWeapon || weapon < BeamType.PowerBeam
                 || weapon > BeamType.OmegaCannon)
