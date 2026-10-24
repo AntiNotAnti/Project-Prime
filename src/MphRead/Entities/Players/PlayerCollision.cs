@@ -30,6 +30,18 @@ namespace MphRead.Entities
         // pass later in the frame. Keep the custom robust movement controller
         // for alt forms only; running both passes for a biped adds cost and can
         // produce conflicting safety fallbacks on dense imported collision.
+        // Dialanche's animated twin-rock slam is one contact per victim and activation.
+        // Reapplying 8 damage and a push every simulation frame stacks into a launch.
+        internal const float SpireSlamNudge = 0.08f;
+        private readonly PlayerEntity?[] _spireSlamHitVictims = new PlayerEntity?[SlotCapacity];
+        internal static Vector3 ModSpireSlamImpulse(Vector3 from, Vector3 to)
+        {
+            float x = to.X - from.X, z = to.Z - from.Z;
+            float lengthSquared = x * x + z * z;
+            return lengthSquared < 0.000001f ? Vector3.Zero
+                : new Vector3(x, 0, z) * (SpireSlamNudge / MathF.Sqrt(lengthSquared));
+        }
+
         private readonly CollisionResult[] _collisionScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _movementCollisionScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _penetrationScratch = new CollisionResult[CollisionContactCapacity];
@@ -211,15 +223,13 @@ namespace MphRead.Entities
                 }
                 if (validated || hit)
                 {
-                    Vector3 dir = Vector3.Zero;
-                    if (!halfturret)
-                    {
-                        float x = target.Position.X - attacker.Position.X;
-                        float z = target.Position.Z - attacker.Position.Z;
-                        float factor = MathF.Max(MathF.Sqrt(x * x + z * z) * 4, .0001f);
-                        dir.X = x / factor;
-                        dir.Z = z / factor;
-                    }
+                    // The native slam animation remains active across multiple ticks.
+                    // Hit geometry may overlap the same victim for all of them, but that
+                    // overlap is not a new attack and must not stack HP or momentum.
+                    bool tracked = (uint)target.SlotIndex < attacker._spireSlamHitVictims.Length;
+                    if (tracked && attacker._spireSlamHitVictims[target.SlotIndex] == target) return;
+                    Vector3 dir = halfturret ? Vector3.Zero
+                        : ModSpireSlamImpulse(attacker.Position, target.Position);
                     ushort damage = attacker.Values.AltAttackDamage;
                     if (attacker.IsBot && attacker.OwningScene.GameState.SinglePlayer)
                     {
@@ -243,8 +253,16 @@ namespace MphRead.Entities
                     {
                         flags |= DamageFlags.Halfturret;
                     }
+                    int before = target.Health;
+                    int turretBefore = target.Halfturret?.Health ?? 0;
                     target.TakeDamage(damage, flags, dir, attacker);
-                    attacker._soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK_HIT);
+                    // Invalid/team-protected/spawn-protected contacts do not consume the
+                    // hit; a later genuinely damaging overlap may still connect.
+                    if (target.Health < before || (target.Halfturret?.Health ?? 0) < turretBefore)
+                    {
+                        if (tracked) attacker._spireSlamHitVictims[target.SlotIndex] = target;
+                        attacker._soundSource.PlaySfx(SfxId.SPIRE_ALT_ATTACK_HIT);
+                    }
                 }
             }
             else if (attacker.Hunter == Hunter.Noxus && attacker._altAttackTime >= (attacker.OwningScene.GameState.Multiplayer
