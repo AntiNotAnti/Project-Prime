@@ -213,7 +213,9 @@ public partial class PlayerEntity
                 {
                     _field1038 = remembered - _player.CameraInfo.Position;
                     Func21447E8();
-                    if (!_tacticalMovementActive)
+                    // Do not abandon a committed objective or resource run
+                    // to pursue a remembered opponent behind cover.
+                    if (!_tacticalMovementActive && !BotWantsStrategicControl())
                     {
                         BotInvestigatePosition(remembered);
                     }
@@ -317,10 +319,11 @@ public partial class PlayerEntity
 
             if (visible)
             {
-                if (!_tacticalMovementActive)
+                if (!_tacticalMovementActive && !BotWantsStrategicControl())
                 {
                     ApplyTacticalMovement(_tacticalTarget, tuning);
                 }
+                // Following an objective does not prevent defensive aim/fire.
                 ApplyTacticalWeaponDecision();
             }
         }
@@ -910,11 +913,11 @@ public partial class PlayerEntity
                 advance = false;
             }
 
-            Vector3 forward = _player.FacingVector.WithY(0);
-            forward = forward.LengthSquared > 0 ? forward.Normalized() : Vector3.UnitZ;
-            Vector3 right = new Vector3(forward.Z, 0, -forward.X);
-            Vector3 lateral = _tacticalStrafeRight ? right : -right;
-            AiButton lateralButton = _tacticalStrafeRight ? _buttons.A : _buttons.Y;
+            // Choose geometry relative to the enemy, not the bot's
+            // current facing; project into controls only after validation.
+            Vector3 radial = toTarget / distance;
+            Vector3 sideways = new(radial.Z, 0, -radial.X);
+            Vector3 lateral = _tacticalStrafeRight ? sideways : -sideways;
 
             // Tactical steering owns this frame when it finds a safe step.
             // Preserve legacy navigation only if *every* tactical candidate fails.
@@ -936,35 +939,32 @@ public partial class PlayerEntity
                 && BotPlanCombatMove(target, ideal, lowHealth);
             if (!moved && _tacticalEscapeFrames > 0)
             {
-                moved = TryTacticalMove(_tacticalStrafeRight ? -right : right,
-                    _tacticalStrafeRight ? _buttons.Y : _buttons.A);
+                moved = TryTacticalMove(-lateral);
             }
             else if (!moved && lowHealth)
             {
-                moved = TryTacticalCoverMove(target, forward, right);
+                moved = TryTacticalCoverMove(target, radial, sideways);
                 if (!moved)
                 {
-                    moved = TryTacticalDiagonalMove(-forward, _buttons.B, lateral, lateralButton);
+                    moved = TryTacticalDiagonalMove(-radial, lateral);
                 }
             }
             else if (!moved && retreat)
             {
-                moved = TryTacticalDiagonalMove(-forward, _buttons.B, lateral, lateralButton);
+                moved = TryTacticalDiagonalMove(-radial, lateral);
             }
             else if (!moved && advance)
             {
-                moved = TryTacticalDiagonalMove(forward, _buttons.X, lateral, lateralButton);
+                moved = TryTacticalDiagonalMove(radial, lateral);
             }
 
             if (!moved)
             {
-                Vector3 strafe = _tacticalStrafeRight ? right : -right;
-                moved = TryTacticalMove(strafe, _tacticalStrafeRight ? _buttons.A : _buttons.Y);
+                moved = TryTacticalMove(lateral);
                 if (!moved)
                 {
                     _tacticalStrafeRight = !_tacticalStrafeRight;
-                    strafe = _tacticalStrafeRight ? right : -right;
-                    moved = TryTacticalMove(strafe, _tacticalStrafeRight ? _buttons.A : _buttons.Y);
+                    moved = TryTacticalMove(-lateral);
                 }
             }
 
@@ -998,34 +998,20 @@ public partial class PlayerEntity
             }
         }
 
-        private bool TryTacticalDiagonalMove(Vector3 radial, AiButton radialButton,
-            Vector3 lateral, AiButton lateralButton)
+        private bool TryTacticalDiagonalMove(Vector3 radial, Vector3 lateral)
         {
-            // Commit to the useful distance change while circling instead of
-            // charging straight toward a player's crosshair. Check the entire
-            // diagonal footprint, then fall back to the safe radial step.
-            if (TacticalCanMove(radial + lateral))
-            {
-                radialButton.IsDown = true;
-                lateralButton.IsDown = true;
-                return true;
-            }
-            return TryTacticalMove(radial, radialButton);
+            // Steering converts the composed world direction to ordinary player
+            // controls after checking the full diagonal footprint.
+            return TryTacticalMove(radial + lateral) || TryTacticalMove(radial);
         }
 
-        private bool TryTacticalCoverMove(PlayerEntity target, Vector3 forward, Vector3 right)
+        private bool TryTacticalCoverMove(PlayerEntity target, Vector3 radial, Vector3 right)
         {
-            // Check both lateral exits before backing straight away. A move counts as
-            // cover only when the candidate position is safe to occupy and geometry
-            // would actually interrupt the target's current sightline from there.
-            Vector3 first=_tacticalStrafeRight?right:-right;
-            AiButton firstButton=_tacticalStrafeRight?_buttons.A:_buttons.Y;
-            Vector3 second=-first;
-            AiButton secondButton=_tacticalStrafeRight?_buttons.Y:_buttons.A;
-
-            if(TacticalMoveWouldBreakSight(first,target)&&TryTacticalMove(first,firstButton))return true;
-            if(TacticalMoveWouldBreakSight(second,target)&&TryTacticalMove(second,secondButton))return true;
-            return TacticalMoveWouldBreakSight(-forward,target)&&TryTacticalMove(-forward,_buttons.B);
+            Vector3 first = _tacticalStrafeRight ? right : -right;
+            Vector3 second = -first;
+            if (TacticalMoveWouldBreakSight(first, target) && TryTacticalMove(first)) return true;
+            if (TacticalMoveWouldBreakSight(second, target) && TryTacticalMove(second)) return true;
+            return TacticalMoveWouldBreakSight(-radial, target) && TryTacticalMove(-radial);
         }
 
         private bool TacticalMoveWouldBreakSight(Vector3 direction, PlayerEntity target)
@@ -1043,13 +1029,32 @@ public partial class PlayerEntity
             return CollisionDetection.CheckBetweenPoints(from,to,TestFlags.None,_scene,ref hit);
         }
 
-        private bool TryTacticalMove(Vector3 direction, AiButton button)
+        private bool TryTacticalMove(Vector3 direction)
         {
-            if (!TacticalCanMove(direction))
-            {
+            if (!TacticalCanMove(direction)) return false;
+            Vector3 desired = direction.WithY(0);
+            Vector3 forward = _player.FacingVector.WithY(0);
+            if (desired.LengthSquared <= 0.0001f || forward.LengthSquared <= 0.0001f)
                 return false;
+            desired.Normalize();
+            forward.Normalize();
+            Vector3 right = new(forward.Z, 0, -forward.X);
+            float f = Vector3.Dot(desired, forward);
+            float r = Vector3.Dot(desired, right);
+            if (MathF.Abs(f) < 0.35f && MathF.Abs(r) < 0.35f)
+                return false;
+            _buttons.A.IsDown = _buttons.B.IsDown = false;
+            _buttons.X.IsDown = _buttons.Y.IsDown = false;
+            if (MathF.Abs(r) >= 0.35f)
+            {
+                _buttons.A.IsDown = r > 0;
+                _buttons.Y.IsDown = r < 0;
             }
-            button.IsDown = true;
+            if (MathF.Abs(f) >= 0.35f)
+            {
+                _buttons.X.IsDown = f > 0;
+                _buttons.B.IsDown = f < 0;
+            }
             return true;
         }
 

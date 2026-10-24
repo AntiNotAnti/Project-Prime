@@ -123,6 +123,54 @@ public static class BotAiChecks
         }
         Check(hasOneWayDrop,"generated drop does not become an impossible reverse climb");
 
+        Check(BotRoutePolicy.ShouldUseNativeJump(NodeType.Aerial, 2f, .9f, true)
+            && !BotRoutePolicy.ShouldUseNativeJump(NodeType.Aerial, 2f, .9f, false)
+            && !BotRoutePolicy.ShouldUseNativeJump(NodeType.AltForm, 2f, .9f, true)
+            && !BotRoutePolicy.ShouldUseNativeJump(NodeType.Aerial, 4f, .9f, true)
+            && BotRoutePolicy.StalledAfterInterval(.1f, 30)
+            && !BotRoutePolicy.StalledAfterInterval(1.5f, 30),
+            "native jump eligibility and bounded stalled-route recovery");
+        ushort[] routed = [2, 1, 1, 2, 1, 3];
+        Check(BotRoutePolicy.NextHopIndex(routed, 0, 0, 4) == 1
+            && BotRoutePolicy.NextHopIndex(routed, 0, 2, 4) == 2
+            && BotRoutePolicy.NextHopIndex(routed, 0, 3, 4) == 3,
+            "native directed route segments resolve the correct next hop");
+        Check(BotRoutePolicy.NextHopIndex([1, 9], 0, 0, 4) == -1
+            && BotRoutePolicy.NextHopIndex([0, 1], 0, 0, 4) == -1
+            && BotRoutePolicy.NextHopIndex([1], 0, 0, 4) == -1
+            && BotRoutePolicy.NextHopIndex(routed, 0, 4, 4) == -1,
+            "native routing rejects malformed or unavailable destinations");
+        Check(BotGoalPolicy.WantsObjective(true, false,
+                float.PositiveInfinity, 0.75f)
+            && BotGoalPolicy.WantsObjective(true, true, 23f, 0.75f)
+            && !BotGoalPolicy.WantsObjective(true, true, 4f, 0.75f)
+            && !BotGoalPolicy.WantsObjective(true, false, 19f, 0.19f)
+            && !BotGoalPolicy.WantsObjective(false, false, 19f, 1f),
+            "objective scoring competes with combat only when it should");
+        Check(BotGoalPolicy.Utility(BotGoalKind.Objective, 28f, 0.7f,
+                currentlyCommitted: true, contested: true)
+                > BotGoalPolicy.Utility(BotGoalKind.Objective, 28f, 0.7f,
+                    currentlyCommitted: false, contested: false)
+            && BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, 0.2f,
+                currentlyCommitted: false, contested: false)
+                > BotGoalPolicy.Utility(BotGoalKind.Pickup, 30f, 1f,
+                    currentlyCommitted: false, contested: false),
+            "utility planner prioritizes contested, committed and recovery goals");
+        Check(BotGoalPolicy.KeepCommittedGoal(true, true, false,
+                float.PositiveInfinity, 0.65f)
+            && BotGoalPolicy.KeepCommittedGoal(true, true, true, 18f, 0.65f),
+            "committed objective survives hidden or distant combat distraction");
+        Check(!BotGoalPolicy.KeepCommittedGoal(true, true, true, 4f, 0.65f)
+            && !BotGoalPolicy.KeepCommittedGoal(true, true, true, 18f, 0.20f)
+            && !BotGoalPolicy.KeepCommittedGoal(false, true, false,
+                float.PositiveInfinity, 1f)
+            && !BotGoalPolicy.KeepCommittedGoal(true, false, true, 18f, 1f),
+            "urgent combat, critically low health, and empty commitments interrupt goals");
+        Check(BotStrategicPolicy.NodeScore(BotSquadRole.Vanguard, 40f,
+                owned: false, contested: false, hostileOccupier: false,
+                teammateClaims: 0, nearbyTeammates: 0, hardpoint: false) > 0,
+            "far but reachable objectives retain a nonzero strategic score");
+
         // Bot motor: smooth acceleration, reversal braking, deterministic aim limits.
         float move = 0;
         for (int i = 0; i < 8; i++)
