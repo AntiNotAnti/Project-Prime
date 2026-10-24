@@ -947,6 +947,22 @@ namespace MphRead.Mods.Input.AimAssist
             Check(!MphRead.Entities.BeamProjectileEntity.ModShadowFreezeWouldHit(
                     origin, OpenTK.Mathematics.Vector3.UnitZ, 10, distant),
                 "the same distant target is outside the ordinary forward ice-wave reach");
+            // Ordinary Noxus charge uses an actual 3D cone and a 3.75-unit
+            // radial reach even though the optional cartridge glitch does not.
+            const float waveReach = 15360f / 4096f;
+            var forward = OpenTK.Mathematics.Vector3.UnitZ;
+            Check(MphRead.Entities.BeamProjectileEntity.ModJudicatorIceWaveWouldHit(
+                    origin, forward, waveReach, new(0, 0, 3.5f), shadowFreeze: false)
+                && !MphRead.Entities.BeamProjectileEntity.ModJudicatorIceWaveWouldHit(
+                    origin, forward, waveReach, new(0, 0, 3.76f), shadowFreeze: false)
+                && !MphRead.Entities.BeamProjectileEntity.ModJudicatorIceWaveWouldHit(
+                    origin, forward, waveReach, new(0, 5, 1), shadowFreeze: false),
+                "standard charged Judicator respects finite 3D wave range");
+            Check(MphRead.Mods.Network.NetUnlagged.ModIceWavePresentRangeWithin(
+                    origin, new(0, 0, waveReach + .4f), waveReach)
+                && !MphRead.Mods.Network.NetUnlagged.ModIceWavePresentRangeWithin(
+                    origin, new(0, 0, waveReach + 2f), waveReach),
+                "historical freeze cannot move more than a hitbox beyond current wave reach");
         }
 
         private static float SimulateTracking(int hz, bool moving, bool head)
